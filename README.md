@@ -1,4 +1,4 @@
-# @debros/netowrk
+# @debros/network
 
 Core networking functionality for the Debros decentralized network. This package provides essential IPFS, libp2p, and OrbitDB functionality to build decentralized applications on the Debros network.
 
