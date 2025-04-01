@@ -23,10 +23,11 @@
     "libp2p",
     "orbitdb",
     "decentralized",
-    "p2p"
+    "p2p",
+    "debros"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Debros",
+  "license": "gnu-gpl-v3.0",
   "dependencies": {
     "@chainsafe/libp2p-gossipsub": "^14.1.0",
     "@chainsafe/libp2p-noise": "^16.1.0",
