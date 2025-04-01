@@ -2,8 +2,8 @@
 // Project: https://github.com/debros/anchat-relay
 // Definitions by: Debros Team
 
-declare module '@DeBrosOfficial/network' {
-  import { Request, Response, NextFunction } from 'express';
+declare module "@debros/network" {
+  import { Request, Response, NextFunction } from "express";
 
   // Config types
   export interface DebrosConfig {
@@ -33,7 +33,9 @@ declare module '@DeBrosOfficial/network' {
   // Core configuration
   export const config: DebrosConfig;
   export const defaultConfig: DebrosConfig;
-  export function validateConfig(config: Partial<DebrosConfig>): ValidationResult;
+  export function validateConfig(
+    config: Partial<DebrosConfig>
+  ): ValidationResult;
 
   // IPFS types
   export interface IPFSModule {
@@ -65,7 +67,11 @@ declare module '@DeBrosOfficial/network' {
   // LoadBalancerController interface and value declaration
   export interface LoadBalancerController {
     getNodeInfo: (_req: Request, _res: Response, _next: NextFunction) => void;
-    getOptimalPeer: (_req: Request, _res: Response, _next: NextFunction) => void;
+    getOptimalPeer: (
+      _req: Request,
+      _res: Response,
+      _next: NextFunction
+    ) => void;
     getAllPeers: (_req: Request, _res: Response, _next: NextFunction) => void;
   }
 
@@ -77,7 +83,11 @@ declare module '@DeBrosOfficial/network' {
     init(): Promise<any>;
   };
   export function initOrbitDB(): Promise<any>;
-  export function openDB(dbName: string, dbType: string, options?: any): Promise<any>;
+  export function openDB(
+    dbName: string,
+    dbType: string,
+    options?: any
+  ): Promise<any>;
   export function getOrbitDB(): any;
   export const orbitDB: any;
   export function getOrbitDBDir(): string;
@@ -91,7 +101,10 @@ declare module '@DeBrosOfficial/network' {
     service?: string;
   }
   export const logger: any;
-  export function createServiceLogger(name: string, options?: LoggerOptions): any;
+  export function createServiceLogger(
+    name: string,
+    options?: LoggerOptions
+  ): any;
   export function createDebrosLogger(options?: LoggerOptions): any;
 
   // Crypto
