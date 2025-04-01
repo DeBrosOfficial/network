@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Node 20",
+  "compilerOptions": {
+    /* Specify what module code is generated. */
+    "module": "ES2020",
+    /* Specify which ECMAScript version the project's output JavaScript code must support.*/
+    "target": "ESNext",
+    /*
+     * Specify how TypeScript looks up a file from a given module specifier.
+     * Bundler removes the need to specify the full path inside imports
+     */
+    "moduleResolution": "bundler",
+    /* Skip type checking of declaration files. */
+    "skipLibCheck": true,
+    /* Removes comments from the project's output JavaScript code. */
+    "removeComments": true,
+    /* Enables experimental support for emitting type metadata for decorators which works with the module reflect-metadata. */
+    "emitDecoratorMetadata": true,
+    /* Enables experimental support for decorators, which is a version of decorators that predates the TC39 standardization process. */
+    "experimentalDecorators": true,
+    /* When set, TypeScript will include the original content of the .ts file as an embedded string in the source map (using the source map's sourcesContent property). This is often useful in the same cases as inlineSourceMap. */
+    "inlineSources": true,
+    /* Enables the generation of sourcemap files. */
+    "sourceMap": true,
+    /* Allow JavaScript files to be imported inside the project, instead of just .ts and .tsx files. */
+    "allowJs": true,
+    /* By default (with esModuleInterop false or not set) TypeScript treats CommonJS/AMD/UMD modules similar to ES6 modules. */
+    "esModuleInterop": true,
+    /* The strict flag enables a wide range of type checking behavior that results in stronger guarantees of program correctness. */
+    "strict": true,
+    /* When set to true, TypeScript will raise an error when a class property was declared but not set in the constructor. */
+    "strictPropertyInitialization": false,
+    /* This flag controls how import works */
+    "importsNotUsedAsValues": "remove",
+    /* Specify the location where a debugger should locate TypeScript files instead of relative source locations */
+    "sourceRoot": "/",
+    /* The longest common path of all non-declaration input files. */
+    "rootDir": "src",
+    /* Directory name of the project's output JavaScript code. */
+    "outDir": "dist",
+    /* Specify to generate .d.ts files for every TypeScript or JavaScript file inside the project. */
+    "declaration": true,
+    /* Sets a base directory from which to resolve non-relative module names. */
+    "baseUrl": "."
+    /* A series of entries which re-map imports to lookup locations relative to the baseUrl if set, or to the tsconfig file itself otherwise. */
+    // "paths": {
+    //   "@/*": [
+    //     "./src/*"
+    //   ]
+    // },
+  },
+  "include": ["src/**/*", "orbitdb.d.ts"],
+  "exclude": ["coverage", "dist", "eslint.config.js", "node_modules"],
+  "ts-node": {
+    "esm": true
+  }
+}
