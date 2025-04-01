@@ -18,6 +18,14 @@ jobs:
           node-version: "23"
           registry-url: "https://registry.npmjs.org/"
 
+      - name: Set up PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install
+
       - name: Publish to npm
         run: npm publish --tag alpha --access public
         env:
