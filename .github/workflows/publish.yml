@@ -26,7 +26,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Publish to npm
+      - name: Publish to npm as alpha
         run: npm publish --tag alpha --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm as latest
+        run: npm publish --tag latest --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
