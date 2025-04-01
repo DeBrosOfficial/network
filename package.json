@@ -1,6 +1,6 @@
 {
   "name": "@debros/network",
-  "version": "0.0.11-alpha",
+  "version": "0.0.12-alpha",
   "description": "Debros network core functionality for IPFS, libp2p and OrbitDB",
   "type": "module",
   "main": "dist/index.js",
@@ -73,8 +73,5 @@
     "types": [
       "@constl/orbit-db-types"
     ]
-  },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
   }
 }
