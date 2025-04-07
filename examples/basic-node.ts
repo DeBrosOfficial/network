@@ -1,4 +1,6 @@
-import { initIpfs, initOrbitDB, logger, createServiceLogger } from '../src/index';
+import { init as initIpfs, stop as stopIpfs } from '../src/ipfs/ipfsService';
+import { init as initOrbitDB } from '../src/orbit/orbitDBService';
+import { createServiceLogger } from '../src/utils/logger';
 
 const appLogger = createServiceLogger('APP');
 
@@ -11,11 +13,7 @@ async function startNode() {
     appLogger.info('IPFS node initialized');
 
     // Initialize OrbitDB
-    const ipfsService = {
-      getHelia: () => ipfs,
-    };
-
-    const orbitdb = await initOrbitDB(ipfsService);
+    const orbitdb = await initOrbitDB();
     appLogger.info('OrbitDB initialized');
 
     // Create a test database
@@ -40,7 +38,7 @@ async function startNode() {
     process.on('SIGINT', async () => {
       appLogger.info('Shutting down...');
       await orbitdb.stop();
-      await initIpfs.stop();
+      await stopIpfs();
       process.exit(0);
     });
   } catch (error) {

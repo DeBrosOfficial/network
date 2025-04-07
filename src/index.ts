@@ -2,97 +2,136 @@
 import { config, defaultConfig, type DebrosConfig } from './config';
 import { validateConfig, type ValidationResult } from './ipfs/config/configValidator';
 
-// IPFS exports
-import ipfsService, {
-  init as initIpfs,
-  stop as stopIpfs,
-  getHelia,
-  getProxyAgent,
-  getInstance,
-  getLibp2p,
-  getConnectedPeers,
-  getOptimalPeer,
-  updateNodeLoad,
-  logPeersStatus,
-  type IPFSModule,
-} from './ipfs/ipfsService';
+// Database service exports (new abstracted layer)
+import dbService from './db/dbService';
+import {
+  init as initDB,
+  create,
+  get,
+  update,
+  remove,
+  list,
+  query,
+  createIndex,
+  createTransaction,
+  commitTransaction,
+  subscribe,
+  uploadFile,
+  getFile,
+  deleteFile,
+  defineSchema,
+  getMetrics,
+  resetMetrics,
+  closeConnection,
+  stop as stopDB
+} from './db/dbService';
+import { ErrorCode, StoreType } from './db/types';
 
-import { ipfsConfig, getIpfsPort, getBlockstorePath } from './ipfs/config/ipfsConfig';
+// Import types
+import type { 
+  Transaction, 
+  CreateResult, 
+  UpdateResult, 
+  PaginatedResult, 
+  ListOptions, 
+  QueryOptions, 
+  FileUploadResult, 
+  FileResult, 
+  CollectionSchema, 
+  SchemaDefinition, 
+  Metrics 
+} from './db/types';
 
-// OrbitDB exports
-import orbitDBService, {
-  init as initOrbitDB,
-  openDB,
-  getOrbitDB,
-  db as orbitDB,
-  getOrbitDBDir,
-  getDBAddress,
-  saveDBAddress,
-} from './orbit/orbitDBService';
+import { DBError } from './db/core/error';
 
-import loadBalancerControllerDefault from './ipfs/loadBalancerController';
-export const loadBalancerController = loadBalancerControllerDefault;
+// Legacy exports (internal use only, not exposed in default export)
+import { init as initIpfs, stop as stopIpfs, getHelia } from './ipfs/ipfsService';
+import { init as initOrbitDB, openDB } from './orbit/orbitDBService';
 
 // Logger exports
 import logger, { createServiceLogger, createDebrosLogger, type LoggerOptions } from './utils/logger';
 
-// Crypto exports
-import { getPrivateKey } from './ipfs/utils/crypto';
-
-// Export everything
+// Export public API
 export {
-  // Config
+  // Configuration
   config,
   defaultConfig,
   validateConfig,
   type DebrosConfig,
   type ValidationResult,
-
-  // IPFS
-  ipfsService,
-  initIpfs,
-  stopIpfs,
-  getHelia,
-  getProxyAgent,
-  getInstance,
-  getLibp2p,
-  getConnectedPeers,
-  getOptimalPeer,
-  updateNodeLoad,
-  logPeersStatus,
-  type IPFSModule,
-
-  // IPFS Config
-  ipfsConfig,
-  getIpfsPort,
-  getBlockstorePath,
-
-  // OrbitDB
-  orbitDBService,
-  initOrbitDB,
-  openDB,
-  getOrbitDB,
-  orbitDB,
-  getOrbitDBDir,
-  getDBAddress,
-  saveDBAddress,
-
+  
+  // Database Service (Main public API)
+  initDB,
+  create,
+  get,
+  update,
+  remove,
+  list,
+  query,
+  createIndex,
+  createTransaction,
+  commitTransaction,
+  subscribe,
+  uploadFile,
+  getFile,
+  deleteFile,
+  defineSchema,
+  getMetrics,
+  resetMetrics,
+  closeConnection,
+  stopDB,
+  ErrorCode,
+  StoreType,
+  
+  // Types
+  type Transaction,
+  type DBError,
+  type CollectionSchema,
+  type SchemaDefinition,
+  type CreateResult,
+  type UpdateResult,
+  type PaginatedResult,
+  type ListOptions,
+  type QueryOptions,
+  type FileUploadResult,
+  type FileResult,
+  type Metrics,
+  
   // Logger
   logger,
   createServiceLogger,
   createDebrosLogger,
   type LoggerOptions,
-
-  // Crypto
-  getPrivateKey,
 };
 
 // Default export for convenience
 export default {
   config,
   validateConfig,
-  ipfsService,
-  orbitDBService,
+  // Database Service as main interface
+  db: {
+    init: initDB,
+    create,
+    get,
+    update,
+    remove,
+    list,
+    query,
+    createIndex,
+    createTransaction,
+    commitTransaction,
+    subscribe,
+    uploadFile,
+    getFile,
+    deleteFile,
+    defineSchema,
+    getMetrics,
+    resetMetrics,
+    closeConnection,
+    stop: stopDB,
+    ErrorCode,
+    StoreType
+  },
   logger,
   createServiceLogger,
 };
