@@ -74,7 +74,7 @@ export const openDB = async (name: string, type: string) => {
     const dbOptions = {
       type,
       overwrite: false,
-      AccessController: IPFSAccessController({ write: ['*'], storage: getHelia() }),
+      AccessController: IPFSAccessController({ write: ['*'] }),
     };
 
     if (existingAddress) {

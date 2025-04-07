@@ -1,7 +1,7 @@
 // custom.d.ts
 declare module '@orbitdb/core' {
   // Import the types from @constl/orbit-db-types
-  import { OrbitDBTypes } from '@constl/orbit-db-types';
+  import { OrbitDBTypes } from '@orbitdb/core-types';
 
   // Assuming @orbitdb/core exports an interface or type you want to override
   // Replace 'OrbitDB' with the actual export name from @orbitdb/core you want to type

@@ -1,6 +1,6 @@
 {
   "name": "@debros/network",
-  "version": "0.0.16-alpha",
+  "version": "0.0.17-alpha",
   "description": "Debros network core functionality for IPFS, libp2p and OrbitDB",
   "type": "module",
   "main": "dist/index.js",
@@ -59,7 +59,6 @@
     "typescript": ">=5.0.0"
   },
   "devDependencies": {
-    "@constl/orbit-db-types": "^2.0.6",
     "@eslint/js": "^9.24.0",
     "@orbitdb/core-types": "^1.0.14",
     "@types/express": "^5.0.1",
@@ -70,12 +69,14 @@
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
+    "globals": "^16.0.0",
     "husky": "^8.0.3",
     "lint-staged": "^15.5.0",
     "prettier": "^3.5.3",
     "rimraf": "^5.0.5",
     "tsc-esm-fix": "^3.1.2",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.29.0"
   },
   "compilerOptions": {
     "typeRoots": [
