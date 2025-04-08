@@ -2,8 +2,8 @@
 // Project: https://github.com/debros/anchat-relay
 // Definitions by: Debros Team
 
-declare module "@debros/network" {
-  import { Request, Response, NextFunction } from "express";
+declare module '@debros/network' {
+  import { Request, Response, NextFunction } from 'express';
 
   // Config types
   export interface DebrosConfig {
@@ -51,7 +51,7 @@ declare module "@debros/network" {
     DOCSTORE = 'docstore',
     FEED = 'feed',
     EVENTLOG = 'eventlog',
-    COUNTER = 'counter'
+    COUNTER = 'counter',
   }
 
   // Error handling
@@ -65,7 +65,7 @@ declare module "@debros/network" {
     FILE_NOT_FOUND = 'ERR_FILE_NOT_FOUND',
     INVALID_PARAMETERS = 'ERR_INVALID_PARAMS',
     CONNECTION_ERROR = 'ERR_CONNECTION',
-    STORE_TYPE_ERROR = 'ERR_STORE_TYPE'
+    STORE_TYPE_ERROR = 'ERR_STORE_TYPE',
   }
 
   export class DBError extends Error {
@@ -182,38 +182,75 @@ declare module "@debros/network" {
 
   // Database Operations
   export function initDB(connectionId?: string): Promise<string>;
-  export function create<T extends Record<string, any>>(collection: string, id: string, data: Omit<T, 'createdAt' | 'updatedAt'>, options?: { connectionId?: string, storeType?: StoreType }): Promise<CreateResult>;
-  export function get<T extends Record<string, any>>(collection: string, id: string, options?: { connectionId?: string; skipCache?: boolean, storeType?: StoreType }): Promise<T | null>;
-  export function update<T extends Record<string, any>>(collection: string, id: string, data: Partial<Omit<T, 'createdAt' | 'updatedAt'>>, options?: { connectionId?: string; upsert?: boolean, storeType?: StoreType }): Promise<UpdateResult>;
-  export function remove(collection: string, id: string, options?: { connectionId?: string, storeType?: StoreType }): Promise<boolean>;
-  export function list<T extends Record<string, any>>(collection: string, options?: ListOptions): Promise<PaginatedResult<T>>;
-  export function query<T extends Record<string, any>>(collection: string, filter: (doc: T) => boolean, options?: QueryOptions): Promise<PaginatedResult<T>>;
-  
+  export function create<T extends Record<string, any>>(
+    collection: string,
+    id: string,
+    data: Omit<T, 'createdAt' | 'updatedAt'>,
+    options?: { connectionId?: string; storeType?: StoreType },
+  ): Promise<CreateResult>;
+  export function get<T extends Record<string, any>>(
+    collection: string,
+    id: string,
+    options?: { connectionId?: string; skipCache?: boolean; storeType?: StoreType },
+  ): Promise<T | null>;
+  export function update<T extends Record<string, any>>(
+    collection: string,
+    id: string,
+    data: Partial<Omit<T, 'createdAt' | 'updatedAt'>>,
+    options?: { connectionId?: string; upsert?: boolean; storeType?: StoreType },
+  ): Promise<UpdateResult>;
+  export function remove(
+    collection: string,
+    id: string,
+    options?: { connectionId?: string; storeType?: StoreType },
+  ): Promise<boolean>;
+  export function list<T extends Record<string, any>>(
+    collection: string,
+    options?: ListOptions,
+  ): Promise<PaginatedResult<T>>;
+  export function query<T extends Record<string, any>>(
+    collection: string,
+    filter: (doc: T) => boolean,
+    options?: QueryOptions,
+  ): Promise<PaginatedResult<T>>;
+
   // Schema operations
   export function defineSchema(collection: string, schema: CollectionSchema): void;
-  
+
   // Transaction operations
   export function createTransaction(connectionId?: string): Transaction;
-  export function commitTransaction(transaction: Transaction): Promise<{ success: boolean; results: any[] }>;
-  
+  export function commitTransaction(
+    transaction: Transaction,
+  ): Promise<{ success: boolean; results: any[] }>;
+
   // Index operations
-  export function createIndex(collection: string, field: string, options?: { connectionId?: string, storeType?: StoreType }): Promise<boolean>;
-  
+  export function createIndex(
+    collection: string,
+    field: string,
+    options?: { connectionId?: string; storeType?: StoreType },
+  ): Promise<boolean>;
+
   // Subscription API
-  export function subscribe(event: 'document:created' | 'document:updated' | 'document:deleted', callback: (data: any) => void): () => void;
-  
+  export function subscribe(
+    event: 'document:created' | 'document:updated' | 'document:deleted',
+    callback: (data: any) => void,
+  ): () => void;
+
   // File operations
-  export function uploadFile(fileData: Buffer, options?: { filename?: string; connectionId?: string; metadata?: Record<string, any>; }): Promise<FileUploadResult>;
+  export function uploadFile(
+    fileData: Buffer,
+    options?: { filename?: string; connectionId?: string; metadata?: Record<string, any> },
+  ): Promise<FileUploadResult>;
   export function getFile(cid: string, options?: { connectionId?: string }): Promise<FileResult>;
   export function deleteFile(cid: string, options?: { connectionId?: string }): Promise<boolean>;
-  
+
   // Connection management
   export function closeConnection(connectionId: string): Promise<boolean>;
-  
+
   // Metrics
   export function getMetrics(): Metrics;
   export function resetMetrics(): void;
-  
+
   // Stop
   export function stopDB(): Promise<void>;
 
@@ -226,6 +263,26 @@ declare module "@debros/network" {
   export const logger: any;
   export function createServiceLogger(name: string, options?: LoggerOptions): any;
   export function createDebrosLogger(options?: LoggerOptions): any;
+
+  // Load Balancer
+  export interface LoadBalancerControllerModule {
+    getNodeInfo: (req: Request, res: Response, next: NextFunction) => void;
+    getOptimalPeer: (req: Request, res: Response, next: NextFunction) => void;
+    getAllPeers: (req: Request, res: Response, next: NextFunction) => void;
+  }
+  export const loadBalancerController: LoadBalancerControllerModule;
+
+  export const getConnectedPeers: () => Map<
+    string,
+    {
+      lastSeen: number;
+      load: number;
+      publicAddress: string;
+      fingerprint: string;
+    }
+  >;
+
+  export const logPeersStatus: () => void;
 
   // Default export
   const defaultExport: {
@@ -254,6 +311,17 @@ declare module "@debros/network" {
       ErrorCode: typeof ErrorCode;
       StoreType: typeof StoreType;
     };
+    loadBalancerController: LoadBalancerControllerModule;
+    getConnectedPeers: () => Map<
+      string,
+      {
+        lastSeen: number;
+        load: number;
+        publicAddress: string;
+        fingerprint: string;
+      }
+    >;
+    logPeersStatus: () => void;
     logger: any;
     createServiceLogger: typeof createServiceLogger;
   };

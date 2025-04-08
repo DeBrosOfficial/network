@@ -3,7 +3,6 @@ import { config, defaultConfig, type DebrosConfig } from './config';
 import { validateConfig, type ValidationResult } from './ipfs/config/configValidator';
 
 // Database service exports (new abstracted layer)
-import dbService from './db/dbService';
 import {
   init as initDB,
   create,
@@ -23,33 +22,39 @@ import {
   getMetrics,
   resetMetrics,
   closeConnection,
-  stop as stopDB
+  stop as stopDB,
 } from './db/dbService';
 import { ErrorCode, StoreType } from './db/types';
 
 // Import types
-import type { 
-  Transaction, 
-  CreateResult, 
-  UpdateResult, 
-  PaginatedResult, 
-  ListOptions, 
-  QueryOptions, 
-  FileUploadResult, 
-  FileResult, 
-  CollectionSchema, 
-  SchemaDefinition, 
-  Metrics 
+import type {
+  Transaction,
+  CreateResult,
+  UpdateResult,
+  PaginatedResult,
+  ListOptions,
+  QueryOptions,
+  FileUploadResult,
+  FileResult,
+  CollectionSchema,
+  SchemaDefinition,
+  Metrics,
 } from './db/types';
 
 import { DBError } from './db/core/error';
 
 // Legacy exports (internal use only, not exposed in default export)
-import { init as initIpfs, stop as stopIpfs, getHelia } from './ipfs/ipfsService';
-import { init as initOrbitDB, openDB } from './orbit/orbitDBService';
+import { getConnectedPeers, logPeersStatus } from './ipfs/ipfsService';
+
+// Load balancer exports
+import loadBalancerController from './ipfs/loadBalancerController';
 
 // Logger exports
-import logger, { createServiceLogger, createDebrosLogger, type LoggerOptions } from './utils/logger';
+import logger, {
+  createServiceLogger,
+  createDebrosLogger,
+  type LoggerOptions,
+} from './utils/logger';
 
 // Export public API
 export {
@@ -59,7 +64,7 @@ export {
   validateConfig,
   type DebrosConfig,
   type ValidationResult,
-  
+
   // Database Service (Main public API)
   initDB,
   create,
@@ -82,7 +87,12 @@ export {
   stopDB,
   ErrorCode,
   StoreType,
-  
+
+  // Load Balancer
+  loadBalancerController,
+  getConnectedPeers,
+  logPeersStatus,
+
   // Types
   type Transaction,
   type DBError,
@@ -96,7 +106,7 @@ export {
   type FileUploadResult,
   type FileResult,
   type Metrics,
-  
+
   // Logger
   logger,
   createServiceLogger,
@@ -130,8 +140,11 @@ export default {
     closeConnection,
     stop: stopDB,
     ErrorCode,
-    StoreType
+    StoreType,
   },
+  loadBalancerController,
+  logPeersStatus,
+  getConnectedPeers,
   logger,
   createServiceLogger,
 };

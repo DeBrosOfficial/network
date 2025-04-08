@@ -50,7 +50,7 @@
     //   ]
     // },
   },
-  "include": ["src/**/*", "orbitdb.d.ts"],
+  "include": ["src/**/*", "orbitdb.d.ts", "types.d.ts"],
   "exclude": ["coverage", "dist", "eslint.config.js", "node_modules"],
   "ts-node": {
     "esm": true
