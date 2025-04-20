@@ -1,3 +1,9 @@
+# Important Update: DeBros Has Moved!
+
+All activity for this project has relocated from this GitHub repository to our new home at https://git.debros.io/DeBros/network.
+
+This repository will remain available for reference but will no longer receive updates. 
+
 # @debros/network
 
 Core networking functionality for the Debros decentralized network. This package provides a powerful database interface with advanced features built on IPFS and OrbitDB for decentralized applications.
