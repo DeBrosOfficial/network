@@ -1,6 +1,5 @@
 import { createServiceLogger } from '../../utils/logger';
 import { openDB } from '../../orbit/orbitDBService';
-import { getConnection } from '../core/connection';
 import { validateDocument } from '../schema/validator';
 import {
   ErrorCode,
@@ -20,9 +19,6 @@ const logger = createServiceLogger('DB_STORE');
  * Base Store interface that all store implementations should extend
  */
 export interface BaseStore {
-  /**
-   * Create a new document
-   */
   create<T extends Record<string, any>>(
     collection: string,
     id: string,
@@ -30,18 +26,12 @@ export interface BaseStore {
     options?: StoreOptions,
   ): Promise<CreateResult>;
 
-  /**
-   * Get a document by ID
-   */
   get<T extends Record<string, any>>(
     collection: string,
     id: string,
     options?: StoreOptions & { skipCache?: boolean },
   ): Promise<T | null>;
 
-  /**
-   * Update a document
-   */
   update<T extends Record<string, any>>(
     collection: string,
     id: string,
@@ -49,31 +39,19 @@ export interface BaseStore {
     options?: StoreOptions & { upsert?: boolean },
   ): Promise<UpdateResult>;
 
-  /**
-   * Delete a document
-   */
   remove(collection: string, id: string, options?: StoreOptions): Promise<boolean>;
 
-  /**
-   * List all documents in a collection with pagination
-   */
   list<T extends Record<string, any>>(
     collection: string,
     options?: ListOptions,
   ): Promise<PaginatedResult<T>>;
 
-  /**
-   * Query documents in a collection with filtering and pagination
-   */
   query<T extends Record<string, any>>(
     collection: string,
     filter: (doc: T) => boolean,
     options?: QueryOptions,
   ): Promise<PaginatedResult<T>>;
 
-  /**
-   * Create an index for a collection to speed up queries
-   */
   createIndex(collection: string, field: string, options?: StoreOptions): Promise<boolean>;
 }
 
@@ -86,16 +64,22 @@ export async function openStore(
   options?: StoreOptions,
 ): Promise<any> {
   try {
-    const connection = getConnection(options?.connectionId);
-    logger.info(`Connection for ${collection}:`, connection);
+    // Log minimal connection info to avoid leaking sensitive data
+    logger.info(
+      `Opening ${storeType} store for collection: ${collection} (connection ID: ${options?.connectionId || 'default'})`,
+    );
+
     return await openDB(collection, storeType).catch((err) => {
       throw new Error(`OrbitDB openDB failed: ${err.message}`);
     });
   } catch (error) {
     logger.error(`Error opening ${storeType} store for collection ${collection}:`, error);
+
+    // Add more context to the error for improved debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
     throw new DBError(
       ErrorCode.OPERATION_FAILED,
-      `Failed to open ${storeType} store for collection ${collection}`,
+      `Failed to open ${storeType} store for collection ${collection}: ${errorMessage}`,
       error,
     );
   }
@@ -116,27 +100,28 @@ export function prepareDocument<T extends Record<string, any>>(
     Object.entries(data).map(([key, value]) => [key, value === undefined ? null : value]),
   ) as Omit<T, 'createdAt' | 'updatedAt'>;
 
+  // Prepare document for validation
+  let docToValidate: T;
+
   // If it's an update to an existing document
   if (existingDoc) {
-    const doc = {
+    docToValidate = {
       ...existingDoc,
       ...sanitizedData,
       updatedAt: timestamp,
     } as T;
-
-    // Validate the document against its schema
-    validateDocument(collection, doc);
-    return doc;
+  } else {
+    // Otherwise it's a new document
+    docToValidate = {
+      ...sanitizedData,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    } as unknown as T;
   }
 
-  // Otherwise it's a new document
-  const doc = {
-    ...sanitizedData,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  } as unknown as T;
+  // Validate the document BEFORE processing
+  validateDocument(collection, docToValidate);
 
-  // Validate the document against its schema
-  validateDocument(collection, doc);
-  return doc;
+  // Return the validated document
+  return docToValidate;
 }

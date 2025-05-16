@@ -1,17 +1,23 @@
 import { createServiceLogger } from '../utils/logger';
-import { init, getConnection, closeConnection, stop } from './core/connection';
-import { defineSchema, validateDocument } from './schema/validator';
-import * as cache from './cache/cacheService';
+import { init, closeConnection, stop } from './core/connection';
+import { defineSchema } from './schema/validator';
 import * as events from './events/eventService';
-import { getMetrics, resetMetrics } from './metrics/metricsService';
 import { Transaction } from './transactions/transactionService';
-import { StoreType, CreateResult, UpdateResult, PaginatedResult, QueryOptions, ListOptions, ErrorCode } from './types';
+import {
+  StoreType,
+  CreateResult,
+  UpdateResult,
+  PaginatedResult,
+  QueryOptions,
+  ListOptions,
+  ErrorCode,
+} from './types';
 import { DBError } from './core/error';
 import { getStore } from './stores/storeFactory';
 import { uploadFile, getFile, deleteFile } from './stores/fileStore';
 
 // Re-export imported functions
-export { init, closeConnection, stop, defineSchema, getMetrics, resetMetrics, uploadFile, getFile, deleteFile };
+export { init, closeConnection, stop, defineSchema, uploadFile, getFile, deleteFile };
 
 const logger = createServiceLogger('DB_SERVICE');
 
@@ -25,52 +31,44 @@ export const createTransaction = (connectionId?: string): Transaction => {
 /**
  * Execute all operations in a transaction
  */
-export const commitTransaction = async (transaction: Transaction): Promise<{ success: boolean; results: any[] }> => {
+export const commitTransaction = async (
+  transaction: Transaction,
+): Promise<{ success: boolean; results: any[] }> => {
   try {
     // Validate that we have operations
     const operations = transaction.getOperations();
     if (operations.length === 0) {
       return { success: true, results: [] };
     }
-    
+
     const connectionId = transaction.getConnectionId();
     const results = [];
-    
+
     // Execute all operations
     for (const operation of operations) {
       let result;
-      
+
       switch (operation.type) {
         case 'create':
-          result = await create(
-            operation.collection, 
-            operation.id, 
-            operation.data, 
-            { connectionId }
-          );
+          result = await create(operation.collection, operation.id, operation.data, {
+            connectionId,
+          });
           break;
-          
+
         case 'update':
-          result = await update(
-            operation.collection, 
-            operation.id, 
-            operation.data, 
-            { connectionId }
-          );
+          result = await update(operation.collection, operation.id, operation.data, {
+            connectionId,
+          });
           break;
-          
+
         case 'delete':
-          result = await remove(
-            operation.collection, 
-            operation.id, 
-            { connectionId }
-          );
+          result = await remove(operation.collection, operation.id, { connectionId });
           break;
       }
-      
+
       results.push(result);
     }
-    
+
     return { success: true, results };
   } catch (error) {
     logger.error('Transaction failed:', error);
@@ -82,10 +80,10 @@ export const commitTransaction = async (transaction: Transaction): Promise<{ suc
  * Create a new document in the specified collection using the appropriate store
  */
 export const create = async <T extends Record<string, any>>(
-  collection: string, 
-  id: string, 
-  data: Omit<T, 'createdAt' | 'updatedAt'>, 
-  options?: { connectionId?: string, storeType?: StoreType }
+  collection: string,
+  id: string,
+  data: Omit<T, 'createdAt' | 'updatedAt'>,
+  options?: { connectionId?: string; storeType?: StoreType },
 ): Promise<CreateResult> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
@@ -96,9 +94,9 @@ export const create = async <T extends Record<string, any>>(
  * Get a document by ID from a collection
  */
 export const get = async <T extends Record<string, any>>(
-  collection: string, 
-  id: string, 
-  options?: { connectionId?: string; skipCache?: boolean, storeType?: StoreType }
+  collection: string,
+  id: string,
+  options?: { connectionId?: string; skipCache?: boolean; storeType?: StoreType },
 ): Promise<T | null> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
@@ -109,10 +107,10 @@ export const get = async <T extends Record<string, any>>(
  * Update a document in a collection
  */
 export const update = async <T extends Record<string, any>>(
-  collection: string, 
-  id: string, 
-  data: Partial<Omit<T, 'createdAt' | 'updatedAt'>>, 
-  options?: { connectionId?: string; upsert?: boolean, storeType?: StoreType }
+  collection: string,
+  id: string,
+  data: Partial<Omit<T, 'createdAt' | 'updatedAt'>>,
+  options?: { connectionId?: string; upsert?: boolean; storeType?: StoreType },
 ): Promise<UpdateResult> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
@@ -123,9 +121,9 @@ export const update = async <T extends Record<string, any>>(
  * Delete a document from a collection
  */
 export const remove = async (
-  collection: string, 
-  id: string, 
-  options?: { connectionId?: string, storeType?: StoreType }
+  collection: string,
+  id: string,
+  options?: { connectionId?: string; storeType?: StoreType },
 ): Promise<boolean> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
@@ -136,12 +134,12 @@ export const remove = async (
  * List all documents in a collection with pagination
  */
 export const list = async <T extends Record<string, any>>(
-  collection: string, 
-  options?: ListOptions & { storeType?: StoreType }
+  collection: string,
+  options?: ListOptions & { storeType?: StoreType },
 ): Promise<PaginatedResult<T>> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
-  
+
   // Remove storeType from options
   const { storeType: _, ...storeOptions } = options || {};
   return store.list(collection, storeOptions);
@@ -151,13 +149,13 @@ export const list = async <T extends Record<string, any>>(
  * Query documents in a collection with filtering and pagination
  */
 export const query = async <T extends Record<string, any>>(
-  collection: string, 
+  collection: string,
   filter: (doc: T) => boolean,
-  options?: QueryOptions & { storeType?: StoreType }
+  options?: QueryOptions & { storeType?: StoreType },
 ): Promise<PaginatedResult<T>> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
-  
+
   // Remove storeType from options
   const { storeType: _, ...storeOptions } = options || {};
   return store.query(collection, filter, storeOptions);
@@ -169,7 +167,7 @@ export const query = async <T extends Record<string, any>>(
 export const createIndex = async (
   collection: string,
   field: string,
-  options?: { connectionId?: string, storeType?: StoreType }
+  options?: { connectionId?: string; storeType?: StoreType },
 ): Promise<boolean> => {
   const storeType = options?.storeType || StoreType.KEYVALUE;
   const store = getStore(storeType);
@@ -204,9 +202,7 @@ export default {
   getFile,
   deleteFile,
   defineSchema,
-  getMetrics,
-  resetMetrics,
   closeConnection,
   stop,
-  StoreType
+  StoreType,
 };

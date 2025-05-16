@@ -230,11 +230,41 @@ declare module '@debros/network' {
     options?: { connectionId?: string; storeType?: StoreType },
   ): Promise<boolean>;
 
-  // Subscription API
+  // Event Subscription API
+  export interface DocumentCreatedEvent {
+    collection: string;
+    id: string;
+    document: any;
+  }
+
+  export interface DocumentUpdatedEvent {
+    collection: string;
+    id: string;
+    document: any;
+    previous: any;
+  }
+
+  export interface DocumentDeletedEvent {
+    collection: string;
+    id: string;
+    document: any;
+  }
+
+  export type DBEventType = 'document:created' | 'document:updated' | 'document:deleted';
+
   export function subscribe(
-    event: 'document:created' | 'document:updated' | 'document:deleted',
-    callback: (data: any) => void,
+    event: 'document:created',
+    callback: (data: DocumentCreatedEvent) => void,
   ): () => void;
+  export function subscribe(
+    event: 'document:updated',
+    callback: (data: DocumentUpdatedEvent) => void,
+  ): () => void;
+  export function subscribe(
+    event: 'document:deleted',
+    callback: (data: DocumentDeletedEvent) => void,
+  ): () => void;
+  export function subscribe(event: DBEventType, callback: (data: any) => void): () => void;
 
   // File operations
   export function uploadFile(
@@ -248,9 +278,6 @@ declare module '@debros/network' {
   export function closeConnection(connectionId: string): Promise<boolean>;
 
   // Metrics
-  export function getMetrics(): Metrics;
-  export function resetMetrics(): void;
-
   // Stop
   export function stopDB(): Promise<void>;
 
@@ -304,8 +331,6 @@ declare module '@debros/network' {
       getFile: typeof getFile;
       deleteFile: typeof deleteFile;
       defineSchema: typeof defineSchema;
-      getMetrics: typeof getMetrics;
-      resetMetrics: typeof resetMetrics;
       closeConnection: typeof closeConnection;
       stop: typeof stopDB;
       ErrorCode: typeof ErrorCode;

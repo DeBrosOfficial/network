@@ -26,45 +26,45 @@ npm install @debros/network
 ## Basic Usage
 
 ```typescript
-import { initDB, create, get, query, uploadFile, logger } from "@debros/network";
+import { initDB, create, get, query, uploadFile, logger } from '@debros/network';
 
 // Initialize the database service
 async function startApp() {
   try {
     // Initialize with default configuration
     await initDB();
-    logger.info("Database initialized successfully");
-    
+    logger.info('Database initialized successfully');
+
     // Create a new user document
     const userId = 'user123';
     const user = {
       username: 'johndoe',
       walletAddress: '0x1234567890',
-      avatar: null
+      avatar: null,
     };
-    
+
     const result = await create('users', userId, user);
     logger.info(`Created user with ID: ${result.id}`);
-    
+
     // Get a user by ID
     const retrievedUser = await get('users', userId);
     logger.info('User:', retrievedUser);
-    
+
     // Query users with filtering
-    const activeUsers = await query('users', 
-      user => user.isActive === true,
-      { limit: 10, sort: { field: 'createdAt', order: 'desc' } }
-    );
+    const activeUsers = await query('users', (user) => user.isActive === true, {
+      limit: 10,
+      sort: { field: 'createdAt', order: 'desc' },
+    });
     logger.info(`Found ${activeUsers.total} active users`);
-    
+
     // Upload a file
     const fileData = Buffer.from('File content');
     const fileUpload = await uploadFile(fileData, { filename: 'document.txt' });
     logger.info(`Uploaded file with CID: ${fileUpload.cid}`);
-    
+
     return true;
   } catch (error) {
-    logger.error("Failed to start app:", error);
+    logger.error('Failed to start app:', error);
     throw error;
   }
 }
@@ -77,30 +77,27 @@ startApp();
 The library supports multiple OrbitDB store types, each optimized for different use cases:
 
 ```typescript
-import { create, get, update, StoreType } from "@debros/network";
+import { create, get, update, StoreType } from '@debros/network';
 
 // Default KeyValue store (for general use)
 await create('users', 'user1', { name: 'Alice' });
 
 // Document store (better for complex documents with indexing)
-await create('posts', 'post1', { title: 'Hello', content: '...' }, 
-  { storeType: StoreType.DOCSTORE }
+await create(
+  'posts',
+  'post1',
+  { title: 'Hello', content: '...' },
+  { storeType: StoreType.DOCSTORE },
 );
 
 // Feed/EventLog store (append-only, good for immutable logs)
-await create('events', 'evt1', { type: 'login', user: 'alice' }, 
-  { storeType: StoreType.FEED }
-);
+await create('events', 'evt1', { type: 'login', user: 'alice' }, { storeType: StoreType.FEED });
 
 // Counter store (for numeric counters)
-await create('stats', 'visits', { value: 0 }, 
-  { storeType: StoreType.COUNTER }
-);
+await create('stats', 'visits', { value: 0 }, { storeType: StoreType.COUNTER });
 
 // Increment a counter
-await update('stats', 'visits', { increment: 1 }, 
-  { storeType: StoreType.COUNTER }
-);
+await update('stats', 'visits', { increment: 1 }, { storeType: StoreType.COUNTER });
 
 // Get counter value
 const stats = await get('stats', 'visits', { storeType: StoreType.COUNTER });
@@ -112,7 +109,7 @@ console.log(`Visit count: ${stats.value}`);
 ### Schema Validation
 
 ```typescript
-import { defineSchema, create } from "@debros/network";
+import { defineSchema, create } from '@debros/network';
 
 // Define a schema
 defineSchema('users', {
@@ -121,32 +118,32 @@ defineSchema('users', {
       type: 'string',
       required: true,
       min: 3,
-      max: 20
+      max: 20,
     },
     email: {
       type: 'string',
-      pattern: '^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$'
+      pattern: '^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
     },
     age: {
       type: 'number',
-      min: 18
-    }
+      min: 18,
+    },
   },
-  required: ['username']
+  required: ['username'],
 });
 
 // Document creation will be validated against the schema
 await create('users', 'user1', {
   username: 'alice',
   email: 'alice@example.com',
-  age: 25
+  age: 25,
 });
 ```
 
 ### Transactions
 
 ```typescript
-import { createTransaction, commitTransaction } from "@debros/network";
+import { createTransaction, commitTransaction } from '@debros/network';
 
 // Create a transaction
 const transaction = createTransaction();
@@ -162,37 +159,39 @@ const result = await commitTransaction(transaction);
 console.log(`Transaction completed with ${result.results.length} operations`);
 ```
 
-### Subscriptions
+### Event Subscriptions
 
 ```typescript
-import { subscribe } from "@debros/network";
+import { subscribe } from '@debros/network';
 
 // Subscribe to document changes
 const unsubscribe = subscribe('document:created', (data) => {
   console.log(`New document created in ${data.collection}:`, data.id);
+  console.log('Document data:', data.document);
 });
 
-// Later, unsubscribe
+// Other event types
+// subscribe('document:updated', (data) => { ... });
+// subscribe('document:deleted', (data) => { ... });
+
+// Later, unsubscribe when done
 unsubscribe();
 ```
 
 ### Pagination and Sorting
 
 ```typescript
-import { list, query } from "@debros/network";
+import { list, query } from '@debros/network';
 
 // List with pagination and sorting
 const page1 = await list('users', {
   limit: 10,
   offset: 0,
-  sort: { field: 'createdAt', order: 'desc' }
+  sort: { field: 'createdAt', order: 'desc' },
 });
 
 // Query with pagination
-const results = await query('users', 
-  (user) => user.age > 21, 
-  { limit: 10, offset: 20 }
-);
+const results = await query('users', (user) => user.age > 21, { limit: 10, offset: 20 });
 
 console.log(`Found ${results.total} matches, showing ${results.documents.length}`);
 console.log(`Has more pages: ${results.hasMore}`);
@@ -201,7 +200,7 @@ console.log(`Has more pages: ${results.hasMore}`);
 ### TypeScript Support
 
 ```typescript
-import { get, update, query } from "@debros/network";
+import { get, update, query } from '@debros/network';
 
 interface User {
   username: string;
@@ -216,15 +215,13 @@ const user = await get<User>('users', 'user1');
 
 await update<User>('users', 'user1', { age: 26 });
 
-const results = await query<User>('users', 
-  (user) => user.age > 21
-);
+const results = await query<User>('users', (user) => user.age > 21);
 ```
 
 ### Connection Management
 
 ```typescript
-import { initDB, closeConnection } from "@debros/network";
+import { initDB, closeConnection } from '@debros/network';
 
 // Create multiple connections
 const conn1 = await initDB('connection1');
@@ -235,21 +232,6 @@ await create('users', 'user1', { name: 'Alice' }, { connectionId: conn1 });
 
 // Close a specific connection
 await closeConnection(conn1);
-```
-
-### Performance Metrics
-
-```typescript
-import { getMetrics, resetMetrics } from "@debros/network";
-
-// Get performance metrics
-const metrics = getMetrics();
-console.log('Operations:', metrics.operations);
-console.log('Avg operation time:', metrics.performance.averageOperationTime, 'ms');
-console.log('Cache hits/misses:', metrics.cacheStats);
-
-// Reset metrics (e.g., after deployment)
-resetMetrics();
 ```
 
 ## API Reference
@@ -285,9 +267,10 @@ resetMetrics();
 - `Transaction.update<T>(collection, id, data): Transaction` - Add an update operation
 - `Transaction.delete(collection, id): Transaction` - Add a delete operation
 
-### Subscriptions
+### Event Subscriptions
 
-- `subscribe(event, callback): () => void` - Subscribe to events, returns unsubscribe function
+- `subscribe(event, callback): () => void` - Subscribe to database events, returns unsubscribe function
+- Event types: 'document:created', 'document:updated', 'document:deleted'
 
 ### File Operations
 
@@ -302,19 +285,17 @@ resetMetrics();
 ### Indexes and Performance
 
 - `createIndex(collection, field, options?): Promise<boolean>` - Create an index
-- `getMetrics(): Metrics` - Get performance metrics
-- `resetMetrics(): void` - Reset performance metrics
 
 ## Configuration
 
 ```typescript
-import { config, initDB } from "@debros/network";
+import { config, initDB } from '@debros/network';
 
 // Configure (optional)
-config.env.fingerprint = "my-unique-app-id";
+config.env.fingerprint = 'my-unique-app-id';
 config.env.port = 9000;
-config.ipfs.blockstorePath = "./custom-path/blockstore";
-config.orbitdb.directory = "./custom-path/orbitdb";
+config.ipfs.blockstorePath = './custom-path/blockstore';
+config.orbitdb.directory = './custom-path/orbitdb';
 
 // Initialize with configuration
 await initDB();

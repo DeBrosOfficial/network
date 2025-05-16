@@ -10,8 +10,10 @@ const heartbeatLogger = createServiceLogger('HEARTBEAT');
 // Node metadata
 const fingerprint = config.env.fingerprint;
 
-const connectedPeers: Map<string, { lastSeen: number; load: number; publicAddress: string; fingerprint: string }> =
-  new Map();
+const connectedPeers: Map<
+  string,
+  { lastSeen: number; load: number; publicAddress: string; fingerprint: string }
+> = new Map();
 const SERVICE_DISCOVERY_TOPIC = ipfsConfig.serviceDiscovery.topic;
 const HEARTBEAT_INTERVAL = ipfsConfig.serviceDiscovery.heartbeatInterval;
 let heartbeatInterval: NodeJS.Timeout;
@@ -37,9 +39,13 @@ export const setupServiceDiscovery = async (pubsub: PubSub) => {
         });
 
         if (!existingPeer) {
-          discoveryLogger.info(`New peer discovered: ${peerId} (fingerprint=${message.fingerprint})`);
+          discoveryLogger.info(
+            `New peer discovered: ${peerId} (fingerprint=${message.fingerprint})`,
+          );
         }
-        heartbeatLogger.info(`Received from ${peerId}: load=${message.load}, addr=${message.publicAddress}`);
+        heartbeatLogger.info(
+          `Received from ${peerId}: load=${message.load}, addr=${message.publicAddress}`,
+        );
       }
     } catch (err) {
       discoveryLogger.error(`Error processing message:`, err);
@@ -58,15 +64,22 @@ export const setupServiceDiscovery = async (pubsub: PubSub) => {
         publicAddress: ipfsConfig.serviceDiscovery.publicAddress,
       };
 
-      await pubsub.publish(SERVICE_DISCOVERY_TOPIC, new TextEncoder().encode(JSON.stringify(heartbeatMsg)));
-      heartbeatLogger.info(`Sent: fingerprint=${fingerprint}, load=${nodeLoad}, addr=${heartbeatMsg.publicAddress}`);
+      await pubsub.publish(
+        SERVICE_DISCOVERY_TOPIC,
+        new TextEncoder().encode(JSON.stringify(heartbeatMsg)),
+      );
+      heartbeatLogger.info(
+        `Sent: fingerprint=${fingerprint}, load=${nodeLoad}, addr=${heartbeatMsg.publicAddress}`,
+      );
 
       const now = Date.now();
       const staleTime = ipfsConfig.serviceDiscovery.staleTimeout;
 
       for (const [peerId, peerData] of connectedPeers.entries()) {
         if (now - peerData.lastSeen > staleTime) {
-          discoveryLogger.info(`Peer ${peerId.substring(0, 15)}... is stale, removing from load balancer`);
+          discoveryLogger.info(
+            `Peer ${peerId.substring(0, 15)}... is stale, removing from load balancer`,
+          );
           connectedPeers.delete(peerId);
         }
       }
@@ -102,7 +115,9 @@ export const logPeersStatus = () => {
   if (peerCount > 0) {
     discoveryLogger.info('Peer status:');
     connectedPeers.forEach((data, peerId) => {
-      discoveryLogger.debug(`  - ${peerId} Load: ${data.load}% Last seen: ${new Date(data.lastSeen).toISOString()}`);
+      discoveryLogger.debug(
+        `  - ${peerId} Load: ${data.load}% Last seen: ${new Date(data.lastSeen).toISOString()}`,
+      );
     });
   }
 };

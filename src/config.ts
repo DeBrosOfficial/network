@@ -57,7 +57,8 @@ export const defaultConfig: DebrosConfig = {
       heartbeatInterval: parseInt(process.env.HEARTBEAT_INTERVAL || '5000'),
       staleTimeout: parseInt(process.env.STALE_PEER_TIMEOUT || '30000'),
       logInterval: parseInt(process.env.PEER_LOG_INTERVAL || '60000'),
-      publicAddress: process.env.NODE_PUBLIC_ADDRESS || `http://localhost:${process.env.PORT || 7777}`,
+      publicAddress:
+        process.env.NODE_PUBLIC_ADDRESS || `http://localhost:${process.env.PORT || 7777}`,
     },
   },
   orbitdb: {

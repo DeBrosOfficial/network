@@ -29,9 +29,18 @@ export const initIpfsNode = async (externalProxyAgent: any = null) => {
     proxyAgent = externalProxyAgent;
 
     const blockstorePath = ipfsConfig.blockstorePath;
-    if (!fs.existsSync(blockstorePath)) {
-      fs.mkdirSync(blockstorePath, { recursive: true });
-      logger.info(`Created blockstore directory: ${blockstorePath}`);
+    try {
+      if (!fs.existsSync(blockstorePath)) {
+        fs.mkdirSync(blockstorePath, { recursive: true, mode: 0o755 });
+        logger.info(`Created blockstore directory: ${blockstorePath}`);
+      }
+
+      // Check write permissions
+      fs.accessSync(blockstorePath, fs.constants.W_OK);
+      logger.info(`Verified write permissions for blockstore directory: ${blockstorePath}`);
+    } catch (permError: any) {
+      logger.error(`Permission error with blockstore directory: ${blockstorePath}`, permError);
+      throw new Error(`Cannot access or write to blockstore directory: ${permError.message}`);
     }
 
     const blockstore = new FsBlockstore(blockstorePath);
@@ -77,7 +86,7 @@ export const initIpfsNode = async (externalProxyAgent: any = null) => {
       `Listening on: ${libp2pNode
         .getMultiaddrs()
         .map((addr: any) => addr.toString())
-        .join(', ')}`
+        .join(', ')}`,
     );
 
     helia = await createHelia({
@@ -118,7 +127,9 @@ function setupPeerEventListeners(node: Libp2p) {
     node.peerStore
       .get(event.detail)
       .then((peerInfo) => {
-        const multiaddrs = peerInfo?.addresses.map((addr) => addr.multiaddr.toString()) || ['unknown'];
+        const multiaddrs = peerInfo?.addresses.map((addr) => addr.multiaddr.toString()) || [
+          'unknown',
+        ];
         logger.info(`Peer multiaddrs: ${multiaddrs.join(', ')}`);
       })
       .catch((error) => {
@@ -137,7 +148,9 @@ function setupPeerEventListeners(node: Libp2p) {
     node.peerStore
       .get(event.detail)
       .then((peerInfo) => {
-        const multiaddrs = peerInfo?.addresses.map((addr) => addr.multiaddr.toString()) || ['unknown'];
+        const multiaddrs = peerInfo?.addresses.map((addr) => addr.multiaddr.toString()) || [
+          'unknown',
+        ];
         logger.error(`Peer multiaddrs: ${multiaddrs.join(', ')}`);
       })
       .catch((error) => {
@@ -203,7 +216,8 @@ async function attemptPeerConnections(node: Libp2p) {
       try {
         // Get peer info including addresses
         const peerInfo = await node.peerStore.get(peerId);
-        const addresses = peerInfo?.addresses.map((addr) => addr.multiaddr.toString()).join(', ') || 'unknown';
+        const addresses =
+          peerInfo?.addresses.map((addr) => addr.multiaddr.toString()).join(', ') || 'unknown';
         logger.info(`  - Connected to peer: ${peerId.toString()}`);
         logger.info(`    Addresses: ${addresses}`);
       } catch (_error) {

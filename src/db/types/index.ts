@@ -4,13 +4,32 @@ import { Transaction } from '../transactions/transactionService';
 
 export type { Transaction };
 
+// Resource locking for concurrent operations
+const locks = new Map<string, boolean>();
+
+export const acquireLock = (resourceId: string): boolean => {
+  if (locks.has(resourceId)) {
+    return false;
+  }
+  locks.set(resourceId, true);
+  return true;
+};
+
+export const releaseLock = (resourceId: string): void => {
+  locks.delete(resourceId);
+};
+
+export const isLocked = (resourceId: string): boolean => {
+  return locks.has(resourceId);
+};
+
 // Database Types
 export enum StoreType {
   KEYVALUE = 'keyvalue',
   DOCSTORE = 'docstore',
   FEED = 'feed',
   EVENTLOG = 'eventlog',
-  COUNTER = 'counter'
+  COUNTER = 'counter',
 }
 
 // Common result types
