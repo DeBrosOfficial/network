@@ -14,30 +14,67 @@ let orbitdb: any;
 export const getOrbitDBDir = (): string => {
   const baseDir = config.orbitdb.directory;
   const fingerprint = config.env.fingerprint;
-  return `${baseDir}-${fingerprint}`;
+  // Use path.join for proper cross-platform path handling
+  return path.join(baseDir, `debros-${fingerprint}`);
 };
 
 const ORBITDB_DIR = getOrbitDBDir();
+const ADDRESS_DIR = path.join(ORBITDB_DIR, 'addresses');
 
 export const getDBAddress = (name: string): string | null => {
-  const addressFile = path.join(ORBITDB_DIR, `${name}.address`);
-  if (fs.existsSync(addressFile)) {
-    return fs.readFileSync(addressFile, 'utf-8').trim();
+  try {
+    const addressFile = path.join(ADDRESS_DIR, `${name}.address`);
+    if (fs.existsSync(addressFile)) {
+      return fs.readFileSync(addressFile, 'utf-8').trim();
+    }
+  } catch (error) {
+    logger.error(`Error reading DB address for ${name}:`, error);
   }
   return null;
 };
 
-export const saveDBAddress = (name: string, address: string) => {
-  const addressFile = path.join(ORBITDB_DIR, `${name}.address`);
-  fs.writeFileSync(addressFile, address);
+export const saveDBAddress = (name: string, address: string): boolean => {
+  try {
+    // Ensure the address directory exists
+    if (!fs.existsSync(ADDRESS_DIR)) {
+      fs.mkdirSync(ADDRESS_DIR, { recursive: true, mode: 0o755 });
+    }
+
+    const addressFile = path.join(ADDRESS_DIR, `${name}.address`);
+    fs.writeFileSync(addressFile, address, { mode: 0o644 });
+    logger.info(`Saved DB address for ${name} at ${addressFile}`);
+    return true;
+  } catch (error) {
+    logger.error(`Failed to save DB address for ${name}:`, error);
+    return false;
+  }
 };
 
 export const init = async () => {
   try {
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(ORBITDB_DIR)) {
-      fs.mkdirSync(ORBITDB_DIR, { recursive: true });
-      logger.info(`Created OrbitDB directory: ${ORBITDB_DIR}`);
+    // Create directory with proper permissions if it doesn't exist
+    try {
+      if (!fs.existsSync(ORBITDB_DIR)) {
+        fs.mkdirSync(ORBITDB_DIR, { recursive: true, mode: 0o755 });
+        logger.info(`Created OrbitDB directory: ${ORBITDB_DIR}`);
+      }
+
+      // Check write permissions
+      fs.accessSync(ORBITDB_DIR, fs.constants.W_OK);
+    } catch (permError: any) {
+      logger.error(`Permission error with OrbitDB directory: ${ORBITDB_DIR}`, permError);
+      throw new Error(`Cannot access or write to OrbitDB directory: ${permError.message}`);
+    }
+
+    // Create the addresses directory
+    try {
+      if (!fs.existsSync(ADDRESS_DIR)) {
+        fs.mkdirSync(ADDRESS_DIR, { recursive: true, mode: 0o755 });
+        logger.info(`Created OrbitDB addresses directory: ${ADDRESS_DIR}`);
+      }
+    } catch (dirError) {
+      logger.error(`Error creating addresses directory: ${ADDRESS_DIR}`, dirError);
+      // Continue anyway, we'll handle failures when saving addresses
     }
 
     registerFeed();
@@ -56,9 +93,9 @@ export const init = async () => {
 
     logger.info('OrbitDB initialized successfully.');
     return orbitdb;
-  } catch (e) {
+  } catch (e: any) {
     logger.error('Failed to initialize OrbitDB:', e);
-    throw e;
+    throw new Error(`OrbitDB initialization failed: ${e.message}`);
   }
 };
 
@@ -74,7 +111,9 @@ export const openDB = async (name: string, type: string) => {
     const dbOptions = {
       type,
       overwrite: false,
-      AccessController: IPFSAccessController({ write: ['*'] }),
+      AccessController: IPFSAccessController({
+        write: ['*'],
+      }),
     };
 
     if (existingAddress) {

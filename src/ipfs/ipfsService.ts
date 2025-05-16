@@ -8,7 +8,12 @@ import {
   getProxyAgentInstance,
 } from './services/ipfsCoreService';
 
-import { getConnectedPeers, getOptimalPeer, updateNodeLoad, logPeersStatus } from './services/discoveryService';
+import {
+  getConnectedPeers,
+  getOptimalPeer,
+  updateNodeLoad,
+  logPeersStatus,
+} from './services/discoveryService';
 import { createServiceLogger } from '../utils/logger';
 
 // Create logger for IPFS service

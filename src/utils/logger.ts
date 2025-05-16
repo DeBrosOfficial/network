@@ -31,7 +31,7 @@ export function createDebrosLogger(options: LoggerOptions = {}) {
   // Set default options
   const logsDir = options.logsDir || path.join(process.cwd(), 'logs');
   const logLevel = options.level || process.env.LOG_LEVEL || 'info';
-  
+
   // Create logs directory if it doesn't exist
   if (!fs.existsSync(logsDir) && !options.disableFile) {
     fs.mkdirSync(logsDir, { recursive: true });
@@ -55,7 +55,8 @@ export function createDebrosLogger(options: LoggerOptions = {}) {
       } else {
         try {
           message = JSON.stringify(message, null, 2);
-        } catch (e) {
+        } catch (e: any) {
+          console.error(e);
           message = '[Object]';
         }
       }
@@ -77,7 +78,8 @@ export function createDebrosLogger(options: LoggerOptions = {}) {
       } else {
         try {
           message = JSON.stringify(message);
-        } catch (e) {
+        } catch (e: any) {
+          console.error(e);
           message = '[Object]';
         }
       }
@@ -89,30 +91,39 @@ export function createDebrosLogger(options: LoggerOptions = {}) {
 
   // Configure transports
   const loggerTransports = [];
-  
+
   // Add console transport if not disabled
   if (!options.disableConsole) {
     loggerTransports.push(
       new transports.Console({
-        format: format.combine(format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), customConsoleFormat),
-      })
+        format: format.combine(
+          format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+          customConsoleFormat,
+        ),
+      }),
     );
   }
-  
+
   // Add file transports if not disabled
   if (!options.disableFile) {
     loggerTransports.push(
       // Combined log file
       new transports.File({
         filename: path.join(logsDir, 'app.log'),
-        format: format.combine(format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), customFileFormat),
+        format: format.combine(
+          format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+          customFileFormat,
+        ),
       }),
       // Error log file
       new transports.File({
         filename: path.join(logsDir, 'error.log'),
         level: 'error',
-        format: format.combine(format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), customFileFormat),
-      })
+        format: format.combine(
+          format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+          customFileFormat,
+        ),
+      }),
     );
   }
 
@@ -127,10 +138,14 @@ export function createDebrosLogger(options: LoggerOptions = {}) {
   // Helper function to create a logger for a specific service
   const createServiceLogger = (serviceName: string) => {
     return {
-      error: (message: any, ...meta: any[]) => logger.error(message, { service: serviceName, ...meta }),
-      warn: (message: any, ...meta: any[]) => logger.warn(message, { service: serviceName, ...meta }),
-      info: (message: any, ...meta: any[]) => logger.info(message, { service: serviceName, ...meta }),
-      debug: (message: any, ...meta: any[]) => logger.debug(message, { service: serviceName, ...meta }),
+      error: (message: any, ...meta: any[]) =>
+        logger.error(message, { service: serviceName, ...meta }),
+      warn: (message: any, ...meta: any[]) =>
+        logger.warn(message, { service: serviceName, ...meta }),
+      info: (message: any, ...meta: any[]) =>
+        logger.info(message, { service: serviceName, ...meta }),
+      debug: (message: any, ...meta: any[]) =>
+        logger.debug(message, { service: serviceName, ...meta }),
     };
   };
 

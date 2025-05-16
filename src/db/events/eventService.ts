@@ -6,12 +6,9 @@ type DBEventType = 'document:created' | 'document:updated' | 'document:deleted';
 /**
  * Subscribe to database events
  */
-export const subscribe = (
-  event: DBEventType,
-  callback: (data: any) => void
-): () => void => {
+export const subscribe = (event: DBEventType, callback: (data: any) => void): (() => void) => {
   dbEvents.on(event, callback);
-  
+
   // Return unsubscribe function
   return () => {
     dbEvents.off(event, callback);
@@ -21,10 +18,7 @@ export const subscribe = (
 /**
  * Emit an event
  */
-export const emit = (
-  event: DBEventType,
-  data: any
-): void => {
+export const emit = (event: DBEventType, data: any): void => {
   dbEvents.emit(event, data);
 };
 

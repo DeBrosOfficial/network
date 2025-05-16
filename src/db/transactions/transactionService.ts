@@ -1,9 +1,3 @@
-import { createServiceLogger } from '../../utils/logger';
-import { ErrorCode } from '../types';
-import { DBError } from '../core/error';
-
-const logger = createServiceLogger('DB_TRANSACTION');
-
 // Transaction operation type
 interface TransactionOperation {
   type: 'create' | 'update' | 'delete';
@@ -18,11 +12,11 @@ interface TransactionOperation {
 export class Transaction {
   private operations: TransactionOperation[] = [];
   private connectionId?: string;
-  
+
   constructor(connectionId?: string) {
     this.connectionId = connectionId;
   }
-  
+
   /**
    * Add a create operation to the transaction
    */
@@ -31,11 +25,11 @@ export class Transaction {
       type: 'create',
       collection,
       id,
-      data
+      data,
     });
     return this;
   }
-  
+
   /**
    * Add an update operation to the transaction
    */
@@ -44,11 +38,11 @@ export class Transaction {
       type: 'update',
       collection,
       id,
-      data
+      data,
     });
     return this;
   }
-  
+
   /**
    * Add a delete operation to the transaction
    */
@@ -56,18 +50,18 @@ export class Transaction {
     this.operations.push({
       type: 'delete',
       collection,
-      id
+      id,
     });
     return this;
   }
-  
+
   /**
    * Get all operations in this transaction
    */
   getOperations(): TransactionOperation[] {
     return [...this.operations];
   }
-  
+
   /**
    * Get connection ID for this transaction
    */
