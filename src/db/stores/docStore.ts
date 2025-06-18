@@ -1,6 +1,7 @@
 import { StoreType, StoreOptions, PaginatedResult, QueryOptions, ListOptions } from '../types';
 import { AbstractStore } from './abstractStore';
 import { prepareDocument } from './baseStore';
+import { DBError, ErrorCode } from '../core/error';
 
 /**
  * DocStore implementation
@@ -169,8 +170,6 @@ export class DocStore extends AbstractStore {
    * Helper to handle errors consistently
    */
   private handleError(message: string, error: any): never {
-    const { DBError, ErrorCode } = require('../core/error');
-
     if (error instanceof DBError) {
       throw error;
     }

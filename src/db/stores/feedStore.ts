@@ -110,7 +110,12 @@ export class FeedStore implements BaseStore {
     try {
       const db = await openStore(collection, StoreType.FEED, options);
 
-      const entries = await db.iterator({ limit: -1 }).collect();
+      // Get all entries using proper iterator API
+      const entries = [];
+      for await (const entry of db.iterator({ limit: -1 })) {
+        entries.push(entry);
+      }
+
       const existingEntryIndex = entries.findIndex((e: any) => {
         const value = e.payload.value;
         return value && value.id === id;
@@ -169,8 +174,12 @@ export class FeedStore implements BaseStore {
     try {
       const db = await openStore(collection, StoreType.FEED, options);
 
-      // Find the entry with the given id
-      const entries = await db.iterator({ limit: -1 }).collect();
+      // Find the entry with the given id using proper iterator API
+      const entries = [];
+      for await (const entry of db.iterator({ limit: -1 })) {
+        entries.push(entry);
+      }
+
       const existingEntryIndex = entries.findIndex((e: any) => {
         const value = e.payload.value;
         return value && value.id === id;
@@ -227,14 +236,51 @@ export class FeedStore implements BaseStore {
     try {
       const db = await openStore(collection, StoreType.FEED, options);
 
-      // Get all entries
-      const entries = await db.iterator({ limit: -1 }).collect();
+      // Use proper pagination instead of loading everything
+      const requestedLimit = options?.limit || 50;
+      const requestedOffset = options?.offset || 0;
+
+      // For feeds, we need to get more entries than requested since we'll filter duplicates
+      // Use a reasonable multiplier but cap it to prevent memory issues
+      const fetchLimit = requestedLimit === -1 ? -1 : Math.min(requestedLimit * 3, 1000);
+
+      // Get entries using proper iterator API with pagination
+      const entries = [];
+      let count = 0;
+      let skipped = 0;
+
+      for await (const entry of db.iterator({ limit: fetchLimit })) {
+        // Skip entries for offset
+        if (requestedOffset > 0 && skipped < requestedOffset) {
+          skipped++;
+          continue;
+        }
+
+        entries.push(entry);
+        count++;
+
+        // Break if we have enough entries and not requesting all
+        if (requestedLimit !== -1 && count >= fetchLimit) {
+          break;
+        }
+      }
 
       // Group by ID and keep only the latest entry for each ID
       // Also filter out tombstone entries
       const latestEntries = new Map<string, any>();
       for (const entry of entries) {
-        const value = entry.payload.value;
+        // Handle different possible entry structures
+        let value;
+        if (entry && entry.payload && entry.payload.value) {
+          value = entry.payload.value;
+        } else if (entry && entry.value) {
+          value = entry.value;
+        } else if (entry && typeof entry === 'object') {
+          value = entry;
+        } else {
+          continue;
+        }
+
         if (!value || value.deleted) continue;
 
         const id = value.id;
@@ -243,7 +289,9 @@ export class FeedStore implements BaseStore {
         // If we already have an entry with this ID, check which is newer
         if (latestEntries.has(id)) {
           const existing = latestEntries.get(id);
-          if (value.updatedAt > existing.value.updatedAt) {
+          const existingTime = existing.value.updatedAt || existing.value.timestamp || 0;
+          const currentTime = value.updatedAt || value.timestamp || 0;
+          if (currentTime > existingTime) {
             latestEntries.set(id, { hash: entry.hash, value });
           }
         } else {
@@ -281,13 +329,11 @@ export class FeedStore implements BaseStore {
         });
       }
 
-      // Apply pagination
+      // Apply final pagination to the processed results
       const total = documents.length;
-      const offset = options?.offset || 0;
-      const limit = options?.limit || total;
-
-      const paginatedDocuments = documents.slice(offset, offset + limit);
-      const hasMore = offset + limit < total;
+      const finalLimit = requestedLimit === -1 ? total : requestedLimit;
+      const paginatedDocuments = documents.slice(0, finalLimit);
+      const hasMore = documents.length > finalLimit;
 
       return {
         documents: paginatedDocuments,
@@ -320,14 +366,28 @@ export class FeedStore implements BaseStore {
     try {
       const db = await openStore(collection, StoreType.FEED, options);
 
-      // Get all entries
-      const entries = await db.iterator({ limit: -1 }).collect();
+      // Get all entries using proper iterator API
+      const entries = [];
+      for await (const entry of db.iterator({ limit: -1 })) {
+        entries.push(entry);
+      }
 
       // Group by ID and keep only the latest entry for each ID
       // Also filter out tombstone entries
       const latestEntries = new Map<string, any>();
       for (const entry of entries) {
-        const value = entry.payload.value;
+        // Handle different possible entry structures
+        let value;
+        if (entry && entry.payload && entry.payload.value) {
+          value = entry.payload.value;
+        } else if (entry && entry.value) {
+          value = entry.value;
+        } else if (entry && typeof entry === 'object') {
+          value = entry;
+        } else {
+          continue;
+        }
+
         if (!value || value.deleted) continue;
 
         const id = value.id;

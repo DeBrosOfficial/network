@@ -86,6 +86,34 @@ export async function openStore(
 }
 
 /**
+ * Recursively sanitize an object by removing undefined values
+ * This is necessary because IPLD doesn't support undefined values
+ */
+function deepSanitizeUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(deepSanitizeUndefined).filter((item) => item !== undefined);
+  }
+
+  if (typeof obj === 'object' && obj.constructor === Object) {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const sanitizedValue = deepSanitizeUndefined(value);
+      // Only include the property if it's not undefined
+      if (sanitizedValue !== undefined) {
+        sanitized[key] = sanitizedValue;
+      }
+    }
+    return sanitized;
+  }
+
+  return obj;
+}
+
+/**
  * Helper function to prepare a document for storage
  */
 export function prepareDocument<T extends Record<string, any>>(
@@ -95,10 +123,8 @@ export function prepareDocument<T extends Record<string, any>>(
 ): T {
   const timestamp = Date.now();
 
-  // Sanitize the input data by replacing undefined with null
-  const sanitizedData = Object.fromEntries(
-    Object.entries(data).map(([key, value]) => [key, value === undefined ? null : value]),
-  ) as Omit<T, 'createdAt' | 'updatedAt'>;
+  // Deep sanitize the input data by removing undefined values
+  const sanitizedData = deepSanitizeUndefined(data) as Omit<T, 'createdAt' | 'updatedAt'>;
 
   // Prepare document for validation
   let docToValidate: T;
@@ -119,9 +145,12 @@ export function prepareDocument<T extends Record<string, any>>(
     } as unknown as T;
   }
 
+  // Deep sanitize the final document to ensure no undefined values remain
+  const finalDocument = deepSanitizeUndefined(docToValidate) as T;
+
   // Validate the document BEFORE processing
-  validateDocument(collection, docToValidate);
+  validateDocument(collection, finalDocument);
 
   // Return the validated document
-  return docToValidate;
+  return finalDocument;
 }

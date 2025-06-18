@@ -1,6 +1,6 @@
 {
   "name": "@debros/network",
-  "version": "0.0.23-alpha",
+  "version": "0.0.24-alpha",
   "description": "Debros network core functionality for IPFS, libp2p and OrbitDB",
   "type": "module",
   "main": "dist/index.js",

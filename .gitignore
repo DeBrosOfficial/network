@@ -2,3 +2,4 @@ network.txt
 node_modules/
 dist/
 system.txt
+.DS_Store

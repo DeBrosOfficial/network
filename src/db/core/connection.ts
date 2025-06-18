@@ -29,6 +29,16 @@ export const init = async (connectionId?: string): Promise<string> => {
   }
 
   const connId = connectionId || `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Check if connection already exists
+  if (connections.has(connId)) {
+    const existingConnection = connections.get(connId)!;
+    if (existingConnection.isActive) {
+      logger.info(`Using existing active connection: ${connId}`);
+      return connId;
+    }
+  }
+
   logger.info(`Initializing DB service with connection ID: ${connId}`);
 
   let attempts = 0;
@@ -87,6 +97,14 @@ export const init = async (connectionId?: string): Promise<string> => {
       logger.info(
         `Retrying initialization in ${delay}ms (attempt ${attempts + 1}/${MAX_RETRY_ATTEMPTS})...`,
       );
+
+      // Clean up any partial initialization before retrying
+      try {
+        await stopIpfs();
+      } catch (cleanupError) {
+        logger.warn('Error during cleanup before retry:', cleanupError);
+      }
+
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
