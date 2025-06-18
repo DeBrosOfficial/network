@@ -26,9 +26,9 @@ export const isLocked = (resourceId: string): boolean => {
 // Database Types
 export enum StoreType {
   KEYVALUE = 'keyvalue',
-  DOCSTORE = 'docstore',
+  DOCSTORE = 'documents',
   FEED = 'feed',
-  EVENTLOG = 'eventlog',
+  EVENTLOG = 'events',
   COUNTER = 'counter',
 }
 

@@ -26,6 +26,18 @@ let reconnectInterval: NodeJS.Timeout;
 
 export const initIpfsNode = async (externalProxyAgent: any = null) => {
   try {
+    // If already initialized, return existing instance
+    if (helia && libp2pNode) {
+      logger.info('IPFS node already initialized, returning existing instance');
+      return helia;
+    }
+
+    // Clean up any existing instances first
+    if (helia || libp2pNode) {
+      logger.info('Cleaning up existing IPFS instances before reinitializing');
+      await stopIpfsNode();
+    }
+
     proxyAgent = externalProxyAgent;
 
     const blockstorePath = ipfsConfig.blockstorePath;
@@ -168,20 +180,38 @@ function setupPeerEventListeners(node: Libp2p) {
 }
 
 export const stopIpfsNode = async () => {
+  logger.info('Stopping IPFS node...');
+
   if (reconnectInterval) {
     clearInterval(reconnectInterval);
+    reconnectInterval = undefined as any;
   }
 
   if (libp2pNode) {
-    const pubsub = libp2pNode.services.pubsub as PubSub;
-    await stopDiscoveryService(pubsub);
+    try {
+      const pubsub = libp2pNode.services.pubsub as PubSub;
+      await stopDiscoveryService(pubsub);
+
+      // Stop libp2p
+      await libp2pNode.stop();
+    } catch (error) {
+      logger.error('Error stopping libp2p node:', error);
+    }
+    libp2pNode = undefined as any;
   } else {
     await stopDiscoveryService(null);
   }
 
   if (helia) {
-    await helia.stop();
+    try {
+      await helia.stop();
+    } catch (error) {
+      logger.error('Error stopping Helia:', error);
+    }
+    helia = null;
   }
+
+  logger.info('IPFS node stopped successfully');
 };
 
 export const getHeliaInstance = () => {

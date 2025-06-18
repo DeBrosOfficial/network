@@ -22,6 +22,7 @@ import {
   closeConnection,
   stop as stopDB,
 } from './db/dbService';
+
 import { ErrorCode, StoreType } from './db/types';
 
 // Import types

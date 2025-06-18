@@ -6,7 +6,10 @@ export const getIpfsPort = (): number => {
     return parseInt(process.env.IPFS_PORT);
   }
   const httpPort = parseInt(process.env.PORT || '7777');
-  return httpPort + 1; // Default to HTTP port + 1
+  // Add some randomness to avoid port conflicts during retries
+  const basePort = httpPort + 1;
+  const randomOffset = Math.floor(Math.random() * 10);
+  return basePort + randomOffset; // Add random offset to avoid conflicts
 };
 
 // Get a node-specific blockstore path

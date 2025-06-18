@@ -2,7 +2,7 @@ import { createServiceLogger } from '../../utils/logger';
 import { ErrorCode, StoreType, FileUploadResult, FileResult } from '../types';
 import { DBError } from '../core/error';
 import { openStore } from './baseStore';
-import { getHelia } from '../../ipfs/ipfsService';
+import ipfsService, { getHelia } from '../../ipfs/ipfsService';
 import { CreateResult, StoreOptions } from '../types';
 
 async function readAsyncIterableToBuffer(
@@ -31,8 +31,21 @@ export const uploadFile = async (
   try {
     const ipfs = getHelia();
     if (!ipfs) {
+      logger.error('IPFS instance not available - Helia is null or undefined');
+      // Try to check if IPFS service is running
+      try {
+        const heliaInstance = ipfsService.getHelia();
+        logger.error(
+          'IPFS Service getHelia() returned:',
+          heliaInstance ? 'instance available' : 'null/undefined',
+        );
+      } catch (importError) {
+        logger.error('Error importing IPFS service:', importError);
+      }
       throw new DBError(ErrorCode.OPERATION_FAILED, 'IPFS instance not available');
     }
+
+    logger.info(`Attempting to upload file with size: ${fileData.length} bytes`);
 
     // Add to IPFS
     const unixfs = await import('@helia/unixfs');
