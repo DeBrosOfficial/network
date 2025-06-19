@@ -132,6 +132,11 @@ export class ConfigManager {
     return { ...this.config };
   }
 
+  // Alias for getConfig() to match test expectations
+  getFullConfig(): ExtendedFrameworkConfig {
+    return this.getConfig();
+  }
+
   // Configuration presets
   static developmentConfig(): ExtendedFrameworkConfig {
     return {

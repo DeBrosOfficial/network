@@ -376,8 +376,14 @@ export class RelationshipManager {
       return;
     }
 
+    // Get the related model class
+    const RelatedModel = config.model || (config.modelFactory ? config.modelFactory() : null) || (config.targetModel ? config.targetModel() : null);
+    if (!RelatedModel) {
+      throw new Error(`Cannot resolve related model for hasMany eager loading`);
+    }
+
     // Load all related models
-    let query = (config.model as any).whereIn(config.foreignKey, localKeys);
+    let query = (RelatedModel as any).whereIn(config.foreignKey, localKeys);
 
     if (options.constraints) {
       query = options.constraints(query);
@@ -493,7 +499,13 @@ export class RelationshipManager {
     const uniqueForeignKeys = [...new Set(allForeignKeys)];
 
     // Step 4: Load all related models
-    let relatedQuery = (config.model as any).whereIn('id', uniqueForeignKeys);
+    // Get the related model class
+    const RelatedModel = config.model || (config.modelFactory ? config.modelFactory() : null) || (config.targetModel ? config.targetModel() : null);
+    if (!RelatedModel) {
+      throw new Error(`Cannot resolve related model for manyToMany eager loading`);
+    }
+
+    let relatedQuery = (RelatedModel as any).whereIn('id', uniqueForeignKeys);
 
     if (options.constraints) {
       relatedQuery = options.constraints(relatedQuery);

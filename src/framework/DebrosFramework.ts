@@ -183,6 +183,8 @@ export class DebrosFramework {
       if (overrideConfig) {
         this.config = { ...this.config, ...overrideConfig };
         this.configManager = new ConfigManager(this.config);
+        // Update status to reflect config changes
+        this.status.environment = this.config.environment || 'development';
       }
 
       // Initialize services
@@ -591,6 +593,31 @@ export class DebrosFramework {
 
   getMigrationManager(): MigrationManager | null {
     return this.migrationManager;
+  }
+
+  getQueryCache(): QueryCache | null {
+    return this.queryCache;
+  }
+
+  getOrbitDBService(): FrameworkOrbitDBService | null {
+    return this.orbitDBService;
+  }
+
+  getIPFSService(): FrameworkIPFSService | null {
+    return this.ipfsService;
+  }
+
+  getConfigManager(): ConfigManager | null {
+    return this.configManager;
+  }
+
+  async healthCheck(): Promise<any> {
+    this.performHealthCheck();
+    return {
+      healthy: this.status.healthy,
+      services: { ...this.status.services },
+      lastCheck: this.status.lastHealthCheck
+    };
   }
 
   // Framework lifecycle

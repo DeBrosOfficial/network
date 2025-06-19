@@ -32,13 +32,8 @@ export abstract class BaseModel {
     if (data && typeof data === 'object') {
       Object.keys(data).forEach((key) => {
         if (key !== '_loadedRelations' && key !== '_isDirty' && key !== '_isNew' && data[key] !== undefined) {
-          // Use setter if it exists (for Field-decorated properties), otherwise set directly
-          const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), key);
-          if (descriptor && descriptor.set) {
-            (this as any)[key] = data[key];
-          } else {
-            (this as any)[key] = data[key];
-          }
+          // Always set directly - the Field decorator's setter will handle validation and transformation
+          (this as any)[key] = data[key];
         }
       });
       
