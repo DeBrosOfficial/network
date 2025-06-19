@@ -7,7 +7,7 @@ export default [
   // Base configuration for all files
   {
     files: ['**/*.{ts}'],
-    ignores: ['dist/**', 'docs/**', 'src/components/bot/templates/**'],
+    ignores: ['dist/**', 'docs/**', 'src/components/bot/templates/**', 'examples/**'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
