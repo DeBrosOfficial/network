@@ -119,7 +119,9 @@ export class ShardManager {
     const normalizedCode = Math.max(97, Math.min(122, charCode));
     const range = (normalizedCode - 97) / 25; // 0-1 range
 
-    return Math.floor(range * shardCount);
+    const shardIndex = Math.floor(range * shardCount);
+    // Ensure the index is within bounds (handle edge case where range = 1.0)
+    return Math.min(shardIndex, shardCount - 1);
   }
 
   private userSharding(key: string, shardCount: number): number {

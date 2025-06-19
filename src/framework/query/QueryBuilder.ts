@@ -28,12 +28,44 @@ export class QueryBuilder<T extends BaseModel> {
   where(field: string, operatorOrValue: string | any, value?: any): this {
     if (value !== undefined) {
       // Three parameter version: where('field', 'operator', 'value')
-      this.conditions.push({ field, operator: operatorOrValue, value });
+      const normalizedOperator = this.normalizeOperator(operatorOrValue);
+      this.conditions.push({ field, operator: normalizedOperator, value });
     } else {
       // Two parameter version: where('field', 'value') - defaults to equality
+      // Special handling for null checks
+      if (typeof operatorOrValue === 'string') {
+        const lowerValue = operatorOrValue.toLowerCase();
+        if (lowerValue === 'is null' || lowerValue === 'is not null') {
+          this.conditions.push({ field, operator: lowerValue, value: null });
+          return this;
+        }
+      }
       this.conditions.push({ field, operator: 'eq', value: operatorOrValue });
     }
     return this;
+  }
+
+  private normalizeOperator(operator: string): string {
+    const operatorMap: { [key: string]: string } = {
+      '=': 'eq',
+      '!=': 'ne',
+      '<>': 'ne', 
+      '>': 'gt',
+      '>=': 'gte',
+      '<': 'lt',
+      '<=': 'lte',
+      'like': 'like',
+      'ilike': 'ilike',
+      'in': 'in',
+      'not_in': 'not in',  // Reverse mapping: internal -> expected
+      'not in': 'not in',
+      'is null': 'is null',
+      'is not null': 'is not null',
+      'regex': 'regex',
+      'between': 'between'
+    };
+
+    return operatorMap[operator.toLowerCase()] || operator;
   }
 
   whereIn(field: string, values: any[]): this {
@@ -41,8 +73,9 @@ export class QueryBuilder<T extends BaseModel> {
   }
 
   whereNotIn(field: string, values: any[]): this {
-    return this.where(field, 'not_in', values);
+    return this.where(field, 'not in', values);
   }
+
 
   whereNull(field: string): this {
     this.conditions.push({ field, operator: 'is null', value: null });
@@ -126,17 +159,21 @@ export class QueryBuilder<T extends BaseModel> {
       });
     } else {
       // Simple orWhere version: orWhere('field', 'operator', 'value') or orWhere('field', 'value')
-      let finalOperator = '=';
+      let finalOperator = 'eq';
       let finalValue = operatorOrValue;
       
       if (value !== undefined) {
-        finalOperator = operatorOrValue;
+        finalOperator = this.normalizeOperator(operatorOrValue);
         finalValue = value;
-      }
-
-      const lastCondition = this.conditions[this.conditions.length - 1];
-      if (lastCondition) {
-        lastCondition.logical = 'or';
+      } else {
+        // Two parameter version: special handling for null checks
+        if (typeof operatorOrValue === 'string') {
+          const lowerValue = operatorOrValue.toLowerCase();
+          if (lowerValue === 'is null' || lowerValue === 'is not null') {
+            finalOperator = lowerValue;
+            finalValue = null;
+          }
+        }
       }
 
       this.conditions.push({
@@ -248,7 +285,7 @@ export class QueryBuilder<T extends BaseModel> {
     return this;
   }
 
-  // Execution methods
+  // Execution methods  
   async exec(): Promise<T[]> {
     const executor = new QueryExecutor<T>(this.model, this);
     return await executor.execute();
@@ -256,6 +293,15 @@ export class QueryBuilder<T extends BaseModel> {
 
   async get(): Promise<T[]> {
     return await this.exec();
+  }
+
+  async find(): Promise<T[]> {
+    return await this.exec();
+  }
+
+  async findOne(): Promise<T | null> {
+    const results = await this.limit(1).exec();
+    return results[0] || null;
   }
 
   async first(): Promise<T | null> {
@@ -513,66 +559,35 @@ export class QueryBuilder<T extends BaseModel> {
 
   // Query execution methods
   async exists(): Promise<boolean> {
-    // Mock implementation
-    return false;
+    const results = await this.limit(1).exec();
+    return results.length > 0;
   }
 
   async count(): Promise<number> {
-    // Mock implementation
-    return 0;
+    const executor = new QueryExecutor<T>(this.model, this);
+    return await executor.count();
   }
 
   async sum(field: string): Promise<number> {
-    // Mock implementation
-    return 0;
+    const executor = new QueryExecutor<T>(this.model, this);
+    return await executor.sum(field);
   }
 
   async average(field: string): Promise<number> {
-    // Mock implementation
-    return 0;
+    const executor = new QueryExecutor<T>(this.model, this);
+    return await executor.avg(field);
   }
 
   async min(field: string): Promise<number> {
-    // Mock implementation
-    return 0;
+    const executor = new QueryExecutor<T>(this.model, this);
+    return await executor.min(field);
   }
 
   async max(field: string): Promise<number> {
-    // Mock implementation
-    return 0;
+    const executor = new QueryExecutor<T>(this.model, this);
+    return await executor.max(field);
   }
 
-  async find(): Promise<T[]> {
-    // Mock implementation
-    return [];
-  }
-
-  async findOne(): Promise<T | null> {
-    // Mock implementation
-    return null;
-  }
-
-  async exec(): Promise<T[]> {
-    // Mock implementation - same as find
-    return [];
-  }
-
-  async first(): Promise<T | null> {
-    // Mock implementation - same as findOne
-    return null;
-  }
-
-  async paginate(page: number, perPage: number): Promise<any> {
-    // Mock implementation
-    return {
-      data: [],
-      total: 0,
-      page,
-      perPage,
-      totalPages: 0,
-      hasMore: false
-    };
-  }
 
   // Clone query for reuse
   clone(): QueryBuilder<T> {

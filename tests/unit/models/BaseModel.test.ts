@@ -460,8 +460,14 @@ describe('BaseModel', () => {
 
       expect(user.validateEmail()).toBe(true);
 
-      user.email = 'invalid-email';
-      expect(user.validateEmail()).toBe(false);
+      // Test that setting an invalid email throws validation error
+      expect(() => {
+        user.email = 'invalid-email';
+      }).toThrow('email failed custom validation');
+      
+      // Email should still be the original valid value
+      expect(user.email).toBe('valid@example.com');
+      expect(user.validateEmail()).toBe(true);
     });
   });
 });
