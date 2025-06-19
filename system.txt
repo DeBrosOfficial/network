@@ -1,0 +1,1646 @@
+DebrosFramework Development Specification
+Overview
+DebrosFramework is a comprehensive Node.js framework built on top of OrbitDB and IPFS that provides a model-based abstraction layer for building decentralized applications. The framework automatically handles database partitioning, global indexing, relationships, schema migrations, pinning strategies, and pub/sub communication while providing a clean, familiar API similar to traditional ORMs.
+Architecture Principles
+Core Design Goals
+
+Scalability: Handle millions of users through automatic database partitioning
+Developer Experience: Provide familiar ORM-like API with decorators and relationships
+Automatic Management: Handle pinning, indexing, pub/sub, and migrations automatically
+Type Safety: Full TypeScript support with comprehensive type definitions
+Performance: Intelligent caching and query optimization
+Flexibility: Support different database types and scoping strategies
+
+Framework Layers
+┌─────────────────────────────────────┐
+│          Developer API              │  ← Models, decorators, query builder
+├─────────────────────────────────────┤
+│         Framework Core              │  ← Model management, relationships
+├─────────────────────────────────────┤
+│        Database Management          │  ← Sharding, indexing, caching
+├─────────────────────────────────────┤
+│         Existing @debros/network    │  ← IPFS/OrbitDB abstraction
+└─────────────────────────────────────┘
+Project Structure
+@debros/network/
+├── src/
+│   ├── framework/                    # New framework code
+│   │   ├── core/
+│   │   │   ├── DebrosFramework.ts   # Main framework class
+│   │   │   ├── ModelRegistry.ts     # Model registration and management
+│   │   │   ├── DatabaseManager.ts   # Database creation and management
+│   │   │   └── ConfigManager.ts     # Framework configuration
+│   │   ├── models/
+│   │   │   ├── BaseModel.ts         # Base model class
+│   │   │   ├── decorators/          # Model decorators
+│   │   │   │   ├── Model.ts         # @Model decorator
+│   │   │   │   ├── Field.ts         # @Field decorator
+│   │   │   │   ├── relationships.ts # @HasMany, @BelongsTo, etc.
+│   │   │   │   └── hooks.ts         # @BeforeCreate, @AfterUpdate, etc.
+│   │   │   └── ModelFactory.ts      # Model instantiation
+│   │   ├── query/
+│   │   │   ├── QueryBuilder.ts      # Main query builder
+│   │   │   ├── QueryExecutor.ts     # Query execution strategies
+│   │   │   ├── QueryOptimizer.ts    # Query optimization
+│   │   │   └── QueryCache.ts        # Query result caching
+│   │   ├── relationships/
+│   │   │   ├── RelationshipManager.ts
+│   │   │   ├── LazyLoader.ts
+│   │   │   └── RelationshipCache.ts
+│   │   ├── sharding/
+│   │   │   ├── ShardManager.ts      # Database sharding logic
+│   │   │   ├── HashSharding.ts      # Hash-based sharding
+│   │   │   ├── UserSharding.ts      # User-scoped databases
+│   │   │   └── GlobalIndexManager.ts # Global index management
+│   │   ├── migrations/
+│   │   │   ├── MigrationManager.ts  # Schema migration handling
+│   │   │   ├── VersionManager.ts    # Document version management
+│   │   │   └── MigrationStrategies.ts
+│   │   ├── pinning/
+│   │   │   ├── PinningManager.ts    # Automatic pinning strategies
+│   │   │   ├── TieredPinning.ts     # Tiered pinning implementation
+│   │   │   └── PinningStrategies.ts # Various pinning strategies
+│   │   ├── pubsub/
+│   │   │   ├── PubSubManager.ts     # Pub/sub abstraction
+│   │   │   ├── EventEmitter.ts      # Model event emission
+│   │   │   └── SubscriptionManager.ts
+│   │   ├── cache/
+│   │   │   ├── CacheManager.ts      # Multi-level caching
+│   │   │   ├── MemoryCache.ts       # In-memory cache
+│   │   │   ├── QueryCache.ts        # Query result cache
+│   │   │   └── RelationshipCache.ts # Relationship cache
+│   │   ├── validation/
+│   │   │   ├── SchemaValidator.ts   # Schema validation
+│   │   │   ├── TypeValidator.ts     # Field type validation
+│   │   │   └── CustomValidators.ts  # Custom validation rules
+│   │   └── types/
+│   │       ├── framework.ts         # Framework type definitions
+│   │       ├── models.ts            # Model type definitions
+│   │       ├── decorators.ts        # Decorator type definitions
+│   │       └── queries.ts           # Query type definitions
+│   ├── db/                          # Existing database service
+│   ├── ipfs/                        # Existing IPFS service
+│   ├── orbit/                       # Existing OrbitDB service
+│   └── utils/                       # Existing utilities
+├── examples/
+│   ├── basic-usage/
+│   ├── relationships/
+│   ├── sharding/
+│   └── migrations/
+├── docs/
+│   ├── getting-started.md
+│   ├── models.md
+│   ├── relationships.md
+│   ├── queries.md
+│   ├── migrations.md
+│   └── advanced.md
+└── tests/
+    ├── unit/
+    ├── integration/
+    └── performance/
+Implementation Roadmap
+Phase 1: Core Model System (Weeks 1-2)
+1.1 Base Model Implementation
+File: src/framework/models/BaseModel.ts
+typescript// Core functionality every model inherits
+export abstract class BaseModel {
+  // Properties
+  public id: string;
+  public createdAt: number;
+  public updatedAt: number;
+  protected _loadedRelations: Map<string, any> = new Map();
+  protected _isDirty: boolean = false;
+  protected _isNew: boolean = true;
+
+  // Static properties
+  static modelName: string;
+  static dbType: StoreType;
+  static scope: 'user' | 'global';
+  static sharding?: ShardingConfig;
+  static pinning?: PinningConfig;
+  static fields: Map<string, FieldConfig> = new Map();
+  static relationships: Map<string, RelationshipConfig> = new Map();
+  static hooks: Map<string, Function[]> = new Map();
+
+  // Constructor
+  constructor(data: any = {}) {
+    this.fromJSON(data);
+  }
+
+  // Core CRUD operations
+  async save(): Promise<this>;
+  static async create<T extends BaseModel>(data: any): Promise<T>;
+  static async get<T extends BaseModel>(id: string): Promise<T | null>;
+  static async find<T extends BaseModel>(id: string): Promise<T>;
+  async update(data: Partial<this>): Promise<this>;
+  async delete(): Promise<boolean>;
+
+  // Query operations
+  static where(field: string, operator: string, value: any): QueryBuilder<this>;
+  static whereIn(field: string, values: any[]): QueryBuilder<this>;
+  static orderBy(field: string, direction: 'asc' | 'desc'): QueryBuilder<this>;
+  static limit(count: number): QueryBuilder<this>;
+  static all(): Promise<this[]>;
+
+  // Relationship operations
+  async load(relationships: string[]): Promise<this>;
+  async loadRelation(relationName: string): Promise<any>;
+
+  // Serialization
+  toJSON(): any;
+  fromJSON(data: any): this;
+
+  // Validation
+  async validate(): Promise<ValidationResult>;
+
+  // Hooks
+  async beforeCreate(): Promise<void>;
+  async afterCreate(): Promise<void>;
+  async beforeUpdate(): Promise<void>;
+  async afterUpdate(): Promise<void>;
+  async beforeDelete(): Promise<void>;
+  async afterDelete(): Promise<void>;
+}
+Implementation Tasks:
+
+ Create BaseModel class with all core methods
+ Implement toJSON/fromJSON serialization
+ Add validation framework integration
+ Implement hook system (beforeCreate, afterUpdate, etc.)
+ Add dirty tracking for efficient updates
+ Create static method stubs (will be implemented in later phases)
+
+1.2 Model Decorators
+File: src/framework/models/decorators/Model.ts
+typescriptexport interface ModelConfig {
+  type?: StoreType;
+  scope?: 'user' | 'global';
+  sharding?: ShardingConfig;
+  pinning?: PinningConfig;
+  pubsub?: PubSubConfig;
+  cache?: CacheConfig;
+  tableName?: string;
+}
+
+export function Model(config: ModelConfig = {}) {
+  return function <T extends typeof BaseModel>(target: T) {
+    // Set model configuration
+    target.modelName = config.tableName || target.name;
+    target.dbType = config.type || autoDetectType(target);
+    target.scope = config.scope || 'global';
+    
+    // Register with framework
+    ModelRegistry.register(target.name, target, config);
+    
+    // Set up automatic database creation
+    DatabaseManager.scheduleCreation(target);
+    
+    return target;
+  };
+}
+
+function autoDetectType(modelClass: any): StoreType {
+  // Analyze model fields to suggest optimal database type
+  // Implementation details...
+}
+File: src/framework/models/decorators/Field.ts
+typescriptexport interface FieldConfig {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'date';
+  required?: boolean;
+  unique?: boolean;
+  index?: boolean | 'global';
+  default?: any;
+  validate?: (value: any) => boolean | string;
+  transform?: (value: any) => any;
+}
+
+export function Field(config: FieldConfig) {
+  return function (target: any, propertyKey: string) {
+    if (!target.constructor.fields) {
+      target.constructor.fields = new Map();
+    }
+    
+    target.constructor.fields.set(propertyKey, config);
+    
+    // Create getter/setter with validation
+    const privateKey = `_${propertyKey}`;
+    
+    Object.defineProperty(target, propertyKey, {
+      get() {
+        return this[privateKey];
+      },
+      set(value) {
+        const validationResult = validateFieldValue(value, config);
+        if (!validationResult.valid) {
+          throw new ValidationError(validationResult.errors);
+        }
+        
+        this[privateKey] = config.transform ? config.transform(value) : value;
+        this._isDirty = true;
+      },
+      enumerable: true,
+      configurable: true
+    });
+  };
+}
+File: src/framework/models/decorators/relationships.ts
+typescriptexport interface RelationshipConfig {
+  type: 'belongsTo' | 'hasMany' | 'hasOne' | 'manyToMany';
+  model: typeof BaseModel;
+  foreignKey: string;
+  localKey?: string;
+  through?: typeof BaseModel;
+  lazy?: boolean;
+}
+
+export function BelongsTo(model: typeof BaseModel, foreignKey: string) {
+  return function (target: any, propertyKey: string) {
+    const config: RelationshipConfig = {
+      type: 'belongsTo',
+      model,
+      foreignKey,
+      lazy: true
+    };
+    
+    registerRelationship(target, propertyKey, config);
+    createRelationshipProperty(target, propertyKey, config);
+  };
+}
+
+export function HasMany(model: typeof BaseModel, foreignKey: string) {
+  return function (target: any, propertyKey: string) {
+    const config: RelationshipConfig = {
+      type: 'hasMany',
+      model,
+      foreignKey,
+      lazy: true
+    };
+    
+    registerRelationship(target, propertyKey, config);
+    createRelationshipProperty(target, propertyKey, config);
+  };
+}
+
+function createRelationshipProperty(target: any, propertyKey: string, config: RelationshipConfig) {
+  Object.defineProperty(target, propertyKey, {
+    get() {
+      if (!this._loadedRelations.has(propertyKey)) {
+        if (config.lazy) {
+          // Return a promise for lazy loading
+          return this.loadRelation(propertyKey);
+        } else {
+          throw new Error(`Relationship '${propertyKey}' not loaded. Use .load(['${propertyKey}']) first.`);
+        }
+      }
+      return this._loadedRelations.get(propertyKey);
+    },
+    enumerable: true,
+    configurable: true
+  });
+}
+Implementation Tasks:
+
+ Implement @Model decorator with configuration
+ Create @Field decorator with validation and transformation
+ Implement relationship decorators (@BelongsTo, @HasMany, @HasOne, @ManyToMany)
+ Add hook decorators (@BeforeCreate, @AfterUpdate, etc.)
+ Create auto-detection logic for optimal database types
+ Add decorator validation and error handling
+
+1.3 Model Registry
+File: src/framework/core/ModelRegistry.ts
+typescriptexport class ModelRegistry {
+  private static models: Map<string, typeof BaseModel> = new Map();
+  private static configs: Map<string, ModelConfig> = new Map();
+
+  static register(name: string, modelClass: typeof BaseModel, config: ModelConfig) {
+    this.models.set(name, modelClass);
+    this.configs.set(name, config);
+    
+    // Validate model configuration
+    this.validateModel(modelClass, config);
+  }
+
+  static get(name: string): typeof BaseModel | undefined {
+    return this.models.get(name);
+  }
+
+  static getConfig(name: string): ModelConfig | undefined {
+    return this.configs.get(name);
+  }
+
+  static getAllModels(): Map<string, typeof BaseModel> {
+    return this.models;
+  }
+
+  static getUserScopedModels(): Array<typeof BaseModel> {
+    return Array.from(this.models.values()).filter(
+      model => model.scope === 'user'
+    );
+  }
+
+  static getGlobalModels(): Array<typeof BaseModel> {
+    return Array.from(this.models.values()).filter(
+      model => model.scope === 'global'
+    );
+  }
+
+  private static validateModel(modelClass: typeof BaseModel, config: ModelConfig) {
+    // Validate model configuration
+    // Check for conflicts, missing requirements, etc.
+  }
+}
+Phase 2: Database Management & Sharding (Weeks 3-4)
+2.1 Database Manager
+File: src/framework/core/DatabaseManager.ts
+typescriptexport class DatabaseManager {
+  private framework: DebrosFramework;
+  private databases: Map<string, any> = new Map();
+  private userMappings: Map<string, any> = new Map();
+
+  constructor(framework: DebrosFramework) {
+    this.framework = framework;
+  }
+
+  async initializeAllDatabases() {
+    // Initialize global databases
+    await this.initializeGlobalDatabases();
+    
+    // Initialize system databases (user directory, etc.)
+    await this.initializeSystemDatabases();
+  }
+
+  async createUserDatabases(userId: string): Promise<UserMappings> {
+    const userScopedModels = ModelRegistry.getUserScopedModels();
+    const databases: any = {};
+
+    // Create mappings database first
+    const mappingsDB = await this.createDatabase(
+      `${userId}-mappings`,
+      'keyvalue',
+      'user'
+    );
+
+    // Create database for each user-scoped model
+    for (const model of userScopedModels) {
+      const dbName = `${userId}-${model.modelName.toLowerCase()}`;
+      const db = await this.createDatabase(dbName, model.dbType, 'user');
+      databases[`${model.modelName.toLowerCase()}DB`] = db.address.toString();
+    }
+
+    // Store mappings
+    await mappingsDB.set('mappings', databases);
+
+    // Register in global directory
+    await this.registerUserInDirectory(userId, mappingsDB.address.toString());
+
+    return new UserMappings(userId, databases);
+  }
+
+  async getUserDatabase(userId: string, modelName: string): Promise<any> {
+    const mappings = await this.getUserMappings(userId);
+    const dbAddress = mappings[`${modelName.toLowerCase()}DB`];
+    
+    if (!dbAddress) {
+      throw new Error(`Database not found for user ${userId} and model ${modelName}`);
+    }
+
+    return await this.openDatabase(dbAddress);
+  }
+
+  async getUserMappings(userId: string): Promise<any> {
+    // Check cache first
+    if (this.userMappings.has(userId)) {
+      return this.userMappings.get(userId);
+    }
+
+    // Get from global directory
+    const directoryShards = await this.getGlobalDirectoryShards();
+    const shardIndex = this.getShardIndex(userId, directoryShards.length);
+    const shard = directoryShards[shardIndex];
+    
+    const mappingsAddress = await shard.get(userId);
+    if (!mappingsAddress) {
+      throw new Error(`User ${userId} not found in directory`);
+    }
+
+    const mappingsDB = await this.openDatabase(mappingsAddress);
+    const mappings = await mappingsDB.get('mappings');
+    
+    // Cache for future use
+    this.userMappings.set(userId, mappings);
+    
+    return mappings;
+  }
+
+  private async createDatabase(name: string, type: StoreType, scope: string): Promise<any> {
+    // Use existing OrbitDB service
+    return await this.framework.orbitDBService.openDB(name, type);
+  }
+
+  private getShardIndex(key: string, shardCount: number): number {
+    // Simple hash-based sharding
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = ((hash << 5) - hash + key.charCodeAt(i)) & 0xffffffff;
+    }
+    return Math.abs(hash) % shardCount;
+  }
+}
+2.2 Shard Manager
+File: src/framework/sharding/ShardManager.ts
+typescriptexport interface ShardingConfig {
+  strategy: 'hash' | 'range' | 'user';
+  count: number;
+  key: string;
+}
+
+export class ShardManager {
+  private shards: Map<string, any[]> = new Map();
+
+  async createShards(modelName: string, config: ShardingConfig): Promise<void> {
+    const shards: any[] = [];
+
+    for (let i = 0; i < config.count; i++) {
+      const shardName = `${modelName.toLowerCase()}-shard-${i}`;
+      const shard = await this.createShard(shardName, config);
+      shards.push(shard);
+    }
+
+    this.shards.set(modelName, shards);
+  }
+
+  getShardForKey(modelName: string, key: string): any {
+    const shards = this.shards.get(modelName);
+    if (!shards) {
+      throw new Error(`No shards found for model ${modelName}`);
+    }
+
+    const shardIndex = this.calculateShardIndex(key, shards.length);
+    return shards[shardIndex];
+  }
+
+  getAllShards(modelName: string): any[] {
+    return this.shards.get(modelName) || [];
+  }
+
+  private calculateShardIndex(key: string, shardCount: number): number {
+    // Hash-based sharding
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = ((hash << 5) - hash + key.charCodeAt(i)) & 0xffffffff;
+    }
+    return Math.abs(hash) % shardCount;
+  }
+
+  private async createShard(shardName: string, config: ShardingConfig): Promise<any> {
+    // Create OrbitDB database for this shard
+    // Implementation depends on existing OrbitDB service
+  }
+}
+Phase 3: Query System (Weeks 5-6)
+3.1 Query Builder
+File: src/framework/query/QueryBuilder.ts
+typescriptexport class QueryBuilder<T extends BaseModel> {
+  private model: typeof BaseModel;
+  private conditions: QueryCondition[] = [];
+  private relations: string[] = [];
+  private sorting: SortConfig[] = [];
+  private limitation?: number;
+  private offsetValue?: number;
+
+  constructor(model: typeof BaseModel) {
+    this.model = model;
+  }
+
+  where(field: string, operator: string, value: any): this {
+    this.conditions.push({ field, operator, value });
+    return this;
+  }
+
+  whereIn(field: string, values: any[]): this {
+    return this.where(field, 'in', values);
+  }
+
+  whereUserIn(userIds: string[]): this {
+    // Special method for user-scoped queries
+    this.conditions.push({ 
+      field: 'userId', 
+      operator: 'userIn', 
+      value: userIds 
+    });
+    return this;
+  }
+
+  orderBy(field: string, direction: 'asc' | 'desc' = 'asc'): this {
+    this.sorting.push({ field, direction });
+    return this;
+  }
+
+  limit(count: number): this {
+    this.limitation = count;
+    return this;
+  }
+
+  offset(count: number): this {
+    this.offsetValue = count;
+    return this;
+  }
+
+  load(relationships: string[]): this {
+    this.relations = relationships;
+    return this;
+  }
+
+  async exec(): Promise<T[]> {
+    const executor = new QueryExecutor(this.model, this);
+    return await executor.execute();
+  }
+
+  async first(): Promise<T | null> {
+    const results = await this.limit(1).exec();
+    return results[0] || null;
+  }
+
+  async count(): Promise<number> {
+    const executor = new QueryExecutor(this.model, this);
+    return await executor.count();
+  }
+
+  // Getters for query configuration
+  getConditions(): QueryCondition[] { return this.conditions; }
+  getRelations(): string[] { return this.relations; }
+  getSorting(): SortConfig[] { return this.sorting; }
+  getLimit(): number | undefined { return this.limitation; }
+  getOffset(): number | undefined { return this.offsetValue; }
+}
+3.2 Query Executor
+File: src/framework/query/QueryExecutor.ts
+typescriptexport class QueryExecutor<T extends BaseModel> {
+  private model: typeof BaseModel;
+  private query: QueryBuilder<T>;
+  private framework: DebrosFramework;
+
+  constructor(model: typeof BaseModel, query: QueryBuilder<T>) {
+    this.model = model;
+    this.query = query;
+    this.framework = DebrosFramework.getInstance();
+  }
+
+  async execute(): Promise<T[]> {
+    if (this.model.scope === 'user') {
+      return await this.executeUserScopedQuery();
+    } else {
+      return await this.executeGlobalQuery();
+    }
+  }
+
+  private async executeUserScopedQuery(): Promise<T[]> {
+    const conditions = this.query.getConditions();
+    
+    // Check if we have user-specific filters
+    const userFilter = conditions.find(c => c.field === 'userId' || c.operator === 'userIn');
+    
+    if (userFilter) {
+      return await this.executeUserSpecificQuery(userFilter);
+    } else {
+      // Global query on user-scoped data - use global index
+      return await this.executeGlobalIndexQuery();
+    }
+  }
+
+  private async executeUserSpecificQuery(userFilter: QueryCondition): Promise<T[]> {
+    const userIds = userFilter.operator === 'userIn' 
+      ? userFilter.value 
+      : [userFilter.value];
+
+    const results: T[] = [];
+
+    // Query each user's database in parallel
+    const promises = userIds.map(async (userId: string) => {
+      try {
+        const userDB = await this.framework.databaseManager.getUserDatabase(
+          userId, 
+          this.model.modelName
+        );
+        
+        return await this.queryDatabase(userDB);
+      } catch (error) {
+        console.warn(`Failed to query user ${userId} database:`, error);
+        return [];
+      }
+    });
+
+    const userResults = await Promise.all(promises);
+    
+    // Flatten and combine results
+    for (const userResult of userResults) {
+      results.push(...userResult);
+    }
+
+    return this.postProcessResults(results);
+  }
+
+  private async executeGlobalIndexQuery(): Promise<T[]> {
+    // Query global index for user-scoped models
+    const globalIndexName = `${this.model.modelName}Index`;
+    const indexShards = this.framework.shardManager.getAllShards(globalIndexName);
+    
+    const results: any[] = [];
+    
+    // Query all shards in parallel
+    const promises = indexShards.map(shard => this.queryDatabase(shard));
+    const shardResults = await Promise.all(promises);
+    
+    for (const shardResult of shardResults) {
+      results.push(...shardResult);
+    }
+
+    // Now fetch actual documents from user databases
+    return await this.fetchActualDocuments(results);
+  }
+
+  private async executeGlobalQuery(): Promise<T[]> {
+    // For globally scoped models
+    if (this.model.sharding) {
+      return await this.executeShardedQuery();
+    } else {
+      const db = await this.framework.databaseManager.getGlobalDatabase(this.model.modelName);
+      return await this.queryDatabase(db);
+    }
+  }
+
+  private async queryDatabase(database: any): Promise<T[]> {
+    // Get all documents from OrbitDB
+    let documents: any[];
+    
+    if (this.model.dbType === 'eventlog') {
+      const iterator = database.iterator();
+      documents = iterator.collect();
+    } else if (this.model.dbType === 'keyvalue') {
+      documents = Object.values(database.all());
+    } else if (this.model.dbType === 'docstore') {
+      documents = database.query(() => true);
+    }
+
+    // Apply filters in memory
+    documents = this.applyFilters(documents);
+    
+    // Apply sorting
+    documents = this.applySorting(documents);
+    
+    // Apply limit/offset
+    documents = this.applyLimitOffset(documents);
+
+    // Convert to model instances
+    return documents.map(doc => new this.model(doc) as T);
+  }
+
+  private applyFilters(documents: any[]): any[] {
+    const conditions = this.query.getConditions();
+    
+    return documents.filter(doc => {
+      return conditions.every(condition => {
+        return this.evaluateCondition(doc, condition);
+      });
+    });
+  }
+
+  private evaluateCondition(doc: any, condition: QueryCondition): boolean {
+    const { field, operator, value } = condition;
+    const docValue = this.getNestedValue(doc, field);
+
+    switch (operator) {
+      case '=':
+      case '==':
+        return docValue === value;
+      case '!=':
+        return docValue !== value;
+      case '>':
+        return docValue > value;
+      case '>=':
+        return docValue >= value;
+      case '<':
+        return docValue < value;
+      case '<=':
+        return docValue <= value;
+      case 'in':
+        return Array.isArray(value) && value.includes(docValue);
+      case 'contains':
+        return Array.isArray(docValue) && docValue.includes(value);
+      case 'like':
+        return String(docValue).toLowerCase().includes(String(value).toLowerCase());
+      default:
+        throw new Error(`Unsupported operator: ${operator}`);
+    }
+  }
+
+  private postProcessResults(results: T[]): T[] {
+    // Apply global sorting across all results
+    results = this.applySorting(results);
+    
+    // Apply global limit/offset
+    results = this.applyLimitOffset(results);
+    
+    return results;
+  }
+}
+Phase 4: Relationships & Loading (Weeks 7-8)
+4.1 Relationship Manager
+File: src/framework/relationships/RelationshipManager.ts
+typescriptexport class RelationshipManager {
+  private framework: DebrosFramework;
+  private cache: RelationshipCache;
+
+  constructor(framework: DebrosFramework) {
+    this.framework = framework;
+    this.cache = new RelationshipCache();
+  }
+
+  async loadRelationship(
+    instance: BaseModel, 
+    relationshipName: string
+  ): Promise<any> {
+    const relationConfig = instance.constructor.relationships.get(relationshipName);
+    
+    if (!relationConfig) {
+      throw new Error(`Relationship '${relationshipName}' not found`);
+    }
+
+    // Check cache first
+    const cacheKey = this.getCacheKey(instance, relationshipName);
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    let result: any;
+
+    switch (relationConfig.type) {
+      case 'belongsTo':
+        result = await this.loadBelongsTo(instance, relationConfig);
+        break;
+      case 'hasMany':
+        result = await this.loadHasMany(instance, relationConfig);
+        break;
+      case 'hasOne':
+        result = await this.loadHasOne(instance, relationConfig);
+        break;
+      case 'manyToMany':
+        result = await this.loadManyToMany(instance, relationConfig);
+        break;
+      default:
+        throw new Error(`Unsupported relationship type: ${relationConfig.type}`);
+    }
+
+    // Cache the result
+    this.cache.set(cacheKey, result);
+    
+    // Store in instance
+    instance._loadedRelations.set(relationshipName, result);
+
+    return result;
+  }
+
+  private async loadBelongsTo(
+    instance: BaseModel, 
+    config: RelationshipConfig
+  ): Promise<BaseModel | null> {
+    const foreignKeyValue = instance[config.foreignKey];
+    
+    if (!foreignKeyValue) {
+      return null;
+    }
+
+    return await config.model.get(foreignKeyValue);
+  }
+
+  private async loadHasMany(
+    instance: BaseModel, 
+    config: RelationshipConfig
+  ): Promise<BaseModel[]> {
+    if (config.through) {
+      return await this.loadManyToMany(instance, config);
+    }
+
+    // Direct has-many relationship
+    const query = config.model.where(config.foreignKey, '=', instance.id);
+    return await query.exec();
+  }
+
+  private async loadHasOne(
+    instance: BaseModel, 
+    config: RelationshipConfig
+  ): Promise<BaseModel | null> {
+    const results = await this.loadHasMany(instance, config);
+    return results[0] || null;
+  }
+
+  private async loadManyToMany(
+    instance: BaseModel, 
+    config: RelationshipConfig
+  ): Promise<BaseModel[]> {
+    if (!config.through) {
+      throw new Error('Many-to-many relationships require a through model');
+    }
+
+    // Get junction table records
+    const junctionRecords = await config.through
+      .where(config.localKey || 'id', '=', instance.id)
+      .exec();
+
+    // Extract foreign keys
+    const foreignKeys = junctionRecords.map(record => record[config.foreignKey]);
+
+    // Get related models
+    return await config.model.whereIn('id', foreignKeys).exec();
+  }
+
+  async eagerLoadRelationships(
+    instances: BaseModel[], 
+    relationships: string[]
+  ): Promise<void> {
+    // Load relationships for multiple instances efficiently
+    for (const relationshipName of relationships) {
+      await this.eagerLoadSingleRelationship(instances, relationshipName);
+    }
+  }
+
+  private async eagerLoadSingleRelationship(
+    instances: BaseModel[], 
+    relationshipName: string
+  ): Promise<void> {
+    if (instances.length === 0) return;
+
+    const firstInstance = instances[0];
+    const relationConfig = firstInstance.constructor.relationships.get(relationshipName);
+    
+    if (!relationConfig) {
+      throw new Error(`Relationship '${relationshipName}' not found`);
+    }
+
+    switch (relationConfig.type) {
+      case 'belongsTo':
+        await this.eagerLoadBelongsTo(instances, relationConfig);
+        break;
+      case 'hasMany':
+        await this.eagerLoadHasMany(instances, relationConfig);
+        break;
+      // Add other relationship types...
+    }
+  }
+
+  private async eagerLoadBelongsTo(
+    instances: BaseModel[], 
+    config: RelationshipConfig
+  ): Promise<void> {
+    // Get all foreign key values
+    const foreignKeys = instances
+      .map(instance => instance[config.foreignKey])
+      .filter(key => key != null);
+
+    // Remove duplicates
+    const uniqueForeignKeys = [...new Set(foreignKeys)];
+
+    // Load all related models at once
+    const relatedModels = await config.model.whereIn('id', uniqueForeignKeys).exec();
+    
+    // Create lookup map
+    const relatedMap = new Map();
+    relatedModels.forEach(model => relatedMap.set(model.id, model));
+
+    // Assign to instances
+    instances.forEach(instance => {
+      const foreignKeyValue = instance[config.foreignKey];
+      const related = relatedMap.get(foreignKeyValue) || null;
+      instance._loadedRelations.set(relationshipName, related);
+    });
+  }
+}
+Phase 5: Automatic Features (Weeks 9-10)
+5.1 Pinning Manager
+File: src/framework/pinning/PinningManager.ts
+typescriptexport class PinningManager {
+  private framework: DebrosFramework;
+  private strategies: Map<string, PinningStrategy> = new Map();
+
+  constructor(framework: DebrosFramework) {
+    this.framework = framework;
+    this.initializeStrategies();
+  }
+
+  async pinDocument(model: BaseModel, document: any): Promise<void> {
+    const modelClass = model.constructor as typeof BaseModel;
+    const pinningConfig = ModelRegistry.getConfig(modelClass.name)?.pinning;
+    
+    if (!pinningConfig) {
+      // Use default pinning
+      await this.pinToNodes(document.cid, 2);
+      return;
+    }
+
+    const strategy = this.strategies.get(pinningConfig.strategy || 'fixed');
+    if (!strategy) {
+      throw new Error(`Unknown pinning strategy: ${pinningConfig.strategy}`);
+    }
+
+    const pinningFactor = await strategy.calculatePinningFactor(document, pinningConfig);
+    await this.pinToNodes(document.cid, pinningFactor);
+  }
+
+  private async pinToNodes(cid: string, factor: number): Promise<void> {
+    // Get available nodes from IPFS service
+    const availableNodes = await this.framework.ipfsService.getConnectedPeers();
+    const nodeArray = Array.from(availableNodes.keys());
+    
+    // Select nodes for pinning
+    const selectedNodes = this.selectPinningNodes(nodeArray, factor);
+    
+    // Pin to selected nodes
+    const pinPromises = selectedNodes.map(nodeId => 
+      this.pinToSpecificNode(nodeId, cid)
+    );
+    
+    await Promise.allSettled(pinPromises);
+  }
+
+  private selectPinningNodes(nodes: string[], factor: number): string[] {
+    // Simple round-robin selection for now
+    // Could be enhanced with load balancing, geographic distribution, etc.
+    const shuffled = [...nodes].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(factor, nodes.length));
+  }
+
+  private async pinToSpecificNode(nodeId: string, cid: string): Promise<void> {
+    try {
+      // Implementation depends on your IPFS cluster setup
+      // This could be HTTP API calls, libp2p messages, etc.
+      await this.framework.ipfsService.pinOnNode(nodeId, cid);
+    } catch (error) {
+      console.warn(`Failed to pin ${cid} to node ${nodeId}:`, error);
+    }
+  }
+}
+
+export interface PinningStrategy {
+  calculatePinningFactor(document: any, config: PinningConfig): Promise<number>;
+}
+
+export class PopularityPinningStrategy implements PinningStrategy {
+  async calculatePinningFactor(document: any, config: PinningConfig): Promise<number> {
+    const baseFactor = config.factor || 2;
+    
+    // Increase pinning based on engagement
+    const likes = document.likes || 0;
+    const comments = document.comments || 0;
+    const engagement = likes + (comments * 2);
+    
+    if (engagement > 1000) return baseactor * 5;
+    if (engagement > 100) return baseactor * 3;
+    if (engagement > 10) return baseactor * 2;
+    
+    return baseFactor;
+  }
+}
+5.2 PubSub Manager
+File: src/framework/pubsub/PubSubManager.ts
+typescriptexport class PubSubManager {
+  private framework: DebrosFramework;
+  private subscriptions: Map<string, Set<Function>> = new Map();
+
+  constructor(framework: DebrosFramework) {
+    this.framework = framework;
+  }
+
+  async publishModelEvent(
+    model: BaseModel, 
+    event: string, 
+    data: any
+  ): Promise<void> {
+    const modelClass = model.constructor as typeof BaseModel;
+    const pubsubConfig = ModelRegistry.getConfig(modelClass.name)?.pubsub;
+    
+    if (!pubsubConfig || !pubsubConfig.events.includes(event)) {
+      return; // No pub/sub configured for this event
+    }
+
+    // Publish to configured channels
+    for (const channelTemplate of pubsubConfig.channels) {
+      const channel = this.resolveChannelTemplate(channelTemplate, model, data);
+      await this.publishToChannel(channel, {
+        model: modelClass.name,
+        event,
+        data,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  async subscribe(
+    channel: string, 
+    callback: (data: any) => void
+  ): Promise<() => void> {
+    if (!this.subscriptions.has(channel)) {
+      this.subscriptions.set(channel, new Set());
+      
+      // Subscribe to IPFS pubsub
+      await this.framework.ipfsService.pubsub.subscribe(
+        channel, 
+        (message) => this.handleChannelMessage(channel, message)
+      );
+    }
+
+    this.subscriptions.get(channel)!.add(callback);
+
+    // Return unsubscribe function
+    return () => {
+      const channelSubs = this.subscriptions.get(channel);
+      if (channelSubs) {
+        channelSubs.delete(callback);
+        if (channelSubs.size === 0) {
+          this.subscriptions.delete(channel);
+          this.framework.ipfsService.pubsub.unsubscribe(channel);
+        }
+      }
+    };
+  }
+
+  private resolveChannelTemplate(
+    template: string, 
+    model: BaseModel, 
+    data: any
+  ): string {
+    return template
+      .replace('{userId}', model.userId || 'unknown')
+      .replace('{modelName}', model.constructor.name)
+      .replace('{id}', model.id);
+  }
+
+  private async publishToChannel(channel: string, data: any): Promise<void> {
+    const message = JSON.stringify(data);
+    await this.framework.ipfsService.pubsub.publish(channel, message);
+  }
+
+  private handleChannelMessage(channel: string, message: any): void {
+    const subscribers = this.subscriptions.get(channel);
+    if (!subscribers) return;
+
+    try {
+      const data = JSON.parse(message.data.toString());
+      subscribers.forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error('Error in pubsub callback:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error parsing pubsub message:', error);
+    }
+  }
+}
+Phase 6: Migration System (Weeks 11-12)
+6.1 Migration Manager
+File: src/framework/migrations/MigrationManager.ts
+typescriptexport abstract class Migration {
+  abstract version: number;
+  abstract modelName: string;
+  
+  abstract up(document: any): any;
+  abstract down(document: any): any;
+  
+  async validate(document: any): Promise<boolean> {
+    // Optional validation after migration
+    return true;
+  }
+}
+
+export class MigrationManager {
+  private migrations: Map<string, Migration[]> = new Map();
+  private framework: DebrosFramework;
+
+  constructor(framework: DebrosFramework) {
+    this.framework = framework;
+  }
+
+  registerMigration(migration: Migration): void {
+    const modelName = migration.modelName;
+    
+    if (!this.migrations.has(modelName)) {
+      this.migrations.set(modelName, []);
+    }
+    
+    const modelMigrations = this.migrations.get(modelName)!;
+    modelMigrations.push(migration);
+    
+    // Sort by version
+    modelMigrations.sort((a, b) => a.version - b.version);
+  }
+
+  async migrateDocument(
+    document: any, 
+    modelName: string, 
+    targetVersion?: number
+  ): Promise<any> {
+    const currentVersion = document._schemaVersion || 1;
+    const modelClass = ModelRegistry.get(modelName);
+    
+    if (!modelClass) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    const finalVersion = targetVersion || modelClass.currentVersion || 1;
+    
+    if (currentVersion === finalVersion) {
+      return document; // No migration needed
+    }
+
+    if (currentVersion > finalVersion) {
+      return await this.downgradeDocument(document, modelName, currentVersion, finalVersion);
+    } else {
+      return await this.upgradeDocument(document, modelName, currentVersion, finalVersion);
+    }
+  }
+
+  private async upgradeDocument(
+    document: any, 
+    modelName: string, 
+    fromVersion: number, 
+    toVersion: number
+  ): Promise<any> {
+    const migrations = this.getMigrationsForModel(modelName);
+    let current = { ...document };
+
+    for (const migration of migrations) {
+      if (migration.version > fromVersion && migration.version <= toVersion) {
+        try {
+          current = migration.up(current);
+          current._schemaVersion = migration.version;
+          
+          // Validate migration result
+          const isValid = await migration.validate(current);
+          if (!isValid) {
+            throw new Error(`Migration validation failed for version ${migration.version}`);
+          }
+        } catch (error) {
+          console.error(`Migration failed at version ${migration.version}:`, error);
+          throw error;
+        }
+      }
+    }
+
+    return current;
+  }
+
+  private async downgradeDocument(
+    document: any, 
+    modelName: string, 
+    fromVersion: number, 
+    toVersion: number
+  ): Promise<any> {
+    const migrations = this.getMigrationsForModel(modelName).reverse();
+    let current = { ...document };
+
+    for (const migration of migrations) {
+      if (migration.version <= fromVersion && migration.version > toVersion) {
+        try {
+          current = migration.down(current);
+          current._schemaVersion = migration.version - 1;
+        } catch (error) {
+          console.error(`Downgrade failed at version ${migration.version}:`, error);
+          throw error;
+        }
+      }
+    }
+
+    return current;
+  }
+
+  private getMigrationsForModel(modelName: string): Migration[] {
+    return this.migrations.get(modelName) || [];
+  }
+
+  async migrateAllDocuments(modelName: string): Promise<void> {
+    // Background migration of all documents for a model
+    const modelClass = ModelRegistry.get(modelName);
+    if (!modelClass) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    if (modelClass.scope === 'user') {
+      await this.migrateUserScopedModel(modelName);
+    } else {
+      await this.migrateGlobalModel(modelName);
+    }
+  }
+
+  private async migrateUserScopedModel(modelName: string): Promise<void> {
+    // This is complex - would need to iterate through all users
+    // and migrate their individual databases
+    console.log(`Background migration for user-scoped model ${modelName} not implemented`);
+  }
+
+  private async migrateGlobalModel(modelName: string): Promise<void> {
+    // Migrate documents in global database
+    const db = await this.framework.databaseManager.getGlobalDatabase(modelName);
+    // Implementation depends on database type and migration strategy
+  }
+}
+
+// Example migration
+export class PostAddMediaMigration extends Migration {
+  version = 2;
+  modelName = 'Post';
+
+  up(document: any): any {
+    return {
+      ...document,
+      mediaCIDs: [], // Add new field
+      _schemaVersion: 2
+    };
+  }
+
+  down(document: any): any {
+    const { mediaCIDs, ...rest } = document;
+    return {
+      ...rest,
+      _schemaVersion: 1
+    };
+  }
+}
+Phase 7: Framework Integration (Weeks 13-14)
+7.1 Main Framework Class
+File: src/framework/core/DebrosFramework.ts
+typescriptexport class DebrosFramework {
+  private static instance: DebrosFramework;
+  
+  public databaseManager: DatabaseManager;
+  public shardManager: ShardManager;
+  public queryExecutor: QueryExecutor;
+  public relationshipManager: RelationshipManager;
+  public pinningManager: PinningManager;
+  public pubsubManager: PubSubManager;
+  public migrationManager: MigrationManager;
+  public cacheManager: CacheManager;
+  
+  public ipfsService: any;
+  public orbitDBService: any;
+  
+  private initialized: boolean = false;
+
+  constructor(config: FrameworkConfig) {
+    this.databaseManager = new DatabaseManager(this);
+    this.shardManager = new ShardManager();
+    this.relationshipManager = new RelationshipManager(this);
+    this.pinningManager = new PinningManager(this);
+    this.pubsubManager = new PubSubManager(this);
+    this.migrationManager = new MigrationManager(this);
+    this.cacheManager = new CacheManager(config.cache);
+    
+    // Use existing services
+    this.ipfsService = ipfsService;
+    this.orbitDBService = orbitDBService;
+  }
+
+  static getInstance(config?: FrameworkConfig): DebrosFramework {
+    if (!DebrosFramework.instance) {
+      if (!config) {
+        throw new Error('Framework not initialized. Provide config on first call.');
+      }
+      DebrosFramework.instance = new DebrosFramework(config);
+    }
+    return DebrosFramework.instance;
+  }
+
+  async initialize(models: Array<typeof BaseModel> = []): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    // Initialize underlying services
+    await this.ipfsService.init();
+    await this.orbitDBService.init();
+
+    // Register models
+    models.forEach(model => {
+      if (!ModelRegistry.get(model.name)) {
+        // Auto-register models that weren't registered via decorators
+        ModelRegistry.register(model.name, model, {});
+      }
+    });
+
+    // Initialize databases
+    await this.databaseManager.initializeAllDatabases();
+
+    // Create shards for global models
+    const globalModels = ModelRegistry.getGlobalModels();
+    for (const model of globalModels) {
+      if (model.sharding) {
+        await this.shardManager.createShards(model.name, model.sharding);
+      }
+    }
+
+    // Set up model stores
+    await this.setupModelStores();
+
+    // Set up automatic event handling
+    await this.setupEventHandling();
+
+    this.initialized = true;
+  }
+
+  async createUser(userData: any): Promise<any> {
+    return await this.databaseManager.createUserDatabases(userData.id);
+  }
+
+  async getUser(userId: string): Promise<any> {
+    return await this.databaseManager.getUserMappings(userId);
+  }
+
+  private async setupModelStores(): Promise<void> {
+    const allModels = ModelRegistry.getAllModels();
+    
+    for (const [modelName, modelClass] of allModels) {
+      // Set the store for each model
+      if (modelClass.scope === 'global') {
+        if (modelClass.sharding) {
+          // Sharded global model
+          const shards = this.shardManager.getAllShards(modelName);
+          modelClass.setShards(shards);
+        } else {
+          // Single global database
+          const db = await this.databaseManager.getGlobalDatabase(modelName);
+          modelClass.setStore(db);
+        }
+      }
+      // User-scoped models get their stores dynamically per query
+    }
+  }
+
+  private async setupEventHandling(): Promise<void> {
+    // Set up automatic pub/sub and pinning for model events
+    const allModels = ModelRegistry.getAllModels();
+    
+    for (const [modelName, modelClass] of allModels) {
+      // Hook into model lifecycle events
+      this.setupModelEventHooks(modelClass);
+    }
+  }
+
+  private setupModelEventHooks(modelClass: typeof BaseModel): void {
+    const originalCreate = modelClass.create;
+    const originalUpdate = modelClass.prototype.update;
+    const originalDelete = modelClass.prototype.delete;
+
+    // Override create method
+    modelClass.create = async function(data: any) {
+      const instance = await originalCreate.call(this, data);
+      
+      // Automatic pinning
+      await DebrosFramework.getInstance().pinningManager.pinDocument(instance, data);
+      
+      // Automatic pub/sub
+      await DebrosFramework.getInstance().pubsubManager.publishModelEvent(
+        instance, 'created', data
+      );
+      
+      return instance;
+    };
+
+    // Override update method
+    modelClass.prototype.update = async function(data: any) {
+      const result = await originalUpdate.call(this, data);
+      
+      // Automatic pub/sub
+      await DebrosFramework.getInstance().pubsubManager.publishModelEvent(
+        this, 'updated', data
+      );
+      
+      return result;
+    };
+
+    // Override delete method
+    modelClass.prototype.delete = async function() {
+      const result = await originalDelete.call(this);
+      
+      // Automatic pub/sub
+      await DebrosFramework.getInstance().pubsubManager.publishModelEvent(
+        this, 'deleted', {}
+      );
+      
+      return result;
+    };
+  }
+
+  async stop(): Promise<void> {
+    await this.orbitDBService.stop();
+    await this.ipfsService.stop();
+    this.initialized = false;
+  }
+}
+
+export interface FrameworkConfig {
+  cache?: CacheConfig;
+  defaultPinning?: PinningConfig;
+  autoMigration?: boolean;
+}
+Testing Strategy
+Unit Tests
+
+Model Tests: Test model creation, validation, serialization
+Decorator Tests: Test all decorators work correctly
+Query Tests: Test query builder and execution
+Relationship Tests: Test all relationship types
+Migration Tests: Test schema migrations
+Sharding Tests: Test shard distribution and querying
+
+Integration Tests
+
+End-to-End Scenarios: Complete user workflows
+Cross-Model Tests: Complex queries across multiple models
+Performance Tests: Large dataset handling
+Failure Recovery: Network failures, node failures
+
+Performance Tests
+
+Scalability Tests: Test with millions of documents
+Query Performance: Benchmark query execution times
+Memory Usage: Monitor memory consumption
+Concurrent Access: Test multiple simultaneous operations
+
+Documentation Requirements
+Developer Documentation
+
+Getting Started Guide: Basic setup and first model
+Model Guide: Comprehensive model documentation
+Relationships Guide: All relationship types with examples
+Query Guide: Complete query API documentation
+Migration Guide: Schema evolution patterns
+Advanced Features: Sharding, pinning, pub/sub customization
+
+API Reference
+
+Complete TypeScript API documentation
+All decorators with examples
+Query builder methods
+Framework configuration options
+
+Examples
+
+Basic blog application
+Social media features
+Real-time chat
+Complex relationship scenarios
+Migration examples
+
+Implementation Priorities
+Critical Path (Must implement first)
+
+BaseModel class with basic CRUD
+@Model and @Field decorators
+Basic query builder (where, limit, etc.)
+User database creation and management
+Simple relationships (belongsTo, hasMany)
+
+High Priority (Implement second)
+
+Global indexing for cross-user queries
+Automatic pinning based on model config
+Query optimization and caching
+Complete relationship types
+Migration system
+
+Medium Priority (Can be added later)
+
+Advanced sharding strategies
+Complex pinning strategies
+Pub/sub system
+Performance monitoring
+Advanced caching
+
+Nice to Have (Future enhancements)
+
+GraphQL integration
+Real-time subscriptions
+Backup and recovery
+Analytics and metrics
+Admin dashboard
+
+Development Workflow
+Phase Implementation
+
+Create feature branch for each phase
+Implement core functionality with basic tests
+Add comprehensive tests for the feature
+Update documentation with examples
+Review and integrate with main branch
+
+Code Quality Standards
+
+TypeScript strict mode enabled
+100% type coverage for public APIs
+Unit test coverage minimum 80%
+ESLint and Prettier for code formatting
+Conventional commits for changelog generation
+
+Testing Approach
+
+TDD approach where possible
+Mock OrbitDB/IPFS for unit tests
+Real OrbitDB for integration tests
+Performance benchmarks for critical paths
+
+This specification provides a comprehensive roadmap for building the DebrosFramework. Each phase builds upon the previous one, allowing for iterative development and testing. The framework will provide a powerful, developer-friendly abstraction over OrbitDB while maintaining the scalability benefits of your original architecture.Crafted comprehensive dev document for AI framework implementation.7sThe user wants a comprehensive development document that can be provided to AI assistants to help build the framework. I've created a very detailed specification that covers:
+
+Architecture and Design Principles - Clear overview of what we're building and why
+Detailed Project Structure - Complete file organization
+Phase-by-Phase Implementation Plan - 7 phases over 14 weeks with specific deliverables
+Complete Code Examples - Detailed implementation examples for each major component
+Testing Strategy - Unit, integration, and performance testing approaches
+Documentation Requirements - What docs need to be created
+Implementation Priorities - What to build first vs. later
+Development Workflow - How to organize the work
+
+The document is structured so that an AI assistant could:
+
+Understand the overall architecture
+Implement specific components with the provided examples
+Follow the testing and documentation requirements
+Prioritize work appropriately
+
+Each phase has specific deliverables and code examples that show exactly what needs to be built. The document balances being comprehensive with being actionable - it provides enough detail that someone (or an AI) could start implementing immediately.
+Key strengths of this specification:
+
+Concrete code examples for all major components
+Clear separation of concerns between different modules
+Incremental development approach that allows testing at each phase
+Realistic timeline with achievable milestones
+Comprehensive testing strategy to ensure quality
+Scalability considerations built into the design from the start
+
+The document should give the user everything they need to either implement this themselves or provide to AI assistants for help with implementation.I've created a comprehensive development specification document that covers everything needed to build the DebrosFramework. This document is designed to be provided to AI assistants like Claude for implementation help.
+Key Features of This Specification:
+Complete Architecture Overview
+
+Clear design principles and goals
+Detailed project structure with file organization
+Integration with your existing @debros/network codebase
+
+Phase-by-Phase Implementation Plan (14 weeks)
+
+Phase 1-2: Core model system with decorators
+Phase 3-4: Database management and sharding
+Phase 5-6: Query system and relationships
+Phase 7-8: Relationship loading and caching
+Phase 9-10: Automatic pinning and pub/sub
+Phase 11-12: Migration system
+Phase 13-14: Framework integration and optimization
+
+Detailed Code Examples
+
+Complete BaseModel implementation
+All decorator implementations (@Model, @Field, @BelongsTo, etc.)
+Query builder with smart execution strategies
+Relationship management across database types
+Automatic pinning and pub/sub systems
+Schema migration handling
+
+Comprehensive Implementation Details
+
+How user-scoped vs global databases work
+Sharding strategies for millions of users
+Query optimization for different scenarios
+Relationship loading across database types
+Automatic feature management (pinning, pub/sub, etc.)
+
+Developer Experience Focus
+The framework provides a clean, familiar API while handling all OrbitDB complexity automatically:
+typescript// Simple API that developers see
+@Model({ scope: 'user', pinning: { factor: 3 } })
+class Post extends BaseModel {
+  @Field({ type: 'string' })
+  content: string;
+
+  @BelongsTo(User, 'userId')
+  author: User;
+}
+
+// Complex operations work seamlessly
+const posts = await Post
+  .whereUserIn(followedUsers)
+  .where('isPublic', '=', true)
+  .load(['author'])
+  .orderBy('createdAt', 'desc')
+  .limit(50)
+  .exec();
+Testing & Quality Assurance
+
+Unit, integration, and performance testing strategies
+Code quality standards and workflows
+Documentation requirements
+
+How to Use This Specification:
+
+For AI Assistance: Provide this entire document to Claude or other AI assistants when asking for implementation help
+For Development Teams: Use as a technical specification and roadmap
+For Phase Planning: Each phase has clear deliverables and can be implemented independently
