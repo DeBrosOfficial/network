@@ -24,6 +24,7 @@ export interface RelationshipConfig {
   type: 'belongsTo' | 'hasMany' | 'hasOne' | 'manyToMany';
   model?: typeof BaseModel;
   modelFactory?: () => typeof BaseModel;
+  targetModel?: () => typeof BaseModel; // Alias for test compatibility
   foreignKey: string;
   localKey?: string;
   otherKey?: string;

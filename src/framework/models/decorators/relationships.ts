@@ -14,6 +14,7 @@ export function BelongsTo(
       localKey: options.localKey || 'id',
       lazy: true,
       options,
+      targetModel: modelFactory, // Add targetModel as alias for test compatibility
     };
 
     registerRelationship(target, propertyKey, config);
@@ -35,6 +36,7 @@ export function HasMany(
       through: options.through,
       lazy: true,
       options,
+      targetModel: modelFactory, // Add targetModel as alias for test compatibility
     };
 
     registerRelationship(target, propertyKey, config);
@@ -55,6 +57,7 @@ export function HasOne(
       localKey: options.localKey || 'id',
       lazy: true,
       options,
+      targetModel: modelFactory, // Add targetModel as alias for test compatibility
     };
 
     registerRelationship(target, propertyKey, config);
@@ -79,6 +82,7 @@ export function ManyToMany(
       through,
       lazy: true,
       options,
+      targetModel: modelFactory, // Add targetModel as alias for test compatibility
     };
 
     registerRelationship(target, propertyKey, config);

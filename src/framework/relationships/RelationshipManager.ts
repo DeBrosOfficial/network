@@ -102,8 +102,14 @@ export class RelationshipManager {
       return null;
     }
 
+    // Get the related model class
+    const RelatedModel = config.model || (config.modelFactory ? config.modelFactory() : null) || (config.targetModel ? config.targetModel() : null);
+    if (!RelatedModel) {
+      throw new Error(`Cannot resolve related model for belongsTo relationship`);
+    }
+
     // Build query for the related model
-    let query = (config.model as any).where('id', '=', foreignKeyValue);
+    let query = (RelatedModel as any).where('id', '=', foreignKeyValue);
 
     // Apply constraints if provided
     if (options.constraints) {
@@ -129,8 +135,14 @@ export class RelationshipManager {
       return [];
     }
 
+    // Get the related model class
+    const RelatedModel = config.model || (config.modelFactory ? config.modelFactory() : null) || (config.targetModel ? config.targetModel() : null);
+    if (!RelatedModel) {
+      throw new Error(`Cannot resolve related model for hasMany relationship`);
+    }
+
     // Build query for the related model
-    let query = (config.model as any).where(config.foreignKey, '=', localKeyValue);
+    let query = (RelatedModel as any).where(config.foreignKey, '=', localKeyValue);
 
     // Apply constraints if provided
     if (options.constraints) {
@@ -202,7 +214,13 @@ export class RelationshipManager {
     const foreignKeys = junctionRecords.map((record: any) => record[config.foreignKey]);
 
     // Step 3: Get related models
-    let relatedQuery = (config.model as any).whereIn('id', foreignKeys);
+    // Get the related model class
+    const RelatedModel = config.model || (config.modelFactory ? config.modelFactory() : null) || (config.targetModel ? config.targetModel() : null);
+    if (!RelatedModel) {
+      throw new Error(`Cannot resolve related model for manyToMany relationship`);
+    }
+
+    let relatedQuery = (RelatedModel as any).whereIn('id', foreignKeys);
 
     // Apply constraints if provided
     if (options.constraints) {

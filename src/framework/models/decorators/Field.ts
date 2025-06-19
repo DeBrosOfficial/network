@@ -5,9 +5,11 @@ export function Field(config: FieldConfig) {
     // Validate field configuration
     validateFieldConfig(config);
     
-    // Initialize fields map if it doesn't exist on this specific constructor
+    // Initialize fields map if it doesn't exist, inheriting from parent
     if (!target.constructor.hasOwnProperty('fields')) {
-      target.constructor.fields = new Map();
+      // Copy fields from parent class if they exist
+      const parentFields = target.constructor.fields || new Map();
+      target.constructor.fields = new Map(parentFields);
     }
 
     // Store field configuration
@@ -153,11 +155,24 @@ function isValidType(value: any, expectedType: FieldConfig['type']): boolean {
 // Utility function to get field configuration
 export function getFieldConfig(target: any, propertyKey: string): FieldConfig | undefined {
   // Handle both class constructors and instances
-  const fields = target.fields || (target.constructor && target.constructor.fields);
-  if (!fields) {
-    return undefined;
+  let current = target;
+  if (target.constructor && target.constructor !== Function) {
+    current = target.constructor;
   }
-  return fields.get(propertyKey);
+  
+  // Walk up the prototype chain to find field configuration
+  while (current && current !== Function && current !== Object) {
+    if (current.fields && current.fields.has(propertyKey)) {
+      return current.fields.get(propertyKey);
+    }
+    current = Object.getPrototypeOf(current);
+    // Stop if we've reached the base class or gone too far
+    if (current === Function.prototype || current === Object.prototype) {
+      break;
+    }
+  }
+  
+  return undefined;
 }
 
 // Export the decorator type for TypeScript

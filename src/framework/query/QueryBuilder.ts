@@ -25,24 +25,58 @@ export class QueryBuilder<T extends BaseModel> {
   // Basic filtering
   where(field: string, operator: string, value: any): this;
   where(field: string, value: any): this;
-  where(field: string, operatorOrValue: string | any, value?: any): this {
+  where(callback: (query: QueryBuilder<T>) => void): this;
+  where(fieldOrCallback: string | ((query: QueryBuilder<T>) => void), operatorOrValue?: string | any, value?: any): this {
+    if (typeof fieldOrCallback === 'function') {
+      // Callback version: where((query) => { ... })
+      const subQuery = new QueryBuilder<T>(this.model);
+      fieldOrCallback(subQuery);
+
+      this.conditions.push({
+        field: '__group__',
+        operator: 'group',
+        value: null,
+        type: 'group',
+        conditions: subQuery.getWhereConditions()
+      });
+      return this;
+    }
+
+    // Validate field name
+    this.validateFieldName(fieldOrCallback);
+
     if (value !== undefined) {
       // Three parameter version: where('field', 'operator', 'value')
       const normalizedOperator = this.normalizeOperator(operatorOrValue);
-      this.conditions.push({ field, operator: normalizedOperator, value });
+      this.conditions.push({ field: fieldOrCallback, operator: normalizedOperator, value });
     } else {
       // Two parameter version: where('field', 'value') - defaults to equality
       // Special handling for null checks
       if (typeof operatorOrValue === 'string') {
         const lowerValue = operatorOrValue.toLowerCase();
         if (lowerValue === 'is null' || lowerValue === 'is not null') {
-          this.conditions.push({ field, operator: lowerValue, value: null });
+          this.conditions.push({ field: fieldOrCallback, operator: lowerValue, value: null });
           return this;
         }
       }
-      this.conditions.push({ field, operator: 'eq', value: operatorOrValue });
+      this.conditions.push({ field: fieldOrCallback, operator: 'eq', value: operatorOrValue });
     }
     return this;
+  }
+
+  private validateFieldName(fieldName: string): void {
+    // Get model fields if available
+    const modelFields = (this.model as any).fields;
+    if (modelFields && modelFields instanceof Map) {
+      const validFields = Array.from(modelFields.keys());
+      // Also include common fields that are always valid
+      validFields.push('id', 'createdAt', 'updatedAt', 'status', 'random', 'lastLoginAt');
+      
+      if (!validFields.includes(fieldName)) {
+        throw new Error(`Invalid field name: ${fieldName}. Valid fields are: ${validFields.join(', ')}`);
+      }
+    }
+    // If no model fields available, skip validation (for dynamic queries)
   }
 
   private normalizeOperator(operator: string): string {
@@ -57,7 +91,6 @@ export class QueryBuilder<T extends BaseModel> {
       'like': 'like',
       'ilike': 'ilike',
       'in': 'in',
-      'not_in': 'not in',  // Reverse mapping: internal -> expected
       'not in': 'not in',
       'is null': 'is null',
       'is not null': 'is not null',
@@ -65,7 +98,21 @@ export class QueryBuilder<T extends BaseModel> {
       'between': 'between'
     };
 
-    return operatorMap[operator.toLowerCase()] || operator;
+    const normalizedOp = operatorMap[operator.toLowerCase()];
+    if (!normalizedOp && !this.isValidOperator(operator)) {
+      throw new Error(`Invalid operator: ${operator}. Valid operators are: ${Object.keys(operatorMap).join(', ')}`);
+    }
+
+    return normalizedOp || operator;
+  }
+
+  private isValidOperator(operator: string): boolean {
+    const validOperators = [
+      'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 
+      'in', 'not in', 'is null', 'is not null', 'regex', 'between',
+      'array_contains', 'object_has_key', 'includes', 'includes any', 'includes all'
+    ];
+    return validOperators.includes(operator.toLowerCase());
   }
 
   whereIn(field: string, values: any[]): this {
@@ -206,6 +253,14 @@ export class QueryBuilder<T extends BaseModel> {
 
   // Sorting
   orderBy(field: string, direction: 'asc' | 'desc' = 'asc'): this {
+    // Validate direction
+    if (direction !== 'asc' && direction !== 'desc') {
+      throw new Error(`Invalid order direction: ${direction}. Valid directions are: asc, desc`);
+    }
+    
+    // Validate field name  
+    this.validateFieldName(field);
+    
     this.sorting.push({ field, direction });
     return this;
   }
@@ -227,11 +282,17 @@ export class QueryBuilder<T extends BaseModel> {
 
   // Pagination
   limit(count: number): this {
+    if (count < 0) {
+      throw new Error(`Limit must be non-negative, got: ${count}`);
+    }
     this.limitation = count;
     return this;
   }
 
   offset(count: number): this {
+    if (count < 0) {
+      throw new Error(`Offset must be non-negative, got: ${count}`);
+    }
     this.offsetValue = count;
     return this;
   }
@@ -520,6 +581,10 @@ export class QueryBuilder<T extends BaseModel> {
     this.groupByFields = [];
     this.havingConditions = [];
     this.distinctFields = [];
+    this.cursorValue = undefined;
+    this.cacheEnabled = false;
+    this.cacheTtl = undefined;
+    this.cacheKey = undefined;
     return this;
   }
 

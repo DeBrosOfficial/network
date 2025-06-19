@@ -69,9 +69,16 @@ export function AfterSave(target: any, propertyKey: string, descriptor: Property
 }
 
 function registerHook(target: any, hookName: string, hookFunction: Function): void {
-  // Initialize hooks map if it doesn't exist on this specific constructor
+  // Initialize hooks map if it doesn't exist, inheriting from parent
   if (!target.constructor.hasOwnProperty('hooks')) {
+    // Copy hooks from parent class if they exist
+    const parentHooks = target.constructor.hooks || new Map();
     target.constructor.hooks = new Map();
+    
+    // Copy all parent hooks
+    for (const [name, hooks] of parentHooks.entries()) {
+      target.constructor.hooks.set(name, [...hooks]);
+    }
   }
 
   // Get existing hooks for this hook name
@@ -89,19 +96,34 @@ function registerHook(target: any, hookName: string, hookFunction: Function): vo
 // Utility function to get hooks for a specific event or all hooks
 export function getHooks(target: any, hookName?: string): string[] | Record<string, string[]> {
   // Handle both class constructors and instances
-  const hooks = target.hooks || (target.constructor && target.constructor.hooks);
-  if (!hooks) {
-    return hookName ? [] : {};
+  let current = target;
+  if (target.constructor && target.constructor !== Function) {
+    current = target.constructor;
+  }
+  
+  // Collect hooks from the entire prototype chain
+  const allHooks: Record<string, string[]> = {};
+  
+  while (current && current !== Function && current !== Object) {
+    if (current.hooks) {
+      for (const [name, hookFunctions] of current.hooks.entries()) {
+        if (!allHooks[name]) {
+          allHooks[name] = [];
+        }
+        // Add hooks from this level (parent hooks first, child hooks last)
+        allHooks[name] = [...hookFunctions, ...allHooks[name]];
+      }
+    }
+    current = Object.getPrototypeOf(current);
+    // Stop if we've reached the base class or gone too far
+    if (current === Function.prototype || current === Object.prototype) {
+      break;
+    }
   }
   
   if (hookName) {
-    return hooks.get(hookName) || [];
+    return allHooks[hookName] || [];
   } else {
-    // Return all hooks as an object with hook names as method names
-    const allHooks: Record<string, string[]> = {};
-    for (const [name, hookFunctions] of hooks.entries()) {
-      allHooks[name] = hookFunctions;
-    }
     return allHooks;
   }
 }

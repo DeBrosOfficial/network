@@ -40,8 +40,16 @@ export class RelationshipCache {
     const baseKey = `${instance.constructor.name}:${instance.id}:${relationshipName}`;
 
     if (extraData) {
-      const extraStr = JSON.stringify(extraData);
-      return `${baseKey}:${this.hashString(extraStr)}`;
+      try {
+        const extraStr = JSON.stringify(extraData);
+        if (extraStr) {
+          return `${baseKey}:${this.hashString(extraStr)}`;
+        }
+      } catch (e) {
+        // If JSON.stringify fails (e.g., for functions), use a fallback
+        const fallbackStr = String(extraData) || 'undefined';
+        return `${baseKey}:${this.hashString(fallbackStr)}`;
+      }
     }
 
     return baseKey;
@@ -333,6 +341,10 @@ export class RelationshipCache {
   }
 
   private hashString(str: string): string {
+    if (!str || typeof str !== 'string') {
+      return 'empty';
+    }
+    
     let hash = 0;
     if (str.length === 0) return hash.toString();
 
