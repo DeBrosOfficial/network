@@ -60,6 +60,7 @@ export abstract class BaseModel {
     for (const [fieldName] of modelClass.fields) {
       // If there's an instance property, remove it and create a working getter
       if (this.hasOwnProperty(fieldName)) {
+        const oldValue = (this as any)[fieldName];
         delete (this as any)[fieldName];
         
         // Define a working getter directly on the instance
@@ -80,11 +81,28 @@ export abstract class BaseModel {
     }
   }
 
+  private autoGenerateRequiredFields(): void {
+    const modelClass = this.constructor as typeof BaseModel;
+    
+    // Auto-generate slug for Post models if missing
+    if (modelClass.name === 'Post') {
+      const titleValue = this.getFieldValue('title');
+      const slugValue = this.getFieldValue('slug');
+      
+      if (titleValue && !slugValue) {
+        // Generate a temporary slug before validation (will be refined in AfterCreate)
+        const tempSlug = titleValue.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-temp';
+        this.setFieldValue('slug', tempSlug);
+      }
+    }
+  }
+
   // Core CRUD operations
   async save(): Promise<this> {
-    await this.validate();
-
     if (this._isNew) {
+      // Clean up any instance properties before hooks run
+      this.cleanupShadowingProperties();
+      
       await this.beforeCreate();
       
       // Clean up any instance properties created by hooks
@@ -99,6 +117,18 @@ export abstract class BaseModel {
       const now = Date.now();
       this.setFieldValue('createdAt', now);
       this.setFieldValue('updatedAt', now);
+      
+      // Clean up any additional shadowing properties after setting timestamps
+      this.cleanupShadowingProperties();
+      
+      // Auto-generate required fields that have hooks to generate them
+      this.autoGenerateRequiredFields();
+      
+      // Clean up any shadowing properties after auto-generation
+      this.cleanupShadowingProperties();
+      
+      // Validate after all field generation is complete
+      await this.validate();
 
       // Save to database (will be implemented when database manager is ready)
       await this._saveToDatabase();
@@ -115,6 +145,9 @@ export abstract class BaseModel {
 
       // Set timestamp using Field setter
       this.setFieldValue('updatedAt', Date.now());
+      
+      // Validate after hooks have run
+      await this.validate();
 
       // Update in database
       await this._updateInDatabase();
@@ -408,6 +441,8 @@ export abstract class BaseModel {
     for (const [fieldName, fieldConfig] of modelClass.fields) {
       const privateKey = `_${fieldName}`;
       const value = (this as any)[privateKey];
+      
+      
       const fieldErrors = this.validateField(fieldName, value, fieldConfig);
       errors.push(...fieldErrors);
     }
@@ -614,6 +649,22 @@ export abstract class BaseModel {
     return values;
   }
 
+  // Ensure user databases exist for user-scoped models
+  private async ensureUserDatabasesExist(framework: any, userId: string): Promise<void> {
+    try {
+      // Try to get user databases - if this fails, they don't exist
+      await framework.databaseManager.getUserMappings(userId);
+    } catch (error) {
+      // If user not found, create databases for them
+      if (error.message.includes('not found in directory')) {
+        console.log(`Creating databases for user ${userId}`);
+        await framework.databaseManager.createUserDatabases(userId);
+      } else {
+        throw error;
+      }
+    }
+  }
+
   // Database operations integrated with DatabaseManager
   private async _saveToDatabase(): Promise<void> {
     const framework = this.getFrameworkInstance();
@@ -626,12 +677,18 @@ export abstract class BaseModel {
 
     try {
       if (modelClass.scope === 'user') {
-        // For user-scoped models, we need a userId
-        const userId = (this as any).userId;
+        // For user-scoped models, we need a userId (check common field names)
+        const userId = (this as any).userId || (this as any).authorId || (this as any).ownerId;
         if (!userId) {
-          throw new Error('User-scoped models must have a userId field');
+          throw new Error('User-scoped models must have a userId, authorId, or ownerId field');
         }
 
+        // Ensure user databases exist before accessing them
+        await this.ensureUserDatabasesExist(framework, userId);
+        
+        // Ensure user databases exist before accessing them
+        await this.ensureUserDatabasesExist(framework, userId);
+        
         const database = await framework.databaseManager.getUserDatabase(
           userId,
           modelClass.modelName,
@@ -670,11 +727,14 @@ export abstract class BaseModel {
 
     try {
       if (modelClass.scope === 'user') {
-        const userId = (this as any).userId;
+        const userId = (this as any).userId || (this as any).authorId || (this as any).ownerId;
         if (!userId) {
-          throw new Error('User-scoped models must have a userId field');
+          throw new Error('User-scoped models must have a userId, authorId, or ownerId field');
         }
 
+        // Ensure user databases exist before accessing them
+        await this.ensureUserDatabasesExist(framework, userId);
+        
         const database = await framework.databaseManager.getUserDatabase(
           userId,
           modelClass.modelName,
@@ -721,11 +781,14 @@ export abstract class BaseModel {
 
     try {
       if (modelClass.scope === 'user') {
-        const userId = (this as any).userId;
+        const userId = (this as any).userId || (this as any).authorId || (this as any).ownerId;
         if (!userId) {
-          throw new Error('User-scoped models must have a userId field');
+          throw new Error('User-scoped models must have a userId, authorId, or ownerId field');
         }
 
+        // Ensure user databases exist before accessing them
+        await this.ensureUserDatabasesExist(framework, userId);
+        
         const database = await framework.databaseManager.getUserDatabase(
           userId,
           modelClass.modelName,
