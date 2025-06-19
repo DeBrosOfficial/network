@@ -634,24 +634,4 @@ export class QueryBuilder<T extends BaseModel> {
     }
     return cloned;
   }
-
-  // Additional getters for testing
-  getCursor(): string | undefined {
-    return this.cursorValue;
-  }
-
-  getCacheOptions(): any {
-    return {
-      enabled: this.cacheEnabled,
-      ttl: this.cacheTtl,
-      key: this.cacheKey
-    };
-  }
-
-  getRelationships(): any[] {
-    return this.relations.map(relation => ({
-      relation,
-      constraints: this._relationshipConstraints?.get(relation)
-    }));
-  }
 }
