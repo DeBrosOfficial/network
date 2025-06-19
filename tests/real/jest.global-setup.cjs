@@ -6,11 +6,20 @@ module.exports = async () => {
   process.env.NODE_ENV = 'test';
   process.env.DEBROS_TEST_MODE = 'real';
   
-  // Check for required dependencies
+  // Check for required dependencies - skip for ES module packages
   try {
-    require('helia');
-    require('@orbitdb/core');
-    console.log('✅ Required dependencies available');
+    // Just check if the packages exist without importing them
+    const fs = require('fs');
+    const path = require('path');
+    
+    const heliaPath = path.join(__dirname, '../../node_modules/helia');
+    const orbitdbPath = path.join(__dirname, '../../node_modules/@orbitdb/core');
+    
+    if (fs.existsSync(heliaPath) && fs.existsSync(orbitdbPath)) {
+      console.log('✅ Required dependencies available');
+    } else {
+      throw new Error('Required packages not found');
+    }
   } catch (error) {
     console.error('❌ Missing required dependencies for real tests:', error.message);
     process.exit(1);

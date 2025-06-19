@@ -13,6 +13,8 @@
     "moduleResolution": "bundler",
     /* Skip type checking of declaration files. */
     "skipLibCheck": true,
+    /* Perform compilation without referencing other files. */
+    "isolatedModules": true,
     /* Removes comments from the project's output JavaScript code. */
     "removeComments": true,
     /* Enables experimental support for emitting type metadata for decorators which works with the module reflect-metadata. */

@@ -27,7 +27,7 @@
     "test:e2e": "jest tests/e2e",
     "test:real": "jest --config jest.real.config.cjs",
     "test:real:debug": "REAL_TEST_DEBUG=true jest --config jest.real.config.cjs",
-    "test:real:basic": "jest --config jest.real.config.cjs tests/real/basic-integration.test.ts",
+    "test:real:basic": "jest --config jest.real.config.cjs tests/real/real-integration.test.ts",
     "test:real:p2p": "jest --config jest.real.config.cjs tests/real/peer-discovery.test.ts"
   },
   "keywords": [

@@ -1,12 +1,4 @@
-import { createHelia } from 'helia';
-import { createLibp2p } from 'libp2p';
-import { tcp } from '@libp2p/tcp';
-import { noise } from '@chainsafe/libp2p-noise';
-import { yamux } from '@chainsafe/libp2p-yamux';
-import { gossipsub } from '@chainsafe/libp2p-gossipsub';
-import { identify } from '@libp2p/identify';
-import { FsBlockstore } from 'blockstore-fs';
-import { FsDatastore } from 'datastore-fs';
+import { loadModules, loadDatastoreModules } from './helia-wrapper';
 import { join } from 'path';
 import { PrivateSwarmSetup } from './swarm-setup';
 import { IPFSInstance } from '../../../src/framework/services/OrbitDBService';
@@ -28,6 +20,11 @@ export class RealIPFSService implements IPFSInstance {
     console.log(`🚀 Initializing IPFS node ${this.nodeIndex}...`);
 
     try {
+      // Load ES modules dynamically
+      const { createHelia, createLibp2p, tcp, noise, yamux, gossipsub, identify } =
+        await loadModules();
+      const { FsBlockstore, FsDatastore } = await loadDatastoreModules();
+
       // Create libp2p instance with private swarm configuration
       this.libp2p = await createLibp2p({
         addresses: {

@@ -11,8 +11,18 @@ const debugMode = process.env.REAL_TEST_DEBUG === 'true';
 if (!debugMode) {
   // Silence routine logs but keep errors and important messages
   console.log = (...args: any[]) => {
-    const message = args.join(' ');
-    if (message.includes('❌') || message.includes('✅') || message.includes('🚀') || message.includes('🧹')) {
+    try {
+      const message = args.map(arg => {
+        if (typeof arg === 'string') return arg;
+        if (typeof arg === 'object' && arg !== null) return JSON.stringify(arg);
+        return String(arg);
+      }).join(' ');
+      
+      if (message.includes('❌') || message.includes('✅') || message.includes('🚀') || message.includes('🧹')) {
+        originalConsole.log(...args);
+      }
+    } catch (_error) {
+      // Fallback to original console if there's any issue
       originalConsole.log(...args);
     }
   };

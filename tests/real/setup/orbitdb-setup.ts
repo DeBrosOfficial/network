@@ -1,4 +1,4 @@
-import { createOrbitDB } from '@orbitdb/core';
+import { loadOrbitDBModules } from './helia-wrapper';
 import { RealIPFSService } from './ipfs-setup';
 import { OrbitDBInstance } from '../../../src/framework/services/OrbitDBService';
 
@@ -17,21 +17,24 @@ export class RealOrbitDBService implements OrbitDBInstance {
     console.log(`🌀 Initializing OrbitDB for node ${this.nodeIndex}...`);
 
     try {
+      // Load OrbitDB ES modules dynamically
+      const { createOrbitDB } = await loadOrbitDBModules();
+
       const ipfs = this.ipfsService.getHelia();
       if (!ipfs) {
         throw new Error('IPFS node must be initialized before OrbitDB');
       }
 
       // Create OrbitDB instance
-      this.orbitdb = await createOrbitDB({ 
+      this.orbitdb = await createOrbitDB({
         ipfs,
         id: `orbitdb-node-${this.nodeIndex}`,
-        directory: `./orbitdb-${this.nodeIndex}` // Local directory for this node
+        directory: `./orbitdb-${this.nodeIndex}`, // Local directory for this node
       });
 
       console.log(`✅ OrbitDB initialized for node ${this.nodeIndex}`);
       console.log(`📍 OrbitDB ID: ${this.orbitdb.id}`);
-      
+
       return this.orbitdb;
     } catch (error) {
       console.error(`❌ Failed to initialize OrbitDB for node ${this.nodeIndex}:`, error);
@@ -45,7 +48,7 @@ export class RealOrbitDBService implements OrbitDBInstance {
     }
 
     const dbKey = `${name}-${type}`;
-    
+
     // Check if database is already open
     if (this.databases.has(dbKey)) {
       return this.databases.get(dbKey);
@@ -55,42 +58,42 @@ export class RealOrbitDBService implements OrbitDBInstance {
       console.log(`📂 Opening ${type} database '${name}' on node ${this.nodeIndex}...`);
 
       let database;
-      
+
       switch (type.toLowerCase()) {
         case 'documents':
         case 'docstore':
           database = await this.orbitdb.open(name, {
             type: 'documents',
-            AccessController: 'orbitdb'
+            AccessController: 'orbitdb',
           });
           break;
-          
+
         case 'events':
         case 'eventlog':
           database = await this.orbitdb.open(name, {
             type: 'events',
-            AccessController: 'orbitdb'
+            AccessController: 'orbitdb',
           });
           break;
-          
+
         case 'keyvalue':
         case 'kvstore':
           database = await this.orbitdb.open(name, {
             type: 'keyvalue',
-            AccessController: 'orbitdb'
+            AccessController: 'orbitdb',
           });
           break;
-          
+
         default:
           // Default to documents store
           database = await this.orbitdb.open(name, {
             type: 'documents',
-            AccessController: 'orbitdb'
+            AccessController: 'orbitdb',
           });
       }
 
       this.databases.set(dbKey, database);
-      
+
       console.log(`✅ Database '${name}' opened on node ${this.nodeIndex}`);
       console.log(`🔗 Database address: ${database.address}`);
 
@@ -134,7 +137,7 @@ export class RealOrbitDBService implements OrbitDBInstance {
   // Additional utility methods for testing
   async waitForReplication(database: any, timeout: number = 30000): Promise<boolean> {
     const startTime = Date.now();
-    
+
     return new Promise((resolve) => {
       const checkReplication = () => {
         if (Date.now() - startTime > timeout) {
@@ -159,7 +162,7 @@ export class RealOrbitDBService implements OrbitDBInstance {
   async getDatabaseInfo(name: string, type: string): Promise<any> {
     const dbKey = `${name}-${type}`;
     const database = this.databases.get(dbKey);
-    
+
     if (!database) {
       return null;
     }
@@ -169,13 +172,15 @@ export class RealOrbitDBService implements OrbitDBInstance {
       type: database.type,
       peers: database.peers || [],
       all: await database.all(),
-      meta: database.meta || {}
+      meta: database.meta || {},
     };
   }
 }
 
 // Utility function to create OrbitDB network from IPFS network
-export async function createOrbitDBNetwork(ipfsNodes: RealIPFSService[]): Promise<RealOrbitDBService[]> {
+export async function createOrbitDBNetwork(
+  ipfsNodes: RealIPFSService[],
+): Promise<RealOrbitDBService[]> {
   console.log(`🌀 Creating OrbitDB network with ${ipfsNodes.length} nodes...`);
 
   const orbitdbNodes: RealOrbitDBService[] = [];
@@ -195,7 +200,7 @@ export async function shutdownOrbitDBNetwork(orbitdbNodes: RealOrbitDBService[])
   console.log(`🛑 Shutting down OrbitDB network...`);
 
   // Stop all OrbitDB nodes
-  await Promise.all(orbitdbNodes.map(node => node.stop()));
+  await Promise.all(orbitdbNodes.map((node) => node.stop()));
 
   console.log(`✅ OrbitDB network shutdown complete`);
 }
@@ -204,7 +209,7 @@ export async function shutdownOrbitDBNetwork(orbitdbNodes: RealOrbitDBService[])
 export async function testDatabaseReplication(
   orbitdbNodes: RealOrbitDBService[],
   dbName: string,
-  dbType: string = 'documents'
+  dbType: string = 'documents',
 ): Promise<boolean> {
   console.log(`🔄 Testing database replication for '${dbName}'...`);
 
@@ -220,9 +225,9 @@ export async function testDatabaseReplication(
 
     // Open same database on second node
     const db2 = await orbitdbNodes[1].openDB(dbName, dbType);
-    
+
     // Wait for replication
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Check if data replicated
     const db2Data = await db2.all();
