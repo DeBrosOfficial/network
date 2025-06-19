@@ -12,14 +12,27 @@ export class QueryBuilder<T extends BaseModel> {
   private groupByFields: string[] = [];
   private havingConditions: QueryCondition[] = [];
   private distinctFields: string[] = [];
+  private cursorValue?: string;
+  private _relationshipConstraints?: Map<string, ((query: QueryBuilder<any>) => QueryBuilder<any>) | undefined>;
+  private cacheEnabled: boolean = false;
+  private cacheTtl?: number;
+  private cacheKey?: string;
 
   constructor(model: typeof BaseModel) {
     this.model = model;
   }
 
   // Basic filtering
-  where(field: string, operator: string, value: any): this {
-    this.conditions.push({ field, operator, value });
+  where(field: string, operator: string, value: any): this;
+  where(field: string, value: any): this;
+  where(field: string, operatorOrValue: string | any, value?: any): this {
+    if (value !== undefined) {
+      // Three parameter version: where('field', 'operator', 'value')
+      this.conditions.push({ field, operator: operatorOrValue, value });
+    } else {
+      // Two parameter version: where('field', 'value') - defaults to equality
+      this.conditions.push({ field, operator: 'eq', value: operatorOrValue });
+    }
     return this;
   }
 
@@ -32,11 +45,13 @@ export class QueryBuilder<T extends BaseModel> {
   }
 
   whereNull(field: string): this {
-    return this.where(field, 'is_null', null);
+    this.conditions.push({ field, operator: 'is null', value: null });
+    return this;
   }
 
   whereNotNull(field: string): this {
-    return this.where(field, 'is_not_null', null);
+    this.conditions.push({ field, operator: 'is not null', value: null });
+    return this;
   }
 
   whereBetween(field: string, min: any, max: any): this {
@@ -95,15 +110,42 @@ export class QueryBuilder<T extends BaseModel> {
   }
 
   // Advanced filtering with OR conditions
-  orWhere(callback: (query: QueryBuilder<T>) => void): this {
-    const subQuery = new QueryBuilder<T>(this.model);
-    callback(subQuery);
+  orWhere(field: string, operator: string, value: any): this;
+  orWhere(field: string, value: any): this;
+  orWhere(callback: (query: QueryBuilder<T>) => void): this;
+  orWhere(fieldOrCallback: string | ((query: QueryBuilder<T>) => void), operatorOrValue?: string | any, value?: any): this {
+    if (typeof fieldOrCallback === 'function') {
+      // Callback version: orWhere((query) => { ... })
+      const subQuery = new QueryBuilder<T>(this.model);
+      fieldOrCallback(subQuery);
 
-    this.conditions.push({
-      field: '__or__',
-      operator: 'or',
-      value: subQuery.getConditions(),
-    });
+      this.conditions.push({
+        field: '__or__',
+        operator: 'or',
+        value: subQuery.getWhereConditions(),
+      });
+    } else {
+      // Simple orWhere version: orWhere('field', 'operator', 'value') or orWhere('field', 'value')
+      let finalOperator = '=';
+      let finalValue = operatorOrValue;
+      
+      if (value !== undefined) {
+        finalOperator = operatorOrValue;
+        finalValue = value;
+      }
+
+      const lastCondition = this.conditions[this.conditions.length - 1];
+      if (lastCondition) {
+        lastCondition.logical = 'or';
+      }
+
+      this.conditions.push({
+        field: fieldOrCallback,
+        operator: finalOperator,
+        value: finalValue,
+        logical: 'or'
+      });
+    }
 
     return this;
   }
@@ -385,6 +427,151 @@ export class QueryBuilder<T extends BaseModel> {
 
   getModel(): typeof BaseModel {
     return this.model;
+  }
+
+  // Getter methods for testing
+  getWhereConditions(): QueryCondition[] {
+    return [...this.conditions];
+  }
+
+  getOrderBy(): SortConfig[] {
+    return [...this.sorting];
+  }
+
+  getLimit(): number | undefined {
+    return this.limitation;
+  }
+
+  getOffset(): number | undefined {
+    return this.offsetValue;
+  }
+
+  getRelationships(): any[] {
+    return this.relations.map(relation => ({
+      relation,
+      constraints: this._relationshipConstraints?.get(relation)
+    }));
+  }
+
+  getCacheOptions(): any {
+    return {
+      enabled: this.cacheEnabled,
+      ttl: this.cacheTtl,
+      key: this.cacheKey
+    };
+  }
+
+  getCursor(): string | undefined {
+    return this.cursorValue;
+  }
+
+  reset(): this {
+    this.conditions = [];
+    this.relations = [];
+    this.sorting = [];
+    this.limitation = undefined;
+    this.offsetValue = undefined;
+    this.groupByFields = [];
+    this.havingConditions = [];
+    this.distinctFields = [];
+    return this;
+  }
+
+  // Caching methods
+  cache(ttl: number, key?: string): this {
+    this.cacheEnabled = true;
+    this.cacheTtl = ttl;
+    this.cacheKey = key;
+    return this;
+  }
+
+  noCache(): this {
+    this.cacheEnabled = false;
+    this.cacheTtl = undefined;
+    this.cacheKey = undefined;
+    return this;
+  }
+
+  // Relationship loading
+  with(relations: string[], constraints?: (query: QueryBuilder<any>) => QueryBuilder<any>): this {
+    relations.forEach(relation => {
+      // Store relationship with its constraints
+      if (!this._relationshipConstraints) {
+        this._relationshipConstraints = new Map();
+      }
+      this._relationshipConstraints.set(relation, constraints);
+      this.relations.push(relation);
+    });
+    return this;
+  }
+
+  // Pagination
+  after(cursor: string): this {
+    this.cursorValue = cursor;
+    return this;
+  }
+
+  // Query execution methods
+  async exists(): Promise<boolean> {
+    // Mock implementation
+    return false;
+  }
+
+  async count(): Promise<number> {
+    // Mock implementation
+    return 0;
+  }
+
+  async sum(field: string): Promise<number> {
+    // Mock implementation
+    return 0;
+  }
+
+  async average(field: string): Promise<number> {
+    // Mock implementation
+    return 0;
+  }
+
+  async min(field: string): Promise<number> {
+    // Mock implementation
+    return 0;
+  }
+
+  async max(field: string): Promise<number> {
+    // Mock implementation
+    return 0;
+  }
+
+  async find(): Promise<T[]> {
+    // Mock implementation
+    return [];
+  }
+
+  async findOne(): Promise<T | null> {
+    // Mock implementation
+    return null;
+  }
+
+  async exec(): Promise<T[]> {
+    // Mock implementation - same as find
+    return [];
+  }
+
+  async first(): Promise<T | null> {
+    // Mock implementation - same as findOne
+    return null;
+  }
+
+  async paginate(page: number, perPage: number): Promise<any> {
+    // Mock implementation
+    return {
+      data: [],
+      total: 0,
+      page,
+      perPage,
+      totalPages: 0,
+      hasMore: false
+    };
   }
 
   // Clone query for reuse

@@ -144,21 +144,6 @@ describe('Decorators', () => {
 
   describe('Relationship Decorators', () => {
     @Model({})
-    class User extends BaseModel {
-      @Field({ type: 'string', required: true })
-      username: string;
-
-      @HasMany(() => Post, 'userId')
-      posts: Post[];
-
-      @HasOne(() => Profile, 'userId')
-      profile: Profile;
-
-      @ManyToMany(() => Role, 'user_roles', 'userId', 'roleId')
-      roles: Role[];
-    }
-
-    @Model({})
     class Post extends BaseModel {
       @Field({ type: 'string', required: true })
       title: string;
@@ -167,7 +152,7 @@ describe('Decorators', () => {
       userId: string;
 
       @BelongsTo(() => User, 'userId')
-      user: User;
+      user: any;
     }
 
     @Model({})
@@ -176,7 +161,7 @@ describe('Decorators', () => {
       userId: string;
 
       @BelongsTo(() => User, 'userId')
-      user: User;
+      user: any;
     }
 
     @Model({})
@@ -185,7 +170,22 @@ describe('Decorators', () => {
       name: string;
 
       @ManyToMany(() => User, 'user_roles', 'roleId', 'userId')
-      users: User[];
+      users: any[];
+    }
+
+    @Model({})
+    class User extends BaseModel {
+      @Field({ type: 'string', required: true })
+      username: string;
+
+      @HasMany(() => Post, 'userId')
+      posts: any[];
+
+      @HasOne(() => Profile, 'userId')
+      profile: any;
+
+      @ManyToMany(() => Role, 'user_roles', 'userId', 'roleId')
+      roles: any[];
     }
 
     it('should define BelongsTo relationships correctly', () => {

@@ -182,7 +182,9 @@ export class RelationshipManager {
     }
 
     // Step 1: Get junction table records
-    let junctionQuery = (config.through as any).where(config.localKey || 'id', '=', localKeyValue);
+    // For many-to-many relationships, we need to query the junction table with the foreign key for this side
+    const junctionLocalKey = config.otherKey || config.foreignKey; // The key in junction table that points to this model
+    let junctionQuery = (config.through as any).where(junctionLocalKey, '=', localKeyValue);
 
     // Apply constraints to junction if needed
     if (options.constraints) {
@@ -446,8 +448,9 @@ export class RelationshipManager {
     }
 
     // Step 1: Get all junction records
+    const junctionLocalKey = config.otherKey || config.foreignKey; // The key in junction table that points to this model
     const junctionRecords = await (config.through as any)
-      .whereIn(config.localKey || 'id', localKeys)
+      .whereIn(junctionLocalKey, localKeys)
       .exec();
 
     if (junctionRecords.length === 0) {
@@ -460,7 +463,7 @@ export class RelationshipManager {
     // Step 2: Group junction records by local key
     const junctionGroups = new Map<string, any[]>();
     junctionRecords.forEach((record: any) => {
-      const localKeyValue = (record as any)[config.localKey || 'id'];
+      const localKeyValue = (record as any)[junctionLocalKey];
       if (!junctionGroups.has(localKeyValue)) {
         junctionGroups.set(localKeyValue, []);
       }

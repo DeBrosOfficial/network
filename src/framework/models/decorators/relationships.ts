@@ -2,17 +2,18 @@ import { BaseModel } from '../BaseModel';
 import { RelationshipConfig } from '../../types/models';
 
 export function BelongsTo(
-  model: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
   foreignKey: string,
   options: { localKey?: string } = {},
 ) {
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'belongsTo',
-      model,
+      model: modelFactory(),
       foreignKey,
       localKey: options.localKey || 'id',
       lazy: true,
+      options,
     };
 
     registerRelationship(target, propertyKey, config);
@@ -21,18 +22,19 @@ export function BelongsTo(
 }
 
 export function HasMany(
-  model: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
   foreignKey: string,
-  options: { localKey?: string; through?: typeof BaseModel } = {},
+  options: any = {},
 ) {
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'hasMany',
-      model,
+      model: modelFactory(),
       foreignKey,
       localKey: options.localKey || 'id',
       through: options.through,
       lazy: true,
+      options,
     };
 
     registerRelationship(target, propertyKey, config);
@@ -41,17 +43,18 @@ export function HasMany(
 }
 
 export function HasOne(
-  model: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
   foreignKey: string,
   options: { localKey?: string } = {},
 ) {
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'hasOne',
-      model,
+      model: modelFactory(),
       foreignKey,
       localKey: options.localKey || 'id',
       lazy: true,
+      options,
     };
 
     registerRelationship(target, propertyKey, config);
@@ -60,19 +63,22 @@ export function HasOne(
 }
 
 export function ManyToMany(
-  model: typeof BaseModel,
-  through: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
+  through: string,
   foreignKey: string,
+  otherKey: string,
   options: { localKey?: string; throughForeignKey?: string } = {},
 ) {
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'manyToMany',
-      model,
+      model: modelFactory(),
       foreignKey,
+      otherKey,
       localKey: options.localKey || 'id',
       through,
       lazy: true,
+      options,
     };
 
     registerRelationship(target, propertyKey, config);
@@ -81,8 +87,8 @@ export function ManyToMany(
 }
 
 function registerRelationship(target: any, propertyKey: string, config: RelationshipConfig): void {
-  // Initialize relationships map if it doesn't exist
-  if (!target.constructor.relationships) {
+  // Initialize relationships map if it doesn't exist on this specific constructor
+  if (!target.constructor.hasOwnProperty('relationships')) {
     target.constructor.relationships = new Map();
   }
 
@@ -132,36 +138,47 @@ function createRelationshipProperty(
 // Utility function to get relationship configuration
 export function getRelationshipConfig(
   target: any,
-  propertyKey: string,
-): RelationshipConfig | undefined {
-  if (!target.constructor.relationships) {
-    return undefined;
+  propertyKey?: string,
+): RelationshipConfig | undefined | RelationshipConfig[] {
+  // Handle both class constructors and instances
+  const relationships = target.relationships || (target.constructor && target.constructor.relationships);
+  if (!relationships) {
+    return propertyKey ? undefined : [];
   }
-  return target.constructor.relationships.get(propertyKey);
+  
+  if (propertyKey) {
+    return relationships.get(propertyKey);
+  } else {
+    return Array.from(relationships.values()).map((config, index) => ({
+      ...config,
+      propertyKey: Array.from(relationships.keys())[index]
+    }));
+  }
 }
 
 // Type definitions for decorators
 export type BelongsToDecorator = (
-  model: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
   foreignKey: string,
   options?: { localKey?: string },
 ) => (target: any, propertyKey: string) => void;
 
 export type HasManyDecorator = (
-  model: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
   foreignKey: string,
-  options?: { localKey?: string; through?: typeof BaseModel },
+  options?: any,
 ) => (target: any, propertyKey: string) => void;
 
 export type HasOneDecorator = (
-  model: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
   foreignKey: string,
   options?: { localKey?: string },
 ) => (target: any, propertyKey: string) => void;
 
 export type ManyToManyDecorator = (
-  model: typeof BaseModel,
-  through: typeof BaseModel,
+  modelFactory: () => typeof BaseModel,
+  through: string,
   foreignKey: string,
+  otherKey: string,
   options?: { localKey?: string; throughForeignKey?: string },
 ) => (target: any, propertyKey: string) => void;

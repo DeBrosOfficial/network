@@ -2,6 +2,9 @@ export interface QueryCondition {
   field: string;
   operator: string;
   value: any;
+  logical?: 'and' | 'or';
+  type?: 'condition' | 'group';
+  conditions?: QueryCondition[];
 }
 
 export interface SortConfig {

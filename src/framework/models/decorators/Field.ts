@@ -2,8 +2,11 @@ import { FieldConfig, ValidationError } from '../../types/models';
 
 export function Field(config: FieldConfig) {
   return function (target: any, propertyKey: string) {
-    // Initialize fields map if it doesn't exist
-    if (!target.constructor.fields) {
+    // Validate field configuration
+    validateFieldConfig(config);
+    
+    // Initialize fields map if it doesn't exist on this specific constructor
+    if (!target.constructor.hasOwnProperty('fields')) {
       target.constructor.fields = new Map();
     }
 
@@ -24,8 +27,9 @@ export function Field(config: FieldConfig) {
         // Apply transformation first
         const transformedValue = config.transform ? config.transform(value) : value;
 
-        // Validate the field value
-        const validationResult = validateFieldValue(transformedValue, config, propertyKey);
+        // Only validate non-required constraints during assignment
+        // Required field validation will happen during save()
+        const validationResult = validateFieldValueNonRequired(transformedValue, config, propertyKey);
         if (!validationResult.valid) {
           throw new ValidationError(validationResult.errors);
         }
@@ -52,6 +56,13 @@ export function Field(config: FieldConfig) {
   };
 }
 
+function validateFieldConfig(config: FieldConfig): void {
+  const validTypes = ['string', 'number', 'boolean', 'array', 'object', 'date'];
+  if (!validTypes.includes(config.type)) {
+    throw new Error(`Invalid field type: ${config.type}. Valid types are: ${validTypes.join(', ')}`);
+  }
+}
+
 function validateFieldValue(
   value: any,
   config: FieldConfig,
@@ -66,6 +77,37 @@ function validateFieldValue(
   }
 
   // Skip further validation if value is empty and not required
+  if (value === undefined || value === null) {
+    return { valid: true, errors: [] };
+  }
+
+  // Type validation
+  if (!isValidType(value, config.type)) {
+    errors.push(`${fieldName} must be of type ${config.type}`);
+  }
+
+  // Custom validation
+  if (config.validate) {
+    const customResult = config.validate(value);
+    if (customResult === false) {
+      errors.push(`${fieldName} failed custom validation`);
+    } else if (typeof customResult === 'string') {
+      errors.push(customResult);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateFieldValueNonRequired(
+  value: any,
+  config: FieldConfig,
+  fieldName: string,
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  // Skip required validation during assignment
+  // Skip further validation if value is empty
   if (value === undefined || value === null) {
     return { valid: true, errors: [] };
   }
@@ -109,10 +151,12 @@ function isValidType(value: any, expectedType: FieldConfig['type']): boolean {
 
 // Utility function to get field configuration
 export function getFieldConfig(target: any, propertyKey: string): FieldConfig | undefined {
-  if (!target.constructor.fields) {
+  // Handle both class constructors and instances
+  const fields = target.fields || (target.constructor && target.constructor.fields);
+  if (!fields) {
     return undefined;
   }
-  return target.constructor.fields.get(propertyKey);
+  return fields.get(propertyKey);
 }
 
 // Export the decorator type for TypeScript

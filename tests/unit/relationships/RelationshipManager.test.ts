@@ -7,33 +7,6 @@ import { createMockServices } from '../../mocks/services';
 
 // Test models for relationship testing
 @Model({
-  scope: 'global',
-  type: 'docstore'
-})
-class User extends BaseModel {
-  @Field({ type: 'string', required: true })
-  username: string;
-
-  @Field({ type: 'string', required: true })
-  email: string;
-
-  @HasMany(() => Post, 'userId')
-  posts: Post[];
-
-  @HasOne(() => Profile, 'userId')
-  profile: Profile;
-
-  @ManyToMany(() => Role, 'user_roles', 'userId', 'roleId')
-  roles: Role[];
-
-  // Mock query methods
-  static where = jest.fn().mockReturnThis();
-  static whereIn = jest.fn().mockReturnThis();
-  static first = jest.fn();
-  static exec = jest.fn();
-}
-
-@Model({
   scope: 'user',
   type: 'docstore'
 })
@@ -48,7 +21,7 @@ class Post extends BaseModel {
   userId: string;
 
   @BelongsTo(() => User, 'userId')
-  user: User;
+  user: any;
 
   // Mock query methods
   static where = jest.fn().mockReturnThis();
@@ -69,7 +42,7 @@ class Profile extends BaseModel {
   userId: string;
 
   @BelongsTo(() => User, 'userId')
-  user: User;
+  user: any;
 
   // Mock query methods
   static where = jest.fn().mockReturnThis();
@@ -87,7 +60,34 @@ class Role extends BaseModel {
   name: string;
 
   @ManyToMany(() => User, 'user_roles', 'roleId', 'userId')
-  users: User[];
+  users: any[];
+
+  // Mock query methods
+  static where = jest.fn().mockReturnThis();
+  static whereIn = jest.fn().mockReturnThis();
+  static first = jest.fn();
+  static exec = jest.fn();
+}
+
+@Model({
+  scope: 'global',
+  type: 'docstore'
+})
+class User extends BaseModel {
+  @Field({ type: 'string', required: true })
+  username: string;
+
+  @Field({ type: 'string', required: true })
+  email: string;
+
+  @HasMany(() => Post, 'userId')
+  posts: any[];
+
+  @HasOne(() => Profile, 'userId')
+  profile: any;
+
+  @ManyToMany(() => Role, 'user_roles', 'userId', 'roleId')
+  roles: any[];
 
   // Mock query methods
   static where = jest.fn().mockReturnThis();
@@ -315,13 +315,14 @@ describe('RelationshipManager', () => {
         model: Role,
         through: UserRole,
         foreignKey: 'roleId',
+        otherKey: 'userId',
         localKey: 'id',
         propertyKey: 'roles'
       });
 
       const result = await relationshipManager.loadRelationship(user, 'roles');
 
-      expect(UserRole.where).toHaveBeenCalledWith('id', '=', 'user-123');
+      expect(UserRole.where).toHaveBeenCalledWith('userId', '=', 'user-123');
       expect(Role.whereIn).toHaveBeenCalledWith('id', ['role-1', 'role-2']);
       expect(result).toEqual(mockRoles);
 
@@ -345,6 +346,7 @@ describe('RelationshipManager', () => {
         model: Role,
         through: UserRole,
         foreignKey: 'roleId',
+        otherKey: 'userId',
         localKey: 'id',
         propertyKey: 'roles'
       });

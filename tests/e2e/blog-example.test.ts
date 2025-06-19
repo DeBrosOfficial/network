@@ -9,6 +9,37 @@ import { createMockServices } from '../mocks/services';
   scope: 'global',
   type: 'docstore'
 })
+class UserProfile extends BaseModel {
+  @Field({ type: 'string', required: true })
+  userId: string;
+
+  @Field({ type: 'string', required: false })
+  bio?: string;
+
+  @Field({ type: 'string', required: false })
+  location?: string;
+
+  @Field({ type: 'string', required: false })
+  website?: string;
+
+  @Field({ type: 'object', required: false })
+  socialLinks?: {
+    twitter?: string;
+    github?: string;
+    linkedin?: string;
+  };
+
+  @Field({ type: 'array', required: false, default: [] })
+  interests: string[];
+
+  @BelongsTo(() => User, 'userId')
+  user: any;
+}
+
+@Model({
+  scope: 'global',
+  type: 'docstore'
+})
 class User extends BaseModel {
   @Field({ type: 'string', required: true, unique: true })
   username: string;
@@ -38,13 +69,13 @@ class User extends BaseModel {
   lastLoginAt?: number;
 
   @HasMany(() => Post, 'authorId')
-  posts: Post[];
+  posts: any[];
 
   @HasMany(() => Comment, 'authorId')
-  comments: Comment[];
+  comments: any[];
 
   @HasOne(() => UserProfile, 'userId')
-  profile: UserProfile;
+  profile: any;
 
   @BeforeCreate()
   setTimestamps() {
@@ -68,37 +99,6 @@ class User extends BaseModel {
   scope: 'global',
   type: 'docstore'
 })
-class UserProfile extends BaseModel {
-  @Field({ type: 'string', required: true })
-  userId: string;
-
-  @Field({ type: 'string', required: false })
-  bio?: string;
-
-  @Field({ type: 'string', required: false })
-  location?: string;
-
-  @Field({ type: 'string', required: false })
-  website?: string;
-
-  @Field({ type: 'object', required: false })
-  socialLinks?: {
-    twitter?: string;
-    github?: string;
-    linkedin?: string;
-  };
-
-  @Field({ type: 'array', required: false, default: [] })
-  interests: string[];
-
-  @BelongsTo(() => User, 'userId')
-  user: User;
-}
-
-@Model({
-  scope: 'global',
-  type: 'docstore'
-})
 class Category extends BaseModel {
   @Field({ type: 'string', required: true, unique: true })
   name: string;
@@ -116,7 +116,7 @@ class Category extends BaseModel {
   isActive: boolean;
 
   @HasMany(() => Post, 'categoryId')
-  posts: Post[];
+  posts: any[];
 
   @BeforeCreate()
   generateSlug() {
@@ -177,13 +177,13 @@ class Post extends BaseModel {
   publishedAt?: number;
 
   @BelongsTo(() => User, 'authorId')
-  author: User;
+  author: any;
 
   @BelongsTo(() => Category, 'categoryId')
-  category: Category;
+  category: any;
 
   @HasMany(() => Comment, 'postId')
-  comments: Comment[];
+  comments: any[];
 
   @BeforeCreate()
   setTimestamps() {
@@ -262,16 +262,16 @@ class Comment extends BaseModel {
   updatedAt: number;
 
   @BelongsTo(() => Post, 'postId')
-  post: Post;
+  post: any;
 
   @BelongsTo(() => User, 'authorId')
-  author: User;
+  author: any;
 
   @BelongsTo(() => Comment, 'parentId')
-  parent?: Comment;
+  parent?: any;
 
   @HasMany(() => Comment, 'parentId')
-  replies: Comment[];
+  replies: any[];
 
   @BeforeCreate()
   setTimestamps() {
@@ -314,9 +314,9 @@ describe('Blog Example - End-to-End Tests', () => {
     await framework.initialize(mockServices.orbitDBService, mockServices.ipfsService);
 
     // Suppress console output for cleaner test output
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
-    jest.spyOn(console, 'warn').mockImplementation();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(async () => {

@@ -25,8 +25,11 @@ export interface RelationshipConfig {
   model: typeof BaseModel;
   foreignKey: string;
   localKey?: string;
-  through?: typeof BaseModel;
+  otherKey?: string;
+  through?: typeof BaseModel | string;
   lazy?: boolean;
+  propertyKey?: string;
+  options?: any;
 }
 
 export interface UserMappings {

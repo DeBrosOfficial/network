@@ -242,7 +242,7 @@ export abstract class BaseModel {
   fromJSON(data: any): this {
     if (!data) return this;
 
-    // Set basic properties
+    // Set basic properties  
     Object.keys(data).forEach((key) => {
       if (key !== '_loadedRelations' && key !== '_isDirty' && key !== '_isNew') {
         (this as any)[key] = data[key];
@@ -525,5 +525,16 @@ export abstract class BaseModel {
 
   static getShards(): any[] {
     return (this as any)._shards || [];
+  }
+
+  static fromJSON<T extends BaseModel>(this: new (data?: any) => T, data: any): T {
+    const instance = new this();
+    Object.assign(instance, data);
+    return instance;
+  }
+
+  static query<T extends BaseModel>(this: typeof BaseModel & (new (data?: any) => T)): any {
+    const { QueryBuilder } = require('../query/QueryBuilder');
+    return new QueryBuilder(this);
   }
 }
