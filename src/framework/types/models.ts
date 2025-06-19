@@ -22,7 +22,8 @@ export interface FieldConfig {
 
 export interface RelationshipConfig {
   type: 'belongsTo' | 'hasMany' | 'hasOne' | 'manyToMany';
-  model: typeof BaseModel;
+  model?: typeof BaseModel;
+  modelFactory?: () => typeof BaseModel;
   foreignKey: string;
   localKey?: string;
   otherKey?: string;

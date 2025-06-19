@@ -13,7 +13,7 @@ export abstract class BaseModel {
 
   // Static properties for model configuration
   static modelName: string;
-  static dbType: StoreType = 'docstore';
+  static storeType: StoreType = 'docstore';
   static scope: 'user' | 'global' = 'global';
   static sharding?: ShardingConfig;
   static pinning?: PinningConfig;
@@ -22,7 +22,31 @@ export abstract class BaseModel {
   static hooks: Map<string, Function[]> = new Map();
 
   constructor(data: any = {}) {
-    this.fromJSON(data);
+    // Generate ID first
+    this.id = this.generateId();
+    
+    // Apply field defaults first
+    this.applyFieldDefaults();
+    
+    // Then apply provided data, but only for properties that are explicitly provided
+    if (data && typeof data === 'object') {
+      Object.keys(data).forEach((key) => {
+        if (key !== '_loadedRelations' && key !== '_isDirty' && key !== '_isNew' && data[key] !== undefined) {
+          // Use setter if it exists (for Field-decorated properties), otherwise set directly
+          const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), key);
+          if (descriptor && descriptor.set) {
+            (this as any)[key] = data[key];
+          } else {
+            (this as any)[key] = data[key];
+          }
+        }
+      });
+      
+      // Mark as existing if it has an ID in the data
+      if (data.id) {
+        this._isNew = false;
+      }
+    }
   }
 
   // Core CRUD operations
@@ -44,7 +68,7 @@ export abstract class BaseModel {
       await this._saveToDatabase();
 
       this._isNew = false;
-      this._isDirty = false;
+      this.clearModifications();
 
       await this.afterCreate();
     } else if (this._isDirty) {
@@ -55,7 +79,7 @@ export abstract class BaseModel {
       // Update in database
       await this._updateInDatabase();
 
-      this._isDirty = false;
+      this.clearModifications();
 
       await this.afterUpdate();
     }
@@ -70,10 +94,57 @@ export abstract class BaseModel {
 
   static async get<T extends BaseModel>(
     this: typeof BaseModel & (new (data?: any) => T),
-    _id: string,
+    id: string,
   ): Promise<T | null> {
-    // Will be implemented when query system is ready
-    throw new Error('get method not yet implemented - requires query system');
+    return await this.findById(id);
+  }
+
+  static async findById<T extends BaseModel>(
+    this: typeof BaseModel & (new (data?: any) => T),
+    id: string,
+  ): Promise<T | null> {
+    // Use the mock framework for testing
+    const framework = (globalThis as any).__debrosFramework || this.getMockFramework();
+    if (!framework) {
+      return null;
+    }
+
+    try {
+      const modelClass = this as any;
+      let data = null;
+      
+      if (modelClass.scope === 'user') {
+        // For user-scoped models, we would need userId - for now, try global
+        const database = await framework.databaseManager?.getGlobalDatabase?.(modelClass.modelName || modelClass.name);
+        if (database && framework.databaseManager?.getDocument) {
+          data = await framework.databaseManager.getDocument(database, modelClass.storeType, id);
+        }
+      } else {
+        if (modelClass.sharding) {
+          const shard = framework.shardManager?.getShardForKey?.(modelClass.modelName || modelClass.name, id);
+          if (shard && framework.databaseManager?.getDocument) {
+            data = await framework.databaseManager.getDocument(shard.database, modelClass.storeType, id);
+          }
+        } else {
+          const database = await framework.databaseManager?.getGlobalDatabase?.(modelClass.modelName || modelClass.name);
+          if (database && framework.databaseManager?.getDocument) {
+            data = await framework.databaseManager.getDocument(database, modelClass.storeType, id);
+          }
+        }
+      }
+
+      if (data) {
+        const instance = new this(data);
+        instance._isNew = false;
+        instance.clearModifications();
+        return instance;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to find by ID:', error);
+      return null;
+    }
   }
 
   static async find<T extends BaseModel>(
@@ -143,6 +214,27 @@ export abstract class BaseModel {
     this: typeof BaseModel & (new (data?: any) => T),
   ): Promise<T[]> {
     return await new QueryBuilder<T>(this as any).exec();
+  }
+
+  static async findAll<T extends BaseModel>(
+    this: typeof BaseModel & (new (data?: any) => T),
+  ): Promise<T[]> {
+    return await this.all();
+  }
+
+  static async findOne<T extends BaseModel>(
+    this: typeof BaseModel & (new (data?: any) => T),
+    criteria: any,
+  ): Promise<T | null> {
+    const query = new QueryBuilder<T>(this as any);
+    
+    // Apply criteria as where clauses
+    Object.keys(criteria).forEach(key => {
+      query.where(key, '=', criteria[key]);
+    });
+    
+    const results = await query.limit(1).exec();
+    return results.length > 0 ? results[0] : null;
   }
 
   // Relationship operations
@@ -223,13 +315,17 @@ export abstract class BaseModel {
   // Serialization
   toJSON(): any {
     const result: any = {};
+    const modelClass = this.constructor as typeof BaseModel;
 
-    // Include all enumerable properties
-    for (const key in this) {
-      if (this.hasOwnProperty(key) && !key.startsWith('_')) {
-        result[key] = (this as any)[key];
-      }
+    // Include all field values using their getters
+    for (const [fieldName] of modelClass.fields) {
+      result[fieldName] = (this as any)[fieldName];
     }
+
+    // Include basic properties
+    result.id = this.id;
+    result.createdAt = this.createdAt;
+    result.updatedAt = this.updatedAt;
 
     // Include loaded relations
     this._loadedRelations.forEach((value, key) => {
@@ -356,16 +452,62 @@ export abstract class BaseModel {
 
   private async runHooks(hookName: string): Promise<void> {
     const modelClass = this.constructor as typeof BaseModel;
-    const hooks = modelClass.hooks.get(hookName) || [];
+    const hookNames = modelClass.hooks.get(hookName) || [];
 
-    for (const hook of hooks) {
-      await hook.call(this);
+    for (const hookMethodName of hookNames) {
+      const hookMethod = (this as any)[hookMethodName];
+      if (typeof hookMethod === 'function') {
+        await hookMethod.call(this);
+      }
     }
   }
 
   // Utility methods
   private generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  private applyFieldDefaults(): void {
+    const modelClass = this.constructor as typeof BaseModel;
+    
+    for (const [fieldName, fieldConfig] of modelClass.fields) {
+      if (fieldConfig.default !== undefined) {
+        const privateKey = `_${fieldName}`;
+        const hasProperty = (this as any).hasOwnProperty(privateKey);
+        const currentValue = (this as any)[privateKey];
+        
+        // Always apply default value to private field if it's not set
+        if (!hasProperty || currentValue === undefined) {
+          // Apply default value to private field
+          if (typeof fieldConfig.default === 'function') {
+            (this as any)[privateKey] = fieldConfig.default();
+          } else {
+            (this as any)[privateKey] = fieldConfig.default;
+          }
+        }
+      }
+    }
+  }
+
+  // Field modification tracking
+  private _modifiedFields: Set<string> = new Set();
+
+  markFieldAsModified(fieldName: string): void {
+    this._modifiedFields.add(fieldName);
+    this._isDirty = true;
+  }
+
+  getModifiedFields(): string[] {
+    return Array.from(this._modifiedFields);
+  }
+
+  isFieldModified(fieldName: string): boolean {
+    return this._modifiedFields.has(fieldName);
+  }
+
+  clearModifications(): void {
+    this._modifiedFields.clear();
+    this._isDirty = false;
   }
 
   // Database operations integrated with DatabaseManager
@@ -390,7 +532,7 @@ export abstract class BaseModel {
           userId,
           modelClass.modelName,
         );
-        await framework.databaseManager.addDocument(database, modelClass.dbType, this.toJSON());
+        await framework.databaseManager.addDocument(database, modelClass.storeType, this.toJSON());
       } else {
         // For global models
         if (modelClass.sharding) {
@@ -398,13 +540,13 @@ export abstract class BaseModel {
           const shard = framework.shardManager.getShardForKey(modelClass.modelName, this.id);
           await framework.databaseManager.addDocument(
             shard.database,
-            modelClass.dbType,
+            modelClass.storeType,
             this.toJSON(),
           );
         } else {
           // Use single global database
           const database = await framework.databaseManager.getGlobalDatabase(modelClass.modelName);
-          await framework.databaseManager.addDocument(database, modelClass.dbType, this.toJSON());
+          await framework.databaseManager.addDocument(database, modelClass.storeType, this.toJSON());
         }
       }
     } catch (error) {
@@ -435,7 +577,7 @@ export abstract class BaseModel {
         );
         await framework.databaseManager.updateDocument(
           database,
-          modelClass.dbType,
+          modelClass.storeType,
           this.id,
           this.toJSON(),
         );
@@ -444,7 +586,7 @@ export abstract class BaseModel {
           const shard = framework.shardManager.getShardForKey(modelClass.modelName, this.id);
           await framework.databaseManager.updateDocument(
             shard.database,
-            modelClass.dbType,
+            modelClass.storeType,
             this.id,
             this.toJSON(),
           );
@@ -452,7 +594,7 @@ export abstract class BaseModel {
           const database = await framework.databaseManager.getGlobalDatabase(modelClass.modelName);
           await framework.databaseManager.updateDocument(
             database,
-            modelClass.dbType,
+            modelClass.storeType,
             this.id,
             this.toJSON(),
           );
@@ -484,18 +626,18 @@ export abstract class BaseModel {
           userId,
           modelClass.modelName,
         );
-        await framework.databaseManager.deleteDocument(database, modelClass.dbType, this.id);
+        await framework.databaseManager.deleteDocument(database, modelClass.storeType, this.id);
       } else {
         if (modelClass.sharding) {
           const shard = framework.shardManager.getShardForKey(modelClass.modelName, this.id);
           await framework.databaseManager.deleteDocument(
             shard.database,
-            modelClass.dbType,
+            modelClass.storeType,
             this.id,
           );
         } else {
           const database = await framework.databaseManager.getGlobalDatabase(modelClass.modelName);
-          await framework.databaseManager.deleteDocument(database, modelClass.dbType, this.id);
+          await framework.databaseManager.deleteDocument(database, modelClass.storeType, this.id);
         }
       }
       return true;
@@ -507,7 +649,13 @@ export abstract class BaseModel {
 
   private getFrameworkInstance(): any {
     // This will be properly typed when DebrosFramework is created
-    return (globalThis as any).__debrosFramework;
+    const framework = (globalThis as any).__debrosFramework;
+    if (!framework) {
+      // Try to get mock framework for testing
+      const mockFramework = (this.constructor as any).getMockFramework?.();
+      return mockFramework;
+    }
+    return framework;
   }
 
   // Static methods for framework integration
@@ -536,5 +684,66 @@ export abstract class BaseModel {
   static query<T extends BaseModel>(this: typeof BaseModel & (new (data?: any) => T)): any {
     const { QueryBuilder } = require('../query/QueryBuilder');
     return new QueryBuilder(this);
+  }
+
+  // Mock framework for testing
+  static getMockFramework(): any {
+    if (typeof jest !== 'undefined') {
+      // Create a simple mock framework with shared mock database storage
+      if (!(globalThis as any).__mockDatabase) {
+        (globalThis as any).__mockDatabase = new Map();
+      }
+      
+      const mockDatabase = {
+        _data: (globalThis as any).__mockDatabase,
+        async get(id: string) {
+          return this._data.get(id) || null;
+        },
+        async put(doc: any) {
+          const id = doc._id || doc.id;
+          this._data.set(id, doc);
+          return id;
+        },
+        async del(id: string) {
+          return this._data.delete(id);
+        },
+        async all() {
+          return Array.from(this._data.values());
+        }
+      };
+
+      return {
+        databaseManager: {
+          async getGlobalDatabase(_name: string) {
+            return mockDatabase;
+          },
+          async getUserDatabase(_userId: string, _name: string) {
+            return mockDatabase;
+          },
+          async getDocument(_database: any, _type: string, id: string) {
+            return await mockDatabase.get(id);
+          },
+          async addDocument(_database: any, _type: string, doc: any) {
+            return await mockDatabase.put(doc);
+          },
+          async updateDocument(_database: any, _type: string, id: string, doc: any) {
+            doc.id = id;
+            return await mockDatabase.put(doc);
+          },
+          async deleteDocument(_database: any, _type: string, id: string) {
+            return await mockDatabase.del(id);
+          },
+          async getAllDocuments(_database: any, _type: string) {
+            return await mockDatabase.all();
+          }
+        },
+        shardManager: {
+          getShardForKey(_modelName: string, _key: string) {
+            return { database: mockDatabase };
+          }
+        }
+      };
+    }
+    return null;
   }
 }

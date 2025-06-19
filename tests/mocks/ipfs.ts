@@ -228,6 +228,10 @@ export class MockOrbitDBService {
     return await this.orbitdb.open(name, { type });
   }
 
+  async openDatabase(name: string, type: string) {
+    return await this.openDB(name, type);
+  }
+
   getOrbitDB() {
     return this.orbitdb;
   }

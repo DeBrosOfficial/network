@@ -34,25 +34,26 @@ export function Field(config: FieldConfig) {
           throw new ValidationError(validationResult.errors);
         }
 
-        // Set the value and mark as dirty
-        this[privateKey] = transformedValue;
-        if (this._isDirty !== undefined) {
-          this._isDirty = true;
+        // Check if value actually changed
+        const oldValue = this[privateKey];
+        if (oldValue !== transformedValue) {
+          // Set the value and mark as dirty
+          this[privateKey] = transformedValue;
+          if (this._isDirty !== undefined) {
+            this._isDirty = true;
+          }
+          // Track field modification
+          if (this.markFieldAsModified && typeof this.markFieldAsModified === 'function') {
+            this.markFieldAsModified(propertyKey);
+          }
         }
       },
       enumerable: true,
       configurable: true,
     });
 
-    // Set default value if provided
-    if (config.default !== undefined) {
-      Object.defineProperty(target, privateKey, {
-        value: config.default,
-        writable: true,
-        enumerable: false,
-        configurable: true,
-      });
-    }
+    // Don't set default values here - let BaseModel constructor handle it
+    // This ensures proper inheritance and instance-specific defaults
   };
 }
 

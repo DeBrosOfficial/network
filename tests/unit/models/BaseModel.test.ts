@@ -10,25 +10,33 @@ import { createMockServices } from '../../mocks/services';
 })
 class TestUser extends BaseModel {
   @Field({ type: 'string', required: true, unique: true })
-  username: string;
+  declare username: string;
 
-  @Field({ type: 'string', required: true, unique: true })
-  email: string;
+  @Field({ 
+    type: 'string', 
+    required: true, 
+    unique: true,
+    validate: (value: string) => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(value);
+    }
+  })
+  declare email: string;
 
   @Field({ type: 'number', required: false, default: 0 })
-  score: number;
+  declare score: number;
 
   @Field({ type: 'boolean', required: false, default: true })
-  isActive: boolean;
+  declare isActive: boolean;
 
   @Field({ type: 'array', required: false, default: [] })
-  tags: string[];
+  declare tags: string[];
 
   @Field({ type: 'number', required: false })
-  createdAt: number;
+  declare createdAt: number;
 
   @Field({ type: 'number', required: false })
-  updatedAt: number;
+  declare updatedAt: number;
 
   // Hook counters for testing
   static beforeCreateCount = 0;
@@ -82,17 +90,17 @@ class TestPost extends BaseModel {
       return true;
     }
   })
-  title: string;
+  declare title: string;
 
   @Field({ 
     type: 'string', 
     required: true,
     validate: (value: string) => value.length <= 1000
   })
-  content: string;
+  declare content: string;
 
   @Field({ type: 'string', required: true })
-  userId: string;
+  declare userId: string;
 
   @Field({ 
     type: 'array', 
@@ -100,7 +108,7 @@ class TestPost extends BaseModel {
     default: [],
     transform: (tags: string[]) => tags.map(tag => tag.toLowerCase())
   })
-  tags: string[];
+  declare tags: string[];
 }
 
 describe('BaseModel', () => {
@@ -421,7 +429,7 @@ describe('BaseModel', () => {
     it('should handle validation errors gracefully', async () => {
       try {
         await TestPost.create({
-          title: '', // Empty title should fail validation
+          // Missing required title
           content: 'Test content',
           userId: 'user123'
         });
@@ -436,9 +444,10 @@ describe('BaseModel', () => {
       // For now, we'll test with a simple validation error
       const user = new TestUser();
       user.username = 'test';
-      user.email = 'invalid-email'; // Invalid email format
 
-      await expect(user.save()).rejects.toThrow();
+      expect(() => {
+        user.email = 'invalid-email'; // Invalid email format
+      }).toThrow();
     });
   });
 

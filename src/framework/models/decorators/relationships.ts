@@ -9,7 +9,7 @@ export function BelongsTo(
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'belongsTo',
-      model: modelFactory(),
+      modelFactory,
       foreignKey,
       localKey: options.localKey || 'id',
       lazy: true,
@@ -29,7 +29,7 @@ export function HasMany(
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'hasMany',
-      model: modelFactory(),
+      modelFactory,
       foreignKey,
       localKey: options.localKey || 'id',
       through: options.through,
@@ -50,7 +50,7 @@ export function HasOne(
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'hasOne',
-      model: modelFactory(),
+      modelFactory,
       foreignKey,
       localKey: options.localKey || 'id',
       lazy: true,
@@ -72,7 +72,7 @@ export function ManyToMany(
   return function (target: any, propertyKey: string) {
     const config: RelationshipConfig = {
       type: 'manyToMany',
-      model: modelFactory(),
+      modelFactory,
       foreignKey,
       otherKey,
       localKey: options.localKey || 'id',
@@ -95,8 +95,9 @@ function registerRelationship(target: any, propertyKey: string, config: Relation
   // Store relationship configuration
   target.constructor.relationships.set(propertyKey, config);
 
+  const modelName = config.model?.name || (config.modelFactory ? 'LazyModel' : 'UnknownModel');
   console.log(
-    `Registered ${config.type} relationship: ${target.constructor.name}.${propertyKey} -> ${config.model.name}`,
+    `Registered ${config.type} relationship: ${target.constructor.name}.${propertyKey} -> ${modelName}`,
   );
 }
 

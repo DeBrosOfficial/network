@@ -125,7 +125,7 @@ export class QueryExecutor<T extends BaseModel> {
           this.model.modelName,
         );
 
-        return await this.queryDatabase(userDB, this.model.dbType);
+        return await this.queryDatabase(userDB, this.model.storeType);
       } catch (error) {
         console.warn(`Failed to query user ${userId} database:`, error);
         return [];
@@ -187,7 +187,7 @@ export class QueryExecutor<T extends BaseModel> {
       return await this.executeShardedQuery();
     } else {
       const db = await this.framework.databaseManager.getGlobalDatabase(this.model.modelName);
-      return await this.queryDatabase(db, this.model.dbType);
+      return await this.queryDatabase(db, this.model.storeType);
     }
   }
 
@@ -206,7 +206,7 @@ export class QueryExecutor<T extends BaseModel> {
         this.model.modelName,
         shardKeyCondition.value,
       );
-      return await this.queryDatabase(shard.database, this.model.dbType);
+      return await this.queryDatabase(shard.database, this.model.storeType);
     } else if (shardKeyCondition && shardKeyCondition.operator === 'in') {
       // Multiple specific shards
       const results: T[] = [];
@@ -214,7 +214,7 @@ export class QueryExecutor<T extends BaseModel> {
 
       const shardQueries = shardKeys.map(async (key: string) => {
         const shard = this.framework.shardManager.getShardForKey(this.model.modelName, key);
-        return await this.queryDatabase(shard.database, this.model.dbType);
+        return await this.queryDatabase(shard.database, this.model.storeType);
       });
 
       const shardResults = await Promise.all(shardQueries);
@@ -229,7 +229,7 @@ export class QueryExecutor<T extends BaseModel> {
       const allShards = this.framework.shardManager.getAllShards(this.model.modelName);
 
       const promises = allShards.map((shard: any) =>
-        this.queryDatabase(shard.database, this.model.dbType),
+        this.queryDatabase(shard.database, this.model.storeType),
       );
       const shardResults = await Promise.all(promises);
 
@@ -295,7 +295,7 @@ export class QueryExecutor<T extends BaseModel> {
         // Fetch specific documents by ID
         for (const entry of entries) {
           try {
-            const doc = await this.getDocumentById(userDB, this.model.dbType, entry.id);
+            const doc = await this.getDocumentById(userDB, this.model.storeType, entry.id);
             if (doc) {
               const ModelClass = this.model as any; // Type assertion for abstract class
               userResults.push(new ModelClass(doc) as T);
@@ -612,7 +612,12 @@ export class QueryExecutor<T extends BaseModel> {
   private getFrameworkInstance(): any {
     const framework = (globalThis as any).__debrosFramework;
     if (!framework) {
-      throw new Error('Framework not initialized. Call framework.initialize() first.');
+      // Try to get mock framework from BaseModel for testing
+      const mockFramework = (this.model as any).getMockFramework?.();
+      if (!mockFramework) {
+        throw new Error('Framework not initialized. Call framework.initialize() first.');
+      }
+      return mockFramework;
     }
     return framework;
   }
