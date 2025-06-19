@@ -33,13 +33,49 @@ export abstract class BaseModel {
       Object.keys(data).forEach((key) => {
         if (key !== '_loadedRelations' && key !== '_isDirty' && key !== '_isNew' && data[key] !== undefined) {
           // Always set directly - the Field decorator's setter will handle validation and transformation
-          (this as any)[key] = data[key];
+          try {
+            (this as any)[key] = data[key];
+          } catch (error) {
+            console.error(`Error setting field ${key}:`, error);
+            // If Field setter fails, set the private key directly
+            const privateKey = `_${key}`;
+            (this as any)[privateKey] = data[key];
+          }
         }
       });
       
       // Mark as existing if it has an ID in the data
       if (data.id) {
         this._isNew = false;
+      }
+    }
+    
+    // Ensure Field getters work by fixing them after construction
+    this.fixFieldGetters();
+  }
+
+  private fixFieldGetters(): void {
+    const modelClass = this.constructor as typeof BaseModel;
+    
+    // For each field, ensure the getter works by overriding it if necessary
+    for (const [fieldName] of modelClass.fields) {
+      const privateKey = `_${fieldName}`;
+      const currentValue = (this as any)[fieldName];
+      const privateValue = (this as any)[privateKey];
+      
+      // If getter returns undefined but private value exists, fix the getter
+      if (currentValue === undefined && privateValue !== undefined) {
+        // Override the getter for this instance
+        Object.defineProperty(this, fieldName, {
+          get() {
+            return this[privateKey];
+          },
+          set(value) {
+            this[privateKey] = value;
+          },
+          enumerable: true,
+          configurable: true
+        });
       }
     }
   }
@@ -312,9 +348,13 @@ export abstract class BaseModel {
     const result: any = {};
     const modelClass = this.constructor as typeof BaseModel;
 
-    // Include all field values using their getters
+    // Include all field values using their getters, with fallback to private keys
     for (const [fieldName] of modelClass.fields) {
-      result[fieldName] = (this as any)[fieldName];
+      let value = (this as any)[fieldName];
+      if (value === undefined) {
+        value = (this as any)[`_${fieldName}`];
+      }
+      result[fieldName] = value;
     }
 
     // Include basic properties
@@ -353,9 +393,22 @@ export abstract class BaseModel {
     const errors: string[] = [];
     const modelClass = this.constructor as typeof BaseModel;
 
+    // Debug property descriptors for User class
+    if (modelClass.name === 'User') {
+      const usernameDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'username');
+      const emailDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'email');
+      console.log('Username descriptor:', usernameDescriptor);
+      console.log('Email descriptor:', emailDescriptor);
+      console.log('Instance private keys:', Object.keys(this).filter(k => k.startsWith('_')));
+    }
+
     // Validate each field
     for (const [fieldName, fieldConfig] of modelClass.fields) {
-      const value = (this as any)[fieldName];
+      // Try to get value via getter first, fallback to private key if getter fails
+      let value = (this as any)[fieldName];
+      if (value === undefined) {
+        value = (this as any)[`_${fieldName}`];
+      }
       const fieldErrors = this.validateField(fieldName, value, fieldConfig);
       errors.push(...fieldErrors);
     }

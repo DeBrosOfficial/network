@@ -23,7 +23,9 @@ export function Field(config: FieldConfig) {
 
     Object.defineProperty(target, propertyKey, {
       get() {
-        return this[privateKey];
+        // Explicitly construct the private key to avoid closure issues
+        const key = `_${propertyKey}`;
+        return this[key];
       },
       set(value) {
         // Apply transformation first
