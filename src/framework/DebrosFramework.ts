@@ -521,12 +521,12 @@ export class DebrosFramework {
       this.status.services.pinning = this.pinningManager ? 'active' : 'inactive';
       this.status.services.pubsub = this.pubsubManager ? 'active' : 'inactive';
 
-      // Overall health check
-      const allServicesHealthy = Object.values(this.status.services).every(
-        (status) => status === 'connected' || status === 'active',
-      );
+      // Overall health check - only require core services to be healthy
+      const coreServicesHealthy = 
+        this.status.services.orbitdb === 'connected' && 
+        this.status.services.ipfs === 'connected';
 
-      this.status.healthy = this.initialized && allServicesHealthy;
+      this.status.healthy = this.initialized && coreServicesHealthy;
     } catch (error) {
       console.error('Health check failed:', error);
       this.status.healthy = false;

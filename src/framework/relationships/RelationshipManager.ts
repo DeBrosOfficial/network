@@ -327,7 +327,11 @@ export class RelationshipManager {
     const uniqueForeignKeys = [...new Set(foreignKeys)];
 
     // Load all related models at once
-    let query = (config.model as any).whereIn('id', uniqueForeignKeys);
+    const RelatedModel = config.model || (config.modelFactory ? config.modelFactory() : null) || (config.targetModel ? config.targetModel() : null);
+    if (!RelatedModel) {
+      throw new Error(`Could not resolve related model for ${relationshipName}`);
+    }
+    let query = (RelatedModel as any).whereIn('id', uniqueForeignKeys);
 
     if (options.constraints) {
       query = options.constraints(query);

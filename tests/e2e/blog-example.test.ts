@@ -190,12 +190,18 @@ class Post extends BaseModel {
     const now = Date.now();
     this.createdAt = now;
     this.updatedAt = now;
+    
+    // Generate slug before validation if missing
+    if (!this.slug && this.title) {
+      this.slug = this.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
   }
 
   @AfterCreate()
-  generateSlugIfNeeded() {
-    if (!this.slug && this.title) {
-      this.slug = this.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + this.id.slice(-8);
+  finalizeSlug() {
+    // Add unique identifier to slug after creation to ensure uniqueness
+    if (this.slug && this.id) {
+      this.slug = this.slug + '-' + this.id.slice(-8);
     }
   }
 

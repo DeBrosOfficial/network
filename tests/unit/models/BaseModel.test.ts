@@ -117,6 +117,11 @@ describe('BaseModel', () => {
   beforeEach(() => {
     mockServices = createMockServices();
     
+    // Clear the shared mock database to prevent test isolation issues
+    if ((globalThis as any).__mockDatabase) {
+      (globalThis as any).__mockDatabase.clear();
+    }
+    
     // Reset hook counters
     TestUser.beforeCreateCount = 0;
     TestUser.afterCreateCount = 0;
@@ -258,10 +263,10 @@ describe('BaseModel', () => {
     });
 
     it('should find all models', async () => {
-      // Create another user
+      // Create another user with unique username and email
       await TestUser.create({
         username: 'testuser2',
-        email: 'test2@example.com'
+        email: 'testuser2@example.com'
       });
 
       const allUsers = await TestUser.findAll();

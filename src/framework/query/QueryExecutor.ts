@@ -380,6 +380,7 @@ export class QueryExecutor<T extends BaseModel> {
     switch (operator) {
       case '=':
       case '==':
+      case 'eq':
         return docValue === value;
 
       case '!=':

@@ -81,21 +81,6 @@ export abstract class BaseModel {
     }
   }
 
-  private autoGenerateRequiredFields(): void {
-    const modelClass = this.constructor as typeof BaseModel;
-    
-    // Auto-generate slug for Post models if missing
-    if (modelClass.name === 'Post') {
-      const titleValue = this.getFieldValue('title');
-      const slugValue = this.getFieldValue('slug');
-      
-      if (titleValue && !slugValue) {
-        // Generate a temporary slug before validation (will be refined in AfterCreate)
-        const tempSlug = titleValue.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-temp';
-        this.setFieldValue('slug', tempSlug);
-      }
-    }
-  }
 
   // Core CRUD operations
   async save(): Promise<this> {
@@ -121,11 +106,6 @@ export abstract class BaseModel {
       // Clean up any additional shadowing properties after setting timestamps
       this.cleanupShadowingProperties();
       
-      // Auto-generate required fields that have hooks to generate them
-      this.autoGenerateRequiredFields();
-      
-      // Clean up any shadowing properties after auto-generation
-      this.cleanupShadowingProperties();
       
       // Validate after all field generation is complete
       await this.validate();
@@ -442,8 +422,7 @@ export abstract class BaseModel {
       const privateKey = `_${fieldName}`;
       const value = (this as any)[privateKey];
       
-      
-      const fieldErrors = this.validateField(fieldName, value, fieldConfig);
+      const fieldErrors = await this.validateField(fieldName, value, fieldConfig);
       errors.push(...fieldErrors);
     }
 
@@ -456,7 +435,7 @@ export abstract class BaseModel {
     return result;
   }
 
-  private validateField(fieldName: string, value: any, config: FieldConfig): string[] {
+  private async validateField(fieldName: string, value: any, config: FieldConfig): Promise<string[]> {
     const errors: string[] = [];
 
     // Required validation
@@ -473,6 +452,20 @@ export abstract class BaseModel {
     // Type validation
     if (!this.isValidType(value, config.type)) {
       errors.push(`${fieldName} must be of type ${config.type}`);
+    }
+
+    // Unique constraint validation
+    if (config.unique && value !== undefined && value !== null && value !== '') {
+      const modelClass = this.constructor as typeof BaseModel;
+      try {
+        const existing = await modelClass.findOne({ [fieldName]: value });
+        if (existing && existing.id !== this.id) {
+          errors.push(`${fieldName} must be unique`);
+        }
+      } catch (error) {
+        // If we can't query for duplicates, skip unique validation
+        console.warn(`Could not validate unique constraint for ${fieldName}:`, error);
+      }
     }
 
     // Custom validation
@@ -886,6 +879,14 @@ export abstract class BaseModel {
           },
           async getUserDatabase(_userId: string, _name: string) {
             return mockDatabase;
+          },
+          async getUserMappings(_userId: string) {
+            // Mock user mappings - return a simple mapping
+            return { userId: _userId, databases: {} };
+          },
+          async createUserDatabases(_userId: string) {
+            // Mock user database creation - do nothing for tests
+            return;
           },
           async getDocument(_database: any, _type: string, id: string) {
             return await mockDatabase.get(id);

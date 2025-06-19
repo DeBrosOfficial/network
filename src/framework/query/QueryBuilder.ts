@@ -500,6 +500,10 @@ export class QueryBuilder<T extends BaseModel> {
   }
 
   // Getters for query configuration (used by QueryExecutor)
+  getModel(): typeof BaseModel {
+    return this.model;
+  }
+
   getConditions(): QueryCondition[] {
     return [...this.conditions];
   }

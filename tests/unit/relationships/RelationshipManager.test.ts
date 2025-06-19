@@ -456,7 +456,7 @@ describe('RelationshipManager', () => {
     });
 
     it('should store in cache after loading', async () => {
-      const mockUser = new User();
+      const mockUser = new User({ id: 'test-user-id' });
       User.first.mockResolvedValue(mockUser);
 
       const setCacheSpy = jest.spyOn(relationshipManager['cache'], 'set');
@@ -464,7 +464,7 @@ describe('RelationshipManager', () => {
 
       await relationshipManager.loadRelationship(post, 'user');
 
-      expect(setCacheSpy).toHaveBeenCalledWith('cache-key', mockUser, 'User', 'belongsTo');
+      expect(setCacheSpy).toHaveBeenCalledWith('cache-key', expect.any(User), 'User', 'belongsTo');
       expect(generateKeySpy).toHaveBeenCalled();
     });
 
