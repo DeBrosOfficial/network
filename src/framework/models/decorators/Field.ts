@@ -83,7 +83,7 @@ function validateFieldConfig(config: FieldConfig): void {
   }
 }
 
-function validateFieldValue(
+function _validateFieldValue(
   value: any,
   config: FieldConfig,
   fieldName: string,

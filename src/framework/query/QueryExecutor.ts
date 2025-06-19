@@ -603,7 +603,13 @@ export class QueryExecutor<T extends BaseModel> {
     const suggestions = QueryOptimizer.suggestOptimizations(this.query);
 
     return {
-      query: this.query.explain(),
+      query: {
+        model: this.model.name,
+        conditions: this.query.getConditions(),
+        orderBy: this.query.getOrderBy(),
+        limit: this.query.getLimit(),
+        offset: this.query.getOffset()
+      },
       plan,
       suggestions,
       estimatedResultSize: QueryOptimizer.estimateResultSize(this.query),

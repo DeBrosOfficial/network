@@ -277,7 +277,7 @@ export class DebrosFramework {
     const globalModels = ModelRegistry.getGlobalModels();
     for (const model of globalModels) {
       if (model.sharding) {
-        await this.shardManager.createShards(model.modelName, model.sharding, model.dbType);
+        await this.shardManager.createShards(model.modelName, model.sharding, model.storeType);
       }
     }
     console.log('✅ ShardManager initialized');

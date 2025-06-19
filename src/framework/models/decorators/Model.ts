@@ -12,7 +12,12 @@ export function Model(config: ModelConfig = {}) {
     if (!target.hasOwnProperty('fields')) {
       // Copy existing fields from prototype if any
       const parentFields = target.fields;
-      target.fields = new Map();
+      Object.defineProperty(target, 'fields', {
+        value: new Map(),
+        writable: true,
+        enumerable: false,
+        configurable: true
+      });
       if (parentFields) {
         for (const [key, value] of parentFields) {
           target.fields.set(key, value);
@@ -40,12 +45,58 @@ export function Model(config: ModelConfig = {}) {
       }
     }
 
-    // Set model configuration on the class
-    target.modelName = config.tableName || target.name;
-    target.storeType = config.type || autoDetectType(target);
-    target.scope = config.scope || 'global';
-    target.sharding = config.sharding;
-    target.pinning = config.pinning;
+    // Set model configuration on the class using defineProperty to ensure they're own properties
+    const modelName = config.tableName || target.name;
+    const storeType = config.type || autoDetectType(target);
+    const scope = config.scope || 'global';
+    
+    Object.defineProperty(target, 'modelName', {
+      value: modelName,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+    
+    Object.defineProperty(target, 'storeType', {
+      value: storeType,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
+    
+    // Also set dbType for backwards compatibility
+    Object.defineProperty(target, 'dbType', {
+      value: storeType,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
+    
+    Object.defineProperty(target, 'scope', {
+      value: scope,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+    
+    if (config.sharding) {
+      Object.defineProperty(target, 'sharding', {
+        value: config.sharding,
+        writable: true,
+        enumerable: false,
+        configurable: true
+      });
+    }
+    
+    if (config.pinning) {
+      Object.defineProperty(target, 'pinning', {
+        value: config.pinning,
+        writable: true,
+        enumerable: false,
+        configurable: true
+      });
+    }
+    
 
     // Register with framework
     ModelRegistry.register(target.name, target, config);

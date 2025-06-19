@@ -318,8 +318,15 @@ export class QueryBuilder<T extends BaseModel> {
     return this;
   }
 
-  with(relationships: string[]): this {
-    return this.load(relationships);
+  with(relationships: string[], constraints?: (query: QueryBuilder<any>) => QueryBuilder<any>): this {
+    relationships.forEach(relation => {
+      if (!this._relationshipConstraints) {
+        this._relationshipConstraints = new Map();
+      }
+      this._relationshipConstraints.set(relation, constraints);
+      this.relations.push(relation);
+    });
+    return this;
   }
 
   loadNested(relationship: string, _callback: (query: QueryBuilder<any>) => void): this {
@@ -356,7 +363,7 @@ export class QueryBuilder<T extends BaseModel> {
     return await this.exec();
   }
 
-  async find(): Promise<T[]> {
+  async all(): Promise<T[]> {
     return await this.exec();
   }
 
@@ -536,10 +543,6 @@ export class QueryBuilder<T extends BaseModel> {
     return [...this.distinctFields];
   }
 
-  getModel(): typeof BaseModel {
-    return this.model;
-  }
-
   // Getter methods for testing
   getWhereConditions(): QueryCondition[] {
     return [...this.conditions];
@@ -547,14 +550,6 @@ export class QueryBuilder<T extends BaseModel> {
 
   getOrderBy(): SortConfig[] {
     return [...this.sorting];
-  }
-
-  getLimit(): number | undefined {
-    return this.limitation;
-  }
-
-  getOffset(): number | undefined {
-    return this.offsetValue;
   }
 
   getRelationships(): any[] {
@@ -592,6 +587,18 @@ export class QueryBuilder<T extends BaseModel> {
     return this;
   }
 
+  // Cursor-based pagination
+  after(cursor: string): this {
+    this.cursorValue = cursor;
+    return this;
+  }
+
+  // Aggregation methods
+  async average(field: string): Promise<number> {
+    const executor = new QueryExecutor<T>(this.model, this);
+    return await executor.avg(field);
+  }
+
   // Caching methods
   cache(ttl: number, key?: string): this {
     this.cacheEnabled = true;
@@ -607,112 +614,44 @@ export class QueryBuilder<T extends BaseModel> {
     return this;
   }
 
-  // Relationship loading
-  with(relations: string[], constraints?: (query: QueryBuilder<any>) => QueryBuilder<any>): this {
-    relations.forEach(relation => {
-      // Store relationship with its constraints
-      if (!this._relationshipConstraints) {
-        this._relationshipConstraints = new Map();
-      }
-      this._relationshipConstraints.set(relation, constraints);
-      this.relations.push(relation);
-    });
-    return this;
-  }
-
-  // Pagination
-  after(cursor: string): this {
-    this.cursorValue = cursor;
-    return this;
-  }
-
-  // Query execution methods
-  async exists(): Promise<boolean> {
-    const results = await this.limit(1).exec();
-    return results.length > 0;
-  }
-
-  async count(): Promise<number> {
-    const executor = new QueryExecutor<T>(this.model, this);
-    return await executor.count();
-  }
-
-  async sum(field: string): Promise<number> {
-    const executor = new QueryExecutor<T>(this.model, this);
-    return await executor.sum(field);
-  }
-
-  async average(field: string): Promise<number> {
-    const executor = new QueryExecutor<T>(this.model, this);
-    return await executor.avg(field);
-  }
-
-  async min(field: string): Promise<number> {
-    const executor = new QueryExecutor<T>(this.model, this);
-    return await executor.min(field);
-  }
-
-  async max(field: string): Promise<number> {
-    const executor = new QueryExecutor<T>(this.model, this);
-    return await executor.max(field);
-  }
-
-
-  // Clone query for reuse
+  // Cloning
   clone(): QueryBuilder<T> {
     const cloned = new QueryBuilder<T>(this.model);
     cloned.conditions = [...this.conditions];
-    cloned.relations = [...this.relations];
     cloned.sorting = [...this.sorting];
-    cloned.limitation = this.limitation;
-    cloned.offsetValue = this.offsetValue;
     cloned.groupByFields = [...this.groupByFields];
     cloned.havingConditions = [...this.havingConditions];
+    cloned.relations = [...this.relations];
     cloned.distinctFields = [...this.distinctFields];
-
+    cloned.limitation = this.limitation;
+    cloned.offsetValue = this.offsetValue;
+    cloned.cursorValue = this.cursorValue;
+    cloned.cacheEnabled = this.cacheEnabled;
+    cloned.cacheTtl = this.cacheTtl;
+    cloned.cacheKey = this.cacheKey;
+    if (this._relationshipConstraints) {
+      cloned._relationshipConstraints = new Map(this._relationshipConstraints);
+    }
     return cloned;
   }
 
-  // Debug methods
-  toSQL(): string {
-    // Generate SQL-like representation for debugging
-    let sql = `SELECT * FROM ${this.model.name}`;
-
-    if (this.conditions.length > 0) {
-      const whereClause = this.conditions
-        .map((c) => `${c.field} ${c.operator} ${JSON.stringify(c.value)}`)
-        .join(' AND ');
-      sql += ` WHERE ${whereClause}`;
-    }
-
-    if (this.sorting.length > 0) {
-      const orderClause = this.sorting
-        .map((s) => `${s.field} ${s.direction.toUpperCase()}`)
-        .join(', ');
-      sql += ` ORDER BY ${orderClause}`;
-    }
-
-    if (this.limitation) {
-      sql += ` LIMIT ${this.limitation}`;
-    }
-
-    if (this.offsetValue) {
-      sql += ` OFFSET ${this.offsetValue}`;
-    }
-
-    return sql;
+  // Additional getters for testing
+  getCursor(): string | undefined {
+    return this.cursorValue;
   }
 
-  explain(): any {
+  getCacheOptions(): any {
     return {
-      model: this.model.name,
-      scope: this.model.scope,
-      conditions: this.conditions,
-      relations: this.relations,
-      sorting: this.sorting,
-      limit: this.limitation,
-      offset: this.offsetValue,
-      sql: this.toSQL(),
+      enabled: this.cacheEnabled,
+      ttl: this.cacheTtl,
+      key: this.cacheKey
     };
+  }
+
+  getRelationships(): any[] {
+    return this.relations.map(relation => ({
+      relation,
+      constraints: this._relationshipConstraints?.get(relation)
+    }));
   }
 }

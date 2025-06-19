@@ -45,7 +45,7 @@ export class RelationshipCache {
         if (extraStr) {
           return `${baseKey}:${this.hashString(extraStr)}`;
         }
-      } catch (e) {
+      } catch (_e) {
         // If JSON.stringify fails (e.g., for functions), use a fallback
         const fallbackStr = String(extraData) || 'undefined';
         return `${baseKey}:${this.hashString(fallbackStr)}`;

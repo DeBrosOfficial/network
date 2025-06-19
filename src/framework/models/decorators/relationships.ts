@@ -154,10 +154,11 @@ export function getRelationshipConfig(
   if (propertyKey) {
     return relationships.get(propertyKey);
   } else {
-    return Array.from(relationships.values()).map((config, index) => ({
-      ...config,
-      propertyKey: Array.from(relationships.keys())[index]
-    }));
+    return Array.from(relationships.values()).map((config, index) => {
+      const result = Object.assign({}, config) as any;
+      result.propertyKey = Array.from(relationships.keys())[index];
+      return result as RelationshipConfig;
+    });
   }
 }
 

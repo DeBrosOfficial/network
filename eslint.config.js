@@ -40,15 +40,55 @@ export default [
     },
   },
 
-  // TypeScript-specific configuration
+  // TypeScript-specific configuration for source files
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
         project: './tsconfig.json',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint.plugin,
+    },
+    rules: {
+      ...tseslint.configs.recommended.rules,
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {
+          selector: 'default',
+          format: ['camelCase', 'PascalCase', 'snake_case', 'UPPER_CASE'],
+          leadingUnderscore: 'allow',
+          trailingUnderscore: 'allow',
+        },
+        {
+          selector: 'property',
+          format: null,
+        },
+      ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+
+  // TypeScript-specific configuration for test files
+  {
+    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        project: './tsconfig.tests.json',
       },
     },
     plugins: {

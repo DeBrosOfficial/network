@@ -24,7 +24,11 @@
     "test:coverage": "jest --coverage",
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration",
-    "test:e2e": "jest tests/e2e"
+    "test:e2e": "jest tests/e2e",
+    "test:real": "jest --config jest.real.config.cjs",
+    "test:real:debug": "REAL_TEST_DEBUG=true jest --config jest.real.config.cjs",
+    "test:real:basic": "jest --config jest.real.config.cjs tests/real/basic-integration.test.ts",
+    "test:real:p2p": "jest --config jest.real.config.cjs tests/real/peer-discovery.test.ts"
   },
   "keywords": [
     "ipfs",
@@ -53,6 +57,7 @@
     "@orbitdb/core": "^2.5.0",
     "@orbitdb/feed-db": "^1.1.2",
     "blockstore-fs": "^2.0.2",
+    "datastore-fs": "^10.0.4",
     "express": "^5.1.0",
     "helia": "^5.3.0",
     "libp2p": "^2.8.2",

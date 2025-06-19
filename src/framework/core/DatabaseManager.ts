@@ -43,15 +43,14 @@ export class DatabaseManager {
     const globalModels = ModelRegistry.getGlobalModels();
 
     console.log(`📊 Creating ${globalModels.length} global databases...`);
-
     for (const model of globalModels) {
       const dbName = `global-${model.modelName.toLowerCase()}`;
 
       try {
-        const db = await this.createDatabase(dbName, model.dbType, 'global');
+        const db = await this.createDatabase(dbName, (model as any).dbType || model.storeType, 'global');
         this.globalDatabases.set(model.modelName, db);
 
-        console.log(`✓ Created global database: ${dbName} (${model.dbType})`);
+        console.log(`✓ Created global database: ${dbName} (${(model as any).dbType || model.storeType})`);
       } catch (error) {
         console.error(`❌ Failed to create global database ${dbName}:`, error);
         throw error;
@@ -96,10 +95,10 @@ export class DatabaseManager {
       const dbName = `${userId}-${model.modelName.toLowerCase()}`;
 
       try {
-        const db = await this.createDatabase(dbName, model.dbType, 'user');
+        const db = await this.createDatabase(dbName, (model as any).dbType || model.storeType, 'user');
         databases[`${model.modelName.toLowerCase()}DB`] = db.address.toString();
 
-        console.log(`✓ Created user database: ${dbName} (${model.dbType})`);
+        console.log(`✓ Created user database: ${dbName} (${(model as any).dbType || model.storeType})`);
       } catch (error) {
         console.error(`❌ Failed to create user database ${dbName}:`, error);
         throw error;

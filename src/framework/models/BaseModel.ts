@@ -60,7 +60,7 @@ export abstract class BaseModel {
     for (const [fieldName] of modelClass.fields) {
       // If there's an instance property, remove it and create a working getter
       if (this.hasOwnProperty(fieldName)) {
-        const oldValue = (this as any)[fieldName];
+        const _oldValue = (this as any)[fieldName];
         delete (this as any)[fieldName];
         
         // Define a working getter directly on the instance
@@ -190,7 +190,7 @@ export abstract class BaseModel {
       }
 
       if (data) {
-        const instance = new this(data);
+        const instance = new (this as any)(data);
         instance._isNew = false;
         instance.clearModifications();
         return instance;
@@ -458,7 +458,7 @@ export abstract class BaseModel {
     if (config.unique && value !== undefined && value !== null && value !== '') {
       const modelClass = this.constructor as typeof BaseModel;
       try {
-        const existing = await modelClass.findOne({ [fieldName]: value });
+        const existing = await (modelClass as any).findOne({ [fieldName]: value });
         if (existing && existing.id !== this.id) {
           errors.push(`${fieldName} must be unique`);
         }
@@ -530,7 +530,7 @@ export abstract class BaseModel {
     const hookNames = modelClass.hooks.get(hookName) || [];
 
     for (const hookMethodName of hookNames) {
-      const hookMethod = (this as any)[hookMethodName];
+      const hookMethod = (this as any)[String(hookMethodName)];
       if (typeof hookMethod === 'function') {
         await hookMethod.call(this);
       }
@@ -620,7 +620,7 @@ export abstract class BaseModel {
     // Try to use the Field decorator's setter first
     try {
       (this as any)[fieldName] = value;
-    } catch (error) {
+    } catch (_error) {
       // Fallback to setting private key directly
       const privateKey = `_${fieldName}`;
       (this as any)[privateKey] = value;
@@ -649,7 +649,7 @@ export abstract class BaseModel {
       await framework.databaseManager.getUserMappings(userId);
     } catch (error) {
       // If user not found, create databases for them
-      if (error.message.includes('not found in directory')) {
+      if ((error as Error).message.includes('not found in directory')) {
         console.log(`Creating databases for user ${userId}`);
         await framework.databaseManager.createUserDatabases(userId);
       } else {
