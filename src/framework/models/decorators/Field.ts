@@ -21,9 +21,24 @@ export function Field(config: FieldConfig) {
     // Store the current descriptor (if any) - for future use
     const _currentDescriptor = Object.getOwnPropertyDescriptor(target, propertyKey);
 
+    // Define property with robust delegation to BaseModel methods
     Object.defineProperty(target, propertyKey, {
       get() {
-        // Explicitly construct the private key to avoid closure issues
+        // Check for shadowing instance property and remove it
+        if (this.hasOwnProperty && this.hasOwnProperty(propertyKey)) {
+          const descriptor = Object.getOwnPropertyDescriptor(this, propertyKey);
+          if (descriptor && !descriptor.get) {
+            // Remove shadowing value property
+            delete this[propertyKey];
+          }
+        }
+        
+        // Use the reliable getFieldValue method if available, otherwise fallback to private key
+        if (this.getFieldValue && typeof this.getFieldValue === 'function') {
+          return this.getFieldValue(propertyKey);
+        }
+        
+        // Fallback to direct private key access
         const key = `_${propertyKey}`;
         return this[key];
       },

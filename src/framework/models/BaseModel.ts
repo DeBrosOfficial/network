@@ -5,8 +5,6 @@ import { QueryBuilder } from '../query/QueryBuilder';
 export abstract class BaseModel {
   // Instance properties
   public id: string = '';
-  public createdAt: number = 0;
-  public updatedAt: number = 0;
   public _loadedRelations: Map<string, any> = new Map();
   protected _isDirty: boolean = false;
   protected _isNew: boolean = true;
@@ -50,28 +48,30 @@ export abstract class BaseModel {
       }
     }
     
-    // Ensure Field getters work by fixing them after construction
-    this.fixFieldGetters();
+    // Remove any instance properties that might shadow prototype getters
+    this.cleanupShadowingProperties();
+    
   }
 
-  private fixFieldGetters(): void {
+  private cleanupShadowingProperties(): void {
     const modelClass = this.constructor as typeof BaseModel;
     
-    // For each field, ensure the getter works by overriding it if necessary
+    // For each field, ensure no instance properties are shadowing prototype getters
     for (const [fieldName] of modelClass.fields) {
-      const privateKey = `_${fieldName}`;
-      const currentValue = (this as any)[fieldName];
-      const privateValue = (this as any)[privateKey];
-      
-      // If getter returns undefined but private value exists, fix the getter
-      if (currentValue === undefined && privateValue !== undefined) {
-        // Override the getter for this instance
+      // If there's an instance property, remove it and create a working getter
+      if (this.hasOwnProperty(fieldName)) {
+        delete (this as any)[fieldName];
+        
+        // Define a working getter directly on the instance
         Object.defineProperty(this, fieldName, {
-          get() {
-            return this[privateKey];
+          get: () => {
+            const privateKey = `_${fieldName}`;
+            return (this as any)[privateKey];
           },
-          set(value) {
-            this[privateKey] = value;
+          set: (value: any) => {
+            const privateKey = `_${fieldName}`;
+            (this as any)[privateKey] = value;
+            this.markFieldAsModified(fieldName);
           },
           enumerable: true,
           configurable: true
@@ -86,14 +86,19 @@ export abstract class BaseModel {
 
     if (this._isNew) {
       await this.beforeCreate();
+      
+      // Clean up any instance properties created by hooks
+      this.cleanupShadowingProperties();
 
       // Generate ID if not provided
       if (!this.id) {
         this.id = this.generateId();
       }
 
-      this.createdAt = Date.now();
-      this.updatedAt = this.createdAt;
+      // Set timestamps using Field setters
+      const now = Date.now();
+      this.setFieldValue('createdAt', now);
+      this.setFieldValue('updatedAt', now);
 
       // Save to database (will be implemented when database manager is ready)
       await this._saveToDatabase();
@@ -102,10 +107,14 @@ export abstract class BaseModel {
       this.clearModifications();
 
       await this.afterCreate();
+      
+      // Clean up any shadowing properties created during save
+      this.cleanupShadowingProperties();
     } else if (this._isDirty) {
       await this.beforeUpdate();
 
-      this.updatedAt = Date.now();
+      // Set timestamp using Field setter
+      this.setFieldValue('updatedAt', Date.now());
 
       // Update in database
       await this._updateInDatabase();
@@ -113,6 +122,9 @@ export abstract class BaseModel {
       this.clearModifications();
 
       await this.afterUpdate();
+      
+      // Clean up any shadowing properties created during save
+      this.cleanupShadowingProperties();
     }
 
     return this;
@@ -348,19 +360,17 @@ export abstract class BaseModel {
     const result: any = {};
     const modelClass = this.constructor as typeof BaseModel;
 
-    // Include all field values using their getters, with fallback to private keys
+    // Include all field values using private keys (more reliable than getters)
     for (const [fieldName] of modelClass.fields) {
-      let value = (this as any)[fieldName];
-      if (value === undefined) {
-        value = (this as any)[`_${fieldName}`];
+      const privateKey = `_${fieldName}`;
+      const value = (this as any)[privateKey];
+      if (value !== undefined) {
+        result[fieldName] = value;
       }
-      result[fieldName] = value;
     }
 
     // Include basic properties
     result.id = this.id;
-    result.createdAt = this.createdAt;
-    result.updatedAt = this.updatedAt;
 
     // Include loaded relations
     this._loadedRelations.forEach((value, key) => {
@@ -393,22 +403,11 @@ export abstract class BaseModel {
     const errors: string[] = [];
     const modelClass = this.constructor as typeof BaseModel;
 
-    // Debug property descriptors for User class
-    if (modelClass.name === 'User') {
-      const usernameDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'username');
-      const emailDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'email');
-      console.log('Username descriptor:', usernameDescriptor);
-      console.log('Email descriptor:', emailDescriptor);
-      console.log('Instance private keys:', Object.keys(this).filter(k => k.startsWith('_')));
-    }
 
-    // Validate each field
+    // Validate each field using private keys (more reliable)
     for (const [fieldName, fieldConfig] of modelClass.fields) {
-      // Try to get value via getter first, fallback to private key if getter fails
-      let value = (this as any)[fieldName];
-      if (value === undefined) {
-        value = (this as any)[`_${fieldName}`];
-      }
+      const privateKey = `_${fieldName}`;
+      const value = (this as any)[privateKey];
       const fieldErrors = this.validateField(fieldName, value, fieldConfig);
       errors.push(...fieldErrors);
     }
@@ -556,6 +555,63 @@ export abstract class BaseModel {
   clearModifications(): void {
     this._modifiedFields.clear();
     this._isDirty = false;
+  }
+
+  // Reliable field access methods that bypass problematic getters
+  getFieldValue(fieldName: string): any {
+    // Always ensure this field's getter works properly
+    this.ensureFieldGetter(fieldName);
+    
+    const privateKey = `_${fieldName}`;
+    return (this as any)[privateKey];
+  }
+  
+  private ensureFieldGetter(fieldName: string): void {
+    // If there's a shadowing instance property, remove it and create a working getter
+    if (this.hasOwnProperty(fieldName)) {
+      delete (this as any)[fieldName];
+      
+      // Define a working getter directly on the instance
+      Object.defineProperty(this, fieldName, {
+        get: () => {
+          const privateKey = `_${fieldName}`;
+          return (this as any)[privateKey];
+        },
+        set: (value: any) => {
+          const privateKey = `_${fieldName}`;
+          (this as any)[privateKey] = value;
+          this.markFieldAsModified(fieldName);
+        },
+        enumerable: true,
+        configurable: true
+      });
+    }
+  }
+
+  setFieldValue(fieldName: string, value: any): void {
+    // Try to use the Field decorator's setter first
+    try {
+      (this as any)[fieldName] = value;
+    } catch (error) {
+      // Fallback to setting private key directly
+      const privateKey = `_${fieldName}`;
+      (this as any)[privateKey] = value;
+      this.markFieldAsModified(fieldName);
+    }
+  }
+
+  getAllFieldValues(): Record<string, any> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const values: Record<string, any> = {};
+    
+    for (const [fieldName] of modelClass.fields) {
+      const value = this.getFieldValue(fieldName);
+      if (value !== undefined) {
+        values[fieldName] = value;
+      }
+    }
+    
+    return values;
   }
 
   // Database operations integrated with DatabaseManager
