@@ -8,16 +8,19 @@ RUN apk add --no-cache curl jq
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json pnpm-lock.yaml ./
 
-# Install all dependencies (including dev dependencies for testing)
-RUN npm ci && npm cache clean --force
+# Install pnpm
+RUN npm install -g pnpm
+
+# Install all dependencies (including dev dependencies for testing, skip prepare script)
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm run build
 
 # Create results directory
 RUN mkdir -p /app/results
@@ -27,4 +30,4 @@ ENV NODE_ENV=test
 ENV TEST_SCENARIO=blog
 
 # Default command (can be overridden)
-CMD ["npm", "run", "test:blog-integration"]
+CMD ["pnpm", "run", "test:blog-integration"]

@@ -68,23 +68,23 @@ blog-scenario/
 
 ```bash
 # Run complete integration tests
-npm run test:blog-real
+pnpm run test:blog-real
 
 # Or use the test runner for better control
-npm run test:blog-runner
+pnpm run test:blog-runner
 ```
 
 #### Option 2: Build and Run Manually
 
 ```bash
 # Build Docker images
-npm run test:blog-build
+pnpm run test:blog-build
 
 # Run tests
-npm run test:blog-real
+pnpm run test:blog-real
 
 # Clean up afterwards
-npm run test:blog-clean
+pnpm run test:blog-clean
 ```
 
 #### Option 3: Development Mode
@@ -95,7 +95,7 @@ cd tests/real-integration/blog-scenario
 docker-compose -f docker/docker-compose.blog.yml up blog-node-1 blog-node-2 blog-node-3
 
 # Run tests against running services
-npm run test:blog-integration
+pnpm run test:blog-integration
 ```
 
 ## Test Scenarios
@@ -275,7 +275,7 @@ lsof -i :4001
 lsof -i :4011-4013
 
 # Clean up existing containers
-npm run test:blog-clean
+pnpm run test:blog-clean
 ```
 
 #### Docker Build Failures
@@ -316,10 +316,10 @@ To run tests with additional debugging:
 
 ```bash
 # Set debug environment
-DEBUG=* npm run test:blog-real
+DEBUG=* pnpm run test:blog-real
 
 # Run with increased verbosity
-LOG_LEVEL=debug npm run test:blog-real
+LOG_LEVEL=debug pnpm run test:blog-real
 ```
 
 ## Development

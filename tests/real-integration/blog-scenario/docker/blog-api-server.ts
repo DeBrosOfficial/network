@@ -562,7 +562,7 @@ class BlogAPIServer {
     try {
       if (this.framework) {
         const ipfsService = this.framework.getIPFSService();
-        if (ipfsService) {
+        if (ipfsService && ipfsService.getConnectedPeers) {
           const peers = await ipfsService.getConnectedPeers();
           return peers.size;
         }
@@ -603,10 +603,10 @@ class BlogAPIServer {
   }
 
   private async initializeFramework(): Promise<void> {
-    // Import services - adjust paths based on your actual service locations
-    // Note: You'll need to implement these services or use existing ones
-    const IPFSService = (await import('../../../../src/framework/services/IPFSService')).IPFSService;
-    const OrbitDBService = (await import('../../../../src/framework/services/OrbitDBService')).OrbitDBService;
+    // Import services
+    const { IPFSService } = await import('../../../../src/framework/services/IPFSService');
+    const { OrbitDBService } = await import('../../../../src/framework/services/RealOrbitDBService');
+    const { FrameworkIPFSService, FrameworkOrbitDBService } = await import('../../../../src/framework/services/OrbitDBService');
 
     // Initialize IPFS service
     const ipfsService = new IPFSService({
@@ -625,6 +625,10 @@ class BlogAPIServer {
     await orbitDBService.init();
     console.log(`[${this.nodeId}] OrbitDB service initialized`);
 
+    // Wrap services for framework
+    const frameworkIPFS = new FrameworkIPFSService(ipfsService);
+    const frameworkOrbitDB = new FrameworkOrbitDBService(orbitDBService);
+
     // Initialize framework
     this.framework = new DebrosFramework({
       environment: 'test',
@@ -642,7 +646,7 @@ class BlogAPIServer {
       }
     });
 
-    await this.framework.initialize(orbitDBService, ipfsService);
+    await this.framework.initialize(frameworkOrbitDB, frameworkIPFS);
     console.log(`[${this.nodeId}] DebrosFramework initialized successfully`);
   }
 }

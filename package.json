@@ -29,7 +29,7 @@
     "test:blog-integration": "jest tests/real-integration/blog-scenario/tests --detectOpenHandles --forceExit",
     "test:blog-build": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml build",
     "test:blog-clean": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml down -v --remove-orphans",
-    "test:blog-runner": "ts-node tests/real-integration/blog-scenario/run-tests.ts"
+    "test:blog-runner": "pnpm exec ts-node tests/real-integration/blog-scenario/run-tests.ts"
   },
   "keywords": [
     "ipfs",

@@ -1,11 +1,10 @@
-version: '3.8'
 
 services:
   # Bootstrap node for peer discovery
   blog-bootstrap:
     build:
-      context: ../../../
-      dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.bootstrap
+      context: ../../../../
+      dockerfile: tests/real-integration/shared/infrastructure/docker/Dockerfile.bootstrap
     environment:
       - NODE_TYPE=bootstrap
       - NODE_ID=blog-bootstrap
@@ -18,7 +17,7 @@ services:
     ports:
       - "4001:4001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/api/v0/id"]
+      test: ["CMD", "sh", "-c", "ipfs id >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +25,7 @@ services:
   # Blog API Node 1
   blog-node-1:
     build:
-      context: ../../../
+      context: ../../../../
       dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.blog-api
     depends_on:
       blog-bootstrap:
@@ -47,7 +46,7 @@ services:
     networks:
       - blog-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -56,7 +55,7 @@ services:
   # Blog API Node 2
   blog-node-2:
     build:
-      context: ../../../
+      context: ../../../../
       dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.blog-api
     depends_on:
       blog-bootstrap:
@@ -77,7 +76,7 @@ services:
     networks:
       - blog-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -86,7 +85,7 @@ services:
   # Blog API Node 3
   blog-node-3:
     build:
-      context: ../../../
+      context: ../../../../
       dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.blog-api
     depends_on:
       blog-bootstrap:
@@ -107,7 +106,7 @@ services:
     networks:
       - blog-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -116,7 +115,7 @@ services:
   # Test Runner
   blog-test-runner:
     build:
-      context: ../../../
+      context: ../../../../
       dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.test-runner
     depends_on:
       blog-node-1:
@@ -131,11 +130,11 @@ services:
       - TEST_TIMEOUT=300000
       - NODE_ENV=test
     volumes:
-      - ./tests:/app/tests:ro
+      - ../tests:/app/tests:ro
       - test-results:/app/results
     networks:
       - blog-network
-    command: ["npm", "run", "test:blog-integration"]
+    command: ["pnpm", "run", "test:blog-integration"]
 
 volumes:
   bootstrap-data:
