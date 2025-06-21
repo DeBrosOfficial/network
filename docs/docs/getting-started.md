@@ -25,10 +25,10 @@ cd my-debros-app
 npm init -y
 ```
 
-### 2. Install DebrosFramework
+### 2. Install @debros/network
 
 ```bash
-npm install debros-framework
+npm install @debros/network
 npm install --save-dev typescript @types/node
 ```
 

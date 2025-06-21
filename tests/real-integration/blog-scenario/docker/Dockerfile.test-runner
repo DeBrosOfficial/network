@@ -1,0 +1,30 @@
+# Test Runner for Blog Integration Tests
+FROM node:18-alpine
+
+# Install dependencies
+RUN apk add --no-cache curl jq
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies for testing)
+RUN npm ci && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Create results directory
+RUN mkdir -p /app/results
+
+# Set environment variables
+ENV NODE_ENV=test
+ENV TEST_SCENARIO=blog
+
+# Default command (can be overridden)
+CMD ["npm", "run", "test:blog-integration"]

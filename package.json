@@ -25,10 +25,11 @@
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration",
     "test:e2e": "jest tests/e2e",
-    "test:real": "jest --config jest.real.config.cjs",
-    "test:real:debug": "REAL_TEST_DEBUG=true jest --config jest.real.config.cjs",
-    "test:real:basic": "jest --config jest.real.config.cjs tests/real/real-integration.test.ts",
-    "test:real:p2p": "jest --config jest.real.config.cjs tests/real/peer-discovery.test.ts"
+    "test:blog-real": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml up --build --abort-on-container-exit",
+    "test:blog-integration": "jest tests/real-integration/blog-scenario/tests --detectOpenHandles --forceExit",
+    "test:blog-build": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml build",
+    "test:blog-clean": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml down -v --remove-orphans",
+    "test:blog-runner": "ts-node tests/real-integration/blog-scenario/run-tests.ts"
   },
   "keywords": [
     "ipfs",
@@ -76,7 +77,9 @@
     "@types/express": "^5.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.13.10",
+    "@types/node-fetch": "^2.6.7",
     "@types/node-forge": "^1.3.11",
+    "node-fetch": "^2.7.0",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "eslint": "^9.24.0",
