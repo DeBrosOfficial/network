@@ -18,8 +18,11 @@ COPY package*.json pnpm-lock.yaml ./
 # Install pnpm
 RUN npm install -g pnpm
 
-# Install dependencies (skip prepare script for Docker)
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+# Install full dependencies (needed for ts-node)
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Install tsx globally for running TypeScript files (better ESM support)
+RUN npm install -g tsx
 
 # Copy source code
 COPY . .
@@ -30,9 +33,6 @@ RUN pnpm run build
 # Create data directory
 RUN mkdir -p /data
 
-# Make the API server executable
-RUN chmod +x tests/real-integration/blog-scenario/docker/blog-api-server.ts
-
 # Expose API port
 EXPOSE 3000
 
@@ -40,5 +40,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Start the blog API server
-CMD ["node", "dist/tests/real-integration/blog-scenario/docker/blog-api-server.js"]
+# Start the blog API server using tsx
+CMD ["tsx", "tests/real-integration/blog-scenario/docker/blog-api-server.ts"]
