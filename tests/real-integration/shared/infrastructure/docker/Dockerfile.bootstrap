@@ -13,5 +13,6 @@ USER ipfs
 # Expose IPFS ports
 EXPOSE 4001 5001 8080
 
-# Start IPFS daemon with custom config
-CMD ["/usr/local/bin/bootstrap-config.sh"]
+# Override the kubo entrypoint and start IPFS daemon with custom config
+ENTRYPOINT []
+CMD ["sh", "/usr/local/bin/bootstrap-config.sh"]
