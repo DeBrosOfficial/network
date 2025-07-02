@@ -33,13 +33,13 @@ services:
     environment:
       - NODE_ID=blog-node-1
       - NODE_PORT=3000
-      - IPFS_PORT=4001
+      - IPFS_PORT=4011
       - BOOTSTRAP_PEER=blog-bootstrap
       - SWARM_KEY_FILE=/data/swarm.key
       - NODE_ENV=test
     ports:
       - "3001:3000"
-      - "4011:4001"
+      - "4011:4011"
     volumes:
       - ./swarm.key:/data/swarm.key:ro
       - blog-node-1-data:/data
@@ -63,13 +63,13 @@ services:
     environment:
       - NODE_ID=blog-node-2
       - NODE_PORT=3000
-      - IPFS_PORT=4001
+      - IPFS_PORT=4012
       - BOOTSTRAP_PEER=blog-bootstrap
       - SWARM_KEY_FILE=/data/swarm.key
       - NODE_ENV=test
     ports:
       - "3002:3000"
-      - "4012:4001"
+      - "4012:4012"
     volumes:
       - ./swarm.key:/data/swarm.key:ro
       - blog-node-2-data:/data
@@ -93,13 +93,13 @@ services:
     environment:
       - NODE_ID=blog-node-3
       - NODE_PORT=3000
-      - IPFS_PORT=4001
+      - IPFS_PORT=4013
       - BOOTSTRAP_PEER=blog-bootstrap
       - SWARM_KEY_FILE=/data/swarm.key
       - NODE_ENV=test
     ports:
       - "3003:3000"
-      - "4013:4001"
+      - "4013:4013"
     volumes:
       - ./swarm.key:/data/swarm.key:ro
       - blog-node-3-data:/data

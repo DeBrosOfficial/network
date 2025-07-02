@@ -1,5 +1,17 @@
 #!/usr/bin/env node
 
+// Polyfill CustomEvent for Node.js environment
+if (typeof globalThis.CustomEvent === 'undefined') {
+  globalThis.CustomEvent = class CustomEvent<T = any> extends Event {
+    detail: T;
+    
+    constructor(type: string, eventInitDict?: CustomEventInit<T>) {
+      super(type, eventInitDict);
+      this.detail = eventInitDict?.detail;
+    }
+  } as any;
+}
+
 import express from 'express';
 import { DebrosFramework } from '../../../../src/framework/DebrosFramework';
 import { User, UserProfile, Category, Post, Comment } from '../models/BlogModels';

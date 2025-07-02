@@ -1,13 +1,17 @@
 # Blog API Node
 FROM node:18-alpine
 
-# Install system dependencies
+# Install system dependencies including build tools for native modules
 RUN apk add --no-cache \
     curl \
     python3 \
     make \
     g++ \
-    git
+    git \
+    cmake \
+    pkgconfig \
+    libc6-compat \
+    linux-headers
 
 # Create app directory
 WORKDIR /app
@@ -19,7 +23,7 @@ COPY package*.json pnpm-lock.yaml ./
 RUN npm install -g pnpm
 
 # Install full dependencies and reflect-metadata
-RUN pnpm install --frozen-lockfile --ignore-scripts \
+RUN pnpm install --frozen-lockfile \
     && pnpm add reflect-metadata @babel/runtime
 
 # Install tsx globally for running TypeScript files (better ESM support)
