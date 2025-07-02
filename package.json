@@ -70,6 +70,12 @@
   "peerDependencies": {
     "typescript": ">=5.0.0"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@ipshipyard/node-datachannel",
+      "classic-level"
+    ]
+  },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@jest/globals": "^30.0.1",

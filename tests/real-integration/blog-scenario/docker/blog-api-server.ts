@@ -40,22 +40,24 @@ class BlogAPIServer {
     });
 
     // Error handling
-    this.app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      console.error(`[${this.nodeId}] Error:`, error);
-      
-      if (error instanceof ValidationError) {
-        return res.status(400).json({
-          error: error.message,
-          field: error.field,
-          nodeId: this.nodeId
-        });
-      }
+    this.app.use(
+      (error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        console.error(`[${this.nodeId}] Error:`, error);
 
-      res.status(500).json({
-        error: 'Internal server error',
-        nodeId: this.nodeId
-      });
-    });
+        if (error instanceof ValidationError) {
+          return res.status(400).json({
+            error: error.message,
+            field: error.field,
+            nodeId: this.nodeId,
+          });
+        }
+
+        res.status(500).json({
+          error: 'Internal server error',
+          nodeId: this.nodeId,
+        });
+      },
+    );
   }
 
   private setupRoutes() {
@@ -63,17 +65,17 @@ class BlogAPIServer {
     this.app.get('/health', async (req, res) => {
       try {
         const peers = await this.getConnectedPeerCount();
-        res.json({ 
-          status: 'healthy', 
+        res.json({
+          status: 'healthy',
           nodeId: this.nodeId,
           peers,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       } catch (error) {
         res.status(500).json({
           status: 'unhealthy',
           nodeId: this.nodeId,
-          error: error.message
+          error: error.message,
         });
       }
     });
@@ -94,7 +96,7 @@ class BlogAPIServer {
         BlogValidation.validateUser(sanitizedData);
 
         const user = await User.create(sanitizedData);
-        
+
         console.log(`[${this.nodeId}] Created user: ${user.username} (${user.id})`);
         res.status(201).json(user.toJSON());
       } catch (error) {
@@ -107,9 +109,9 @@ class BlogAPIServer {
       try {
         const user = await User.findById(req.params.id);
         if (!user) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'User not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
         res.json(user.toJSON());
@@ -128,7 +130,8 @@ class BlogAPIServer {
         let query = User.query();
 
         if (search) {
-          query = query.where('username', 'like', `%${search}%`)
+          query = query
+            .where('username', 'like', `%${search}%`)
             .orWhere('displayName', 'like', `%${search}%`);
         }
 
@@ -139,10 +142,10 @@ class BlogAPIServer {
           .find();
 
         res.json({
-          users: users.map(u => u.toJSON()),
+          users: users.map((u) => u.toJSON()),
           page,
           limit,
-          nodeId: this.nodeId
+          nodeId: this.nodeId,
         });
       } catch (error) {
         next(error);
@@ -154,17 +157,17 @@ class BlogAPIServer {
       try {
         const user = await User.findById(req.params.id);
         if (!user) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'User not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
 
         // Only allow updating certain fields
         const allowedFields = ['displayName', 'avatar', 'roles'];
         const updateData: any = {};
-        
-        allowedFields.forEach(field => {
+
+        allowedFields.forEach((field) => {
           if (req.body[field] !== undefined) {
             updateData[field] = req.body[field];
           }
@@ -172,7 +175,7 @@ class BlogAPIServer {
 
         Object.assign(user, updateData);
         await user.save();
-        
+
         console.log(`[${this.nodeId}] Updated user: ${user.username}`);
         res.json(user.toJSON());
       } catch (error) {
@@ -185,9 +188,9 @@ class BlogAPIServer {
       try {
         const user = await User.findById(req.params.id);
         if (!user) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'User not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
 
@@ -207,7 +210,7 @@ class BlogAPIServer {
         BlogValidation.validateCategory(sanitizedData);
 
         const category = await Category.create(sanitizedData);
-        
+
         console.log(`[${this.nodeId}] Created category: ${category.name} (${category.id})`);
         res.status(201).json(category);
       } catch (error) {
@@ -225,7 +228,7 @@ class BlogAPIServer {
 
         res.json({
           categories,
-          nodeId: this.nodeId
+          nodeId: this.nodeId,
         });
       } catch (error) {
         next(error);
@@ -237,9 +240,9 @@ class BlogAPIServer {
       try {
         const category = await Category.findById(req.params.id);
         if (!category) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Category not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
         res.json(category);
@@ -257,7 +260,7 @@ class BlogAPIServer {
         BlogValidation.validatePost(sanitizedData);
 
         const post = await Post.create(sanitizedData);
-        
+
         console.log(`[${this.nodeId}] Created post: ${post.title} (${post.id})`);
         res.status(201).json(post);
       } catch (error) {
@@ -272,11 +275,11 @@ class BlogAPIServer {
           .where('id', req.params.id)
           .with(['author', 'category', 'comments'])
           .first();
-          
+
         if (!post) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Post not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
 
@@ -297,7 +300,7 @@ class BlogAPIServer {
         const tag = req.query.tag as string;
 
         let query = Post.query().with(['author', 'category']);
-        
+
         if (status) {
           query = query.where('status', status);
         }
@@ -324,7 +327,7 @@ class BlogAPIServer {
           posts,
           page,
           limit,
-          nodeId: this.nodeId
+          nodeId: this.nodeId,
         });
       } catch (error) {
         next(error);
@@ -336,9 +339,9 @@ class BlogAPIServer {
       try {
         const post = await Post.findById(req.params.id);
         if (!post) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Post not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
 
@@ -347,7 +350,7 @@ class BlogAPIServer {
         Object.assign(post, req.body);
         post.updatedAt = Date.now();
         await post.save();
-        
+
         console.log(`[${this.nodeId}] Updated post: ${post.title}`);
         res.json(post);
       } catch (error) {
@@ -360,12 +363,12 @@ class BlogAPIServer {
       try {
         const post = await Post.findById(req.params.id);
         if (!post) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Post not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
-        
+
         await post.publish();
         console.log(`[${this.nodeId}] Published post: ${post.title}`);
         res.json(post);
@@ -379,12 +382,12 @@ class BlogAPIServer {
       try {
         const post = await Post.findById(req.params.id);
         if (!post) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Post not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
-        
+
         await post.unpublish();
         console.log(`[${this.nodeId}] Unpublished post: ${post.title}`);
         res.json(post);
@@ -398,12 +401,12 @@ class BlogAPIServer {
       try {
         const post = await Post.findById(req.params.id);
         if (!post) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Post not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
-        
+
         await post.like();
         res.json({ likeCount: post.likeCount });
       } catch (error) {
@@ -416,12 +419,12 @@ class BlogAPIServer {
       try {
         const post = await Post.findById(req.params.id);
         if (!post) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Post not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
-        
+
         await post.incrementViews();
         res.json({ viewCount: post.viewCount });
       } catch (error) {
@@ -438,8 +441,10 @@ class BlogAPIServer {
         BlogValidation.validateComment(sanitizedData);
 
         const comment = await Comment.create(sanitizedData);
-        
-        console.log(`[${this.nodeId}] Created comment on post ${comment.postId} by ${comment.authorId}`);
+
+        console.log(
+          `[${this.nodeId}] Created comment on post ${comment.postId} by ${comment.authorId}`,
+        );
         res.status(201).json(comment);
       } catch (error) {
         next(error);
@@ -458,7 +463,7 @@ class BlogAPIServer {
 
         res.json({
           comments,
-          nodeId: this.nodeId
+          nodeId: this.nodeId,
         });
       } catch (error) {
         next(error);
@@ -470,12 +475,12 @@ class BlogAPIServer {
       try {
         const comment = await Comment.findById(req.params.id);
         if (!comment) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Comment not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
-        
+
         await comment.approve();
         console.log(`[${this.nodeId}] Approved comment ${comment.id}`);
         res.json(comment);
@@ -489,12 +494,12 @@ class BlogAPIServer {
       try {
         const comment = await Comment.findById(req.params.id);
         if (!comment) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Comment not found',
-            nodeId: this.nodeId 
+            nodeId: this.nodeId,
           });
         }
-        
+
         await comment.like();
         res.json({ likeCount: comment.likeCount });
       } catch (error) {
@@ -511,7 +516,7 @@ class BlogAPIServer {
         res.json({
           nodeId: this.nodeId,
           peers,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       } catch (error) {
         next(error);
@@ -525,7 +530,7 @@ class BlogAPIServer {
           User.count(),
           Post.count(),
           Comment.count(),
-          Category.count()
+          Category.count(),
         ]);
 
         res.json({
@@ -534,9 +539,9 @@ class BlogAPIServer {
             users: userCount,
             posts: postCount,
             comments: commentCount,
-            categories: categoryCount
+            categories: categoryCount,
           },
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       } catch (error) {
         next(error);
@@ -550,7 +555,7 @@ class BlogAPIServer {
         res.json({
           nodeId: this.nodeId,
           ...metrics,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       } catch (error) {
         next(error);
@@ -590,7 +595,6 @@ class BlogAPIServer {
         console.log(`[${this.nodeId}] Blog API server listening on port ${port}`);
         console.log(`[${this.nodeId}] Health check: http://localhost:${port}/health`);
       });
-
     } catch (error) {
       console.error(`[${this.nodeId}] Failed to start:`, error);
       process.exit(1);
@@ -605,16 +609,20 @@ class BlogAPIServer {
   private async initializeFramework(): Promise<void> {
     // Import services
     const { IPFSService } = await import('../../../../src/framework/services/IPFSService');
-    const { OrbitDBService } = await import('../../../../src/framework/services/RealOrbitDBService');
-    const { FrameworkIPFSService, FrameworkOrbitDBService } = await import('../../../../src/framework/services/OrbitDBService');
+    const { OrbitDBService } = await import(
+      '../../../../src/framework/services/RealOrbitDBService'
+    );
+    const { FrameworkIPFSService, FrameworkOrbitDBService } = await import(
+      '../../../../src/framework/services/OrbitDBService'
+    );
 
     // Initialize IPFS service
     const ipfsService = new IPFSService({
       swarmKeyFile: process.env.SWARM_KEY_FILE,
       bootstrap: process.env.BOOTSTRAP_PEER ? [`/ip4/${process.env.BOOTSTRAP_PEER}/tcp/4001`] : [],
       ports: {
-        swarm: parseInt(process.env.IPFS_PORT) || 4001
-      }
+        swarm: parseInt(process.env.IPFS_PORT) || 4001,
+      },
     });
 
     await ipfsService.init();
@@ -637,13 +645,13 @@ class BlogAPIServer {
         automaticPinning: true,
         pubsub: true,
         queryCache: true,
-        relationshipCache: true
+        relationshipCache: true,
       },
       performance: {
         queryTimeout: 10000,
         maxConcurrentOperations: 20,
-        batchSize: 50
-      }
+        batchSize: 50,
+      },
     });
 
     await this.framework.initialize(frameworkOrbitDB, frameworkIPFS);

@@ -18,8 +18,9 @@ COPY package*.json pnpm-lock.yaml ./
 # Install pnpm
 RUN npm install -g pnpm
 
-# Install full dependencies (needed for ts-node)
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# Install full dependencies and reflect-metadata
+RUN pnpm install --frozen-lockfile --ignore-scripts \
+    && pnpm add reflect-metadata @babel/runtime
 
 # Install tsx globally for running TypeScript files (better ESM support)
 RUN npm install -g tsx
@@ -40,5 +41,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Start the blog API server using tsx
-CMD ["tsx", "tests/real-integration/blog-scenario/docker/blog-api-server.ts"]
+# Start the blog API server using tsx with explicit tsconfig
+CMD ["tsx", "--tsconfig", "tests/real-integration/blog-scenario/docker/tsconfig.docker.json", "tests/real-integration/blog-scenario/docker/blog-api-server.ts"]

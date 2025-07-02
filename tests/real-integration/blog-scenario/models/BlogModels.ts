@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { BaseModel } from '../../../../src/framework/models/BaseModel';
 import { Model, Field, HasMany, BelongsTo, HasOne, BeforeCreate, AfterCreate } from '../../../../src/framework/models/decorators';
 
@@ -325,9 +326,6 @@ export class Comment extends BaseModel {
     }
   }
 }
-
-// Export all models
-export { User, UserProfile, Category, Post, Comment };
 
 // Type definitions for API requests
 export interface CreateUserRequest {
