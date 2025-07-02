@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "isolatedModules": true,
+    "removeComments": true,
+    "inlineSources": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "strict": true,
+    "importsNotUsedAsValues": "remove",
+    "baseUrl": "../../../../"
+  },
+  "include": ["blog-api-server.ts", "../../../../src/**/*"],
+  "ts-node": {
+    "esm": true
+  }
+}

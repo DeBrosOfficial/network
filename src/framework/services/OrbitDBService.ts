@@ -21,9 +21,18 @@ export interface IPFSInstance {
 
 export class FrameworkOrbitDBService {
   private orbitDBService: OrbitDBInstance;
+  private initialized: boolean = false;
 
   constructor(orbitDBService: OrbitDBInstance) {
     this.orbitDBService = orbitDBService;
+    // Check if the service is already initialized by trying to get OrbitDB
+    try {
+      if (orbitDBService.getOrbitDB && orbitDBService.getOrbitDB()) {
+        this.initialized = true;
+      }
+    } catch (error) {
+      // Service not initialized yet
+    }
   }
 
   async openDatabase(name: string, type: StoreType): Promise<any> {
@@ -31,7 +40,10 @@ export class FrameworkOrbitDBService {
   }
 
   async init(): Promise<void> {
-    await this.orbitDBService.init();
+    if (!this.initialized) {
+      await this.orbitDBService.init();
+      this.initialized = true;
+    }
   }
 
   async stop(): Promise<void> {
@@ -47,13 +59,25 @@ export class FrameworkOrbitDBService {
 
 export class FrameworkIPFSService {
   private ipfsService: IPFSInstance;
+  private initialized: boolean = false;
 
   constructor(ipfsService: IPFSInstance) {
     this.ipfsService = ipfsService;
+    // Check if the service is already initialized by trying to get Helia
+    try {
+      if (ipfsService.getHelia && ipfsService.getHelia()) {
+        this.initialized = true;
+      }
+    } catch (error) {
+      // Service not initialized yet
+    }
   }
 
   async init(): Promise<void> {
-    await this.ipfsService.init();
+    if (!this.initialized) {
+      await this.ipfsService.init();
+      this.initialized = true;
+    }
   }
 
   async stop(): Promise<void> {
