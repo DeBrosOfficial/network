@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Import reflect-metadata first for decorator support
+import 'reflect-metadata';
+
 // Polyfill CustomEvent for Node.js environment
 if (typeof globalThis.CustomEvent === 'undefined') {
   globalThis.CustomEvent = class CustomEvent<T = any> extends Event {

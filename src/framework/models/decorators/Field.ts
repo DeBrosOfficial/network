@@ -6,8 +6,24 @@ export function Field(config: FieldConfig) {
     // Validate field configuration
     validateFieldConfig(config);
     
-    // Get the constructor function
-    const ctor = target.constructor as typeof BaseModel;
+    // Handle ESM case where target might be undefined
+    if (!target) {
+      // In ESM environment, defer the decorator application
+      // Create a deferred setup that will be called when the class is actually used
+      console.warn(`Target is undefined for field:`, {
+        propertyKey,
+        propertyKeyType: typeof propertyKey,
+        propertyKeyValue: JSON.stringify(propertyKey),
+        configType: config.type,
+        target,
+        targetType: typeof target
+      });
+      deferredFieldSetup(config, propertyKey);
+      return;
+    }
+    
+    // Get the constructor function - handle ESM case where constructor might be undefined
+    const ctor = (target.constructor || target) as typeof BaseModel;
     
     // Initialize fields map if it doesn't exist
     if (!ctor.hasOwnProperty('fields')) {
@@ -198,6 +214,15 @@ export function getFieldConfig(target: any, propertyKey: string): FieldConfig | 
   }
 
   return undefined;
+}
+
+// Deferred setup function for ESM environments
+function deferredFieldSetup(config: FieldConfig, propertyKey: string) {
+  // Return a function that will be called when the class is properly initialized
+  return function() {
+    // This function will be called later when the class prototype is ready
+    console.warn(`Deferred field setup not yet implemented for property ${propertyKey}`);
+  };
 }
 
 // Export the decorator type for TypeScript

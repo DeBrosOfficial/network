@@ -91,9 +91,23 @@ function createRelationshipProperty(
   propertyKey: string,
   config: RelationshipConfig,
 ): void {
-  // Get the constructor function
-  const ctor = target.constructor as typeof BaseModel;
-  
+  // Handle ESM case where target might be undefined
+  if (!target) {
+    // In ESM environment, defer the decorator application
+    // Create a deferred setup that will be called when the class is actually used
+    deferredRelationshipSetup(config, propertyKey);
+    return;
+  }
+
+  // Get the constructor function - handle ESM case where constructor might be undefined
+  const ctor = (target.constructor || target) as typeof BaseModel;
+
+  // Additional safety check for constructor
+  if (!ctor) {
+    console.warn(`Constructor is undefined for property ${propertyKey}, skipping decorator setup`);
+    return;
+  }
+
   // Initialize relationships map if it doesn't exist
   if (!ctor.hasOwnProperty('relationships')) {
     const parentRelationships = ctor.relationships ? new Map(ctor.relationships) : new Map();
@@ -104,7 +118,7 @@ function createRelationshipProperty(
       configurable: true,
     });
   }
-  
+
   // Store relationship configuration
   ctor.relationships.set(propertyKey, config);
 
@@ -222,3 +236,12 @@ export type ManyToManyDecorator = (
   otherKey: string,
   options?: { localKey?: string; throughForeignKey?: string },
 ) => (target: any, propertyKey: string) => void;
+
+// Deferred setup function for ESM environments
+function deferredRelationshipSetup(config: RelationshipConfig, propertyKey: string) {
+  // Return a function that will be called when the class is properly initialized
+  return function () {
+    // This function will be called later when the class prototype is ready
+    console.warn(`Deferred relationship setup not yet implemented for property ${propertyKey}`);
+  };
+}

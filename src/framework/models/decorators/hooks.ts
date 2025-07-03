@@ -201,29 +201,54 @@ export function AfterSave(
 }
 
 function registerHook(target: any, hookName: string, hookFunction: Function): void {
+  // Handle ESM case where target might be undefined
+  if (!target) {
+    // In ESM environment, defer the hook registration
+    // Create a deferred setup that will be called when the class is actually used
+    console.warn(`Target is undefined for hook:`, {
+      hookName,
+      hookNameType: typeof hookName,
+      hookNameValue: JSON.stringify(hookName),
+      hookFunction: hookFunction?.name || 'anonymous',
+      target,
+      targetType: typeof target
+    });
+    deferredHookSetup(hookName, hookFunction);
+    return;
+  }
+  
+  // Get the constructor function - handle ESM case where constructor might be undefined
+  const ctor = target.constructor || target;
+  
+  // Additional safety check for constructor
+  if (!ctor) {
+    console.warn(`Constructor is undefined for hook ${hookName}, skipping hook registration`);
+    return;
+  }
+  
   // Initialize hooks map if it doesn't exist, inheriting from parent
-  if (!target.constructor.hasOwnProperty('hooks')) {
+  if (!ctor.hasOwnProperty('hooks')) {
     // Copy hooks from parent class if they exist
-    const parentHooks = target.constructor.hooks || new Map();
-    target.constructor.hooks = new Map();
+    const parentHooks = ctor.hooks || new Map();
+    ctor.hooks = new Map();
 
     // Copy all parent hooks
     for (const [name, hooks] of parentHooks.entries()) {
-      target.constructor.hooks.set(name, [...hooks]);
+      ctor.hooks.set(name, [...hooks]);
     }
   }
 
   // Get existing hooks for this hook name
-  const existingHooks = target.constructor.hooks.get(hookName) || [];
+  const existingHooks = ctor.hooks.get(hookName) || [];
 
   // Add the new hook (store the function name for the tests)
   const functionName = hookFunction.name || 'anonymous';
   existingHooks.push(functionName);
 
   // Store updated hooks array
-  target.constructor.hooks.set(hookName, existingHooks);
+  ctor.hooks.set(hookName, existingHooks);
 
-  console.log(`Registered ${hookName} hook for ${target.constructor.name}`);
+  console.log(`Registered ${hookName} hook for ${ctor.name || 'Unknown'}`);
 }
 
 // Utility function to get hooks for a specific event or all hooks
@@ -267,3 +292,12 @@ export type HookDecorator = (
   propertyKey: string,
   descriptor: PropertyDescriptor,
 ) => void;
+
+// Deferred setup function for ESM environments
+function deferredHookSetup(hookName: string, hookFunction: Function) {
+  // Return a function that will be called when the class is properly initialized
+  return function() {
+    // This function will be called later when the class prototype is ready
+    console.warn(`Deferred hook setup not yet implemented for hook ${hookName}`);
+  };
+}

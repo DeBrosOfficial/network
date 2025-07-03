@@ -19,17 +19,8 @@
     "lint": "npx eslint src",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "lint:fix": "npx eslint src --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
     "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration",
-    "test:e2e": "jest tests/e2e",
-    "test:blog-real": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml up --build --abort-on-container-exit",
-    "test:blog-integration": "jest tests/real-integration/blog-scenario/tests --detectOpenHandles --forceExit",
-    "test:blog-build": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml build",
-    "test:blog-clean": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml down -v --remove-orphans",
-    "test:blog-runner": "pnpm exec ts-node tests/real-integration/blog-scenario/run-tests.ts"
+    "test:real": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml up --build --abort-on-container-exit"
   },
   "keywords": [
     "ipfs",

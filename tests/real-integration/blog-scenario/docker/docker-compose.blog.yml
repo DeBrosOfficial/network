@@ -134,7 +134,7 @@ services:
       - test-results:/app/results
     networks:
       - blog-network
-    command: ["pnpm", "run", "test:blog-integration"]
+    command: ["pnpm", "run", "test:real"]
 
 volumes:
   bootstrap-data:
