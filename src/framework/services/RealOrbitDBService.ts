@@ -32,10 +32,23 @@ export class OrbitDBService {
       throw new Error('OrbitDB not initialized');
     }
 
+    // Map framework types to OrbitDB v2 types
+    const orbitDBType = this.mapFrameworkTypeToOrbitDB(type);
+
     return await this.orbitdb.open(name, { 
-      type,
+      type: orbitDBType,
       AccessController: this.orbitdb.AccessController
     });
+  }
+
+  private mapFrameworkTypeToOrbitDB(frameworkType: string): string {
+    const typeMapping: { [key: string]: string } = {
+      'docstore': 'documents',
+      'keyvalue': 'keyvalue',
+      'eventlog': 'eventlog'
+    };
+
+    return typeMapping[frameworkType] || frameworkType;
   }
 
   getOrbitDB(): any {

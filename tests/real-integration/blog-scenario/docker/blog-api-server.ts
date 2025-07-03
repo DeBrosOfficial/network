@@ -666,7 +666,7 @@ class BlogAPIServer {
       },
     });
 
-    await this.framework.initialize(frameworkOrbitDB, frameworkIPFS);
+    await this.framework.initialize(orbitDBService, ipfsService);
     console.log(`[${this.nodeId}] DebrosFramework initialized successfully`);
   }
 }
