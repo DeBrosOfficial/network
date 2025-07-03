@@ -545,6 +545,11 @@ export abstract class BaseModel {
   private applyFieldDefaults(): void {
     const modelClass = this.constructor as typeof BaseModel;
     
+    // Ensure we have fields map
+    if (!modelClass.fields) {
+      return;
+    }
+    
     for (const [fieldName, fieldConfig] of modelClass.fields) {
       if (fieldConfig.default !== undefined) {
         const privateKey = `_${fieldName}`;

@@ -3,89 +3,82 @@ import { BaseModel } from '../BaseModel';
 
 export function Field(config: FieldConfig) {
   return function (target: any, propertyKey: string) {
-    // When decorators are used in an ES module context, the `target` for a property decorator
-    // can be undefined. We need to defer the Object.defineProperty call until we have
-    // a valid target. We can achieve this by replacing the original decorator with one
-    // that captures the config and applies it later.
-
-    // This is a workaround for the decorator context issue.
-    const decorator = (instance: any) => {
-      if (!Object.getOwnPropertyDescriptor(instance, propertyKey)) {
-        Object.defineProperty(instance, propertyKey, {
-          get() {
-            const privateKey = `_${propertyKey}`;
-            // Use the reliable getFieldValue method if available, otherwise fallback to private key
-            if (this.getFieldValue && typeof this.getFieldValue === 'function') {
-              return this.getFieldValue(propertyKey);
-            }
-
-            // Fallback to direct private key access
-            return this[privateKey];
-          },
-          set(value) {
-            const ctor = this.constructor as typeof BaseModel;
-            const privateKey = `_${propertyKey}`;
-
-            // One-time initialization of the fields map on the constructor
-            if (!ctor.hasOwnProperty('fields')) {
-              const parentFields = ctor.fields ? new Map(ctor.fields) : new Map();
-              Object.defineProperty(ctor, 'fields', {
-                value: parentFields,
-                writable: true,
-                enumerable: false,
-                configurable: true,
-              });
-            }
-
-            // Store field configuration if it's not already there
-            if (!ctor.fields.has(propertyKey)) {
-              ctor.fields.set(propertyKey, config);
-            }
-
-            // Apply transformation first
-            const transformedValue = config.transform ? config.transform(value) : value;
-
-            // Only validate non-required constraints during assignment
-            // Required field validation will happen during save()
-            const validationResult = validateFieldValueNonRequired(
-              transformedValue,
-              config,
-              propertyKey,
-            );
-            if (!validationResult.valid) {
-              throw new ValidationError(validationResult.errors);
-            }
-
-            // Check if value actually changed
-            const oldValue = this[privateKey];
-            if (oldValue !== transformedValue) {
-              // Set the value and mark as dirty
-              this[privateKey] = transformedValue;
-              if (this._isDirty !== undefined) {
-                this._isDirty = true;
-              }
-              // Track field modification
-              if (this.markFieldAsModified && typeof this.markFieldAsModified === 'function') {
-                this.markFieldAsModified(propertyKey);
-              }
-            }
-          },
-          enumerable: true,
-          configurable: true,
-        });
-      }
-    };
-
-    // We need to apply this to the prototype. Since target is undefined,
-    // we can't do it directly. Instead, we can rely on the class constructor's
-    // prototype, which will be available when the class is instantiated.
-    // A common pattern is to add the decorator logic to a static array on the constructor
-    // and apply them in the base model constructor.
-
-    // Let's try a simpler approach for now by checking the target.
-    if (target) {
-      decorator(target);
+    // Validate field configuration
+    validateFieldConfig(config);
+    
+    // Get the constructor function
+    const ctor = target.constructor as typeof BaseModel;
+    
+    // Initialize fields map if it doesn't exist
+    if (!ctor.hasOwnProperty('fields')) {
+      const parentFields = ctor.fields ? new Map(ctor.fields) : new Map();
+      Object.defineProperty(ctor, 'fields', {
+        value: parentFields,
+        writable: true,
+        enumerable: false,
+        configurable: true,
+      });
     }
+    
+    // Store field configuration
+    ctor.fields.set(propertyKey, config);
+
+    // Define property on the prototype
+    Object.defineProperty(target, propertyKey, {
+      get() {
+        const privateKey = `_${propertyKey}`;
+        return this[privateKey];
+      },
+      set(value) {
+        const privateKey = `_${propertyKey}`;
+        const ctor = this.constructor as typeof BaseModel;
+
+        // Ensure fields map exists on the constructor
+        if (!ctor.hasOwnProperty('fields')) {
+          const parentFields = ctor.fields ? new Map(ctor.fields) : new Map();
+          Object.defineProperty(ctor, 'fields', {
+            value: parentFields,
+            writable: true,
+            enumerable: false,
+            configurable: true,
+          });
+        }
+
+        // Store field configuration if it's not already there
+        if (!ctor.fields.has(propertyKey)) {
+          ctor.fields.set(propertyKey, config);
+        }
+
+        // Apply transformation first
+        const transformedValue = config.transform ? config.transform(value) : value;
+
+        // Only validate non-required constraints during assignment
+        const validationResult = validateFieldValueNonRequired(
+          transformedValue,
+          config,
+          propertyKey,
+        );
+        if (!validationResult.valid) {
+          throw new ValidationError(validationResult.errors);
+        }
+
+        // Check if value actually changed
+        const oldValue = this[privateKey];
+        if (oldValue !== transformedValue) {
+          // Set the value and mark as dirty
+          this[privateKey] = transformedValue;
+          if (this._isDirty !== undefined) {
+            this._isDirty = true;
+          }
+          // Track field modification
+          if (this.markFieldAsModified && typeof this.markFieldAsModified === 'function') {
+            this.markFieldAsModified(propertyKey);
+          }
+        }
+      },
+      enumerable: true,
+      configurable: true,
+    });
   };
 }
 

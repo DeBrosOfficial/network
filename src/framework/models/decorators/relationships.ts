@@ -91,72 +91,86 @@ function createRelationshipProperty(
   propertyKey: string,
   config: RelationshipConfig,
 ): void {
-  // In an ES module context, `target` can be undefined when decorators are first evaluated.
-  // We must ensure we only call Object.defineProperty on a valid object (the class prototype).
-  if (target) {
-    Object.defineProperty(target, propertyKey, {
-      get() {
-        const ctor = this.constructor as typeof BaseModel;
-
-        // One-time initialization of the relationships map on the constructor
-        if (!ctor.hasOwnProperty('relationships')) {
-          const parentRelationships = ctor.relationships ? new Map(ctor.relationships) : new Map();
-          Object.defineProperty(ctor, 'relationships', {
-            value: parentRelationships,
-            writable: true,
-            enumerable: false,
-            configurable: true,
-          });
-        }
-
-        // Store relationship configuration if it's not already there
-        if (!ctor.relationships.has(propertyKey)) {
-          ctor.relationships.set(propertyKey, config);
-        }
-
-        // Check if relationship is already loaded
-        if (this._loadedRelations && this._loadedRelations.has(propertyKey)) {
-          return this._loadedRelations.get(propertyKey);
-        }
-
-        if (config.lazy) {
-          // Return a promise for lazy loading
-          return this.loadRelation(propertyKey);
-        } else {
-          throw new Error(
-            `Relationship '${propertyKey}' not loaded. Use .load(['${propertyKey}']) first.`,
-          );
-        }
-      },
-      set(value) {
-        const ctor = this.constructor as typeof BaseModel;
-
-        // One-time initialization of the relationships map on the constructor
-        if (!ctor.hasOwnProperty('relationships')) {
-          const parentRelationships = ctor.relationships ? new Map(ctor.relationships) : new Map();
-          Object.defineProperty(ctor, 'relationships', {
-            value: parentRelationships,
-            writable: true,
-            enumerable: false,
-            configurable: true,
-          });
-        }
-
-        // Store relationship configuration if it's not already there
-        if (!ctor.relationships.has(propertyKey)) {
-          ctor.relationships.set(propertyKey, config);
-        }
-
-        // Allow manual setting of relationship values
-        if (!this._loadedRelations) {
-          this._loadedRelations = new Map();
-        }
-        this._loadedRelations.set(propertyKey, value);
-      },
-      enumerable: true,
+  // Get the constructor function
+  const ctor = target.constructor as typeof BaseModel;
+  
+  // Initialize relationships map if it doesn't exist
+  if (!ctor.hasOwnProperty('relationships')) {
+    const parentRelationships = ctor.relationships ? new Map(ctor.relationships) : new Map();
+    Object.defineProperty(ctor, 'relationships', {
+      value: parentRelationships,
+      writable: true,
+      enumerable: false,
       configurable: true,
     });
   }
+  
+  // Store relationship configuration
+  ctor.relationships.set(propertyKey, config);
+
+  // Define property on the prototype
+  Object.defineProperty(target, propertyKey, {
+    get() {
+      const ctor = this.constructor as typeof BaseModel;
+
+      // Ensure relationships map exists on the constructor
+      if (!ctor.hasOwnProperty('relationships')) {
+        const parentRelationships = ctor.relationships ? new Map(ctor.relationships) : new Map();
+        Object.defineProperty(ctor, 'relationships', {
+          value: parentRelationships,
+          writable: true,
+          enumerable: false,
+          configurable: true,
+        });
+      }
+
+      // Store relationship configuration if it's not already there
+      if (!ctor.relationships.has(propertyKey)) {
+        ctor.relationships.set(propertyKey, config);
+      }
+
+      // Check if relationship is already loaded
+      if (this._loadedRelations && this._loadedRelations.has(propertyKey)) {
+        return this._loadedRelations.get(propertyKey);
+      }
+
+      if (config.lazy) {
+        // Return a promise for lazy loading
+        return this.loadRelation(propertyKey);
+      } else {
+        throw new Error(
+          `Relationship '${propertyKey}' not loaded. Use .load(['${propertyKey}']) first.`,
+        );
+      }
+    },
+    set(value) {
+      const ctor = this.constructor as typeof BaseModel;
+
+      // Ensure relationships map exists on the constructor
+      if (!ctor.hasOwnProperty('relationships')) {
+        const parentRelationships = ctor.relationships ? new Map(ctor.relationships) : new Map();
+        Object.defineProperty(ctor, 'relationships', {
+          value: parentRelationships,
+          writable: true,
+          enumerable: false,
+          configurable: true,
+        });
+      }
+
+      // Store relationship configuration if it's not already there
+      if (!ctor.relationships.has(propertyKey)) {
+        ctor.relationships.set(propertyKey, config);
+      }
+
+      // Allow manual setting of relationship values
+      if (!this._loadedRelations) {
+        this._loadedRelations = new Map();
+      }
+      this._loadedRelations.set(propertyKey, value);
+    },
+    enumerable: true,
+    configurable: true,
+  });
 }
 
 // Utility function to get relationship configuration
