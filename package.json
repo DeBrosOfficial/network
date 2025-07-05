@@ -1,7 +1,7 @@
 {
   "name": "@debros/network",
   "version": "0.5.0-beta",
-  "description": "Debros network core functionality for IPFS, libp2p and OrbitDB",
+  "description": "DebrosFramework - A powerful Node.js framework providing ORM-like abstraction over OrbitDB and IPFS for building scalable decentralized applications",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,12 +24,19 @@
     "test:real": "docker-compose -f tests/real-integration/blog-scenario/docker/docker-compose.blog.yml up --build --abort-on-container-exit"
   },
   "keywords": [
-    "ipfs",
-    "libp2p",
-    "orbitdb",
+    "debros",
+    "framework",
+    "orm",
     "decentralized",
+    "ipfs",
+    "orbitdb",
     "p2p",
-    "debros"
+    "typescript",
+    "models",
+    "query-builder",
+    "sharding",
+    "dapp",
+    "distributed"
   ],
   "author": "Debros",
   "license": "gnu-gpl-v3.0",

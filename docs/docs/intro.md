@@ -109,6 +109,18 @@ DebrosFramework is perfect for developers who want to:
 
 Ready to build your first decentralized application? Check out our [Getting Started Guide](./getting-started) to set up your development environment and create your first models.
 
+## Development Status
+
+**Current Version**: 0.5.0-beta  
+**Status**: Active Development - Beta Release
+
+DebrosFramework is currently in beta and under active development. The core architecture and APIs are stabilizing, but some features may still change. We recommend using it for:
+
+- ✅ **Development and Testing**: Perfect for building and testing decentralized applications
+- ✅ **Prototyping**: Rapid prototyping of dApp concepts
+- ✅ **Learning**: Understanding decentralized application architecture
+- ⚠️ **Production**: Use with caution - APIs may change in future versions
+
 ## Community and Support
 
 - 📖 [Documentation](./getting-started) - Comprehensive guides and examples

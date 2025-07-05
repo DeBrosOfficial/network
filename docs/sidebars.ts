@@ -40,6 +40,15 @@ const sidebars: SidebarsConfig = {
         'examples/basic-usage',
       ],
     },
+    {
+      type: 'category',
+      label: 'Contributing',
+      items: [
+        'contributing/overview',
+        'contributing/development-setup',
+        'contributing/code-guidelines',
+      ],
+    },
   ],
 
   // API Reference sidebar
