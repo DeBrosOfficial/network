@@ -1,6 +1,6 @@
 {
   "name": "@debros/network",
-  "version": "0.5.0-beta",
+  "version": "0.5.1-beta",
   "description": "DebrosFramework - A powerful Node.js framework providing ORM-like abstraction over OrbitDB and IPFS for building scalable decentralized applications",
   "type": "module",
   "main": "dist/index.js",
