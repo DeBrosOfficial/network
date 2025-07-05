@@ -42,6 +42,13 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Video Tutorials',
+      items: [
+        'videos/index',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Contributing',
       items: [
         'contributing/overview',
@@ -56,9 +63,18 @@ const sidebars: SidebarsConfig = {
     'api/overview',
     {
       type: 'category',
-      label: 'Framework Classes',
+      label: 'Core Classes',
       items: [
         'api/debros-framework',
+        'api/base-model',
+        'api/query-builder',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Network API',
+      items: [
+        'api/network-api',
       ],
     },
   ],
