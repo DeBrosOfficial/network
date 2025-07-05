@@ -1,6 +1,6 @@
 {
   "name": "@debros/network",
-  "version": "0.0.24-alpha",
+  "version": "0.5.0-beta",
   "description": "Debros network core functionality for IPFS, libp2p and OrbitDB",
   "type": "module",
   "main": "dist/index.js",
@@ -20,7 +20,8 @@
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "lint:fix": "npx eslint src --fix",
     "test:unit": "jest tests/unit",
-    "test:real": "cd tests/real-integration/blog-scenario && docker-compose -f docker/docker-compose.blog.yml up --build --abort-on-container-exit"
+    "test:blog-integration": "tsx tests/real-integration/blog-scenario/scenarios/BlogTestRunner.ts",
+    "test:real": "docker-compose -f tests/real-integration/blog-scenario/docker/docker-compose.blog.yml up --build --abort-on-container-exit"
   },
   "keywords": [
     "ipfs",
@@ -76,7 +77,6 @@
     "@types/node": "^22.13.10",
     "@types/node-fetch": "^2.6.7",
     "@types/node-forge": "^1.3.11",
-    "node-fetch": "^2.7.0",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "eslint": "^9.24.0",
@@ -86,10 +86,12 @@
     "husky": "^8.0.3",
     "jest": "^30.0.1",
     "lint-staged": "^15.5.0",
+    "node-fetch": "^2.7.0",
     "prettier": "^3.5.3",
     "rimraf": "^5.0.5",
     "ts-jest": "^29.4.0",
     "tsc-esm-fix": "^3.1.2",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.29.0"
   }

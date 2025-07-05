@@ -130,11 +130,10 @@ services:
       - TEST_TIMEOUT=300000
       - NODE_ENV=test
     volumes:
-      - ../tests:/app/tests:ro
       - test-results:/app/results
     networks:
       - blog-network
-    command: ["pnpm", "run", "test:real"]
+    command: ["pnpm", "run", "test:blog-integration"]
 
 volumes:
   bootstrap-data:

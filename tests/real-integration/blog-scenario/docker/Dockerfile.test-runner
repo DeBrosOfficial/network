@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json pnpm-lock.yaml ./
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and tsx
+RUN npm install -g pnpm tsx
 
 # Install all dependencies (including dev dependencies for testing, skip prepare script)
 RUN pnpm install --frozen-lockfile --ignore-scripts
