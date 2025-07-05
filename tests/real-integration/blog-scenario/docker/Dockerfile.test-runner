@@ -1,0 +1,33 @@
+# Test Runner for Blog Integration Tests
+FROM node:18-alpine
+
+# Install dependencies
+RUN apk add --no-cache curl jq
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json pnpm-lock.yaml ./
+
+# Install pnpm and tsx
+RUN npm install -g pnpm tsx
+
+# Install all dependencies (including dev dependencies for testing, skip prepare script)
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN pnpm run build
+
+# Create results directory
+RUN mkdir -p /app/results
+
+# Set environment variables
+ENV NODE_ENV=test
+ENV TEST_SCENARIO=blog
+
+# Default command (can be overridden)
+CMD ["pnpm", "run", "test:blog-integration"]

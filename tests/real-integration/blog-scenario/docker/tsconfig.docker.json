@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "isolatedModules": true,
+    "removeComments": true,
+    "inlineSources": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "strict": true,
+    "baseUrl": "../../../../"
+  },
+  "include": ["blog-api-server.ts", "../../../../src/**/*"]
+}

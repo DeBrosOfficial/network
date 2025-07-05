@@ -1,0 +1,155 @@
+
+services:
+  # Bootstrap node for peer discovery
+  blog-bootstrap:
+    build:
+      context: ../../../../
+      dockerfile: tests/real-integration/shared/infrastructure/docker/Dockerfile.bootstrap
+    environment:
+      - NODE_TYPE=bootstrap
+      - NODE_ID=blog-bootstrap
+      - SWARM_KEY_FILE=/data/swarm.key
+    volumes:
+      - ./swarm.key:/data/swarm.key:ro
+      - bootstrap-data:/data/ipfs
+    networks:
+      - blog-network
+    ports:
+      - "4001:4001"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ipfs id >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Blog API Node 1
+  blog-node-1:
+    build:
+      context: ../../../../
+      dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.blog-api
+    depends_on:
+      blog-bootstrap:
+        condition: service_healthy
+    environment:
+      - NODE_ID=blog-node-1
+      - NODE_PORT=3000
+      - IPFS_PORT=4011
+      - BOOTSTRAP_PEER=blog-bootstrap
+      - SWARM_KEY_FILE=/data/swarm.key
+      - NODE_ENV=test
+    ports:
+      - "3001:3000"
+      - "4011:4011"
+    volumes:
+      - ./swarm.key:/data/swarm.key:ro
+      - blog-node-1-data:/data
+    networks:
+      - blog-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Blog API Node 2
+  blog-node-2:
+    build:
+      context: ../../../../
+      dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.blog-api
+    depends_on:
+      blog-bootstrap:
+        condition: service_healthy
+    environment:
+      - NODE_ID=blog-node-2
+      - NODE_PORT=3000
+      - IPFS_PORT=4012
+      - BOOTSTRAP_PEER=blog-bootstrap
+      - SWARM_KEY_FILE=/data/swarm.key
+      - NODE_ENV=test
+    ports:
+      - "3002:3000"
+      - "4012:4012"
+    volumes:
+      - ./swarm.key:/data/swarm.key:ro
+      - blog-node-2-data:/data
+    networks:
+      - blog-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Blog API Node 3
+  blog-node-3:
+    build:
+      context: ../../../../
+      dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.blog-api
+    depends_on:
+      blog-bootstrap:
+        condition: service_healthy
+    environment:
+      - NODE_ID=blog-node-3
+      - NODE_PORT=3000
+      - IPFS_PORT=4013
+      - BOOTSTRAP_PEER=blog-bootstrap
+      - SWARM_KEY_FILE=/data/swarm.key
+      - NODE_ENV=test
+    ports:
+      - "3003:3000"
+      - "4013:4013"
+    volumes:
+      - ./swarm.key:/data/swarm.key:ro
+      - blog-node-3-data:/data
+    networks:
+      - blog-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Test Runner
+  blog-test-runner:
+    build:
+      context: ../../../../
+      dockerfile: tests/real-integration/blog-scenario/docker/Dockerfile.test-runner
+    depends_on:
+      blog-node-1:
+        condition: service_healthy
+      blog-node-2:
+        condition: service_healthy
+      blog-node-3:
+        condition: service_healthy
+    environment:
+      - TEST_SCENARIO=blog
+      - NODE_ENDPOINTS=http://blog-node-1:3000,http://blog-node-2:3000,http://blog-node-3:3000
+      - TEST_TIMEOUT=300000
+      - NODE_ENV=test
+    volumes:
+      - test-results:/app/results
+    networks:
+      - blog-network
+    command: ["pnpm", "run", "test:blog-integration"]
+
+volumes:
+  bootstrap-data:
+    driver: local
+  blog-node-1-data:
+    driver: local
+  blog-node-2-data:
+    driver: local
+  blog-node-3-data:
+    driver: local
+  test-results:
+    driver: local
+
+networks:
+  blog-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

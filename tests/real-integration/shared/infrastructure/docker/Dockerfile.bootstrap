@@ -1,0 +1,18 @@
+# Bootstrap node for IPFS peer discovery
+FROM ipfs/kubo:v0.24.0
+
+# Copy swarm key
+COPY tests/real-integration/blog-scenario/docker/swarm.key /data/ipfs/swarm.key
+
+# Copy configuration script
+COPY tests/real-integration/blog-scenario/docker/bootstrap-config.sh /usr/local/bin/bootstrap-config.sh
+USER root
+RUN chmod +x /usr/local/bin/bootstrap-config.sh
+USER ipfs
+
+# Expose IPFS ports
+EXPOSE 4001 5001 8080
+
+# Override the kubo entrypoint and start IPFS daemon with custom config
+ENTRYPOINT []
+CMD ["sh", "/usr/local/bin/bootstrap-config.sh"]

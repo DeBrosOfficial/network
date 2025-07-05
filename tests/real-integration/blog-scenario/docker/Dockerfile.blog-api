@@ -1,0 +1,49 @@
+# Blog API Node
+FROM node:18-alpine
+
+# Install system dependencies including build tools for native modules
+RUN apk add --no-cache \
+    curl \
+    python3 \
+    make \
+    g++ \
+    git \
+    cmake \
+    pkgconfig \
+    libc6-compat \
+    linux-headers
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json pnpm-lock.yaml ./
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Install full dependencies and reflect-metadata
+RUN pnpm install --frozen-lockfile \
+    && pnpm add reflect-metadata @babel/runtime
+
+# Install tsx globally for running TypeScript files (better ESM support)
+RUN npm install -g tsx
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN pnpm run build
+
+# Create data directory
+RUN mkdir -p /data
+
+# Expose API port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Start the blog API server using tsx with explicit tsconfig
+CMD ["tsx", "--tsconfig", "tests/real-integration/blog-scenario/docker/tsconfig.docker.json", "tests/real-integration/blog-scenario/docker/blog-api-server.ts"]

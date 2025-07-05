@@ -1,0 +1,30 @@
+# Bootstrap node for IPFS peer discovery
+FROM node:18-alpine
+
+# Install dependencies
+RUN apk add --no-cache curl jq
+
+# Create app directory
+WORKDIR /app
+
+# Install IPFS
+RUN wget https://dist.ipfs.tech/kubo/v0.24.0/kubo_v0.24.0_linux-amd64.tar.gz \
+    && tar -xzf kubo_v0.24.0_linux-amd64.tar.gz \
+    && mv kubo/ipfs /usr/local/bin/ \
+    && rm -rf kubo kubo_v0.24.0_linux-amd64.tar.gz
+
+# Copy swarm key
+COPY tests/real-integration/blog-scenario/docker/swarm.key /data/swarm.key
+
+# Initialize IPFS
+RUN ipfs init --profile=test
+
+# Copy configuration script
+COPY tests/real-integration/blog-scenario/docker/bootstrap-config.sh /app/bootstrap-config.sh
+RUN chmod +x /app/bootstrap-config.sh
+
+# Expose IPFS ports
+EXPOSE 4001 5001 8080
+
+# Start IPFS daemon
+CMD ["/app/bootstrap-config.sh"]
