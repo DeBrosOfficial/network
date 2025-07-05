@@ -5,52 +5,86 @@ import styles from './styles.module.css';
 
 type FeatureItem = {
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
+  icon: string;
   description: ReactNode;
+  highlight?: boolean;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Decentralized by Design',
+    icon: '🌐',
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Built on <strong>OrbitDB</strong> and <strong>IPFS</strong>, DebrosFramework 
+        creates truly decentralized applications that don't rely on centralized servers 
+        or single points of failure.
+      </>
+    ),
+    highlight: true,
+  },
+  {
+    title: 'Developer Experience First',
+    icon: '⚡',
+    description: (
+      <>
+        Full <strong>TypeScript</strong> support with intelligent auto-completion, 
+        decorator-based models, and intuitive APIs that make building complex 
+        applications feel effortless.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Infinite Scalability',
+    icon: '🚀',
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Automatic sharding, efficient queries, and built-in caching ensure your 
+        applications can scale to millions of users without architectural changes.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'Zero Configuration',
+    icon: '🎯',
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Start building immediately with sensible defaults. No complex setup, 
+        no configuration files, no DevOps headaches—just pure development focus.
+      </>
+    ),
+  },
+  {
+    title: 'Real-time Sync',
+    icon: '🔄',
+    description: (
+      <>
+        Built-in real-time synchronization across all peers. Changes propagate 
+        instantly across the network with conflict resolution and offline support.
+      </>
+    ),
+  },
+  {
+    title: 'Enterprise Ready',
+    icon: '🔒',
+    description: (
+      <>
+        Production-grade security, comprehensive testing, detailed documentation, 
+        and enterprise support make DebrosFramework ready for mission-critical applications.
       </>
     ),
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({title, icon, description, highlight}: FeatureItem) {
   return (
-    <div className={clsx('col col--4')}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+    <div className={clsx(styles.featureCard, highlight && styles.featureCardHighlight)}>
+      <div className={styles.featureIcon}>
+        <span className={styles.iconEmoji}>{icon}</span>
       </div>
-      <div className="text--center padding-horiz--md">
-        <Heading as="h3">{title}</Heading>
-        <p>{description}</p>
+      <div className={styles.featureContent}>
+        <Heading as="h3" className={styles.featureTitle}>{title}</Heading>
+        <p className={styles.featureDescription}>{description}</p>
       </div>
     </div>
   );
@@ -60,7 +94,15 @@ export default function HomepageFeatures(): ReactNode {
   return (
     <section className={styles.features}>
       <div className="container">
-        <div className="row">
+        <div className={styles.featuresHeader}>
+          <Heading as="h2" className={styles.featuresTitle}>
+            Why Choose Debros Network?
+          </Heading>
+          <p className={styles.featuresSubtitle}>
+            Everything you need to build the next generation of decentralized applications
+          </p>
+        </div>
+        <div className={styles.featuresGrid}>
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}

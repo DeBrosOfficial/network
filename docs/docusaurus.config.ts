@@ -1,12 +1,12 @@
-import {themes as prismThemes} from 'prism-react-renderer';
-import type {Config} from '@docusaurus/types';
+import { themes as prismThemes } from 'prism-react-renderer';
+import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'DebrosFramework',
-  tagline: 'Build scalable decentralized applications with ease',
+  title: 'Debros Network',
+  tagline: 'Next-Generation Decentralized Web Framework',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -71,13 +71,20 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/debros-social-card.jpg',
+    colorMode: {
+      defaultMode: 'dark',
+      disableSwitch: false,
+      respectPrefersColorScheme: false,
+    },
     navbar: {
-      title: 'DebrosFramework',
-      logo: {
-        alt: 'DebrosFramework Logo',
-        src: 'img/logo.svg',
-      },
+      title: 'Debros Network',
+      // logo: {
+      //   alt: 'Debros Network Logo',
+      //   src: 'img/logo.svg',
+      //   srcDark: 'img/logo-dark.svg',
+      // },
+      hideOnScroll: true,
       items: [
         {
           type: 'docSidebar',
@@ -91,10 +98,14 @@ const config: Config = {
           position: 'left',
           label: 'API Reference',
         },
-        {to: '/blog', label: 'Blog', position: 'left'},
+        {
+          href: 'https://git.debros.io/DeBros/network',
+          label: 'Gitea',
+          position: 'right',
+        },
         {
           href: 'https://github.com/debros/network',
-          label: 'GitHub',
+          label: 'GitHub Mirror',
           position: 'right',
         },
       ],
@@ -103,11 +114,23 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Documentation',
           items: [
             {
-              label: 'Tutorial',
-              to: '/docs/intro',
+              label: 'Getting Started',
+              to: '/docs/getting-started',
+            },
+            {
+              label: 'Core Concepts',
+              to: '/docs/core-concepts/architecture',
+            },
+            {
+              label: 'API Reference',
+              to: '/docs/api/overview',
+            },
+            {
+              label: 'Contributing',
+              to: '/docs/contributing/overview',
             },
           ],
         },
@@ -115,34 +138,34 @@ const config: Config = {
           title: 'Community',
           items: [
             {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
+              label: 'Gitea Repository',
+              href: 'https://git.debros.io/DeBros/network',
             },
             {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
+              label: 'GitHub Mirror',
+              href: 'https://github.com/debros/network',
             },
             {
-              label: 'X',
-              href: 'https://x.com/docusaurus',
+              label: 'Issues & Support',
+              href: 'https://git.debros.io/DeBros/network/issues',
             },
           ],
         },
         {
-          title: 'More',
+          title: 'Resources',
           items: [
             {
-              label: 'Blog',
-              to: '/blog',
+              label: 'Examples',
+              to: '/docs/examples/basic-usage',
             },
             {
-              label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
+              label: 'License',
+              href: 'https://git.debros.io/DeBros/network/src/branch/main/LICENSE',
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} DebrosFramework. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Debros Network. Empowering the decentralized web.`,
     },
     prism: {
       theme: prismThemes.github,
