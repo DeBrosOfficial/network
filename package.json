@@ -20,7 +20,7 @@
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "lint:fix": "npx eslint src --fix",
     "test:unit": "jest tests/unit",
-    "test:blog-integration": "tsx tests/real-integration/blog-scenario/scenarios/BlogTestRunner.ts",
+    "test:blog-integration": "jest --config=jest.integration.config.cjs tests/real-integration/blog-scenario/tests",
     "test:real": "docker-compose -f tests/real-integration/blog-scenario/docker/docker-compose.blog.yml up --build --abort-on-container-exit"
   },
   "keywords": [
@@ -76,6 +76,7 @@
     ]
   },
   "devDependencies": {
+    "axios": "^1.6.0",
     "@eslint/js": "^9.24.0",
     "@jest/globals": "^30.0.1",
     "@orbitdb/core-types": "^1.0.14",

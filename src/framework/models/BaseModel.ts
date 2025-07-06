@@ -22,14 +22,19 @@ export abstract class BaseModel {
   constructor(data: any = {}) {
     // Generate ID first
     this.id = this.generateId();
-    
+
     // Apply field defaults first
     this.applyFieldDefaults();
-    
+
     // Then apply provided data, but only for properties that are explicitly provided
     if (data && typeof data === 'object') {
       Object.keys(data).forEach((key) => {
-        if (key !== '_loadedRelations' && key !== '_isDirty' && key !== '_isNew' && data[key] !== undefined) {
+        if (
+          key !== '_loadedRelations' &&
+          key !== '_isDirty' &&
+          key !== '_isNew' &&
+          data[key] !== undefined
+        ) {
           // Always set directly - the Field decorator's setter will handle validation and transformation
           try {
             (this as any)[key] = data[key];
@@ -41,28 +46,27 @@ export abstract class BaseModel {
           }
         }
       });
-      
+
       // Mark as existing if it has an ID in the data
       if (data.id) {
         this._isNew = false;
       }
     }
-    
+
     // Remove any instance properties that might shadow prototype getters
     this.cleanupShadowingProperties();
-    
   }
 
   private cleanupShadowingProperties(): void {
     const modelClass = this.constructor as typeof BaseModel;
-    
+
     // For each field, ensure no instance properties are shadowing prototype getters
     for (const [fieldName] of modelClass.fields) {
       // If there's an instance property, remove it and create a working getter
       if (this.hasOwnProperty(fieldName)) {
         const _oldValue = (this as any)[fieldName];
         delete (this as any)[fieldName];
-        
+
         // Define a working getter directly on the instance
         Object.defineProperty(this, fieldName, {
           get: () => {
@@ -75,21 +79,20 @@ export abstract class BaseModel {
             this.markFieldAsModified(fieldName);
           },
           enumerable: true,
-          configurable: true
+          configurable: true,
         });
       }
     }
   }
-
 
   // Core CRUD operations
   async save(): Promise<this> {
     if (this._isNew) {
       // Clean up any instance properties before hooks run
       this.cleanupShadowingProperties();
-      
+
       await this.beforeCreate();
-      
+
       // Clean up any instance properties created by hooks
       this.cleanupShadowingProperties();
 
@@ -102,11 +105,10 @@ export abstract class BaseModel {
       const now = Date.now();
       this.setFieldValue('createdAt', now);
       this.setFieldValue('updatedAt', now);
-      
+
       // Clean up any additional shadowing properties after setting timestamps
       this.cleanupShadowingProperties();
-      
-      
+
       // Validate after all field generation is complete
       await this.validate();
 
@@ -117,7 +119,7 @@ export abstract class BaseModel {
       this.clearModifications();
 
       await this.afterCreate();
-      
+
       // Clean up any shadowing properties created during save
       this.cleanupShadowingProperties();
     } else if (this._isDirty) {
@@ -125,7 +127,7 @@ export abstract class BaseModel {
 
       // Set timestamp using Field setter
       this.setFieldValue('updatedAt', Date.now());
-      
+
       // Validate after hooks have run
       await this.validate();
 
@@ -135,7 +137,7 @@ export abstract class BaseModel {
       this.clearModifications();
 
       await this.afterUpdate();
-      
+
       // Clean up any shadowing properties created during save
       this.cleanupShadowingProperties();
     }
@@ -168,21 +170,32 @@ export abstract class BaseModel {
     try {
       const modelClass = this as any;
       let data = null;
-      
+
       if (modelClass.scope === 'user') {
         // For user-scoped models, we would need userId - for now, try global
-        const database = await framework.databaseManager?.getGlobalDatabase?.(modelClass.modelName || modelClass.name);
+        const database = await framework.databaseManager?.getGlobalDatabase?.(
+          modelClass.modelName || modelClass.name,
+        );
         if (database && framework.databaseManager?.getDocument) {
           data = await framework.databaseManager.getDocument(database, modelClass.storeType, id);
         }
       } else {
         if (modelClass.sharding) {
-          const shard = framework.shardManager?.getShardForKey?.(modelClass.modelName || modelClass.name, id);
+          const shard = framework.shardManager?.getShardForKey?.(
+            modelClass.modelName || modelClass.name,
+            id,
+          );
           if (shard && framework.databaseManager?.getDocument) {
-            data = await framework.databaseManager.getDocument(shard.database, modelClass.storeType, id);
+            data = await framework.databaseManager.getDocument(
+              shard.database,
+              modelClass.storeType,
+              id,
+            );
           }
         } else {
-          const database = await framework.databaseManager?.getGlobalDatabase?.(modelClass.modelName || modelClass.name);
+          const database = await framework.databaseManager?.getGlobalDatabase?.(
+            modelClass.modelName || modelClass.name,
+          );
           if (database && framework.databaseManager?.getDocument) {
             data = await framework.databaseManager.getDocument(database, modelClass.storeType, id);
           }
@@ -195,7 +208,7 @@ export abstract class BaseModel {
         instance.clearModifications();
         return instance;
       }
-      
+
       return null;
     } catch (error) {
       console.error('Failed to find by ID:', error);
@@ -283,12 +296,12 @@ export abstract class BaseModel {
     criteria: any,
   ): Promise<T | null> {
     const query = new QueryBuilder<T>(this as any);
-    
+
     // Apply criteria as where clauses
-    Object.keys(criteria).forEach(key => {
+    Object.keys(criteria).forEach((key) => {
       query.where(key, '=', criteria[key]);
     });
-    
+
     const results = await query.limit(1).exec();
     return results.length > 0 ? results[0] : null;
   }
@@ -385,6 +398,11 @@ export abstract class BaseModel {
     // Include basic properties
     result.id = this.id;
 
+    // For OrbitDB docstore compatibility, also include _id field
+    if (modelClass.storeType === 'docstore') {
+      result._id = this.id;
+    }
+
     // Include loaded relations
     this._loadedRelations.forEach((value, key) => {
       result[key] = value;
@@ -396,7 +414,7 @@ export abstract class BaseModel {
   fromJSON(data: any): this {
     if (!data) return this;
 
-    // Set basic properties  
+    // Set basic properties
     Object.keys(data).forEach((key) => {
       if (key !== '_loadedRelations' && key !== '_isDirty' && key !== '_isNew') {
         (this as any)[key] = data[key];
@@ -416,12 +434,11 @@ export abstract class BaseModel {
     const errors: string[] = [];
     const modelClass = this.constructor as typeof BaseModel;
 
-
     // Validate each field using private keys (more reliable)
     for (const [fieldName, fieldConfig] of modelClass.fields) {
       const privateKey = `_${fieldName}`;
       const value = (this as any)[privateKey];
-      
+
       const fieldErrors = await this.validateField(fieldName, value, fieldConfig);
       errors.push(...fieldErrors);
     }
@@ -435,7 +452,11 @@ export abstract class BaseModel {
     return result;
   }
 
-  private async validateField(fieldName: string, value: any, config: FieldConfig): Promise<string[]> {
+  private async validateField(
+    fieldName: string,
+    value: any,
+    config: FieldConfig,
+  ): Promise<string[]> {
     const errors: string[] = [];
 
     // Required validation
@@ -544,18 +565,18 @@ export abstract class BaseModel {
 
   private applyFieldDefaults(): void {
     const modelClass = this.constructor as typeof BaseModel;
-    
+
     // Ensure we have fields map
     if (!modelClass.fields) {
       return;
     }
-    
+
     for (const [fieldName, fieldConfig] of modelClass.fields) {
       if (fieldConfig.default !== undefined) {
         const privateKey = `_${fieldName}`;
         const hasProperty = (this as any).hasOwnProperty(privateKey);
         const currentValue = (this as any)[privateKey];
-        
+
         // Always apply default value to private field if it's not set
         if (!hasProperty || currentValue === undefined) {
           // Apply default value to private field
@@ -594,16 +615,29 @@ export abstract class BaseModel {
   getFieldValue(fieldName: string): any {
     // Always ensure this field's getter works properly
     this.ensureFieldGetter(fieldName);
-    
+
+    // Try private key first
     const privateKey = `_${fieldName}`;
-    return (this as any)[privateKey];
+    let value = (this as any)[privateKey];
+
+    // If private key is undefined, try the property getter as fallback
+    if (value === undefined) {
+      try {
+        value = (this as any)[fieldName];
+      } catch (error) {
+        console.warn(`Failed to access field ${fieldName} using getter:`, error);
+        // Ignore errors from getter
+      }
+    }
+
+    return value;
   }
-  
+
   private ensureFieldGetter(fieldName: string): void {
     // If there's a shadowing instance property, remove it and create a working getter
     if (this.hasOwnProperty(fieldName)) {
       delete (this as any)[fieldName];
-      
+
       // Define a working getter directly on the instance
       Object.defineProperty(this, fieldName, {
         get: () => {
@@ -616,7 +650,7 @@ export abstract class BaseModel {
           this.markFieldAsModified(fieldName);
         },
         enumerable: true,
-        configurable: true
+        configurable: true,
       });
     }
   }
@@ -636,14 +670,14 @@ export abstract class BaseModel {
   getAllFieldValues(): Record<string, any> {
     const modelClass = this.constructor as typeof BaseModel;
     const values: Record<string, any> = {};
-    
+
     for (const [fieldName] of modelClass.fields) {
       const value = this.getFieldValue(fieldName);
       if (value !== undefined) {
         values[fieldName] = value;
       }
     }
-    
+
     return values;
   }
 
@@ -676,17 +710,20 @@ export abstract class BaseModel {
     try {
       if (modelClass.scope === 'user') {
         // For user-scoped models, we need a userId (check common field names)
-        const userId = (this as any).userId || (this as any).authorId || (this as any).ownerId;
+        const userId =
+          this.getFieldValue('userId') ||
+          this.getFieldValue('authorId') ||
+          this.getFieldValue('ownerId');
         if (!userId) {
           throw new Error('User-scoped models must have a userId, authorId, or ownerId field');
         }
 
         // Ensure user databases exist before accessing them
         await this.ensureUserDatabasesExist(framework, userId);
-        
+
         // Ensure user databases exist before accessing them
         await this.ensureUserDatabasesExist(framework, userId);
-        
+
         const database = await framework.databaseManager.getUserDatabase(
           userId,
           modelClass.modelName,
@@ -705,7 +742,11 @@ export abstract class BaseModel {
         } else {
           // Use single global database
           const database = await framework.databaseManager.getGlobalDatabase(modelClass.modelName);
-          await framework.databaseManager.addDocument(database, modelClass.storeType, this.toJSON());
+          await framework.databaseManager.addDocument(
+            database,
+            modelClass.storeType,
+            this.toJSON(),
+          );
         }
       }
     } catch (error) {
@@ -725,14 +766,17 @@ export abstract class BaseModel {
 
     try {
       if (modelClass.scope === 'user') {
-        const userId = (this as any).userId || (this as any).authorId || (this as any).ownerId;
+        const userId =
+          this.getFieldValue('userId') ||
+          this.getFieldValue('authorId') ||
+          this.getFieldValue('ownerId');
         if (!userId) {
           throw new Error('User-scoped models must have a userId, authorId, or ownerId field');
         }
 
         // Ensure user databases exist before accessing them
         await this.ensureUserDatabasesExist(framework, userId);
-        
+
         const database = await framework.databaseManager.getUserDatabase(
           userId,
           modelClass.modelName,
@@ -779,14 +823,17 @@ export abstract class BaseModel {
 
     try {
       if (modelClass.scope === 'user') {
-        const userId = (this as any).userId || (this as any).authorId || (this as any).ownerId;
+        const userId =
+          this.getFieldValue('userId') ||
+          this.getFieldValue('authorId') ||
+          this.getFieldValue('ownerId');
         if (!userId) {
           throw new Error('User-scoped models must have a userId, authorId, or ownerId field');
         }
 
         // Ensure user databases exist before accessing them
         await this.ensureUserDatabasesExist(framework, userId);
-        
+
         const database = await framework.databaseManager.getUserDatabase(
           userId,
           modelClass.modelName,
@@ -858,7 +905,7 @@ export abstract class BaseModel {
       if (!(globalThis as any).__mockDatabase) {
         (globalThis as any).__mockDatabase = new Map();
       }
-      
+
       const mockDatabase = {
         _data: (globalThis as any).__mockDatabase,
         async get(id: string) {
@@ -874,7 +921,7 @@ export abstract class BaseModel {
         },
         async all() {
           return Array.from(this._data.values());
-        }
+        },
       };
 
       return {
@@ -908,13 +955,13 @@ export abstract class BaseModel {
           },
           async getAllDocuments(_database: any, _type: string) {
             return await mockDatabase.all();
-          }
+          },
         },
         shardManager: {
           getShardForKey(_modelName: string, _key: string) {
             return { database: mockDatabase };
-          }
-        }
+          },
+        },
       };
     }
     return null;

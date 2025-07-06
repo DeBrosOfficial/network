@@ -2,6 +2,79 @@ import 'reflect-metadata';
 import { BaseModel } from '../../../../src/framework/models/BaseModel';
 import { Model, Field, HasMany, BelongsTo, HasOne, BeforeCreate, AfterCreate } from '../../../../src/framework/models/decorators';
 
+// Force field registration by manually setting up field configurations
+function setupFieldConfigurations() {
+  // User Profile fields
+  if (!UserProfile.fields) {
+    (UserProfile as any).fields = new Map();
+  }
+  UserProfile.fields.set('userId', { type: 'string', required: true });
+  UserProfile.fields.set('bio', { type: 'string', required: false });
+  UserProfile.fields.set('location', { type: 'string', required: false });
+  UserProfile.fields.set('website', { type: 'string', required: false });
+  UserProfile.fields.set('socialLinks', { type: 'object', required: false });
+  UserProfile.fields.set('interests', { type: 'array', required: false, default: [] });
+  UserProfile.fields.set('createdAt', { type: 'number', required: false, default: () => Date.now() });
+  UserProfile.fields.set('updatedAt', { type: 'number', required: false, default: () => Date.now() });
+
+  // User fields
+  if (!User.fields) {
+    (User as any).fields = new Map();
+  }
+  User.fields.set('username', { type: 'string', required: true, unique: true });
+  User.fields.set('email', { type: 'string', required: true, unique: true });
+  User.fields.set('displayName', { type: 'string', required: false });
+  User.fields.set('avatar', { type: 'string', required: false });
+  User.fields.set('isActive', { type: 'boolean', required: false, default: true });
+  User.fields.set('roles', { type: 'array', required: false, default: [] });
+  User.fields.set('createdAt', { type: 'number', required: false });
+  User.fields.set('lastLoginAt', { type: 'number', required: false });
+
+  // Category fields
+  if (!Category.fields) {
+    (Category as any).fields = new Map();
+  }
+  Category.fields.set('name', { type: 'string', required: true, unique: true });
+  Category.fields.set('slug', { type: 'string', required: true, unique: true });
+  Category.fields.set('description', { type: 'string', required: false });
+  Category.fields.set('color', { type: 'string', required: false });
+  Category.fields.set('isActive', { type: 'boolean', required: false, default: true });
+  Category.fields.set('createdAt', { type: 'number', required: false, default: () => Date.now() });
+
+  // Post fields
+  if (!Post.fields) {
+    (Post as any).fields = new Map();
+  }
+  Post.fields.set('title', { type: 'string', required: true });
+  Post.fields.set('slug', { type: 'string', required: true, unique: true });
+  Post.fields.set('content', { type: 'string', required: true });
+  Post.fields.set('excerpt', { type: 'string', required: false });
+  Post.fields.set('authorId', { type: 'string', required: true });
+  Post.fields.set('categoryId', { type: 'string', required: false });
+  Post.fields.set('tags', { type: 'array', required: false, default: [] });
+  Post.fields.set('status', { type: 'string', required: false, default: 'draft' });
+  Post.fields.set('featuredImage', { type: 'string', required: false });
+  Post.fields.set('isFeatured', { type: 'boolean', required: false, default: false });
+  Post.fields.set('viewCount', { type: 'number', required: false, default: 0 });
+  Post.fields.set('likeCount', { type: 'number', required: false, default: 0 });
+  Post.fields.set('createdAt', { type: 'number', required: false });
+  Post.fields.set('updatedAt', { type: 'number', required: false });
+  Post.fields.set('publishedAt', { type: 'number', required: false });
+
+  // Comment fields
+  if (!Comment.fields) {
+    (Comment as any).fields = new Map();
+  }
+  Comment.fields.set('content', { type: 'string', required: true });
+  Comment.fields.set('postId', { type: 'string', required: true });
+  Comment.fields.set('authorId', { type: 'string', required: true });
+  Comment.fields.set('parentId', { type: 'string', required: false });
+  Comment.fields.set('isApproved', { type: 'boolean', required: false, default: true });
+  Comment.fields.set('likeCount', { type: 'number', required: false, default: 0 });
+  Comment.fields.set('createdAt', { type: 'number', required: false });
+  Comment.fields.set('updatedAt', { type: 'number', required: false });
+}
+
 // User Profile Model
 @Model({
   scope: 'global',
@@ -369,3 +442,6 @@ export interface UpdatePostRequest {
   featuredImage?: string;
   isFeatured?: boolean;
 }
+
+// Initialize field configurations after all models are defined
+setupFieldConfigurations();

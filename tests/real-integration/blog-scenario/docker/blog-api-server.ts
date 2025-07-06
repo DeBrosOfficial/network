@@ -112,8 +112,8 @@ class BlogAPIServer {
 
         const user = await User.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created user: ${user.username} (${user.id})`);
-        res.status(201).json(user.toJSON());
+        console.log(`[${this.nodeId}] Created user: ${user.getFieldValue('username')} (${user.id})`);
+        res.status(201).json(user);
       } catch (error) {
         next(error);
       }
@@ -226,7 +226,7 @@ class BlogAPIServer {
 
         const category = await Category.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created category: ${category.name} (${category.id})`);
+        console.log(`[${this.nodeId}] Created category: ${category.getFieldValue('name')} (${category.id})`);
         res.status(201).json(category);
       } catch (error) {
         next(error);
@@ -276,7 +276,7 @@ class BlogAPIServer {
 
         const post = await Post.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created post: ${post.title} (${post.id})`);
+        console.log(`[${this.nodeId}] Created post: ${post.getFieldValue('title')} (${post.id})`);
         res.status(201).json(post);
       } catch (error) {
         next(error);
