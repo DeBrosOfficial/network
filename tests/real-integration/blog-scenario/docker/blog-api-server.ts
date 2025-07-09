@@ -51,28 +51,11 @@ class BlogAPIServer {
     // Logging
     this.app.use((req, res, next) => {
       console.log(`[${this.nodeId}] ${new Date().toISOString()} ${req.method} ${req.path}`);
+      if (req.method === 'POST' && req.body) {
+        console.log(`[${this.nodeId}] Request body:`, JSON.stringify(req.body, null, 2));
+      }
       next();
     });
-
-    // Error handling
-    this.app.use(
-      (error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-        console.error(`[${this.nodeId}] Error:`, error);
-
-        if (error instanceof ValidationError) {
-          return res.status(400).json({
-            error: error.message,
-            field: error.field,
-            nodeId: this.nodeId,
-          });
-        }
-
-        res.status(500).json({
-          error: 'Internal server error',
-          nodeId: this.nodeId,
-        });
-      },
-    );
   }
 
   private setupRoutes() {
@@ -101,20 +84,47 @@ class BlogAPIServer {
     this.setupPostRoutes();
     this.setupCommentRoutes();
     this.setupMetricsRoutes();
+    
+    // Error handling middleware must be defined after all routes
+    this.app.use(
+      (error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        console.error(`[${this.nodeId}] Error:`, error);
+
+        if (error instanceof ValidationError) {
+          return res.status(400).json({
+            error: error.message,
+            field: error.field,
+            nodeId: this.nodeId,
+          });
+        }
+
+        res.status(500).json({
+          error: 'Internal server error',
+          nodeId: this.nodeId,
+        });
+      },
+    );
   }
 
   private setupUserRoutes() {
     // Create user
     this.app.post('/api/users', async (req, res, next) => {
       try {
+        console.log(`[${this.nodeId}] Received user creation request:`, JSON.stringify(req.body, null, 2));
+        
         const sanitizedData = BlogValidation.sanitizeUserInput(req.body);
+        console.log(`[${this.nodeId}] Sanitized user data:`, JSON.stringify(sanitizedData, null, 2));
+        
         BlogValidation.validateUser(sanitizedData);
+        console.log(`[${this.nodeId}] User validation passed`);
 
         const user = await User.create(sanitizedData);
+        console.log(`[${this.nodeId}] User created successfully:`, JSON.stringify(user, null, 2));
 
-        console.log(`[${this.nodeId}] Created user: ${user.getFieldValue('username')} (${user.id})`);
+        console.log(`[${this.nodeId}] Created user: ${user.username} (${user.id})`);
         res.status(201).json(user);
       } catch (error) {
+        console.error(`[${this.nodeId}] Error creating user:`, error);
         next(error);
       }
     });
@@ -221,14 +231,32 @@ class BlogAPIServer {
     // Create category
     this.app.post('/api/categories', async (req, res, next) => {
       try {
+        console.log(`[${this.nodeId}] Received category creation request:`, JSON.stringify(req.body, null, 2));
+        
         const sanitizedData = BlogValidation.sanitizeCategoryInput(req.body);
+        console.log(`[${this.nodeId}] Sanitized category data:`, JSON.stringify(sanitizedData, null, 2));
+        
+        // Generate slug if not provided
+        if (!sanitizedData.slug && sanitizedData.name) {
+          sanitizedData.slug = sanitizedData.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/--+/g, '-')
+            .replace(/^-|-$/g, '');
+          console.log(`[${this.nodeId}] Generated slug: ${sanitizedData.slug}`);
+        }
+        
         BlogValidation.validateCategory(sanitizedData);
+        console.log(`[${this.nodeId}] Category validation passed`);
 
         const category = await Category.create(sanitizedData);
+        console.log(`[${this.nodeId}] Category created successfully:`, JSON.stringify(category, null, 2));
 
-        console.log(`[${this.nodeId}] Created category: ${category.getFieldValue('name')} (${category.id})`);
+        console.log(`[${this.nodeId}] Created category: ${category.name} (${category.id})`);
         res.status(201).json(category);
       } catch (error) {
+        console.error(`[${this.nodeId}] Error creating category:`, error);
         next(error);
       }
     });
@@ -276,7 +304,7 @@ class BlogAPIServer {
 
         const post = await Post.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created post: ${post.getFieldValue('title')} (${post.id})`);
+        console.log(`[${this.nodeId}] Created post: ${post.title} (${post.id})`);
         res.status(201).json(post);
       } catch (error) {
         next(error);

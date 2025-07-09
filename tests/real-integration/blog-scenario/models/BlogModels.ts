@@ -200,12 +200,18 @@ export class Category extends BaseModel {
 
   @BeforeCreate()
   generateSlug() {
+    console.log(`[DEBUG] generateSlug called for category: ${this.name}`);
+    console.log(`[DEBUG] Current slug: ${this.slug}`);
     if (!this.slug && this.name) {
       this.slug = this.name
         .toLowerCase()
         .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/--+/g, '-')
+        .replace(/^-|-$/g, '');
+      console.log(`[DEBUG] Generated slug: ${this.slug}`);
     }
+    console.log(`[DEBUG] Final slug: ${this.slug}`);
   }
 }
 
@@ -411,6 +417,7 @@ export interface CreateUserRequest {
 
 export interface CreateCategoryRequest {
   name: string;
+  slug?: string;
   description?: string;
   color?: string;
 }
@@ -445,3 +452,24 @@ export interface UpdatePostRequest {
 
 // Initialize field configurations after all models are defined
 setupFieldConfigurations();
+
+// Ensure static properties are set properly (for Docker environment)
+UserProfile.modelName = 'UserProfile';
+UserProfile.storeType = 'docstore';
+UserProfile.scope = 'global';
+
+User.modelName = 'User';
+User.storeType = 'docstore';
+User.scope = 'global';
+
+Category.modelName = 'Category';
+Category.storeType = 'docstore';
+Category.scope = 'global';
+
+Post.modelName = 'Post';
+Post.storeType = 'docstore';
+Post.scope = 'user';
+
+Comment.modelName = 'Comment';
+Comment.storeType = 'docstore';
+Comment.scope = 'user';

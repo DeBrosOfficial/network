@@ -176,8 +176,8 @@ export class BlogValidation {
 
   static sanitizeUserInput(data: CreateUserRequest): CreateUserRequest {
     return {
-      username: this.sanitizeString(data.username),
-      email: this.sanitizeString(data.email.toLowerCase()),
+      username: data.username ? this.sanitizeString(data.username) : '',
+      email: data.email ? this.sanitizeString(data.email.toLowerCase()) : '',
       displayName: data.displayName ? this.sanitizeString(data.displayName) : undefined,
       avatar: data.avatar ? this.sanitizeString(data.avatar) : undefined,
       roles: data.roles ? this.sanitizeArray(data.roles) : undefined
@@ -186,7 +186,8 @@ export class BlogValidation {
 
   static sanitizeCategoryInput(data: CreateCategoryRequest): CreateCategoryRequest {
     return {
-      name: this.sanitizeString(data.name),
+      name: data.name ? this.sanitizeString(data.name) : '',
+      slug: data.slug ? this.sanitizeString(data.slug) : undefined,
       description: data.description ? this.sanitizeString(data.description) : undefined,
       color: data.color ? this.sanitizeString(data.color) : undefined
     };
