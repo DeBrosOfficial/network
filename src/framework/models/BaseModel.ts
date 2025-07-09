@@ -306,6 +306,12 @@ export abstract class BaseModel {
     return results.length > 0 ? results[0] : null;
   }
 
+  static async count<T extends BaseModel>(
+    this: typeof BaseModel & (new (data?: any) => T),
+  ): Promise<number> {
+    return await new QueryBuilder<T>(this as any).count();
+  }
+
   // Relationship operations
   async load(relationships: string[]): Promise<this> {
     const framework = this.getFrameworkInstance();
