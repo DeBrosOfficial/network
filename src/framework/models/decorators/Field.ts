@@ -7,18 +7,8 @@ export function Field(config: FieldConfig) {
     validateFieldConfig(config);
     
     // Handle ESM case where target might be undefined
-    if (!target) {
-      // In ESM environment, defer the decorator application
-      // Create a deferred setup that will be called when the class is actually used
-      console.warn(`Target is undefined for field:`, {
-        propertyKey,
-        propertyKeyType: typeof propertyKey,
-        propertyKeyValue: JSON.stringify(propertyKey),
-        configType: config.type,
-        target,
-        targetType: typeof target
-      });
-      deferredFieldSetup(config, propertyKey);
+    if (!target || typeof target !== 'object') {
+      // Skip the decorator if target is not available - the field will be handled later
       return;
     }
     

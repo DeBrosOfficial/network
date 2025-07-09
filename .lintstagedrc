@@ -2,7 +2,13 @@
   "src/**/*.{js,ts}": [
     "prettier --write",
     "eslint --fix",
+    "pnpm run test:unit",
     "npm run build"
+  ],
+  "tests/**/*.{js,ts}": [
+    "prettier --write",
+    "eslint --fix",
+    "pnpm run test:unit"
   ],
   "*.{json,md}": [
     "prettier --write"

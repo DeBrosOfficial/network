@@ -78,8 +78,8 @@ export type { FieldConfig, RelationshipConfig, ModelConfig, ValidationError } fr
 // export { ValidationError } from './types/models'; // Already exported above
 
 // Version information
-export const FRAMEWORK_VERSION = '1.0.0';
-export const API_VERSION = '1.0';
+export const FRAMEWORK_VERSION = '0.5.0-beta';
+export const API_VERSION = '0.5';
 
 // Feature flags for conditional exports
 export const FEATURES = {

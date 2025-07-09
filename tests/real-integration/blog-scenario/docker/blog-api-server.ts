@@ -112,8 +112,8 @@ class BlogAPIServer {
 
         const user = await User.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created user: ${user.username} (${user.id})`);
-        res.status(201).json(user.toJSON());
+        console.log(`[${this.nodeId}] Created user: ${user.getFieldValue('username')} (${user.id})`);
+        res.status(201).json(user);
       } catch (error) {
         next(error);
       }
@@ -226,7 +226,7 @@ class BlogAPIServer {
 
         const category = await Category.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created category: ${category.name} (${category.id})`);
+        console.log(`[${this.nodeId}] Created category: ${category.getFieldValue('name')} (${category.id})`);
         res.status(201).json(category);
       } catch (error) {
         next(error);
@@ -276,7 +276,7 @@ class BlogAPIServer {
 
         const post = await Post.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created post: ${post.title} (${post.id})`);
+        console.log(`[${this.nodeId}] Created post: ${post.getFieldValue('title')} (${post.id})`);
         res.status(201).json(post);
       } catch (error) {
         next(error);
@@ -627,9 +627,6 @@ class BlogAPIServer {
     const { OrbitDBService } = await import(
       '../../../../src/framework/services/RealOrbitDBService'
     );
-    const { FrameworkIPFSService, FrameworkOrbitDBService } = await import(
-      '../../../../src/framework/services/OrbitDBService'
-    );
 
     // Initialize IPFS service
     const ipfsService = new IPFSService({
@@ -648,10 +645,10 @@ class BlogAPIServer {
     await orbitDBService.init();
     console.log(`[${this.nodeId}] OrbitDB service initialized`);
 
-    // Wrap services for framework
-    const frameworkIPFS = new FrameworkIPFSService(ipfsService);
-    const frameworkOrbitDB = new FrameworkOrbitDBService(orbitDBService);
-
+    // Debug: Check OrbitDB service methods
+    console.log(`[${this.nodeId}] OrbitDB service methods:`, Object.getOwnPropertyNames(Object.getPrototypeOf(orbitDBService)));
+    console.log(`[${this.nodeId}] Has openDB method:`, typeof orbitDBService.openDB === 'function');
+    
     // Initialize framework
     this.framework = new DebrosFramework({
       environment: 'test',
@@ -669,8 +666,32 @@ class BlogAPIServer {
       },
     });
 
+    // Pass raw services to framework - it will wrap them itself
     await this.framework.initialize(orbitDBService, ipfsService);
     console.log(`[${this.nodeId}] DebrosFramework initialized successfully`);
+
+    // Register models with framework
+    this.framework.registerModel(User, {
+      scope: 'global',
+      type: 'docstore'
+    });
+    this.framework.registerModel(UserProfile, {
+      scope: 'global',
+      type: 'docstore'
+    });
+    this.framework.registerModel(Category, {
+      scope: 'global',
+      type: 'docstore'
+    });
+    this.framework.registerModel(Post, {
+      scope: 'user',
+      type: 'docstore'
+    });
+    this.framework.registerModel(Comment, {
+      scope: 'user',
+      type: 'docstore'
+    });
+    console.log(`[${this.nodeId}] Models registered with framework`);
   }
 }
 

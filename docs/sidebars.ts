@@ -40,6 +40,22 @@ const sidebars: SidebarsConfig = {
         'examples/basic-usage',
       ],
     },
+    {
+      type: 'category',
+      label: 'Video Tutorials',
+      items: [
+        'videos/index',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Contributing',
+      items: [
+        'contributing/overview',
+        'contributing/development-setup',
+        'contributing/code-guidelines',
+      ],
+    },
   ],
 
   // API Reference sidebar
@@ -47,9 +63,18 @@ const sidebars: SidebarsConfig = {
     'api/overview',
     {
       type: 'category',
-      label: 'Framework Classes',
+      label: 'Core Classes',
       items: [
         'api/debros-framework',
+        'api/base-model',
+        'api/query-builder',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Network API',
+      items: [
+        'api/network-api',
       ],
     },
   ],

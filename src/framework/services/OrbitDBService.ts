@@ -36,6 +36,15 @@ export class FrameworkOrbitDBService {
   }
 
   async openDatabase(name: string, type: StoreType): Promise<any> {
+    console.log('FrameworkOrbitDBService.openDatabase called with:', { name, type });
+    console.log('this.orbitDBService:', this.orbitDBService);
+    console.log('typeof this.orbitDBService.openDB:', typeof this.orbitDBService.openDB);
+    console.log('this.orbitDBService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.orbitDBService)));
+    
+    if (typeof this.orbitDBService.openDB !== 'function') {
+      throw new Error(`openDB is not a function. Service type: ${typeof this.orbitDBService}, methods: ${Object.getOwnPropertyNames(Object.getPrototypeOf(this.orbitDBService))}`);
+    }
+    
     return await this.orbitDBService.openDB(name, type);
   }
 

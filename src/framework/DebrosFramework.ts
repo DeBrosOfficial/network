@@ -132,7 +132,7 @@ export class DebrosFramework {
     this.status = {
       initialized: false,
       healthy: false,
-      version: '1.0.0', // This would come from package.json
+      version: '0.5.0-beta', // This would come from package.json
       environment: this.config.environment || 'development',
       services: {
         orbitdb: 'disconnected',
@@ -522,9 +522,8 @@ export class DebrosFramework {
       this.status.services.pubsub = this.pubsubManager ? 'active' : 'inactive';
 
       // Overall health check - only require core services to be healthy
-      const coreServicesHealthy = 
-        this.status.services.orbitdb === 'connected' && 
-        this.status.services.ipfs === 'connected';
+      const coreServicesHealthy =
+        this.status.services.orbitdb === 'connected' && this.status.services.ipfs === 'connected';
 
       this.status.healthy = this.initialized && coreServicesHealthy;
     } catch (error) {
@@ -616,7 +615,7 @@ export class DebrosFramework {
     return {
       healthy: this.status.healthy,
       services: { ...this.status.services },
-      lastCheck: this.status.lastHealthCheck
+      lastCheck: this.status.lastHealthCheck,
     };
   }
 

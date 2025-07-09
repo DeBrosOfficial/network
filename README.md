@@ -1,21 +1,18 @@
 # @debros/network
 
-Core networking functionality for the Debros decentralized network. This package provides a powerful database interface with advanced features built on IPFS and OrbitDB for decentralized applications.
+**DebrosFramework** - A powerful Node.js framework that provides an ORM-like abstraction over OrbitDB and IPFS, making it easy to build scalable decentralized applications.
 
-## Features
+## What is DebrosFramework?
 
-- Rich database-like API with TypeScript support
-- Multiple database store types (KeyValue, Document, Feed, Counter)
-- Document operations with schema validation
-- Advanced querying with pagination, sorting and filtering
-- Transaction support for batch operations
-- Built-in file storage with metadata
-- Real-time subscriptions for data changes
-- Memory caching for performance
-- Connection pooling for managing multiple database instances
-- Index creation for faster queries
-- Comprehensive error handling with error codes
-- Performance metrics and monitoring
+DebrosFramework simplifies the development of decentralized applications by providing:
+
+- **Model-based Abstraction**: Define your data models using decorators and TypeScript classes
+- **Automatic Database Management**: Handle user-scoped and global databases automatically
+- **Smart Sharding**: Distribute data across multiple databases for scalability
+- **Advanced Query System**: Rich query capabilities with relationship loading and caching
+- **Automatic Features**: Built-in pinning strategies and PubSub event publishing
+- **Migration System**: Schema evolution and data transformation capabilities
+- **Type Safety**: Full TypeScript support with strong typing throughout
 
 ## Installation
 
@@ -23,280 +20,366 @@ Core networking functionality for the Debros decentralized network. This package
 npm install @debros/network
 ```
 
-## Basic Usage
+## Quick Start
+
+### 1. Define Your Models
 
 ```typescript
-import { initDB, create, get, query, uploadFile, logger } from '@debros/network';
+import { BaseModel, Model, Field, HasMany } from '@debros/network';
 
-// Initialize the database service
+@Model({
+  scope: 'global',
+  type: 'docstore',
+  sharding: { strategy: 'hash', count: 4, key: 'id' },
+})
+export class User extends BaseModel {
+  @Field({ type: 'string', required: true, unique: true })
+  username: string;
+
+  @Field({ type: 'string', required: true, unique: true })
+  email: string;
+
+  @HasMany(() => Post, 'userId')
+  posts: Post[];
+}
+
+@Model({
+  scope: 'user',
+  type: 'docstore',
+  sharding: { strategy: 'user', count: 2, key: 'userId' },
+})
+export class Post extends BaseModel {
+  @Field({ type: 'string', required: true })
+  title: string;
+
+  @Field({ type: 'string', required: true })
+  content: string;
+
+  @Field({ type: 'string', required: true })
+  userId: string;
+}
+```
+
+### 2. Initialize the Framework
+
+```typescript
+import { DebrosFramework } from '@debros/network';
+import { setupOrbitDB, setupIPFS } from './services';
+
 async function startApp() {
-  try {
-    // Initialize with default configuration
-    await initDB();
-    logger.info('Database initialized successfully');
+  // Initialize services
+  const orbitDBService = await setupOrbitDB();
+  const ipfsService = await setupIPFS();
 
-    // Create a new user document
-    const userId = 'user123';
-    const user = {
-      username: 'johndoe',
-      walletAddress: '0x1234567890',
-      avatar: null,
-    };
+  // Initialize framework
+  const framework = new DebrosFramework({
+    features: {
+      queryCache: true,
+      automaticPinning: true,
+      pubsub: true,
+    },
+  });
 
-    const result = await create('users', userId, user);
-    logger.info(`Created user with ID: ${result.id}`);
+  await framework.initialize(orbitDBService, ipfsService);
+  console.log('✅ DebrosFramework initialized successfully!');
 
-    // Get a user by ID
-    const retrievedUser = await get('users', userId);
-    logger.info('User:', retrievedUser);
+  // Create a user
+  const user = await User.create({
+    username: 'alice',
+    email: 'alice@example.com',
+  });
 
-    // Query users with filtering
-    const activeUsers = await query('users', (user) => user.isActive === true, {
-      limit: 10,
-      sort: { field: 'createdAt', order: 'desc' },
-    });
-    logger.info(`Found ${activeUsers.total} active users`);
+  // Create a post
+  const post = await Post.create({
+    title: 'My First Post',
+    content: 'Hello DebrosFramework!',
+    userId: user.id,
+  });
 
-    // Upload a file
-    const fileData = Buffer.from('File content');
-    const fileUpload = await uploadFile(fileData, { filename: 'document.txt' });
-    logger.info(`Uploaded file with CID: ${fileUpload.cid}`);
+  // Query with relationships
+  const usersWithPosts = await User.query().with(['posts']).where('username', 'alice').find();
 
-    return true;
-  } catch (error) {
-    logger.error('Failed to start app:', error);
-    throw error;
+  console.log('User:', usersWithPosts[0]);
+  console.log('Posts:', usersWithPosts[0].posts);
+}
+```
+
+## Key Features
+
+### 🏗️ Model-Driven Development
+
+Define your data models using familiar decorator patterns:
+
+```typescript
+@Model({
+  scope: 'user',
+  type: 'docstore',
+  sharding: { strategy: 'hash', count: 4, key: 'userId' },
+})
+class Post extends BaseModel {
+  @Field({ type: 'string', required: true })
+  title: string;
+
+  @BelongsTo(() => User, 'userId')
+  user: User;
+}
+```
+
+### 🔍 Powerful Query System
+
+Build complex queries with relationship loading:
+
+```typescript
+const users = await User.query()
+  .where('isActive', true)
+  .where('registeredAt', '>', Date.now() - 30 * 24 * 60 * 60 * 1000)
+  .with(['posts', 'followers'])
+  .orderBy('username')
+  .limit(20)
+  .find();
+```
+
+### 🚀 Automatic Scaling
+
+Handle millions of users with automatic sharding and pinning:
+
+```typescript
+// Framework automatically:
+// - Creates user-scoped databases
+// - Distributes data across shards
+// - Manages pinning strategies
+// - Optimizes query routing
+```
+
+### 🔄 Schema Evolution
+
+Migrate your data structures safely:
+
+```typescript
+const migration = createMigration('add_user_profiles', '1.1.0')
+  .addField('User', 'profilePicture', { type: 'string', required: false })
+  .addField('User', 'bio', { type: 'string', required: false })
+  .transformData('User', (user) => ({
+    ...user,
+    displayName: user.username || 'Anonymous',
+  }))
+  .build();
+```
+
+### 🔗 Rich Relationships
+
+Handle complex relationships between models:
+
+```typescript
+@Model({ scope: 'global' })
+class User extends BaseModel {
+  @HasMany(() => Post, 'userId')
+  posts: Post[];
+
+  @ManyToMany(() => User, 'followers', 'following')
+  followers: User[];
+}
+
+// Load user with all relationships
+const user = await User.findById(userId, {
+  with: ['posts.comments', 'followers.posts'],
+});
+```
+
+### ⚡ Performance Features
+
+```typescript
+// Query caching
+const cachedUsers = await User.query()
+  .where('isActive', true)
+  .cache(300) // Cache for 5 minutes
+  .find();
+
+// Eager loading
+const usersWithPosts = await User.query().with(['posts.comments']).find();
+
+// Optimized pagination
+const page = await User.query().orderBy('createdAt', 'desc').paginate(1, 20);
+```
+
+### 🎯 Model Hooks
+
+```typescript
+export class User extends BaseModel {
+  @BeforeCreate()
+  async beforeCreate() {
+    this.createdAt = Date.now();
+    // Hash password, validate data, etc.
+  }
+
+  @AfterCreate()
+  async afterCreate() {
+    // Send welcome email, create defaults, etc.
   }
 }
-
-startApp();
-```
-
-## Database Store Types
-
-The library supports multiple OrbitDB store types, each optimized for different use cases:
-
-```typescript
-import { create, get, update, StoreType } from '@debros/network';
-
-// Default KeyValue store (for general use)
-await create('users', 'user1', { name: 'Alice' });
-
-// Document store (better for complex documents with indexing)
-await create(
-  'posts',
-  'post1',
-  { title: 'Hello', content: '...' },
-  { storeType: StoreType.DOCSTORE },
-);
-
-// Feed/EventLog store (append-only, good for immutable logs)
-await create('events', 'evt1', { type: 'login', user: 'alice' }, { storeType: StoreType.FEED });
-
-// Counter store (for numeric counters)
-await create('stats', 'visits', { value: 0 }, { storeType: StoreType.COUNTER });
-
-// Increment a counter
-await update('stats', 'visits', { increment: 1 }, { storeType: StoreType.COUNTER });
-
-// Get counter value
-const stats = await get('stats', 'visits', { storeType: StoreType.COUNTER });
-console.log(`Visit count: ${stats.value}`);
-```
-
-## Advanced Features
-
-### Schema Validation
-
-```typescript
-import { defineSchema, create } from '@debros/network';
-
-// Define a schema
-defineSchema('users', {
-  properties: {
-    username: {
-      type: 'string',
-      required: true,
-      min: 3,
-      max: 20,
-    },
-    email: {
-      type: 'string',
-      pattern: '^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-    },
-    age: {
-      type: 'number',
-      min: 18,
-    },
-  },
-  required: ['username'],
-});
-
-// Document creation will be validated against the schema
-await create('users', 'user1', {
-  username: 'alice',
-  email: 'alice@example.com',
-  age: 25,
-});
-```
-
-### Transactions
-
-```typescript
-import { createTransaction, commitTransaction } from '@debros/network';
-
-// Create a transaction
-const transaction = createTransaction();
-
-// Add multiple operations
-transaction
-  .create('posts', 'post1', { title: 'Hello World', content: '...' })
-  .update('users', 'user1', { postCount: 1 })
-  .delete('drafts', 'draft1');
-
-// Commit all operations
-const result = await commitTransaction(transaction);
-console.log(`Transaction completed with ${result.results.length} operations`);
-```
-
-### Event Subscriptions
-
-```typescript
-import { subscribe } from '@debros/network';
-
-// Subscribe to document changes
-const unsubscribe = subscribe('document:created', (data) => {
-  console.log(`New document created in ${data.collection}:`, data.id);
-  console.log('Document data:', data.document);
-});
-
-// Other event types
-// subscribe('document:updated', (data) => { ... });
-// subscribe('document:deleted', (data) => { ... });
-
-// Later, unsubscribe when done
-unsubscribe();
-```
-
-### Pagination and Sorting
-
-```typescript
-import { list, query } from '@debros/network';
-
-// List with pagination and sorting
-const page1 = await list('users', {
-  limit: 10,
-  offset: 0,
-  sort: { field: 'createdAt', order: 'desc' },
-});
-
-// Query with pagination
-const results = await query('users', (user) => user.age > 21, { limit: 10, offset: 20 });
-
-console.log(`Found ${results.total} matches, showing ${results.documents.length}`);
-console.log(`Has more pages: ${results.hasMore}`);
-```
-
-### TypeScript Support
-
-```typescript
-import { get, update, query } from '@debros/network';
-
-interface User {
-  username: string;
-  email: string;
-  age: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-// Type-safe operations
-const user = await get<User>('users', 'user1');
-
-await update<User>('users', 'user1', { age: 26 });
-
-const results = await query<User>('users', (user) => user.age > 21);
-```
-
-### Connection Management
-
-```typescript
-import { initDB, closeConnection } from '@debros/network';
-
-// Create multiple connections
-const conn1 = await initDB('connection1');
-const conn2 = await initDB('connection2');
-
-// Use specific connection
-await create('users', 'user1', { name: 'Alice' }, { connectionId: conn1 });
-
-// Close a specific connection
-await closeConnection(conn1);
 ```
 
 ## API Reference
 
-### Core Database Operations
+### Framework Management
 
-- `initDB(connectionId?: string): Promise<string>` - Initialize the database
-- `create<T>(collection, id, data, options?): Promise<CreateResult>` - Create a document
-- `get<T>(collection, id, options?): Promise<T | null>` - Get a document by ID
-- `update<T>(collection, id, data, options?): Promise<UpdateResult>` - Update a document
-- `remove(collection, id, options?): Promise<boolean>` - Delete a document
-- `list<T>(collection, options?): Promise<PaginatedResult<T>>` - List documents with pagination
-- `query<T>(collection, filter, options?): Promise<PaginatedResult<T>>` - Query documents
-- `stopDB(): Promise<void>` - Stop the database service
+- `new DebrosFramework(config?)` - Create framework instance
+- `framework.initialize(orbitDBService, ipfsService, config?)` - Initialize framework
+- `framework.start()` - Start the framework
+- `framework.stop()` - Stop the framework
+- `framework.getStatus()` - Get framework status
 
-### Store Types
+### Model Operations
 
-- `StoreType.KEYVALUE` - Key-value pair storage (default)
-- `StoreType.DOCSTORE` - Document storage with indexing
-- `StoreType.FEED` - Append-only log
-- `StoreType.EVENTLOG` - Alias for FEED
-- `StoreType.COUNTER` - Numeric counter
+- `Model.create(data)` - Create a new model instance
+- `Model.findById(id, options?)` - Find model by ID
+- `Model.findOne(criteria, options?)` - Find single model
+- `Model.query()` - Start a query builder
+- `model.save()` - Save model changes
+- `model.delete()` - Delete model instance
 
-### Schema Validation
+### Query System
 
-- `defineSchema(collection, schema): void` - Define a schema for a collection
+- `Model.query().where(field, operator, value)` - Add where condition
+- `Model.query().with(relationships)` - Eager load relationships
+- `Model.query().orderBy(field, direction)` - Add ordering
+- `Model.query().limit(count)` - Limit results
+- `Model.query().offset(count)` - Add offset
+- `Model.query().paginate(page, perPage)` - Paginate results
+- `Model.query().cache(ttl)` - Cache query results
+- `Model.query().find()` - Execute query
+- `Model.query().count()` - Count results
 
-### Transactions
+### Decorators
 
-- `createTransaction(connectionId?): Transaction` - Create a new transaction
-- `commitTransaction(transaction): Promise<{success, results}>` - Execute the transaction
-- `Transaction.create<T>(collection, id, data): Transaction` - Add a create operation
-- `Transaction.update<T>(collection, id, data): Transaction` - Add an update operation
-- `Transaction.delete(collection, id): Transaction` - Add a delete operation
+- `@Model(config)` - Define model configuration
+- `@Field(config)` - Define field properties
+- `@BelongsTo(target, foreignKey)` - Many-to-one relationship
+- `@HasMany(target, foreignKey)` - One-to-many relationship
+- `@HasOne(target, foreignKey)` - One-to-one relationship
+- `@ManyToMany(target, through)` - Many-to-many relationship
+- `@BeforeCreate()`, `@AfterCreate()` - Lifecycle hooks
+- `@BeforeUpdate()`, `@AfterUpdate()` - Update hooks
+- `@BeforeDelete()`, `@AfterDelete()` - Delete hooks
 
-### Event Subscriptions
+### Migration System
 
-- `subscribe(event, callback): () => void` - Subscribe to database events, returns unsubscribe function
-- Event types: 'document:created', 'document:updated', 'document:deleted'
-
-### File Operations
-
-- `uploadFile(fileData, options?): Promise<FileUploadResult>` - Upload a file
-- `getFile(cid, options?): Promise<FileResult>` - Get a file by CID
-- `deleteFile(cid, options?): Promise<boolean>` - Delete a file
-
-### Connection Management
-
-- `closeConnection(connectionId): Promise<boolean>` - Close a specific connection
-
-### Indexes and Performance
-
-- `createIndex(collection, field, options?): Promise<boolean>` - Create an index
+- `createMigration(name, version)` - Create new migration
+- `migration.addField(model, field, config)` - Add field to model
+- `migration.removeField(model, field)` - Remove field from model
+- `migration.transformData(model, transformer)` - Transform existing data
+- `migrationManager.runPendingMigrations()` - Run pending migrations
 
 ## Configuration
 
+### Framework Configuration
+
 ```typescript
-import { config, initDB } from '@debros/network';
+import { DebrosFramework, PRODUCTION_CONFIG, DEVELOPMENT_CONFIG } from '@debros/network';
 
-// Configure (optional)
-config.env.fingerprint = 'my-unique-app-id';
-config.env.port = 9000;
-config.ipfs.blockstorePath = './custom-path/blockstore';
-config.orbitdb.directory = './custom-path/orbitdb';
+// Development configuration
+const framework = new DebrosFramework({
+  ...DEVELOPMENT_CONFIG,
+  features: {
+    queryCache: true,
+    automaticPinning: false,
+    pubsub: true,
+    relationshipCache: true,
+    autoMigration: true,
+  },
+  performance: {
+    queryTimeout: 30000,
+    batchSize: 50,
+  },
+  monitoring: {
+    enableMetrics: true,
+    logLevel: 'debug',
+  },
+});
 
-// Initialize with configuration
-await initDB();
+// Production configuration
+const prodFramework = new DebrosFramework({
+  ...PRODUCTION_CONFIG,
+  performance: {
+    queryTimeout: 10000,
+    batchSize: 200,
+    maxConcurrentOperations: 500,
+  },
+});
 ```
+
+### Model Configuration
+
+```typescript
+@Model({
+  scope: 'global', // 'user' or 'global'
+  type: 'docstore', // OrbitDB store type
+  sharding: {
+    strategy: 'hash', // 'hash', 'range', or 'user'
+    count: 4, // Number of shards
+    key: 'id', // Sharding key
+  },
+  pinning: {
+    strategy: 'popularity', // Pinning strategy
+    factor: 2,
+  },
+})
+export class MyModel extends BaseModel {
+  // Model definition
+}
+```
+
+## Architecture Overview
+
+DebrosFramework is built around several core components:
+
+1. **Models & Decorators**: Define your data structure and behavior
+2. **Database Manager**: Handles database creation and management
+3. **Shard Manager**: Distributes data across multiple databases
+4. **Query System**: Processes queries with optimization and caching
+5. **Relationship Manager**: Handles complex relationships between models
+6. **Migration System**: Manages schema evolution over time
+7. **Automatic Features**: Pinning, PubSub, and performance optimization
+
+### Key Benefits
+
+- **Scalability**: Automatic sharding and distributed data management
+- **Performance**: Built-in caching, query optimization, and lazy loading
+- **Developer Experience**: Familiar ORM patterns with TypeScript support
+- **Flexibility**: Support for various data patterns and relationships
+- **Reliability**: Comprehensive error handling and recovery mechanisms
+
+## Getting Started
+
+Ready to build your first decentralized application? Check out our comprehensive documentation:
+
+- **[📖 Complete Documentation](./docs)** - Comprehensive guides and examples
+- **[🚀 Getting Started Guide](./docs/docs/getting-started.md)** - Set up your development environment
+- **[🏗️ Architecture Overview](./docs/docs/core-concepts/architecture.md)** - Understand how the framework works
+- **[📝 API Reference](./docs/docs/api/overview.md)** - Complete API documentation
+- **[💡 Examples](./docs/docs/examples/basic-usage.md)** - Practical usage examples
+
+## Testing
+
+```bash
+# Run unit tests
+npm run test:unit
+
+# Run integration tests
+npm run test:real
+
+# Run specific blog scenario integration test
+npm run test:blog-integration
+```
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+
+## License
+
+This project is licensed under the GNU GPL v3.0 License - see the [LICENSE](./LICENSE) file for details.
+
+---
+
+**DebrosFramework** - Making decentralized application development as simple as traditional web development, while providing the benefits of distributed systems.
