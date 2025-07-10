@@ -20,14 +20,11 @@ export abstract class BaseModel {
   static hooks: Map<string, Function[]> = new Map();
 
   constructor(data: any = {}) {
-    console.log(`[DEBUG] Constructing ${this.constructor.name} with data:`, data);
-    
     // Generate ID first
     this.id = this.generateId();
 
     // Apply field defaults first
     this.applyFieldDefaults();
-    console.log(`[DEBUG] After applying defaults, instance properties:`, Object.getOwnPropertyNames(this));
 
     // Then apply provided data, but only for properties that are explicitly provided
     if (data && typeof data === 'object') {
@@ -44,12 +41,10 @@ export abstract class BaseModel {
             // For model fields, store in private field
             const privateKey = `_${key}`;
             (this as any)[privateKey] = data[key];
-            console.log(`[DEBUG] Set private field ${privateKey} = ${data[key]}`);
           } else {
             // For non-field properties, set directly
             try {
               (this as any)[key] = data[key];
-              console.log(`[DEBUG] Set property ${key} = ${data[key]}`);
             } catch (error) {
               console.error(`Error setting property ${key}:`, error);
             }
@@ -65,7 +60,6 @@ export abstract class BaseModel {
 
     // Remove any instance properties that might shadow prototype getters
     this.cleanupShadowingProperties();
-    console.log(`[DEBUG] After cleanup, instance properties:`, Object.getOwnPropertyNames(this));
   }
 
   private cleanupShadowingProperties(): void {
@@ -460,10 +454,6 @@ export abstract class BaseModel {
     const errors: string[] = [];
     const modelClass = this.constructor as typeof BaseModel;
 
-    console.log(`[DEBUG] Validating model ${modelClass.name}`);
-    console.log(`[DEBUG] Available fields:`, Array.from(modelClass.fields.keys()));
-    console.log(`[DEBUG] Instance properties:`, Object.getOwnPropertyNames(this));
-
     // Validate each field using getter values (more reliable)
     for (const [fieldName, fieldConfig] of modelClass.fields) {
       const privateKey = `_${fieldName}`;
@@ -473,8 +463,6 @@ export abstract class BaseModel {
       // Use the property value (getter) if available, otherwise use private value
       const value = propertyValue !== undefined ? propertyValue : privateValue;
 
-      console.log(`[DEBUG] Field ${fieldName}: privateKey=${privateKey}, privateValue=${privateValue}, propertyValue=${propertyValue}, finalValue=${value}, config=`, fieldConfig);
-
       const fieldErrors = await this.validateField(fieldName, value, fieldConfig);
       errors.push(...fieldErrors);
     }
@@ -482,7 +470,6 @@ export abstract class BaseModel {
     const result = { valid: errors.length === 0, errors };
 
     if (!result.valid) {
-      console.log(`[DEBUG] Validation failed:`, errors);
       throw new ValidationError(errors);
     }
 
@@ -931,9 +918,7 @@ export abstract class BaseModel {
   }
 
   static query<T extends BaseModel>(this: typeof BaseModel & (new (data?: any) => T)): any {
-    // Import dynamically to avoid circular dependency
-    const QueryBuilderModule = require('../query/QueryBuilder');
-    const QueryBuilder = QueryBuilderModule.QueryBuilder;
+    // Use the imported QueryBuilder directly
     return new QueryBuilder(this);
   }
 

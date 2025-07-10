@@ -300,6 +300,18 @@ class BlogAPIServer {
     this.app.post('/api/posts', async (req, res, next) => {
       try {
         const sanitizedData = BlogValidation.sanitizePostInput(req.body);
+        
+        // Generate slug if not provided
+        if (!sanitizedData.slug && sanitizedData.title) {
+          sanitizedData.slug = sanitizedData.title
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/--+/g, '-')
+            .replace(/^-|-$/g, '');
+          console.log(`[${this.nodeId}] Generated slug: ${sanitizedData.slug}`);
+        }
+        
         BlogValidation.validatePost(sanitizedData);
 
         const post = await Post.create(sanitizedData);
@@ -380,7 +392,9 @@ class BlogAPIServer {
     // Update post
     this.app.put('/api/posts/:id', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -404,7 +418,9 @@ class BlogAPIServer {
     // Publish post
     this.app.post('/api/posts/:id/publish', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -423,7 +439,9 @@ class BlogAPIServer {
     // Unpublish post
     this.app.post('/api/posts/:id/unpublish', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -442,7 +460,9 @@ class BlogAPIServer {
     // Like post
     this.app.post('/api/posts/:id/like', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -460,7 +480,9 @@ class BlogAPIServer {
     // View post (increment view count)
     this.app.post('/api/posts/:id/view', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -516,7 +538,9 @@ class BlogAPIServer {
     // Approve comment
     this.app.post('/api/comments/:id/approve', async (req, res, next) => {
       try {
-        const comment = await Comment.findById(req.params.id);
+        const comment = await Comment.query()
+          .where('id', req.params.id)
+          .first();
         if (!comment) {
           return res.status(404).json({
             error: 'Comment not found',
@@ -535,7 +559,9 @@ class BlogAPIServer {
     // Like comment
     this.app.post('/api/comments/:id/like', async (req, res, next) => {
       try {
-        const comment = await Comment.findById(req.params.id);
+        const comment = await Comment.query()
+          .where('id', req.params.id)
+          .first();
         if (!comment) {
           return res.status(404).json({
             error: 'Comment not found',
