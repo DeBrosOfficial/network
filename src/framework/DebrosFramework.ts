@@ -26,6 +26,9 @@ import { MigrationManager } from './migrations/MigrationManager';
 import { FrameworkConfig } from './types/framework';
 
 export interface DebrosFrameworkConfig extends FrameworkConfig {
+  // Application identity
+  appName?: string;
+
   // Environment settings
   environment?: 'development' | 'production' | 'test';
 
@@ -265,7 +268,8 @@ export class DebrosFramework {
     console.log('🔧 Initializing core components...');
 
     // Database Manager
-    this.databaseManager = new DatabaseManager(this.orbitDBService!);
+    const appName = this.config.appName || 'debros-app';
+    this.databaseManager = new DatabaseManager(this.orbitDBService!, appName);
     await this.databaseManager.initializeAllDatabases();
     console.log('✅ DatabaseManager initialized');
 

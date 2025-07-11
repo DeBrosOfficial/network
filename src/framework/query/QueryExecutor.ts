@@ -177,7 +177,8 @@ export class QueryExecutor<T extends BaseModel> {
       
       if (entityIds.length === 0) {
         console.warn('No entities found in directory shards');
-        return [];
+        // Try alternative discovery methods when directory shards are empty
+        return await this.executeAlternativeDiscovery();
       }
 
       const results: T[] = [];
@@ -210,6 +211,72 @@ export class QueryExecutor<T extends BaseModel> {
       console.error('Error executing all-entities query:', error);
       return [];
     }
+  }
+  
+  private async executeAlternativeDiscovery(): Promise<T[]> {
+    // Alternative discovery method when directory shards are not working
+    // This is a temporary workaround for the cross-node synchronization issue
+    console.warn(`🔄 Attempting alternative entity discovery for ${this.model.name}`);
+    
+    try {
+      // Try to find entities in the local node's cached user mappings
+      const localResults = await this.queryLocalUserMappings();
+      
+      if (localResults.length > 0) {
+        console.log(`📂 Found ${localResults.length} entities via local discovery`);
+        return localResults;
+      }
+      
+      // If no local results, try to query known database patterns
+      return await this.queryKnownDatabasePatterns();
+    } catch (error) {
+      console.warn('Alternative discovery failed:', error);
+      return [];
+    }
+  }
+  
+  private async queryLocalUserMappings(): Promise<T[]> {
+    // Query user mappings that are cached locally
+    try {
+      const databaseManager = this.framework.databaseManager;
+      const results: T[] = [];
+      
+      // Get cached user mappings from the database manager
+      const userMappings = (databaseManager as any).userMappings;
+      if (userMappings && userMappings.size > 0) {
+        console.log(`📂 Found ${userMappings.size} cached user mappings`);
+        
+        // Query each cached user's database
+        for (const [userId, mappings] of userMappings.entries()) {
+          try {
+            const userDB = await databaseManager.getUserDatabase(userId, this.model.modelName);
+            const userResults = await this.queryDatabase(userDB, this.model.storeType);
+            results.push(...userResults);
+          } catch (error) {
+            // Silently handle user database query failures
+          }
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      console.warn('Local user mappings query failed:', error);
+      return [];
+    }
+  }
+  
+  private async queryKnownDatabasePatterns(): Promise<T[]> {
+    // Try to query databases using known patterns
+    // This is a fallback when directory discovery fails
+    console.warn(`🔍 Attempting known database pattern queries for ${this.model.name}`);
+    
+    // For now, return empty array to prevent delays
+    // In a more sophisticated implementation, this could:
+    // 1. Try common user ID patterns
+    // 2. Use IPFS to discover databases
+    // 3. Query peer nodes directly
+    
+    return [];
   }
 
   private async executeGlobalQuery(): Promise<T[]> {
@@ -646,15 +713,15 @@ export class QueryExecutor<T extends BaseModel> {
   }
 
   private async getAllEntityIdsFromDirectory(): Promise<string[]> {
-    const maxRetries = 3;
-    const baseDelay = 100; // ms
+    const maxRetries = 2; // Reduced retry count to prevent long delays
+    const baseDelay = 50; // Reduced base delay
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const directoryShards = await this.framework.databaseManager.getGlobalDirectoryShards();
         const entityIds: string[] = [];
         
-        // Query all directory shards in parallel
+        // Query all directory shards - simplified approach
         const shardPromises = directoryShards.map(async (shard: any, index: number) => {
           try {
             // For keyvalue stores, we need to get the keys (entity IDs), not values
@@ -674,10 +741,13 @@ export class QueryExecutor<T extends BaseModel> {
           entityIds.push(...shardEntityIds);
         }
         
+        // Remove duplicates and filter out empty strings
+        const uniqueEntityIds = [...new Set(entityIds.filter(id => id && id.trim()))];
+        
         // If we found entities, return them
-        if (entityIds.length > 0) {
-          console.log(`📂 Found ${entityIds.length} entities in directory shards`);
-          return entityIds;
+        if (uniqueEntityIds.length > 0) {
+          console.log(`📂 Found ${uniqueEntityIds.length} entities in directory shards`);
+          return uniqueEntityIds;
         }
         
         // If this is our last attempt, return empty array
@@ -686,8 +756,8 @@ export class QueryExecutor<T extends BaseModel> {
           return [];
         }
         
-        // Wait before retry with exponential backoff
-        const delay = baseDelay * Math.pow(2, attempt);
+        // Wait before retry with linear backoff (shorter delays)
+        const delay = baseDelay * (attempt + 1);
         console.log(`📂 No entities found, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         
@@ -699,12 +769,31 @@ export class QueryExecutor<T extends BaseModel> {
         }
         
         // Wait before retry
-        const delay = baseDelay * Math.pow(2, attempt);
+        const delay = baseDelay * (attempt + 1);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
     return [];
+  }
+
+  private async waitForShardReady(shard: any): Promise<void> {
+    // Wait briefly for the shard to be ready for reading
+    const maxWait = 200; // ms
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWait) {
+      try {
+        if (shard && shard.all) {
+          // Try to access the shard data
+          shard.all();
+          break;
+        }
+      } catch (error) {
+        // Continue waiting
+      }
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
   }
 
   private getFrameworkInstance(): any {

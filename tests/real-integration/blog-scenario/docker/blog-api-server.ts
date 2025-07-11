@@ -705,6 +705,7 @@ class BlogAPIServer {
     
     // Initialize framework
     this.framework = new DebrosFramework({
+      appName: 'blog-app', // Unique app name for this blog application
       environment: 'test',
       features: {
         autoMigration: true,
