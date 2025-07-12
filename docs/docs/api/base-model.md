@@ -199,6 +199,43 @@ const user = await User.findOne(
 
 ### query()
 
+🚧 **Status: Partially Implemented** - Basic query building available, advanced features in development
+
+Returns a QueryBuilder instance for constructing complex queries.
+
+**Returns:** `QueryBuilder<T>` - Query builder instance
+
+**Example:**
+
+```typescript
+// Basic query (implemented)
+const users = await User.query().find();
+
+// Note: Advanced query methods are still in development
+// The following may not work as expected:
+// const users = await User.query().where('isActive', true).with(['posts']).find();
+```
+
+### Static Query Methods
+
+❌ **Status: Not Yet Implemented** - The following static methods are planned but not yet available:
+
+- `User.where(field, value)` - Use `User.query().where(field, value)` instead
+- `User.whereIn(field, values)` - Use `User.query().whereIn(field, values)` instead  
+- `User.orderBy(field, direction)` - Use `User.query().orderBy(field, direction)` instead
+- `User.limit(count)` - Use `User.query().limit(count)` instead
+- `User.all()` - Use `User.query().find()` instead
+
+**Current Working Pattern:**
+
+```typescript
+// This works
+const users = await User.query().find();
+
+// This doesn't work yet
+// const users = await User.where('isActive', true).find(); // ❌
+```
+
 Returns a query builder for complex queries.
 
 **Returns:** `QueryBuilder<T>` - Query builder instance

@@ -4,7 +4,28 @@ sidebar_position: 4
 
 # QueryBuilder Class
 
+🚧 **Implementation Status: Partially Complete** - Basic query building is available, advanced features are in development
+
 The `QueryBuilder` class provides a fluent API for constructing complex database queries. It supports filtering, sorting, relationships, pagination, and caching with type safety throughout.
+
+## Current Implementation Status
+
+✅ **Available Features:**
+- Basic query building structure
+- Method chaining pattern
+- Basic where clauses
+- Simple find operations
+
+🚧 **In Development:**
+- Advanced filtering methods
+- Relationship loading
+- Aggregation functions
+- Complex query optimization
+
+❌ **Not Yet Implemented:**
+- Many documented methods below
+- Full SQL-like query capabilities
+- Advanced caching features
 
 ## Class Definition
 

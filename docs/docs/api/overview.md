@@ -10,17 +10,17 @@ The DebrosFramework API provides a comprehensive set of classes, methods, and in
 
 ### Primary Classes
 
-| Class                                           | Description                  | Key Features                         |
-| ----------------------------------------------- | ---------------------------- | ------------------------------------ |
-| [`DebrosFramework`](./debros-framework)         | Main framework class         | Initialization, lifecycle management |
-| [`BaseModel`](./base-model)                     | Abstract base for all models | CRUD operations, validation, hooks   |
-| [`DatabaseManager`](./database-manager)         | Database management          | User/global databases, lifecycle     |
-| [`ShardManager`](./shard-manager)               | Data sharding                | Distribution strategies, routing     |
-| [`QueryBuilder`](./query-builder)               | Query construction           | Fluent API, type safety              |
-| [`QueryExecutor`](./query-executor)             | Query execution              | Optimization, caching                |
-| [`RelationshipManager`](./relationship-manager) | Relationship handling        | Lazy/eager loading, caching          |
-| [`MigrationManager`](./migration-manager)       | Schema migrations            | Version control, rollbacks           |
-| [`MigrationBuilder`](./migration-builder)       | Migration creation           | Fluent API, validation               |
+| Class                                           | Status | Description                  | Key Features                         |
+| ----------------------------------------------- | ------ | ---------------------------- | ------------------------------------ |
+| [`DebrosFramework`](./debros-framework)         | ✅ Stable | Main framework class         | Initialization, lifecycle management |
+| [`BaseModel`](./base-model)                     | ✅ Stable | Abstract base for all models | CRUD operations, validation, hooks   |
+| [`DatabaseManager`](./database-manager)         | ✅ Stable | Database management          | User/global databases, lifecycle     |
+| [`ShardManager`](./shard-manager)               | ✅ Stable | Data sharding                | Distribution strategies, routing     |
+| [`QueryBuilder`](./query-builder)               | 🚧 Partial | Query construction           | Basic queries, advanced features in dev |
+| [`QueryExecutor`](./query-executor)             | 🚧 Partial | Query execution              | Basic execution, optimization in dev |
+| [`RelationshipManager`](./relationship-manager) | 🚧 Partial | Relationship handling        | Basic loading, full features in dev  |
+| [`MigrationManager`](./migration-manager)       | ✅ Stable | Schema migrations            | Version control, rollbacks           |
+| [`MigrationBuilder`](./migration-builder)       | ✅ Stable | Migration creation           | Fluent API, validation               |
 
 ### Utility Classes
 

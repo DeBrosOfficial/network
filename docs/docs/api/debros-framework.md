@@ -207,7 +207,9 @@ await framework.stop();
 
 Returns the database manager instance.
 
-**Returns:** `DatabaseManager`
+**Returns:** `DatabaseManager | null` - Database manager instance or null if not initialized
+
+**Throws:** None - This method does not throw errors
 
 **Example:**
 

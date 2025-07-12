@@ -160,18 +160,20 @@ class BlogAPIServer {
             .orWhere('displayName', 'like', `%${search}%`);
         }
 
-        const users = await query
-          .orderBy('createdAt', 'desc')
-          .limit(limit)
-          .offset((page - 1) * limit)
-          .find();
+const users = await query
+  .orderBy('createdAt', 'desc')
+  .limit(limit)
+  .offset((page - 1) * limit)
+  .find();
 
-        res.json({
-          users: users.map((u) => u.toJSON()),
-          page,
-          limit,
-          nodeId: this.nodeId,
-        });
+const userList = users ? users.map((u) => u.toJSON()) : [];
+
+res.json({
+  users: userList,
+  page,
+  limit,
+  nodeId: this.nodeId,
+});
       } catch (error) {
         next(error);
       }
@@ -264,15 +266,17 @@ class BlogAPIServer {
     // Get all categories
     this.app.get('/api/categories', async (req, res, next) => {
       try {
-        const categories = await Category.query()
-          .where('isActive', true)
-          .orderBy('name', 'asc')
-          .find();
+const categories = await Category.query()
+  .where('isActive', true)
+  .orderBy('name', 'asc')
+  .find();
 
-        res.json({
-          categories,
-          nodeId: this.nodeId,
-        });
+const categoryList = categories || [];
+
+res.json({
+  categories: categoryList,
+  nodeId: this.nodeId,
+});
       } catch (error) {
         next(error);
       }
@@ -378,8 +382,10 @@ class BlogAPIServer {
           .offset((page - 1) * limit)
           .find();
 
+        const postList = posts || [];
+
         res.json({
-          posts,
+          posts: postList,
           page,
           limit,
           nodeId: this.nodeId,
@@ -526,8 +532,10 @@ class BlogAPIServer {
           .orderBy('createdAt', 'asc')
           .find();
 
+        const commentList = comments || [];
+
         res.json({
-          comments,
+          comments: commentList,
           nodeId: this.nodeId,
         });
       } catch (error) {
@@ -620,10 +628,16 @@ class BlogAPIServer {
     // Framework metrics
     this.app.get('/api/metrics/framework', async (req, res, next) => {
       try {
-        const metrics = this.framework.getMetrics();
+        const metrics = this.framework ? this.framework.getMetrics() : null;
+        const defaultMetrics = {
+          services: 'unknown',
+          environment: 'unknown',
+          features: 'unknown'
+        };
+        
         res.json({
           nodeId: this.nodeId,
-          ...metrics,
+          ...(metrics || defaultMetrics),
           timestamp: Date.now(),
         });
       } catch (error) {
