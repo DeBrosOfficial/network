@@ -6,7 +6,7 @@ export class ModelRegistry {
   private static models: Map<string, typeof BaseModel> = new Map();
   private static configs: Map<string, ModelConfig> = new Map();
 
-  static register(name: string, modelClass: typeof BaseModel, config: ModelConfig): void {
+  static register(name: string, modelClass: typeof BaseModel, config: ModelConfig = {}): void {
     this.models.set(name, modelClass);
     this.configs.set(name, config);
 

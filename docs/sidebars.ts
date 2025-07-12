@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
         'core-concepts/architecture',
         'core-concepts/models',
         'core-concepts/decorators',
+        'core-concepts/database-management',
       ],
     },
     {
@@ -31,6 +32,23 @@ const sidebars: SidebarsConfig = {
       label: 'Query System',
       items: [
         'query-system/query-builder',
+        'query-system/relationships',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Advanced Topics',
+      items: [
+        'advanced/migrations',
+        'advanced/performance',
+        'advanced/automatic-pinning',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Guides',
+      items: [
+        'guides/migration-guide',
       ],
     },
     {
@@ -38,6 +56,17 @@ const sidebars: SidebarsConfig = {
       label: 'Examples',
       items: [
         'examples/basic-usage',
+        'examples/complex-queries',
+        'examples/migrations',
+        'examples/social-platform',
+        'examples/working-examples',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Internals',
+      items: [
+        'internals/behind-the-scenes',
       ],
     },
     {
@@ -54,6 +83,10 @@ const sidebars: SidebarsConfig = {
         'contributing/overview',
         'contributing/development-setup',
         'contributing/code-guidelines',
+        'contributing/community',
+        'contributing/documentation-guide',
+        'contributing/testing-guide',
+        'contributing/release-process',
       ],
     },
   ],
@@ -68,6 +101,28 @@ const sidebars: SidebarsConfig = {
         'api/debros-framework',
         'api/base-model',
         'api/query-builder',
+        'api/query-executor',
+        'api/database-manager',
+        'api/shard-manager',
+        'api/relationship-manager',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Migration System',
+      items: [
+        'api/migration-builder',
+        'api/migration-manager',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Decorators',
+      items: [
+        'api/decorators/model',
+        'api/decorators/field',
+        'api/decorators/relationships',
+        'api/decorators/hooks',
       ],
     },
     {

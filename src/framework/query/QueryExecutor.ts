@@ -113,8 +113,6 @@ export class QueryExecutor<T extends BaseModel> {
   private async executeUserSpecificQuery(userFilter: QueryCondition): Promise<T[]> {
     const userIds = userFilter.operator === 'userIn' ? userFilter.value : [userFilter.value];
 
-    console.log(`👤 Querying user databases for ${userIds.length} users`);
-
     const results: T[] = [];
 
     // Query each user's database in parallel
@@ -127,7 +125,7 @@ export class QueryExecutor<T extends BaseModel> {
 
         return await this.queryDatabase(userDB, this.model.storeType);
       } catch (error) {
-        console.warn(`Failed to query user ${userId} database:`, error);
+        // Silently handle user database query failures
         return [];
       }
     });
@@ -143,8 +141,6 @@ export class QueryExecutor<T extends BaseModel> {
   }
 
   private async executeGlobalIndexQuery(): Promise<T[]> {
-    console.log(`📇 Querying global index for ${this.model.name}`);
-
     // Query global index for user-scoped models
     const globalIndexName = `${this.model.modelName}GlobalIndex`;
     const indexShards = this.framework.shardManager.getAllShards(globalIndexName);
@@ -175,9 +171,111 @@ export class QueryExecutor<T extends BaseModel> {
     // It's expensive but ensures completeness
     console.warn(`⚠️  Executing expensive all-users query for ${this.model.name}`);
 
-    // This would require getting all user IDs from the directory
-    // For now, return empty array and log warning
-    console.warn('All-users query not implemented - please ensure global indexes are set up');
+    try {
+      // Get all entity IDs from the directory shards
+      const entityIds = await this.getAllEntityIdsFromDirectory();
+      
+      if (entityIds.length === 0) {
+        console.warn('No entities found in directory shards');
+        // Try alternative discovery methods when directory shards are empty
+        return await this.executeAlternativeDiscovery();
+      }
+
+      const results: T[] = [];
+      
+      // Query each entity's database in parallel (in batches to avoid overwhelming the system)
+      const batchSize = 10;
+      for (let i = 0; i < entityIds.length; i += batchSize) {
+        const batch = entityIds.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (entityId: string) => {
+          try {
+            const entityDB = await this.framework.databaseManager.getUserDatabase(
+              entityId,
+              this.model.modelName,
+            );
+            return await this.queryDatabase(entityDB, this.model.storeType);
+          } catch (error) {
+            // Silently handle entity database query failures
+            return [];
+          }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        for (const entityResult of batchResults) {
+          results.push(...entityResult);
+        }
+      }
+      
+      return this.postProcessResults(results);
+    } catch (error) {
+      console.error('Error executing all-entities query:', error);
+      return [];
+    }
+  }
+  
+  private async executeAlternativeDiscovery(): Promise<T[]> {
+    // Alternative discovery method when directory shards are not working
+    // This is a temporary workaround for the cross-node synchronization issue
+    console.warn(`🔄 Attempting alternative entity discovery for ${this.model.name}`);
+    
+    try {
+      // Try to find entities in the local node's cached user mappings
+      const localResults = await this.queryLocalUserMappings();
+      
+      if (localResults.length > 0) {
+        console.log(`📂 Found ${localResults.length} entities via local discovery`);
+        return localResults;
+      }
+      
+      // If no local results, try to query known database patterns
+      return await this.queryKnownDatabasePatterns();
+    } catch (error) {
+      console.warn('Alternative discovery failed:', error);
+      return [];
+    }
+  }
+  
+  private async queryLocalUserMappings(): Promise<T[]> {
+    // Query user mappings that are cached locally
+    try {
+      const databaseManager = this.framework.databaseManager;
+      const results: T[] = [];
+      
+      // Get cached user mappings from the database manager
+      const userMappings = (databaseManager as any).userMappings;
+      if (userMappings && userMappings.size > 0) {
+        console.log(`📂 Found ${userMappings.size} cached user mappings`);
+        
+        // Query each cached user's database
+        for (const [userId, mappings] of userMappings.entries()) {
+          try {
+            const userDB = await databaseManager.getUserDatabase(userId, this.model.modelName);
+            const userResults = await this.queryDatabase(userDB, this.model.storeType);
+            results.push(...userResults);
+          } catch (error) {
+            // Silently handle user database query failures
+          }
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      console.warn('Local user mappings query failed:', error);
+      return [];
+    }
+  }
+  
+  private async queryKnownDatabasePatterns(): Promise<T[]> {
+    // Try to query databases using known patterns
+    // This is a fallback when directory discovery fails
+    console.warn(`🔍 Attempting known database pattern queries for ${this.model.name}`);
+    
+    // For now, return empty array to prevent delays
+    // In a more sophisticated implementation, this could:
+    // 1. Try common user ID patterns
+    // 2. Use IPFS to discover databases
+    // 3. Query peer nodes directly
+    
     return [];
   }
 
@@ -192,8 +290,6 @@ export class QueryExecutor<T extends BaseModel> {
   }
 
   private async executeShardedQuery(): Promise<T[]> {
-    console.log(`🔀 Executing sharded query for ${this.model.name}`);
-
     const conditions = this.query.getConditions();
     const shardingConfig = this.model.sharding!;
 
@@ -614,6 +710,90 @@ export class QueryExecutor<T extends BaseModel> {
       suggestions,
       estimatedResultSize: QueryOptimizer.estimateResultSize(this.query),
     };
+  }
+
+  private async getAllEntityIdsFromDirectory(): Promise<string[]> {
+    const maxRetries = 2; // Reduced retry count to prevent long delays
+    const baseDelay = 50; // Reduced base delay
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const directoryShards = await this.framework.databaseManager.getGlobalDirectoryShards();
+        const entityIds: string[] = [];
+        
+        // Query all directory shards - simplified approach
+        const shardPromises = directoryShards.map(async (shard: any, index: number) => {
+          try {
+            // For keyvalue stores, we need to get the keys (entity IDs), not values
+            const shardData = shard.all();
+            const keys = Object.keys(shardData);
+            return keys;
+          } catch (error) {
+            console.warn(`Failed to read directory shard ${index}:`, error);
+            return [];
+          }
+        });
+        
+        const shardResults = await Promise.all(shardPromises);
+        
+        // Flatten all entity IDs from all shards
+        for (const shardEntityIds of shardResults) {
+          entityIds.push(...shardEntityIds);
+        }
+        
+        // Remove duplicates and filter out empty strings
+        const uniqueEntityIds = [...new Set(entityIds.filter(id => id && id.trim()))];
+        
+        // If we found entities, return them
+        if (uniqueEntityIds.length > 0) {
+          console.log(`📂 Found ${uniqueEntityIds.length} entities in directory shards`);
+          return uniqueEntityIds;
+        }
+        
+        // If this is our last attempt, return empty array
+        if (attempt === maxRetries) {
+          console.warn('📂 No entities found in directory shards after all attempts');
+          return [];
+        }
+        
+        // Wait before retry with linear backoff (shorter delays)
+        const delay = baseDelay * (attempt + 1);
+        console.log(`📂 No entities found, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+      } catch (error) {
+        console.error(`Error getting entity IDs from directory (attempt ${attempt + 1}):`, error);
+        
+        if (attempt === maxRetries) {
+          return [];
+        }
+        
+        // Wait before retry
+        const delay = baseDelay * (attempt + 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    return [];
+  }
+
+  private async waitForShardReady(shard: any): Promise<void> {
+    // Wait briefly for the shard to be ready for reading
+    const maxWait = 200; // ms
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWait) {
+      try {
+        if (shard && shard.all) {
+          // Try to access the shard data
+          shard.all();
+          break;
+        }
+      } catch (error) {
+        // Continue waiting
+      }
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
   }
 
   private getFrameworkInstance(): any {

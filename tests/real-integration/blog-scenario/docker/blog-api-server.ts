@@ -51,28 +51,11 @@ class BlogAPIServer {
     // Logging
     this.app.use((req, res, next) => {
       console.log(`[${this.nodeId}] ${new Date().toISOString()} ${req.method} ${req.path}`);
+      if (req.method === 'POST' && req.body) {
+        console.log(`[${this.nodeId}] Request body:`, JSON.stringify(req.body, null, 2));
+      }
       next();
     });
-
-    // Error handling
-    this.app.use(
-      (error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-        console.error(`[${this.nodeId}] Error:`, error);
-
-        if (error instanceof ValidationError) {
-          return res.status(400).json({
-            error: error.message,
-            field: error.field,
-            nodeId: this.nodeId,
-          });
-        }
-
-        res.status(500).json({
-          error: 'Internal server error',
-          nodeId: this.nodeId,
-        });
-      },
-    );
   }
 
   private setupRoutes() {
@@ -101,20 +84,47 @@ class BlogAPIServer {
     this.setupPostRoutes();
     this.setupCommentRoutes();
     this.setupMetricsRoutes();
+    
+    // Error handling middleware must be defined after all routes
+    this.app.use(
+      (error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        console.error(`[${this.nodeId}] Error:`, error);
+
+        if (error instanceof ValidationError) {
+          return res.status(400).json({
+            error: error.message,
+            field: error.field,
+            nodeId: this.nodeId,
+          });
+        }
+
+        res.status(500).json({
+          error: 'Internal server error',
+          nodeId: this.nodeId,
+        });
+      },
+    );
   }
 
   private setupUserRoutes() {
     // Create user
     this.app.post('/api/users', async (req, res, next) => {
       try {
+        console.log(`[${this.nodeId}] Received user creation request:`, JSON.stringify(req.body, null, 2));
+        
         const sanitizedData = BlogValidation.sanitizeUserInput(req.body);
+        console.log(`[${this.nodeId}] Sanitized user data:`, JSON.stringify(sanitizedData, null, 2));
+        
         BlogValidation.validateUser(sanitizedData);
+        console.log(`[${this.nodeId}] User validation passed`);
 
         const user = await User.create(sanitizedData);
+        console.log(`[${this.nodeId}] User created successfully:`, JSON.stringify(user, null, 2));
 
-        console.log(`[${this.nodeId}] Created user: ${user.getFieldValue('username')} (${user.id})`);
+        console.log(`[${this.nodeId}] Created user: ${user.username} (${user.id})`);
         res.status(201).json(user);
       } catch (error) {
+        console.error(`[${this.nodeId}] Error creating user:`, error);
         next(error);
       }
     });
@@ -150,18 +160,20 @@ class BlogAPIServer {
             .orWhere('displayName', 'like', `%${search}%`);
         }
 
-        const users = await query
-          .orderBy('createdAt', 'desc')
-          .limit(limit)
-          .offset((page - 1) * limit)
-          .find();
+const users = await query
+  .orderBy('createdAt', 'desc')
+  .limit(limit)
+  .offset((page - 1) * limit)
+  .find();
 
-        res.json({
-          users: users.map((u) => u.toJSON()),
-          page,
-          limit,
-          nodeId: this.nodeId,
-        });
+const userList = users ? users.map((u) => u.toJSON()) : [];
+
+res.json({
+  users: userList,
+  page,
+  limit,
+  nodeId: this.nodeId,
+});
       } catch (error) {
         next(error);
       }
@@ -221,14 +233,32 @@ class BlogAPIServer {
     // Create category
     this.app.post('/api/categories', async (req, res, next) => {
       try {
+        console.log(`[${this.nodeId}] Received category creation request:`, JSON.stringify(req.body, null, 2));
+        
         const sanitizedData = BlogValidation.sanitizeCategoryInput(req.body);
+        console.log(`[${this.nodeId}] Sanitized category data:`, JSON.stringify(sanitizedData, null, 2));
+        
+        // Generate slug if not provided
+        if (!sanitizedData.slug && sanitizedData.name) {
+          sanitizedData.slug = sanitizedData.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/--+/g, '-')
+            .replace(/^-|-$/g, '');
+          console.log(`[${this.nodeId}] Generated slug: ${sanitizedData.slug}`);
+        }
+        
         BlogValidation.validateCategory(sanitizedData);
+        console.log(`[${this.nodeId}] Category validation passed`);
 
         const category = await Category.create(sanitizedData);
+        console.log(`[${this.nodeId}] Category created successfully:`, JSON.stringify(category, null, 2));
 
-        console.log(`[${this.nodeId}] Created category: ${category.getFieldValue('name')} (${category.id})`);
+        console.log(`[${this.nodeId}] Created category: ${category.name} (${category.id})`);
         res.status(201).json(category);
       } catch (error) {
+        console.error(`[${this.nodeId}] Error creating category:`, error);
         next(error);
       }
     });
@@ -236,15 +266,17 @@ class BlogAPIServer {
     // Get all categories
     this.app.get('/api/categories', async (req, res, next) => {
       try {
-        const categories = await Category.query()
-          .where('isActive', true)
-          .orderBy('name', 'asc')
-          .find();
+const categories = await Category.query()
+  .where('isActive', true)
+  .orderBy('name', 'asc')
+  .find();
 
-        res.json({
-          categories,
-          nodeId: this.nodeId,
-        });
+const categoryList = categories || [];
+
+res.json({
+  categories: categoryList,
+  nodeId: this.nodeId,
+});
       } catch (error) {
         next(error);
       }
@@ -272,11 +304,23 @@ class BlogAPIServer {
     this.app.post('/api/posts', async (req, res, next) => {
       try {
         const sanitizedData = BlogValidation.sanitizePostInput(req.body);
+        
+        // Generate slug if not provided
+        if (!sanitizedData.slug && sanitizedData.title) {
+          sanitizedData.slug = sanitizedData.title
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/--+/g, '-')
+            .replace(/^-|-$/g, '');
+          console.log(`[${this.nodeId}] Generated slug: ${sanitizedData.slug}`);
+        }
+        
         BlogValidation.validatePost(sanitizedData);
 
         const post = await Post.create(sanitizedData);
 
-        console.log(`[${this.nodeId}] Created post: ${post.getFieldValue('title')} (${post.id})`);
+        console.log(`[${this.nodeId}] Created post: ${post.title} (${post.id})`);
         res.status(201).json(post);
       } catch (error) {
         next(error);
@@ -338,8 +382,10 @@ class BlogAPIServer {
           .offset((page - 1) * limit)
           .find();
 
+        const postList = posts || [];
+
         res.json({
-          posts,
+          posts: postList,
           page,
           limit,
           nodeId: this.nodeId,
@@ -352,7 +398,9 @@ class BlogAPIServer {
     // Update post
     this.app.put('/api/posts/:id', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -376,7 +424,9 @@ class BlogAPIServer {
     // Publish post
     this.app.post('/api/posts/:id/publish', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -395,7 +445,9 @@ class BlogAPIServer {
     // Unpublish post
     this.app.post('/api/posts/:id/unpublish', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -414,7 +466,9 @@ class BlogAPIServer {
     // Like post
     this.app.post('/api/posts/:id/like', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -432,7 +486,9 @@ class BlogAPIServer {
     // View post (increment view count)
     this.app.post('/api/posts/:id/view', async (req, res, next) => {
       try {
-        const post = await Post.findById(req.params.id);
+        const post = await Post.query()
+          .where('id', req.params.id)
+          .first();
         if (!post) {
           return res.status(404).json({
             error: 'Post not found',
@@ -476,8 +532,10 @@ class BlogAPIServer {
           .orderBy('createdAt', 'asc')
           .find();
 
+        const commentList = comments || [];
+
         res.json({
-          comments,
+          comments: commentList,
           nodeId: this.nodeId,
         });
       } catch (error) {
@@ -488,7 +546,9 @@ class BlogAPIServer {
     // Approve comment
     this.app.post('/api/comments/:id/approve', async (req, res, next) => {
       try {
-        const comment = await Comment.findById(req.params.id);
+        const comment = await Comment.query()
+          .where('id', req.params.id)
+          .first();
         if (!comment) {
           return res.status(404).json({
             error: 'Comment not found',
@@ -507,7 +567,9 @@ class BlogAPIServer {
     // Like comment
     this.app.post('/api/comments/:id/like', async (req, res, next) => {
       try {
-        const comment = await Comment.findById(req.params.id);
+        const comment = await Comment.query()
+          .where('id', req.params.id)
+          .first();
         if (!comment) {
           return res.status(404).json({
             error: 'Comment not found',
@@ -566,10 +628,16 @@ class BlogAPIServer {
     // Framework metrics
     this.app.get('/api/metrics/framework', async (req, res, next) => {
       try {
-        const metrics = this.framework.getMetrics();
+        const metrics = this.framework ? this.framework.getMetrics() : null;
+        const defaultMetrics = {
+          services: 'unknown',
+          environment: 'unknown',
+          features: 'unknown'
+        };
+        
         res.json({
           nodeId: this.nodeId,
-          ...metrics,
+          ...(metrics || defaultMetrics),
           timestamp: Date.now(),
         });
       } catch (error) {
@@ -651,6 +719,7 @@ class BlogAPIServer {
     
     // Initialize framework
     this.framework = new DebrosFramework({
+      appName: 'blog-app', // Unique app name for this blog application
       environment: 'test',
       features: {
         autoMigration: true,
