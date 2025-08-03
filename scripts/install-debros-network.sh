@@ -13,7 +13,7 @@ NOCOLOR='\033[0m'
 
 # Default values
 INSTALL_DIR="/opt/debros"
-REPO_URL="https://github.com/DeBrosOfficial/debros-network.git"
+REPO_URL="https://git.debros.io/DeBros/network.git"
 MIN_GO_VERSION="1.19"
 BOOTSTRAP_PORT="4001"
 NODE_PORT="4002"
@@ -21,6 +21,7 @@ RQLITE_BOOTSTRAP_PORT="5001"
 RQLITE_NODE_PORT="5002"
 RAFT_BOOTSTRAP_PORT="7001"
 RAFT_NODE_PORT="7002"
+UPDATE_MODE=false
 
 log() {
     echo -e "${CYAN}[$(date '+%Y-%m-%d %H:%M:%S')]${NOCOLOR} $1"
@@ -80,6 +81,91 @@ detect_os() {
     log "Detected OS: $OS $VERSION"
 }
 
+# Check if DeBros Network is already installed
+check_existing_installation() {
+    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/bin/bootstrap" ] && [ -f "$INSTALL_DIR/bin/node" ]; then
+        log "Found existing DeBros Network installation at $INSTALL_DIR"
+        
+        # Check if services are running
+        BOOTSTRAP_RUNNING=false
+        NODE_RUNNING=false
+        
+        if systemctl is-active --quiet debros-bootstrap.service 2>/dev/null; then
+            BOOTSTRAP_RUNNING=true
+            log "Bootstrap service is currently running"
+        fi
+        
+        if systemctl is-active --quiet debros-node.service 2>/dev/null; then
+            NODE_RUNNING=true
+            log "Node service is currently running"
+        fi
+        
+        echo -e "${YELLOW}Existing installation detected!${NOCOLOR}"
+        echo -e "${CYAN}Options:${NOCOLOR}"
+        echo -e "${CYAN}1) Update existing installation${NOCOLOR}"
+        echo -e "${CYAN}2) Remove and reinstall${NOCOLOR}"
+        echo -e "${CYAN}3) Exit installer${NOCOLOR}"
+        
+        while true; do
+            read -rp "Enter your choice (1, 2, or 3): " EXISTING_CHOICE
+            case $EXISTING_CHOICE in
+                1)
+                    UPDATE_MODE=true
+                    log "Will update existing installation"
+                    return 0
+                    ;;
+                2)
+                    log "Will remove and reinstall"
+                    remove_existing_installation
+                    UPDATE_MODE=false
+                    return 0
+                    ;;
+                3)
+                    log "Installation cancelled by user"
+                    exit 0
+                    ;;
+                *)
+                    error "Invalid choice. Please enter 1, 2, or 3."
+                    ;;
+            esac
+        done
+    else
+        UPDATE_MODE=false
+        return 0
+    fi
+}
+
+# Remove existing installation
+remove_existing_installation() {
+    log "Removing existing installation..."
+    
+    # Stop services if they exist
+    for service in debros-bootstrap debros-node; do
+        if systemctl list-unit-files | grep -q "$service.service"; then
+            log "Stopping $service service..."
+            sudo systemctl stop $service.service 2>/dev/null || true
+            sudo systemctl disable $service.service 2>/dev/null || true
+            sudo rm -f /etc/systemd/system/$service.service
+        fi
+    done
+    
+    sudo systemctl daemon-reload
+    
+    # Remove installation directory
+    if [ -d "$INSTALL_DIR" ]; then
+        sudo rm -rf "$INSTALL_DIR"
+        log "Removed installation directory"
+    fi
+    
+    # Remove debros user
+    if id "debros" &>/dev/null; then
+        sudo userdel debros 2>/dev/null || true
+        log "Removed debros user"
+    fi
+    
+    success "Existing installation removed"
+}
+
 # Check Go installation and version
 check_go_installation() {
     if command -v go &> /dev/null; then
@@ -127,31 +213,76 @@ install_go() {
     sudo rm -rf /usr/local/go
     sudo tar -C /usr/local -xzf "$GO_TARBALL"
     
-    # Add Go to PATH
+    # Add Go to system-wide PATH
+    if ! grep -q "/usr/local/go/bin" /etc/environment 2>/dev/null; then
+        echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/local/go/bin"' | sudo tee /etc/environment > /dev/null
+    fi
+    
+    # Also add to current user's bashrc for compatibility
     if ! grep -q "/usr/local/go/bin" ~/.bashrc; then
         echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
     fi
     
+    # Update current session PATH
     export PATH=$PATH:/usr/local/go/bin
+    
     success "Go installed successfully"
 }
 
 # Install system dependencies
 install_dependencies() {
-    log "Installing system dependencies..."
+    log "Checking system dependencies..."
+    
+    # Check which dependencies are missing
+    MISSING_DEPS=()
     
     case $PACKAGE_MANAGER in
         apt)
-            sudo apt update
-            sudo apt install -y git make build-essential curl
+            # Check for required packages
+            for pkg in git make build-essential curl; do
+                if ! dpkg -l | grep -q "^ii  $pkg "; then
+                    MISSING_DEPS+=($pkg)
+                fi
+            done
+            
+            if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+                log "Installing missing dependencies: ${MISSING_DEPS[*]}"
+                sudo apt update
+                sudo apt install -y "${MISSING_DEPS[@]}"
+            else
+                success "All system dependencies already installed"
+            fi
             ;;
         yum|dnf)
-            sudo $PACKAGE_MANAGER groupinstall -y "Development Tools"
-            sudo $PACKAGE_MANAGER install -y git make curl
+            # Check for required packages
+            for pkg in git make curl; do
+                if ! rpm -q $pkg &>/dev/null; then
+                    MISSING_DEPS+=($pkg)
+                fi
+            done
+            
+            # Check for development tools
+            if ! rpm -q gcc &>/dev/null; then
+                MISSING_DEPS+=("Development Tools")
+            fi
+            
+            if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+                log "Installing missing dependencies: ${MISSING_DEPS[*]}"
+                if [[ " ${MISSING_DEPS[*]} " =~ " Development Tools " ]]; then
+                    sudo $PACKAGE_MANAGER groupinstall -y "Development Tools"
+                fi
+                # Remove "Development Tools" from array for individual package installation
+                MISSING_DEPS=($(printf '%s\n' "${MISSING_DEPS[@]}" | grep -v "Development Tools"))
+                if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+                    sudo $PACKAGE_MANAGER install -y "${MISSING_DEPS[@]}"
+                fi
+            else
+                success "All system dependencies already installed"
+            fi
             ;;
     esac
     
-    success "System dependencies installed"
+    success "System dependencies ready"
 }
 
 # Check port availability
@@ -228,6 +359,8 @@ setup_directories() {
     if ! id "debros" &>/dev/null; then
         sudo useradd -r -s /bin/false -d "$INSTALL_DIR" debros
         log "Created debros user"
+    else
+        log "User 'debros' already exists"
     fi
 
     # Create directory structure
@@ -235,13 +368,19 @@ setup_directories() {
     sudo mkdir -p "$INSTALL_DIR/keys/$NODE_TYPE"
     sudo mkdir -p "$INSTALL_DIR/data/$NODE_TYPE"/{rqlite,storage}
 
-    # Set ownership and permissions
+    # Set ownership first, then permissions
     sudo chown -R debros:debros "$INSTALL_DIR"
     sudo chmod 755 "$INSTALL_DIR"
     sudo chmod 700 "$INSTALL_DIR/keys"
-    sudo chmod 600 "$INSTALL_DIR/keys/$NODE_TYPE" 2>/dev/null || true
+    sudo chmod 700 "$INSTALL_DIR/keys/$NODE_TYPE"
+    
+    # Ensure the debros user can write to the keys directory
+    sudo chmod 755 "$INSTALL_DIR/data"
+    sudo chmod 755 "$INSTALL_DIR/logs"
+    sudo chmod 755 "$INSTALL_DIR/configs"
+    sudo chmod 755 "$INSTALL_DIR/bin"
 
-    success "Directory structure created"
+    success "Directory structure ready"
 }
 
 # Clone or update repository
@@ -263,16 +402,30 @@ setup_source_code() {
 
 # Generate identity key
 generate_identity() {
+    local identity_file="$INSTALL_DIR/keys/$NODE_TYPE/identity.key"
+    
+    if [ -f "$identity_file" ]; then
+        if [ "$UPDATE_MODE" = true ]; then
+            log "Identity key already exists, keeping existing key"
+            success "Using existing node identity"
+            return 0
+        else
+            log "Identity key already exists, regenerating..."
+            sudo rm -f "$identity_file"
+        fi
+    fi
+
     log "Generating node identity..."
 
     cd "$INSTALL_DIR/src"
 
-    # Create a temporary Go program for key generation
-    cat > /tmp/generate_identity.go << 'EOF'
+    # Create a custom identity generation script with output path support
+    cat > /tmp/generate_identity_custom.go << 'EOF'
 package main
 
 import (
 	"crypto/rand"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -282,12 +435,14 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("Usage: go run generate_identity.go <key_file_path>")
+	var outputPath string
+	flag.StringVar(&outputPath, "output", "", "Output path for identity key")
+	flag.Parse()
+
+	if outputPath == "" {
+		fmt.Println("Usage: go run generate_identity_custom.go -output <path>")
 		os.Exit(1)
 	}
-
-	keyFile := os.Args[1]
 
 	// Generate identity
 	priv, pub, err := crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
@@ -308,23 +463,24 @@ func main() {
 	}
 
 	// Create directory
-	if err := os.MkdirAll(filepath.Dir(keyFile), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0700); err != nil {
 		panic(err)
 	}
 
 	// Save identity
-	if err := os.WriteFile(keyFile, data, 0600); err != nil {
+	if err := os.WriteFile(outputPath, data, 0600); err != nil {
 		panic(err)
 	}
 
 	fmt.Printf("Generated Peer ID: %s\n", peerID.String())
-	fmt.Printf("Identity saved to: %s\n", keyFile)
+	fmt.Printf("Identity saved to: %s\n", outputPath)
 }
 EOF
 
-    # Generate the identity key
-    sudo -u debros go run /tmp/generate_identity.go "$INSTALL_DIR/keys/$NODE_TYPE/identity.key"
-    rm /tmp/generate_identity.go
+    # Ensure Go is in PATH and generate the identity key
+    export PATH=$PATH:/usr/local/go/bin
+    sudo -u debros env "PATH=$PATH:/usr/local/go/bin" "GOMOD=$(pwd)" go run /tmp/generate_identity_custom.go -output "$identity_file"
+    rm /tmp/generate_identity_custom.go
 
     success "Node identity generated"
 }
@@ -335,8 +491,9 @@ build_binaries() {
 
     cd "$INSTALL_DIR/src"
     
-    # Build all binaries
-    sudo -u debros make build
+    # Ensure Go is in PATH and build all binaries
+    export PATH=$PATH:/usr/local/go/bin
+    sudo -u debros env "PATH=$PATH:/usr/local/go/bin" make build
 
     # Copy binaries to installation directory
     sudo cp bin/* "$INSTALL_DIR/bin/"
@@ -422,7 +579,15 @@ configure_firewall() {
 
 # Create systemd service
 create_systemd_service() {
-    log "Creating systemd service..."
+    local service_file="/etc/systemd/system/debros-$NODE_TYPE.service"
+    
+    if [ -f "$service_file" ]; then
+        log "Systemd service already exists, updating..."
+        # Stop the service before updating
+        sudo systemctl stop debros-$NODE_TYPE.service 2>/dev/null || true
+    else
+        log "Creating systemd service..."
+    fi
 
     cat > /tmp/debros-$NODE_TYPE.service << EOF
 [Unit]
@@ -453,11 +618,11 @@ ReadWritePaths=$INSTALL_DIR
 WantedBy=multi-user.target
 EOF
 
-    sudo mv /tmp/debros-$NODE_TYPE.service /etc/systemd/system/
+    sudo mv /tmp/debros-$NODE_TYPE.service "$service_file"
     sudo systemctl daemon-reload
     sudo systemctl enable debros-$NODE_TYPE.service
 
-    success "Systemd service created and enabled"
+    success "Systemd service ready"
 }
 
 # Start the service
@@ -498,6 +663,7 @@ main() {
     log "${BLUE}==================================================${NOCOLOR}"
 
     detect_os
+    check_existing_installation
     check_ports
     
     # Check and install Go if needed
@@ -506,19 +672,47 @@ main() {
     fi
     
     install_dependencies
-    configuration_wizard
+    
+    # Skip configuration wizard in update mode
+    if [ "$UPDATE_MODE" != true ]; then
+        configuration_wizard
+    else
+        log "Update mode: skipping configuration wizard"
+        # Detect existing node type
+        if [ -f "$INSTALL_DIR/configs/bootstrap.yaml" ]; then
+            NODE_TYPE="bootstrap"
+        elif [ -f "$INSTALL_DIR/configs/node.yaml" ]; then
+            NODE_TYPE="node"
+        else
+            error "Cannot determine existing node type"
+            exit 1
+        fi
+        log "Detected existing node type: $NODE_TYPE"
+    fi
+    
     setup_directories
     setup_source_code
     generate_identity
     build_binaries
-    generate_configs
-    configure_firewall
+    
+    # Only generate new configs if not in update mode
+    if [ "$UPDATE_MODE" != true ]; then
+        generate_configs
+        configure_firewall
+    else
+        log "Update mode: keeping existing configuration"
+    fi
+    
     create_systemd_service
     start_service
 
     # Display completion information
     log "${BLUE}==================================================${NOCOLOR}"
-    log "${GREEN}        Installation Complete!                    ${NOCOLOR}"
+    if [ "$UPDATE_MODE" = true ]; then
+        log "${GREEN}        Update Complete!                          ${NOCOLOR}"
+    else
+        log "${GREEN}        Installation Complete!                    ${NOCOLOR}"
+    fi
     log "${BLUE}==================================================${NOCOLOR}"
     
     log "${GREEN}Node Type:${NOCOLOR} ${CYAN}$NODE_TYPE${NOCOLOR}"
@@ -543,10 +737,14 @@ main() {
     log "${CYAN}  - sudo systemctl stop debros-$NODE_TYPE${NOCOLOR} (Stop service)"
     log "${CYAN}  - sudo systemctl start debros-$NODE_TYPE${NOCOLOR} (Start service)"
     log "${CYAN}  - sudo journalctl -u debros-$NODE_TYPE.service -f${NOCOLOR} (View logs)"
-    log "${CYAN}  - $INSTALL_DIR/bin/cli${NOCOLOR} (Use CLI tools)"
+    log "${CYAN}  - $INSTALL_DIR/bin/network-cli${NOCOLOR} (Use CLI tools)"
     log "${BLUE}==================================================${NOCOLOR}"
 
-    success "DeBros Network $NODE_TYPE node is now running!"
+    if [ "$UPDATE_MODE" = true ]; then
+        success "DeBros Network $NODE_TYPE node has been updated and is running!"
+    else
+        success "DeBros Network $NODE_TYPE node is now running!"
+    fi
     log "${CYAN}For documentation visit: https://docs.debros.io${NOCOLOR}"
 }
 
