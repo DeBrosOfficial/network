@@ -581,12 +581,29 @@ configure_firewall() {
 create_systemd_service() {
     local service_file="/etc/systemd/system/debros-$NODE_TYPE.service"
     
-    if [ -f "$service_file" ]; then
-        log "Systemd service already exists, updating..."
-        # Stop the service before updating
-        sudo systemctl stop debros-$NODE_TYPE.service 2>/dev/null || true
+    # Always clean up any existing service files to ensure fresh start
+    for service in debros-bootstrap debros-node; do
+        if [ -f "/etc/systemd/system/$service.service" ]; then
+            log "Cleaning up existing $service service..."
+            sudo systemctl stop $service.service 2>/dev/null || true
+            sudo systemctl disable $service.service 2>/dev/null || true
+            sudo rm -f /etc/systemd/system/$service.service
+        fi
+    done
+    
+    sudo systemctl daemon-reload
+    log "Creating new systemd service..."
+
+    # Determine the correct ExecStart command based on node type
+    local exec_start=""
+    if [ "$NODE_TYPE" = "bootstrap" ]; then
+        exec_start="$INSTALL_DIR/bin/bootstrap -data $INSTALL_DIR/data/bootstrap -port $BOOTSTRAP_PORT"
     else
-        log "Creating systemd service..."
+        # For regular nodes, we need to specify the bootstrap peer
+        # This should be configured based on the bootstrap node's address
+        exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT"
+        # Note: Bootstrap peer address would need to be configured separately
+        # exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT -bootstrap /ip4/BOOTSTRAP_IP/tcp/$BOOTSTRAP_PORT/p2p/BOOTSTRAP_PEER_ID"
     fi
 
     cat > /tmp/debros-$NODE_TYPE.service << EOF
@@ -600,7 +617,7 @@ Type=simple
 User=debros
 Group=debros
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/bin/$NODE_TYPE -config $INSTALL_DIR/configs/$NODE_TYPE.yaml
+ExecStart=$exec_start
 Restart=always
 RestartSec=10
 StandardOutput=journal
