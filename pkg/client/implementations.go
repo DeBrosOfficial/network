@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"network/pkg/storage"
+	"git.debros.io/DeBros/network/pkg/storage"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"

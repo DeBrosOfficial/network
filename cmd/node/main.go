@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"network/pkg/config"
-	"network/pkg/constants"
-	"network/pkg/node"
+	"git.debros.io/DeBros/network/pkg/config"
+	"git.debros.io/DeBros/network/pkg/constants"
+	"git.debros.io/DeBros/network/pkg/node"
 )
 
 func main() {

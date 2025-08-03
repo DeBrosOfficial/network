@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"network/pkg/client"
+	"git.debros.io/DeBros/network/pkg/client"
 )
 
 func main() {

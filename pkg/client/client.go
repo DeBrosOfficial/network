@@ -19,9 +19,9 @@ import (
 	libp2ppubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 
-	"network/pkg/discovery"
-	"network/pkg/pubsub"
-	"network/pkg/storage"
+	"git.debros.io/DeBros/network/pkg/discovery"
+	"git.debros.io/DeBros/network/pkg/pubsub"
+	"git.debros.io/DeBros/network/pkg/storage"
 )
 
 // Client implements the NetworkClient interface
