@@ -1,0 +1,34 @@
+node:
+  id: "" # Auto-generated
+  type: "bootstrap"
+  listen_addresses:
+    - "/ip4/0.0.0.0/tcp/4001"
+    - "/ip4/0.0.0.0/udp/4001/quic"
+  data_dir: "./data/bootstrap"
+  max_connections: 100
+  is_bootstrap: true
+
+database:
+  data_dir: "./data/bootstrap/db"
+  replication_factor: 3
+  shard_count: 16
+  max_database_size: 1073741824 # 1GB
+  backup_interval: "24h"
+
+discovery:
+  bootstrap_peers: [] # Bootstrap nodes don't need peers
+  enable_mdns: true
+  enable_dht: true
+  dht_prefix: "/network/kad/1.0.0"
+  discovery_interval: "5m"
+
+security:
+  enable_tls: false
+  private_key_file: ""
+  certificate_file: ""
+  auth_enabled: false
+
+logging:
+  level: "info"
+  format: "console"
+  output_file: ""
