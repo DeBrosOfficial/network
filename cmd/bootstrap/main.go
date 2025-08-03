@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"network/pkg/config"
-	"network/pkg/logging"
-	"network/pkg/node"
+	"git.debros.io/DeBros/network/pkg/config"
+	"git.debros.io/DeBros/network/pkg/logging"
+	"git.debros.io/DeBros/network/pkg/node"
 )
 
 func main() {

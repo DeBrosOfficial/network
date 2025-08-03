@@ -1,4 +1,4 @@
-module network
+module git.debros.io/DeBros/network
 
 go 1.23.8
 

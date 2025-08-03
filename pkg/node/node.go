@@ -20,10 +20,10 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
 
-	"network/pkg/config"
-	"network/pkg/database"
-	"network/pkg/logging"
-	"network/pkg/storage"
+	"git.debros.io/DeBros/network/pkg/config"
+	"git.debros.io/DeBros/network/pkg/database"
+	"git.debros.io/DeBros/network/pkg/logging"
+	"git.debros.io/DeBros/network/pkg/storage"
 )
 
 // Node represents a network node with RQLite database
