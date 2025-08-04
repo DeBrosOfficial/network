@@ -50,7 +50,8 @@ warning() {
 if [[ $EUID -eq 0 ]]; then
     warning "Running as root is not recommended for security reasons."
     if [ "$NON_INTERACTIVE" != true ]; then
-        read -rp "Are you sure you want to continue? (yes/no): " ROOT_CONFIRM
+        echo -n "Are you sure you want to continue? (yes/no): "
+        read ROOT_CONFIRM
         if [[ "$ROOT_CONFIRM" != "yes" ]]; then
             error "Installation cancelled for security reasons."
             exit 1
@@ -394,7 +395,7 @@ configuration_wizard() {
 
     if [ "$NON_INTERACTIVE" = true ]; then
         log "Non-interactive mode: using default configuration"
-        NODE_TYPE="bootstrap"
+        NODE_TYPE="node"
         SOLANA_WALLET="11111111111111111111111111111111"  # Placeholder wallet
         CONFIGURE_FIREWALL="yes"
         log "Node Type: $NODE_TYPE"
@@ -619,24 +620,14 @@ configure_firewall() {
             # This allows the rules to be ready when UFW is enabled
             log "Adding UFW rules for DeBros Network ports..."
             
-            # Add ports based on node type with error handling
-            if [ "$NODE_TYPE" = "bootstrap" ]; then
-                for port in $BOOTSTRAP_PORT $RQLITE_BOOTSTRAP_PORT $RAFT_BOOTSTRAP_PORT; do
-                    if ! sudo ufw allow $port; then
-                        error "Failed to allow port $port"
-                        exit 1
-                    fi
-                    log "Added UFW rule: allow port $port"
-                done
-            else
-                for port in $NODE_PORT $RQLITE_NODE_PORT $RAFT_NODE_PORT; do
-                    if ! sudo ufw allow $port; then
-                        error "Failed to allow port $port"
-                        exit 1
-                    fi
-                    log "Added UFW rule: allow port $port"
-                done
-            fi
+            # Add ports for node (using bootstrap ports)
+            for port in $BOOTSTRAP_PORT $RQLITE_BOOTSTRAP_PORT $RAFT_BOOTSTRAP_PORT; do
+                if ! sudo ufw allow $port; then
+                    error "Failed to allow port $port"
+                    exit 1
+                fi
+                log "Added UFW rule: allow port $port"
+            done
             
             # Check UFW status and inform user
             UFW_STATUS=$(sudo ufw status | grep -o "Status: [a-z]\+" | awk '{print $2}' || echo "inactive")
@@ -650,15 +641,9 @@ configure_firewall() {
         else
             warning "UFW not found. Please configure firewall manually."
             log "Required ports to allow:"
-            if [ "$NODE_TYPE" = "bootstrap" ]; then
-                log "  - Port $BOOTSTRAP_PORT (Bootstrap)"
-                log "  - Port $RQLITE_BOOTSTRAP_PORT (RQLite)"
-                log "  - Port $RAFT_BOOTSTRAP_PORT (Raft)"
-            else
-                log "  - Port $NODE_PORT (Node)"
-                log "  - Port $RQLITE_NODE_PORT (RQLite)"
-                log "  - Port $RAFT_NODE_PORT (Raft)"
-            fi
+            log "  - Port $BOOTSTRAP_PORT (Node)"
+            log "  - Port $RQLITE_BOOTSTRAP_PORT (RQLite)"
+            log "  - Port $RAFT_BOOTSTRAP_PORT (Raft)"
         fi
     fi
 }
@@ -816,15 +801,9 @@ main() {
     log "${GREEN}Configuration:${NOCOLOR} ${CYAN}$INSTALL_DIR/configs/$NODE_TYPE.yaml${NOCOLOR}"
     log "${GREEN}Logs:${NOCOLOR} ${CYAN}$INSTALL_DIR/logs/$NODE_TYPE.log${NOCOLOR}"
     
-    if [ "$NODE_TYPE" = "bootstrap" ]; then
-        log "${GREEN}Bootstrap Port:${NOCOLOR} ${CYAN}$BOOTSTRAP_PORT${NOCOLOR}"
-        log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_BOOTSTRAP_PORT${NOCOLOR}"
-        log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_BOOTSTRAP_PORT${NOCOLOR}"
-    else
-        log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$NODE_PORT${NOCOLOR}"
-        log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_NODE_PORT${NOCOLOR}"
-        log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_NODE_PORT${NOCOLOR}"
-    fi
+    log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$BOOTSTRAP_PORT${NOCOLOR}"
+    log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_BOOTSTRAP_PORT${NOCOLOR}"
+    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_BOOTSTRAP_PORT${NOCOLOR}"
 
     log "${BLUE}==================================================${NOCOLOR}"
     log "${GREEN}Management Commands:${NOCOLOR}"
