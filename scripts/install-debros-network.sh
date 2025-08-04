@@ -46,16 +46,26 @@ warning() {
     echo -e "${YELLOW}[WARNING]${NOCOLOR} $1"
 }
 
-# Check if running as root
+# Check if running as root and warn user
 if [[ $EUID -eq 0 ]]; then
-    error "This script should not be run as root. Please run as a regular user with sudo privileges."
-    exit 1
-fi
-
-# Check if sudo is available
-if ! command -v sudo &>/dev/null; then
-    error "sudo command not found. Please ensure you have sudo privileges."
-    exit 1
+    warning "Running as root is not recommended for security reasons."
+    if [ "$NON_INTERACTIVE" != true ]; then
+        read -rp "Are you sure you want to continue? (yes/no): " ROOT_CONFIRM
+        if [[ "$ROOT_CONFIRM" != "yes" ]]; then
+            error "Installation cancelled for security reasons."
+            exit 1
+        fi
+    else
+        log "Non-interactive mode: proceeding with root (use at your own risk)"
+    fi
+    # Create sudo alias that does nothing when running as root
+    alias sudo=''
+else
+    # Check if sudo is available for non-root users
+    if ! command -v sudo &>/dev/null; then
+        error "sudo command not found. Please ensure you have sudo privileges."
+        exit 1
+    fi
 fi
 
 # Detect OS
