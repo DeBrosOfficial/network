@@ -25,7 +25,7 @@ A distributed peer-to-peer network built with Go and LibP2P, providing decentral
     - [One-Command Installation](#one-command-installation)
     - [What the Script Does](#what-the-script-does)
     - [Directory Structure](#directory-structure)
-    - [Node Types](#node-types)
+    - [Node Setup](#node-setup)
     - [Service Management](#service-management)
     - [Configuration Files](#configuration-files)
     - [Security Features](#security-features)
@@ -68,7 +68,7 @@ A distributed peer-to-peer network built with Go and LibP2P, providing decentral
 
 - **Peer-to-Peer Networking**: Built on LibP2P for robust P2P communication
 - **Distributed Database**: RQLite-based distributed SQLite with Raft consensus
-- **Automatic Peer Discovery**: Bootstrap nodes help new peers join the network
+- **Automatic Peer Discovery**: Nodes help new peers join the network
 - **CLI Tool**: Command-line interface for network operations and testing
 - **Client Library**: Simple Go API for applications to interact with the network
 - **Application Isolation**: Namespaced storage and messaging per application
@@ -153,9 +153,9 @@ choco install golang git make
 
 The system uses these ports by default:
 
-- **4001-4003**: LibP2P communication
-- **5001-5003**: RQLite HTTP API
-- **7001-7003**: RQLite Raft consensus
+- **4001**: LibP2P communication
+- **5001**: RQLite HTTP API
+- **7001**: RQLite Raft consensus
 
 Ensure these ports are available or configure firewall rules accordingly.
 
@@ -274,7 +274,7 @@ For production deployments on Linux servers, we provide an automated installatio
 
 ```bash
 # Download and run the installation script
-curl -sSL https://git.debros.io/DeBros/network/raw/branch/main/scripts/install-debros-network.sh | bash
+curl -sSL https://git.debros.io/DeBros/network/raw/branch/main/scripts/install-debros-network.sh | sudo bash
 ```
 
 #### What the Script Does
@@ -284,7 +284,7 @@ curl -sSL https://git.debros.io/DeBros/network/raw/branch/main/scripts/install-d
    - Detects OS (Ubuntu/Debian/CentOS/RHEL/Fedora)
    - Installs Go 1.21+ with architecture detection
    - Installs system dependencies (git, make, build tools)
-   - Checks port availability (4001-4003, 5001-5003, 7001-7003)
+   - Checks port availability (4001, 5001, 7001)
 
 2. **Configuration Wizard**:
 
@@ -330,14 +330,16 @@ The script creates a production-ready directory structure:
 
 #### Node Setup
 
-The installation script sets up a **bootstrap node** (named "node" for simplicity):
+The installation script sets up a **network node**:
 
-- Network entry point that other nodes connect to
 - Runs on ports: 4001 (P2P), 5001 (RQLite), 7001 (Raft)
-- Should be deployed on stable, publicly accessible servers
-- Acts as initial seed for peer discovery
 - Participates in DHT for peer discovery and data replication
 - Can be deployed on any server or VPS
+
+For setup, please run these commands with adequate permissions:
+
+- Ensure you have elevated privileges or run as a user with the necessary permissions for server setup.
+- Follow the installation steps correctly to ensure a smooth deployment.
 
 #### Service Management
 
@@ -396,14 +398,14 @@ The installation script implements production security best practices:
 - **File Permissions**: Key files have 600 permissions, directories have proper ownership
 - **Systemd Security**: Service runs with `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`
 - **Firewall**: Automatic UFW configuration for required ports
-- **Network Isolation**: Each node type uses different ports to avoid conflicts
+- **Network Isolation**: Proper port management to avoid conflicts
 
 #### Network Discovery
 
-- **Bootstrap Peers**: Hardcoded in the application for automatic connection
+- **Network Peers**: Hardcoded in the application for automatic connection
 - **DHT Discovery**: Nodes automatically join Kademlia DHT for peer discovery
 - **Peer Exchange**: Connected nodes share information about other peers
-- **No Manual Configuration**: Regular nodes connect automatically without user intervention
+- **No Manual Configuration**: Nodes connect automatically without user intervention
 
 #### Updates and Maintenance
 
