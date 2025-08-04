@@ -15,12 +15,9 @@ NOCOLOR='\033[0m'
 INSTALL_DIR="/opt/debros"
 REPO_URL="https://git.debros.io/DeBros/network.git"
 MIN_GO_VERSION="1.19"
-BOOTSTRAP_PORT="4001"
-NODE_PORT="4002"
-RQLITE_BOOTSTRAP_PORT="5001"
-RQLITE_NODE_PORT="5002"
-RAFT_BOOTSTRAP_PORT="7001"
-RAFT_NODE_PORT="7002"
+NODE_PORT="4001"
+RQLITE_NODE_PORT="5001"
+RAFT_NODE_PORT="7001"
 UPDATE_MODE=false
 NON_INTERACTIVE=false
 
@@ -375,7 +372,7 @@ install_rqlite() {
 
 # Check port availability
 check_ports() {
-    local ports=($BOOTSTRAP_PORT $NODE_PORT $RQLITE_BOOTSTRAP_PORT $RQLITE_NODE_PORT $RAFT_BOOTSTRAP_PORT $RAFT_NODE_PORT)
+    local ports=($NODE_PORT $RQLITE_NODE_PORT $RAFT_NODE_PORT)
     
     for port in "${ports[@]}"; do
         if sudo netstat -tuln 2>/dev/null | grep -q ":$port " || ss -tuln 2>/dev/null | grep -q ":$port "; then
@@ -621,12 +618,12 @@ node:
   data_dir: "$INSTALL_DIR/data/node"
   key_file: "$INSTALL_DIR/keys/node/identity.key"
   listen_addresses:
-    - "/ip4/0.0.0.0/tcp/$BOOTSTRAP_PORT"
+    - "/ip4/0.0.0.0/tcp/$NODE_PORT"
   solana_wallet: "$SOLANA_WALLET"
 
 database:
-  rqlite_port: $RQLITE_BOOTSTRAP_PORT
-  rqlite_raft_port: $RAFT_BOOTSTRAP_PORT
+  rqlite_port: $RQLITE_NODE_PORT
+  rqlite_raft_port: $RAFT_NODE_PORT
 
 logging:
   level: "info"
@@ -649,8 +646,8 @@ configure_firewall() {
             # This allows the rules to be ready when UFW is enabled
             log "Adding UFW rules for DeBros Network ports..."
             
-            # Add ports for node (using bootstrap ports)
-            for port in $BOOTSTRAP_PORT $RQLITE_BOOTSTRAP_PORT $RAFT_BOOTSTRAP_PORT; do
+            # Add ports for node
+            for port in $NODE_PORT $RQLITE_NODE_PORT $RAFT_NODE_PORT; do
                 if ! sudo ufw allow $port; then
                     error "Failed to allow port $port"
                     exit 1
@@ -670,9 +667,9 @@ configure_firewall() {
         else
             warning "UFW not found. Please configure firewall manually."
             log "Required ports to allow:"
-            log "  - Port $BOOTSTRAP_PORT (Node)"
-            log "  - Port $RQLITE_BOOTSTRAP_PORT (RQLite)"
-            log "  - Port $RAFT_BOOTSTRAP_PORT (Raft)"
+            log "  - Port $NODE_PORT (Node)"
+            log "  - Port $RQLITE_NODE_PORT (RQLite)"
+            log "  - Port $RAFT_NODE_PORT (Raft)"
         fi
     fi
 }
