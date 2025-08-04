@@ -22,10 +22,17 @@ RQLITE_NODE_PORT="5002"
 RAFT_BOOTSTRAP_PORT="7001"
 RAFT_NODE_PORT="7002"
 UPDATE_MODE=false
+NON_INTERACTIVE=false
 
 log() {
     echo -e "${CYAN}[$(date '+%Y-%m-%d %H:%M:%S')]${NOCOLOR} $1"
 }
+
+# Check if running non-interactively (piped from curl)
+if [ ! -t 0 ]; then
+    NON_INTERACTIVE=true
+    log "Running in non-interactive mode"
+fi
 
 error() {
     echo -e "${RED}[ERROR]${NOCOLOR} $1"
@@ -98,6 +105,12 @@ check_existing_installation() {
         if systemctl is-active --quiet debros-node.service 2>/dev/null; then
             NODE_RUNNING=true
             log "Node service is currently running"
+        fi
+        
+        if [ "$NON_INTERACTIVE" = true ]; then
+            log "Non-interactive mode: updating existing installation"
+            UPDATE_MODE=true
+            return 0
         fi
         
         echo -e "${YELLOW}Existing installation detected!${NOCOLOR}"
@@ -368,6 +381,18 @@ configuration_wizard() {
     log "${BLUE}==================================================${NOCOLOR}"
     log "${GREEN}        DeBros Network Configuration Wizard       ${NOCOLOR}"
     log "${BLUE}==================================================${NOCOLOR}"
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+        log "Non-interactive mode: using default configuration"
+        NODE_TYPE="bootstrap"
+        SOLANA_WALLET="11111111111111111111111111111111"  # Placeholder wallet
+        CONFIGURE_FIREWALL="yes"
+        log "Node Type: $NODE_TYPE"
+        log "Installation Directory: $INSTALL_DIR"
+        log "Firewall Configuration: $CONFIGURE_FIREWALL"
+        success "Configuration completed with defaults"
+        return 0
+    fi
 
     # Node type selection
     while true; do
