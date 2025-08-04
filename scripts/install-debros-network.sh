@@ -404,27 +404,8 @@ configuration_wizard() {
         return 0
     fi
 
-    # Node type selection
-    while true; do
-        echo -e "${GREEN}Select node type:${NOCOLOR}"
-        echo -e "${CYAN}1) Bootstrap Node (Network entry point)${NOCOLOR}"
-        echo -e "${CYAN}2) Regular Node (Connects to existing network)${NOCOLOR}"
-        read -rp "Enter your choice (1 or 2): " NODE_TYPE_CHOICE
-        
-        case $NODE_TYPE_CHOICE in
-            1)
-                NODE_TYPE="bootstrap"
-                break
-                ;;
-            2)
-                NODE_TYPE="regular"
-                break
-                ;;
-            *)
-                error "Invalid choice. Please enter 1 or 2."
-                ;;
-        esac
-    done
+# Setting default node type to "node"
+    NODE_TYPE="node"
 
     # Solana wallet address
     log "${GREEN}Enter your Solana wallet address to be eligible for node operator rewards:${NOCOLOR}"
@@ -605,11 +586,10 @@ build_binaries() {
 generate_configs() {
     log "Generating configuration files..."
 
-    if [ "$NODE_TYPE" = "bootstrap" ]; then
-        cat > /tmp/config.yaml << EOF
+    cat > /tmp/config.yaml << EOF
 node:
-  data_dir: "$INSTALL_DIR/data/bootstrap"
-  key_file: "$INSTALL_DIR/keys/bootstrap/identity.key"
+  data_dir: "$INSTALL_DIR/data/node"
+  key_file: "$INSTALL_DIR/keys/node/identity.key"
   listen_addresses:
     - "/ip4/0.0.0.0/tcp/$BOOTSTRAP_PORT"
   solana_wallet: "$SOLANA_WALLET"
@@ -620,26 +600,8 @@ database:
 
 logging:
   level: "info"
-  file: "$INSTALL_DIR/logs/bootstrap.log"
-EOF
-    else
-        cat > /tmp/config.yaml << EOF
-node:
-  data_dir: "$INSTALL_DIR/data/node"
-  key_file: "$INSTALL_DIR/keys/node/identity.key"
-  listen_addresses:
-    - "/ip4/0.0.0.0/tcp/$NODE_PORT"
-  solana_wallet: "$SOLANA_WALLET"
-
-database:
-  rqlite_port: $RQLITE_NODE_PORT
-  rqlite_raft_port: $RAFT_NODE_PORT
-
-logging:
-  level: "info"
   file: "$INSTALL_DIR/logs/node.log"
 EOF
-    fi
 
     sudo mv /tmp/config.yaml "$INSTALL_DIR/configs/$NODE_TYPE.yaml"
     sudo chown debros:debros "$INSTALL_DIR/configs/$NODE_TYPE.yaml"
@@ -720,15 +682,7 @@ create_systemd_service() {
 
     # Determine the correct ExecStart command based on node type
     local exec_start=""
-    if [ "$NODE_TYPE" = "bootstrap" ]; then
-        exec_start="$INSTALL_DIR/bin/bootstrap -data $INSTALL_DIR/data/bootstrap -port $BOOTSTRAP_PORT"
-    else
-        # For regular nodes, we need to specify the bootstrap peer
-        # This should be configured based on the bootstrap node's address
-        exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT"
-        # Note: Bootstrap peer address would need to be configured separately
-        # exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT -bootstrap /ip4/BOOTSTRAP_IP/tcp/$BOOTSTRAP_PORT/p2p/BOOTSTRAP_PEER_ID"
-    fi
+exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $BOOTSTRAP_PORT"
 
     cat > /tmp/debros-$NODE_TYPE.service << EOF
 [Unit]
