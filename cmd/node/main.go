@@ -36,9 +36,13 @@ func main() {
 		fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", *port),
 	}
 
-	// Configure RQLite ports based on node port
-	cfg.Database.RQLitePort = *port + 1000     // e.g., 5002 for node port 4002
-	cfg.Database.RQLiteRaftPort = *port + 3000 // e.g., 7002 for node port 4002 (changed to avoid conflicts)
+	// Configure RQLite ports based on node port (only if not already set in config)
+	if cfg.Database.RQLitePort == 0 {
+		cfg.Database.RQLitePort = *port + 1000 // e.g., 5002 for node port 4002
+	}
+	if cfg.Database.RQLiteRaftPort == 0 {
+		cfg.Database.RQLiteRaftPort = *port + 3000 // e.g., 7002 for node port 4002 (changed to avoid conflicts)
+	}
 
 	// Configure bootstrap peers
 	if *bootstrap != "" {

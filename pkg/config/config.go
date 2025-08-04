@@ -121,8 +121,8 @@ func DefaultConfig() *Config {
 			BackupInterval:    time.Hour * 24,     // Daily backups
 
 			// RQLite-specific configuration
-			RQLitePort:        4001,
-			RQLiteRaftPort:    4002,
+			RQLitePort:        5001,
+			RQLiteRaftPort:    5002,
 			RQLiteJoinAddress: "", // Empty for bootstrap node
 		},
 		Discovery: DiscoveryConfig{

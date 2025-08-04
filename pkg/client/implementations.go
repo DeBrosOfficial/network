@@ -215,10 +215,9 @@ func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 	// Fallback to localhost for development
 	return []string{
 		"http://localhost:5001", // bootstrap
-		"http://localhost:5002", // node1
+		"http://localhost:5002", // node1  
 		"http://localhost:5003", // node2
 		"http://localhost:5004", // node3 (if exists)
-		"http://localhost:5005", // node4 (if exists)
 	}
 }
 
