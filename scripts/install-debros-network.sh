@@ -833,9 +833,9 @@ main() {
     log "${GREEN}Configuration:${NOCOLOR} ${CYAN}$INSTALL_DIR/configs/$NODE_TYPE.yaml${NOCOLOR}"
     log "${GREEN}Logs:${NOCOLOR} ${CYAN}$INSTALL_DIR/logs/$NODE_TYPE.log${NOCOLOR}"
     
-    log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$BOOTSTRAP_PORT${NOCOLOR}"
-    log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_BOOTSTRAP_PORT${NOCOLOR}"
-    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_BOOTSTRAP_PORT${NOCOLOR}"
+    log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$NODE_PORT${NOCOLOR}"
+    log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_NODE_PORT${NOCOLOR}"
+    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_NODE_PORT${NOCOLOR}"
 
     log "${BLUE}==================================================${NOCOLOR}"
     log "${GREEN}Management Commands:${NOCOLOR}"
