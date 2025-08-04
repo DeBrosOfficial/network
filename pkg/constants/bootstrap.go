@@ -89,6 +89,8 @@ func loadEnvironmentConfig() {
 func setDefaultBootstrapConfig() {
 	BootstrapPeerIDs = []string{
 		"12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
+		"12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei",
+		"12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
 	}
 	BootstrapAddresses = []string{
 		"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
