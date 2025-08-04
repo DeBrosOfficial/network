@@ -92,6 +92,8 @@ func setDefaultBootstrapConfig() {
 	}
 	BootstrapAddresses = []string{
 		"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
+		"/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWRWNtJQdi8sC7xagSHPSqVZEpJfYwipvWYwB1rNnztJHZ",
+		"/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
 	}
 	BootstrapPort = 4001
 }
