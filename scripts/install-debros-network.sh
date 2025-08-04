@@ -744,7 +744,13 @@ main() {
 
     detect_os
     check_existing_installation
-    check_ports
+    
+    # Skip port check in update mode since services are already running
+    if [ "$UPDATE_MODE" != true ]; then
+        check_ports
+    else
+        log "Update mode: skipping port availability check"
+    fi
     
     # Check and install Go if needed
     if ! check_go_installation; then
