@@ -448,9 +448,9 @@ setup_directories() {
 
     # Set ownership first, then permissions
     sudo chown -R debros:debros "$INSTALL_DIR"
-    sudo chmod 755 "$INSTALL_DIR"
-    sudo chmod 700 "$INSTALL_DIR/keys"
-    sudo chmod 700 "$INSTALL_DIR/keys/$NODE_TYPE"
+sudo chmod 755 "$INSTALL_DIR"
+sudo chmod 700 "$INSTALL_DIR/keys"
+sudo chmod 700 "$INSTALL_DIR/keys/$NODE_TYPE"
     
     # Ensure the debros user can write to the keys directory
     sudo chmod 755 "$INSTALL_DIR/data"
