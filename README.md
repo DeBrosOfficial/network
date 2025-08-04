@@ -274,7 +274,7 @@ For production deployments on Linux servers, we provide an automated installatio
 
 ```bash
 # Download and run the installation script
-curl -sSL https://raw.githubusercontent.com/DeBrosOfficial/debros-network/main/scripts/install-debros-network.sh | bash
+curl -sSL https://git.debros.io/DeBros/network/raw/branch/main/scripts/install-debros-network.sh | bash
 ```
 
 #### What the Script Does
@@ -441,7 +441,7 @@ The installation script implements production security best practices:
 
 ```bash
 # Update to latest version (re-run the installation script)
-curl -sSL https://raw.githubusercontent.com/DeBrosOfficial/debros-network/main/scripts/install-debros-network.sh | bash
+curl -sSL https://git.debros.io/DeBros/network/raw/branch/main/scripts/install-debros-network.sh | bash
 
 # Manual source update
 cd /opt/debros/src
