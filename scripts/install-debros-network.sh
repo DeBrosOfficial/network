@@ -285,6 +285,70 @@ install_dependencies() {
     success "System dependencies ready"
 }
 
+# Install RQLite
+install_rqlite() {
+    # Check if RQLite is already installed
+    if command -v rqlited &> /dev/null; then
+        RQLITE_VERSION=$(rqlited -version | head -n1 | awk '{print $2}')
+        log "Found RQLite version: $RQLITE_VERSION"
+        success "RQLite already installed"
+        return 0
+    fi
+    
+    log "Installing RQLite..."
+    
+    # Determine architecture
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64)
+            RQLITE_ARCH="amd64"
+            ;;
+        aarch64|arm64)
+            RQLITE_ARCH="arm64"
+            ;;
+        armv7l)
+            RQLITE_ARCH="arm"
+            ;;
+        *)
+            error "Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+    esac
+    
+    # Download and install RQLite
+    RQLITE_VERSION="8.30.0"
+    RQLITE_TARBALL="rqlite-v${RQLITE_VERSION}-linux-${RQLITE_ARCH}.tar.gz"
+    RQLITE_URL="https://github.com/rqlite/rqlite/releases/download/v${RQLITE_VERSION}/${RQLITE_TARBALL}"
+    
+    cd /tmp
+    if ! wget -q "$RQLITE_URL"; then
+        error "Failed to download RQLite from $RQLITE_URL"
+        exit 1
+    fi
+    
+    # Extract and install RQLite binaries
+    tar -xzf "$RQLITE_TARBALL"
+    RQLITE_DIR="rqlite-v${RQLITE_VERSION}-linux-${RQLITE_ARCH}"
+    
+    # Install RQLite binaries to system PATH
+    sudo cp "$RQLITE_DIR/rqlited" /usr/local/bin/
+    sudo cp "$RQLITE_DIR/rqlite" /usr/local/bin/
+    sudo chmod +x /usr/local/bin/rqlited
+    sudo chmod +x /usr/local/bin/rqlite
+    
+    # Cleanup
+    rm -rf "$RQLITE_TARBALL" "$RQLITE_DIR"
+    
+    # Verify installation
+    if command -v rqlited &> /dev/null; then
+        INSTALLED_VERSION=$(rqlited -version | head -n1 | awk '{print $2}')
+        success "RQLite v$INSTALLED_VERSION installed successfully"
+    else
+        error "RQLite installation failed"
+        exit 1
+    fi
+}
+
 # Check port availability
 check_ports() {
     local ports=($BOOTSTRAP_PORT $NODE_PORT $RQLITE_BOOTSTRAP_PORT $RQLITE_NODE_PORT $RAFT_BOOTSTRAP_PORT $RAFT_NODE_PORT)
@@ -714,6 +778,7 @@ main() {
     fi
     
     install_dependencies
+    install_rqlite
     
     # Skip configuration wizard in update mode
     if [ "$UPDATE_MODE" != true ]; then
