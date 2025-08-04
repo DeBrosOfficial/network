@@ -791,16 +791,9 @@ main() {
         configuration_wizard
     else
         log "Update mode: skipping configuration wizard"
-        # Detect existing node type
-        if [ -f "$INSTALL_DIR/configs/bootstrap.yaml" ]; then
-            NODE_TYPE="bootstrap"
-        elif [ -f "$INSTALL_DIR/configs/node.yaml" ]; then
-            NODE_TYPE="node"
-        else
-            error "Cannot determine existing node type"
-            exit 1
-        fi
-        log "Detected existing node type: $NODE_TYPE"
+        # Force node type to 'node' for consistent terminology
+        NODE_TYPE="node"
+        log "Using node type: $NODE_TYPE (standardized from any previous bootstrap configuration)"
     fi
     
     setup_directories
