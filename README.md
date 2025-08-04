@@ -288,7 +288,6 @@ curl -sSL https://git.debros.io/DeBros/network/raw/branch/main/scripts/install-d
 
 2. **Configuration Wizard**:
 
-   - Node type selection (bootstrap vs regular node)
    - Solana wallet address for node operator rewards
    - Installation directory (default: `/opt/debros`)
    - Automatic firewall configuration (UFW)
@@ -313,42 +312,30 @@ The script creates a production-ready directory structure:
 /opt/debros/
 ├── bin/                    # Compiled binaries
 │   ├── bootstrap          # Bootstrap node executable
-│   ├── node              # Regular node executable
+│   ├── node              # Node executable
 │   └── cli               # CLI tools
 ├── configs/               # Configuration files
-│   ├── bootstrap.yaml    # Bootstrap node config
-│   └── node.yaml         # Regular node config
+│   └── node.yaml         # Node configuration
 ├── keys/                  # Identity keys (secure 700 permissions)
-│   ├── bootstrap/
-│   │   └── identity.key
 │   └── node/
 │       └── identity.key
 ├── data/                  # Runtime data
-│   ├── bootstrap/
-│   │   ├── rqlite/       # RQLite database files
-│   │   └── storage/      # P2P storage data
 │   └── node/
-│       ├── rqlite/
-│       └── storage/
+│       ├── rqlite/       # RQLite database files
+│       └── storage/      # P2P storage data
 ├── logs/                  # Application logs
-│   ├── bootstrap.log
 │   └── node.log
 └── src/                   # Source code (for updates)
 ```
 
-#### Node Types
+#### Node Setup
 
-**Bootstrap Node**:
+The installation script sets up a **bootstrap node** (named "node" for simplicity):
 
 - Network entry point that other nodes connect to
 - Runs on ports: 4001 (P2P), 5001 (RQLite), 7001 (Raft)
 - Should be deployed on stable, publicly accessible servers
 - Acts as initial seed for peer discovery
-
-**Regular Node**:
-
-- Connects to bootstrap peers automatically (hardcoded in code)
-- Runs on ports: 4002 (P2P), 5002 (RQLite), 7002 (Raft)
 - Participates in DHT for peer discovery and data replication
 - Can be deployed on any server or VPS
 
@@ -358,19 +345,19 @@ After installation, manage your node with these commands:
 
 ```bash
 # Check service status
-sudo systemctl status debros-bootstrap  # or debros-node
+sudo systemctl status debros-node
 
 # Start/stop/restart service
-sudo systemctl start debros-bootstrap
-sudo systemctl stop debros-bootstrap
-sudo systemctl restart debros-bootstrap
+sudo systemctl start debros-node
+sudo systemctl stop debros-node
+sudo systemctl restart debros-node
 
 # View real-time logs
-sudo journalctl -u debros-bootstrap.service -f
+sudo journalctl -u debros-node.service -f
 
 # Enable/disable auto-start
-sudo systemctl enable debros-bootstrap
-sudo systemctl disable debros-bootstrap
+sudo systemctl enable debros-node
+sudo systemctl disable debros-node
 
 # Use CLI tools
 /opt/debros/bin/cli health
@@ -382,12 +369,12 @@ sudo systemctl disable debros-bootstrap
 
 The script generates YAML configuration files:
 
-**Bootstrap Node (`/opt/debros/configs/bootstrap.yaml`)**:
+**Node Configuration (`/opt/debros/configs/node.yaml`)**:
 
 ```yaml
 node:
-  data_dir: "/opt/debros/data/bootstrap"
-  key_file: "/opt/debros/keys/bootstrap/identity.key"
+  data_dir: "/opt/debros/data/node"
+  key_file: "/opt/debros/keys/node/identity.key"
   listen_addresses:
     - "/ip4/0.0.0.0/tcp/4001"
   solana_wallet: "YOUR_WALLET_ADDRESS"
@@ -395,25 +382,6 @@ node:
 database:
   rqlite_port: 5001
   rqlite_raft_port: 7001
-
-logging:
-  level: "info"
-  file: "/opt/debros/logs/bootstrap.log"
-```
-
-**Regular Node (`/opt/debros/configs/node.yaml`)**:
-
-```yaml
-node:
-  data_dir: "/opt/debros/data/node"
-  key_file: "/opt/debros/keys/node/identity.key"
-  listen_addresses:
-    - "/ip4/0.0.0.0/tcp/4002"
-  solana_wallet: "YOUR_WALLET_ADDRESS"
-
-database:
-  rqlite_port: 5002
-  rqlite_raft_port: 7002
 
 logging:
   level: "info"
@@ -448,7 +416,7 @@ cd /opt/debros/src
 sudo -u debros git pull
 sudo -u debros make build
 sudo cp bin/* /opt/debros/bin/
-sudo systemctl restart debros-bootstrap  # or debros-node
+sudo systemctl restart debros-node
 
 # Backup configuration and keys
 sudo cp -r /opt/debros/configs /backup/
@@ -462,7 +430,7 @@ sudo cp -r /opt/debros/keys /backup/
 sudo netstat -tuln | grep -E "(4001|4002|5001|5002|7001|7002)"
 
 # Check service logs
-sudo journalctl -u debros-bootstrap.service --since "1 hour ago"
+sudo journalctl -u debros-node.service --since "1 hour ago"
 
 # Check network connectivity
 /opt/debros/bin/cli health
