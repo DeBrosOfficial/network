@@ -70,4 +70,4 @@ data/*
 ./node
 data/bootstrap/rqlite/
 
-.env
+.env.*

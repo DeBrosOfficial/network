@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -169,14 +170,8 @@ func (d *DatabaseClientImpl) getRQLiteConnection() (*gorqlite.Connection, error)
 
 // connectToAvailableNode tries to connect to any available RQLite node
 func (d *DatabaseClientImpl) connectToAvailableNode() (*gorqlite.Connection, error) {
-	// List of RQLite nodes to try (bootstrap, node1, node2, etc.)
-	rqliteNodes := []string{
-		"http://localhost:5001", // bootstrap
-		"http://localhost:5002", // node1
-		"http://localhost:5003", // node2
-		"http://localhost:5004", // node3 (if exists)
-		"http://localhost:5005", // node4 (if exists)
-	}
+	// Get RQLite nodes from environment or use defaults
+	rqliteNodes := d.getRQLiteNodes()
 
 	var lastErr error
 
@@ -199,6 +194,32 @@ func (d *DatabaseClientImpl) connectToAvailableNode() (*gorqlite.Connection, err
 	}
 
 	return nil, fmt.Errorf("failed to connect to any RQLite instance. Last error: %w", lastErr)
+}
+
+// getRQLiteNodes returns a list of RQLite node URLs from environment or defaults
+func (d *DatabaseClientImpl) getRQLiteNodes() []string {
+	// Try to get RQLite nodes from environment variable
+	if envNodes := os.Getenv("RQLITE_NODES"); envNodes != "" {
+		return strings.Split(envNodes, ",")
+	}
+
+	// Check if we're in production environment
+	if env := os.Getenv("ENVIRONMENT"); env == "production" {
+		// Use production servers with RQLite HTTP API ports (network port + 1000)
+		return []string{
+			"http://57.129.81.31:5001",   // production server 1
+			"http://38.242.250.186:5001", // production server 2
+		}
+	}
+
+	// Fallback to localhost for development
+	return []string{
+		"http://localhost:5001", // bootstrap
+		"http://localhost:5002", // node1
+		"http://localhost:5003", // node2
+		"http://localhost:5004", // node3 (if exists)
+		"http://localhost:5005", // node4 (if exists)
+	}
 }
 
 // testConnection performs a health check on the RQLite connection

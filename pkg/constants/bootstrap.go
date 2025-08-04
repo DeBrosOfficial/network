@@ -87,15 +87,25 @@ func loadEnvironmentConfig() {
 
 // setDefaultBootstrapConfig sets default bootstrap configuration
 func setDefaultBootstrapConfig() {
-	BootstrapPeerIDs = []string{
-		"12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
-		"12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei",
-		"12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
-	}
-	BootstrapAddresses = []string{
-		"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
-		"/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei",
-		"/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+	// Check if we're in production environment
+	if env := os.Getenv("ENVIRONMENT"); env == "production" {
+		// Production: only use live production peers
+		BootstrapPeerIDs = []string{
+			"12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei",
+			"12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+		}
+		BootstrapAddresses = []string{
+			"/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei",
+			"/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+		}
+	} else {
+		// Development: only use localhost bootstrap
+		BootstrapPeerIDs = []string{
+			"12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
+		}
+		BootstrapAddresses = []string{
+			"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
+		}
 	}
 	BootstrapPort = 4001
 }

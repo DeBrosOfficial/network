@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"git.debros.io/DeBros/network/pkg/client"
+	"git.debros.io/DeBros/network/pkg/constants"
 )
 
 var (
 	bootstrapPeer = "/ip4/127.0.0.1/tcp/4001"
 	timeout       = 30 * time.Second
 	format        = "table"
+	useProduction = false
 )
 
 func main() {
@@ -80,6 +82,8 @@ func parseGlobalFlags(args []string) {
 					timeout = d
 				}
 			}
+		case "--production":
+			useProduction = true
 		}
 	}
 }
@@ -348,14 +352,26 @@ func handleConnect(peerAddr string) {
 }
 
 func createClient() (client.NetworkClient, error) {
-	// Try to discover the bootstrap peer from saved peer info
-	discoveredPeer := discoverBootstrapPeer()
-	if discoveredPeer != "" {
-		bootstrapPeer = discoveredPeer
+	var bootstrapPeers []string
+	
+	if useProduction {
+		// Set environment to production to trigger production bootstrap peers
+		os.Setenv("ENVIRONMENT", "production")
+		bootstrapPeers = constants.GetBootstrapPeers()
+		if format != "json" {
+			fmt.Printf("🔗 Using production bootstrap peers\n")
+		}
+	} else {
+		// Try to discover the bootstrap peer from saved peer info
+		discoveredPeer := discoverBootstrapPeer()
+		if discoveredPeer != "" {
+			bootstrapPeer = discoveredPeer
+		}
+		bootstrapPeers = []string{bootstrapPeer}
 	}
 
 	config := client.DefaultClientConfig("network-cli")
-	config.BootstrapPeers = []string{bootstrapPeer}
+	config.BootstrapPeers = bootstrapPeers
 	config.ConnectTimeout = timeout
 	config.QuietMode = true // Suppress debug/info logs for CLI
 
@@ -441,10 +457,12 @@ func showHelp() {
 	fmt.Printf("Global Flags:\n")
 	fmt.Printf("  -b, --bootstrap <addr>    - Bootstrap peer address (default: /ip4/127.0.0.1/tcp/4001)\n")
 	fmt.Printf("  -f, --format <format>     - Output format: table, json (default: table)\n")
-	fmt.Printf("  -t, --timeout <duration>  - Operation timeout (default: 30s)\n\n")
+	fmt.Printf("  -t, --timeout <duration>  - Operation timeout (default: 30s)\n")
+	fmt.Printf("  --production              - Connect to production bootstrap peers\n\n")
 	fmt.Printf("Examples:\n")
 	fmt.Printf("  network-cli health\n")
 	fmt.Printf("  network-cli peers --format json\n")
+	fmt.Printf("  network-cli peers --production\n")
 	fmt.Printf("  network-cli storage put user:123 '{\"name\":\"Alice\"}'\n")
 	fmt.Printf("  network-cli pubsub subscribe notifications 1m\n")
 }

@@ -706,6 +706,7 @@ Type=simple
 User=debros
 Group=debros
 WorkingDirectory=$INSTALL_DIR
+Environment=ENVIRONMENT=production
 ExecStart=$exec_start
 Restart=always
 RestartSec=10
