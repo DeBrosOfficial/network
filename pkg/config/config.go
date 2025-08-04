@@ -122,7 +122,7 @@ func DefaultConfig() *Config {
 
 			// RQLite-specific configuration
 			RQLitePort:        5001,
-			RQLiteRaftPort:    5002,
+			RQLiteRaftPort:    7001,
 			RQLiteJoinAddress: "", // Empty for bootstrap node
 		},
 		Discovery: DiscoveryConfig{

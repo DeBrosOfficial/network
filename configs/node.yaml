@@ -15,7 +15,7 @@ database:
   max_database_size: 1073741824 # 1GB
   backup_interval: "24h"
   rqlite_port: 5001
-  rqlite_raft_port: 5002
+  rqlite_raft_port: 7001
 
 discovery:
   bootstrap_peers:
