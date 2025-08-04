@@ -551,28 +551,53 @@ EOF
 # Configure firewall
 configure_firewall() {
     if [[ "$CONFIGURE_FIREWALL" == "yes" ]]; then
-        log "Configuring firewall..."
+        log "Configuring firewall rules..."
 
         if command -v ufw &> /dev/null; then
+            # Add firewall rules regardless of UFW status
+            # This allows the rules to be ready when UFW is enabled
+            log "Adding UFW rules for DeBros Network ports..."
+            
+            # Add ports based on node type with error handling
             if [ "$NODE_TYPE" = "bootstrap" ]; then
-                sudo ufw allow $BOOTSTRAP_PORT
-                sudo ufw allow $RQLITE_BOOTSTRAP_PORT
-                sudo ufw allow $RAFT_BOOTSTRAP_PORT
+                for port in $BOOTSTRAP_PORT $RQLITE_BOOTSTRAP_PORT $RAFT_BOOTSTRAP_PORT; do
+                    if ! sudo ufw allow $port; then
+                        error "Failed to allow port $port"
+                        exit 1
+                    fi
+                    log "Added UFW rule: allow port $port"
+                done
             else
-                sudo ufw allow $NODE_PORT
-                sudo ufw allow $RQLITE_NODE_PORT
-                sudo ufw allow $RAFT_NODE_PORT
+                for port in $NODE_PORT $RQLITE_NODE_PORT $RAFT_NODE_PORT; do
+                    if ! sudo ufw allow $port; then
+                        error "Failed to allow port $port"
+                        exit 1
+                    fi
+                    log "Added UFW rule: allow port $port"
+                done
             fi
             
-            # Enable ufw if not already active
-            UFW_STATUS=$(sudo ufw status | grep -o "Status: [a-z]*" | awk '{print $2}' || echo "inactive")
-            if [[ "$UFW_STATUS" != "active" ]]; then
-                echo "y" | sudo ufw enable
-            fi
+            # Check UFW status and inform user
+            UFW_STATUS=$(sudo ufw status | grep -o "Status: [a-z]\+" | awk '{print $2}' || echo "inactive")
             
-            success "Firewall configured"
+            if [[ "$UFW_STATUS" == "active" ]]; then
+                success "Firewall rules added and active"
+            else
+                success "Firewall rules added (UFW is inactive - rules will take effect when UFW is enabled)"
+                log "To enable UFW with current rules: sudo ufw enable"
+            fi
         else
             warning "UFW not found. Please configure firewall manually."
+            log "Required ports to allow:"
+            if [ "$NODE_TYPE" = "bootstrap" ]; then
+                log "  - Port $BOOTSTRAP_PORT (Bootstrap)"
+                log "  - Port $RQLITE_BOOTSTRAP_PORT (RQLite)"
+                log "  - Port $RAFT_BOOTSTRAP_PORT (Raft)"
+            else
+                log "  - Port $NODE_PORT (Node)"
+                log "  - Port $RQLITE_NODE_PORT (RQLite)"
+                log "  - Port $RAFT_NODE_PORT (Raft)"
+            fi
         fi
     fi
 }
