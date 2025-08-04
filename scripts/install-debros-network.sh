@@ -733,15 +733,15 @@ EOF
 
 # Start the service
 start_service() {
-    log "Starting DeBros Network $NODE_TYPE node..."
+    log "Starting DeBros Network service..."
 
     sudo systemctl start debros-$NODE_TYPE.service
     sleep 3
 
     if systemctl is-active --quiet debros-$NODE_TYPE.service; then
-        success "DeBros Network $NODE_TYPE node started successfully"
+        success "DeBros Network service started successfully"
     else
-        error "Failed to start DeBros Network $NODE_TYPE node"
+        error "Failed to start DeBros Network service"
         log "Check logs with: sudo journalctl -u debros-$NODE_TYPE.service"
         exit 1
     fi
@@ -821,7 +821,6 @@ main() {
     fi
     log "${BLUE}==================================================${NOCOLOR}"
     
-    log "${GREEN}Node Type:${NOCOLOR} ${CYAN}$NODE_TYPE${NOCOLOR}"
     log "${GREEN}Installation Directory:${NOCOLOR} ${CYAN}$INSTALL_DIR${NOCOLOR}"
     log "${GREEN}Configuration:${NOCOLOR} ${CYAN}$INSTALL_DIR/configs/$NODE_TYPE.yaml${NOCOLOR}"
     log "${GREEN}Logs:${NOCOLOR} ${CYAN}$INSTALL_DIR/logs/$NODE_TYPE.log${NOCOLOR}"
@@ -841,9 +840,9 @@ main() {
     log "${BLUE}==================================================${NOCOLOR}"
 
     if [ "$UPDATE_MODE" = true ]; then
-        success "DeBros Network $NODE_TYPE node has been updated and is running!"
+        success "DeBros Network has been updated and is running!"
     else
-        success "DeBros Network $NODE_TYPE node is now running!"
+        success "DeBros Network is now running!"
     fi
     log "${CYAN}For documentation visit: https://docs.debros.io${NOCOLOR}"
 }
