@@ -576,9 +576,38 @@ build_binaries() {
     export PATH=$PATH:/usr/local/go/bin
     sudo -u debros env "PATH=$PATH:/usr/local/go/bin" make build
 
+    # If in update mode, stop services before copying binaries to avoid "Text file busy" error
+    local services_were_running=()
+    if [ "$UPDATE_MODE" = true ]; then
+        log "Update mode: checking for running services before binary update..."
+        
+        for service in debros-bootstrap debros-node; do
+            if systemctl is-active --quiet $service.service 2>/dev/null; then
+                log "Stopping $service service to update binaries..."
+                sudo systemctl stop $service.service
+                services_were_running+=("$service")
+            fi
+        done
+        
+        # Give services a moment to fully stop
+        if [ ${#services_were_running[@]} -gt 0 ]; then
+            log "Waiting for services to stop completely..."
+            sleep 3
+        fi
+    fi
+
     # Copy binaries to installation directory
     sudo cp bin/* "$INSTALL_DIR/bin/"
     sudo chown debros:debros "$INSTALL_DIR/bin/"*
+
+    # If in update mode and services were running, restart them
+    if [ "$UPDATE_MODE" = true ] && [ ${#services_were_running[@]} -gt 0 ]; then
+        log "Restarting previously running services..."
+        for service in "${services_were_running[@]}"; do
+            log "Starting $service service..."
+            sudo systemctl start $service.service
+        done
+    fi
 
     success "Binaries built and installed"
 }
