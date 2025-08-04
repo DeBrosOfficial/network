@@ -693,7 +693,7 @@ create_systemd_service() {
 
     # Determine the correct ExecStart command based on node type
     local exec_start=""
-exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $BOOTSTRAP_PORT"
+exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT"
 
     cat > /tmp/debros-$NODE_TYPE.service << EOF
 [Unit]
