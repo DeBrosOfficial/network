@@ -1,13 +1,12 @@
 # Network - Distributed P2P Database System
 # Makefile for development and build tasks
 
-.PHONY: build clean test run-bootstrap run-node run-example deps tidy fmt vet
+.PHONY: build clean test run-node run-node2 run-node3 run-example deps tidy fmt vet
 
 # Build targets
 build: deps
 	@echo "Building network executables..."
 	@mkdir -p bin
-	go build -o bin/bootstrap cmd/bootstrap/main.go
 	go build -o bin/node cmd/node/main.go
 	go build -o bin/network-cli cmd/cli/main.go
 	@echo "Build complete!"
@@ -24,15 +23,20 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
-# Run bootstrap node
-run-bootstrap:
-	@echo "Starting bootstrap node..."
-	go run cmd/bootstrap/main.go -port 4001 -data ./data/bootstrap
-
-# Run regular node
+# Run node (auto-detects if bootstrap or regular based on configuration)
 run-node:
-	@echo "Starting regular node..."
+	@echo "Starting network node..."
 	go run cmd/node/main.go -data ./data/node
+
+# Run second node with different identity
+run-node2:
+	@echo "Starting second network node..."
+	go run cmd/node/main.go -id node2
+
+# Run third node with different identity
+run-node3:
+	@echo "Starting third network node..."
+	go run cmd/node/main.go -id node3
 
 # Show current bootstrap configuration
 show-bootstrap:
@@ -106,7 +110,7 @@ vet:
 # Development setup
 dev-setup: deps
 	@echo "Setting up development environment..."
-	@mkdir -p data/bootstrap data/node1 data/node2
+	@mkdir -p data/bootstrap data/node data/node-node2 data/node-node3
 	@mkdir -p data/test-bootstrap data/test-node1 data/test-node2
 	@mkdir -p anchat/bin
 	@echo "Development setup complete!"
@@ -138,15 +142,16 @@ test-consensus: build
 # Start development cluster (requires multiple terminals)
 dev-cluster:
 	@echo "To start a development cluster, run these commands in separate terminals:"
-	@echo "1. make run-bootstrap      # Start bootstrap node"
-	@echo "2. make run-node           # Start regular node (auto-loads bootstrap from .env)"
-	@echo "3. make run-example        # Test basic functionality"
-	@echo "4. make run-anchat         # Start messaging app"
-	@echo "5. make show-bootstrap     # Check bootstrap configuration"
-	@echo "6. make cli-health         # Check network health"
-	@echo "7. make cli-peers          # List peers"
-	@echo "8. make cli-storage-test   # Test storage"
-	@echo "9. make cli-pubsub-test    # Test messaging"
+	@echo "1. make run-node           # Start first node (auto-detects as bootstrap in dev)"
+	@echo "2. make run-node2          # Start second node with different identity"
+	@echo "3. make run-node3          # Start third node with different identity"
+	@echo "4. make run-example        # Test basic functionality"
+	@echo "5. make run-anchat         # Start messaging app"
+	@echo "6. make show-bootstrap     # Check bootstrap configuration"
+	@echo "7. make cli-health         # Check network health"
+	@echo "8. make cli-peers          # List peers"
+	@echo "9. make cli-storage-test   # Test storage"
+	@echo "10. make cli-pubsub-test   # Test messaging"
 
 # Full development workflow
 dev: clean build build-anchat test
@@ -159,8 +164,9 @@ help:
 	@echo "  build-anchat  - Build Anchat application"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  test          - Run tests"
-	@echo "  run-bootstrap - Start bootstrap node"
-	@echo "  run-node      - Start regular node (auto-loads bootstrap from .env)"
+	@echo "  run-node      - Start network node (auto-detects bootstrap vs regular)"
+	@echo "  run-node2     - Start second node with different identity"
+	@echo "  run-node3     - Start third node with different identity"
 	@echo "  run-example   - Run usage example"
 	@echo "  run-anchat    - Run Anchat demo"
 	@echo "  run-cli       - Run network CLI help"

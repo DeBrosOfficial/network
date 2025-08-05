@@ -3,10 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"git.debros.io/DeBros/network/pkg/constants"
 
 	"git.debros.io/DeBros/network/pkg/storage"
 
@@ -196,29 +197,35 @@ func (d *DatabaseClientImpl) connectToAvailableNode() (*gorqlite.Connection, err
 	return nil, fmt.Errorf("failed to connect to any RQLite instance. Last error: %w", lastErr)
 }
 
-// getRQLiteNodes returns a list of RQLite node URLs from environment or defaults
+// getRQLiteNodes returns a list of RQLite node URLs using the peer IPs/hostnames from bootstrap.go, always on port 4001
 func (d *DatabaseClientImpl) getRQLiteNodes() []string {
-	// Try to get RQLite nodes from environment variable
-	if envNodes := os.Getenv("RQLITE_NODES"); envNodes != "" {
-		return strings.Split(envNodes, ",")
-	}
-
-	// Check if we're in production environment
-	if env := os.Getenv("ENVIRONMENT"); env == "production" {
-		// Use production servers with RQLite HTTP API ports (network port + 1000)
-		return []string{
-			"http://57.129.81.31:5001",   // production server 1
-			"http://38.242.250.186:5001", // production server 2
+	// Use bootstrap peer addresses from constants
+	// Import the constants package
+	// We'll extract the IP/host from the multiaddr and build the HTTP URL
+	var nodes []string
+	for _, addr := range constants.GetBootstrapPeers() {
+		// Example multiaddr: /ip4/57.129.81.31/tcp/4001/p2p/12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei
+		parts := strings.Split(addr, "/")
+		var host string
+		var port string = "4001" // always use 4001
+		for i := 0; i < len(parts); i++ {
+			if parts[i] == "ip4" || parts[i] == "ip6" {
+				host = parts[i+1]
+			}
+			if parts[i] == "dns" || parts[i] == "dns4" || parts[i] == "dns6" {
+				host = parts[i+1]
+			}
+			// ignore tcp port in multiaddr, always use 4001
+		}
+		if host != "" {
+			nodes = append(nodes, "http://"+host+":"+port)
 		}
 	}
-
-	// Fallback to localhost for development
-	return []string{
-		"http://localhost:5001", // bootstrap
-		"http://localhost:5002", // node1  
-		"http://localhost:5003", // node2
-		"http://localhost:5004", // node3 (if exists)
+	// If no peers found, fallback to localhost:4001
+	if len(nodes) == 0 {
+		nodes = append(nodes, "http://localhost:4001")
 	}
+	return nodes
 }
 
 // testConnection performs a health check on the RQLite connection

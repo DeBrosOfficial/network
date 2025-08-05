@@ -101,10 +101,10 @@ func setDefaultBootstrapConfig() {
 	} else {
 		// Development: only use localhost bootstrap
 		BootstrapPeerIDs = []string{
-			"12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
+			"12D3KooWBQAr9Lj9Z3918wBT523tJaRiPN6zRywAtttvPrwcZfJb",
 		}
 		BootstrapAddresses = []string{
-			"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j",
+			"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWBQAr9Lj9Z3918wBT523tJaRiPN6zRywAtttvPrwcZfJb",
 		}
 	}
 	BootstrapPort = 4001

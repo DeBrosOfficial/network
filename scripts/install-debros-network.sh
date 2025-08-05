@@ -16,8 +16,8 @@ INSTALL_DIR="/opt/debros"
 REPO_URL="https://git.debros.io/DeBros/network.git"
 MIN_GO_VERSION="1.19"
 NODE_PORT="4001"
-RQLITE_NODE_PORT="5001"
-RAFT_NODE_PORT="7001"
+RQLITE_PORT="4001"     # All nodes use same RQLite port to join same cluster
+RAFT_PORT="4002"       # All nodes use same Raft port
 UPDATE_MODE=false
 NON_INTERACTIVE=false
 
@@ -372,7 +372,7 @@ install_rqlite() {
 
 # Check port availability
 check_ports() {
-    local ports=($NODE_PORT $RQLITE_NODE_PORT $RAFT_NODE_PORT)
+    local ports=($NODE_PORT $RQLITE_PORT $RAFT_PORT)
     
     for port in "${ports[@]}"; do
         if sudo netstat -tuln 2>/dev/null | grep -q ":$port " || ss -tuln 2>/dev/null | grep -q ":$port "; then
@@ -622,8 +622,8 @@ node:
   solana_wallet: "$SOLANA_WALLET"
 
 database:
-  rqlite_port: $RQLITE_NODE_PORT
-  rqlite_raft_port: $RAFT_NODE_PORT
+  rqlite_port: $RQLITE_PORT
+  rqlite_raft_port: $RAFT_PORT
 
 logging:
   level: "info"
@@ -647,7 +647,7 @@ configure_firewall() {
             log "Adding UFW rules for DeBros Network ports..."
             
             # Add ports for node
-            for port in $NODE_PORT $RQLITE_NODE_PORT $RAFT_NODE_PORT; do
+            for port in $NODE_PORT $RQLITE_PORT $RAFT_PORT; do
                 if ! sudo ufw allow $port; then
                     error "Failed to allow port $port"
                     exit 1
@@ -668,7 +668,7 @@ configure_firewall() {
             warning "UFW not found. Please configure firewall manually."
             log "Required ports to allow:"
             log "  - Port $NODE_PORT (Node)"
-            log "  - Port $RQLITE_NODE_PORT (RQLite)"
+            log "  - Port $RQLITE_PORT (RQLite)"
             log "  - Port $RAFT_NODE_PORT (Raft)"
         fi
     fi
@@ -827,7 +827,7 @@ main() {
     log "${GREEN}Logs:${NOCOLOR} ${CYAN}$INSTALL_DIR/logs/$NODE_TYPE.log${NOCOLOR}"
     
     log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$NODE_PORT${NOCOLOR}"
-    log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_NODE_PORT${NOCOLOR}"
+    log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_PORT${NOCOLOR}"
     log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_NODE_PORT${NOCOLOR}"
 
     log "${BLUE}==================================================${NOCOLOR}"
