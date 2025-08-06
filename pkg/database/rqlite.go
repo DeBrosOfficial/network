@@ -43,8 +43,8 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 
 	// Build RQLite command
 	args := []string{
-		"-http-addr", fmt.Sprintf("localhost:%d", r.config.RQLitePort),
-		"-raft-addr", fmt.Sprintf("localhost:%d", r.config.RQLiteRaftPort),
+		"-http-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLitePort),
+		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLiteRaftPort),
 	}
 
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
