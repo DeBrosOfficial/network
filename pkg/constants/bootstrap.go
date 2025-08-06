@@ -18,8 +18,8 @@ var (
 	// BootstrapAddresses are the full multiaddrs for bootstrap nodes
 	BootstrapAddresses []string
 
-	// BootstrapPort is the default port for bootstrap nodes
-	BootstrapPort int = 4001
+	// BootstrapPort is the default port for bootstrap nodes (LibP2P)
+	BootstrapPort int = 4000
 )
 
 // Load environment variables and initialize bootstrap configuration
@@ -95,8 +95,8 @@ func setDefaultBootstrapConfig() {
 			"12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
 		}
 		BootstrapAddresses = []string{
-			"/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWJvJj94TmNwG1sntDWgAXi7MN3xxLLkoQzgHX6gQ22eKi",
-			"/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+			"/ip4/57.129.81.31/tcp/4000/p2p/12D3KooWJvJj94TmNwG1sntDWgAXi7MN3xxLLkoQzgHX6gQ22eKi",
+			"/ip4/38.242.250.186/tcp/4000/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
 		}
 	} else {
 		// Development: only use localhost bootstrap
@@ -104,10 +104,10 @@ func setDefaultBootstrapConfig() {
 			"12D3KooWBQAr9Lj9Z3918wBT523tJaRiPN6zRywAtttvPrwcZfJb",
 		}
 		BootstrapAddresses = []string{
-			"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWBQAr9Lj9Z3918wBT523tJaRiPN6zRywAtttvPrwcZfJb",
+			"/ip4/127.0.0.1/tcp/4000/p2p/12D3KooWBQAr9Lj9Z3918wBT523tJaRiPN6zRywAtttvPrwcZfJb",
 		}
 	}
-	BootstrapPort = 4001
+	BootstrapPort = 4000
 }
 
 // extractPeerIDFromMultiaddr extracts the peer ID from a multiaddr string

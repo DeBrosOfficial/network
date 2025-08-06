@@ -48,8 +48,8 @@ func main() {
 		}
 	}
 
-	// All nodes use port 4001 for consistency
-	port := 4001
+	// LibP2P uses port 4000, RQLite uses 4001
+	port := 4000
 
 	// Create logger with appropriate component type
 	var logger *logging.StandardLogger
