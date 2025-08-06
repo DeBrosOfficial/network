@@ -47,7 +47,7 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		"-raft-addr", fmt.Sprintf("localhost:%d", r.config.RQLiteRaftPort),
 	}
 
-	// Add join address if specified (for non-bootstrap nodes)
+	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
 		args = append(args, "-join", r.config.RQLiteJoinAddress)
 	}

@@ -85,9 +85,30 @@ func main() {
 	cfg.Database.RQLiteRaftPort = 4002
 
 	if isBootstrap {
-		// Bootstrap node doesn't join anyone - it starts the cluster
-		cfg.Database.RQLiteJoinAddress = ""
-		logger.Printf("Bootstrap node - starting new RQLite cluster")
+		// Check if this is the primary bootstrap node (first in list) or secondary
+		bootstrapPeers := constants.GetBootstrapPeers()
+		isSecondaryBootstrap := false
+		if len(bootstrapPeers) > 1 {
+			// Check if this machine matches any bootstrap peer other than the first
+			for i := 1; i < len(bootstrapPeers); i++ {
+				host := parseHostFromMultiaddr(bootstrapPeers[i])
+				if host != "" && isLocalIP(host) {
+					isSecondaryBootstrap = true
+					break
+				}
+			}
+		}
+		
+		if isSecondaryBootstrap {
+			// Secondary bootstrap nodes join the primary bootstrap
+			primaryBootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
+			cfg.Database.RQLiteJoinAddress = fmt.Sprintf("http://%s:4001", primaryBootstrapHost)
+			logger.Printf("Secondary bootstrap node - joining primary bootstrap at: %s", cfg.Database.RQLiteJoinAddress)
+		} else {
+			// Primary bootstrap node doesn't join anyone - it starts the cluster
+			cfg.Database.RQLiteJoinAddress = ""
+			logger.Printf("Primary bootstrap node - starting new RQLite cluster")
+		}
 	} else {
 		// Configure bootstrap peers for P2P discovery
 		var rqliteJoinAddr string
