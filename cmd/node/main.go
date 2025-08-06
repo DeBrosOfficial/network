@@ -119,8 +119,10 @@ func main() {
 			bootstrapHost := parseHostFromMultiaddr(*bootstrap)
 			if bootstrapHost != "" {
 				rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+				logger.Printf("Using extracted bootstrap host %s for RQLite join", bootstrapHost)
 			} else {
-				rqliteJoinAddr = "http://57.129.81.31:4001" // Default fallback
+				logger.Printf("Warning: Could not extract host from bootstrap peer %s, using localhost fallback", *bootstrap)
+				rqliteJoinAddr = "http://localhost:4001" // Use localhost fallback instead
 			}
 			logger.Printf("Using command line bootstrap peer: %s", *bootstrap)
 		} else {
@@ -132,13 +134,18 @@ func main() {
 				bootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
 				if bootstrapHost != "" {
 					rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+					logger.Printf("Using extracted bootstrap host %s for RQLite join", bootstrapHost)
 				} else {
-					rqliteJoinAddr = "http://57.129.81.31:4001" // Default fallback
+					logger.Printf("Warning: Could not extract host from bootstrap peer %s", bootstrapPeers[0])
+					// Try primary production server as fallback
+					rqliteJoinAddr = "http://localhost:4001"
 				}
 				logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
 			} else {
 				logger.Printf("Warning: No bootstrap peers configured")
-				rqliteJoinAddr = "http://57.129.81.31:4001" // Default fallback
+				// Default to localhost when no peers configured
+				rqliteJoinAddr = "http://localhost:4001"
+				logger.Printf("Using localhost fallback for RQLite join")
 			}
 		}
 		

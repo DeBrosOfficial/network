@@ -43,12 +43,13 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create RQLite data directory: %w", err)
 	}
 
-	// Get the external IP address for advertising
+// Get the external IP address for advertising
 	externalIP, err := r.getExternalIP()
 	if err != nil {
 		r.logger.Warn("Failed to get external IP, using localhost", zap.Error(err))
 		externalIP = "localhost"
 	}
+	r.logger.Info("Using external IP for RQLite advertising", zap.String("ip", externalIP))
 
 	// Build RQLite command
 	args := []string{
@@ -64,7 +65,17 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
-		args = append(args, "-join", r.config.RQLiteJoinAddress)
+		r.logger.Info("Joining RQLite cluster", zap.String("join_address", r.config.RQLiteJoinAddress))
+		
+		// Validate join address format before using it
+		if strings.HasPrefix(r.config.RQLiteJoinAddress, "http://") {
+			args = append(args, "-join", r.config.RQLiteJoinAddress)
+		} else {
+			r.logger.Warn("Invalid join address format, skipping join", zap.String("address", r.config.RQLiteJoinAddress))
+			return fmt.Errorf("invalid RQLite join address format: %s (must start with http://)", r.config.RQLiteJoinAddress)
+		}
+	} else {
+		r.logger.Info("No join address specified - starting as new cluster")
 	}
 
 	// Add data directory as positional argument
@@ -75,6 +86,8 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		zap.Int("http_port", r.config.RQLitePort),
 		zap.Int("raft_port", r.config.RQLiteRaftPort),
 		zap.String("join_address", r.config.RQLiteJoinAddress),
+		zap.String("external_ip", externalIP),
+		zap.Strings("full_args", args),
 	)
 
 	// Start RQLite process
