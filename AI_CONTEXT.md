@@ -1,6 +1,7 @@
 # AI Context - DeBros Network Cluster
 
 ## Table of Contents
+
 - [Project Overview](#project-overview)
 - [Product Requirements Document (PRD)](#product-requirements-document-prd)
 - [Architecture Overview](#architecture-overview)
@@ -19,30 +20,36 @@
 ## Product Requirements Document (PRD)
 
 ### Vision
+
 Create a robust, decentralized network platform that enables applications to seamlessly share data, communicate, and discover peers in a distributed environment.
 
 ### Core Requirements
 
 #### Functional Requirements
+
 1. **Distributed Database Operations**
+
    - SQL query execution across network nodes
    - ACID transactions with eventual consistency
    - Schema management and table operations
    - Multi-node resilience with automatic failover
 
 2. **Key-Value Storage**
+
    - Distributed storage with namespace isolation
    - CRUD operations with consistency guarantees
    - Prefix-based querying and key enumeration
    - Data replication across network participants
 
 3. **Pub/Sub Messaging**
+
    - Topic-based publish/subscribe communication
    - Real-time message delivery with ordering guarantees
    - Subscription management with automatic cleanup
    - Namespace isolation per application
 
 4. **Peer Discovery & Management**
+
    - Automatic peer discovery using DHT (Distributed Hash Table)
    - Bootstrap node support for network joining
    - Connection health monitoring and recovery
@@ -54,6 +61,7 @@ Create a robust, decentralized network platform that enables applications to sea
    - Independent configuration and lifecycle management
 
 #### Non-Functional Requirements
+
 1. **Reliability**: 99.9% uptime with automatic failover
 2. **Scalability**: Support 100+ nodes with linear performance
 3. **Security**: End-to-end encryption for sensitive data
@@ -61,6 +69,7 @@ Create a robust, decentralized network platform that enables applications to sea
 5. **Developer Experience**: Simple client API with comprehensive examples
 
 ### Success Metrics
+
 - Network uptime > 99.9%
 - Peer discovery time < 30 seconds
 - Database operation latency < 500ms
@@ -99,6 +108,7 @@ Create a robust, decentralized network platform that enables applications to sea
 ```
 
 ### Key Design Principles
+
 1. **Modularity**: Each component can be developed and tested independently
 2. **Fault Tolerance**: Network continues operating even with node failures
 3. **Consistency**: Strong consistency for database operations, eventual consistency for discovery
@@ -157,9 +167,11 @@ debros-testing/
 ## Key Components
 
 ### 1. Network Client (`pkg/client/`)
+
 The main entry point for applications to interact with the network.
 
 **Core Interfaces:**
+
 - `NetworkClient`: Main client interface
 - `DatabaseClient`: SQL database operations
 - `StorageClient`: Key-value storage operations
@@ -167,57 +179,69 @@ The main entry point for applications to interact with the network.
 - `NetworkInfo`: Network status and peer information
 
 **Key Features:**
+
 - Automatic connection management with retry logic
 - Namespace isolation per application
 - Health monitoring and status reporting
 - Graceful shutdown and cleanup
 
 ### 2. Peer Discovery (`pkg/discovery/`)
+
 Handles automatic peer discovery and network topology management.
 
 **Discovery Strategies:**
+
 - **DHT-based**: Uses Kademlia DHT for efficient peer routing
 - **Peer Exchange**: Learns about new peers from existing connections
 - **Bootstrap**: Connects to known bootstrap nodes for network entry
 
 **Configuration:**
+
 - Discovery interval (default: 10 seconds)
 - Maximum concurrent connections (default: 3)
 - Connection timeout and retry policies
 
 ### 3. Pub/Sub System (`pkg/pubsub/`)
+
 Provides reliable, topic-based messaging with ordering guarantees.
 
 **Features:**
+
 - Topic-based routing with wildcard support
 - Namespace isolation per application
 - Automatic subscription management
 - Message deduplication and ordering
 
 **Message Flow:**
+
 1. Client subscribes to topic with handler
 2. Publisher sends message to topic
 3. Network propagates message to all subscribers
 4. Handlers process messages asynchronously
 
 ### 4. Database Layer (`pkg/database/`)
+
 Distributed SQL database built on RQLite (Raft-based SQLite).
 
 **Capabilities:**
+
 - ACID transactions with strong consistency
 - Automatic leader election and failover
 - Multi-node replication with conflict resolution
 - Schema management and migrations
 
 **Query Types:**
+
 - Read operations: Served from any node
 - Write operations: Routed to leader node
 - Transactions: Atomic across multiple statements
 
 ### 5. Storage System (`pkg/storage/`)
+
 Distributed key-value store with eventual consistency.
 
 **Operations:**
+
 - `Put(key, value)`: Store value with key
 - `Get(key)`: Retrieve value by key
 - `Delete(key)`: Remove key-value pair
@@ -227,18 +251,21 @@ Distributed key-value store with eventual consistency.
 ## Network Protocol
 
 ### Connection Establishment
+
 1. **Bootstrap Connection**: New nodes connect to bootstrap peers
 2. **DHT Bootstrap**: Initialize Kademlia DHT for routing
 3. **Peer Discovery**: Discover additional peers through DHT
 4. **Service Registration**: Register available services (database, storage, pubsub)
 
 ### Message Types
+
 - **Control Messages**: Node status, heartbeats, topology updates
 - **Database Messages**: SQL queries, transactions, schema operations
 - **Storage Messages**: Key-value operations, replication data
 - **PubSub Messages**: Topic subscriptions, published content
 
 ### Security Model
+
 - **Transport Security**: All connections use TLS/Noise encryption
 - **Peer Authentication**: Cryptographic peer identity verification
 - **Message Integrity**: Hash-based message authentication codes
@@ -247,6 +274,7 @@ Distributed key-value store with eventual consistency.
 ## Data Flow
 
 ### Database Operation Flow
+
 ```
 Client App → DatabaseClient → RQLite Leader → Raft Consensus → All Nodes
      ↑                                                              ↓
@@ -254,6 +282,7 @@ Client App → DatabaseClient → RQLite Leader → Raft Consensus → All Nodes
 ```
 
 ### Storage Operation Flow
+
 ```
 Client App → StorageClient → DHT Routing → Target Nodes → Replication
      ↑                                                         ↓
@@ -261,6 +290,7 @@ Client App → StorageClient → DHT Routing → Target Nodes → Replication
 ```
 
 ### PubSub Message Flow
+
 ```
 Publisher → PubSub Manager → Topic Router → All Subscribers → Message Handlers
 ```
@@ -268,11 +298,13 @@ Publisher → PubSub Manager → Topic Router → All Subscribers → Message Ha
 ## Build & Development
 
 ### Prerequisites
-- Go 1.19+ 
+
+- Go 1.19+
 - Make
 - Git
 
 ### Build Commands
+
 ```bash
 # Build all executables
 make build
@@ -283,14 +315,15 @@ make test
 # Clean build artifacts
 make clean
 
-# Start bootstrap node
-make start-bootstrap
+# Start network node (auto-detects bootstrap vs regular)
+make run-node
 
-# Start regular node
-make start-node
+# Start additional node
+make run-node
 ```
 
 ### Development Workflow
+
 1. **Local Development**: Use `make run-node` (auto-detects bootstrap vs regular)
 2. **Testing**: Run `make test` for unit tests
 3. **Integration Testing**: Use `scripts/test-multinode.sh`
@@ -299,6 +332,7 @@ make start-node
 ### Configuration Files
 
 #### Bootstrap Node (`configs/bootstrap.yaml`)
+
 ```yaml
 node:
   data_dir: "./data/bootstrap"
@@ -311,6 +345,7 @@ database:
 ```
 
 #### Regular Node (`configs/node.yaml`)
+
 ```yaml
 node:
   data_dir: "./data/node"
@@ -329,6 +364,7 @@ database:
 ## API Reference
 
 ### Client Creation
+
 ```go
 import "network/pkg/client"
 
@@ -348,6 +384,7 @@ defer client.Disconnect()
 ```
 
 ### Database Operations
+
 ```go
 // Create table
 err := client.Database().CreateTable(ctx, `
@@ -359,7 +396,7 @@ err := client.Database().CreateTable(ctx, `
 `)
 
 // Insert data
-result, err := client.Database().Query(ctx, 
+result, err := client.Database().Query(ctx,
     "INSERT INTO users (name, email) VALUES (?, ?)",
     "Alice", "alice@example.com")
 
@@ -369,6 +406,7 @@ result, err := client.Database().Query(ctx,
 ```
 
 ### Storage Operations
+
 ```go
 // Store data
 err := client.Storage().Put(ctx, "user:123", []byte(`{"name":"Alice"}`))
@@ -384,6 +422,7 @@ exists, err := client.Storage().Exists(ctx, "user:123")
 ```
 
 ### PubSub Operations
+
 ```go
 // Subscribe to messages
 handler := func(topic string, data []byte) error {
@@ -400,6 +439,7 @@ topics, err := client.PubSub().ListTopics(ctx)
 ```
 
 ### Network Information
+
 ```go
 // Get network status
 status, err := client.Network().GetStatus(ctx)
@@ -420,40 +460,51 @@ err := client.Network().ConnectToPeer(ctx, "/ip4/192.168.1.100/tcp/4002/p2p/{PEE
 ### Common Issues
 
 #### 1. Bootstrap Connection Failed
+
 **Symptoms**: `Failed to connect to bootstrap peer`
 **Solutions**:
+
 - Verify bootstrap node is running and accessible
 - Check firewall settings and port availability
 - Validate peer ID in bootstrap address
 
 #### 2. Database Operations Timeout
+
 **Symptoms**: `Query timeout` or `No RQLite connection available`
 **Solutions**:
+
 - Ensure RQLite ports are not blocked
 - Check if leader election has completed
 - Verify cluster join configuration
 
 #### 3. Message Delivery Failures
+
 **Symptoms**: Messages not received by subscribers
 **Solutions**:
+
 - Verify topic names match exactly
 - Check subscription is active before publishing
 - Ensure network connectivity between peers
 
 #### 4. High Memory Usage
+
 **Symptoms**: Memory usage grows continuously
 **Solutions**:
+
 - Check for subscription leaks (unsubscribe when done)
 - Monitor connection pool size
 - Review message retention policies
 
 ### Debug Mode
+
 Enable debug logging by setting environment variable:
+
 ```bash
 export LOG_LEVEL=debug
 ```
 
 ### Health Checks
+
 ```go
 health, err := client.Health()
 if health.Status != "healthy" {
@@ -462,6 +513,7 @@ if health.Status != "healthy" {
 ```
 
 ### Network Diagnostics
+
 ```bash
 # Check node connectivity
 ./bin/network-cli peers
@@ -490,4 +542,4 @@ This serves as both a practical example and a reference implementation for build
 
 ---
 
-*This document provides comprehensive context for AI systems to understand the DeBros Network Cluster project architecture, implementation details, and usage patterns.*
+_This document provides comprehensive context for AI systems to understand the DeBros Network Cluster project architecture, implementation details, and usage patterns._
