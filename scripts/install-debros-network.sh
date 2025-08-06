@@ -101,14 +101,8 @@ check_existing_installation() {
     if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/bin/node" ]; then
         log "Found existing DeBros Network installation at $INSTALL_DIR"
         
-        # Check if services are running
-        BOOTSTRAP_RUNNING=false
+        # Check if service is running
         NODE_RUNNING=false
-        
-        if systemctl is-active --quiet debros-bootstrap.service 2>/dev/null; then
-            BOOTSTRAP_RUNNING=true
-            log "Bootstrap service is currently running"
-        fi
         
         if systemctl is-active --quiet debros-node.service 2>/dev/null; then
             NODE_RUNNING=true
@@ -578,13 +572,11 @@ build_binaries() {
     if [ "$UPDATE_MODE" = true ]; then
         log "Update mode: checking for running services before binary update..."
         
-        for service in debros-bootstrap debros-node; do
-            if systemctl is-active --quiet $service.service 2>/dev/null; then
-                log "Stopping $service service to update binaries..."
-                sudo systemctl stop $service.service
-                services_were_running+=("$service")
-            fi
-        done
+        if systemctl is-active --quiet debros-node.service 2>/dev/null; then
+            log "Stopping debros-node service to update binaries..."
+            sudo systemctl stop debros-node.service
+            services_were_running+=("debros-node")
+        fi
         
         # Give services a moment to fully stop
         if [ ${#services_were_running[@]} -gt 0 ]; then
