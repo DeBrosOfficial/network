@@ -88,24 +88,40 @@ func main() {
 		cfg.Database.RQLiteJoinAddress = ""
 		logger.Printf("Bootstrap node - starting new RQLite cluster")
 	} else {
-		// Regular nodes join the bootstrap node's RQLite cluster
-		cfg.Database.RQLiteJoinAddress = "http://localhost:4001"
-
 		// Configure bootstrap peers for P2P discovery
+		var rqliteJoinAddr string
 		if *bootstrap != "" {
 			// Use command line bootstrap if provided
 			cfg.Discovery.BootstrapPeers = []string{*bootstrap}
+			// Extract IP from bootstrap peer for RQLite join
+			bootstrapHost := parseHostFromMultiaddr(*bootstrap)
+			if bootstrapHost != "" {
+				rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+			} else {
+				rqliteJoinAddr = "http://57.129.81.31:4001" // Default fallback
+			}
 			logger.Printf("Using command line bootstrap peer: %s", *bootstrap)
 		} else {
 			// Use environment-configured bootstrap peers
 			bootstrapPeers := constants.GetBootstrapPeers()
 			if len(bootstrapPeers) > 0 {
 				cfg.Discovery.BootstrapPeers = bootstrapPeers
+				// Use the first bootstrap peer for RQLite join
+				bootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
+				if bootstrapHost != "" {
+					rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+				} else {
+					rqliteJoinAddr = "http://57.129.81.31:4001" // Default fallback
+				}
 				logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
 			} else {
 				logger.Printf("Warning: No bootstrap peers configured")
+				rqliteJoinAddr = "http://57.129.81.31:4001" // Default fallback
 			}
 		}
+		
+		// Regular nodes join the bootstrap node's RQLite cluster
+		cfg.Database.RQLiteJoinAddress = rqliteJoinAddr
 		logger.Printf("Regular node - joining RQLite cluster at: %s", cfg.Database.RQLiteJoinAddress)
 	}
 
