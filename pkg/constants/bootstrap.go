@@ -91,11 +91,11 @@ func setDefaultBootstrapConfig() {
 	if env := os.Getenv("ENVIRONMENT"); env == "production" {
 		// Production: only use live production peers
 		BootstrapPeerIDs = []string{
-			"12D3KooWJvJj94TmNwG1sntDWgAXi7MN3xxLLkoQzgHX6gQ22eKi",
+			"12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
 			"12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
 		}
 		BootstrapAddresses = []string{
-			"/ip4/57.129.81.31/tcp/4000/p2p/12D3KooWJvJj94TmNwG1sntDWgAXi7MN3xxLLkoQzgHX6gQ22eKi",
+			"/ip4/57.129.81.31/tcp/4000/p2p/12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
 			"/ip4/38.242.250.186/tcp/4000/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
 		}
 	} else {
