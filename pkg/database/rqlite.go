@@ -69,15 +69,16 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		
 		// Validate join address format before using it
 		if strings.HasPrefix(r.config.RQLiteJoinAddress, "http://") {
-			// Test if the join address is reachable before attempting to join
+			// Test connectivity and log the results, but always attempt to join
 			if err := r.testJoinAddress(r.config.RQLiteJoinAddress); err != nil {
-				r.logger.Warn("Join address is not reachable, starting as new cluster instead",
+				r.logger.Warn("Join address connectivity test failed, but will still attempt to join",
 					zap.String("join_address", r.config.RQLiteJoinAddress),
 					zap.Error(err))
-				// Don't add the -join parameter, let this node start its own cluster
 			} else {
-				args = append(args, "-join", r.config.RQLiteJoinAddress)
+				r.logger.Info("Join address is reachable, proceeding with cluster join")
 			}
+			// Always add the join parameter - let RQLite handle retries
+			args = append(args, "-join", r.config.RQLiteJoinAddress)
 		} else {
 			r.logger.Warn("Invalid join address format, skipping join", zap.String("address", r.config.RQLiteJoinAddress))
 			return fmt.Errorf("invalid RQLite join address format: %s (must start with http://)", r.config.RQLiteJoinAddress)

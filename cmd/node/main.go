@@ -140,13 +140,18 @@ func main() {
 					// Try primary production server as fallback
 					rqliteJoinAddr = "http://localhost:4001"
 				}
-				logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
+			logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
 			} else {
 				logger.Printf("Warning: No bootstrap peers configured")
 				// Default to localhost when no peers configured
 				rqliteJoinAddr = "http://localhost:4001"
 				logger.Printf("Using localhost fallback for RQLite join")
 			}
+			
+			// Log network connectivity diagnostics
+			logger.Printf("=== NETWORK DIAGNOSTICS ===")
+			logger.Printf("Target RQLite join address: %s", rqliteJoinAddr)
+			runNetworkDiagnostics(rqliteJoinAddr, logger)
 		}
 		
 		// Regular nodes join the bootstrap node's RQLite cluster
@@ -287,4 +292,76 @@ func startNode(ctx context.Context, cfg *config.Config, port int, isBootstrap bo
 
 	// Stop node
 	return n.Stop()
+}
+
+// runNetworkDiagnostics performs network connectivity tests
+func runNetworkDiagnostics(rqliteJoinAddr string, logger *logging.StandardLogger) {
+	// Extract host and port from the join address
+	if !strings.HasPrefix(rqliteJoinAddr, "http://") {
+		logger.Printf("Invalid join address format: %s", rqliteJoinAddr)
+		return
+	}
+	
+	// Parse URL to extract host:port
+	url := strings.TrimPrefix(rqliteJoinAddr, "http://")
+	parts := strings.Split(url, ":")
+	if len(parts) != 2 {
+		logger.Printf("Cannot parse host:port from %s", rqliteJoinAddr)
+		return
+	}
+	
+	host := parts[0]
+	port := parts[1]
+	
+	logger.Printf("Testing connectivity to %s:%s", host, port)
+	
+	// Test 1: Basic connectivity with netcat or telnet
+	if output, err := exec.Command("timeout", "5", "nc", "-z", "-v", host, port).CombinedOutput(); err == nil {
+		logger.Printf("✅ Port %s:%s is reachable", host, port)
+		logger.Printf("netcat output: %s", strings.TrimSpace(string(output)))
+	} else {
+		logger.Printf("❌ Port %s:%s is NOT reachable", host, port)
+		logger.Printf("netcat error: %v", err)
+		logger.Printf("netcat output: %s", strings.TrimSpace(string(output)))
+	}
+	
+	// Test 2: HTTP connectivity test
+	if output, err := exec.Command("timeout", "5", "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", rqliteJoinAddr+"/status").Output(); err == nil {
+		httpCode := strings.TrimSpace(string(output))
+		if httpCode == "200" {
+			logger.Printf("✅ HTTP service is responding correctly (status: %s)", httpCode)
+		} else {
+			logger.Printf("⚠️  HTTP service responded with status: %s", httpCode)
+		}
+	} else {
+		logger.Printf("❌ HTTP request failed: %v", err)
+	}
+	
+	// Test 3: Ping test
+	if output, err := exec.Command("ping", "-c", "3", "-W", "2", host).Output(); err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "packet loss") {
+				logger.Printf("🏓 Ping result: %s", strings.TrimSpace(line))
+				break
+			}
+		}
+	} else {
+		logger.Printf("❌ Ping test failed: %v", err)
+	}
+	
+	// Test 4: DNS resolution
+	if output, err := exec.Command("nslookup", host).Output(); err == nil {
+		logger.Printf("🔍 DNS resolution successful")
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "Address:") && !strings.Contains(line, "#53") {
+				logger.Printf("DNS result: %s", strings.TrimSpace(line))
+			}
+		}
+	} else {
+		logger.Printf("❌ DNS resolution failed: %v", err)
+	}
+	
+	logger.Printf("=== END DIAGNOSTICS ===")
 }
