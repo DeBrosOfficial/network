@@ -3,10 +3,12 @@ package database
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rqlite/gorqlite"
@@ -41,10 +43,23 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create RQLite data directory: %w", err)
 	}
 
+	// Get the external IP address for advertising
+	externalIP, err := r.getExternalIP()
+	if err != nil {
+		r.logger.Warn("Failed to get external IP, using localhost", zap.Error(err))
+		externalIP = "localhost"
+	}
+
 	// Build RQLite command
 	args := []string{
 		"-http-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLitePort),
 		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLiteRaftPort),
+	}
+
+	// Add advertised addresses if we have an external IP
+	if externalIP != "localhost" {
+		args = append(args, "-http-adv-addr", fmt.Sprintf("%s:%d", externalIP, r.config.RQLitePort))
+		args = append(args, "-raft-adv-addr", fmt.Sprintf("%s:%d", externalIP, r.config.RQLiteRaftPort))
 	}
 
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
@@ -167,4 +182,97 @@ func (r *RQLiteManager) Stop() error {
 	}
 
 	return nil
+}
+
+// getExternalIP attempts to get the external IP address of this machine
+func (r *RQLiteManager) getExternalIP() (string, error) {
+	// Method 1: Try using `ip route get` to find the IP used to reach the internet
+	if output, err := exec.Command("ip", "route", "get", "8.8.8.8").Output(); err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "src") {
+				parts := strings.Fields(line)
+				for i, part := range parts {
+					if part == "src" && i+1 < len(parts) {
+						ip := parts[i+1]
+						if net.ParseIP(ip) != nil {
+							r.logger.Debug("Found external IP via ip route", zap.String("ip", ip))
+							return ip, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Method 2: Get all network interfaces and find non-localhost, non-private IPs
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			// Prefer public IPs over private IPs
+			if ip.To4() != nil && !ip.IsPrivate() {
+				r.logger.Debug("Found public IP", zap.String("ip", ip.String()))
+				return ip.String(), nil
+			}
+		}
+	}
+
+	// Method 3: Fall back to private IPs if no public IP found
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			// Use any IPv4 address
+			if ip.To4() != nil {
+				r.logger.Debug("Found private IP", zap.String("ip", ip.String()))
+				return ip.String(), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no suitable IP address found")
 }
