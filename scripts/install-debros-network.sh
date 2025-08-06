@@ -98,7 +98,7 @@ detect_os() {
 
 # Check if DeBros Network is already installed
 check_existing_installation() {
-    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/bin/bootstrap" ] && [ -f "$INSTALL_DIR/bin/node" ]; then
+    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/bin/node" ]; then
         log "Found existing DeBros Network installation at $INSTALL_DIR"
         
         # Check if services are running
@@ -669,7 +669,7 @@ configure_firewall() {
             log "Required ports to allow:"
             log "  - Port $NODE_PORT (Node)"
             log "  - Port $RQLITE_PORT (RQLite)"
-            log "  - Port $RAFT_NODE_PORT (Raft)"
+            log "  - Port $RAFT_PORT (Raft)"
         fi
     fi
 }
@@ -693,7 +693,7 @@ create_systemd_service() {
 
     # Determine the correct ExecStart command based on node type
     local exec_start=""
-exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT"
+exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node"
 
     cat > /tmp/debros-$NODE_TYPE.service << EOF
 [Unit]
@@ -828,7 +828,7 @@ main() {
     
     log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$NODE_PORT${NOCOLOR}"
     log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_PORT${NOCOLOR}"
-    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_NODE_PORT${NOCOLOR}"
+    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_PORT${NOCOLOR}"
 
     log "${BLUE}==================================================${NOCOLOR}"
     log "${GREEN}Management Commands:${NOCOLOR}"
