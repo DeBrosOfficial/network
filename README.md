@@ -216,8 +216,9 @@ make build && make build-anchat
 **Terminal 1 - Bootstrap Node:**
 
 ```bash
-make run-bootstrap
-# This starts the bootstrap node on port 4001
+make run-node
+# This automatically detects and starts as bootstrap node on port 4001
+# if the local machine matches bootstrap peer configuration
 ```
 
 **Terminal 2 - Regular Node:**
@@ -231,8 +232,8 @@ make run-node
 **Terminal 3 - Another Node (optional):**
 
 ```bash
-# For additional nodes, use different ports
-go run cmd/node/main.go -data ./data/node2 -port 4003
+# For additional nodes, use different data directory
+go run cmd/node/main.go -data ./data/node2
 ```
 
 ### 5. Test with CLI
@@ -610,10 +611,7 @@ make build-anchat
 # Show current bootstrap configuration
 make show-bootstrap
 
-# Run bootstrap node (uses .env automatically)
-make run-bootstrap
-
-# Run regular node (uses .env automatically - no bootstrap flag needed!)
+# Run node (auto-detects bootstrap vs regular based on .env)
 make run-node
 
 # Clean data directories
@@ -651,8 +649,8 @@ make dev
 3. **Start Development Cluster:**
 
    ```bash
-   # Terminal 1: Bootstrap node
-   make run-bootstrap
+   # Terminal 1: Bootstrap node (auto-detected)
+   make run-node
 
    # Terminal 2: Regular node (auto-connects via .env)
    make run-node
@@ -793,8 +791,8 @@ Anchat is a demonstration application built on the network that provides decentr
 3. **Start Network Infrastructure:**
 
    ```bash
-   # Terminal 1: Bootstrap node
-   make run-bootstrap
+   # Terminal 1: Bootstrap node (auto-detected)
+   make run-node
 
    # Terminal 2: Regular node (optional but recommended)
    make run-node
@@ -860,15 +858,15 @@ The Anchat application also includes hardcoded fallback bootstrap peers in `anch
 
 - Generate a new bootstrap identity: `go run scripts/generate-bootstrap-identity.go`
 - Update both `.env` and `anchat/.env` with the new peer ID
-- Restart the bootstrap node: `make run-bootstrap`
+- Restart the bootstrap node: `make run-node`
 - Check configuration: `make show-bootstrap`
 
 **Nodes can't connect:**
 
 - Verify `.env` files have the correct bootstrap peer ID
-- Check that the bootstrap node is running: `ps aux | grep bootstrap`
+- Check that the bootstrap node is running: `ps aux | grep node`
 - Verify firewall settings and port availability (4001, 5001, 7001)
-- Try restarting with clean data: `make clean && make run-bootstrap`
+- Try restarting with clean data: `make clean && make run-node`
 
 **Storage operations fail:**
 
@@ -903,8 +901,8 @@ cat data/bootstrap/peer.info
 
 # Clean and restart everything
 make clean
-make run-bootstrap  # In one terminal
-make run-node      # In another terminal
+make run-node      # In one terminal (auto-detects as bootstrap)
+make run-node      # In another terminal (runs as regular node)
 ```
 
 ### Environment-specific Issues
@@ -913,7 +911,7 @@ make run-node      # In another terminal
 
 - Always run `go run scripts/generate-bootstrap-identity.go` first
 - Update `.env` files with the generated peer ID
-- Use `make run-node` instead of manual bootstrap specification
+- Use `make run-node` - the system auto-detects if it should run as bootstrap
 
 **Production Environment:**
 

@@ -291,7 +291,7 @@ make start-node
 ```
 
 ### Development Workflow
-1. **Local Development**: Use `make start-bootstrap` + `make start-node`
+1. **Local Development**: Use `make run-node` (auto-detects bootstrap vs regular)
 2. **Testing**: Run `make test` for unit tests
 3. **Integration Testing**: Use `scripts/test-multinode.sh`
 4. **Configuration**: Edit `configs/*.yaml` files

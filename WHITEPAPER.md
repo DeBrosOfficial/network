@@ -219,8 +219,8 @@ cp .env.example .env
 go run scripts/generate-bootstrap-identity.go
 
 # Automatic network startup
-make run-bootstrap  # Bootstrap node with auto-config
-make run-node      # Regular node with .env discovery
+make run-node      # Auto-detects bootstrap vs regular based on .env
+make run-node      # Second node (auto-connects via .env)
 
 # Application deployment
 cd anchat && make build && ./bin/anchat
