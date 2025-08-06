@@ -55,7 +55,7 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 	args := []string{
 		"-http-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLitePort),
 		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLiteRaftPort),
-		"-auth", "/opt/debros/configs/rqlite-users.json", // Enable authentication
+		// Auth disabled for testing
 	}
 
 	// Add advertised addresses if we have an external IP
@@ -66,33 +66,23 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
-		r.logger.Info("Joining RQLite cluster", zap.String("join_address", r.maskCredentials(r.config.RQLiteJoinAddress)))
-		
-		// Check for authenticated join address with credentials
-		joinAddress := r.config.RQLiteJoinAddress
-		if !strings.Contains(joinAddress, "@") {
-			// Try to load authentication credentials for cluster joining
-			if authAddr := r.loadAuthenticatedJoinAddress(); authAddr != "" {
-				joinAddress = authAddr
-				r.logger.Info("Using authenticated cluster join address")
-			}
-		}
+		r.logger.Info("Joining RQLite cluster", zap.String("join_address", r.config.RQLiteJoinAddress))
 		
 		// Validate join address format before using it
-		if strings.HasPrefix(joinAddress, "http://") {
+		if strings.HasPrefix(r.config.RQLiteJoinAddress, "http://") {
 			// Test connectivity and log the results, but always attempt to join
-			if err := r.testJoinAddress(r.stripCredentials(joinAddress)); err != nil {
+			if err := r.testJoinAddress(r.config.RQLiteJoinAddress); err != nil {
 				r.logger.Warn("Join address connectivity test failed, but will still attempt to join",
-					zap.String("join_address", r.maskCredentials(joinAddress)),
+					zap.String("join_address", r.config.RQLiteJoinAddress),
 					zap.Error(err))
 			} else {
 				r.logger.Info("Join address is reachable, proceeding with cluster join")
 			}
 			// Always add the join parameter - let RQLite handle retries
-			args = append(args, "-join", joinAddress)
+			args = append(args, "-join", r.config.RQLiteJoinAddress)
 		} else {
-			r.logger.Warn("Invalid join address format, skipping join", zap.String("address", r.maskCredentials(joinAddress)))
-			return fmt.Errorf("invalid RQLite join address format: %s (must start with http://)", r.maskCredentials(joinAddress))
+			r.logger.Warn("Invalid join address format, skipping join", zap.String("address", r.config.RQLiteJoinAddress))
+			return fmt.Errorf("invalid RQLite join address format: %s (must start with http://)", r.config.RQLiteJoinAddress)
 		}
 	} else {
 		r.logger.Info("No join address specified - starting as new cluster")
@@ -333,88 +323,3 @@ func (r *RQLiteManager) testJoinAddress(joinAddress string) error {
 	return nil
 }
 
-// loadAuthenticatedJoinAddress loads authentication credentials and creates authenticated join URL
-func (r *RQLiteManager) loadAuthenticatedJoinAddress() string {
-	// Try to load authentication credentials from environment file
-	if data, err := os.ReadFile("/opt/debros/configs/rqlite-env"); err == nil {
-		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "RQLITE_JOIN_ADDRESS_AUTH=") {
-				authAddr := strings.TrimPrefix(line, "RQLITE_JOIN_ADDRESS_AUTH=")
-				authAddr = strings.Trim(authAddr, `"`)
-				if authAddr != "" {
-					return authAddr
-				}
-			}
-		}
-	}
-	
-	// Fallback: try to construct from separate user/pass environment variables
-	if data, err := os.ReadFile("/opt/debros/keys/rqlite-cluster-auth"); err == nil {
-		lines := strings.Split(string(data), "\n")
-		var user, pass string
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "RQLITE_CLUSTER_USER=") {
-				user = strings.TrimPrefix(line, "RQLITE_CLUSTER_USER=")
-				user = strings.Trim(user, `"`)
-			} else if strings.HasPrefix(line, "RQLITE_CLUSTER_PASS=") {
-				pass = strings.TrimPrefix(line, "RQLITE_CLUSTER_PASS=")
-				pass = strings.Trim(pass, `"`)
-			}
-		}
-		
-		if user != "" && pass != "" && r.config.RQLiteJoinAddress != "" {
-			// Extract base URL and add credentials
-			baseURL := r.config.RQLiteJoinAddress
-			if strings.HasPrefix(baseURL, "http://") {
-				// Insert credentials: http://user:pass@host:port
-				host := strings.TrimPrefix(baseURL, "http://")
-				return fmt.Sprintf("http://%s:%s@%s", user, pass, host)
-			}
-		}
-	}
-	
-	return "" // No credentials found
-}
-
-// maskCredentials masks authentication credentials in URLs for logging
-func (r *RQLiteManager) maskCredentials(url string) string {
-	if strings.Contains(url, "@") {
-		// URL contains credentials: http://user:pass@host:port
-		parts := strings.SplitN(url, "@", 2)
-		if len(parts) == 2 {
-			protocolAndCreds := parts[0]
-			hostAndPort := parts[1]
-			
-			// Extract protocol
-			protocolParts := strings.SplitN(protocolAndCreds, "://", 2)
-			if len(protocolParts) == 2 {
-				protocol := protocolParts[0]
-				return fmt.Sprintf("%s://***:***@%s", protocol, hostAndPort)
-			}
-		}
-	}
-	return url
-}
-
-// stripCredentials removes authentication credentials from URLs for connectivity testing
-func (r *RQLiteManager) stripCredentials(url string) string {
-	if strings.Contains(url, "@") {
-		// URL contains credentials: http://user:pass@host:port
-		parts := strings.SplitN(url, "@", 2)
-		if len(parts) == 2 {
-			protocolAndCreds := parts[0]
-			hostAndPort := parts[1]
-			
-			// Extract protocol
-			protocolParts := strings.SplitN(protocolAndCreds, "://", 2)
-			if len(protocolParts) == 2 {
-				protocol := protocolParts[0]
-				return fmt.Sprintf("%s://%s", protocol, hostAndPort)
-			}
-		}
-	}
-	return url
-}
