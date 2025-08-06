@@ -58,7 +58,6 @@ func NewNode(cfg *config.Config) (*Node, error) {
 func (n *Node) Start(ctx context.Context) error {
 	n.logger.ComponentInfo(logging.ComponentNode, "Starting network node",
 		zap.String("data_dir", n.config.Node.DataDir),
-		zap.String("type", "bootstrap"),
 	)
 
 	// Create data directory

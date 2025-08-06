@@ -15,7 +15,7 @@ NOCOLOR='\033[0m'
 INSTALL_DIR="/opt/debros"
 REPO_URL="https://git.debros.io/DeBros/network.git"
 MIN_GO_VERSION="1.19"
-NODE_PORT="4001"
+NODE_PORT="4000"       # LibP2P port for peer-to-peer communication
 RQLITE_PORT="4001"     # All nodes use same RQLite port to join same cluster
 RAFT_PORT="4002"       # All nodes use same Raft port
 UPDATE_MODE=false
@@ -98,17 +98,11 @@ detect_os() {
 
 # Check if DeBros Network is already installed
 check_existing_installation() {
-    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/bin/bootstrap" ] && [ -f "$INSTALL_DIR/bin/node" ]; then
+    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/bin/node" ]; then
         log "Found existing DeBros Network installation at $INSTALL_DIR"
         
-        # Check if services are running
-        BOOTSTRAP_RUNNING=false
+        # Check if service is running
         NODE_RUNNING=false
-        
-        if systemctl is-active --quiet debros-bootstrap.service 2>/dev/null; then
-            BOOTSTRAP_RUNNING=true
-            log "Bootstrap service is currently running"
-        fi
         
         if systemctl is-active --quiet debros-node.service 2>/dev/null; then
             NODE_RUNNING=true
@@ -578,13 +572,11 @@ build_binaries() {
     if [ "$UPDATE_MODE" = true ]; then
         log "Update mode: checking for running services before binary update..."
         
-        for service in debros-bootstrap debros-node; do
-            if systemctl is-active --quiet $service.service 2>/dev/null; then
-                log "Stopping $service service to update binaries..."
-                sudo systemctl stop $service.service
-                services_were_running+=("$service")
-            fi
-        done
+        if systemctl is-active --quiet debros-node.service 2>/dev/null; then
+            log "Stopping debros-node service to update binaries..."
+            sudo systemctl stop debros-node.service
+            services_were_running+=("debros-node")
+        fi
         
         # Give services a moment to fully stop
         if [ ${#services_were_running[@]} -gt 0 ]; then
@@ -669,7 +661,7 @@ configure_firewall() {
             log "Required ports to allow:"
             log "  - Port $NODE_PORT (Node)"
             log "  - Port $RQLITE_PORT (RQLite)"
-            log "  - Port $RAFT_NODE_PORT (Raft)"
+            log "  - Port $RAFT_PORT (Raft)"
         fi
     fi
 }
@@ -693,7 +685,7 @@ create_systemd_service() {
 
     # Determine the correct ExecStart command based on node type
     local exec_start=""
-exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node -port $NODE_PORT"
+exec_start="$INSTALL_DIR/bin/node -data $INSTALL_DIR/data/node"
 
     cat > /tmp/debros-$NODE_TYPE.service << EOF
 [Unit]
@@ -828,7 +820,7 @@ main() {
     
     log "${GREEN}Node Port:${NOCOLOR} ${CYAN}$NODE_PORT${NOCOLOR}"
     log "${GREEN}RQLite Port:${NOCOLOR} ${CYAN}$RQLITE_PORT${NOCOLOR}"
-    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_NODE_PORT${NOCOLOR}"
+    log "${GREEN}Raft Port:${NOCOLOR} ${CYAN}$RAFT_PORT${NOCOLOR}"
 
     log "${BLUE}==================================================${NOCOLOR}"
     log "${GREEN}Management Commands:${NOCOLOR}"

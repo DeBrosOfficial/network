@@ -3,10 +3,12 @@ package database
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rqlite/gorqlite"
@@ -41,15 +43,49 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create RQLite data directory: %w", err)
 	}
 
+// Get the external IP address for advertising
+	externalIP, err := r.getExternalIP()
+	if err != nil {
+		r.logger.Warn("Failed to get external IP, using localhost", zap.Error(err))
+		externalIP = "localhost"
+	}
+	r.logger.Info("Using external IP for RQLite advertising", zap.String("ip", externalIP))
+
 	// Build RQLite command
 	args := []string{
-		"-http-addr", fmt.Sprintf("localhost:%d", r.config.RQLitePort),
-		"-raft-addr", fmt.Sprintf("localhost:%d", r.config.RQLiteRaftPort),
+		"-http-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLitePort),
+		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLiteRaftPort),
+		// Auth disabled for testing
 	}
 
-	// Add join address if specified (for non-bootstrap nodes)
+	// Add advertised addresses if we have an external IP
+	if externalIP != "localhost" {
+		args = append(args, "-http-adv-addr", fmt.Sprintf("%s:%d", externalIP, r.config.RQLitePort))
+		args = append(args, "-raft-adv-addr", fmt.Sprintf("%s:%d", externalIP, r.config.RQLiteRaftPort))
+	}
+
+	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
-		args = append(args, "-join", r.config.RQLiteJoinAddress)
+		r.logger.Info("Joining RQLite cluster", zap.String("join_address", r.config.RQLiteJoinAddress))
+		
+		// Validate join address format before using it
+		if strings.HasPrefix(r.config.RQLiteJoinAddress, "http://") {
+			// Test connectivity and log the results, but always attempt to join
+			if err := r.testJoinAddress(r.config.RQLiteJoinAddress); err != nil {
+				r.logger.Warn("Join address connectivity test failed, but will still attempt to join",
+					zap.String("join_address", r.config.RQLiteJoinAddress),
+					zap.Error(err))
+			} else {
+				r.logger.Info("Join address is reachable, proceeding with cluster join")
+			}
+			// Always add the join parameter - let RQLite handle retries
+			args = append(args, "-join", r.config.RQLiteJoinAddress)
+		} else {
+			r.logger.Warn("Invalid join address format, skipping join", zap.String("address", r.config.RQLiteJoinAddress))
+			return fmt.Errorf("invalid RQLite join address format: %s (must start with http://)", r.config.RQLiteJoinAddress)
+		}
+	} else {
+		r.logger.Info("No join address specified - starting as new cluster")
 	}
 
 	// Add data directory as positional argument
@@ -60,6 +96,8 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		zap.Int("http_port", r.config.RQLitePort),
 		zap.Int("raft_port", r.config.RQLiteRaftPort),
 		zap.String("join_address", r.config.RQLiteJoinAddress),
+		zap.String("external_ip", externalIP),
+		zap.Strings("full_args", args),
 	)
 
 	// Start RQLite process
@@ -168,3 +206,120 @@ func (r *RQLiteManager) Stop() error {
 
 	return nil
 }
+
+// getExternalIP attempts to get the external IP address of this machine
+func (r *RQLiteManager) getExternalIP() (string, error) {
+	// Method 1: Try using `ip route get` to find the IP used to reach the internet
+	if output, err := exec.Command("ip", "route", "get", "8.8.8.8").Output(); err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "src") {
+				parts := strings.Fields(line)
+				for i, part := range parts {
+					if part == "src" && i+1 < len(parts) {
+						ip := parts[i+1]
+						if net.ParseIP(ip) != nil {
+							r.logger.Debug("Found external IP via ip route", zap.String("ip", ip))
+							return ip, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Method 2: Get all network interfaces and find non-localhost, non-private IPs
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			// Prefer public IPs over private IPs
+			if ip.To4() != nil && !ip.IsPrivate() {
+				r.logger.Debug("Found public IP", zap.String("ip", ip.String()))
+				return ip.String(), nil
+			}
+		}
+	}
+
+	// Method 3: Fall back to private IPs if no public IP found
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			// Use any IPv4 address
+			if ip.To4() != nil {
+				r.logger.Debug("Found private IP", zap.String("ip", ip.String()))
+				return ip.String(), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no suitable IP address found")
+}
+
+// testJoinAddress tests if a join address is reachable
+func (r *RQLiteManager) testJoinAddress(joinAddress string) error {
+	// Test connection to the join address with a short timeout
+	client := &http.Client{Timeout: 5 * time.Second}
+	
+	// Try to connect to the status endpoint
+	statusURL := joinAddress + "/status"
+	r.logger.Debug("Testing join address", zap.String("url", statusURL))
+	
+	resp, err := client.Get(statusURL)
+	if err != nil {
+		return fmt.Errorf("failed to connect to join address %s: %w", joinAddress, err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("join address %s returned status %d", joinAddress, resp.StatusCode)
+	}
+	
+	r.logger.Info("Join address is reachable", zap.String("address", joinAddress))
+	return nil
+}
+

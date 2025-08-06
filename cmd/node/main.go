@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -47,8 +48,8 @@ func main() {
 		}
 	}
 
-	// All nodes use port 4001 for consistency
-	port := 4001
+	// LibP2P uses port 4000, RQLite uses 4001
+	port := 4000
 
 	// Create logger with appropriate component type
 	var logger *logging.StandardLogger
@@ -84,28 +85,77 @@ func main() {
 	cfg.Database.RQLiteRaftPort = 4002
 
 	if isBootstrap {
-		// Bootstrap node doesn't join anyone - it starts the cluster
-		cfg.Database.RQLiteJoinAddress = ""
-		logger.Printf("Bootstrap node - starting new RQLite cluster")
+		// Check if this is the primary bootstrap node (first in list) or secondary
+		bootstrapPeers := constants.GetBootstrapPeers()
+		isSecondaryBootstrap := false
+		if len(bootstrapPeers) > 1 {
+			// Check if this machine matches any bootstrap peer other than the first
+			for i := 1; i < len(bootstrapPeers); i++ {
+				host := parseHostFromMultiaddr(bootstrapPeers[i])
+				if host != "" && isLocalIP(host) {
+					isSecondaryBootstrap = true
+					break
+				}
+			}
+		}
+		
+		if isSecondaryBootstrap {
+			// Secondary bootstrap nodes join the primary bootstrap
+			primaryBootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
+			cfg.Database.RQLiteJoinAddress = fmt.Sprintf("http://%s:4001", primaryBootstrapHost)
+			logger.Printf("Secondary bootstrap node - joining primary bootstrap at: %s", cfg.Database.RQLiteJoinAddress)
+		} else {
+			// Primary bootstrap node doesn't join anyone - it starts the cluster
+			cfg.Database.RQLiteJoinAddress = ""
+			logger.Printf("Primary bootstrap node - starting new RQLite cluster")
+		}
 	} else {
-		// Regular nodes join the bootstrap node's RQLite cluster
-		cfg.Database.RQLiteJoinAddress = "http://localhost:4001"
-
 		// Configure bootstrap peers for P2P discovery
+		var rqliteJoinAddr string
 		if *bootstrap != "" {
 			// Use command line bootstrap if provided
 			cfg.Discovery.BootstrapPeers = []string{*bootstrap}
+			// Extract IP from bootstrap peer for RQLite join
+			bootstrapHost := parseHostFromMultiaddr(*bootstrap)
+			if bootstrapHost != "" {
+				rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+				logger.Printf("Using extracted bootstrap host %s for RQLite join", bootstrapHost)
+			} else {
+				logger.Printf("Warning: Could not extract host from bootstrap peer %s, using localhost fallback", *bootstrap)
+				rqliteJoinAddr = "http://localhost:4001" // Use localhost fallback instead
+			}
 			logger.Printf("Using command line bootstrap peer: %s", *bootstrap)
 		} else {
 			// Use environment-configured bootstrap peers
 			bootstrapPeers := constants.GetBootstrapPeers()
 			if len(bootstrapPeers) > 0 {
 				cfg.Discovery.BootstrapPeers = bootstrapPeers
-				logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
+				// Use the first bootstrap peer for RQLite join
+				bootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
+				if bootstrapHost != "" {
+					rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+					logger.Printf("Using extracted bootstrap host %s for RQLite join", bootstrapHost)
+				} else {
+					logger.Printf("Warning: Could not extract host from bootstrap peer %s", bootstrapPeers[0])
+					// Try primary production server as fallback
+					rqliteJoinAddr = "http://localhost:4001"
+				}
+			logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
 			} else {
 				logger.Printf("Warning: No bootstrap peers configured")
+				// Default to localhost when no peers configured
+				rqliteJoinAddr = "http://localhost:4001"
+				logger.Printf("Using localhost fallback for RQLite join")
 			}
+			
+			// Log network connectivity diagnostics
+			logger.Printf("=== NETWORK DIAGNOSTICS ===")
+			logger.Printf("Target RQLite join address: %s", rqliteJoinAddr)
+			runNetworkDiagnostics(rqliteJoinAddr, logger)
 		}
+		
+		// Regular nodes join the bootstrap node's RQLite cluster
+		cfg.Database.RQLiteJoinAddress = rqliteJoinAddr
 		logger.Printf("Regular node - joining RQLite cluster at: %s", cfg.Database.RQLiteJoinAddress)
 	}
 
@@ -159,8 +209,12 @@ func isBootstrapNode() bool {
 			return true // In development, assume we're running the bootstrap
 		}
 
-		// Check if this is a production bootstrap server
-		// You could add more sophisticated host matching here
+		// Check if this is a production bootstrap server by IP
+		if host != "" && isLocalIP(host) {
+			return true
+		}
+
+		// Check if this is a production bootstrap server by hostname
 		if hostname != "" && strings.Contains(peerAddr, hostname) {
 			return true
 		}
@@ -182,6 +236,28 @@ func parseHostFromMultiaddr(multiaddr string) string {
 		}
 	}
 	return ""
+}
+
+// isLocalIP checks if the given IP address belongs to this machine
+func isLocalIP(ip string) bool {
+	// Try to run ip command to get local IPs
+	if output, err := exec.Command("ip", "addr", "show").Output(); err == nil {
+		if strings.Contains(string(output), ip) {
+			return true
+		}
+	}
+	
+	// Fallback: try hostname -I command
+	if output, err := exec.Command("hostname", "-I").Output(); err == nil {
+		ips := strings.Fields(strings.TrimSpace(string(output)))
+		for _, localIP := range ips {
+			if localIP == ip {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 func startNode(ctx context.Context, cfg *config.Config, port int, isBootstrap bool, logger *logging.StandardLogger) error {
@@ -216,4 +292,76 @@ func startNode(ctx context.Context, cfg *config.Config, port int, isBootstrap bo
 
 	// Stop node
 	return n.Stop()
+}
+
+// runNetworkDiagnostics performs network connectivity tests
+func runNetworkDiagnostics(rqliteJoinAddr string, logger *logging.StandardLogger) {
+	// Extract host and port from the join address
+	if !strings.HasPrefix(rqliteJoinAddr, "http://") {
+		logger.Printf("Invalid join address format: %s", rqliteJoinAddr)
+		return
+	}
+	
+	// Parse URL to extract host:port
+	url := strings.TrimPrefix(rqliteJoinAddr, "http://")
+	parts := strings.Split(url, ":")
+	if len(parts) != 2 {
+		logger.Printf("Cannot parse host:port from %s", rqliteJoinAddr)
+		return
+	}
+	
+	host := parts[0]
+	port := parts[1]
+	
+	logger.Printf("Testing connectivity to %s:%s", host, port)
+	
+	// Test 1: Basic connectivity with netcat or telnet
+	if output, err := exec.Command("timeout", "5", "nc", "-z", "-v", host, port).CombinedOutput(); err == nil {
+		logger.Printf("✅ Port %s:%s is reachable", host, port)
+		logger.Printf("netcat output: %s", strings.TrimSpace(string(output)))
+	} else {
+		logger.Printf("❌ Port %s:%s is NOT reachable", host, port)
+		logger.Printf("netcat error: %v", err)
+		logger.Printf("netcat output: %s", strings.TrimSpace(string(output)))
+	}
+	
+	// Test 2: HTTP connectivity test
+	if output, err := exec.Command("timeout", "5", "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", rqliteJoinAddr+"/status").Output(); err == nil {
+		httpCode := strings.TrimSpace(string(output))
+		if httpCode == "200" {
+			logger.Printf("✅ HTTP service is responding correctly (status: %s)", httpCode)
+		} else {
+			logger.Printf("⚠️  HTTP service responded with status: %s", httpCode)
+		}
+	} else {
+		logger.Printf("❌ HTTP request failed: %v", err)
+	}
+	
+	// Test 3: Ping test
+	if output, err := exec.Command("ping", "-c", "3", "-W", "2", host).Output(); err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "packet loss") {
+				logger.Printf("🏓 Ping result: %s", strings.TrimSpace(line))
+				break
+			}
+		}
+	} else {
+		logger.Printf("❌ Ping test failed: %v", err)
+	}
+	
+	// Test 4: DNS resolution
+	if output, err := exec.Command("nslookup", host).Output(); err == nil {
+		logger.Printf("🔍 DNS resolution successful")
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "Address:") && !strings.Contains(line, "#53") {
+				logger.Printf("DNS result: %s", strings.TrimSpace(line))
+			}
+		}
+	} else {
+		logger.Printf("❌ DNS resolution failed: %v", err)
+	}
+	
+	logger.Printf("=== END DIAGNOSTICS ===")
 }

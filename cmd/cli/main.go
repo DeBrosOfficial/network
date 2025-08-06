@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/constants"
 )
@@ -56,6 +58,8 @@ func main() {
 			os.Exit(1)
 		}
 		handleConnect(args[0])
+	case "peer-id":
+		handlePeerID()
 	case "help", "--help", "-h":
 		showHelp()
 	default:
@@ -351,6 +355,72 @@ func handleConnect(peerAddr string) {
 	fmt.Printf("✅ Connected to peer: %s\n", peerAddr)
 }
 
+func handlePeerID() {
+	// Try to get peer ID from running network first
+	client, err := createClient()
+	if err == nil {
+		defer client.Disconnect()
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		
+		if status, err := client.Network().GetStatus(ctx); err == nil {
+			if format == "json" {
+				printJSON(map[string]string{"peer_id": status.NodeID})
+			} else {
+				fmt.Printf("🆔 Peer ID: %s\n", status.NodeID)
+			}
+			return
+		}
+	}
+	
+	// Fallback: try to extract from local identity files
+	identityPaths := []string{
+		"/opt/debros/data/node/identity.key",
+		"/opt/debros/data/bootstrap/identity.key",
+		"/opt/debros/keys/node/identity.key",
+		"./data/node/identity.key",
+		"./data/bootstrap/identity.key",
+	}
+	
+	for _, path := range identityPaths {
+		if peerID := extractPeerIDFromFile(path); peerID != "" {
+			if format == "json" {
+				printJSON(map[string]string{"peer_id": peerID, "source": "local_identity"})
+			} else {
+				fmt.Printf("🆔 Peer ID: %s\n", peerID)
+				fmt.Printf("📂 Source: %s\n", path)
+			}
+			return
+		}
+	}
+	
+	// Check peer.info files as last resort
+	peerInfoPaths := []string{
+		"/opt/debros/data/node/peer.info",
+		"/opt/debros/data/bootstrap/peer.info",
+		"./data/node/peer.info",
+		"./data/bootstrap/peer.info",
+	}
+	
+	for _, path := range peerInfoPaths {
+		if data, err := os.ReadFile(path); err == nil {
+			multiaddr := strings.TrimSpace(string(data))
+			if peerID := extractPeerIDFromMultiaddr(multiaddr); peerID != "" {
+				if format == "json" {
+					printJSON(map[string]string{"peer_id": peerID, "source": "peer_info"})
+				} else {
+					fmt.Printf("🆔 Peer ID: %s\n", peerID)
+					fmt.Printf("📂 Source: %s\n", path)
+				}
+				return
+			}
+		}
+	}
+	
+	fmt.Fprintf(os.Stderr, "❌ Could not find peer ID. Make sure the node is running or identity files exist.\n")
+	os.Exit(1)
+}
+
 func createClient() (client.NetworkClient, error) {
 	var bootstrapPeers []string
 	
@@ -445,6 +515,7 @@ func showHelp() {
 	fmt.Printf("  health                    - Check network health\n")
 	fmt.Printf("  peers                     - List connected peers\n")
 	fmt.Printf("  status                    - Show network status\n")
+	fmt.Printf("  peer-id                   - Show this node's peer ID\n")
 	fmt.Printf("  query <sql>               - Execute database query\n")
 	fmt.Printf("  storage get <key>         - Get value from storage\n")
 	fmt.Printf("  storage put <key> <value> - Store value in storage\n")
@@ -461,6 +532,8 @@ func showHelp() {
 	fmt.Printf("  --production              - Connect to production bootstrap peers\n\n")
 	fmt.Printf("Examples:\n")
 	fmt.Printf("  network-cli health\n")
+	fmt.Printf("  network-cli peer-id\n")
+	fmt.Printf("  network-cli peer-id --format json\n")
 	fmt.Printf("  network-cli peers --format json\n")
 	fmt.Printf("  network-cli peers --production\n")
 	fmt.Printf("  network-cli storage put user:123 '{\"name\":\"Alice\"}'\n")
@@ -593,4 +666,40 @@ func formatBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// extractPeerIDFromFile extracts peer ID from an identity key file
+func extractPeerIDFromFile(keyFile string) string {
+	// Read the identity key file
+	data, err := os.ReadFile(keyFile)
+	if err != nil {
+		return ""
+	}
+
+	// Unmarshal the private key
+	priv, err := crypto.UnmarshalPrivateKey(data)
+	if err != nil {
+		return ""
+	}
+
+	// Get the public key
+	pub := priv.GetPublic()
+
+	// Get the peer ID
+	peerID, err := peer.IDFromPublicKey(pub)
+	if err != nil {
+		return ""
+	}
+
+	return peerID.String()
+}
+
+// extractPeerIDFromMultiaddr extracts the peer ID from a multiaddr string
+func extractPeerIDFromMultiaddr(multiaddr string) string {
+	// Look for /p2p/ followed by the peer ID
+	parts := strings.Split(multiaddr, "/p2p/")
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+	return ""
 }
