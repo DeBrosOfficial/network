@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -175,8 +176,12 @@ func isBootstrapNode() bool {
 			return true // In development, assume we're running the bootstrap
 		}
 
-		// Check if this is a production bootstrap server
-		// You could add more sophisticated host matching here
+		// Check if this is a production bootstrap server by IP
+		if host != "" && isLocalIP(host) {
+			return true
+		}
+
+		// Check if this is a production bootstrap server by hostname
 		if hostname != "" && strings.Contains(peerAddr, hostname) {
 			return true
 		}
@@ -198,6 +203,28 @@ func parseHostFromMultiaddr(multiaddr string) string {
 		}
 	}
 	return ""
+}
+
+// isLocalIP checks if the given IP address belongs to this machine
+func isLocalIP(ip string) bool {
+	// Try to run ip command to get local IPs
+	if output, err := exec.Command("ip", "addr", "show").Output(); err == nil {
+		if strings.Contains(string(output), ip) {
+			return true
+		}
+	}
+	
+	// Fallback: try hostname -I command
+	if output, err := exec.Command("hostname", "-I").Output(); err == nil {
+		ips := strings.Fields(strings.TrimSpace(string(output)))
+		for _, localIP := range ips {
+			if localIP == ip {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 func startNode(ctx context.Context, cfg *config.Config, port int, isBootstrap bool, logger *logging.StandardLogger) error {
