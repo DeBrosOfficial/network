@@ -15,9 +15,9 @@ NOCOLOR='\033[0m'
 INSTALL_DIR="/opt/debros"
 REPO_URL="https://git.debros.io/DeBros/network.git"
 MIN_GO_VERSION="1.19"
-NODE_PORT="4000"       # LibP2P port for peer-to-peer communication
-RQLITE_PORT="4001"     # All nodes use same RQLite port to join same cluster
-RAFT_PORT="4002"       # All nodes use same Raft port
+NODE_PORT="4001"       # LibP2P port for peer-to-peer communication
+RQLITE_PORT="5001"     # All nodes use same RQLite HTTP port to join same cluster
+RAFT_PORT="7001"       # All nodes use same Raft port
 UPDATE_MODE=false
 NON_INTERACTIVE=false
 

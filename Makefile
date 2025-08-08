@@ -23,40 +23,29 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
-# Run node (auto-detects if bootstrap or regular based on configuration)
+# Run bootstrap node explicitly
 run-node:
-	@echo "Starting network node..."
-	go run cmd/node/main.go -data ./data/node
+	@echo "Starting BOOTSTRAP node (role=bootstrap)..."
+	go run cmd/node/main.go -role bootstrap -data ./data/bootstrap
 
-# Run second node with different identity
+# Run second node (regular) - requires BOOTSTRAP multiaddr
+# Usage: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002
 run-node2:
-	@echo "Starting second network node..."
-	go run cmd/node/main.go -id node2
+	@echo "Starting REGULAR node2 (role=node)..."
+	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5002 RAFT=7002]"; exit 1; fi
+	go run cmd/node/main.go -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port ${HTTP-5002} -rqlite-raft-port ${RAFT-7002}
 
-# Run third node with different identity
+# Run third node (regular) - requires BOOTSTRAP multiaddr
+# Usage: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003
 run-node3:
-	@echo "Starting third network node..."
-	go run cmd/node/main.go -id node3
+	@echo "Starting REGULAR node3 (role=node)..."
+	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003]"; exit 1; fi
+	go run cmd/node/main.go -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port ${HTTP-5003} -rqlite-raft-port ${RAFT-7003}
 
-# Show current bootstrap configuration
+# Show how to run with flags
 show-bootstrap:
-	@echo "Current bootstrap configuration from .env:"
-	@cat .env 2>/dev/null || echo "No .env file found - using defaults"
-
-# Run example
-run-example: 
-	@echo "Running basic usage example..."
-	go run examples/basic_usage.go
-
-# Build Anchat
-build-anchat:
-	@echo "Building Anchat..."
-	cd anchat && go build -o bin/anchat cmd/cli/main.go
-
-# Run Anchat demo
-run-anchat:
-	@echo "Starting Anchat demo..."
-	cd anchat && go run cmd/cli/main.go demo_user
+    @echo "Provide bootstrap via flags, e.g.:"
+    @echo "  make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID> HTTP=5002 RAFT=7002"
 
 # Run network CLI
 run-cli:
@@ -112,7 +101,6 @@ dev-setup: deps
 	@echo "Setting up development environment..."
 	@mkdir -p data/bootstrap data/node data/node-node2 data/node-node3
 	@mkdir -p data/test-bootstrap data/test-node1 data/test-node2
-	@mkdir -p anchat/bin
 	@echo "Development setup complete!"
 
 # Multi-node testing
@@ -142,35 +130,31 @@ test-consensus: build
 # Start development cluster (requires multiple terminals)
 dev-cluster:
 	@echo "To start a development cluster, run these commands in separate terminals:"
-	@echo "1. make run-node           # Start first node (auto-detects as bootstrap in dev)"
-	@echo "2. make run-node2          # Start second node with different identity"
-	@echo "3. make run-node3          # Start third node with different identity"
+	@echo "1. make run-node           # Start bootstrap node"
+	@echo "2. make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002"
+	@echo "3. make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003"
 	@echo "4. make run-example        # Test basic functionality"
-	@echo "5. make run-anchat         # Start messaging app"
-	@echo "6. make show-bootstrap     # Check bootstrap configuration"
-	@echo "7. make cli-health         # Check network health"
-	@echo "8. make cli-peers          # List peers"
-	@echo "9. make cli-storage-test   # Test storage"
-	@echo "10. make cli-pubsub-test   # Test messaging"
+	@echo "5. make cli-health         # Check network health"
+	@echo "6. make cli-peers          # List peers"
+	@echo "7. make cli-storage-test   # Test storage"
+	@echo "8. make cli-pubsub-test    # Test messaging"
 
 # Full development workflow
-dev: clean build build-anchat test
+dev: clean build test
 	@echo "Development workflow complete!"
 
 # Help
 help:
 	@echo "Available targets:"
 	@echo "  build         - Build all executables"
-	@echo "  build-anchat  - Build Anchat application"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  test          - Run tests"
-	@echo "  run-node      - Start network node (auto-detects bootstrap vs regular)"
-	@echo "  run-node2     - Start second node with different identity"
-	@echo "  run-node3     - Start third node with different identity"
+	@echo "  run-node      - Start bootstrap node (role=bootstrap)"
+	@echo "  run-node2     - Start second node (role=node). Provide BOOTSTRAP, optional HTTP/RAFT"
+	@echo "  run-node3     - Start third node (role=node). Provide BOOTSTRAP, optional HTTP/RAFT"
 	@echo "  run-example   - Run usage example"
-	@echo "  run-anchat    - Run Anchat demo"
 	@echo "  run-cli       - Run network CLI help"
-	@echo "  show-bootstrap - Show current bootstrap configuration"
+	@echo "  show-bootstrap - Show example bootstrap usage with flags"
 	@echo "  cli-health    - Check network health"
 	@echo "  cli-peers     - List network peers"
 	@echo "  cli-status    - Get network status"

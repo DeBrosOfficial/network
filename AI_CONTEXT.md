@@ -350,14 +350,14 @@ database:
 node:
   data_dir: "./data/node"
   listen_addresses:
-    - "/ip4/0.0.0.0/tcp/4002"
+    - "/ip4/0.0.0.0/tcp/4001"
 discovery:
   bootstrap_peers:
     - "/ip4/127.0.0.1/tcp/4001/p2p/{BOOTSTRAP_PEER_ID}"
   discovery_interval: "10s"
 database:
-  rqlite_port: 5002
-  rqlite_raft_port: 7002
+  rqlite_port: 5001
+  rqlite_raft_port: 7001
   rqlite_join_address: "http://localhost:5001"
 ```
 
@@ -452,7 +452,7 @@ for _, peer := range peers {
 }
 
 // Connect to specific peer
-err := client.Network().ConnectToPeer(ctx, "/ip4/192.168.1.100/tcp/4002/p2p/{PEER_ID}")
+err := client.Network().ConnectToPeer(ctx, "/ip4/192.168.1.100/tcp/4001/p2p/{PEER_ID}")
 ```
 
 ## Troubleshooting

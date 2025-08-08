@@ -23,6 +23,9 @@ func main() {
 		dataDir   = flag.String("data", "", "Data directory (auto-detected if not provided)")
 		nodeID    = flag.String("id", "", "Node identifier (for running multiple local nodes)")
 		bootstrap = flag.String("bootstrap", "", "Bootstrap peer address (for manual override)")
+		role      = flag.String("role", "auto", "Node role: auto|bootstrap|node (auto detects based on config)")
+		rqlHTTP   = flag.Int("rqlite-http-port", 5001, "RQLite HTTP API port")
+		rqlRaft   = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
 		help      = flag.Bool("help", false, "Show help")
 	)
 	flag.Parse()
@@ -32,8 +35,17 @@ func main() {
 		return
 	}
 
-	// Auto-detect if this is a bootstrap node based on configuration
-	isBootstrap := isBootstrapNode()
+	// Determine node role
+	var isBootstrap bool
+	switch strings.ToLower(*role) {
+	case "bootstrap":
+		isBootstrap = true
+	case "node":
+		isBootstrap = false
+	default:
+		// Auto-detect if this is a bootstrap node based on configuration
+		isBootstrap = isBootstrapNode()
+	}
 
 	// Set default data directory if not provided
 	if *dataDir == "" {
@@ -48,8 +60,8 @@ func main() {
 		}
 	}
 
-	// LibP2P uses port 4000, RQLite uses 4001
-	port := 4000
+	// LibP2P uses port 4001, RQLite uses 5001 (HTTP) and 7001 (Raft)
+	port := 4001
 
 	// Create logger with appropriate component type
 	var logger *logging.StandardLogger
@@ -80,9 +92,9 @@ func main() {
 		fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", port),
 	}
 
-	// All nodes use the same RQLite port (4001) to join the same cluster
-	cfg.Database.RQLitePort = 4001
-	cfg.Database.RQLiteRaftPort = 4002
+	// RQLite ports (overridable for local multi-node on one host)
+	cfg.Database.RQLitePort = *rqlHTTP
+	cfg.Database.RQLiteRaftPort = *rqlRaft
 
 	if isBootstrap {
 		// Check if this is the primary bootstrap node (first in list) or secondary
@@ -98,11 +110,11 @@ func main() {
 				}
 			}
 		}
-		
+
 		if isSecondaryBootstrap {
 			// Secondary bootstrap nodes join the primary bootstrap
 			primaryBootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
-			cfg.Database.RQLiteJoinAddress = fmt.Sprintf("http://%s:4001", primaryBootstrapHost)
+			cfg.Database.RQLiteJoinAddress = fmt.Sprintf("http://%s:%d", primaryBootstrapHost, *rqlHTTP)
 			logger.Printf("Secondary bootstrap node - joining primary bootstrap at: %s", cfg.Database.RQLiteJoinAddress)
 		} else {
 			// Primary bootstrap node doesn't join anyone - it starts the cluster
@@ -118,11 +130,11 @@ func main() {
 			// Extract IP from bootstrap peer for RQLite join
 			bootstrapHost := parseHostFromMultiaddr(*bootstrap)
 			if bootstrapHost != "" {
-				rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+				rqliteJoinAddr = fmt.Sprintf("http://%s:%d", bootstrapHost, *rqlHTTP)
 				logger.Printf("Using extracted bootstrap host %s for RQLite join", bootstrapHost)
 			} else {
 				logger.Printf("Warning: Could not extract host from bootstrap peer %s, using localhost fallback", *bootstrap)
-				rqliteJoinAddr = "http://localhost:4001" // Use localhost fallback instead
+				rqliteJoinAddr = fmt.Sprintf("http://localhost:%d", *rqlHTTP) // Use localhost fallback instead
 			}
 			logger.Printf("Using command line bootstrap peer: %s", *bootstrap)
 		} else {
@@ -133,18 +145,18 @@ func main() {
 				// Use the first bootstrap peer for RQLite join
 				bootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
 				if bootstrapHost != "" {
-					rqliteJoinAddr = fmt.Sprintf("http://%s:4001", bootstrapHost)
+					rqliteJoinAddr = fmt.Sprintf("http://%s:5001", bootstrapHost)
 					logger.Printf("Using extracted bootstrap host %s for RQLite join", bootstrapHost)
 				} else {
 					logger.Printf("Warning: Could not extract host from bootstrap peer %s", bootstrapPeers[0])
 					// Try primary production server as fallback
-					rqliteJoinAddr = "http://localhost:4001"
+					rqliteJoinAddr = "http://localhost:5001"
 				}
 			logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
 			} else {
 				logger.Printf("Warning: No bootstrap peers configured")
 				// Default to localhost when no peers configured
-				rqliteJoinAddr = "http://localhost:4001"
+				rqliteJoinAddr = "http://localhost:5001"
 				logger.Printf("Using localhost fallback for RQLite join")
 			}
 			

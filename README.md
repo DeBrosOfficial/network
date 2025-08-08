@@ -19,7 +19,6 @@ A distributed peer-to-peer network built with Go and LibP2P, providing decentral
   - [3. Build the Project](#3-build-the-project)
   - [4. Start the Network](#4-start-the-network)
   - [5. Test with CLI](#5-test-with-cli)
-  - [6. Test Anchat Messaging](#6-test-anchat-messaging)
 - [Deployment](#deployment)
   - [Production Installation Script](#production-installation-script)
     - [One-Command Installation](#one-command-installation)
@@ -51,11 +50,6 @@ A distributed peer-to-peer network built with Go and LibP2P, providing decentral
   - [Environment Setup](#environment-setup)
   - [Configuration System](#configuration-system)
 - [Client Library Usage](#client-library-usage)
-- [Anchat - Decentralized Messaging Application](#anchat---decentralized-messaging-application)
-  - [Features](#features-1)
-  - [Quick Start with Anchat](#quick-start-with-anchat)
-  - [Anchat Commands](#anchat-commands)
-  - [Anchat Configuration](#anchat-configuration)
 - [Troubleshooting](#troubleshooting)
   - [Common Issues](#common-issues)
   - [Debug Commands](#debug-commands)
@@ -165,11 +159,8 @@ Ensure these ports are available or configure firewall rules accordingly.
 
 ```bash
 # Clone the repository
-git clone https://git.debros.io/DeBros/network-cluster.git
-cd network-cluster
-
-# Copy environment configuration
-cp .env.example .env
+git clone https://git.debros.io/DeBros/network.git
+cd network
 ```
 
 ### 2. Generate Bootstrap Identity (Development Only)
@@ -180,35 +171,18 @@ For development, you need to generate a consistent bootstrap peer identity:
 # Generate bootstrap peer identity
 go run scripts/generate-bootstrap-identity.go
 
-# This will create data/bootstrap/identity.key and show the peer ID
-# Copy the peer ID and update your .env files
+# This will create data/bootstrap/identity.key and show the peer ID (and multiaddr)
+# Save the printed peer ID to use with the -bootstrap flag
 ```
 
-**Important:** After generating the bootstrap identity, update both `.env` files:
-
-```bash
-# Update main .env file
-nano .env
-# Update BOOTSTRAP_PEERS with the generated peer ID
-
-# Update Anchat .env file
-nano anchat/.env
-# Update BOOTSTRAP_PEERS with the same peer ID
-```
+**Important:** After generating the bootstrap identity, copy the printed multiaddr
+or peer ID for use with the `-bootstrap` flag when starting regular nodes.
 
 ### 3. Build the Project
 
 ```bash
 # Build all network executables
 make build
-
-# Build Anchat application
-cd anchat
-make build
-cd ..
-
-# Or build everything at once
-make build && make build-anchat
 ```
 
 ### 4. Start the Network
@@ -216,24 +190,33 @@ make build && make build-anchat
 **Terminal 1 - Bootstrap Node:**
 
 ```bash
-make run-node
-# This automatically detects and starts as bootstrap node on port 4001
-# if the local machine matches bootstrap peer configuration
+# Start an explicit bootstrap node (LibP2P 4001, RQLite 5001/7001)
+go run cmd/node/main.go -role bootstrap -data ./data/bootstrap
 ```
 
 **Terminal 2 - Regular Node:**
 
 ```bash
-make run-node
-# This automatically connects to bootstrap peers from .env
-# No need to specify bootstrap manually anymore!
+# Replace <BOOTSTRAP_PEER_ID> with the ID printed by the identity generator
+go run cmd/node/main.go \
+  -role node \
+  -id node2 \
+  -data ./data/node2 \
+  -bootstrap /ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> \
+  -rqlite-http-port 5002 \
+  -rqlite-raft-port 7002
 ```
 
 **Terminal 3 - Another Node (optional):**
 
 ```bash
-# For additional nodes, use different data directory
-go run cmd/node/main.go -data ./data/node2
+go run cmd/node/main.go \
+  -role node \
+  -id node3 \
+  -data ./data/node3 \
+  -bootstrap /ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> \
+  -rqlite-http-port 5003 \
+  -rqlite-raft-port 7003
 ```
 
 ### 5. Test with CLI
@@ -251,18 +234,6 @@ make show-bootstrap
 
 # List connected peers
 ./bin/cli peers
-```
-
-### 6. Test Anchat Messaging
-
-```bash
-# Terminal 1 - First user
-cd anchat
-./bin/anchat
-
-# Terminal 2 - Second user
-cd anchat
-./bin/anchat
 ```
 
 ## Deployment
@@ -430,7 +401,7 @@ sudo cp -r /opt/debros/keys /backup/
 
 ```bash
 # Check if ports are open
-sudo netstat -tuln | grep -E "(4001|4002|5001|5002|7001|7002)"
+sudo netstat -tuln | grep -E "(4001|5001|7001)"
 
 # Check service logs
 sudo journalctl -u debros-node.service --since "1 hour ago"
@@ -448,81 +419,19 @@ ps aux | grep debros
 
 For more advanced configuration options and development setup, see the sections below.
 
-## Environment Configuration
+## Configuration
 
-### Bootstrap Peers Configuration
+### Bootstrap and Ports (via flags)
 
-The network uses `.env` files to configure bootstrap peers automatically. This eliminates the need to manually specify bootstrap peer addresses when starting nodes.
+- **Bootstrap node**: `-role bootstrap`
+- **Regular node**: `-role node -bootstrap <multiaddr>`
+- **RQLite ports**: `-rqlite-http-port` (default 5001), `-rqlite-raft-port` (default 7001)
 
-#### Setup for Development
-
-1. **Copy example configuration:**
-
-   ```bash
-   cp .env.example .env
-   cp anchat/.env.example anchat/.env
-   ```
-
-2. **Generate bootstrap identity:**
-
-   ```bash
-   go run scripts/generate-bootstrap-identity.go
-   ```
-
-3. **Update .env files with the generated peer ID:**
-
-   ```bash
-   # Main network .env
-   BOOTSTRAP_PEERS=/ip4/127.0.0.1/tcp/4001/p2p/YOUR_GENERATED_PEER_ID
-
-   # Anchat .env
-   BOOTSTRAP_PEERS=/ip4/127.0.0.1/tcp/4001/p2p/YOUR_GENERATED_PEER_ID
-   ```
-
-#### Configuration Files
-
-**Main Network (.env):**
-
-```bash
-# Bootstrap Node Configuration for Development
-BOOTSTRAP_PEERS=/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j
-BOOTSTRAP_PORT=4001
-ENVIRONMENT=development
-```
-
-**Anchat Application (anchat/.env):**
-
-```bash
-# Anchat Bootstrap Configuration
-BOOTSTRAP_PEERS=/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWN3AQHuxAzXfu98tiFYw7W3N2SyDwdxDRANXJp3ktVf8j
-BOOTSTRAP_PORT=4001
-ENVIRONMENT=development
-ANCHAT_LOG_LEVEL=info
-ANCHAT_DATABASE_NAME=anchattestingdb1
-```
-
-#### Multiple Bootstrap Peers
-
-For production or redundancy, you can specify multiple bootstrap peers:
-
-```bash
-BOOTSTRAP_PEERS=/ip4/bootstrap1.example.com/tcp/4001/p2p/12D3KooWPeer1,/ip4/bootstrap2.example.com/tcp/4001/p2p/12D3KooWPeer2,/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWLocalPeer
-```
-
-#### Checking Configuration
-
-```bash
-# View current bootstrap configuration
-make show-bootstrap
-
-# Check which .env file is being used
-cat .env
-cat anchat/.env
-```
+Examples are shown in Quick Start above for local multi-node on a single machine.
 
 ## CLI Commands
 
-The CLI and nodes now automatically load bootstrap peers from `.env` files - no manual configuration needed!
+The CLI can still accept `--bootstrap <multiaddr>` to override discovery when needed.
 
 ### Network Operations
 
@@ -568,7 +477,7 @@ The CLI and nodes now automatically load bootstrap peers from `.env` files - no 
 ### Project Structure
 
 ```
-network-cluster/
+network/
 ├── cmd/
 │   ├── bootstrap/          # Bootstrap node
 │   ├── node/              # Regular network node
@@ -580,21 +489,9 @@ network-cluster/
 │   ├── storage/           # Storage service
 │   ├── constants/         # Bootstrap configuration
 │   └── config/            # System configuration
-├── anchat/                # Anchat messaging application
-│   ├── cmd/cli/          # Anchat CLI
-│   ├── pkg/
-│   │   ├── chat/         # Chat functionality
-│   │   ├── crypto/       # Encryption
-│   │   └── constants/    # Anchat bootstrap config
-│   ├── .env              # Anchat environment config
-│   └── .env.example      # Anchat config template
-├── scripts/
-│   └── generate-bootstrap-identity.go  # Bootstrap ID generator
-├── .env                   # Main environment config
-├── .env.example          # Main config template
+├── scripts/             # Helper scripts (install, security, tests)
+├── scripts/             # Helper scripts (install, security, tests)
 ├── bin/                  # Built executables
-├── data/                 # Runtime data directories
-└── Makefile             # Build and run commands
 ```
 
 ### Building and Testing
@@ -602,11 +499,6 @@ network-cluster/
 ```bash
 # Build all network executables
 make build
-
-# Build Anchat application
-cd anchat && make build && cd ..
-# or
-make build-anchat
 
 # Show current bootstrap configuration
 make show-bootstrap
@@ -631,19 +523,17 @@ make dev
    ```bash
    # Copy environment templates
    cp .env.example .env
-   cp anchat/.env.example anchat/.env
 
    # Generate consistent bootstrap identity
    go run scripts/generate-bootstrap-identity.go
 
-   # Update both .env files with the generated peer ID
+   # Update .env files with the generated peer ID
    ```
 
 2. **Build Everything:**
 
    ```bash
    make build        # Build network components
-   make build-anchat # Build Anchat application
    ```
 
 3. **Start Development Cluster:**
@@ -658,9 +548,6 @@ make dev
    # Terminal 3: Test with CLI
    ./bin/cli health
    ./bin/cli peers
-
-   # Terminal 4 & 5: Test Anchat
-   cd anchat && ./bin/anchat
    ```
 
 ### Environment Setup
@@ -689,7 +576,6 @@ make dev
    ```bash
    # Setup .env files
    cp .env.example .env
-   cp anchat/.env.example anchat/.env
 
    # Generate bootstrap identity
    go run scripts/generate-bootstrap-identity.go
@@ -756,100 +642,6 @@ func main() {
 }
 ```
 
-## Anchat - Decentralized Messaging Application
-
-Anchat is a demonstration application built on the network that provides decentralized, encrypted messaging capabilities.
-
-### Features
-
-- **Decentralized Messaging**: No central servers, messages flow through the P2P network
-- **Wallet-based Authentication**: Connect using Solana wallet addresses
-- **Encrypted Communications**: End-to-end encryption for private messages
-- **Room-based Chat**: Create and join chat rooms
-- **Network Auto-discovery**: Automatically finds and connects to other Anchat users
-
-### Quick Start with Anchat
-
-1. **Setup Environment:**
-
-   ```bash
-   # Ensure main network is configured
-   cp .env.example .env
-   cp anchat/.env.example anchat/.env
-
-   # Generate bootstrap identity and update .env files
-   go run scripts/generate-bootstrap-identity.go
-   ```
-
-2. **Build Anchat:**
-
-   ```bash
-   cd anchat
-   make build
-   ```
-
-3. **Start Network Infrastructure:**
-
-   ```bash
-   # Terminal 1: Bootstrap node (auto-detected)
-   make run-node
-
-   # Terminal 2: Regular node (optional but recommended)
-   make run-node
-   ```
-
-4. **Start Anchat Clients:**
-
-   ```bash
-   # Terminal 3: First user
-   cd anchat
-   ./bin/anchat
-
-   # Terminal 4: Second user
-   cd anchat
-   ./bin/anchat
-   ```
-
-### Anchat Commands
-
-```bash
-# Room management
-/list                    # List available rooms
-/join <room>            # Join a room
-/leave                  # Leave current room
-/create <room> [desc]   # Create a new room
-
-# Messaging
-<message>               # Send message to current room
-/msg <user> <message>   # Send private message
-/me <action>           # Send action message
-
-# User management
-/users                  # List users in current room
-/nick <username>       # Change username
-/who                   # Show your user info
-
-# System
-/help                  # Show all commands
-/debug                 # Show debug information
-/quit                  # Exit Anchat
-```
-
-### Anchat Configuration
-
-Anchat uses its own bootstrap configuration in `anchat/.env`:
-
-```bash
-# Anchat-specific environment variables
-BOOTSTRAP_PEERS=/ip4/127.0.0.1/tcp/4001/p2p/YOUR_BOOTSTRAP_PEER_ID
-BOOTSTRAP_PORT=4001
-ENVIRONMENT=development
-ANCHAT_LOG_LEVEL=info
-ANCHAT_DATABASE_NAME=anchattestingdb1
-```
-
-The Anchat application also includes hardcoded fallback bootstrap peers in `anchat/pkg/constants/bootstrap.go` for reliability.
-
 ## Troubleshooting
 
 ### Common Issues
@@ -857,7 +649,7 @@ The Anchat application also includes hardcoded fallback bootstrap peers in `anch
 **Bootstrap peer not found / Peer ID mismatch:**
 
 - Generate a new bootstrap identity: `go run scripts/generate-bootstrap-identity.go`
-- Update both `.env` and `anchat/.env` with the new peer ID
+- Update `.env` with the new peer ID
 - Restart the bootstrap node: `make run-node`
 - Check configuration: `make show-bootstrap`
 
@@ -875,26 +667,18 @@ The Anchat application also includes hardcoded fallback bootstrap peers in `anch
 - Verify RQLite is properly installed: `rqlited --version`
 - Check for port conflicts: `netstat -an | grep -E "(4001|5001|7001)"`
 
-**Anchat clients can't discover each other:**
-
-- Ensure both clients use the same bootstrap peer ID in `anchat/.env`
-- Verify the bootstrap node is running
-- Check that both clients successfully connect to bootstrap
-- Look for "peer id mismatch" errors in the logs
-
 ### Debug Commands
 
 ```bash
 # Check current configuration
 make show-bootstrap
 cat .env
-cat anchat/.env
 
 # Check running processes
 ps aux | grep -E "(bootstrap|node|rqlite)"
 
 # Check port usage
-netstat -an | grep -E "(4001|4002|4003|5001|5002|5003|7001|7002|7003)"
+netstat -an | grep -E "(4001|5001|7001)"
 
 # Check bootstrap peer info
 cat data/bootstrap/peer.info
@@ -927,7 +711,6 @@ go run -c 'package main; import "fmt"; import "network/pkg/constants"; func main
 
 # Verify .env file syntax
 grep -E "^[A-Z_]+=.*" .env
-grep -E "^[A-Z_]+=.*" anchat/.env
 ```
 
 ### Logs and Data
@@ -937,7 +720,7 @@ grep -E "^[A-Z_]+=.*" anchat/.env
 - RQLite data: `./data/<node>/rqlite/`
 - Peer info: `./data/<node>/peer.info`
 - Bootstrap identity: `./data/bootstrap/identity.key`
-- Environment config: `./.env`, `./anchat/.env`
+- Environment config: `./.env`
 
 ## License
 

@@ -197,7 +197,7 @@ func (d *DatabaseClientImpl) connectToAvailableNode() (*gorqlite.Connection, err
 	return nil, fmt.Errorf("failed to connect to any RQLite instance. Last error: %w", lastErr)
 }
 
-// getRQLiteNodes returns a list of RQLite node URLs using the peer IPs/hostnames from bootstrap.go, always on port 4001
+// getRQLiteNodes returns a list of RQLite node URLs using the peer IPs/hostnames from bootstrap.go, always on port 5001
 func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 	// Use bootstrap peer addresses from constants
 	// Import the constants package
@@ -207,7 +207,7 @@ func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 		// Example multiaddr: /ip4/57.129.81.31/tcp/4001/p2p/12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei
 		parts := strings.Split(addr, "/")
 		var host string
-		var port string = "4001" // always use 4001
+		var port string = "5001" // always use RQLite HTTP 5001
 		for i := 0; i < len(parts); i++ {
 			if parts[i] == "ip4" || parts[i] == "ip6" {
 				host = parts[i+1]
@@ -215,15 +215,15 @@ func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 			if parts[i] == "dns" || parts[i] == "dns4" || parts[i] == "dns6" {
 				host = parts[i+1]
 			}
-			// ignore tcp port in multiaddr, always use 4001
+			// ignore tcp port in multiaddr, always use 5001 for RQLite HTTP
 		}
 		if host != "" {
 			nodes = append(nodes, "http://"+host+":"+port)
 		}
 	}
-	// If no peers found, fallback to localhost:4001
+	// If no peers found, fallback to localhost:5001
 	if len(nodes) == 0 {
-		nodes = append(nodes, "http://localhost:4001")
+		nodes = append(nodes, "http://localhost:5001")
 	}
 	return nodes
 }

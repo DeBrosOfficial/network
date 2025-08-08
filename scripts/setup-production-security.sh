@@ -69,14 +69,14 @@ sudo ufw default allow outgoing
 sudo ufw allow 22/tcp comment "SSH"
 
 # LibP2P P2P networking (public, encrypted)
-sudo ufw allow 4000/tcp comment "LibP2P P2P"
-sudo ufw allow 4000/udp comment "LibP2P QUIC"
+sudo ufw allow 4001/tcp comment "LibP2P P2P"
+sudo ufw allow 4001/udp comment "LibP2P QUIC"
 
 # RQLite ports (restrict to cluster IPs only)
 BOOTSTRAP_IPS=("57.129.81.31" "38.242.250.186")
 for ip in "${BOOTSTRAP_IPS[@]}"; do
-    sudo ufw allow from "$ip" to any port 4001 comment "RQLite HTTP from $ip"
-    sudo ufw allow from "$ip" to any port 4002 comment "RQLite Raft from $ip"
+    sudo ufw allow from "$ip" to any port 5001 comment "RQLite HTTP from $ip"
+    sudo ufw allow from "$ip" to any port 7001 comment "RQLite Raft from $ip"
 done
 
 # Enable firewall
@@ -85,7 +85,7 @@ sudo ufw --force enable
 echo "🔧 Configuring RQLite cluster authentication..."
 
 # Update RQLite join addresses with authentication
-AUTHENTICATED_JOIN_ADDRESS="http://$CLUSTER_USER:$CLUSTER_PASS@57.129.81.31:4001"
+AUTHENTICATED_JOIN_ADDRESS="http://$CLUSTER_USER:$CLUSTER_PASS@57.129.81.31:5001"
 
 # Create environment file for authenticated connections
 cat > "$CONFIG_DIR/rqlite-env" << EOF
@@ -106,9 +106,9 @@ cat > "$DEBROS_DIR/bin/rqlite-connect" << 'EOF'
 source /opt/debros/keys/rqlite-cluster-auth
 
 if [ "$1" = "cluster" ]; then
-    rqlite -H localhost -p 4001 -u "$RQLITE_CLUSTER_USER" -p "$RQLITE_CLUSTER_PASS"
+    rqlite -H localhost -p 5001 -u "$RQLITE_CLUSTER_USER" -p "$RQLITE_CLUSTER_PASS"
 elif [ "$1" = "api" ]; then
-    rqlite -H localhost -p 4001 -u "$RQLITE_API_USER" -p "$RQLITE_API_PASS"
+    rqlite -H localhost -p 5001 -u "$RQLITE_API_USER" -p "$RQLITE_API_PASS"
 else
     echo "Usage: $0 {cluster|api}"
     exit 1
@@ -124,8 +124,8 @@ echo "📋 Security Summary:"
 echo "  - RQLite authentication enabled"
 echo "  - Firewall configured with IP restrictions"
 echo "  - Cluster credentials generated and stored"
-echo "  - Port 4000: Public LibP2P (encrypted P2P)"
-echo "  - Port 4001/4002: RQLite cluster (IP-restricted)"
+echo "  - Port 4001: Public LibP2P (encrypted P2P)"
+echo "  - Port 5001/7001: RQLite cluster (IP-restricted)"
 echo ""
 echo "🔐 Credentials stored in:"
 echo "  - Users: $CONFIG_DIR/rqlite-users.json"

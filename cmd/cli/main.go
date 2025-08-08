@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/constants"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 var (
@@ -362,7 +362,7 @@ func handlePeerID() {
 		defer client.Disconnect()
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		
+
 		if status, err := client.Network().GetStatus(ctx); err == nil {
 			if format == "json" {
 				printJSON(map[string]string{"peer_id": status.NodeID})
@@ -372,7 +372,7 @@ func handlePeerID() {
 			return
 		}
 	}
-	
+
 	// Fallback: try to extract from local identity files
 	identityPaths := []string{
 		"/opt/debros/data/node/identity.key",
@@ -381,7 +381,7 @@ func handlePeerID() {
 		"./data/node/identity.key",
 		"./data/bootstrap/identity.key",
 	}
-	
+
 	for _, path := range identityPaths {
 		if peerID := extractPeerIDFromFile(path); peerID != "" {
 			if format == "json" {
@@ -393,7 +393,7 @@ func handlePeerID() {
 			return
 		}
 	}
-	
+
 	// Check peer.info files as last resort
 	peerInfoPaths := []string{
 		"/opt/debros/data/node/peer.info",
@@ -401,7 +401,7 @@ func handlePeerID() {
 		"./data/node/peer.info",
 		"./data/bootstrap/peer.info",
 	}
-	
+
 	for _, path := range peerInfoPaths {
 		if data, err := os.ReadFile(path); err == nil {
 			multiaddr := strings.TrimSpace(string(data))
@@ -416,14 +416,14 @@ func handlePeerID() {
 			}
 		}
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "❌ Could not find peer ID. Make sure the node is running or identity files exist.\n")
 	os.Exit(1)
 }
 
 func createClient() (client.NetworkClient, error) {
 	var bootstrapPeers []string
-	
+
 	if useProduction {
 		// Set environment to production to trigger production bootstrap peers
 		os.Setenv("ENVIRONMENT", "production")
