@@ -67,23 +67,26 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
 		r.logger.Info("Joining RQLite cluster", zap.String("join_address", r.config.RQLiteJoinAddress))
-		
-		// Validate join address format before using it
-		if strings.HasPrefix(r.config.RQLiteJoinAddress, "http://") {
-			// Test connectivity and log the results, but always attempt to join
-			if err := r.testJoinAddress(r.config.RQLiteJoinAddress); err != nil {
-				r.logger.Warn("Join address connectivity test failed, but will still attempt to join",
-					zap.String("join_address", r.config.RQLiteJoinAddress),
-					zap.Error(err))
-			} else {
-				r.logger.Info("Join address is reachable, proceeding with cluster join")
-			}
-			// Always add the join parameter - let RQLite handle retries
-			args = append(args, "-join", r.config.RQLiteJoinAddress)
-		} else {
-			r.logger.Warn("Invalid join address format, skipping join", zap.String("address", r.config.RQLiteJoinAddress))
-			return fmt.Errorf("invalid RQLite join address format: %s (must start with http://)", r.config.RQLiteJoinAddress)
+
+		// Normalize join address to host:port for rqlited -join
+		joinArg := r.config.RQLiteJoinAddress
+		if strings.HasPrefix(joinArg, "http://") {
+			joinArg = strings.TrimPrefix(joinArg, "http://")
+		} else if strings.HasPrefix(joinArg, "https://") {
+			joinArg = strings.TrimPrefix(joinArg, "https://")
 		}
+
+		// Test connectivity (HTTP status) on the leader's HTTP port derived from join host
+		if err := r.testJoinAddress(joinArg); err != nil {
+			r.logger.Warn("Join target connectivity test failed, but will still attempt to join",
+				zap.String("join_address", r.config.RQLiteJoinAddress),
+				zap.Error(err))
+		} else {
+			r.logger.Info("Join target is reachable, proceeding with cluster join")
+		}
+
+		// Always add the join parameter in host:port form - let rqlited handle the rest
+		args = append(args, "-join", joinArg)
 	} else {
 		r.logger.Info("No join address specified - starting as new cluster")
 	}
@@ -302,24 +305,34 @@ func (r *RQLiteManager) getExternalIP() (string, error) {
 
 // testJoinAddress tests if a join address is reachable
 func (r *RQLiteManager) testJoinAddress(joinAddress string) error {
-	// Test connection to the join address with a short timeout
+	// Determine the HTTP status URL to probe.
+	// If joinAddress contains a scheme, use it directly. Otherwise treat joinAddress
+	// as host:port (Raft) and probe the standard HTTP API port 5001 on that host.
 	client := &http.Client{Timeout: 5 * time.Second}
-	
-	// Try to connect to the status endpoint
-	statusURL := joinAddress + "/status"
-	r.logger.Debug("Testing join address", zap.String("url", statusURL))
-	
+
+	var statusURL string
+	if strings.HasPrefix(joinAddress, "http://") || strings.HasPrefix(joinAddress, "https://") {
+		statusURL = strings.TrimRight(joinAddress, "/") + "/status"
+	} else {
+		// Extract host from host:port
+		host := joinAddress
+		if idx := strings.Index(joinAddress, ":"); idx != -1 {
+			host = joinAddress[:idx]
+		}
+		statusURL = fmt.Sprintf("http://%s:%d/status", host, 5001)
+	}
+
+	r.logger.Debug("Testing join target via HTTP", zap.String("url", statusURL))
 	resp, err := client.Get(statusURL)
 	if err != nil {
-		return fmt.Errorf("failed to connect to join address %s: %w", joinAddress, err)
+		return fmt.Errorf("failed to connect to leader HTTP at %s: %w", statusURL, err)
 	}
 	defer resp.Body.Close()
-	
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("join address %s returned status %d", joinAddress, resp.StatusCode)
+		return fmt.Errorf("leader HTTP at %s returned status %d", statusURL, resp.StatusCode)
 	}
-	
-	r.logger.Info("Join address is reachable", zap.String("address", joinAddress))
+
+	r.logger.Info("Leader HTTP reachable", zap.String("status_url", statusURL))
 	return nil
 }
 
