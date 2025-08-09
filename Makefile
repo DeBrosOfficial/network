@@ -26,26 +26,26 @@ test:
 # Run bootstrap node explicitly
 run-node:
 	@echo "Starting BOOTSTRAP node (role=bootstrap)..."
-	go run cmd/node/main.go -role bootstrap -data ./data/bootstrap -advertise localhost
+	go run cmd/node/main.go -role bootstrap -data ./data/bootstrap -advertise localhost -p2p-port $${P2P:-4001}
 
 # Run second node (regular) - requires BOOTSTRAP multiaddr
-# Usage: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002
+# Usage: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002 P2P=4002
 run-node2:
 	@echo "Starting REGULAR node2 (role=node)..."
-	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5002 RAFT=7002]"; exit 1; fi
-	go run cmd/node/main.go -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002} -advertise $${ADVERTISE:-localhost}
+	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5002 RAFT=7002 P2P=4002]"; exit 1; fi
+	go run cmd/node/main.go -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002} -p2p-port $${P2P:-4002} -advertise $${ADVERTISE:-localhost}
 
 # Run third node (regular) - requires BOOTSTRAP multiaddr
-# Usage: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003
+# Usage: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003 P2P=4003
 run-node3:
 	@echo "Starting REGULAR node3 (role=node)..."
-	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003]"; exit 1; fi
-	go run cmd/node/main.go -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -advertise $${ADVERTISE:-localhost}
+	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003 P2P=4003]"; exit 1; fi
+	go run cmd/node/main.go -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -p2p-port $${P2P:-4003} -advertise $${ADVERTISE:-localhost}
 
 # Show how to run with flags
 show-bootstrap:
 	@echo "Provide bootstrap via flags, e.g.:"
-	@echo "  make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID> HTTP=5002 RAFT=7002"
+	@echo "  make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID> HTTP=5002 RAFT=7002 P2P=4002"
 
 # Run network CLI
 run-cli:
@@ -131,8 +131,8 @@ test-consensus: build
 dev-cluster:
 	@echo "To start a development cluster, run these commands in separate terminals:"
 	@echo "1. make run-node           # Start bootstrap node"
-	@echo "2. make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002"
-	@echo "3. make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003"
+	@echo "2. make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002 P2P=4002"
+	@echo "3. make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003 P2P=4003"
 	@echo "4. make run-example        # Test basic functionality"
 	@echo "5. make cli-health         # Check network health"
 	@echo "6. make cli-peers          # List peers"

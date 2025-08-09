@@ -25,6 +25,7 @@ func main() {
 		nodeID    = flag.String("id", "", "Node identifier (for running multiple local nodes)")
 		bootstrap = flag.String("bootstrap", "", "Bootstrap peer address (for manual override)")
 		role      = flag.String("role", "auto", "Node role: auto|bootstrap|node (auto detects based on config)")
+		p2pPort   = flag.Int("p2p-port", 4001, "LibP2P listen port")
 		rqlHTTP   = flag.Int("rqlite-http-port", 5001, "RQLite HTTP API port")
 		rqlRaft   = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
 		advertise = flag.String("advertise", "auto", "Advertise mode: auto|localhost|ip")
@@ -62,8 +63,8 @@ func main() {
 		}
 	}
 
-	// LibP2P uses port 4001, RQLite uses 5001 (HTTP) and 7001 (Raft)
-	port := 4001
+	// LibP2P uses configurable port (default 4001); RQLite uses 5001 (HTTP) and 7001 (Raft)
+	port := *p2pPort
 
 	// Create logger with appropriate component type
 	var logger *logging.StandardLogger
