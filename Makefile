@@ -3,13 +3,18 @@
 
 .PHONY: build clean test run-node run-node2 run-node3 run-example deps tidy fmt vet lint clear-ports
 
+VERSION := 0.18.0-beta
+COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.commit=$(COMMIT)' -X 'main.date=$(DATE)'
+
 # Build targets
 build: deps
-	@echo "Building network executables..."
+	@echo "Building network executables (version=$(VERSION))..."
 	@mkdir -p bin
-	go build -o bin/node ./cmd/node
-	go build -o bin/network-cli cmd/cli/main.go
-	@echo "Build complete!"
+	go build -ldflags "$(LDFLAGS)" -o bin/node ./cmd/node
+	go build -ldflags "$(LDFLAGS)" -o bin/network-cli cmd/cli/main.go
+	@echo "Build complete! Run ./bin/network-cli version"
 
 # Clean build artifacts
 clean:

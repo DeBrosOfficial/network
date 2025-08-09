@@ -1,0 +1,64 @@
+# GoReleaser config for network
+project_name: network
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: network-node
+    main: ./cmd/node
+    binary: network-node
+    env:
+      - CGO_ENABLED=0
+    flags: ["-trimpath"]
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    mod_timestamp: '{{ .CommitDate }}'
+
+  - id: network-cli
+    main: ./cmd/cli
+    binary: network-cli
+    env:
+      - CGO_ENABLED=0
+    flags: ["-trimpath"]
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    mod_timestamp: '{{ .CommitDate }}'
+
+archives:
+  - id: default
+    builds: [network-node, network-cli]
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+signs:
+  - artifacts: checksum
+
+changelog:
+  sort: asc
+  use: git
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+
+release:
+  prerelease: auto

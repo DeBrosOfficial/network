@@ -23,6 +23,13 @@ var (
 	useProduction = false
 )
 
+// version metadata populated via -ldflags at build time
+var (
+	version = "dev"
+	commit  = ""
+	date    = ""
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		showHelp()
@@ -36,6 +43,16 @@ func main() {
 	parseGlobalFlags(args)
 
 	switch command {
+	case "version":
+		fmt.Printf("network-cli %s", version)
+		if commit != "" {
+			fmt.Printf(" (commit %s)", commit)
+		}
+		if date != "" {
+			fmt.Printf(" built %s", date)
+		}
+		fmt.Println()
+		return
 	case "health":
 		handleHealth()
 	case "peers":
