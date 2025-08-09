@@ -88,110 +88,17 @@ func main() {
 		logger.Printf("Starting regular node...")
 	}
 
-	// Apply environment variable overrides before applying CLI flags so that
-	// precedence is: flags > env > defaults
-	config.ApplyEnvOverrides(cfg)
-
-	// Set basic configuration
-	cfg.Node.DataDir = *dataDir
-	cfg.Node.ListenAddresses = []string{
-		fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port),
-		fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", port),
-	}
-
-	// RQLite ports (overridable for local multi-node on one host)
-	cfg.Database.RQLitePort = *rqlHTTP
-	cfg.Database.RQLiteRaftPort = *rqlRaft
-	cfg.Database.AdvertiseMode = strings.ToLower(*advertise)
-	logger.Printf("RQLite advertise mode: %s", cfg.Database.AdvertiseMode)
-
-	if isBootstrap {
-		// Check if this is the primary bootstrap node (first in list) or secondary
-		bootstrapPeers := constants.GetBootstrapPeers()
-		isSecondaryBootstrap := false
-		if len(bootstrapPeers) > 1 {
-			// Check if this machine matches any bootstrap peer other than the first
-			for i := 1; i < len(bootstrapPeers); i++ {
-				host := parseHostFromMultiaddr(bootstrapPeers[i])
-				if host != "" && isLocalIP(host) {
-					isSecondaryBootstrap = true
-					break
-				}
-			}
-		}
-
-		if isSecondaryBootstrap {
-			// Secondary bootstrap nodes join the primary bootstrap Raft address (standardized to 7001)
-			primaryBootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
-			cfg.Database.RQLiteJoinAddress = fmt.Sprintf("%s:%d", primaryBootstrapHost, 7001)
-			logger.Printf("Secondary bootstrap node - joining primary bootstrap (raft) at: %s", cfg.Database.RQLiteJoinAddress)
-		} else {
-			// Primary bootstrap node doesn't join anyone - it starts the cluster
-			cfg.Database.RQLiteJoinAddress = ""
-			logger.Printf("Primary bootstrap node - starting new RQLite cluster")
-		}
-	} else {
-		// Configure bootstrap peers for P2P discovery
-		var rqliteJoinAddr string // host:port for Raft join
-		if *bootstrap != "" {
-			// Use command line bootstrap if provided
-			cfg.Discovery.BootstrapPeers = []string{*bootstrap}
-			// Extract IP from bootstrap peer for RQLite
-			bootstrapHost := parseHostFromMultiaddr(*bootstrap)
-			if bootstrapHost != "" {
-				// Only translate localhost to external IP when not explicitly in localhost advertise mode
-				if (bootstrapHost == "127.0.0.1" || strings.EqualFold(bootstrapHost, "localhost")) && cfg.Database.AdvertiseMode != "localhost" {
-					if extIP, err := getPreferredLocalIP(); err == nil && extIP != "" {
-						logger.Printf("Translating localhost bootstrap to external IP %s for RQLite join", extIP)
-						bootstrapHost = extIP
-					} else {
-						logger.Printf("Warning: Failed to resolve external IP, keeping localhost for RQLite join")
-					}
-				}
-				// Regular nodes should join the bootstrap's RQLite Raft port (standardized to 7001)
-				rqliteJoinAddr = fmt.Sprintf("%s:%d", bootstrapHost, 7001)
-				logger.Printf("Using extracted bootstrap host %s for RQLite Raft join (port 7001)", bootstrapHost)
-			} else {
-				logger.Printf("Warning: Could not extract host from bootstrap peer %s, using localhost fallback", *bootstrap)
-				rqliteJoinAddr = fmt.Sprintf("localhost:%d", 7001) // Use localhost raft fallback instead
-			}
-			logger.Printf("Using command line bootstrap peer: %s", *bootstrap)
-		} else {
-			// Use environment-configured bootstrap peers if provided; otherwise fallback to constants
-			bootstrapPeers := cfg.Discovery.BootstrapPeers
-			if len(bootstrapPeers) == 0 {
-				bootstrapPeers = constants.GetBootstrapPeers()
-			}
-			if len(bootstrapPeers) > 0 {
-				cfg.Discovery.BootstrapPeers = bootstrapPeers
-				// Use the first bootstrap peer for RQLite join
-				bootstrapHost := parseHostFromMultiaddr(bootstrapPeers[0])
-				if bootstrapHost != "" {
-					rqliteJoinAddr = fmt.Sprintf("%s:%d", bootstrapHost, 7001)
-					logger.Printf("Using extracted bootstrap host %s for RQLite Raft join", bootstrapHost)
-				} else {
-					logger.Printf("Warning: Could not extract host from bootstrap peer %s", bootstrapPeers[0])
-					// Try primary production server as fallback
-					rqliteJoinAddr = "localhost:7001"
-				}
-				logger.Printf("Using environment bootstrap peers: %v", bootstrapPeers)
-			} else {
-				logger.Printf("Warning: No bootstrap peers configured")
-				// Default to localhost when no peers configured
-				rqliteJoinAddr = "localhost:7001"
-				logger.Printf("Using localhost fallback for RQLite Raft join")
-			}
-			
-			// Log network connectivity diagnostics
-			logger.Printf("=== NETWORK DIAGNOSTICS ===")
-			logger.Printf("Target RQLite Raft join address: %s", rqliteJoinAddr)
-			runNetworkDiagnostics(rqliteJoinAddr, logger)
-		}
-		
-		// Regular nodes join the bootstrap node's RQLite cluster
-		cfg.Database.RQLiteJoinAddress = rqliteJoinAddr
-		logger.Printf("Regular node - joining RQLite cluster (raft) at: %s", cfg.Database.RQLiteJoinAddress)
-	}
+	// Centralized mapping from flags/env to config (flags > env > defaults)
+	_ = MapFlagsAndEnvToConfig(cfg, NodeFlagValues{
+		DataDir:   *dataDir,
+		NodeID:    *nodeID,
+		Bootstrap: *bootstrap,
+		Role:      *role,
+		P2PPort:   port,
+		RqlHTTP:   *rqlHTTP,
+		RqlRaft:   *rqlRaft,
+		Advertise: *advertise,
+	}, isBootstrap, logger)
 
 	logger.Printf("Data directory: %s", cfg.Node.DataDir)
 	logger.Printf("Listen addresses: %v", cfg.Node.ListenAddresses)

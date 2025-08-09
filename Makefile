@@ -7,7 +7,7 @@
 build: deps
 	@echo "Building network executables..."
 	@mkdir -p bin
-	go build -o bin/node cmd/node/main.go
+	go build -o bin/node ./cmd/node
 	go build -o bin/network-cli cmd/cli/main.go
 	@echo "Build complete!"
 
