@@ -139,16 +139,38 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 	}
 	r.connection = conn
 
-	// Wait for RQLite to establish leadership (for bootstrap nodes)
+	// Wait for RQLite to establish leadership (only on fresh bootstrap)
 	if r.config.RQLiteJoinAddress == "" {
-		if err := r.waitForLeadership(ctx); err != nil {
-			r.cmd.Process.Kill()
-			return fmt.Errorf("RQLite failed to establish leadership: %w", err)
+		if !r.hasExistingState(rqliteDataDir) {
+			if err := r.waitForLeadership(ctx); err != nil {
+				r.cmd.Process.Kill()
+				return fmt.Errorf("RQLite failed to establish leadership: %w", err)
+			}
+		} else {
+			// Existing state implies this node may be part of a multi-voter cluster; quorum may be required.
+			// Do not fail startup if leadership is not immediately available.
+			r.logger.Info("Existing Raft state detected; skipping leadership wait (cluster may require quorum)")
 		}
 	}
 
 	r.logger.Info("RQLite node started successfully")
 	return nil
+}
+
+// hasExistingState returns true if the rqlite data directory already contains files or subdirectories.
+func (r *RQLiteManager) hasExistingState(rqliteDataDir string) bool {
+	entries, err := os.ReadDir(rqliteDataDir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		// Any existing file or directory indicates prior state
+		if e.Name() == "." || e.Name() == ".." {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // waitForReady waits for RQLite to be ready to accept connections
