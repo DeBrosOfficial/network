@@ -31,12 +31,8 @@ A distributed peer-to-peer network built with Go and LibP2P, providing decentral
     - [Network Discovery](#network-discovery)
     - [Updates and Maintenance](#updates-and-maintenance)
     - [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
-- [Environment Configuration](#environment-configuration)
-  - [Bootstrap Peers Configuration](#bootstrap-peers-configuration)
-    - [Setup for Development](#setup-for-development)
-    - [Configuration Files](#configuration-files-1)
-    - [Multiple Bootstrap Peers](#multiple-bootstrap-peers)
-    - [Checking Configuration](#checking-configuration)
+- [Configuration](#configuration)
+  - [Bootstrap and Ports (via flags)](#bootstrap-and-ports-via-flags)
 - [CLI Commands](#cli-commands)
   - [Network Operations](#network-operations)
   - [Storage Operations](#storage-operations)
@@ -226,14 +222,14 @@ go run cmd/node/main.go \
 make show-bootstrap
 
 # Check network health
-./bin/cli health
+./bin/network-cli health
 
 # Test storage operations
-./bin/cli storage put test-key "Hello Network"
-./bin/cli storage get test-key
+./bin/network-cli storage put test-key "Hello Network"
+./bin/network-cli storage get test-key
 
 # List connected peers
-./bin/cli peers
+./bin/network-cli peers
 ```
 
 ## Deployment
@@ -334,9 +330,9 @@ sudo systemctl enable debros-node
 sudo systemctl disable debros-node
 
 # Use CLI tools
-/opt/debros/bin/cli health
-/opt/debros/bin/cli peers
-/opt/debros/bin/cli storage put key value
+/opt/debros/bin/network-cli health
+/opt/debros/bin/network-cli peers
+/opt/debros/bin/network-cli storage put key value
 ```
 
 #### Configuration Files
@@ -407,8 +403,8 @@ sudo netstat -tuln | grep -E "(4001|5001|7001)"
 sudo journalctl -u debros-node.service --since "1 hour ago"
 
 # Check network connectivity
-/opt/debros/bin/cli health
-/opt/debros/bin/cli peers
+/opt/debros/bin/network-cli health
+/opt/debros/bin/network-cli peers
 
 # Check disk usage
 du -sh /opt/debros/data/*
@@ -429,6 +425,41 @@ For more advanced configuration options and development setup, see the sections 
 
 Examples are shown in Quick Start above for local multi-node on a single machine.
 
+### Environment Variables
+
+Precedence: CLI flags > Environment variables > Code defaults. Set any of the following in your shell or `.env`:
+
+- NODE_ID: custom node identifier (e.g. "node2")
+- NODE_TYPE: "bootstrap" or "node"
+- NODE_LISTEN_ADDRESSES: comma-separated multiaddrs (e.g. "/ip4/0.0.0.0/tcp/4001,/ip4/0.0.0.0/udp/4001/quic")
+- DATA_DIR: node data directory (default `./data`)
+- MAX_CONNECTIONS: max peer connections (int)
+
+- DB_DATA_DIR: database data directory (default `./data/db`)
+- REPLICATION_FACTOR: int (default 3)
+- SHARD_COUNT: int (default 16)
+- MAX_DB_SIZE: e.g. "1g", "512m", or bytes
+- BACKUP_INTERVAL: Go duration (e.g. "24h")
+- RQLITE_HTTP_PORT: int (default 5001)
+- RQLITE_RAFT_PORT: int (default 7001)
+- RQLITE_JOIN_ADDRESS: host:port for Raft join (regular nodes)
+- ADVERTISE_MODE: "auto" | "localhost" | "ip"
+
+- BOOTSTRAP_PEERS: comma-separated multiaddrs for bootstrap peers
+- ENABLE_MDNS: true/false
+- ENABLE_DHT: true/false
+- DHT_PREFIX: string (default `/network/kad/1.0.0`)
+- DISCOVERY_INTERVAL: duration (e.g. "5m")
+
+- ENABLE_TLS: true/false
+- PRIVATE_KEY_FILE: path
+- CERT_FILE: path
+- AUTH_ENABLED: true/false
+
+- LOG_LEVEL: "debug" | "info" | "warn" | "error"
+- LOG_FORMAT: "json" | "console"
+- LOG_OUTPUT_FILE: path (empty = stdout)
+
 ## CLI Commands
 
 The CLI can still accept `--bootstrap <multiaddr>` to override discovery when needed.
@@ -436,32 +467,32 @@ The CLI can still accept `--bootstrap <multiaddr>` to override discovery when ne
 ### Network Operations
 
 ```bash
-./bin/cli health                    # Check network health
-./bin/cli status                    # Get network status
-./bin/cli peers                     # List connected peers
+./bin/network-cli health                    # Check network health
+./bin/network-cli status                    # Get network status
+./bin/network-cli peers                     # List connected peers
 ```
 
 ### Storage Operations
 
 ```bash
-./bin/cli storage put <key> <value> # Store data
-./bin/cli storage get <key>         # Retrieve data
-./bin/cli storage list [prefix]     # List keys
+./bin/network-cli storage put <key> <value> # Store data
+./bin/network-cli storage get <key>         # Retrieve data
+./bin/network-cli storage list [prefix]     # List keys
 ```
 
 ### Database Operations
 
 ```bash
-./bin/cli query "SELECT * FROM table"              # Execute SQL
-./bin/cli query "CREATE TABLE users (id INTEGER)"  # DDL operations
+./bin/network-cli query "SELECT * FROM table"              # Execute SQL
+./bin/network-cli query "CREATE TABLE users (id INTEGER)"  # DDL operations
 ```
 
 ### Pub/Sub Messaging
 
 ```bash
-./bin/cli pubsub publish <topic> <message>     # Send message
-./bin/cli pubsub subscribe <topic> [duration]  # Listen for messages
-./bin/cli pubsub topics                        # List active topics
+./bin/network-cli pubsub publish <topic> <message>     # Send message
+./bin/network-cli pubsub subscribe <topic> [duration]  # Listen for messages
+./bin/network-cli pubsub topics                        # List active topics
 ```
 
 ### CLI Options
@@ -479,8 +510,7 @@ The CLI can still accept `--bootstrap <multiaddr>` to override discovery when ne
 ```
 network/
 ├── cmd/
-│   ├── bootstrap/          # Bootstrap node
-│   ├── node/              # Regular network node
+│   ├── node/              # Network node (bootstrap via flag)
 │   └── cli/               # Command-line interface
 ├── pkg/
 │   ├── client/            # Client library
@@ -489,8 +519,7 @@ network/
 │   ├── storage/           # Storage service
 │   ├── constants/         # Bootstrap configuration
 │   └── config/            # System configuration
-├── scripts/             # Helper scripts (install, security, tests)
-├── scripts/             # Helper scripts (install, security, tests)
+├── scripts/               # Helper scripts (install, security, tests)
 ├── bin/                  # Built executables
 ```
 
@@ -546,8 +575,8 @@ make dev
    make run-node
 
    # Terminal 3: Test with CLI
-   ./bin/cli health
-   ./bin/cli peers
+   ./bin/network-cli health
+   ./bin/network-cli peers
    ```
 
 ### Environment Setup
@@ -607,7 +636,7 @@ package main
 import (
     "context"
     "log"
-    "network/pkg/client"
+    "git.debros.io/DeBros/network/pkg/client"
 )
 
 func main() {

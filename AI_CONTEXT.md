@@ -118,10 +118,9 @@ Create a robust, decentralized network platform that enables applications to sea
 ## Codebase Structure
 
 ```
-debros-testing/
+network/
 ├── cmd/                          # Executables
-│   ├── bootstrap/main.go         # Bootstrap node (network entry point)
-│   ├── node/main.go              # Regular network node
+│   ├── node/main.go              # Network node (bootstrap via flag/auto)
 │   └── cli/main.go               # Command-line interface
 ├── pkg/                          # Core packages
 │   ├── client/                   # Client API and implementations
@@ -358,7 +357,7 @@ discovery:
 database:
   rqlite_port: 5001
   rqlite_raft_port: 7001
-  rqlite_join_address: "http://localhost:5001"
+  rqlite_join_address: "localhost:7001"
 ```
 
 ## API Reference
@@ -366,7 +365,7 @@ database:
 ### Client Creation
 
 ```go
-import "network/pkg/client"
+import "git.debros.io/DeBros/network/pkg/client"
 
 config := client.DefaultClientConfig("my-app")
 config.BootstrapPeers = []string{"/ip4/127.0.0.1/tcp/4001/p2p/{PEER_ID}"}

@@ -84,22 +84,8 @@ func NewClient(config *ClientConfig) (NetworkClient, error) {
 		return nil, fmt.Errorf("app name is required")
 	}
 
-	// Create zap logger - use different config for quiet mode
-	var logger *zap.Logger
-	var err error
-	if config.QuietMode {
-		// For quiet mode, only show warnings and errors
-		zapConfig := zap.NewProductionConfig()
-		zapConfig.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
-		// Disable caller info for cleaner output
-		zapConfig.DisableCaller = true
-		// Disable stacktrace for cleaner output
-		zapConfig.DisableStacktrace = true
-		logger, err = zapConfig.Build()
-	} else {
-		// Development logger shows debug/info logs
-		logger, err = zap.NewDevelopment()
-	}
+	// Create zap logger via helper for consistency
+	logger, err := newClientLogger(config.QuietMode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}

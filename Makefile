@@ -1,7 +1,7 @@
 # Network - Distributed P2P Database System
 # Makefile for development and build tasks
 
-.PHONY: build clean test run-node run-node2 run-node3 run-example deps tidy fmt vet
+.PHONY: build clean test run-node run-node2 run-node3 run-example deps tidy fmt vet lint clear-ports
 
 # Build targets
 build: deps
@@ -41,6 +41,11 @@ run-node3:
 	@echo "Starting REGULAR node3 (role=node)..."
 	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003 P2P=4003]"; exit 1; fi
 	go run cmd/node/main.go -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -p2p-port $${P2P:-4003} -advertise $${ADVERTISE:-localhost}
+
+# Run basic usage example
+run-example:
+	@echo "Running basic usage example..."
+	go run examples/basic_usage.go
 
 # Show how to run with flags
 show-bootstrap:
@@ -96,10 +101,20 @@ vet:
 	@echo "Vetting code..."
 	go vet ./...
 
+# Lint alias (lightweight for now)
+lint: fmt vet
+	@echo "Linting complete (fmt + vet)"
+
+# Clear common development ports
+clear-ports:
+	@echo "Clearing common dev ports (4001/4002, 5001/5002, 7001/7002)..."
+	@chmod +x scripts/clear-ports.sh || true
+	@scripts/clear-ports.sh
+
 # Development setup
 dev-setup: deps
 	@echo "Setting up development environment..."
-	@mkdir -p data/bootstrap data/node data/node-node2 data/node-node3
+	@mkdir -p data/bootstrap data/node data/node2 data/node3
 	@mkdir -p data/test-bootstrap data/test-node1 data/test-node2
 	@echo "Development setup complete!"
 
@@ -168,6 +183,8 @@ help:
 	@echo "  tidy          - Tidy dependencies"
 	@echo "  fmt           - Format code"
 	@echo "  vet           - Vet code"
+	@echo "  lint          - Lint code (fmt + vet)"
+	@echo "  clear-ports   - Clear common dev ports"
 	@echo "  dev-setup     - Setup development environment"
 	@echo "  dev-cluster   - Show cluster startup commands"
 	@echo "  dev           - Full development workflow"

@@ -88,6 +88,10 @@ func main() {
 		logger.Printf("Starting regular node...")
 	}
 
+	// Apply environment variable overrides before applying CLI flags so that
+	// precedence is: flags > env > defaults
+	config.ApplyEnvOverrides(cfg)
+
 	// Set basic configuration
 	cfg.Node.DataDir = *dataDir
 	cfg.Node.ListenAddresses = []string{
@@ -153,8 +157,11 @@ func main() {
 			}
 			logger.Printf("Using command line bootstrap peer: %s", *bootstrap)
 		} else {
-			// Use environment-configured bootstrap peers
-			bootstrapPeers := constants.GetBootstrapPeers()
+			// Use environment-configured bootstrap peers if provided; otherwise fallback to constants
+			bootstrapPeers := cfg.Discovery.BootstrapPeers
+			if len(bootstrapPeers) == 0 {
+				bootstrapPeers = constants.GetBootstrapPeers()
+			}
 			if len(bootstrapPeers) > 0 {
 				cfg.Discovery.BootstrapPeers = bootstrapPeers
 				// Use the first bootstrap peer for RQLite join
