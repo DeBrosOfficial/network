@@ -187,33 +187,20 @@ make build
 
 ```bash
 # Start an explicit bootstrap node (LibP2P 4001, RQLite 5001/7001)
-go run ./cmd/node -role bootstrap -data ./data/bootstrap -dev-local
+make run-node
 ```
 
 **Terminal 2 - Regular Node:**
 
 ```bash
 # Replace <BOOTSTRAP_PEER_ID> with the ID printed by the identity generator
-go run ./cmd/node \
-  -role node \
-  -id node2 \
-  -data ./data/node2 \
-  -bootstrap /ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> \
-  -rqlite-http-port 5002 \
-  -rqlite-raft-port 7002 \
-  -dev-local
+make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> HTTP=5002 RAFT=7002 P2P=4002
 ```
 
 **Terminal 3 - Another Node (optional):**
 
 ```bash
-go run ./cmd/node \
-  -role node \
-  -id node3 \
-  -data ./data/node3 \
-  -bootstrap /ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> \
-  -rqlite-http-port 5003 \
-  -rqlite-raft-port 7003
+make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> HTTP=5003 RAFT=7003 P2P=4003
 ```
 
 ### 5. Test with CLI
@@ -524,12 +511,12 @@ Notes:
 
 ### Migration Guide for Apps (e.g., anchat)
 
-- __Stop hardcoding endpoints__: Replace any hardcoded bootstrap peers and DB URLs with calls to
+- **Stop hardcoding endpoints**: Replace any hardcoded bootstrap peers and DB URLs with calls to
   `client.DefaultBootstrapPeers()` and, if needed, set `ClientConfig.DatabaseEndpoints`.
-- __Prefer config over env__: Set `ClientConfig.DatabaseEndpoints` in your app config. If not set,
+- **Prefer config over env**: Set `ClientConfig.DatabaseEndpoints` in your app config. If not set,
   the library will read `RQLITE_NODES` for backward compatibility.
-- __Keep env compatibility__: Existing environments using `RQLITE_NODES` and `RQLITE_PORT` continue to work.
-- __Minimal changes__: Most apps only need to populate `ClientConfig.DatabaseEndpoints` and/or rely on
+- **Keep env compatibility**: Existing environments using `RQLITE_NODES` and `RQLITE_PORT` continue to work.
+- **Minimal changes**: Most apps only need to populate `ClientConfig.DatabaseEndpoints` and/or rely on
   `client.DefaultDatabaseEndpoints()`; no other code changes required.
 
 Example migration snippet:
