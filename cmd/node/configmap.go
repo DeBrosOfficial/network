@@ -75,9 +75,9 @@ func MapFlagsAndEnvToConfig(cfg *config.Config, fv NodeFlagValues, isBootstrap b
 		if devLocal {
 			// In dev-local, run a primary bootstrap locally
 			cfg.Database.RQLiteJoinAddress = ""
-			// Also prefer localhost bootstrap peers for any consumers reading cfg
-			cfg.Discovery.BootstrapPeers = client.DefaultBootstrapPeers()
-			logger.Printf("Dev-local: Primary bootstrap node - localhost defaults enabled")
+			// Do not set bootstrap peers to avoid including self; clients can still
+			// derive DB endpoints via DefaultDatabaseEndpoints in dev-local.
+			logger.Printf("Dev-local: Primary bootstrap node - localhost defaults enabled (no bootstrap peers set to avoid self)")
 			return ""
 		}
 		bootstrapPeers := constants.GetBootstrapPeers()

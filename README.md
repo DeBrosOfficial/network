@@ -520,6 +520,7 @@ Notes:
 - With `NETWORK_DEV_LOCAL`, `client.DefaultDatabaseEndpoints()` returns `http://127.0.0.1:$RQLITE_PORT`.
 - `client.DefaultBootstrapPeers()` returns `LOCAL_BOOTSTRAP_MULTIADDR` if set, otherwise `/ip4/127.0.0.1/tcp/4001`.
 - If you construct config via `client.DefaultClientConfig(...)`, DB endpoints are pinned to localhost and will override `RQLITE_NODES` automatically.
+- When `NETWORK_DEV_LOCAL` is set and `LOCAL_BOOTSTRAP_MULTIADDR` is NOT set, the client attempts to auto-load the local bootstrap multiaddr (with peer ID) from `./data/bootstrap/peer.info` (or `LOCAL_BOOTSTRAP_INFO` path if provided). Only if no file is found does it fall back to `/ip4/127.0.0.1/tcp/4001`.
 
 ### Migration Guide for Apps (e.g., anchat)
 

@@ -17,6 +17,7 @@ import (
 	"git.debros.io/DeBros/network/pkg/constants"
 	"git.debros.io/DeBros/network/pkg/logging"
 	"git.debros.io/DeBros/network/pkg/node"
+	"git.debros.io/DeBros/network/pkg/client"
 )
 
 func main() {
@@ -111,6 +112,19 @@ func main() {
 	logger.Printf("Listen addresses: %v", cfg.Node.ListenAddresses)
 	logger.Printf("RQLite HTTP port: %d", cfg.Database.RQLitePort)
 	logger.Printf("RQLite Raft port: %d", cfg.Database.RQLiteRaftPort)
+
+	// For development visibility, print what the CLIENT library will return by default
+	clientBootstrap := client.DefaultBootstrapPeers()
+	clientDB := client.DefaultDatabaseEndpoints()
+	logger.Printf("[Client Defaults] Bootstrap peers: %v", clientBootstrap)
+	logger.Printf("[Client Defaults] Database endpoints: %v", clientDB)
+	// Also show node-configured values
+	logger.Printf("[Node Config] Bootstrap peers: %v", cfg.Discovery.BootstrapPeers)
+	if cfg.Database.RQLiteJoinAddress != "" {
+		logger.Printf("[Node Config] RQLite Raft join: %s", cfg.Database.RQLiteJoinAddress)
+	} else if isBootstrap {
+		logger.Printf("[Node Config] Bootstrap node: starting new RQLite cluster (no join)")
+	}
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
