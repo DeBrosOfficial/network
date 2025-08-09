@@ -160,6 +160,26 @@ func (n *Node) startLibP2P() error {
 		// Don't fail - continue without bootstrap connections
 	}
 
+	// Background reconnect loop: keep trying to connect to bootstrap peers for a short window
+	// This helps when nodes are started slightly out-of-order in dev.
+	if len(n.config.Discovery.BootstrapPeers) > 0 {
+		go func() {
+			for i := 0; i < 12; i++ { // ~60s total
+				if n.host == nil || n.dht == nil {
+					return
+				}
+				// If we already have peers or DHT table entries, stop retrying
+				if len(n.host.Network().Peers()) > 0 || len(n.dht.RoutingTable().ListPeers()) > 0 {
+					return
+				}
+				if err := n.connectToBootstrapPeers(); err == nil {
+					n.logger.Debug("Bootstrap reconnect attempt completed")
+				}
+				time.Sleep(5 * time.Second)
+			}
+		}()
+	}
+
 	// Add bootstrap peers to DHT routing table BEFORE bootstrapping
 	if len(n.config.Discovery.BootstrapPeers) > 0 {
 		n.logger.Info("Adding bootstrap peers to DHT routing table")
@@ -385,6 +405,9 @@ func (n *Node) Stop() error {
 	// Stop RQLite
 	if n.rqliteAdapter != nil {
 		n.rqliteAdapter.Close()
+	}
+	if n.rqliteManager != nil {
+		_ = n.rqliteManager.Stop()
 	}
 
 	n.logger.ComponentInfo(logging.ComponentNode, "Network node stopped")

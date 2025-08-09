@@ -197,10 +197,12 @@ func main() {
 
 	// Start node in a goroutine
 	errChan := make(chan error, 1)
+	doneChan := make(chan struct{})
 	go func() {
 		if err := startNode(ctx, cfg, port, isBootstrap, logger); err != nil {
 			errChan <- err
 		}
+		close(doneChan)
 	}()
 
 	// Wait for interrupt signal or error
@@ -214,6 +216,9 @@ func main() {
 	case <-c:
 		logger.Printf("Shutting down node...")
 		cancel()
+		// Wait for node goroutine to finish cleanly
+		<-doneChan
+		logger.Printf("Node shutdown complete")
 	}
 }
 
