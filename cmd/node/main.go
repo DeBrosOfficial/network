@@ -27,6 +27,7 @@ func main() {
 		role      = flag.String("role", "auto", "Node role: auto|bootstrap|node (auto detects based on config)")
 		rqlHTTP   = flag.Int("rqlite-http-port", 5001, "RQLite HTTP API port")
 		rqlRaft   = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
+		advertise = flag.String("advertise", "auto", "Advertise mode: auto|localhost|ip")
 		help      = flag.Bool("help", false, "Show help")
 	)
 	flag.Parse()
@@ -96,6 +97,8 @@ func main() {
 	// RQLite ports (overridable for local multi-node on one host)
 	cfg.Database.RQLitePort = *rqlHTTP
 	cfg.Database.RQLiteRaftPort = *rqlRaft
+	cfg.Database.AdvertiseMode = strings.ToLower(*advertise)
+	logger.Printf("RQLite advertise mode: %s", cfg.Database.AdvertiseMode)
 
 	if isBootstrap {
 		// Check if this is the primary bootstrap node (first in list) or secondary
@@ -131,8 +134,8 @@ func main() {
 			// Extract IP from bootstrap peer for RQLite
 			bootstrapHost := parseHostFromMultiaddr(*bootstrap)
 			if bootstrapHost != "" {
-				// If user provided localhost for libp2p, translate to this host's primary IP so rqlite can join the correct process.
-				if bootstrapHost == "127.0.0.1" || strings.EqualFold(bootstrapHost, "localhost") {
+				// Only translate localhost to external IP when not explicitly in localhost advertise mode
+				if (bootstrapHost == "127.0.0.1" || strings.EqualFold(bootstrapHost, "localhost")) && cfg.Database.AdvertiseMode != "localhost" {
 					if extIP, err := getPreferredLocalIP(); err == nil && extIP != "" {
 						logger.Printf("Translating localhost bootstrap to external IP %s for RQLite join", extIP)
 						bootstrapHost = extIP

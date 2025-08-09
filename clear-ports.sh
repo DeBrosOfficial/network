@@ -10,7 +10,7 @@ set -euo pipefail
 # Collect ports from args or use defaults
 PORTS=("$@")
 if [ ${#PORTS[@]} -eq 0 ]; then
-  PORTS=(4001 5001 7001)
+  PORTS=(4001 5001 7001 7002)
 fi
 
 echo "Gracefully terminating listeners on: ${PORTS[*]}"

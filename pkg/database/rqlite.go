@@ -43,13 +43,28 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create RQLite data directory: %w", err)
 	}
 
-// Get the external IP address for advertising
-	externalIP, err := r.getExternalIP()
-	if err != nil {
-		r.logger.Warn("Failed to get external IP, using localhost", zap.Error(err))
-		externalIP = "localhost"
+	// Determine advertise host based on configuration
+	advertiseHost := "127.0.0.1" // default
+	mode := strings.ToLower(r.config.AdvertiseMode)
+	switch mode {
+	case "localhost":
+		advertiseHost = "127.0.0.1"
+		r.logger.Info("Using localhost for RQLite advertising (dev mode)")
+	case "ip":
+		if ip, err := r.getExternalIP(); err == nil && ip != "" {
+			advertiseHost = ip
+			r.logger.Info("Using external IP for RQLite advertising (forced)", zap.String("ip", ip))
+		} else {
+			r.logger.Warn("Failed to get external IP, falling back to localhost", zap.Error(err))
+		}
+	default: // auto
+		if ip, err := r.getExternalIP(); err == nil && ip != "" {
+			advertiseHost = ip
+			r.logger.Info("Using external IP for RQLite advertising (auto)", zap.String("ip", ip))
+		} else {
+			r.logger.Info("No external IP found, using localhost for RQLite advertising (auto)")
+		}
 	}
-	r.logger.Info("Using external IP for RQLite advertising", zap.String("ip", externalIP))
 
 	// Build RQLite command
 	args := []string{
@@ -58,11 +73,9 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		// Auth disabled for testing
 	}
 
-	// Add advertised addresses if we have an external IP
-	if externalIP != "localhost" {
-		args = append(args, "-http-adv-addr", fmt.Sprintf("%s:%d", externalIP, r.config.RQLitePort))
-		args = append(args, "-raft-adv-addr", fmt.Sprintf("%s:%d", externalIP, r.config.RQLiteRaftPort))
-	}
+	// Always set advertised addresses explicitly to avoid 0.0.0.0 announcements
+	args = append(args, "-http-adv-addr", fmt.Sprintf("%s:%d", advertiseHost, r.config.RQLitePort))
+	args = append(args, "-raft-adv-addr", fmt.Sprintf("%s:%d", advertiseHost, r.config.RQLiteRaftPort))
 
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
@@ -99,7 +112,7 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		zap.Int("http_port", r.config.RQLitePort),
 		zap.Int("raft_port", r.config.RQLiteRaftPort),
 		zap.String("join_address", r.config.RQLiteJoinAddress),
-		zap.String("external_ip", externalIP),
+		zap.String("advertise_host", advertiseHost),
 		zap.Strings("full_args", args),
 	)
 

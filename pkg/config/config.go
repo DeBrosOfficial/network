@@ -39,6 +39,7 @@ type DatabaseConfig struct {
 	RQLitePort        int    `yaml:"rqlite_port"`         // RQLite HTTP API port
 	RQLiteRaftPort    int    `yaml:"rqlite_raft_port"`    // RQLite Raft consensus port
 	RQLiteJoinAddress string `yaml:"rqlite_join_address"` // Address to join RQLite cluster
+	AdvertiseMode     string `yaml:"advertise_mode"`      // Advertise mode: "auto" (default), "localhost", or "ip"
 }
 
 // DiscoveryConfig contains peer discovery configuration
@@ -124,6 +125,7 @@ func DefaultConfig() *Config {
 			RQLitePort:        5001,
 			RQLiteRaftPort:    7001,
 			RQLiteJoinAddress: "", // Empty for bootstrap node
+			AdvertiseMode:     "auto",
 		},
 		Discovery: DiscoveryConfig{
 			BootstrapPeers:    []string{},

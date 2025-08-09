@@ -26,26 +26,26 @@ test:
 # Run bootstrap node explicitly
 run-node:
 	@echo "Starting BOOTSTRAP node (role=bootstrap)..."
-	go run cmd/node/main.go -role bootstrap -data ./data/bootstrap
+	go run cmd/node/main.go -role bootstrap -data ./data/bootstrap -advertise localhost
 
 # Run second node (regular) - requires BOOTSTRAP multiaddr
 # Usage: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002
 run-node2:
 	@echo "Starting REGULAR node2 (role=node)..."
 	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5002 RAFT=7002]"; exit 1; fi
-	go run cmd/node/main.go -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002}
+	go run cmd/node/main.go -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002} -advertise $${ADVERTISE:-localhost}
 
 # Run third node (regular) - requires BOOTSTRAP multiaddr
 # Usage: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003
 run-node3:
 	@echo "Starting REGULAR node3 (role=node)..."
 	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003]"; exit 1; fi
-	go run cmd/node/main.go -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003}
+	go run cmd/node/main.go -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -advertise $${ADVERTISE:-localhost}
 
 # Show how to run with flags
 show-bootstrap:
-    @echo "Provide bootstrap via flags, e.g.:"
-    @echo "  make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID> HTTP=5002 RAFT=7002"
+	@echo "Provide bootstrap via flags, e.g.:"
+	@echo "  make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID> HTTP=5002 RAFT=7002"
 
 # Run network CLI
 run-cli:
