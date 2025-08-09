@@ -391,6 +391,29 @@ if err != nil {
 defer client.Disconnect()
 ```
 
+### Centralized Defaults & Endpoint Precedence
+
+- Defaults are centralized in the client package:
+  - `client.DefaultBootstrapPeers()` exposes default multiaddrs from `pkg/constants/bootstrap.go`.
+  - `client.DefaultDatabaseEndpoints()` derives HTTP DB endpoints from bootstrap peers (default port 5001 or `RQLITE_PORT`).
+- `ClientConfig` now includes `DatabaseEndpoints []string` to explicitly set DB URLs.
+- Resolution order used by the database client:
+  1. `ClientConfig.DatabaseEndpoints`
+  2. `RQLITE_NODES` environment variable (comma/space separated)
+  3. `client.DefaultDatabaseEndpoints()`
+- Endpoints are normalized to include scheme and port; duplicates are removed.
+
+Example:
+
+```go
+cfg := client.DefaultClientConfig("app")
+cfg.BootstrapPeers = client.DefaultBootstrapPeers()
+// Optionally pin DB endpoints
+cfg.DatabaseEndpoints = []string{"http://db1:5001","db2:5001"}
+cli, _ := client.NewClient(cfg)
+_ = cli.Connect()
+```
+
 ### Database Operations
 
 ```go

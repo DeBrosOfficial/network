@@ -187,14 +187,14 @@ make build
 
 ```bash
 # Start an explicit bootstrap node (LibP2P 4001, RQLite 5001/7001)
-go run cmd/node/main.go -role bootstrap -data ./data/bootstrap
+go run ./cmd/node -role bootstrap -data ./data/bootstrap
 ```
 
 **Terminal 2 - Regular Node:**
 
 ```bash
 # Replace <BOOTSTRAP_PEER_ID> with the ID printed by the identity generator
-go run cmd/node/main.go \
+go run ./cmd/node \
   -role node \
   -id node2 \
   -data ./data/node2 \
@@ -206,7 +206,7 @@ go run cmd/node/main.go \
 **Terminal 3 - Another Node (optional):**
 
 ```bash
-go run cmd/node/main.go \
+go run ./cmd/node \
   -role node \
   -id node3 \
   -data ./data/node3 \
@@ -443,6 +443,8 @@ Precedence: CLI flags > Environment variables > Code defaults. Set any of the fo
 - RQLITE_HTTP_PORT: int (default 5001)
 - RQLITE_RAFT_PORT: int (default 7001)
 - RQLITE_JOIN_ADDRESS: host:port for Raft join (regular nodes)
+- RQLITE_NODES: comma/space-separated DB endpoints (e.g. "http://n1:5001,http://n2:5001"). Used by client if `ClientConfig.DatabaseEndpoints` is empty.
+- RQLITE_PORT: default DB HTTP port for constructing library defaults (fallback 5001)
 - ADVERTISE_MODE: "auto" | "localhost" | "ip"
 
 - BOOTSTRAP_PEERS: comma-separated multiaddrs for bootstrap peers
@@ -464,6 +466,65 @@ Precedence: CLI flags > Environment variables > Code defaults. Set any of the fo
 
 Flag and environment variable mapping is centralized in `cmd/node/configmap.go` via `MapFlagsAndEnvToConfig`.
 This enforces precedence (flags > env > defaults) consistently across the node startup path.
+
+### Centralized Defaults: Bootstrap & Database
+
+- The network library is the single source of truth for defaults.
+- Bootstrap peers: `pkg/constants/bootstrap.go` exposed via `client.DefaultBootstrapPeers()`.
+- Database HTTP endpoints: derived from bootstrap peers via `client.DefaultDatabaseEndpoints()`.
+
+#### Database Endpoints Precedence
+
+When the client connects to RQLite, endpoints are resolved with this precedence:
+
+1. `ClientConfig.DatabaseEndpoints` (explicitly set by the app)
+2. `RQLITE_NODES` environment variable (comma/space separated), e.g. `http://x:5001,http://y:5001`
+3. `client.DefaultDatabaseEndpoints()` (constructed from default bootstrap peers)
+
+Notes:
+
+- Default DB port is 5001. Override with `RQLITE_PORT` when constructing defaults.
+- Endpoints are normalized to include scheme and port; duplicates are removed.
+
+#### Client Usage Example
+
+```go
+cfg := client.DefaultClientConfig("my-app")
+// Optional: override bootstrap peers
+cfg.BootstrapPeers = []string{"/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID>"}
+// Optional: prefer explicit DB endpoints
+cfg.DatabaseEndpoints = []string{"http://127.0.0.1:5001"}
+
+cli, err := client.NewClient(cfg)
+// cli.Connect() will prefer cfg.DatabaseEndpoints, then RQLITE_NODES, then defaults
+```
+
+### Migration Guide for Apps (e.g., anchat)
+
+- __Stop hardcoding endpoints__: Replace any hardcoded bootstrap peers and DB URLs with calls to
+  `client.DefaultBootstrapPeers()` and, if needed, set `ClientConfig.DatabaseEndpoints`.
+- __Prefer config over env__: Set `ClientConfig.DatabaseEndpoints` in your app config. If not set,
+  the library will read `RQLITE_NODES` for backward compatibility.
+- __Keep env compatibility__: Existing environments using `RQLITE_NODES` and `RQLITE_PORT` continue to work.
+- __Minimal changes__: Most apps only need to populate `ClientConfig.DatabaseEndpoints` and/or rely on
+  `client.DefaultDatabaseEndpoints()`; no other code changes required.
+
+Example migration snippet:
+
+```go
+import netclient "git.debros.io/DeBros/network/pkg/client"
+
+cfg := netclient.DefaultClientConfig("anchat")
+// Use library defaults for bootstrap peers
+cfg.BootstrapPeers = netclient.DefaultBootstrapPeers()
+// Prefer explicit DB endpoints (can also leave empty to use env or defaults)
+cfg.DatabaseEndpoints = []string{"http://127.0.0.1:5001"}
+
+c, err := netclient.NewClient(cfg)
+if err != nil { /* handle */ }
+if err := c.Connect(); err != nil { /* handle */ }
+defer c.Disconnect()
+```
 
 ## CLI Commands
 
