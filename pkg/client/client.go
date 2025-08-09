@@ -97,6 +97,23 @@ func (c *Client) Network() NetworkInfo {
 	return c.network
 }
 
+// Config returns a snapshot copy of the client's configuration
+func (c *Client) Config() *ClientConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.config == nil {
+		return nil
+	}
+	cp := *c.config
+	if c.config.BootstrapPeers != nil {
+		cp.BootstrapPeers = append([]string(nil), c.config.BootstrapPeers...)
+	}
+	if c.config.DatabaseEndpoints != nil {
+		cp.DatabaseEndpoints = append([]string(nil), c.config.DatabaseEndpoints...)
+	}
+	return &cp
+}
+
 // Connect establishes connection to the network
 func (c *Client) Connect() error {
 	c.mu.Lock()

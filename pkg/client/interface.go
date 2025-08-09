@@ -24,6 +24,9 @@ type NetworkClient interface {
 	Connect() error
 	Disconnect() error
 	Health() (*HealthStatus, error)
+
+	// Config access (snapshot copy)
+	Config() *ClientConfig
 }
 
 // DatabaseClient provides database operations for applications
@@ -121,6 +124,7 @@ type ClientConfig struct {
 	AppName        string        `json:"app_name"`
 	DatabaseName   string        `json:"database_name"`
 	BootstrapPeers []string      `json:"bootstrap_peers"`
+	DatabaseEndpoints []string   `json:"database_endpoints"`
 	ConnectTimeout time.Duration `json:"connect_timeout"`
 	RetryAttempts  int           `json:"retry_attempts"`
 	RetryDelay     time.Duration `json:"retry_delay"`
@@ -129,12 +133,13 @@ type ClientConfig struct {
 
 // DefaultClientConfig returns a default client configuration
 func DefaultClientConfig(appName string) *ClientConfig {
-	return &ClientConfig{
-		AppName:        appName,
-		DatabaseName:   fmt.Sprintf("%s_db", appName),
-		BootstrapPeers: []string{},
-		ConnectTimeout: time.Second * 30,
-		RetryAttempts:  3,
-		RetryDelay:     time.Second * 5,
-	}
+    return &ClientConfig{
+        AppName:        appName,
+        DatabaseName:   fmt.Sprintf("%s_db", appName),
+        BootstrapPeers: []string{},
+        DatabaseEndpoints: DefaultDatabaseEndpoints(),
+        ConnectTimeout: time.Second * 30,
+        RetryAttempts:  3,
+        RetryDelay:     time.Second * 5,
+    }
 }

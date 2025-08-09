@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"git.debros.io/DeBros/network/pkg/constants"
 
 	"git.debros.io/DeBros/network/pkg/storage"
 
@@ -154,12 +154,16 @@ func (d *DatabaseClientImpl) isWriteOperation(sql string) bool {
 	}
 
 	return false
-} // clearConnection clears the cached connection to force reconnection
+}
+
+// clearConnection clears the cached connection to force reconnection
 func (d *DatabaseClientImpl) clearConnection() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.connection = nil
-} // getRQLiteConnection returns a connection to RQLite, creating one if needed
+}
+
+// getRQLiteConnection returns a connection to RQLite, creating one if needed
 func (d *DatabaseClientImpl) getRQLiteConnection() (*gorqlite.Connection, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -167,6 +171,75 @@ func (d *DatabaseClientImpl) getRQLiteConnection() (*gorqlite.Connection, error)
 	// Always try to get a fresh connection to handle leadership changes
 	// and node failures gracefully
 	return d.connectToAvailableNode()
+}
+
+// getRQLiteNodes returns a list of RQLite node URLs with precedence:
+// 1) client config DatabaseEndpoints
+// 2) RQLITE_NODES env (comma/space separated)
+// 3) library defaults via DefaultDatabaseEndpoints()
+func (d *DatabaseClientImpl) getRQLiteNodes() []string {
+	// 1) Prefer explicit configuration on the client
+	if d.client != nil && d.client.config != nil && len(d.client.config.DatabaseEndpoints) > 0 {
+		return dedupeStrings(normalizeEndpoints(d.client.config.DatabaseEndpoints))
+	}
+
+	// 2) Backward compatibility: RQLITE_NODES environment variable
+	if raw := os.Getenv("RQLITE_NODES"); strings.TrimSpace(raw) != "" {
+		// split by comma or whitespace
+		parts := splitCSVOrSpace(raw)
+		if len(parts) > 0 {
+			return dedupeStrings(normalizeEndpoints(parts))
+		}
+	}
+
+	// 3) Fallback to library defaults derived from bootstrap peers
+	return DefaultDatabaseEndpoints()
+}
+
+// normalizeEndpoints ensures each endpoint has an http scheme and a port (defaults to 5001)
+func normalizeEndpoints(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		// Prepend scheme if missing so url.Parse handles host:port
+		if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+			s = "http://" + s
+		}
+		u, err := url.Parse(s)
+		if err != nil || u.Host == "" {
+			continue
+		}
+		// Ensure port present
+		if h := u.Host; !hasPort(h) {
+			u.Host = u.Host + ":5001"
+		}
+		out = append(out, u.String())
+	}
+	return out
+}
+
+func hasPort(hostport string) bool {
+	// cheap check for :port suffix (IPv6 with brackets handled by url.Parse earlier)
+	if i := strings.LastIndex(hostport, ":"); i > -1 && i < len(hostport)-1 {
+		// ensure the segment after ':' is numeric-ish
+		for _, c := range hostport[i+1:] {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func splitCSVOrSpace(s string) []string {
+	// replace commas with spaces, then split on spaces
+	s = strings.ReplaceAll(s, ",", " ")
+	fields := strings.Fields(s)
+	return fields
 }
 
 // connectToAvailableNode tries to connect to any available RQLite node
@@ -195,37 +268,6 @@ func (d *DatabaseClientImpl) connectToAvailableNode() (*gorqlite.Connection, err
 	}
 
 	return nil, fmt.Errorf("failed to connect to any RQLite instance. Last error: %w", lastErr)
-}
-
-// getRQLiteNodes returns a list of RQLite node URLs using the peer IPs/hostnames from bootstrap.go, always on port 5001
-func (d *DatabaseClientImpl) getRQLiteNodes() []string {
-	// Use bootstrap peer addresses from constants
-	// Import the constants package
-	// We'll extract the IP/host from the multiaddr and build the HTTP URL
-	var nodes []string
-	for _, addr := range constants.GetBootstrapPeers() {
-		// Example multiaddr: /ip4/57.129.81.31/tcp/4001/p2p/12D3KooWQRK2duw5B5LXi8gA7HBBFiCsLvwyph2ZU9VBmvbE1Nei
-		parts := strings.Split(addr, "/")
-		var host string
-		var port string = "5001" // always use RQLite HTTP 5001
-		for i := 0; i < len(parts); i++ {
-			if parts[i] == "ip4" || parts[i] == "ip6" {
-				host = parts[i+1]
-			}
-			if parts[i] == "dns" || parts[i] == "dns4" || parts[i] == "dns6" {
-				host = parts[i+1]
-			}
-			// ignore tcp port in multiaddr, always use 5001 for RQLite HTTP
-		}
-		if host != "" {
-			nodes = append(nodes, "http://"+host+":"+port)
-		}
-	}
-	// If no peers found, fallback to localhost:5001
-	if len(nodes) == 0 {
-		nodes = append(nodes, "http://localhost:5001")
-	}
-	return nodes
 }
 
 // testConnection performs a health check on the RQLite connection
