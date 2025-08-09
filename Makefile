@@ -26,21 +26,21 @@ test:
 # Run bootstrap node explicitly
 run-node:
 	@echo "Starting BOOTSTRAP node (role=bootstrap)..."
-	go run ./cmd/node -role bootstrap -data ./data/bootstrap -advertise localhost -p2p-port $${P2P:-4001}
+	go run ./cmd/node -role bootstrap -data ./data/bootstrap -advertise localhost -p2p-port $${P2P:-4001} -dev-local
 
 # Run second node (regular) - requires BOOTSTRAP multiaddr
 # Usage: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002 P2P=4002
 run-node2:
 	@echo "Starting REGULAR node2 (role=node)..."
 	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5002 RAFT=7002 P2P=4002]"; exit 1; fi
-	go run ./cmd/node -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002} -p2p-port $${P2P:-4002} -advertise $${ADVERTISE:-localhost}
+	go run ./cmd/node -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002} -p2p-port $${P2P:-4002} -advertise $${ADVERTISE:-localhost} -dev-local
 
 # Run third node (regular) - requires BOOTSTRAP multiaddr
 # Usage: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003 P2P=4003
 run-node3:
 	@echo "Starting REGULAR node3 (role=node)..."
 	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003 P2P=4003]"; exit 1; fi
-	go run ./cmd/node -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -p2p-port $${P2P:-4003} -advertise $${ADVERTISE:-localhost}
+	go run ./cmd/node -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -p2p-port $${P2P:-4003} -advertise $${ADVERTISE:-localhost} -dev-local
 
 # Run basic usage example
 run-example:

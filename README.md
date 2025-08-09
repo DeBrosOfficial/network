@@ -187,7 +187,7 @@ make build
 
 ```bash
 # Start an explicit bootstrap node (LibP2P 4001, RQLite 5001/7001)
-go run ./cmd/node -role bootstrap -data ./data/bootstrap
+go run ./cmd/node -role bootstrap -data ./data/bootstrap -dev-local
 ```
 
 **Terminal 2 - Regular Node:**
@@ -200,7 +200,8 @@ go run ./cmd/node \
   -data ./data/node2 \
   -bootstrap /ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> \
   -rqlite-http-port 5002 \
-  -rqlite-raft-port 7002
+  -rqlite-raft-port 7002 \
+  -dev-local
 ```
 
 **Terminal 3 - Another Node (optional):**
@@ -421,6 +422,7 @@ For more advanced configuration options and development setup, see the sections 
 
 - **Bootstrap node**: `-role bootstrap`
 - **Regular node**: `-role node -bootstrap <multiaddr>`
+- **Development localhost defaults**: `-dev-local` (sets `NETWORK_DEV_LOCAL=1` in-process); use this for local-only testing so the library returns localhost DB endpoints and bootstrap peers.
 - **RQLite ports**: `-rqlite-http-port` (default 5001), `-rqlite-raft-port` (default 7001)
 
 Examples are shown in Quick Start above for local multi-node on a single machine.

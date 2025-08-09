@@ -29,6 +29,7 @@ func main() {
 		rqlHTTP   = flag.Int("rqlite-http-port", 5001, "RQLite HTTP API port")
 		rqlRaft   = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
 		advertise = flag.String("advertise", "auto", "Advertise mode: auto|localhost|ip")
+		devLocal  = flag.Bool("dev-local", false, "Enable development localhost defaults for the client library (sets NETWORK_DEV_LOCAL=1)")
 		help      = flag.Bool("help", false, "Show help")
 	)
 	flag.Parse()
@@ -36,6 +37,12 @@ func main() {
 	if *help {
 		flag.Usage()
 		return
+	}
+
+	// Enable development localhost defaults for the client library if requested
+	if *devLocal {
+		os.Setenv("NETWORK_DEV_LOCAL", "1")
+		log.Printf("Development local mode enabled (NETWORK_DEV_LOCAL=1)")
 	}
 
 	// Determine node role

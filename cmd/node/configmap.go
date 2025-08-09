@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"git.debros.io/DeBros/network/pkg/config"
+	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/constants"
 	"git.debros.io/DeBros/network/pkg/logging"
 )
@@ -21,12 +23,26 @@ type NodeFlagValues struct {
 	Advertise  string
 }
 
+// isTruthyEnv returns true if the environment variable is set to a common truthy value
+func isTruthyEnv(key string) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // MapFlagsAndEnvToConfig applies environment overrides and CLI flags to cfg.
 // Precedence: flags > env > defaults. Behavior mirrors previous inline logic in main.go.
 // Returns the derived RQLite Raft join address for non-bootstrap nodes (empty for bootstrap nodes).
 func MapFlagsAndEnvToConfig(cfg *config.Config, fv NodeFlagValues, isBootstrap bool, logger *logging.StandardLogger) string {
 	// Apply environment variable overrides first so that flags can override them after
 	config.ApplyEnvOverrides(cfg)
+
+	// Detect dev-local mode (set via -dev-local -> NETWORK_DEV_LOCAL=1)
+	devLocal := isTruthyEnv("NETWORK_DEV_LOCAL")
 
 	// Determine data directory if not provided
 	if fv.DataDir == "" {
@@ -56,6 +72,14 @@ func MapFlagsAndEnvToConfig(cfg *config.Config, fv NodeFlagValues, isBootstrap b
 
 	// Bootstrap-specific vs regular-node logic
 	if isBootstrap {
+		if devLocal {
+			// In dev-local, run a primary bootstrap locally
+			cfg.Database.RQLiteJoinAddress = ""
+			// Also prefer localhost bootstrap peers for any consumers reading cfg
+			cfg.Discovery.BootstrapPeers = client.DefaultBootstrapPeers()
+			logger.Printf("Dev-local: Primary bootstrap node - localhost defaults enabled")
+			return ""
+		}
 		bootstrapPeers := constants.GetBootstrapPeers()
 		isSecondaryBootstrap := false
 		if len(bootstrapPeers) > 1 {
@@ -103,6 +127,11 @@ func MapFlagsAndEnvToConfig(cfg *config.Config, fv NodeFlagValues, isBootstrap b
 		logger.Printf("Using command line bootstrap peer: %s", fv.Bootstrap)
 	} else {
 		bootstrapPeers := cfg.Discovery.BootstrapPeers
+		if devLocal {
+			// Force localhost bootstrap for development
+			bootstrapPeers = client.DefaultBootstrapPeers()
+			logger.Printf("Dev-local: overriding bootstrap peers to %v", bootstrapPeers)
+		}
 		if len(bootstrapPeers) == 0 {
 			bootstrapPeers = constants.GetBootstrapPeers()
 		}
