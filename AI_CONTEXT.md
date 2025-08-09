@@ -120,11 +120,17 @@ Create a robust, decentralized network platform that enables applications to sea
 ```
 network/
 ├── cmd/                          # Executables
-│   ├── node/main.go              # Network node (bootstrap via flag/auto)
+│   ├── node/                     # Network node (bootstrap via flag/auto)
+│   │   ├── main.go               # Entrypoint
+│   │   └── configmap.go          # Centralized flags/env → config mapping (flags > env > defaults)
 │   └── cli/main.go               # Command-line interface
 ├── pkg/                          # Core packages
 │   ├── client/                   # Client API and implementations
-│   │   ├── client.go             # Main client implementation
+│   │   ├── client.go             # Main client (now slimmed)
+│   │   ├── connect_bootstrap.go  # Bootstrap helpers
+│   │   ├── discovery_aggressive.go # Generic aggressive discovery
+│   │   ├── monitoring.go         # Connection monitoring
+│   │   ├── pubsub_bridge.go      # PubSub adapter bridge
 │   │   ├── implementations.go    # Database, storage, network implementations
 │   │   └── interface.go          # Public API interfaces
 │   ├── config/                   # Configuration management
@@ -145,7 +151,10 @@ network/
 │   └── storage/                  # Distributed storage
 │       ├── client.go             # Storage client
 │       ├── protocol.go           # Storage protocol
-│       └── service.go            # Storage service
+│       ├── service.go            # Service (struct/ctor/Close)
+│       ├── rqlite_init.go        # Schema initialization
+│       ├── stream_handler.go     # Stream handling
+│       └── kv_ops.go             # KV operation handlers
 ├── anchat/                       # Example chat application
 │   ├── cmd/cli/main.go           # Chat CLI
 │   └── pkg/

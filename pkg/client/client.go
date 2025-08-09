@@ -120,6 +120,16 @@ func (c *Client) Connect() error {
 
 	c.host = h
 
+    // Log host identity and listen addresses
+    addrs := c.host.Addrs()
+    addrStrs := make([]string, 0, len(addrs))
+    for _, a := range addrs { addrStrs = append(addrStrs, a.String()) }
+    c.logger.Info("LibP2P host created",
+        zap.String("peer_id", c.host.ID().String()),
+        zap.Int("listen_addr_count", len(addrStrs)),
+        zap.Strings("listen_addrs", addrStrs),
+    )
+
 	// Create LibP2P PubSub with enhanced discovery for Anchat
 	var ps *libp2ppubsub.PubSub
 	if c.config.AppName == "anchat" {
@@ -219,6 +229,8 @@ func (c *Client) Connect() error {
 
 	c.connected = true
 
+    c.logger.Info("Client connected", zap.String("namespace", c.getAppNamespace()))
+
 	return nil
 }
 
@@ -259,6 +271,8 @@ func (c *Client) Disconnect() error {
 	}
 
 	c.connected = false
+
+    c.logger.Info("Client disconnected")
 
 	return nil
 }

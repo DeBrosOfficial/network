@@ -460,6 +460,11 @@ Precedence: CLI flags > Environment variables > Code defaults. Set any of the fo
 - LOG_FORMAT: "json" | "console"
 - LOG_OUTPUT_FILE: path (empty = stdout)
 
+### Centralized Flag/Env Mapping
+
+Flag and environment variable mapping is centralized in `cmd/node/configmap.go` via `MapFlagsAndEnvToConfig`.
+This enforces precedence (flags > env > defaults) consistently across the node startup path.
+
 ## CLI Commands
 
 The CLI can still accept `--bootstrap <multiaddr>` to override discovery when needed.
@@ -511,6 +516,8 @@ The CLI can still accept `--bootstrap <multiaddr>` to override discovery when ne
 network/
 ├── cmd/
 │   ├── node/              # Network node (bootstrap via flag)
+│   │   ├── main.go        # Entrypoint
+│   │   └── configmap.go   # Centralized flags/env → config mapping
 │   └── cli/               # Command-line interface
 ├── pkg/
 │   ├── client/            # Client library

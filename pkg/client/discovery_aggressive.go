@@ -17,8 +17,10 @@ func (c *Client) startAggressivePeerDiscovery() {
 		if !c.isConnected() { return }
 
 		connectedPeers := c.host.Network().Peers()
+		routingCount := 0
 		if c.dht != nil {
 			routingPeers := c.dht.RoutingTable().ListPeers()
+			routingCount = len(routingPeers)
 			for _, pid := range routingPeers {
 				if pid == c.host.ID() { continue }
 				already := false
@@ -28,7 +30,7 @@ func (c *Client) startAggressivePeerDiscovery() {
 					pi := c.host.Peerstore().PeerInfo(pid)
 					if len(pi.Addrs) > 0 {
 						if err := c.host.Connect(ctx, pi); err == nil {
-							c.logger.Debug("Connected to discovered peer", zap.String("peer", pid.String()[:8]+"..."))
+							c.logger.Debug("Connected to DHT peer", zap.String("peer", pid.String()))
 						}
 					}
 					cancel()
@@ -36,7 +38,11 @@ func (c *Client) startAggressivePeerDiscovery() {
 			}
 		}
 		if i%10 == 0 {
-			c.logger.Debug("Peer discovery status", zap.Int("iteration", i+1), zap.Int("connected_peers", len(connectedPeers)))
+			c.logger.Debug("Peer discovery status",
+				zap.Int("iteration", i+1),
+				zap.Int("connected_peers", len(connectedPeers)),
+				zap.Int("routing_peers", routingCount),
+			)
 		}
 	}
 }
