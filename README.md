@@ -445,6 +445,8 @@ Precedence: CLI flags > Environment variables > Code defaults. Set any of the fo
 - RQLITE_JOIN_ADDRESS: host:port for Raft join (regular nodes)
 - RQLITE_NODES: comma/space-separated DB endpoints (e.g. "http://n1:5001,http://n2:5001"). Used by client if `ClientConfig.DatabaseEndpoints` is empty.
 - RQLITE_PORT: default DB HTTP port for constructing library defaults (fallback 5001)
+- NETWORK_DEV_LOCAL: when truthy (1/true/yes/on), client defaults use localhost for DB endpoints; default bootstrap peers also return localhost values.
+- LOCAL_BOOTSTRAP_MULTIADDR: when set with NETWORK_DEV_LOCAL, overrides default bootstrap with a specific local multiaddr (e.g. `/ip4/127.0.0.1/tcp/4001/p2p/<ID>`)
 - ADVERTISE_MODE: "auto" | "localhost" | "ip"
 
 - BOOTSTRAP_PEERS: comma-separated multiaddrs for bootstrap peers
@@ -498,6 +500,24 @@ cfg.DatabaseEndpoints = []string{"http://127.0.0.1:5001"}
 cli, err := client.NewClient(cfg)
 // cli.Connect() will prefer cfg.DatabaseEndpoints, then RQLITE_NODES, then defaults
 ```
+
+#### Development Mode (localhost-only)
+
+To force localhost defaults for both database endpoints and bootstrap peers:
+
+```bash
+export NETWORK_DEV_LOCAL=1
+# Optional: specify a local bootstrap peer multiaddr with peer ID
+export LOCAL_BOOTSTRAP_MULTIADDR="/ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID>"
+# Optional: customize default DB port used in localhost endpoints
+export RQLITE_PORT=5001
+```
+
+Notes:
+
+- With `NETWORK_DEV_LOCAL`, `client.DefaultDatabaseEndpoints()` returns `http://127.0.0.1:$RQLITE_PORT`.
+- `client.DefaultBootstrapPeers()` returns `LOCAL_BOOTSTRAP_MULTIADDR` if set, otherwise `/ip4/127.0.0.1/tcp/4001`.
+- If you construct config via `client.DefaultClientConfig(...)`, DB endpoints are pinned to localhost and will override `RQLITE_NODES` automatically.
 
 ### Migration Guide for Apps (e.g., anchat)
 

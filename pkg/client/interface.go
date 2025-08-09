@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -133,13 +135,43 @@ type ClientConfig struct {
 
 // DefaultClientConfig returns a default client configuration
 func DefaultClientConfig(appName string) *ClientConfig {
+    // Base defaults
+    peers := []string{}
+    endpoints := DefaultDatabaseEndpoints()
+
+    // Development local-only override via env
+    if isTruthyEnv("NETWORK_DEV_LOCAL") {
+        port := 5001
+        if v := os.Getenv("RQLITE_PORT"); v != "" {
+            if n, err := strconv.Atoi(v); err == nil && n > 0 { port = n }
+        }
+        endpoints = []string{fmt.Sprintf("http://127.0.0.1:%d", port)}
+        if ma := os.Getenv("LOCAL_BOOTSTRAP_MULTIADDR"); ma != "" {
+            peers = []string{ma}
+        } else {
+            // Leave peers empty if no local bootstrap multiaddr provided
+            peers = []string{}
+        }
+    }
+
     return &ClientConfig{
-        AppName:        appName,
-        DatabaseName:   fmt.Sprintf("%s_db", appName),
-        BootstrapPeers: []string{},
-        DatabaseEndpoints: DefaultDatabaseEndpoints(),
-        ConnectTimeout: time.Second * 30,
-        RetryAttempts:  3,
-        RetryDelay:     time.Second * 5,
+        AppName:           appName,
+        DatabaseName:      fmt.Sprintf("%s_db", appName),
+        BootstrapPeers:    peers,
+        DatabaseEndpoints: endpoints,
+        ConnectTimeout:    time.Second * 30,
+        RetryAttempts:     3,
+        RetryDelay:        time.Second * 5,
+    }
+}
+
+// isTruthyEnv returns true if the env var is set to a common truthy value.
+func isTruthyEnv(key string) bool {
+    v := os.Getenv(key)
+    switch v {
+    case "1", "true", "TRUE", "True", "yes", "YES", "on", "ON":
+        return true
+    default:
+        return false
     }
 }

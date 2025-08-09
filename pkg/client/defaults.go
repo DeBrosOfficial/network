@@ -11,10 +11,28 @@ import (
 
 // DefaultBootstrapPeers returns the library's default bootstrap peer multiaddrs.
 func DefaultBootstrapPeers() []string {
+	// Development local-only override
+	if truthy(os.Getenv("NETWORK_DEV_LOCAL")) {
+		if ma := os.Getenv("LOCAL_BOOTSTRAP_MULTIADDR"); ma != "" {
+			return []string{ma}
+		}
+		// Fallback to localhost transport without peer ID (connect will warn and skip)
+		return []string{"/ip4/127.0.0.1/tcp/4001"}
+	}
 	peers := constants.GetBootstrapPeers()
 	out := make([]string, len(peers))
 	copy(out, peers)
 	return out
+}
+
+// truthy reports if s is a common truthy string.
+func truthy(s string) bool {
+	switch s {
+	case "1", "true", "TRUE", "True", "yes", "YES", "on", "ON":
+		return true
+	default:
+		return false
+	}
 }
 
 // DefaultDatabaseEndpoints returns default DB HTTP endpoints derived from default bootstrap peers.
@@ -25,6 +43,11 @@ func DefaultDatabaseEndpoints() []string {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			port = n
 		}
+	}
+
+	// Development local-only override
+	if truthy(os.Getenv("NETWORK_DEV_LOCAL")) {
+		return []string{"http://127.0.0.1:" + strconv.Itoa(port)}
 	}
 
 	peers := DefaultBootstrapPeers()
