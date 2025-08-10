@@ -21,6 +21,7 @@ import (
 	"git.debros.io/DeBros/network/pkg/discovery"
 	"git.debros.io/DeBros/network/pkg/pubsub"
 	"git.debros.io/DeBros/network/pkg/storage"
+	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 )
 
 // Client implements the NetworkClient interface
@@ -123,14 +124,23 @@ func (c *Client) Connect() error {
 		return nil
 	}
 
-	// Create LibP2P host
-	h, err := libp2p.New(
+	// Create LibP2P host with optional Anyone proxy for TCP and optional QUIC disable
+	var opts []libp2p.Option
+	opts = append(opts,
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"), // Random port
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.Transport(tcp.NewTCPTransport),
-		libp2p.Transport(libp2pquic.NewTransport),
 		libp2p.DefaultMuxers,
 	)
+	if anyoneproxy.Enabled() {
+		opts = append(opts, libp2p.Transport(tcp.NewTCPTransport, tcp.WithDialerForAddr(anyoneproxy.DialerForAddr())))
+	} else {
+		opts = append(opts, libp2p.Transport(tcp.NewTCPTransport))
+	}
+	// Enable QUIC only when not proxying. When proxy is enabled, prefer TCP via SOCKS5.
+	if !anyoneproxy.Enabled() {
+		opts = append(opts, libp2p.Transport(libp2pquic.NewTransport))
+	}
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create libp2p host: %w", err)
 	}

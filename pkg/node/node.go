@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
@@ -22,6 +23,7 @@ import (
 
 	"git.debros.io/DeBros/network/pkg/config"
 	"git.debros.io/DeBros/network/pkg/database"
+	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 	"git.debros.io/DeBros/network/pkg/logging"
 	"git.debros.io/DeBros/network/pkg/storage"
 )
@@ -132,15 +134,44 @@ func (n *Node) startLibP2P() error {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
 
+	// Log Anyone proxy status before constructing host
+	n.logger.ComponentInfo(logging.ComponentLibP2P, "Anyone proxy status",
+		zap.Bool("proxy_enabled", anyoneproxy.Enabled()),
+		zap.String("proxy_addr", anyoneproxy.Address()),
+		zap.Bool("proxy_running", anyoneproxy.Running()),
+	)
+
+	if anyoneproxy.Enabled() && !anyoneproxy.Running() {
+		n.logger.Warn("Anyone proxy is enabled but not reachable",
+			zap.String("addr", anyoneproxy.Address()))
+	}
+
 	// Create LibP2P host with persistent identity
-	h, err := libp2p.New(
+	// Build options allowing conditional proxying via Anyone SOCKS5 and optional QUIC disable
+	var opts []libp2p.Option
+	opts = append(opts,
 		libp2p.Identity(identity),
 		libp2p.ListenAddrs(listenAddrs...),
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.Transport(tcp.NewTCPTransport),
-		libp2p.Transport(libp2pquic.NewTransport),
 		libp2p.DefaultMuxers,
 	)
+
+	// TCP transport with optional SOCKS5 dialer override
+	if anyoneproxy.Enabled() {
+		opts = append(opts, libp2p.Transport(tcp.NewTCPTransport, tcp.WithDialerForAddr(anyoneproxy.DialerForAddr())))
+	} else {
+		opts = append(opts, libp2p.Transport(tcp.NewTCPTransport))
+	}
+
+	// QUIC transport: disabled when proxy is enabled (default),
+	// enabled only when not proxying.
+	if !anyoneproxy.Enabled() {
+		opts = append(opts, libp2p.Transport(libp2pquic.NewTransport))
+	} else {
+		n.logger.ComponentDebug(logging.ComponentLibP2P, "QUIC disabled due to proxy being enabled")
+	}
+
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		return err
 	}
@@ -148,11 +179,30 @@ func (n *Node) startLibP2P() error {
 	n.host = h
 
 	// Create DHT for peer discovery - Use server mode for better peer discovery
-	kademliaDHT, err := dht.New(context.Background(), h, dht.Mode(dht.ModeServer))
+	// Use configured protocol prefix to ensure we discover peers on the correct DHT namespace
+	dhtPrefix := n.config.Discovery.DHTPrefix
+	if strings.TrimSpace(dhtPrefix) == "" {
+		dhtPrefix = "/network/kad/1.0.0"
+	}
+	n.logger.ComponentInfo(logging.ComponentDHT, "Using DHT protocol prefix", zap.String("prefix", dhtPrefix))
+	kademliaDHT, err := dht.New(
+		context.Background(),
+		h,
+		dht.Mode(dht.ModeServer),
+		dht.ProtocolPrefix(protocol.ID(dhtPrefix)),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create DHT: %w", err)
 	}
 	n.dht = kademliaDHT
+
+	// Log configured bootstrap peers
+	if len(n.config.Discovery.BootstrapPeers) > 0 {
+		n.logger.ComponentInfo(logging.ComponentDHT, "Configured bootstrap peers",
+			zap.Strings("peers", n.config.Discovery.BootstrapPeers))
+	} else {
+		n.logger.ComponentDebug(logging.ComponentDHT, "No bootstrap peers configured")
+	}
 
 	// Connect to LibP2P bootstrap peers if configured
 	if err := n.connectToBootstrapPeers(); err != nil {
@@ -307,6 +357,13 @@ func (n *Node) connectToBootstrapPeer(ctx context.Context, addr string) error {
 	if err != nil {
 		return fmt.Errorf("failed to extract peer info: %w", err)
 	}
+
+	// Log resolved peer info prior to connect
+	n.logger.ComponentDebug(logging.ComponentDHT, "Resolved bootstrap peer",
+		zap.String("peer_id", peerInfo.ID.String()),
+		zap.String("addr", addr),
+		zap.Int("addr_count", len(peerInfo.Addrs)),
+	)
 
 	// Connect to the peer
 	if err := n.host.Connect(ctx, *peerInfo); err != nil {

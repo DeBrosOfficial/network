@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/rqlite/gorqlite"
+	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 )
 
 // DatabaseClientImpl implements DatabaseClient
@@ -250,7 +251,15 @@ func (d *DatabaseClientImpl) connectToAvailableNode() (*gorqlite.Connection, err
 	var lastErr error
 
 	for _, rqliteURL := range rqliteNodes {
-		conn, err := gorqlite.Open(rqliteURL)
+		var conn *gorqlite.Connection
+		var err error
+		// If Anyone proxy is enabled, build a proxy-aware HTTP client
+		if anyoneproxy.Enabled() {
+			httpClient := anyoneproxy.NewHTTPClient()
+			conn, err = gorqlite.OpenWithClient(rqliteURL, httpClient)
+		} else {
+			conn, err = gorqlite.Open(rqliteURL)
+		}
 		if err != nil {
 			lastErr = err
 			continue
