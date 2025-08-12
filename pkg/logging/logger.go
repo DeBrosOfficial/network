@@ -46,22 +46,20 @@ type ColoredLogger struct {
 type Component string
 
 const (
-	ComponentBootstrap Component = "BOOTSTRAP"
-	ComponentNode      Component = "NODE"
-	ComponentRQLite    Component = "RQLITE"
-	ComponentLibP2P    Component = "LIBP2P"
-	ComponentStorage   Component = "STORAGE"
-	ComponentDatabase  Component = "DATABASE"
-	ComponentClient    Component = "CLIENT"
-	ComponentDHT       Component = "DHT"
-	ComponentGeneral   Component = "GENERAL"
+	ComponentNode     Component = "NODE"
+	ComponentRQLite   Component = "RQLITE"
+	ComponentLibP2P   Component = "LIBP2P"
+	ComponentStorage  Component = "STORAGE"
+	ComponentDatabase Component = "DATABASE"
+	ComponentClient   Component = "CLIENT"
+	ComponentDHT      Component = "DHT"
+	ComponentGeneral  Component = "GENERAL"
+	ComponentAnyone   Component = "ANYONE"
 )
 
 // getComponentColor returns the color for a specific component
 func getComponentColor(component Component) string {
 	switch component {
-	case ComponentBootstrap:
-		return BrightGreen
 	case ComponentNode:
 		return BrightBlue
 	case ComponentRQLite:
@@ -75,6 +73,10 @@ func getComponentColor(component Component) string {
 	case ComponentClient:
 		return Blue
 	case ComponentDHT:
+		return Magenta
+	case ComponentGeneral:
+		return Yellow
+	case ComponentAnyone:
 		return Cyan
 	default:
 		return White
@@ -277,4 +279,10 @@ func (s *StandardLogger) Println(v ...interface{}) {
 	msg := fmt.Sprintln(v...)
 	msg = strings.TrimSuffix(msg, "\n")
 	s.logger.ComponentInfo(s.component, msg)
+}
+
+func (s *StandardLogger) Errorf(format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	msg = strings.TrimSuffix(msg, "\n")
+	s.logger.ComponentError(s.component, msg)
 }

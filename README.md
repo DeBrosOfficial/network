@@ -1,4 +1,4 @@
-# Network - Distributed P2P Database System v0.12.5-beta
+# Network - Distributed P2P Database System v0.19.0-beta
 
 A distributed peer-to-peer network built with Go and LibP2P, providing decentralized database capabilities with RQLite consensus and replication.
 
@@ -147,7 +147,7 @@ The system uses these ports by default:
 - **5001**: RQLite HTTP API
 - **7001**: RQLite Raft consensus
 
-Ensure these ports are available or configure firewall rules accordingly.
+Ensure these ports are available or configure firewall rules accordingly. The system will also use +1 for each extra node started. For example 4002, 5002, 7002
 
 ## Quick Start
 

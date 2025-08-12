@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -30,30 +29,31 @@ type RQLiteManager struct {
 
 // waitForSQLAvailable waits until a simple query succeeds, indicating a leader is known and queries can be served.
 func (r *RQLiteManager) waitForSQLAvailable(ctx context.Context) error {
-    if r.connection == nil {
-        return fmt.Errorf("no rqlite connection")
-    }
+	if r.connection == nil {
+		r.logger.Error("No rqlite connection")
+		return errors.New("no rqlite connection")
+	}
 
-    ticker := time.NewTicker(1 * time.Second)
-    defer ticker.Stop()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 
-    attempts := 0
-    for {
-        select {
-        case <-ctx.Done():
-            return ctx.Err()
-        case <-ticker.C:
-            attempts++
-            _, err := r.connection.QueryOne("SELECT 1")
-            if err == nil {
-                r.logger.Info("RQLite SQL is available")
-                return nil
-            }
-            if attempts%5 == 0 { // log every ~5s to reduce noise
-                r.logger.Debug("Waiting for RQLite SQL availability", zap.Error(err))
-            }
-        }
-    }
+	attempts := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			attempts++
+			_, err := r.connection.QueryOne("SELECT 1")
+			if err == nil {
+				r.logger.Info("RQLite SQL is available")
+				return nil
+			}
+			if attempts%5 == 0 { // log every ~5s to reduce noise
+				r.logger.Debug("Waiting for RQLite SQL availability", zap.Error(err))
+			}
+		}
+	}
 }
 
 // NewRQLiteManager creates a new RQLite manager
@@ -73,39 +73,11 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create RQLite data directory: %w", err)
 	}
 
-	// Determine advertise host based on configuration
-	advertiseHost := "127.0.0.1" // default
-	mode := strings.ToLower(r.config.AdvertiseMode)
-	switch mode {
-	case "localhost":
-		advertiseHost = "127.0.0.1"
-		r.logger.Info("Using localhost for RQLite advertising (dev mode)")
-	case "ip":
-		if ip, err := r.getExternalIP(); err == nil && ip != "" {
-			advertiseHost = ip
-			r.logger.Info("Using external IP for RQLite advertising (forced)", zap.String("ip", ip))
-		} else {
-			r.logger.Warn("Failed to get external IP, falling back to localhost", zap.Error(err))
-		}
-	default: // auto
-		if ip, err := r.getExternalIP(); err == nil && ip != "" {
-			advertiseHost = ip
-			r.logger.Info("Using external IP for RQLite advertising (auto)", zap.String("ip", ip))
-		} else {
-			r.logger.Info("No external IP found, using localhost for RQLite advertising (auto)")
-		}
-	}
-
 	// Build RQLite command
 	args := []string{
 		"-http-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLitePort),
 		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLiteRaftPort),
-		// Auth disabled for testing
 	}
-
-	// Always set advertised addresses explicitly to avoid 0.0.0.0 announcements
-	args = append(args, "-http-adv-addr", fmt.Sprintf("%s:%d", advertiseHost, r.config.RQLitePort))
-	args = append(args, "-raft-adv-addr", fmt.Sprintf("%s:%d", advertiseHost, r.config.RQLiteRaftPort))
 
 	// Add join address if specified (for non-bootstrap or secondary bootstrap nodes)
 	if r.config.RQLiteJoinAddress != "" {
@@ -120,11 +92,11 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		}
 
 		// Wait for join target to become reachable to avoid forming a separate cluster (wait indefinitely)
-        if err := r.waitForJoinTarget(ctx, joinArg, 0); err != nil {
-            r.logger.Warn("Join target did not become reachable within timeout; will still attempt to join",
-                zap.String("join_address", r.config.RQLiteJoinAddress),
-                zap.Error(err))
-        }
+		if err := r.waitForJoinTarget(ctx, joinArg, 0); err != nil {
+			r.logger.Warn("Join target did not become reachable within timeout; will still attempt to join",
+				zap.String("join_address", r.config.RQLiteJoinAddress),
+				zap.Error(err))
+		}
 
 		// Always add the join parameter in host:port form - let rqlited handle the rest
 		args = append(args, "-join", joinArg)
@@ -140,7 +112,6 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		zap.Int("http_port", r.config.RQLitePort),
 		zap.Int("raft_port", r.config.RQLiteRaftPort),
 		zap.String("join_address", r.config.RQLiteJoinAddress),
-		zap.String("advertise_host", advertiseHost),
 		zap.Strings("full_args", args),
 	)
 
@@ -309,130 +280,37 @@ func (r *RQLiteManager) Stop() error {
 
 // waitForJoinTarget waits until the join target's HTTP status becomes reachable, or until timeout
 func (r *RQLiteManager) waitForJoinTarget(ctx context.Context, joinAddress string, timeout time.Duration) error {
-    var deadline time.Time
-    if timeout > 0 {
-        deadline = time.Now().Add(timeout)
-    }
-    var lastErr error
+	var deadline time.Time
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+	var lastErr error
 
-    for {
-        if err := r.testJoinAddress(joinAddress); err == nil {
-            r.logger.Info("Join target is reachable, proceeding with cluster join")
-            return nil
-        } else {
-            lastErr = err
-            r.logger.Debug("Join target not yet reachable; waiting...", zap.String("join_address", joinAddress), zap.Error(err))
-        }
+	for {
+		if err := r.testJoinAddress(joinAddress); err == nil {
+			r.logger.Info("Join target is reachable, proceeding with cluster join")
+			return nil
+		} else {
+			lastErr = err
+			r.logger.Debug("Join target not yet reachable; waiting...", zap.String("join_address", joinAddress), zap.Error(err))
+		}
 
-        // Check context
-        select {
-        case <-ctx.Done():
-            return ctx.Err()
-        case <-time.After(2 * time.Second):
-        }
+		// Check context
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
 
-        if !deadline.IsZero() && time.Now().After(deadline) {
-            break
-        }
-    }
-
-    if lastErr == nil {
-        lastErr = fmt.Errorf("join target not reachable within %s", timeout)
-    }
-    return lastErr
-}
-
-// getExternalIP attempts to get the external IP address of this machine
-func (r *RQLiteManager) getExternalIP() (string, error) {
-	// Method 1: Try using `ip route get` to find the IP used to reach the internet
-	if output, err := exec.Command("ip", "route", "get", "8.8.8.8").Output(); err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "src") {
-				parts := strings.Fields(line)
-				for i, part := range parts {
-					if part == "src" && i+1 < len(parts) {
-						ip := parts[i+1]
-						if net.ParseIP(ip) != nil {
-							r.logger.Debug("Found external IP via ip route", zap.String("ip", ip))
-							return ip, nil
-						}
-					}
-				}
-			}
+		if !deadline.IsZero() && time.Now().After(deadline) {
+			break
 		}
 	}
 
-	// Method 2: Get all network interfaces and find non-localhost, non-private IPs
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
+	if lastErr == nil {
+		lastErr = fmt.Errorf("join target not reachable within %s", timeout)
 	}
-
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-
-			if ip == nil || ip.IsLoopback() {
-				continue
-			}
-
-			// Prefer public IPs over private IPs
-			if ip.To4() != nil && !ip.IsPrivate() {
-				r.logger.Debug("Found public IP", zap.String("ip", ip.String()))
-				return ip.String(), nil
-			}
-		}
-	}
-
-	// Method 3: Fall back to private IPs if no public IP found
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-
-			if ip == nil || ip.IsLoopback() {
-				continue
-			}
-
-			// Use any IPv4 address
-			if ip.To4() != nil {
-				r.logger.Debug("Found private IP", zap.String("ip", ip.String()))
-				return ip.String(), nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no suitable IP address found")
+	return lastErr
 }
 
 // testJoinAddress tests if a join address is reachable
@@ -467,4 +345,3 @@ func (r *RQLiteManager) testJoinAddress(joinAddress string) error {
 	r.logger.Info("Leader HTTP reachable", zap.String("status_url", statusURL))
 	return nil
 }
-

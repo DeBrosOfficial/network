@@ -2,24 +2,21 @@ package constants
 
 import (
 	"os"
+
+	"git.debros.io/DeBros/network/pkg/config"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 )
 
 // Bootstrap node configuration
 var (
-	// BootstrapPeerIDs are the fixed peer IDs for bootstrap nodes
-	// Each corresponds to a specific Ed25519 private key
-	BootstrapPeerIDs []string
-
 	// BootstrapAddresses are the full multiaddrs for bootstrap nodes
 	BootstrapAddresses []string
 
 	// BootstrapPort is the default port for bootstrap nodes (LibP2P)
 	BootstrapPort int = 4001
 
-	// Primary bootstrap peer ID (first in the list)
-	BootstrapPeerID string
-
-	// Primary bootstrap address (first in the list)
+	// Primary bootstrap address (first in the list) - for backward compatibility
 	BootstrapAddress string
 )
 
@@ -29,28 +26,15 @@ func init() {
 	updateBackwardCompatibilityConstants()
 }
 
-// setDefaultBootstrapConfig sets default bootstrap configuration
+// setDefaultBootstrapConfig sets default bootstrap configuration for local development
 func setDefaultBootstrapConfig() {
-	// Check if we're in production environment
-	BootstrapPeerIDs = []string{
-		// "12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
-		// "12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
-		"12D3KooWDL6LSjwwP5FwboV9JaTZzuxr8EhjbcZGFfnyFMDt1UDx",
-	}
-	BootstrapAddresses = []string{
-		// "/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
-		// "/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
-		"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWDL6LSjwwP5FwboV9JaTZzuxr8EhjbcZGFfnyFMDt1UDx",
-	}
-
-	BootstrapPort = 4001
+	var cfg *config.Config
+	BootstrapAddresses = cfg.Discovery.BootstrapPeers
+	BootstrapPort = cfg.Discovery.BootstrapPort
 }
 
 // updateBackwardCompatibilityConstants updates the single constants for backward compatibility
 func updateBackwardCompatibilityConstants() {
-	if len(BootstrapPeerIDs) > 0 {
-		BootstrapPeerID = BootstrapPeerIDs[0]
-	}
 	if len(BootstrapAddresses) > 0 {
 		BootstrapAddress = BootstrapAddresses[0]
 	}
@@ -67,20 +51,26 @@ func GetBootstrapPeers() []string {
 	return peers
 }
 
-// GetBootstrapPeerIDs returns a copy of all bootstrap peer IDs
+// GetBootstrapPeerIDs extracts and returns peer IDs from bootstrap addresses
 func GetBootstrapPeerIDs() []string {
-	if len(BootstrapPeerIDs) == 0 {
+	if len(BootstrapAddresses) == 0 {
 		setDefaultBootstrapConfig()
 		updateBackwardCompatibilityConstants()
 	}
-	ids := make([]string, len(BootstrapPeerIDs))
-	copy(ids, BootstrapPeerIDs)
+
+	var ids []string
+	for _, addr := range BootstrapAddresses {
+		if ma, err := multiaddr.NewMultiaddr(addr); err == nil {
+			if pi, err := peer.AddrInfoFromP2pAddr(ma); err == nil {
+				ids = append(ids, pi.ID.String())
+			}
+		}
+	}
 	return ids
 }
 
-// AddBootstrapPeer adds a new bootstrap peer to the lists (runtime only)
-func AddBootstrapPeer(peerID, address string) {
-	BootstrapPeerIDs = append(BootstrapPeerIDs, peerID)
+// AddBootstrapPeer adds a new bootstrap peer address (runtime only)
+func AddBootstrapPeer(address string) {
 	BootstrapAddresses = append(BootstrapAddresses, address)
 	updateBackwardCompatibilityConstants()
 }
