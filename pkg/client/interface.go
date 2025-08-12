@@ -123,55 +123,55 @@ type HealthStatus struct {
 
 // ClientConfig represents configuration for network clients
 type ClientConfig struct {
-	AppName        string        `json:"app_name"`
-	DatabaseName   string        `json:"database_name"`
-	BootstrapPeers []string      `json:"bootstrap_peers"`
-	DatabaseEndpoints []string   `json:"database_endpoints"`
-	ConnectTimeout time.Duration `json:"connect_timeout"`
-	RetryAttempts  int           `json:"retry_attempts"`
-	RetryDelay     time.Duration `json:"retry_delay"`
-	QuietMode      bool          `json:"quiet_mode"` // Suppress debug/info logs
+	AppName           string        `json:"app_name"`
+	DatabaseName      string        `json:"database_name"`
+	BootstrapPeers    []string      `json:"bootstrap_peers"`
+	DatabaseEndpoints []string      `json:"database_endpoints"`
+	ConnectTimeout    time.Duration `json:"connect_timeout"`
+	RetryAttempts     int           `json:"retry_attempts"`
+	RetryDelay        time.Duration `json:"retry_delay"`
+	QuietMode         bool          `json:"quiet_mode"` // Suppress debug/info logs
 }
 
 // DefaultClientConfig returns a default client configuration
 func DefaultClientConfig(appName string) *ClientConfig {
-    // Base defaults
-    peers := []string{}
-    endpoints := DefaultDatabaseEndpoints()
+	// Base defaults
+	peers := DefaultBootstrapPeers()
+	endpoints := DefaultDatabaseEndpoints()
 
-    // Development local-only override via env
-    if isTruthyEnv("NETWORK_DEV_LOCAL") {
-        port := 5001
-        if v := os.Getenv("RQLITE_PORT"); v != "" {
-            if n, err := strconv.Atoi(v); err == nil && n > 0 { port = n }
-        }
-        endpoints = []string{fmt.Sprintf("http://127.0.0.1:%d", port)}
-        if ma := os.Getenv("LOCAL_BOOTSTRAP_MULTIADDR"); ma != "" {
-            peers = []string{ma}
-        } else {
-            // Leave peers empty if no local bootstrap multiaddr provided
-            peers = []string{}
-        }
-    }
+	// Development local-only override via env
+	if isTruthyEnv("NETWORK_DEV_LOCAL") {
+		port := 5001
+		if v := os.Getenv("RQLITE_PORT"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				port = n
+			}
+		}
+		endpoints = []string{fmt.Sprintf("http://127.0.0.1:%d", port)}
+		if ma := os.Getenv("LOCAL_BOOTSTRAP_MULTIADDR"); ma != "" {
+			peers = []string{ma}
+		}
+		// else: keep the peers from DefaultBootstrapPeers() which handles NETWORK_DEV_LOCAL appropriately
+	}
 
-    return &ClientConfig{
-        AppName:           appName,
-        DatabaseName:      fmt.Sprintf("%s_db", appName),
-        BootstrapPeers:    peers,
-        DatabaseEndpoints: endpoints,
-        ConnectTimeout:    time.Second * 30,
-        RetryAttempts:     3,
-        RetryDelay:        time.Second * 5,
-    }
+	return &ClientConfig{
+		AppName:           appName,
+		DatabaseName:      fmt.Sprintf("%s_db", appName),
+		BootstrapPeers:    peers,
+		DatabaseEndpoints: endpoints,
+		ConnectTimeout:    time.Second * 30,
+		RetryAttempts:     3,
+		RetryDelay:        time.Second * 5,
+	}
 }
 
 // isTruthyEnv returns true if the env var is set to a common truthy value.
 func isTruthyEnv(key string) bool {
-    v := os.Getenv(key)
-    switch v {
-    case "1", "true", "TRUE", "True", "yes", "YES", "on", "ON":
-        return true
-    default:
-        return false
-    }
+	v := os.Getenv(key)
+	switch v {
+	case "1", "true", "TRUE", "True", "yes", "YES", "on", "ON":
+		return true
+	default:
+		return false
+	}
 }

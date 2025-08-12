@@ -33,12 +33,14 @@ func init() {
 func setDefaultBootstrapConfig() {
 	// Check if we're in production environment
 	BootstrapPeerIDs = []string{
-		"12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
-		"12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+		// "12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
+		// "12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+		"12D3KooWDL6LSjwwP5FwboV9JaTZzuxr8EhjbcZGFfnyFMDt1UDx",
 	}
 	BootstrapAddresses = []string{
-		"/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
-		"/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+		// "/ip4/57.129.81.31/tcp/4001/p2p/12D3KooWNxt9bNvqftdqXg98JcUHreGxedWSZRUbyqXJ6CW7GaD4",
+		// "/ip4/38.242.250.186/tcp/4001/p2p/12D3KooWGbdnA22bN24X2gyY1o9jozwTBq9wbfvwtJ7G4XQ9JgFm",
+		"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWDL6LSjwwP5FwboV9JaTZzuxr8EhjbcZGFfnyFMDt1UDx",
 	}
 
 	BootstrapPort = 4001
