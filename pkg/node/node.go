@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	mathrand "math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,7 @@ type Node struct {
 
 	// Peer discovery
 	discoveryCancel context.CancelFunc
+	bootstrapCancel context.CancelFunc
 }
 
 // NewNode creates a new network node
@@ -75,6 +77,68 @@ func (n *Node) startRQLite(ctx context.Context) error {
 	n.rqliteAdapter = adapter
 
 	return nil
+}
+
+// hasBootstrapConnections checks if we're connected to any bootstrap peers
+func (n *Node) hasBootstrapConnections() bool {
+	if n.host == nil || len(n.config.Discovery.BootstrapPeers) == 0 {
+		return false
+	}
+
+	connectedPeers := n.host.Network().Peers()
+	if len(connectedPeers) == 0 {
+		return false
+	}
+
+	// Parse bootstrap peer IDs
+	bootstrapPeerIDs := make(map[peer.ID]bool)
+	for _, bootstrapAddr := range n.config.Discovery.BootstrapPeers {
+		ma, err := multiaddr.NewMultiaddr(bootstrapAddr)
+		if err != nil {
+			continue
+		}
+		peerInfo, err := peer.AddrInfoFromP2pAddr(ma)
+		if err != nil {
+			continue
+		}
+		bootstrapPeerIDs[peerInfo.ID] = true
+	}
+
+	// Check if any connected peer is a bootstrap peer
+	for _, peerID := range connectedPeers {
+		if bootstrapPeerIDs[peerID] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// calculateNextBackoff calculates the next backoff interval with exponential growth
+func calculateNextBackoff(current time.Duration) time.Duration {
+	// Multiply by 1.5 for gentler exponential growth
+	next := time.Duration(float64(current) * 1.5)
+	// Cap at 10 minutes
+	maxInterval := 10 * time.Minute
+	if next > maxInterval {
+		next = maxInterval
+	}
+	return next
+}
+
+// addJitter adds random jitter to prevent thundering herd
+func addJitter(interval time.Duration) time.Duration {
+	// Add ±20% jitter
+	jitterPercent := 0.2
+	jitterRange := float64(interval) * jitterPercent
+	jitter := (mathrand.Float64() - 0.5) * 2 * jitterRange // -jitterRange to +jitterRange
+
+	result := time.Duration(float64(interval) + jitter)
+	// Ensure we don't go below 1 second
+	if result < time.Second {
+		result = time.Second
+	}
+	return result
 }
 
 // connectToBootstrapPeer connects to a single bootstrap peer
@@ -198,22 +262,82 @@ func (n *Node) startLibP2P() error {
 		// Don't fail - continue without bootstrap connections
 	}
 
-	// Background reconnect loop: keep trying to connect to bootstrap peers for a short window
-	// This helps when nodes are started slightly out-of-order in dev.
+	// Start exponential backoff reconnection for bootstrap peers
 	if len(n.config.Discovery.BootstrapPeers) > 0 {
+		bootstrapCtx, cancel := context.WithCancel(context.Background())
+		n.bootstrapCancel = cancel
+
 		go func() {
-			for i := 0; i < 12; i++ { // ~60s total
-				if n.host == nil {
+			interval := 5 * time.Second
+			consecutiveFailures := 0
+
+			n.logger.ComponentInfo(logging.ComponentNode, "Starting bootstrap peer reconnection with exponential backoff",
+				zap.Duration("initial_interval", interval),
+				zap.Duration("max_interval", 10*time.Minute))
+
+			for {
+				select {
+				case <-bootstrapCtx.Done():
+					n.logger.ComponentDebug(logging.ComponentNode, "Bootstrap reconnection loop stopped")
 					return
+				default:
 				}
-				// If we already have peers, stop retrying
-				if len(n.host.Network().Peers()) > 0 {
-					return
+
+				// Check if we need to attempt connection
+				if !n.hasBootstrapConnections() {
+					n.logger.ComponentDebug(logging.ComponentNode, "Attempting bootstrap peer connection",
+						zap.Duration("current_interval", interval),
+						zap.Int("consecutive_failures", consecutiveFailures))
+
+					if err := n.connectToBootstrapPeers(context.Background()); err != nil {
+						consecutiveFailures++
+						// Calculate next backoff interval
+						jitteredInterval := addJitter(interval)
+						n.logger.ComponentDebug(logging.ComponentNode, "Bootstrap connection failed, backing off",
+							zap.Error(err),
+							zap.Duration("next_attempt_in", jitteredInterval),
+							zap.Int("consecutive_failures", consecutiveFailures))
+
+						// Sleep with jitter
+						select {
+						case <-bootstrapCtx.Done():
+							return
+						case <-time.After(jitteredInterval):
+						}
+
+						// Increase interval for next attempt
+						interval = calculateNextBackoff(interval)
+
+						// Log interval increases occasionally to show progress
+						if consecutiveFailures%5 == 0 {
+							n.logger.ComponentInfo(logging.ComponentNode, "Bootstrap connection still failing",
+								zap.Int("consecutive_failures", consecutiveFailures),
+								zap.Duration("current_interval", interval))
+						}
+					} else {
+						// Success! Reset interval and counters
+						if consecutiveFailures > 0 {
+							n.logger.ComponentInfo(logging.ComponentNode, "Successfully connected to bootstrap peers",
+								zap.Int("failures_overcome", consecutiveFailures))
+						}
+						interval = 5 * time.Second
+						consecutiveFailures = 0
+
+						// Wait 30 seconds before checking connection again
+						select {
+						case <-bootstrapCtx.Done():
+							return
+						case <-time.After(30 * time.Second):
+						}
+					}
+				} else {
+					// We have bootstrap connections, just wait and check periodically
+					select {
+					case <-bootstrapCtx.Done():
+						return
+					case <-time.After(30 * time.Second):
+					}
 				}
-				if err := n.connectToBootstrapPeers(context.Background()); err == nil {
-					n.logger.ComponentDebug(logging.ComponentNode, "Bootstrap reconnect attempt completed")
-				}
-				time.Sleep(5 * time.Second)
 			}
 		}()
 	}
@@ -472,6 +596,11 @@ func (n *Node) stopPeerDiscovery() {
 // Stop stops the node and all its services
 func (n *Node) Stop() error {
 	n.logger.ComponentInfo(logging.ComponentNode, "Stopping network node")
+
+	// Stop bootstrap reconnection loop
+	if n.bootstrapCancel != nil {
+		n.bootstrapCancel()
+	}
 
 	// Stop peer discovery
 	n.stopPeerDiscovery()
