@@ -60,7 +60,7 @@ func (n *Node) startRQLite(ctx context.Context) error {
 	n.logger.Info("Starting RQLite database")
 
 	// Create RQLite manager
-	n.rqliteManager = database.NewRQLiteManager(&n.config.Database, n.config.Node.DataDir, n.logger.Logger)
+	n.rqliteManager = database.NewRQLiteManager(&n.config.Database, &n.config.Discovery, n.config.Node.DataDir, n.logger.Logger)
 
 	// Start RQLite
 	if err := n.rqliteManager.Start(ctx); err != nil {

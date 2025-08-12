@@ -20,11 +20,12 @@ import (
 
 // RQLiteManager manages an RQLite node instance
 type RQLiteManager struct {
-	config     *config.DatabaseConfig
-	dataDir    string
-	logger     *zap.Logger
-	cmd        *exec.Cmd
-	connection *gorqlite.Connection
+	config         *config.DatabaseConfig
+	discoverConfig *config.DiscoveryConfig
+	dataDir        string
+	logger         *zap.Logger
+	cmd            *exec.Cmd
+	connection     *gorqlite.Connection
 }
 
 // waitForSQLAvailable waits until a simple query succeeds, indicating a leader is known and queries can be served.
@@ -57,11 +58,12 @@ func (r *RQLiteManager) waitForSQLAvailable(ctx context.Context) error {
 }
 
 // NewRQLiteManager creates a new RQLite manager
-func NewRQLiteManager(cfg *config.DatabaseConfig, dataDir string, logger *zap.Logger) *RQLiteManager {
+func NewRQLiteManager(cfg *config.DatabaseConfig, discoveryCfg *config.DiscoveryConfig, dataDir string, logger *zap.Logger) *RQLiteManager {
 	return &RQLiteManager{
-		config:  cfg,
-		dataDir: dataDir,
-		logger:  logger,
+		config:         cfg,
+		discoverConfig: discoveryCfg,
+		dataDir:        dataDir,
+		logger:         logger,
 	}
 }
 
@@ -73,9 +75,15 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create RQLite data directory: %w", err)
 	}
 
+	if r.discoverConfig.HttpAdvAddress == "" {
+		return fmt.Errorf("discovery config HttpAdvAddress is empty")
+	}
+
 	// Build RQLite command
 	args := []string{
 		"-http-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLitePort),
+		"-http-adv-addr", r.discoverConfig.HttpAdvAddress,
+		"-raft-adv-addr", r.discoverConfig.RaftAdvAddress,
 		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", r.config.RQLiteRaftPort),
 	}
 

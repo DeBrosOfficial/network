@@ -48,6 +48,8 @@ type DiscoveryConfig struct {
 	DHTPrefix         string        `yaml:"dht_prefix"`         // DHT protocol prefix
 	DiscoveryInterval time.Duration `yaml:"discovery_interval"` // Discovery announcement interval
 	BootstrapPort     int           `yaml:"bootstrap_port"`     // Default port for bootstrap nodes
+	HttpAdvAddress    string        `yaml:"http_adv_address"`   // HTTP advertisement address
+	RaftAdvAddress    string        `yaml:"raft_adv_address"`   // Raft advertisement
 }
 
 // SecurityConfig contains security-related configuration
@@ -119,6 +121,8 @@ func DefaultConfig() *Config {
 			EnableDHT:         false, // Disabled - conflicts with Anyone protocol anonymity
 			DHTPrefix:         "/network/kad/1.0.0",
 			DiscoveryInterval: time.Second * 15, // Back to 15 seconds for testing
+			HttpAdvAddress:    "",
+			RaftAdvAddress:    "",
 		},
 		Security: SecurityConfig{
 			EnableTLS:   false,

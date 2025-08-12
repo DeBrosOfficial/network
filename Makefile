@@ -31,7 +31,7 @@ test:
 # Run bootstrap node (auto-selects identity and data dir)
 run-node:
 	@echo "Starting bootstrap node..."
-	go run ./cmd/node --data ./data/bootstrap --p2p-port $${P2P:-4001} --rqlite-http-port $${HTTP:-5001} --rqlite-raft-port $${RAFT:-7001} --disable-anonrc
+	go run ./cmd/node --data ./data/bootstrap --p2p-port $${P2P:-4001} --rqlite-http-port $${HTTP:-5001} --rqlite-raft-port $${RAFT:-7001} --adv-addr $${ADV_ADDR:-127.0.0.1} --disable-anonrc
 
 # Run second node (regular) - requires join address of bootstrap node
 # Usage: make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002

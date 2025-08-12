@@ -28,7 +28,7 @@ func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
 	return logger
 }
 
-func parse_and_return_network_flags() (dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, disableAnon *bool, rqlJoinAddr *string, help *bool) {
+func parse_and_return_network_flags() (dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, disableAnon *bool, rqlJoinAddr *string, advAddr *string, help *bool) {
 	logger := setup_logger(logging.ComponentNode)
 
 	dataDir = flag.String("data", "", "Data directory (auto-detected if not provided)")
@@ -38,6 +38,7 @@ func parse_and_return_network_flags() (dataDir, nodeID *string, p2pPort, rqlHTTP
 	rqlRaft = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
 	disableAnon = flag.Bool("disable-anonrc", false, "Disable Anyone proxy routing (defaults to enabled on 127.0.0.1:9050)")
 	rqlJoinAddr = flag.String("rqlite-join-address", "", "RQLite address to join (e.g., /ip4/)")
+	advAddr = flag.String("adv-addr", "127.0.0.1", "Default Addvertise address for rqlite and rafts")
 	help = flag.Bool("help", false, "Show help")
 	flag.Parse()
 
@@ -109,7 +110,7 @@ func startNode(ctx context.Context, cfg *config.Config, port int) error {
 }
 
 // load_args_into_config applies command line argument overrides to the config
-func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string) {
+func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr *string) {
 	logger := setup_logger(logging.ComponentNode)
 
 	// Apply RQLite HTTP port override
@@ -137,12 +138,17 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 		cfg.Database.RQLiteJoinAddress = *rqlJoinAddr
 		logger.ComponentInfo(logging.ComponentNode, "Setting RQLite join address", zap.String("address", *rqlJoinAddr))
 	}
+
+	if *advAddr != "" {
+		cfg.Discovery.HttpAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlHTTP)
+		cfg.Discovery.RaftAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlRaft)
+	}
 }
 
 func main() {
 	logger := setup_logger(logging.ComponentNode)
 
-	dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, disableAnon, rqlJoinAddr, help := parse_and_return_network_flags()
+	dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, disableAnon, rqlJoinAddr, advAddr, help := parse_and_return_network_flags()
 
 	disable_anon_proxy(disableAnon)
 	check_if_should_open_help(help)
@@ -154,7 +160,7 @@ func main() {
 	logger.ComponentInfo(logging.ComponentNode, "Default configuration loaded successfully")
 
 	// Apply command line argument overrides
-	load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr)
+	load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr)
 	logger.ComponentInfo(logging.ComponentNode, "Command line arguments applied to configuration")
 
 	// LibP2P uses configurable port (default 4001); RQLite uses 5001 (HTTP) and 7001 (Raft)
