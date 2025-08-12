@@ -403,7 +403,17 @@ func (n *Node) loadOrCreateIdentity() (crypto.PrivKey, error) {
 		if err != nil {
 			n.logger.Warn("Failed to unmarshal existing identity, creating new one", zap.Error(err))
 		} else {
-			n.logger.ComponentInfo(logging.ComponentNode, "Loaded existing identity", zap.String("file", identityFile))
+			// Extract peer ID from private key for logging
+			peerID, err := peer.IDFromPrivateKey(priv)
+			if err != nil {
+				n.logger.ComponentInfo(logging.ComponentNode, "Loaded existing identity",
+					zap.String("file", identityFile),
+					zap.String("peer_id", "unable_to_extract"))
+			} else {
+				n.logger.ComponentInfo(logging.ComponentNode, "Loaded existing identity",
+					zap.String("file", identityFile),
+					zap.String("peer_id", peerID.String()))
+			}
 			return priv, nil
 		}
 	}
@@ -413,6 +423,16 @@ func (n *Node) loadOrCreateIdentity() (crypto.PrivKey, error) {
 	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.Ed25519, 2048, rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate key pair: %w", err)
+	}
+
+	// Extract peer ID from private key for logging
+	peerID, err := peer.IDFromPrivateKey(priv)
+	if err != nil {
+		n.logger.Info("Identity created",
+			zap.String("peer_id", "unable_to_extract"))
+	} else {
+		n.logger.Info("Identity created",
+			zap.String("peer_id", peerID.String()))
 	}
 
 	// Save identity
@@ -472,9 +492,8 @@ func (n *Node) discoverPeers(ctx context.Context) {
 	initialCount := len(connectedPeers)
 
 	if initialCount == 0 {
-		// No peers connected, try bootstrap peers again
-		n.logger.ComponentInfo(logging.ComponentNode, "No peers connected, retrying bootstrap peers")
-		n.connectToBootstrapPeers(ctx)
+		// No peers connected - exponential backoff system handles bootstrap reconnection
+		n.logger.ComponentDebug(logging.ComponentNode, "No peers connected, relying on exponential backoff for bootstrap")
 		return
 	}
 
