@@ -159,48 +159,38 @@ git clone https://git.debros.io/DeBros/network.git
 cd network
 ```
 
-### 2. Generate Bootstrap Identity (Development Only)
-
-For development, you need to generate a consistent bootstrap peer identity:
-
-```bash
-# Generate bootstrap peer identity
-go run scripts/generate-bootstrap-identity.go
-
-# This will create data/bootstrap/identity.key and show the peer ID (and multiaddr)
-# Save the printed peer ID to use with the -bootstrap flag
-```
-
-**Important:** After generating the bootstrap identity, copy the printed multiaddr
-or peer ID for use with the `-bootstrap` flag when starting regular nodes.
-
-### 3. Build the Project
+### 2. Build the Project
 
 ```bash
 # Build all network executables
 make build
 ```
 
-### 4. Start the Network
+```bash
+# Build all network executables
+make build
+```
+
+### 3. Start the Network
 
 **Terminal 1 - Bootstrap Node:**
 
 ```bash
-# Start an explicit bootstrap node (LibP2P 4001, RQLite 5001/7001)
+# Start the bootstrap node (LibP2P 4001, RQLite 5001/7001)
 make run-node
 ```
 
 **Terminal 2 - Regular Node:**
 
 ```bash
-# Replace <BOOTSTRAP_PEER_ID> with the ID printed by the identity generator
-make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> HTTP=5002 RAFT=7002 P2P=4002
+# Start a regular node and join the cluster using the bootstrap node's RQLite HTTP address
+go run ./cmd/node --id node2 --data ./data/node2 --p2p-port 4002 --rqlite-http-port 5002 --rqlite-raft-port 7002 --rqlite-join-address http://127.0.0.1:5001 --disable-anonrc
 ```
 
 **Terminal 3 - Another Node (optional):**
 
 ```bash
-make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<BOOTSTRAP_PEER_ID> HTTP=5003 RAFT=7003 P2P=4003
+go run ./cmd/node --id node3 --data ./data/node3 --p2p-port 4003 --rqlite-http-port 5003 --rqlite-raft-port 7003 --rqlite-join-address http://127.0.0.1:5001 --disable-anonrc
 ```
 
 ### 5. Test with CLI
@@ -405,12 +395,13 @@ For more advanced configuration options and development setup, see the sections 
 
 ## Configuration
 
-### Bootstrap and Ports (via flags)
+### Node Startup Flags
 
-- **Bootstrap node**: `-role bootstrap`
-- **Regular node**: `-role node -bootstrap <multiaddr>`
-- **Development localhost defaults**: `-dev-local` (sets `NETWORK_DEV_LOCAL=1` in-process); use this for local-only testing so the library returns localhost DB endpoints and bootstrap peers.
-- **RQLite ports**: `-rqlite-http-port` (default 5001), `-rqlite-raft-port` (default 7001)
+- **Bootstrap node**: Just run `make run-node` (auto-selects data dir and identity)
+- **Regular node**: Use `--id`, `--data`, `--p2p-port`, `--rqlite-http-port`, `--rqlite-raft-port`, and `--rqlite-join-address <http://bootstrap_host:5001>`
+- **Disable anonymous routing**: `--disable-anonrc` (optional)
+- **Development localhost defaults**: Use `--disable-anonrc` for local-only testing; the library returns localhost DB endpoints and bootstrap peers.
+- **RQLite ports**: `--rqlite-http-port` (default 5001), `--rqlite-raft-port` (default 7001)
 
 Examples are shown in Quick Start above for local multi-node on a single machine.
 

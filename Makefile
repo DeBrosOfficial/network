@@ -28,24 +28,24 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
-# Run bootstrap node explicitly
+# Run bootstrap node (auto-selects identity and data dir)
 run-node:
-	@echo "Starting BOOTSTRAP node (role=bootstrap)..."
-	go run ./cmd/node -role bootstrap -data ./data/bootstrap -advertise localhost -p2p-port $${P2P:-4001} -dev-local
+	@echo "Starting bootstrap node..."
+	go run ./cmd/node --data ./data/bootstrap --p2p-port $${P2P:-4001} --rqlite-http-port $${HTTP:-5001} --rqlite-raft-port $${RAFT:-7001} --disable-anonrc
 
-# Run second node (regular) - requires BOOTSTRAP multiaddr
-# Usage: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002 P2P=4002
+# Run second node (regular) - requires join address of bootstrap node
+# Usage: make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002
 run-node2:
-	@echo "Starting REGULAR node2 (role=node)..."
-	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5002 RAFT=7002 P2P=4002]"; exit 1; fi
-	go run ./cmd/node -role node -id node2 -data ./data/node2 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5002} -rqlite-raft-port $${RAFT:-7002} -p2p-port $${P2P:-4002} -advertise $${ADVERTISE:-localhost} -dev-local
+	@echo "Starting regular node2..."
+	@if [ -z "$(JOINADDR)" ]; then echo "ERROR: Provide join address: make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 [HTTP=5002 RAFT=7002 P2P=4002]"; exit 1; fi
+	go run ./cmd/node --id node2 --data ./data/node2 --p2p-port $${P2P:-4002} --rqlite-http-port $${HTTP:-5002} --rqlite-raft-port $${RAFT:-7002} --rqlite-join-address $(JOINADDR)
 
-# Run third node (regular) - requires BOOTSTRAP multiaddr
-# Usage: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003 P2P=4003
+# Run third node (regular) - requires join address of bootstrap node
+# Usage: make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5003 RAFT=7003 P2P=4003
 run-node3:
-	@echo "Starting REGULAR node3 (role=node)..."
-	@if [ -z "$(BOOTSTRAP)" ]; then echo "ERROR: Provide BOOTSTRAP multiaddr: make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> [HTTP=5003 RAFT=7003 P2P=4003]"; exit 1; fi
-	go run ./cmd/node -role node -id node3 -data ./data/node3 -bootstrap $(BOOTSTRAP) -rqlite-http-port $${HTTP:-5003} -rqlite-raft-port $${RAFT:-7003} -p2p-port $${P2P:-4003} -advertise $${ADVERTISE:-localhost} -dev-local
+	@echo "Starting regular node3..."
+	@if [ -z "$(JOINADDR)" ]; then echo "ERROR: Provide join address: make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 [HTTP=5003 RAFT=7003 P2P=4003]"; exit 1; fi
+	go run ./cmd/node --id node3 --data ./data/node3 --p2p-port $${P2P:-4003} --rqlite-http-port $${HTTP:-5003} --rqlite-raft-port $${RAFT:-7003} --rqlite-join-address $(JOINADDR)
 
 # Run basic usage example
 run-example:
@@ -54,8 +54,8 @@ run-example:
 
 # Show how to run with flags
 show-bootstrap:
-	@echo "Provide bootstrap via flags, e.g.:"
-	@echo "  make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID> HTTP=5002 RAFT=7002 P2P=4002"
+	@echo "Provide join address via flags, e.g.:"
+	@echo "  make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002"
 
 # Run network CLI
 run-cli:
@@ -151,8 +151,8 @@ test-consensus: build
 dev-cluster:
 	@echo "To start a development cluster, run these commands in separate terminals:"
 	@echo "1. make run-node           # Start bootstrap node"
-	@echo "2. make run-node2 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5002 RAFT=7002 P2P=4002"
-	@echo "3. make run-node3 BOOTSTRAP=/ip4/127.0.0.1/tcp/4001/p2p/<ID> HTTP=5003 RAFT=7003 P2P=4003"
+	@echo "2. make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002"
+	@echo "3. make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5003 RAFT=7003 P2P=4003"
 	@echo "4. make run-example        # Test basic functionality"
 	@echo "5. make cli-health         # Check network health"
 	@echo "6. make cli-peers          # List peers"
@@ -169,9 +169,9 @@ help:
 	@echo "  build         - Build all executables"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  test          - Run tests"
-	@echo "  run-node      - Start bootstrap node (role=bootstrap)"
-	@echo "  run-node2     - Start second node (role=node). Provide BOOTSTRAP, optional HTTP/RAFT"
-	@echo "  run-node3     - Start third node (role=node). Provide BOOTSTRAP, optional HTTP/RAFT"
+	@echo "  run-node      - Start bootstrap node"
+	@echo "  run-node2     - Start second node (requires JOINADDR, optional HTTP/RAFT/P2P)"
+	@echo "  run-node3     - Start third node (requires JOINADDR, optional HTTP/RAFT/P2P)"
 	@echo "  run-example   - Run usage example"
 	@echo "  run-cli       - Run network CLI help"
 	@echo "  show-bootstrap - Show example bootstrap usage with flags"
