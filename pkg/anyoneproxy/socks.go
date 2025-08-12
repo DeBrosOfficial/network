@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
 	goproxy "golang.org/x/net/proxy"
@@ -27,25 +26,11 @@ func Enabled() bool {
 	if disabled {
 		return false
 	}
-	if os.Getenv("ANYONE_DISABLE") == "1" {
-		return false
-	}
-	// If explicitly enabled via env or custom addr provided, also true.
-	if os.Getenv("ANYONE_PROXY_ENABLED") == "1" {
-		return true
-	}
-	if os.Getenv("ANYONE_SOCKS5") != "" {
-		return true
-	}
-	// Default: enabled
 	return true
 }
 
 // socksAddr returns the SOCKS5 address to use for proxying (host:port).
 func socksAddr() string {
-	if v := os.Getenv("ANYONE_SOCKS5"); v != "" {
-		return v
-	}
 	return "127.0.0.1:9050"
 }
 

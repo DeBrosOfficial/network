@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"git.debros.io/DeBros/network/pkg/storage"
 
+	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/rqlite/gorqlite"
-	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 )
 
 // DatabaseClientImpl implements DatabaseClient
@@ -182,15 +181,6 @@ func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 	// 1) Prefer explicit configuration on the client
 	if d.client != nil && d.client.config != nil && len(d.client.config.DatabaseEndpoints) > 0 {
 		return dedupeStrings(normalizeEndpoints(d.client.config.DatabaseEndpoints))
-	}
-
-	// 2) Backward compatibility: RQLITE_NODES environment variable
-	if raw := os.Getenv("RQLITE_NODES"); strings.TrimSpace(raw) != "" {
-		// split by comma or whitespace
-		parts := splitCSVOrSpace(raw)
-		if len(parts) > 0 {
-			return dedupeStrings(normalizeEndpoints(parts))
-		}
 	}
 
 	// 3) Fallback to library defaults derived from bootstrap peers

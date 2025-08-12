@@ -184,8 +184,6 @@ func (n *Node) startLibP2P() error {
 
 	n.host = h
 
-	// DHT removed - incompatible with Anyone proxy anonymity architecture
-
 	// Log configured bootstrap peers
 	if len(n.config.Discovery.BootstrapPeers) > 0 {
 		n.logger.ComponentInfo(logging.ComponentNode, "Configured bootstrap peers",

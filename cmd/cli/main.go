@@ -10,11 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 	"git.debros.io/DeBros/network/pkg/client"
-	"git.debros.io/DeBros/network/pkg/constants"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 )
 
 var (
@@ -446,28 +445,7 @@ func handlePeerID() {
 }
 
 func createClient() (client.NetworkClient, error) {
-	var bootstrapPeers []string
-
-	if useProduction {
-		// Set environment to production to trigger production bootstrap peers
-		os.Setenv("ENVIRONMENT", "production")
-		bootstrapPeers = constants.GetBootstrapPeers()
-		if format != "json" {
-			fmt.Printf("🔗 Using production bootstrap peers\n")
-		}
-	} else {
-		// Try to discover the bootstrap peer from saved peer info
-		discoveredPeer := discoverBootstrapPeer()
-		if discoveredPeer != "" {
-			bootstrapPeer = discoveredPeer
-		}
-		bootstrapPeers = []string{bootstrapPeer}
-	}
-
 	config := client.DefaultClientConfig("network-cli")
-	config.BootstrapPeers = bootstrapPeers
-	config.ConnectTimeout = timeout
-	config.QuietMode = true // Suppress debug/info logs for CLI
 
 	networkClient, err := client.NewClient(config)
 	if err != nil {

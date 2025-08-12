@@ -136,11 +136,6 @@ func coloredConsoleEncoder(enableColors bool) zapcore.Encoder {
 
 // NewColoredLogger creates a new colored logger
 func NewColoredLogger(component Component, enableColors bool) (*ColoredLogger, error) {
-	// Auto-detect color support if not explicitly disabled
-	if enableColors {
-		enableColors = supportsColor()
-	}
-
 	// Create encoder
 	encoder := coloredConsoleEncoder(enableColors)
 
@@ -204,40 +199,6 @@ func (l *ColoredLogger) ComponentDebug(component Component, msg string, fields .
 		msg = fmt.Sprintf("[%s] %s", component, msg)
 	}
 	l.Debug(msg, fields...)
-}
-
-// supportsColor detects if the terminal supports color
-func supportsColor() bool {
-	// Check environment variables
-	term := os.Getenv("TERM")
-	colorTerm := os.Getenv("COLORTERM")
-
-	// Common indicators of color support
-	if colorTerm != "" {
-		return true
-	}
-
-	if term != "" {
-		colorTerms := []string{
-			"xterm", "xterm-color", "xterm-256color",
-			"screen", "screen-256color",
-			"tmux", "tmux-256color",
-			"ansi", "color",
-		}
-
-		for _, ct := range colorTerms {
-			if strings.Contains(term, ct) {
-				return true
-			}
-		}
-	}
-
-	// Check if we're not in a pipe/redirect
-	if fileInfo, _ := os.Stdout.Stat(); fileInfo != nil {
-		return (fileInfo.Mode() & os.ModeCharDevice) == os.ModeCharDevice
-	}
-
-	return false
 }
 
 // StandardLogger provides colored standard library compatible logging

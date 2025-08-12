@@ -1,33 +1,17 @@
 package client
 
 import (
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
-	"git.debros.io/DeBros/network/pkg/constants"
+	"git.debros.io/DeBros/network/pkg/config"
 	"github.com/multiformats/go-multiaddr"
 )
 
 // DefaultBootstrapPeers returns the library's default bootstrap peer multiaddrs.
 func DefaultBootstrapPeers() []string {
-	// Development local-only override
-	if truthy(os.Getenv("NETWORK_DEV_LOCAL")) {
-		if ma := os.Getenv("LOCAL_BOOTSTRAP_MULTIADDR"); ma != "" {
-			return []string{ma}
-		}
-		// Try to auto-resolve local bootstrap peer multiaddr from peer.info
-		if ma, ok := readLocalPeerInfoMultiaddr(); ok {
-			return []string{ma}
-		}
-		// Fallback to localhost transport without peer ID (connect will warn and skip)
-		return []string{"/ip4/127.0.0.1/tcp/4001"}
-	}
-	peers := constants.GetBootstrapPeers()
-	out := make([]string, len(peers))
-	copy(out, peers)
-	return out
+	var cfg *config.Config
+	return cfg.Discovery.BootstrapPeers
 }
 
 // truthy reports if s is a common truthy string.
@@ -43,21 +27,11 @@ func truthy(s string) bool {
 // DefaultDatabaseEndpoints returns default DB HTTP endpoints derived from default bootstrap peers.
 // Port defaults to RQLite HTTP 5001, or RQLITE_PORT if set.
 func DefaultDatabaseEndpoints() []string {
-	port := 5001
-	if v := os.Getenv("RQLITE_PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			port = n
-		}
-	}
-
-	// Development local-only override
-	if truthy(os.Getenv("NETWORK_DEV_LOCAL")) {
-		return []string{"http://127.0.0.1:" + strconv.Itoa(port)}
-	}
-
+	var cfg *config.Config
 	peers := DefaultBootstrapPeers()
+	port := cfg.Database.RQLitePort
 	if len(peers) == 0 {
-		return []string{"http://localhost:" + strconv.Itoa(port)}
+		return []string{"http://localhost:" + strconv.Itoa(cfg.Database.RQLitePort)}
 	}
 
 	endpoints := make([]string, 0, len(peers))
@@ -95,16 +69,24 @@ func endpointFromMultiaddr(ma multiaddr.Multiaddr, port int) string {
 		host = v
 	}
 	if host == "" {
-		if v, err := ma.ValueForProtocol(multiaddr.P_DNS4); err == nil && v != "" { host = v }
+		if v, err := ma.ValueForProtocol(multiaddr.P_DNS4); err == nil && v != "" {
+			host = v
+		}
 	}
 	if host == "" {
-		if v, err := ma.ValueForProtocol(multiaddr.P_DNS6); err == nil && v != "" { host = v }
+		if v, err := ma.ValueForProtocol(multiaddr.P_DNS6); err == nil && v != "" {
+			host = v
+		}
 	}
 	if host == "" {
-		if v, err := ma.ValueForProtocol(multiaddr.P_IP4); err == nil && v != "" { host = v }
+		if v, err := ma.ValueForProtocol(multiaddr.P_IP4); err == nil && v != "" {
+			host = v
+		}
 	}
 	if host == "" {
-		if v, err := ma.ValueForProtocol(multiaddr.P_IP6); err == nil && v != "" { host = v }
+		if v, err := ma.ValueForProtocol(multiaddr.P_IP6); err == nil && v != "" {
+			host = v
+		}
 	}
 	if host == "" {
 		host = "localhost"
@@ -127,33 +109,4 @@ func dedupeStrings(in []string) []string {
 		out = append(out, s)
 	}
 	return out
-}
-
-// readLocalPeerInfoMultiaddr attempts to read the local bootstrap peer multiaddr from common dev paths.
-// It checks LOCAL_BOOTSTRAP_INFO (path), then ./data/bootstrap/peer.info, then ./data/peer.info.
-func readLocalPeerInfoMultiaddr() (string, bool) {
-	candidates := make([]string, 0, 3)
-	if p := strings.TrimSpace(os.Getenv("LOCAL_BOOTSTRAP_INFO")); p != "" {
-		candidates = append(candidates, p)
-	}
-	candidates = append(candidates,
-		filepath.Join(".", "data", "bootstrap", "peer.info"),
-		filepath.Join(".", "data", "peer.info"),
-	)
-
-	for _, p := range candidates {
-		b, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		s := strings.TrimSpace(string(b))
-		if s == "" {
-			continue
-		}
-		// expect a full multiaddr with /p2p/<peerID>
-		if strings.Contains(s, "/p2p/") {
-			return s, true
-		}
-	}
-	return "", false
 }

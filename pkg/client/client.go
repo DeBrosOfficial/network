@@ -18,10 +18,10 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	libp2ppubsub "github.com/libp2p/go-libp2p-pubsub"
 
+	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 	"git.debros.io/DeBros/network/pkg/discovery"
 	"git.debros.io/DeBros/network/pkg/pubsub"
 	"git.debros.io/DeBros/network/pkg/storage"
-	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 )
 
 // Client implements the NetworkClient interface
@@ -147,15 +147,17 @@ func (c *Client) Connect() error {
 
 	c.host = h
 
-    // Log host identity and listen addresses
-    addrs := c.host.Addrs()
-    addrStrs := make([]string, 0, len(addrs))
-    for _, a := range addrs { addrStrs = append(addrStrs, a.String()) }
-    c.logger.Info("LibP2P host created",
-        zap.String("peer_id", c.host.ID().String()),
-        zap.Int("listen_addr_count", len(addrStrs)),
-        zap.Strings("listen_addrs", addrStrs),
-    )
+	// Log host identity and listen addresses
+	addrs := c.host.Addrs()
+	addrStrs := make([]string, 0, len(addrs))
+	for _, a := range addrs {
+		addrStrs = append(addrStrs, a.String())
+	}
+	c.logger.Info("LibP2P host created",
+		zap.String("peer_id", c.host.ID().String()),
+		zap.Int("listen_addr_count", len(addrStrs)),
+		zap.Strings("listen_addrs", addrStrs),
+	)
 
 	// Create LibP2P PubSub with enhanced discovery for Anchat
 	var ps *libp2ppubsub.PubSub
@@ -248,15 +250,12 @@ func (c *Client) Connect() error {
 		c.logger.Warn("Failed to start peer discovery", zap.Error(err))
 	}
 
-    // Start generic aggressive peer discovery for all apps
-    go c.startAggressivePeerDiscovery()
-
 	// Start connection monitoring
 	c.startConnectionMonitoring()
 
 	c.connected = true
 
-    c.logger.Info("Client connected", zap.String("namespace", c.getAppNamespace()))
+	c.logger.Info("Client connected", zap.String("namespace", c.getAppNamespace()))
 
 	return nil
 }
@@ -299,7 +298,7 @@ func (c *Client) Disconnect() error {
 
 	c.connected = false
 
-    c.logger.Info("Client disconnected")
+	c.logger.Info("Client disconnected")
 
 	return nil
 }
