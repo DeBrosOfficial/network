@@ -18,7 +18,6 @@ import (
 	libp2ppubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"git.debros.io/DeBros/network/pkg/anyoneproxy"
-	"git.debros.io/DeBros/network/pkg/discovery"
 	"git.debros.io/DeBros/network/pkg/pubsub"
 	"git.debros.io/DeBros/network/pkg/storage"
 )
@@ -37,9 +36,6 @@ type Client struct {
 	storage  *StorageClientImpl
 	network  *NetworkInfoImpl
 	pubsub   *pubSubBridge
-
-	// Managers
-	discoveryMgr *discovery.Manager
 
 	// State
 	connected bool
@@ -211,20 +207,11 @@ func (c *Client) Connect() error {
 		}
 	}
 
-	// Initialize discovery manager (discovery.NewManager accepts a second parameter for compatibility;
-	// the value is ignored by the new implementation)
-	c.discoveryMgr = discovery.NewManager(c.host, nil, c.logger)
+	// Client is a lightweight P2P participant - no discovery needed
+	// We only connect to known bootstrap peers and let nodes handle discovery
+	c.logger.Debug("Client configured as lightweight P2P participant (no discovery)")
 
-	// Start peer discovery
-	discoveryConfig := discovery.Config{
-		DiscoveryInterval: 5 * time.Second, // More frequent discovery
-		MaxConnections:    10,              // Allow more connections
-	}
-	if err := c.discoveryMgr.Start(discoveryConfig); err != nil {
-		c.logger.Warn("Failed to start peer discovery", zap.Error(err))
-	}
-
-	// Start connection monitoring
+	// Start minimal connection monitoring
 	c.startConnectionMonitoring()
 
 	c.connected = true
@@ -241,11 +228,6 @@ func (c *Client) Disconnect() error {
 
 	if !c.connected {
 		return nil
-	}
-
-	// Stop peer discovery
-	if c.discoveryMgr != nil {
-		c.discoveryMgr.Stop()
 	}
 
 	// Close pubsub adapter

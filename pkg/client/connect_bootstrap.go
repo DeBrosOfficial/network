@@ -19,39 +19,28 @@ func (c *Client) connectToBootstrap(ctx context.Context, addr string) error {
 	// Try to extract peer info if it's a full multiaddr with peer ID
 	peerInfo, err := peer.AddrInfoFromP2pAddr(ma)
 	if err != nil {
-		// If there's no peer ID, try to discover the peer at this address
-		return c.connectToAddress(ctx, ma)
-	}
-
-	// Avoid dialing ourselves: if the bootstrap address resolves to our own peer ID, skip.
-	c.logger.Debug(string(peerInfo.ID))
-	c.logger.Debug(string(c.host.ID()))
-	if c.host != nil && peerInfo.ID == c.host.ID() {
-		c.logger.Debug("Skipping bootstrap address because it resolves to self",
-			zap.String("addr", addr),
-			zap.String("peer", peerInfo.ID.String()))
+		// If there's no peer ID, we can't connect
+		c.logger.Warn("Bootstrap address missing peer ID, skipping",
+			zap.String("addr", addr))
 		return nil
 	}
 
+	// Avoid dialing ourselves: if the bootstrap address resolves to our own peer ID, skip.
+	if c.host != nil && peerInfo.ID == c.host.ID() {
+		c.logger.Debug("Skipping bootstrap address because it resolves to self",
+			zap.String("addr", addr),
+			zap.String("peer_id", peerInfo.ID.String()))
+		return nil
+	}
+
+	// Attempt connection
 	if err := c.host.Connect(ctx, *peerInfo); err != nil {
 		return fmt.Errorf("failed to connect to peer: %w", err)
 	}
 
 	c.logger.Debug("Connected to bootstrap peer",
-		zap.String("peer", peerInfo.ID.String()),
+		zap.String("peer_id", peerInfo.ID.String()),
 		zap.String("addr", addr))
 
 	return nil
-}
-
-// connectToAddress attempts to discover and connect to a peer at the given address
-func (c *Client) connectToAddress(ctx context.Context, ma multiaddr.Multiaddr) error {
-	// For the simple case, we'll just warn and continue
-	// In a production environment, you'd implement proper peer discovery
-
-	c.logger.Warn("No peer ID provided in address, skipping bootstrap connection",
-		zap.String("addr", ma.String()),
-		zap.String("suggestion", "Use full multiaddr with peer ID like: /ip4/127.0.0.1/tcp/4001/p2p/<peer-id>"))
-
-	return nil // Don't fail - let the client continue without bootstrap
 }

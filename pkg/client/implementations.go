@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -187,30 +186,7 @@ func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 	return DefaultDatabaseEndpoints()
 }
 
-// normalizeEndpoints ensures each endpoint has an http scheme and a port (defaults to 5001)
-func normalizeEndpoints(in []string) []string {
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-		// Prepend scheme if missing so url.Parse handles host:port
-		if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
-			s = "http://" + s
-		}
-		u, err := url.Parse(s)
-		if err != nil || u.Host == "" {
-			continue
-		}
-		// Ensure port present
-		if h := u.Host; !hasPort(h) {
-			u.Host = u.Host + ":5001"
-		}
-		out = append(out, u.String())
-	}
-	return out
-}
+// normalizeEndpoints is now imported from defaults.go
 
 func hasPort(hostport string) bool {
 	// cheap check for :port suffix (IPv6 with brackets handled by url.Parse earlier)
@@ -224,13 +200,6 @@ func hasPort(hostport string) bool {
 		return true
 	}
 	return false
-}
-
-func splitCSVOrSpace(s string) []string {
-	// replace commas with spaces, then split on spaces
-	s = strings.ReplaceAll(s, ",", " ")
-	fields := strings.Fields(s)
-	return fields
 }
 
 // connectToAvailableNode tries to connect to any available RQLite node
