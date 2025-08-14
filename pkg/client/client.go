@@ -157,18 +157,13 @@ func (c *Client) Connect() error {
 		zap.Strings("listen_addrs", addrStrs),
 	)
 
-	// Create LibP2P PubSub with enhanced discovery for Anchat
+	// Create LibP2P GossipSub with PeerExchange enabled (gossip-based peer exchange).
+	// Peer exchange helps propagate peer addresses via pubsub gossip and is enabled
+	// globally so discovery works without Anchat-specific branches.
 	var ps *libp2ppubsub.PubSub
-	if c.config.AppName == "anchat" {
-		// For Anchat, use more aggressive GossipSub settings for better peer discovery
-		ps, err = libp2ppubsub.NewGossipSub(context.Background(), h,
-			libp2ppubsub.WithPeerExchange(true), // Enable peer exchange
-			libp2ppubsub.WithFloodPublish(true), // Flood publish for small networks
-		)
-	} else {
-		// Standard GossipSub for other applications
-		ps, err = libp2ppubsub.NewGossipSub(context.Background(), h)
-	}
+	ps, err = libp2ppubsub.NewGossipSub(context.Background(), h,
+		libp2ppubsub.WithPeerExchange(true),
+	)
 	if err != nil {
 		h.Close()
 		return fmt.Errorf("failed to create pubsub: %w", err)

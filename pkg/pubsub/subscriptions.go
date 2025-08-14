@@ -3,6 +3,7 @@ package pubsub
 import (
 	"context"
 	"fmt"
+
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 )
 
@@ -74,13 +75,8 @@ func (m *Manager) Subscribe(ctx context.Context, topic string, handler MessageHa
 		}
 	}()
 
-	// Force peer discovery for this topic
+	// Force peer discovery for this topic (application-agnostic)
 	go m.announceTopicInterest(namespacedTopic)
-
-	// For Anchat, also try to actively find topic peers through the libp2p pubsub system
-	if len(m.namespace) > 6 && m.namespace[:6] == "anchat" {
-		go m.enhancedAnchatTopicDiscovery(namespacedTopic, libp2pTopic)
-	}
 
 	return nil
 }
