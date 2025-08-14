@@ -23,6 +23,16 @@ func (c *Client) connectToBootstrap(ctx context.Context, addr string) error {
 		return c.connectToAddress(ctx, ma)
 	}
 
+	// Avoid dialing ourselves: if the bootstrap address resolves to our own peer ID, skip.
+	c.logger.Debug(string(peerInfo.ID))
+	c.logger.Debug(string(c.host.ID()))
+	if c.host != nil && peerInfo.ID == c.host.ID() {
+		c.logger.Debug("Skipping bootstrap address because it resolves to self",
+			zap.String("addr", addr),
+			zap.String("peer", peerInfo.ID.String()))
+		return nil
+	}
+
 	if err := c.host.Connect(ctx, *peerInfo); err != nil {
 		return fmt.Errorf("failed to connect to peer: %w", err)
 	}

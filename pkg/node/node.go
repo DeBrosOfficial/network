@@ -154,6 +154,14 @@ func (n *Node) connectToBootstrapPeer(ctx context.Context, addr string) error {
 		return fmt.Errorf("failed to extract peer info: %w", err)
 	}
 
+	// Avoid dialing ourselves: if the bootstrap address resolves to our own peer ID, skip.
+	if n.host != nil && peerInfo.ID == n.host.ID() {
+		n.logger.ComponentDebug(logging.ComponentNode, "Skipping bootstrap address because it resolves to self",
+			zap.String("addr", addr),
+			zap.String("peer_id", peerInfo.ID.String()))
+		return nil
+	}
+
 	// Log resolved peer info prior to connect
 	n.logger.ComponentDebug(logging.ComponentNode, "Resolved bootstrap peer",
 		zap.String("peer_id", peerInfo.ID.String()),
