@@ -3,574 +3,266 @@
 ## Table of Contents
 
 - [Project Overview](#project-overview)
-- [Product Requirements Document (PRD)](#product-requirements-document-prd)
 - [Architecture Overview](#architecture-overview)
 - [Codebase Structure](#codebase-structure)
 - [Key Components](#key-components)
-- [Network Protocol](#network-protocol)
-- [Data Flow](#data-flow)
+- [Configuration System](#configuration-system)
+- [Node vs Client Roles](#node-vs-client-roles)
+- [Network Protocol & Data Flow](#network-protocol--data-flow)
 - [Build & Development](#build--development)
 - [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
+- [Example Application: Anchat](#example-application-anchat)
+
+---
 
 ## Project Overview
 
-**DeBros Network Cluster** is a decentralized peer-to-peer (P2P) network built in Go that provides distributed database operations, key-value storage, pub/sub messaging, and peer discovery. The system is designed for applications that need resilient, distributed data management without relying on centralized infrastructure.
+**DeBros Network Cluster** is a decentralized peer-to-peer (P2P) system built in Go, providing distributed database operations, key-value storage, pub/sub messaging, and peer management. It is designed for resilient, distributed data management and communication, with a clear separation between full network nodes and lightweight clients.
 
-## Product Requirements Document (PRD)
-
-### Vision
-
-Create a robust, decentralized network platform that enables applications to seamlessly share data, communicate, and discover peers in a distributed environment.
-
-### Core Requirements
-
-#### Functional Requirements
-
-1. **Distributed Database Operations**
-
-   - SQL query execution across network nodes
-   - ACID transactions with eventual consistency
-   - Schema management and table operations
-   - Multi-node resilience with automatic failover
-
-2. **Key-Value Storage**
-
-   - Distributed storage with namespace isolation
-   - CRUD operations with consistency guarantees
-   - Prefix-based querying and key enumeration
-   - Data replication across network participants
-
-3. **Pub/Sub Messaging**
-
-   - Topic-based publish/subscribe communication
-   - Real-time message delivery with ordering guarantees
-   - Subscription management with automatic cleanup
-   - Namespace isolation per application
-
-4. **Peer Discovery & Management**
-
-   - Automatic peer discovery using DHT (Distributed Hash Table)
-   - Bootstrap node support for network joining
-   - Connection health monitoring and recovery
-   - Peer exchange for network growth
-
-5. **Application Isolation**
-   - Namespace-based multi-tenancy
-   - Per-application data segregation
-   - Independent configuration and lifecycle management
-
-#### Non-Functional Requirements
-
-1. **Reliability**: 99.9% uptime with automatic failover
-2. **Scalability**: Support 100+ nodes with linear performance
-3. **Security**: End-to-end encryption for sensitive data
-4. **Performance**: <100ms latency for local operations
-5. **Developer Experience**: Simple client API with comprehensive examples
-
-### Success Metrics
-
-- Network uptime > 99.9%
-- Peer discovery time < 30 seconds
-- Database operation latency < 500ms
-- Message delivery success rate > 99.5%
+---
 
 ## Architecture Overview
 
+The architecture is modular and robust, supporting both full nodes (which run core services and participate in discovery) and lightweight clients (which connect to the network via bootstrap peers).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    DeBros Network Cluster                   │
+│                DeBros Network Cluster                      │
 ├─────────────────────────────────────────────────────────────┤
-│                     Application Layer                       │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Anchat    │  │ Custom App  │  │    CLI Tools        │ │
-│  │   (Chat)    │  │             │  │                     │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│                  Application Layer                         │
+│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────┐ │
+│  │   Anchat    │ │ Custom App  │ │      CLI Tools        │ │
+│  └─────────────┘ └─────────────┘ └───────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
-│                      Client API                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │  Database   │  │   Storage   │  │      PubSub         │ │
-│  │   Client    │  │   Client    │  │      Client         │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│                    Client API                              │
+│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────┐ │
+│  │  Database   │ │   Storage   │ │       PubSub          │ │
+│  │   Client    │ │   Client    │ │       Client          │ │
+│  └─────────────┘ └─────────────┘ └───────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
-│                    Network Layer                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │  Discovery  │  │   PubSub    │  │     Consensus       │ │
-│  │   Manager   │  │   Manager   │  │     (RQLite)        │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│                    Network Layer                           │
+│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────┐ │
+│  │   Node      │ │   Discovery │ │      PubSub           │ │
+│  │ (Full P2P)  │ │  Manager    │ │      Manager          │ │
+│  └─────────────┘ └─────────────┘ └───────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
-│                  Transport Layer                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   LibP2P    │  │     DHT     │  │      RQLite         │ │
-│  │   Host      │  │  Kademlia   │  │    Database         │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│                  Database Layer (RQLite)                   │
+│  ┌─────────────┐                                          │
+│  │   RQLite    │                                          │
+│  │ Consensus   │                                          │
+│  └─────────────┘                                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Key Design Principles
+**Key Principles:**
+- **Modularity:** Each component is independently testable and replaceable.
+- **Fault Tolerance:** Network continues operating with node failures.
+- **Security:** End-to-end encryption, peer authentication, and namespace isolation.
+- **Performance:** Optimized for common operations, with connection pooling and caching.
 
-1. **Modularity**: Each component can be developed and tested independently
-2. **Fault Tolerance**: Network continues operating even with node failures
-3. **Consistency**: Strong consistency for database operations, eventual consistency for discovery
-4. **Security**: Defense in depth with multiple security layers
-5. **Performance**: Optimized for common operations with caching and connection pooling
+---
 
 ## Codebase Structure
 
 ```
 network/
-├── cmd/                          # Executables
-│   ├── node/                     # Network node (bootstrap via flag/auto)
-│   │   ├── main.go               # Entrypoint
-│   │   └── configmap.go          # Centralized flags/env → config mapping (flags > env > defaults)
-│   └── cli/main.go               # Command-line interface
-├── pkg/                          # Core packages
-│   ├── client/                   # Client API and implementations
-│   │   ├── client.go             # Main client (now slimmed)
-│   │   ├── connect_bootstrap.go  # Bootstrap helpers
-│   │   ├── discovery_aggressive.go # Generic aggressive discovery
-│   │   ├── monitoring.go         # Connection monitoring
-│   │   ├── pubsub_bridge.go      # PubSub adapter bridge
-│   │   ├── implementations.go    # Database, storage, network implementations
-│   │   └── interface.go          # Public API interfaces
-│   ├── config/                   # Configuration management
-│   │   └── config.go             # Node and client configuration
-│   ├── constants/                # System constants
-│   │   └── bootstrap.go          # Bootstrap node constants
-│   ├── database/                 # Database layer
-│   │   ├── adapter.go            # Database adapter interface
-│   │   └── rqlite.go             # RQLite implementation
-│   ├── discovery/                # Peer discovery
-│   │   └── discovery.go          # DHT-based peer discovery
-│   ├── node/                     # Node implementation
-│   │   └── node.go               # Network node logic
-│   ├── pubsub/                   # Publish/Subscribe messaging
-│   │   ├── manager.go            # Core pub/sub logic
-│   │   ├── adapter.go            # Client interface adapter
-│   │   └── types.go              # Shared types
-│   └── storage/                  # Distributed storage
-│       ├── client.go             # Storage client
-│       ├── protocol.go           # Storage protocol
-│       ├── service.go            # Service (struct/ctor/Close)
-│       ├── rqlite_init.go        # Schema initialization
-│       ├── stream_handler.go     # Stream handling
-│       └── kv_ops.go             # KV operation handlers
-├── anchat/                       # Example chat application
-│   ├── cmd/cli/main.go           # Chat CLI
-│   └── pkg/
-│       ├── chat/manager.go       # Chat message management
-│       └── crypto/crypto.go      # End-to-end encryption
-├── examples/                     # Usage examples
-│   └── basic_usage.go            # Basic API usage
-├── configs/                      # Configuration files
-│   ├── bootstrap.yaml            # Bootstrap node config
-│   └── node.yaml                 # Regular node config
-├── data/                         # Runtime data
-│   ├── bootstrap/                # Bootstrap node data
-│   └── node/                     # Regular node data
-└── scripts/                      # Utility scripts
-    └── test-multinode.sh         # Multi-node testing
+├── cmd/                 # Executables
+│   ├── node/            # Network node (full participant)
+│   │   └── main.go      # Node entrypoint
+│   └── cli/             # Command-line interface
+│       └── main.go      # CLI entrypoint
+├── pkg/                 # Core packages
+│   ├── client/          # Lightweight client API
+│   ├── node/            # Full node implementation
+│   ├── config/          # Centralized configuration management
+│   ├── database/        # RQLite integration
+│   ├── storage/         # Distributed key-value storage
+│   ├── pubsub/          # Pub/Sub messaging
+│   ├── discovery/       # Peer discovery (node only)
+│   ├── logging/         # Structured and colored logging
+│   └── anyoneproxy/     # Optional SOCKS5 proxy support
+├── configs/             # YAML configuration files
+│   ├── node.yaml        # Node config
+│   └── bootstrap.yaml   # Bootstrap config (legacy, now unified)
+├── scripts/             # Install and utility scripts
+└── data/                # Runtime data (identity, db, logs)
 ```
+
+---
 
 ## Key Components
 
-### 1. Network Client (`pkg/client/`)
+### 1. **Network Client (`pkg/client/`)**
+- **Role:** Lightweight P2P participant for apps and CLI.
+- **Features:** Connects only to bootstrap peers, no peer discovery, provides Database, Storage, PubSub, and NetworkInfo interfaces.
+- **Isolation:** Namespaced per application.
 
-The main entry point for applications to interact with the network.
+### 2. **Node (`pkg/node/`)**
+- **Role:** Full P2P participant, runs core services (RQLite, storage, pubsub), handles peer discovery and network management.
+- **Features:** Peer discovery, service registration, connection monitoring, and data replication.
 
-**Core Interfaces:**
+### 3. **Configuration (`pkg/config/`)**
+- **Centralized:** All config is managed via YAML files, with CLI flags and environment variables overriding as needed.
+- **Unified:** Node and client configs share structure; bootstrap is just a node with no join address.
 
-- `NetworkClient`: Main client interface
-- `DatabaseClient`: SQL database operations
-- `StorageClient`: Key-value storage operations
-- `PubSubClient`: Publish/subscribe messaging
-- `NetworkInfo`: Network status and peer information
+### 4. **Database Layer (`pkg/database/`)**
+- **RQLite:** Distributed SQLite with Raft consensus, automatic leader election, and failover.
+- **Client API:** SQL queries, transactions, schema management.
 
-**Key Features:**
+### 5. **Storage System (`pkg/storage/`)**
+- **Distributed KV:** Namespace-isolated, CRUD operations, prefix queries, replication.
 
-- Automatic connection management with retry logic
-- Namespace isolation per application
-- Health monitoring and status reporting
-- Graceful shutdown and cleanup
+### 6. **Pub/Sub System (`pkg/pubsub/`)**
+- **Messaging:** Topic-based, real-time delivery, automatic subscription management, namespace isolation.
 
-### 2. Peer Discovery (`pkg/discovery/`)
+### 7. **Discovery (`pkg/discovery/`)**
+- **Node Only:** Handles peer discovery via peerstore and peer exchange. No DHT/Kademlia in client.
 
-Handles automatic peer discovery and network topology management.
+---
 
-**Discovery Strategies:**
+## Configuration System
 
-- **DHT-based**: Uses Kademlia DHT for efficient peer routing
-- **Peer Exchange**: Learns about new peers from existing connections
-- **Bootstrap**: Connects to known bootstrap nodes for network entry
+- **Primary Source:** YAML files (`configs/node.yaml`)
+- **Overrides:** CLI flags > Environment variables > YAML > Code defaults
+- **Examples:**
+  - `data_dir`, `key_file`, `listen_addresses`, `solana_wallet`
+  - `rqlite_port`, `rqlite_raft_port`, `rqlite_join_address`
+  - `bootstrap_peers`, `discovery_interval`
+  - Logging: `level`, `file`
 
-**Configuration:**
+**Client Configuration Precedence:**
+1. Explicit in `ClientConfig`
+2. Environment variables (`RQLITE_NODES`, `BOOTSTRAP_PEERS`)
+3. Library defaults (from config package)
 
-- Discovery interval (default: 10 seconds)
-- Maximum concurrent connections (default: 3)
-- Connection timeout and retry policies
+---
 
-### 3. Pub/Sub System (`pkg/pubsub/`)
+## Node vs Client Roles
 
-Provides reliable, topic-based messaging with ordering guarantees.
+### **Node (`pkg/node/`)**
+- Runs full network services (RQLite, storage, pubsub)
+- Handles peer discovery and network topology
+- Participates in consensus and replication
+- Manages service lifecycle and monitoring
 
-**Features:**
+### **Client (`pkg/client/`)**
+- Lightweight participant (does not run services)
+- Connects only to known bootstrap peers
+- No peer discovery or DHT
+- Consumes network services via API (Database, Storage, PubSub, NetworkInfo)
+- Used by CLI and application integrations
 
-- Topic-based routing with wildcard support
-- Namespace isolation per application
-- Automatic subscription management
-- Message deduplication and ordering
+---
 
-**Message Flow:**
+## Network Protocol & Data Flow
 
-1. Client subscribes to topic with handler
-2. Publisher sends message to topic
-3. Network propagates message to all subscribers
-4. Handlers process messages asynchronously
+### **Connection Establishment**
+- **Node:** Connects to bootstrap peers, discovers additional peers, registers services.
+- **Client:** Connects only to bootstrap peers.
 
-### 4. Database Layer (`pkg/database/`)
+### **Message Types**
+- **Control:** Node status, heartbeats, topology updates
+- **Database:** SQL queries, transactions, schema ops
+- **Storage:** KV operations, replication
+- **PubSub:** Topic subscriptions, published messages
 
-Distributed SQL database built on RQLite (Raft-based SQLite).
+### **Security Model**
+- **Transport:** Noise/TLS encryption for all connections
+- **Authentication:** Peer identity verification
+- **Isolation:** Namespace-based access control
 
-**Capabilities:**
+### **Data Flow**
+- **Database:** Client → DatabaseClient → RQLite Leader → Raft Consensus → All Nodes
+- **Storage:** Client → StorageClient → Node → Replication
+- **PubSub:** Client → PubSubClient → Node → Topic Router → Subscribers
 
-- ACID transactions with strong consistency
-- Automatic leader election and failover
-- Multi-node replication with conflict resolution
-- Schema management and migrations
-
-**Query Types:**
-
-- Read operations: Served from any node
-- Write operations: Routed to leader node
-- Transactions: Atomic across multiple statements
-
-### 5. Storage System (`pkg/storage/`)
-
-Distributed key-value store with eventual consistency.
-
-**Operations:**
-
-- `Put(key, value)`: Store value with key
-- `Get(key)`: Retrieve value by key
-- `Delete(key)`: Remove key-value pair
-- `List(prefix, limit)`: Enumerate keys with prefix
-- `Exists(key)`: Check key existence
-
-## Network Protocol
-
-### Connection Establishment
-
-1. **Bootstrap Connection**: New nodes connect to bootstrap peers
-2. **DHT Bootstrap**: Initialize Kademlia DHT for routing
-3. **Peer Discovery**: Discover additional peers through DHT
-4. **Service Registration**: Register available services (database, storage, pubsub)
-
-### Message Types
-
-- **Control Messages**: Node status, heartbeats, topology updates
-- **Database Messages**: SQL queries, transactions, schema operations
-- **Storage Messages**: Key-value operations, replication data
-- **PubSub Messages**: Topic subscriptions, published content
-
-### Security Model
-
-- **Transport Security**: All connections use TLS/Noise encryption
-- **Peer Authentication**: Cryptographic peer identity verification
-- **Message Integrity**: Hash-based message authentication codes
-- **Namespace Isolation**: Application-level access control
-
-## Data Flow
-
-### Database Operation Flow
-
-```
-Client App → DatabaseClient → RQLite Leader → Raft Consensus → All Nodes
-     ↑                                                              ↓
-     └─────────────────── Query Result ←─────────────────────────────┘
-```
-
-### Storage Operation Flow
-
-```
-Client App → StorageClient → DHT Routing → Target Nodes → Replication
-     ↑                                                         ↓
-     └─────────────── Response ←─────────────────────────────────┘
-```
-
-### PubSub Message Flow
-
-```
-Publisher → PubSub Manager → Topic Router → All Subscribers → Message Handlers
-```
+---
 
 ## Build & Development
 
-### Prerequisites
-
-- Go 1.19+
-- Make
+### **Prerequisites**
+- Go 1.21+
+- RQLite
 - Git
+- Make
 
-### Build Commands
-
+### **Build Commands**
 ```bash
-# Build all executables
-make build
-
-# Run tests
-make test
-
-# Clean build artifacts
-make clean
-
-# Start network node (auto-detects bootstrap vs regular)
-make run-node
-
-# Start additional node
-make run-node
+make build        # Build all executables
+make test         # Run tests
+make run-node     # Start node (auto-detects bootstrap vs regular)
 ```
 
-### Development Workflow
+### **Development Workflow**
+- Use `make run-node` for local development.
+- Edit YAML configs for node settings.
+- Use CLI for network operations and testing.
 
-1. **Local Development**: Use `make run-node` (auto-detects bootstrap vs regular)
-2. **Testing**: Run `make test` for unit tests
-3. **Integration Testing**: Use `scripts/test-multinode.sh`
-4. **Configuration**: Edit `configs/*.yaml` files
-
-### Configuration Files
-
-#### Bootstrap Node (`configs/bootstrap.yaml`)
-
-```yaml
-node:
-  data_dir: "./data/bootstrap"
-  listen_addresses:
-    - "/ip4/0.0.0.0/tcp/4001"
-    - "/ip4/0.0.0.0/udp/4001/quic"
-database:
-  rqlite_port: 5001
-  rqlite_raft_port: 7001
-```
-
-#### Regular Node (`configs/node.yaml`)
-
-```yaml
-node:
-  data_dir: "./data/node"
-  listen_addresses:
-    - "/ip4/0.0.0.0/tcp/4001"
-discovery:
-  bootstrap_peers:
-    - "/ip4/127.0.0.1/tcp/4001/p2p/{BOOTSTRAP_PEER_ID}"
-  discovery_interval: "10s"
-database:
-  rqlite_port: 5001
-  rqlite_raft_port: 7001
-  rqlite_join_address: "localhost:7001"
-```
+---
 
 ## API Reference
 
-### Client Creation
-
+### **Client Creation**
 ```go
 import "git.debros.io/DeBros/network/pkg/client"
 
 config := client.DefaultClientConfig("my-app")
 config.BootstrapPeers = []string{"/ip4/127.0.0.1/tcp/4001/p2p/{PEER_ID}"}
-
 client, err := client.NewClient(config)
-if err != nil {
-    log.Fatal(err)
-}
-
 err = client.Connect()
-if err != nil {
-    log.Fatal(err)
-}
 defer client.Disconnect()
 ```
 
-### Centralized Defaults & Endpoint Precedence
-
-- Defaults are centralized in the client package:
-  - `client.DefaultBootstrapPeers()` exposes default multiaddrs from `pkg/constants/bootstrap.go`.
-  - `client.DefaultDatabaseEndpoints()` derives HTTP DB endpoints from bootstrap peers (default port 5001 or `RQLITE_PORT`).
-- `ClientConfig` now includes `DatabaseEndpoints []string` to explicitly set DB URLs.
-- Resolution order used by the database client:
-  1. `ClientConfig.DatabaseEndpoints`
-  2. `RQLITE_NODES` environment variable (comma/space separated)
-  3. `client.DefaultDatabaseEndpoints()`
-- Endpoints are normalized to include scheme and port; duplicates are removed.
-
-Example:
-
+### **Database Operations**
 ```go
-cfg := client.DefaultClientConfig("app")
-cfg.BootstrapPeers = client.DefaultBootstrapPeers()
-// Optionally pin DB endpoints
-cfg.DatabaseEndpoints = []string{"http://db1:5001","db2:5001"}
-cli, _ := client.NewClient(cfg)
-_ = cli.Connect()
+result, err := client.Database().Query(ctx, "SELECT * FROM users")
+err := client.Database().CreateTable(ctx, "CREATE TABLE ...")
 ```
 
-### Database Operations
-
+### **Storage Operations**
 ```go
-// Create table
-err := client.Database().CreateTable(ctx, `
-    CREATE TABLE users (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE
-    )
-`)
-
-// Insert data
-result, err := client.Database().Query(ctx,
-    "INSERT INTO users (name, email) VALUES (?, ?)",
-    "Alice", "alice@example.com")
-
-// Query data
-result, err := client.Database().Query(ctx,
-    "SELECT id, name, email FROM users WHERE name = ?", "Alice")
+err := client.Storage().Put(ctx, "key", []byte("value"))
+data, err := client.Storage().Get(ctx, "key")
 ```
 
-### Storage Operations
-
+### **PubSub Operations**
 ```go
-// Store data
-err := client.Storage().Put(ctx, "user:123", []byte(`{"name":"Alice"}`))
-
-// Retrieve data
-data, err := client.Storage().Get(ctx, "user:123")
-
-// List keys
-keys, err := client.Storage().List(ctx, "user:", 10)
-
-// Check existence
-exists, err := client.Storage().Exists(ctx, "user:123")
+err := client.PubSub().Subscribe(ctx, "topic", handler)
+err := client.PubSub().Publish(ctx, "topic", []byte("msg"))
 ```
 
-### PubSub Operations
-
+### **Network Information**
 ```go
-// Subscribe to messages
-handler := func(topic string, data []byte) error {
-    fmt.Printf("Received on %s: %s\n", topic, string(data))
-    return nil
-}
-err := client.PubSub().Subscribe(ctx, "notifications", handler)
-
-// Publish message
-err := client.PubSub().Publish(ctx, "notifications", []byte("Hello, World!"))
-
-// List subscribed topics
-topics, err := client.PubSub().ListTopics(ctx)
-```
-
-### Network Information
-
-```go
-// Get network status
 status, err := client.Network().GetStatus(ctx)
-fmt.Printf("Node ID: %s, Peers: %d\n", status.NodeID, status.PeerCount)
-
-// Get connected peers
 peers, err := client.Network().GetPeers(ctx)
-for _, peer := range peers {
-    fmt.Printf("Peer: %s, Connected: %v\n", peer.ID, peer.Connected)
-}
-
-// Connect to specific peer
-err := client.Network().ConnectToPeer(ctx, "/ip4/192.168.1.100/tcp/4001/p2p/{PEER_ID}")
 ```
+
+---
 
 ## Troubleshooting
 
-### Common Issues
+### **Common Issues**
+- **Bootstrap Connection Failed:** Check peer ID, port, firewall, and node status.
+- **Database Timeout:** Ensure RQLite ports are open, leader election is complete, and join address is correct.
+- **Message Delivery Failures:** Verify topic names, subscription status, and network connectivity.
+- **High Memory Usage:** Unsubscribe from topics when done, monitor connection pool size.
 
-#### 1. Bootstrap Connection Failed
-
-**Symptoms**: `Failed to connect to bootstrap peer`
-**Solutions**:
-
-- Verify bootstrap node is running and accessible
-- Check firewall settings and port availability
-- Validate peer ID in bootstrap address
-
-#### 2. Database Operations Timeout
-
-**Symptoms**: `Query timeout` or `No RQLite connection available`
-**Solutions**:
-
-- Ensure RQLite ports are not blocked
-- Check if leader election has completed
-- Verify cluster join configuration
-
-#### 3. Message Delivery Failures
-
-**Symptoms**: Messages not received by subscribers
-**Solutions**:
-
-- Verify topic names match exactly
-- Check subscription is active before publishing
-- Ensure network connectivity between peers
-
-#### 4. High Memory Usage
-
-**Symptoms**: Memory usage grows continuously
-**Solutions**:
-
-- Check for subscription leaks (unsubscribe when done)
-- Monitor connection pool size
-- Review message retention policies
-
-### Debug Mode
-
-Enable debug logging by setting environment variable:
-
-```bash
-export LOG_LEVEL=debug
-```
-
-### Health Checks
-
-```go
-health, err := client.Health()
-if health.Status != "healthy" {
-    log.Printf("Unhealthy: %+v", health.Checks)
-}
-```
-
-### Network Diagnostics
-
-```bash
-# Check node connectivity
-./bin/network-cli peers
-
-# Verify database status
-./bin/network-cli query "SELECT 1"
-
-# Test pub/sub
-./bin/network-cli pubsub publish test "hello"
-./bin/network-cli pubsub subscribe test 10s
-```
+### **Debugging**
+- Enable debug logging: `export LOG_LEVEL=debug`
+- Check service logs: `sudo journalctl -u debros-node.service -f`
+- Use CLI for health and peer checks: `./bin/network-cli health`, `./bin/network-cli peers`
 
 ---
 
 ## Example Application: Anchat
 
-The `anchat/` directory contains a complete example application demonstrating how to build a decentralized chat system using the DeBros network. It showcases:
-
-- User registration with Solana wallet integration
+The `anchat/` directory contains a full-featured decentralized chat app built on DeBros Network. Features include:
+- Solana wallet integration
 - End-to-end encrypted messaging
-- IRC-style chat rooms
-- Real-time message delivery
-- Persistent chat history
-
-This serves as both a practical example and a reference implementation for building applications on the DeBros network platform.
+- Real-time pub/sub chat rooms
+- Persistent history
 
 ---
 
-_This document provides comprehensive context for AI systems to understand the DeBros Network Cluster project architecture, implementation details, and usage patterns._
+_This document provides a modern, accurate context for understanding the DeBros Network Cluster architecture, configuration, and usage patterns. All details reflect the current codebase and best practices._
