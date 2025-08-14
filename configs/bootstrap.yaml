@@ -3,7 +3,6 @@ node:
   type: "bootstrap"
   listen_addresses:
     - "/ip4/0.0.0.0/tcp/4001"
-    - "/ip4/0.0.0.0/udp/4001/quic"
   data_dir: "./data/bootstrap"
   max_connections: 100
   is_bootstrap: true

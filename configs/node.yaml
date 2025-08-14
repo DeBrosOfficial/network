@@ -2,8 +2,7 @@ node:
   id: "" # Auto-generated
   type: "node"
   listen_addresses:
-    - "/ip4/0.0.0.0/tcp/0" # Random port
-    - "/ip4/0.0.0.0/udp/0/quic" # Random port
+    - "/ip4/0.0.0.0/tcp/4001" # Random port
   data_dir: "./data/node"
   max_connections: 50
   is_bootstrap: false
