@@ -38,7 +38,6 @@ func (c *Client) connectToBootstrap(ctx context.Context, addr string) error {
 func (c *Client) connectToAddress(ctx context.Context, ma multiaddr.Multiaddr) error {
 	// For the simple case, we'll just warn and continue
 	// In a production environment, you'd implement proper peer discovery
-	// using mDNS, DHT, or other mechanisms
 
 	c.logger.Warn("No peer ID provided in address, skipping bootstrap connection",
 		zap.String("addr", ma.String()),

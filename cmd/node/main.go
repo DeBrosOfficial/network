@@ -110,7 +110,7 @@ func startNode(ctx context.Context, cfg *config.Config, port int) error {
 }
 
 // load_args_into_config applies command line argument overrides to the config
-func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr *string) {
+func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr *string, dataDir *string) {
 	logger := setup_logger(logging.ComponentNode)
 
 	// Apply RQLite HTTP port override
@@ -143,6 +143,10 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 		cfg.Discovery.HttpAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlHTTP)
 		cfg.Discovery.RaftAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlRaft)
 	}
+
+	if *dataDir != "" {
+		cfg.Node.DataDir = *dataDir
+	}
 }
 
 func main() {
@@ -160,7 +164,7 @@ func main() {
 	logger.ComponentInfo(logging.ComponentNode, "Default configuration loaded successfully")
 
 	// Apply command line argument overrides
-	load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr)
+	load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, dataDir)
 	logger.ComponentInfo(logging.ComponentNode, "Command line arguments applied to configuration")
 
 	// LibP2P uses configurable port (default 4001); RQLite uses 5001 (HTTP) and 7001 (Raft)

@@ -44,8 +44,6 @@ type DatabaseConfig struct {
 // DiscoveryConfig contains peer discovery configuration
 type DiscoveryConfig struct {
 	BootstrapPeers    []string      `yaml:"bootstrap_peers"`    // Bootstrap peer addresses
-	EnableDHT         bool          `yaml:"enable_dht"`         // Enable DHT discovery
-	DHTPrefix         string        `yaml:"dht_prefix"`         // DHT protocol prefix
 	DiscoveryInterval time.Duration `yaml:"discovery_interval"` // Discovery announcement interval
 	BootstrapPort     int           `yaml:"bootstrap_port"`     // Default port for bootstrap nodes
 	HttpAdvAddress    string        `yaml:"http_adv_address"`   // HTTP advertisement address
@@ -115,11 +113,9 @@ func DefaultConfig() *Config {
 		},
 		Discovery: DiscoveryConfig{
 			BootstrapPeers: []string{
-				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWDL6LSjwwP5FwboV9JaTZzuxr8EhjbcZGFfnyFMDt1UDx",
+				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWRjaa3STPr2PDVai1eqZ2KEc942sbJpxcd42qSAc1P9A2",
 			},
-			BootstrapPort:     4001,  // Default LibP2P port
-			EnableDHT:         false, // Disabled - conflicts with Anyone protocol anonymity
-			DHTPrefix:         "/network/kad/1.0.0",
+			BootstrapPort:     4001,             // Default LibP2P port
 			DiscoveryInterval: time.Second * 15, // Back to 15 seconds for testing
 			HttpAdvAddress:    "",
 			RaftAdvAddress:    "",

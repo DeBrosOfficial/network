@@ -15,7 +15,6 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
 
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 	libp2ppubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"git.debros.io/DeBros/network/pkg/anyoneproxy"
@@ -31,7 +30,6 @@ type Client struct {
 	// Network components
 	host     host.Host
 	libp2pPS *libp2ppubsub.PubSub
-	dht      *dht.IpfsDHT
 	logger   *zap.Logger
 
 	// Components
@@ -181,14 +179,6 @@ func (c *Client) Connect() error {
 	adapter := pubsub.NewClientAdapter(c.libp2pPS, c.getAppNamespace())
 	c.pubsub = &pubSubBridge{adapter: adapter}
 
-	// Create DHT for peer discovery - Use server mode for better peer discovery in small networks
-	kademliaDHT, err := dht.New(context.Background(), h, dht.Mode(dht.ModeServer))
-	if err != nil {
-		h.Close()
-		return fmt.Errorf("failed to create DHT: %w", err)
-	}
-	c.dht = kademliaDHT
-
 	// Create storage client with the host
 	storageClient := storage.NewClient(h, c.getAppNamespace(), c.logger)
 	c.storage = &StorageClientImpl{
@@ -215,31 +205,20 @@ func (c *Client) Connect() error {
 		c.logger.Warn("No bootstrap peers connected, continuing anyway")
 	}
 
-	// Add bootstrap peers to DHT routing table explicitly BEFORE bootstrapping
+	// Add bootstrap peers to peerstore so we can connect to them later
 	for _, bootstrapAddr := range c.config.BootstrapPeers {
 		if ma, err := multiaddr.NewMultiaddr(bootstrapAddr); err == nil {
 			if peerInfo, err := peer.AddrInfoFromP2pAddr(ma); err == nil {
 				c.host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, time.Hour*24)
-
-				// Force add to DHT routing table
-				if added, err := c.dht.RoutingTable().TryAddPeer(peerInfo.ID, true, true); err == nil && added {
-					c.logger.Debug("Added bootstrap peer to DHT routing table",
-						zap.String("peer", peerInfo.ID.String()))
-				}
+				c.logger.Debug("Added bootstrap peer to peerstore",
+					zap.String("peer", peerInfo.ID.String()))
 			}
 		}
 	}
 
-	// Bootstrap the DHT AFTER connecting to bootstrap peers
-	if err = kademliaDHT.Bootstrap(context.Background()); err != nil {
-		c.logger.Warn("Failed to bootstrap DHT", zap.Error(err))
-		// Don't fail - continue without DHT
-	} else {
-		c.logger.Debug("DHT bootstrap initiated successfully")
-	}
-
-	// Initialize discovery manager
-	c.discoveryMgr = discovery.NewManager(c.host, c.dht, c.logger)
+	// Initialize discovery manager (discovery.NewManager accepts a second parameter for compatibility;
+	// the value is ignored by the new implementation)
+	c.discoveryMgr = discovery.NewManager(c.host, nil, c.logger)
 
 	// Start peer discovery
 	discoveryConfig := discovery.Config{
@@ -280,13 +259,6 @@ func (c *Client) Disconnect() error {
 			c.logger.Error("Failed to close pubsub adapter", zap.Error(err))
 		}
 		c.pubsub = nil
-	}
-
-	// Close DHT
-	if c.dht != nil {
-		if err := c.dht.Close(); err != nil {
-			c.logger.Error("Failed to close DHT", zap.Error(err))
-		}
 	}
 
 	// Close LibP2P host

@@ -22,8 +22,6 @@ discovery:
     - "/ip4/127.0.0.1/tcp/4001/p2p/1111KooWFmsnHjrSLRiv1MdwDCKKyEBhrAn3vLTpdqT8pQ8S1111"
     # Add more bootstrap peers as needed
   enable_mdns: true
-  enable_dht: true
-  dht_prefix: "/network/kad/1.0.0"
   discovery_interval: "5m"
 
 security:

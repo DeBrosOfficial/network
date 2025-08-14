@@ -52,7 +52,6 @@ const (
 	ComponentStorage  Component = "STORAGE"
 	ComponentDatabase Component = "DATABASE"
 	ComponentClient   Component = "CLIENT"
-	ComponentDHT      Component = "DHT"
 	ComponentGeneral  Component = "GENERAL"
 	ComponentAnyone   Component = "ANYONE"
 )
@@ -72,8 +71,6 @@ func getComponentColor(component Component) string {
 		return Green
 	case ComponentClient:
 		return Blue
-	case ComponentDHT:
-		return Magenta
 	case ComponentGeneral:
 		return Yellow
 	case ComponentAnyone:

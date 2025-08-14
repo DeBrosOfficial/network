@@ -125,8 +125,10 @@ func (r *RQLiteManager) Start(ctx context.Context) error {
 
 	// Start RQLite process (not bound to ctx for graceful Stop handling)
 	r.cmd = exec.Command("rqlited", args...)
-	r.cmd.Stdout = os.Stdout
-	r.cmd.Stderr = os.Stderr
+
+	// Uncomment if you want to see the stdout/stderr of the RQLite process
+	// r.cmd.Stdout = os.Stdout
+	// r.cmd.Stderr = os.Stderr
 
 	if err := r.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start RQLite: %w", err)

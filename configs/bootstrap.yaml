@@ -20,8 +20,6 @@ database:
 discovery:
   bootstrap_peers: [] # Bootstrap nodes don't need peers
   enable_mdns: true
-  enable_dht: true
-  dht_prefix: "/network/kad/1.0.0"
   discovery_interval: "5m"
 
 security:

@@ -357,14 +357,13 @@ func (n *Node) startLibP2P() error {
 		}
 	}
 
-	// DHT and routing table logic removed - using simplified peer exchange instead
 	n.logger.ComponentInfo(logging.ComponentNode, "LibP2P host started successfully - using bootstrap + peer exchange discovery")
 
 	// Start peer discovery and monitoring
 	n.startPeerDiscovery()
 	n.startConnectionMonitoring()
 
-	n.logger.ComponentInfo(logging.ComponentLibP2P, "LibP2P host started with DHT enabled",
+	n.logger.ComponentInfo(logging.ComponentLibP2P, "LibP2P host started",
 		zap.String("peer_id", h.ID().String()))
 
 	return nil
@@ -628,9 +627,6 @@ func (n *Node) Stop() error {
 	if n.storageService != nil {
 		n.storageService.Close()
 	}
-
-	// Stop DHT
-	// DHT removed - using simplified bootstrap + peer exchange discovery
 
 	// Stop LibP2P host
 	if n.host != nil {
