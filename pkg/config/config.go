@@ -22,9 +22,7 @@ type NodeConfig struct {
 	ListenAddresses []string `yaml:"listen_addresses"` // LibP2P listen addresses
 	DataDir         string   `yaml:"data_dir"`         // Data directory
 	MaxConnections  int      `yaml:"max_connections"`  // Maximum peer connections
-
-	// Bootstrap configuration (only for bootstrap nodes)
-	IsBootstrap bool `yaml:"is_bootstrap"`
+	DisableAnonRC   bool     `yaml:"disable_anon_rc"`  // Disable Anyone proxy/SOCKS5
 }
 
 // DatabaseConfig contains database-related configuration
@@ -97,7 +95,6 @@ func DefaultConfig() *Config {
 			},
 			DataDir:        "./data",
 			MaxConnections: 50,
-			IsBootstrap:    false,
 		},
 		Database: DatabaseConfig{
 			DataDir:           "./data/db",

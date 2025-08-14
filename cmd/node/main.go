@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -15,6 +16,7 @@ import (
 	"git.debros.io/DeBros/network/pkg/logging"
 	"git.debros.io/DeBros/network/pkg/node"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
 func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
@@ -28,9 +30,10 @@ func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
 	return logger
 }
 
-func parse_and_return_network_flags() (dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, disableAnon *bool, rqlJoinAddr *string, advAddr *string, help *bool) {
+func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, disableAnon *bool, rqlJoinAddr *string, advAddr *string, help *bool) {
 	logger := setup_logger(logging.ComponentNode)
 
+	configPath = flag.String("config", "", "Path to config YAML file (overrides defaults)")
 	dataDir = flag.String("data", "", "Data directory (auto-detected if not provided)")
 	nodeID = flag.String("id", "", "Node identifier (for running multiple local nodes)")
 	p2pPort = flag.Int("p2p-port", 4001, "LibP2P listen port")
@@ -38,13 +41,61 @@ func parse_and_return_network_flags() (dataDir, nodeID *string, p2pPort, rqlHTTP
 	rqlRaft = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
 	disableAnon = flag.Bool("disable-anonrc", false, "Disable Anyone proxy routing (defaults to enabled on 127.0.0.1:9050)")
 	rqlJoinAddr = flag.String("rqlite-join-address", "", "RQLite address to join (e.g., /ip4/)")
-	advAddr = flag.String("adv-addr", "127.0.0.1", "Default Addvertise address for rqlite and rafts")
+	advAddr = flag.String("adv-addr", "127.0.0.1", "Default Advertise address for rqlite and rafts")
 	help = flag.Bool("help", false, "Show help")
 	flag.Parse()
 
 	logger.Info("Successfully parsed all flags and arguments.")
 
+	if *configPath != "" {
+		cfg, err := LoadConfigFromYAML(*configPath)
+		if err != nil {
+			logger.Error("Failed to load config from YAML", zap.Error(err))
+			os.Exit(1)
+		}
+		logger.ComponentInfo(logging.ComponentNode, "Configuration loaded from YAML file", zap.String("path", *configPath))
+
+		// Instead of returning flag values, return config values
+		// For ListenAddresses, extract port from multiaddr string if possible, else use default
+		var p2pPortVal int
+		if len(cfg.Node.ListenAddresses) > 0 {
+			// Try to parse port from multiaddr string
+			var port int
+			_, err := fmt.Sscanf(cfg.Node.ListenAddresses[0], "/ip4/0.0.0.0/tcp/%d", &port)
+			if err == nil {
+				p2pPortVal = port
+			} else {
+				p2pPortVal = 4001
+			}
+		} else {
+			p2pPortVal = 4001
+		}
+		return configPath,
+			&cfg.Node.DataDir,
+			&cfg.Node.ID,
+			&p2pPortVal,
+			&cfg.Database.RQLitePort,
+			&cfg.Database.RQLiteRaftPort,
+			&cfg.Node.DisableAnonRC,
+			&cfg.Database.RQLiteJoinAddress,
+			&cfg.Discovery.HttpAdvAddress,
+			help
+	}
+
 	return
+}
+
+// LoadConfigFromYAML loads a config from a YAML file
+func LoadConfigFromYAML(path string) (*config.Config, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+	var cfg config.Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+	return &cfg, nil
 }
 
 func disable_anon_proxy(disableAnon *bool) bool {
@@ -152,7 +203,7 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 func main() {
 	logger := setup_logger(logging.ComponentNode)
 
-	dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, disableAnon, rqlJoinAddr, advAddr, help := parse_and_return_network_flags()
+	_, dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, disableAnon, rqlJoinAddr, advAddr, help := parse_and_return_network_flags()
 
 	disable_anon_proxy(disableAnon)
 	check_if_should_open_help(help)

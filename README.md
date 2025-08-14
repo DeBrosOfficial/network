@@ -109,13 +109,15 @@ make build
 ```bash
 make run-node
 # Or manually:
-go run ./cmd/node -data ./data/bootstrap -p2p-port 4001 -rqlite-http-port 5001 -rqlite-raft-port 7001
+go run ./cmd/node --config configs/bootstrap.yaml
 ```
 
 ### 4. Start Additional Nodes
 
 ```bash
-go run ./cmd/node -id node2 -data ./data/node2 -rqlite-http-port 5002 -rqlite-raft-port 7002 -p2p-port 4002 --disable-anonrc
+make run-node2
+# Or manually:
+go run ./cmd/node --config configs/node.yaml
 ```
 
 ### 5. Test with CLI
@@ -174,23 +176,87 @@ sudo journalctl -u debros-node.service -f
 
 ## Configuration
 
-### YAML Config Example (`/opt/debros/configs/node.yaml`)
+### Example Configuration Files
+
+#### `configs/bootstrap.yaml`
 
 ```yaml
 node:
-  data_dir: "/opt/debros/data/node"
-  key_file: "/opt/debros/keys/node/identity.key"
+  id: ""
   listen_addresses:
     - "/ip4/0.0.0.0/tcp/4001"
-  solana_wallet: "YOUR_WALLET_ADDRESS"
+  data_dir: "./data/bootstrap"
+  max_connections: 100
+  disable_anonrc: true
 
 database:
+  data_dir: "./data/db"
+  replication_factor: 3
+  shard_count: 16
+  max_database_size: 1073741824
+  backup_interval: 24h
   rqlite_port: 5001
   rqlite_raft_port: 7001
+  rqlite_join_address: "" # Bootstrap node does not join
+
+discovery:
+  bootstrap_peers: []
+  discovery_interval: 15s
+  bootstrap_port: 4001
+  http_adv_address: "127.0.0.1"
+  raft_adv_address: ""
+
+security:
+  enable_tls: false
+  private_key_file: ""
+  certificate_file: ""
+  auth_enabled: false
 
 logging:
   level: "info"
-  file: "/opt/debros/logs/node.log"
+  format: "console"
+  output_file: ""
+```
+
+#### `configs/node.yaml`
+
+```yaml
+node:
+  id: "node2"
+  listen_addresses:
+    - "/ip4/0.0.0.0/tcp/4002"
+  data_dir: "./data/node2"
+  max_connections: 50
+  disable_anonrc: true
+
+database:
+  data_dir: "./data/db"
+  replication_factor: 3
+  shard_count: 16
+  max_database_size: 1073741824
+  backup_interval: 24h
+  rqlite_port: 5002
+  rqlite_raft_port: 7002
+  rqlite_join_address: "http://127.0.0.1:5001"
+
+discovery:
+  bootstrap_peers:
+    - "/ip4/127.0.0.1/tcp/4001/p2p/<YOUR_BOOTSTRAP_PEER_ID>"
+  discovery_interval: 15s
+  bootstrap_port: 4002
+  http_adv_address: "127.0.0.1"
+  raft_adv_address: ""
+
+security:
+  enable_tls: false
+  private_key_file: ""
+  certificate_file: ""
+  auth_enabled: false
+
+logging:
+  level: "info"
+  format: "console"
+  output_file: ""
 ```
 
 ### Flags & Environment Variables

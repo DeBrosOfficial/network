@@ -1,19 +1,19 @@
-# DeBros Network: A Peer-to-Peer Decentralized Database Ecosystem
+# DeBros Network: A Peer-to-Peer Decentralized Development Ecosystem
 
-**DeBros**  
-info@debros.io  
-https://debros.io  
-August 2, 2025
+**DeBros**
+info@debros.io
+https://debros.io
+August 14, 2025
 
 ## Abstract
 
-We propose a decentralized ecosystem, the DeBros Network, enabling peer-to-peer application deployment and operation across a global network of nodes, free from centralized control. Built with Go and LibP2P for robust networking, RQLite for distributed consensus, and integrated with the Solana blockchain for identity and governance, the network provides a resilient, privacy-first platform for decentralized applications. Participation is governed by NFT ownership and token staking, with demonstrated applications like Anchat showcasing real-world messaging capabilities. The architecture eliminates single points of failure while maintaining developer simplicity and end-user accessibility.
+We propose a decentralized development ecosystem, the DeBros Network, enabling peer-to-peer application deployment and operation across a global network of nodes, free from centralized control. Built LibP2P for robust networking, RQLite for distributed consensus, and integrated with the blochains like Etherium or Solana for identity and governance, the network provides a resilient, privacy-first platform for decentralized development. Participation is governed by NFT ownership and token staking, with demonstrated applications like Anchat showcasing real-world messaging capabilities. The architecture eliminates single points of failure while maintaining developer simplicity and end-user accessibility.
 
 ## 1. Introduction
 
 Centralized systems dominate modern technology, imposing control over data, access, and development through single points of failure and intermediaries. These structures compromise privacy, resilience, innovation, and freedom, while existing decentralized solutions often lack the simplicity or scalability needed for widespread adoption.
 
-The DeBros Network resolves these issues by establishing a peer-to-peer platform where nodes form a decentralized backbone for applications. Built on Go's performance and LibP2P's proven networking stack, it empowers a global community of developers and users to collaborate as equals, delivering scalable, privacy-first solutions without centralized oversight.
+The DeBros Network resolves these issues by establishing a peer-to-peer platform where nodes form a decentralized backbone for applications. Built on LibP2P's proven networking stack and Rqlite as a database, it empowers a global community of developers and users to collaborate as equals, delivering scalable, privacy-first solutions without centralized oversight.
 
 ## 2. Problem Statement
 
@@ -361,11 +361,11 @@ Built on proven technologies including Go, LibP2P, and RQLite, with Solana block
 
 ## References
 
-[1] **Go Programming Language** - https://golang.org  
-[2] **LibP2P Networking Stack** - https://libp2p.io  
-[3] **RQLite Distributed Database** - https://rqlite.io  
-[4] **Solana Blockchain** - https://solana.com  
-[5] **Raft Consensus Algorithm** - https://raft.github.io  
+[1] **Go Programming Language** - https://golang.org
+[2] **LibP2P Networking Stack** - https://libp2p.io
+[3] **RQLite Distributed Database** - https://rqlite.io
+[4] **Solana Blockchain** - https://solana.com
+[5] **Raft Consensus Algorithm** - https://raft.github.io
 [6] **DeBros Network Repository** - https://git.debros.io/DeBros/network-cluster
 
 ---

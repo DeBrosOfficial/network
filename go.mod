@@ -11,6 +11,7 @@ require (
 	github.com/rqlite/gorqlite v0.0.0-20250609141355-ac86a4a1c9a8
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.42.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

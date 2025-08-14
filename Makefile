@@ -30,22 +30,20 @@ test:
 
 # Run bootstrap node (auto-selects identity and data dir)
 run-node:
-	@echo "Starting bootstrap node..."
-	go run ./cmd/node --data ./data/bootstrap --p2p-port $${P2P:-4001} --rqlite-http-port $${HTTP:-5001} --rqlite-raft-port $${RAFT:-7001} --adv-addr $${ADV_ADDR:-127.0.0.1} --disable-anonrc
+	@echo "Starting bootstrap node with config..."
+	go run ./cmd/node --config configs/bootstrap.yaml
 
 # Run second node (regular) - requires join address of bootstrap node
 # Usage: make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002
 run-node2:
-	@echo "Starting regular node2..."
-	@if [ -z "$(JOINADDR)" ]; then echo "ERROR: Provide join address: make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 [HTTP=5002 RAFT=7002 P2P=4002]"; exit 1; fi
-	go run ./cmd/node --id node2 --data ./data/node2 --p2p-port $${P2P:-4002} --rqlite-http-port $${HTTP:-5002} --rqlite-raft-port $${RAFT:-7002} --rqlite-join-address $(JOINADDR)
+	@echo "Starting regular node2 with config..."
+	go run ./cmd/node --config configs/node.yaml
 
 # Run third node (regular) - requires join address of bootstrap node
 # Usage: make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5003 RAFT=7003 P2P=4003
 run-node3:
-	@echo "Starting regular node3..."
-	@if [ -z "$(JOINADDR)" ]; then echo "ERROR: Provide join address: make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 [HTTP=5003 RAFT=7003 P2P=4003]"; exit 1; fi
-	go run ./cmd/node --id node3 --data ./data/node3 --p2p-port $${P2P:-4003} --rqlite-http-port $${HTTP:-5003} --rqlite-raft-port $${RAFT:-7003} --rqlite-join-address $(JOINADDR)
+	@echo "Starting regular node3 with config..."
+	go run ./cmd/node --config configs/node.yaml
 
 # Run basic usage example
 run-example:
@@ -150,9 +148,9 @@ test-consensus: build
 # Start development cluster (requires multiple terminals)
 dev-cluster:
 	@echo "To start a development cluster, run these commands in separate terminals:"
-	@echo "1. make run-node           # Start bootstrap node"
-	@echo "2. make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002"
-	@echo "3. make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5003 RAFT=7003 P2P=4003"
+	@echo "1. make run-node           # Start bootstrap node (uses configs/bootstrap.yaml)"
+	@echo "2. make run-node2          # Start second node (uses configs/node.yaml)"
+	@echo "3. make run-node3          # Start third node (uses configs/node.yaml)"
 	@echo "4. make run-example        # Test basic functionality"
 	@echo "5. make cli-health         # Check network health"
 	@echo "6. make cli-peers          # List peers"
