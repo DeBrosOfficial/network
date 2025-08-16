@@ -13,6 +13,7 @@ A robust, decentralized peer-to-peer network built in Go, providing distributed 
 - [Deployment & Installation](#deployment--installation)
 - [Configuration](#configuration)
 - [CLI Usage](#cli-usage)
+- [HTTP Gateway](#http-gateway)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)

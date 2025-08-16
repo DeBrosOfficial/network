@@ -9,6 +9,7 @@
 - [Configuration System](#configuration-system)
 - [Node vs Client Roles](#node-vs-client-roles)
 - [Network Protocol & Data Flow](#network-protocol--data-flow)
+- [Gateway Service](#gateway-service)
 - [Build & Development](#build--development)
 - [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
@@ -179,6 +180,69 @@ network/
 
 ---
 
+## Gateway Service
+
+The Gateway provides an HTTP(S)/WebSocket surface over the network client with strict namespace enforcement.
+
+- **Run:**
+
+```bash
+make run-gateway
+# Env overrides: GATEWAY_ADDR, GATEWAY_NAMESPACE, GATEWAY_BOOTSTRAP_PEERS,
+#                GATEWAY_REQUIRE_AUTH, GATEWAY_API_KEYS
+```
+
+- **Auth:** When `RequireAuth` is enabled, endpoints require either:
+  - JWT (issued by this gateway; JWKS: `GET /v1/auth/jwks` or `/.well-known/jwks.json`)
+  - API Key (via `Authorization: Bearer <key>` or `X-API-Key`), optionally mapped to a namespace
+  - Wallet verification uses Ethereum EIP-191 `personal_sign`:
+    - `POST /v1/auth/challenge` returns `{nonce}`. Clients must sign the exact nonce string.
+    - `POST /v1/auth/verify` expects `{wallet, nonce, signature}` with 65-byte r||s||v hex (0x allowed). `v` normalized (27/28 or 0/1). Address match is case-insensitive. Nonce is marked used only after successful verification.
+
+- **Namespace Enforcement:** Storage and PubSub are internally prefixed `ns::<namespace>::...`. Ownership of namespace is enforced by middleware for routes under `/v1/storage*`, `/v1/apps*`, and `/v1/pubsub*`.
+
+### Endpoints
+
+- Health/Version
+  - `GET /health`, `GET /v1/health`
+  - `GET /v1/status`
+  - `GET /v1/version` → `{version, commit, build_time, started_at, uptime}`
+
+- JWKS
+  - `GET /v1/auth/jwks`
+  - `GET /.well-known/jwks.json`
+
+- Auth
+  - `POST /v1/auth/challenge`
+  - `POST /v1/auth/verify`
+  - `POST /v1/auth/register`
+  - `POST /v1/auth/refresh`
+  - `POST /v1/auth/logout`
+  - `GET  /v1/auth/whoami`
+
+- Storage
+  - `POST /v1/storage/get`, `POST /v1/storage/put`, `POST /v1/storage/delete`
+  - `GET  /v1/storage/list?prefix=...`, `GET /v1/storage/exists?key=...`
+
+- Network
+  - `GET  /v1/network/status`, `GET /v1/network/peers`
+  - `POST /v1/network/connect`, `POST /v1/network/disconnect`
+
+### PubSub
+
+- WebSocket
+  - `GET /v1/pubsub/ws?topic=<topic>`
+  - Server sends messages as binary frames; 30s ping keepalive.
+  - Client text/binary frames are published to the same namespaced topic.
+
+- REST
+  - `POST /v1/pubsub/publish` → body `{topic, data_base64}` → `{status:"ok"}`
+  - `GET  /v1/pubsub/topics` → `{topics:["<topic>", ...]}` (names trimmed to caller namespace)
+
+Security note: CORS and WS origin checks are permissive for development; harden for production.
+
+---
+
 ## Build & Development
 
 ### **Prerequisites**
@@ -192,6 +256,7 @@ network/
 make build        # Build all executables
 make test         # Run tests
 make run-node     # Start node (auto-detects bootstrap vs regular)
+make run-gateway  # Start HTTP gateway (env overrides supported)
 ```
 
 ### **Development Workflow**

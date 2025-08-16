@@ -14,7 +14,8 @@ build: deps
 	@mkdir -p bin
 	go build -ldflags "$(LDFLAGS)" -o bin/node ./cmd/node
 	go build -ldflags "$(LDFLAGS)" -o bin/network-cli cmd/cli/main.go
-	go build -ldflags "$(LDFLAGS)" -o bin/gateway ./cmd/gateway
+	# Inject gateway build metadata via pkg path variables
+	go build -ldflags "$(LDFLAGS) -X 'git.debros.io/DeBros/network/pkg/gateway.BuildVersion=$(VERSION)' -X 'git.debros.io/DeBros/network/pkg/gateway.BuildCommit=$(COMMIT)' -X 'git.debros.io/DeBros/network/pkg/gateway.BuildTime=$(DATE)'" -o bin/gateway ./cmd/gateway
 	@echo "Build complete! Run ./bin/network-cli version"
 
 # Clean build artifacts
@@ -45,6 +46,22 @@ run-node2:
 run-node3:
 	@echo "Starting regular node3 with config..."
 	go run ./cmd/node --config configs/node.yaml
+
+# Run gateway HTTP server
+# Usage examples:
+#   make run-gateway                                   # uses defaults (:8080, namespace=default)
+#   GATEWAY_ADDR=":8081" make run-gateway              # override listen addr via env
+#   GATEWAY_NAMESPACE=myapp make run-gateway           # set namespace
+#   GATEWAY_BOOTSTRAP_PEERS="/ip4/127.0.0.1/tcp/4001/p2p/<ID>" make run-gateway
+#   GATEWAY_REQUIRE_AUTH=1 GATEWAY_API_KEYS="key1:ns1,key2:ns2" make run-gateway
+run-gateway:
+	@echo "Starting gateway HTTP server..."
+	GATEWAY_ADDR=$(or $(ADDR),$(GATEWAY_ADDR)) \
+	GATEWAY_NAMESPACE=$(or $(NAMESPACE),$(GATEWAY_NAMESPACE)) \
+	GATEWAY_BOOTSTRAP_PEERS=$(GATEWAY_BOOTSTRAP_PEERS) \
+	GATEWAY_REQUIRE_AUTH=$(GATEWAY_REQUIRE_AUTH) \
+	GATEWAY_API_KEYS=$(GATEWAY_API_KEYS) \
+	go run ./cmd/gateway
 
 # Run basic usage example
 run-example:
@@ -171,6 +188,7 @@ help:
 	@echo "  run-node      - Start bootstrap node"
 	@echo "  run-node2     - Start second node (requires JOINADDR, optional HTTP/RAFT/P2P)"
 	@echo "  run-node3     - Start third node (requires JOINADDR, optional HTTP/RAFT/P2P)"
+	@echo "  run-gateway   - Start HTTP gateway (flags via env: GATEWAY_ADDR, GATEWAY_NAMESPACE, GATEWAY_BOOTSTRAP_PEERS, GATEWAY_REQUIRE_AUTH, GATEWAY_API_KEYS)"
 	@echo "  run-example   - Run usage example"
 	@echo "  run-cli       - Run network CLI help"
 	@echo "  show-bootstrap - Show example bootstrap usage with flags"
