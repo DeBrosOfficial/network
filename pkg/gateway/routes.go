@@ -41,5 +41,10 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/network/connect", g.networkConnectHandler)
 	mux.HandleFunc("/v1/network/disconnect", g.networkDisconnectHandler)
 
+	// pubsub
+	mux.HandleFunc("/v1/pubsub/ws", g.pubsubWebsocketHandler)
+	mux.HandleFunc("/v1/pubsub/publish", g.pubsubPublishHandler)
+	mux.HandleFunc("/v1/pubsub/topics", g.pubsubTopicsHandler)
+
 	return g.withMiddleware(mux)
 }

@@ -241,13 +241,16 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 // requiresNamespaceOwnership returns true if the path should be guarded by
 // namespace ownership checks.
 func requiresNamespaceOwnership(p string) bool {
-	if p == "/storage" || p == "/v1/storage" || strings.HasPrefix(p, "/v1/storage/") {
-		return true
-	}
-	if p == "/v1/apps" || strings.HasPrefix(p, "/v1/apps/") {
-		return true
-	}
-	return false
+    if p == "/storage" || p == "/v1/storage" || strings.HasPrefix(p, "/v1/storage/") {
+        return true
+    }
+    if p == "/v1/apps" || strings.HasPrefix(p, "/v1/apps/") {
+        return true
+    }
+    if strings.HasPrefix(p, "/v1/pubsub") {
+        return true
+    }
+    return false
 }
 
 // corsMiddleware applies permissive CORS headers suitable for early development

@@ -3,7 +3,7 @@
 
 .PHONY: build clean test run-node run-node2 run-node3 run-example deps tidy fmt vet lint clear-ports
 
-VERSION := 0.19.0-beta
+VERSION := 0.34.0-beta
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.commit=$(COMMIT)' -X 'main.date=$(DATE)'
@@ -14,6 +14,7 @@ build: deps
 	@mkdir -p bin
 	go build -ldflags "$(LDFLAGS)" -o bin/node ./cmd/node
 	go build -ldflags "$(LDFLAGS)" -o bin/network-cli cmd/cli/main.go
+	go build -ldflags "$(LDFLAGS)" -o bin/gateway ./cmd/gateway
 	@echo "Build complete! Run ./bin/network-cli version"
 
 # Clean build artifacts
