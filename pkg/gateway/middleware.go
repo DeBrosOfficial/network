@@ -145,7 +145,7 @@ func extractAPIKey(r *http.Request) string {
 // isPublicPath returns true for routes that should be accessible without API key auth
 func isPublicPath(p string) bool {
 	switch p {
-	case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout":
+	case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout":
 		return true
 	default:
 		return false
@@ -241,7 +241,7 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 // requiresNamespaceOwnership returns true if the path should be guarded by
 // namespace ownership checks.
 func requiresNamespaceOwnership(p string) bool {
-	if p == "/storage" || p == "/v1/storage" {
+	if p == "/storage" || p == "/v1/storage" || strings.HasPrefix(p, "/v1/storage/") {
 		return true
 	}
 	if p == "/v1/apps" || strings.HasPrefix(p, "/v1/apps/") {

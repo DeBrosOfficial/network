@@ -10,6 +10,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// Build info (set via -ldflags at build time; defaults for dev)
+var (
+	BuildVersion = "dev"
+	BuildCommit  = ""
+	BuildTime    = ""
+)
+
 // healthResponse is the JSON structure used by healthHandler
 type healthResponse struct {
 	Status    string    `json:"status"`
@@ -65,5 +72,16 @@ func (g *Gateway) statusHandler(w http.ResponseWriter, r *http.Request) {
 			"uptime":     time.Since(g.startedAt).String(),
 		},
 		"network": status,
+	})
+}
+
+// versionHandler returns gateway build/runtime information
+func (g *Gateway) versionHandler(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version":    BuildVersion,
+		"commit":     BuildCommit,
+		"build_time": BuildTime,
+		"started_at": g.startedAt,
+		"uptime":     time.Since(g.startedAt).String(),
 	})
 }

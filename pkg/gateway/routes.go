@@ -10,10 +10,12 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/health", g.healthHandler)
 	mux.HandleFunc("/status", g.statusHandler)
 	mux.HandleFunc("/v1/health", g.healthHandler)
+	mux.HandleFunc("/v1/version", g.versionHandler)
 	mux.HandleFunc("/v1/status", g.statusHandler)
 
 	// auth endpoints
 	mux.HandleFunc("/v1/auth/jwks", g.jwksHandler)
+	mux.HandleFunc("/.well-known/jwks.json", g.jwksHandler)
 	mux.HandleFunc("/v1/auth/challenge", g.challengeHandler)
 	mux.HandleFunc("/v1/auth/verify", g.verifyHandler)
 	mux.HandleFunc("/v1/auth/register", g.registerHandler)
@@ -25,10 +27,19 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/apps", g.appsHandler)
 	mux.HandleFunc("/v1/apps/", g.appsHandler)
 
-	// storage and network
-	mux.HandleFunc("/v1/storage", g.storageHandler)
+	// storage
+	mux.HandleFunc("/v1/storage", g.storageHandler) // legacy/basic
+	mux.HandleFunc("/v1/storage/get", g.storageGetHandler)
+	mux.HandleFunc("/v1/storage/put", g.storagePutHandler)
+	mux.HandleFunc("/v1/storage/delete", g.storageDeleteHandler)
+	mux.HandleFunc("/v1/storage/list", g.storageListHandler)
+	mux.HandleFunc("/v1/storage/exists", g.storageExistsHandler)
+
+	// network
 	mux.HandleFunc("/v1/network/status", g.networkStatusHandler)
 	mux.HandleFunc("/v1/network/peers", g.networkPeersHandler)
+	mux.HandleFunc("/v1/network/connect", g.networkConnectHandler)
+	mux.HandleFunc("/v1/network/disconnect", g.networkDisconnectHandler)
 
 	return g.withMiddleware(mux)
 }
