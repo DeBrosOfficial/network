@@ -61,6 +61,10 @@ func (d *DatabaseClientImpl) Query(ctx context.Context, sql string, args ...inte
 		return nil, err
 	}
 
+	if err := d.client.requireAccess(ctx); err != nil {
+		return nil, err
+	}
+
 	// Determine if this is a read or write operation
 	isWriteOperation := d.isWriteOperation(sql)
 
@@ -260,6 +264,10 @@ func (d *DatabaseClientImpl) Transaction(ctx context.Context, queries []string) 
 		return fmt.Errorf("client not connected")
 	}
 
+	if err := d.client.requireAccess(ctx); err != nil {
+		return err
+	}
+
 	maxRetries := 3
 	var lastErr error
 
@@ -298,6 +306,10 @@ func (d *DatabaseClientImpl) CreateTable(ctx context.Context, schema string) err
 		return err
 	}
 
+	if err := d.client.requireAccess(ctx); err != nil {
+		return err
+	}
+
 	return d.withRetry(func(conn *gorqlite.Connection) error {
 		_, err := conn.WriteOne(schema)
 		return err
@@ -307,6 +319,10 @@ func (d *DatabaseClientImpl) CreateTable(ctx context.Context, schema string) err
 // DropTable drops a table
 func (d *DatabaseClientImpl) DropTable(ctx context.Context, tableName string) error {
 	if err := d.checkConnection(); err != nil {
+		return err
+	}
+
+	if err := d.client.requireAccess(ctx); err != nil {
 		return err
 	}
 
@@ -321,6 +337,10 @@ func (d *DatabaseClientImpl) DropTable(ctx context.Context, tableName string) er
 func (d *DatabaseClientImpl) GetSchema(ctx context.Context) (*SchemaInfo, error) {
 	if !d.client.isConnected() {
 		return nil, fmt.Errorf("client not connected")
+	}
+
+	if err := d.client.requireAccess(ctx); err != nil {
+		return nil, err
 	}
 
 	// Get RQLite connection
@@ -396,6 +416,10 @@ func (s *StorageClientImpl) Get(ctx context.Context, key string) ([]byte, error)
 		return nil, fmt.Errorf("client not connected")
 	}
 
+	if err := s.client.requireAccess(ctx); err != nil {
+		return nil, err
+	}
+
 	return s.storageClient.Get(ctx, key)
 }
 
@@ -403,6 +427,10 @@ func (s *StorageClientImpl) Get(ctx context.Context, key string) ([]byte, error)
 func (s *StorageClientImpl) Put(ctx context.Context, key string, value []byte) error {
 	if !s.client.isConnected() {
 		return fmt.Errorf("client not connected")
+	}
+
+	if err := s.client.requireAccess(ctx); err != nil {
+		return err
 	}
 
 	err := s.storageClient.Put(ctx, key, value)
@@ -419,6 +447,10 @@ func (s *StorageClientImpl) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("client not connected")
 	}
 
+	if err := s.client.requireAccess(ctx); err != nil {
+		return err
+	}
+
 	err := s.storageClient.Delete(ctx, key)
 	if err != nil {
 		return err
@@ -433,6 +465,10 @@ func (s *StorageClientImpl) List(ctx context.Context, prefix string, limit int) 
 		return nil, fmt.Errorf("client not connected")
 	}
 
+	if err := s.client.requireAccess(ctx); err != nil {
+		return nil, err
+	}
+
 	return s.storageClient.List(ctx, prefix, limit)
 }
 
@@ -440,6 +476,10 @@ func (s *StorageClientImpl) List(ctx context.Context, prefix string, limit int) 
 func (s *StorageClientImpl) Exists(ctx context.Context, key string) (bool, error) {
 	if !s.client.isConnected() {
 		return false, fmt.Errorf("client not connected")
+	}
+
+	if err := s.client.requireAccess(ctx); err != nil {
+		return false, err
 	}
 
 	return s.storageClient.Exists(ctx, key)
@@ -454,6 +494,10 @@ type NetworkInfoImpl struct {
 func (n *NetworkInfoImpl) GetPeers(ctx context.Context) ([]PeerInfo, error) {
 	if !n.client.isConnected() {
 		return nil, fmt.Errorf("client not connected")
+	}
+
+	if err := n.client.requireAccess(ctx); err != nil {
+		return nil, err
 	}
 
 	// Get peers from LibP2P host
@@ -512,6 +556,10 @@ func (n *NetworkInfoImpl) GetStatus(ctx context.Context) (*NetworkStatus, error)
 		return nil, fmt.Errorf("client not connected")
 	}
 
+	if err := n.client.requireAccess(ctx); err != nil {
+		return nil, err
+	}
+
 	host := n.client.host
 	if host == nil {
 		return nil, fmt.Errorf("no host available")
@@ -551,6 +599,10 @@ func (n *NetworkInfoImpl) ConnectToPeer(ctx context.Context, peerAddr string) er
 		return fmt.Errorf("client not connected")
 	}
 
+	if err := n.client.requireAccess(ctx); err != nil {
+		return err
+	}
+
 	host := n.client.host
 	if host == nil {
 		return fmt.Errorf("no host available")
@@ -580,6 +632,10 @@ func (n *NetworkInfoImpl) ConnectToPeer(ctx context.Context, peerAddr string) er
 func (n *NetworkInfoImpl) DisconnectFromPeer(ctx context.Context, peerID string) error {
 	if !n.client.isConnected() {
 		return fmt.Errorf("client not connected")
+	}
+
+	if err := n.client.requireAccess(ctx); err != nil {
+		return err
 	}
 
 	host := n.client.host

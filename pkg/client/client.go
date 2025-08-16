@@ -2,7 +2,10 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +44,9 @@ type Client struct {
 	connected bool
 	startTime time.Time
 	mu        sync.RWMutex
+
+	// resolvedNamespace is the namespace derived from JWT/APIKey.
+	resolvedNamespace string
 }
 
 // NewClient creates a new network client
@@ -118,6 +124,18 @@ func (c *Client) Connect() error {
 		return nil
 	}
 
+	// Enforce credentials are present
+	if c.config == nil || (strings.TrimSpace(c.config.APIKey) == "" && strings.TrimSpace(c.config.JWT) == "") {
+		return fmt.Errorf("access denied: API key or JWT required")
+	}
+
+	// Derive and set namespace from provided credentials
+	ns, err := c.deriveNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to derive namespace: %w", err)
+	}
+	c.resolvedNamespace = ns
+
 	// Create LibP2P host with optional Anyone proxy for TCP and optional QUIC disable
 	var opts []libp2p.Option
 	opts = append(opts,
@@ -168,7 +186,7 @@ func (c *Client) Connect() error {
 
 	// Create pubsub bridge once and store it
 	adapter := pubsub.NewClientAdapter(c.libp2pPS, c.getAppNamespace())
-	c.pubsub = &pubSubBridge{adapter: adapter}
+	c.pubsub = &pubSubBridge{client: c, adapter: adapter}
 
 	// Create storage client with the host
 	storageClient := storage.NewClient(h, c.getAppNamespace(), c.logger)
@@ -290,5 +308,95 @@ func (c *Client) isConnected() bool {
 
 // getAppNamespace returns the namespace for this app
 func (c *Client) getAppNamespace() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.resolvedNamespace != "" {
+		return c.resolvedNamespace
+	}
 	return c.config.AppName
+}
+
+// requireAccess enforces that credentials are present and that any context-based namespace overrides match
+func (c *Client) requireAccess(ctx context.Context) error {
+	cfg := c.Config()
+	if cfg == nil || (strings.TrimSpace(cfg.APIKey) == "" && strings.TrimSpace(cfg.JWT) == "") {
+		return fmt.Errorf("access denied: API key or JWT required")
+	}
+	ns := c.getAppNamespace()
+	if v := ctx.Value(storage.CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" && s != ns {
+			return fmt.Errorf("access denied: namespace mismatch")
+		}
+	}
+	if v := ctx.Value(pubsub.CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" && s != ns {
+			return fmt.Errorf("access denied: namespace mismatch")
+		}
+	}
+	return nil
+}
+
+// deriveNamespace determines the namespace from JWT or API key.
+func (c *Client) deriveNamespace() (string, error) {
+	// Prefer JWT claim {"Namespace": "..."}
+	if strings.TrimSpace(c.config.JWT) != "" {
+		ns, err := parseJWTNamespace(c.config.JWT)
+		if err != nil {
+			return "", err
+		}
+		if ns != "" {
+			return ns, nil
+		}
+	}
+	// Fallback to API key format ak_<random>:<namespace>
+	if strings.TrimSpace(c.config.APIKey) != "" {
+		ns, err := parseAPIKeyNamespace(c.config.APIKey)
+		if err != nil {
+			return "", err
+		}
+		if ns != "" {
+			return ns, nil
+		}
+	}
+	return c.config.AppName, nil
+}
+
+// parseJWTNamespace decodes base64url payload to extract Namespace claim (no signature verification)
+func parseJWTNamespace(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid JWT format")
+	}
+	payload := parts[1]
+	// Decode base64url (raw, no padding)
+	data, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode JWT payload: %w", err)
+	}
+	// Minimal JSON struct
+	var claims struct {
+		Namespace string `json:"Namespace"`
+	}
+	if err := json.Unmarshal(data, &claims); err != nil {
+		return "", fmt.Errorf("failed to parse JWT claims: %w", err)
+	}
+	return strings.TrimSpace(claims.Namespace), nil
+}
+
+// parseAPIKeyNamespace extracts the namespace from ak_<random>:<namespace>
+func parseAPIKeyNamespace(key string) (string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", fmt.Errorf("invalid API key: empty")
+	}
+	// Allow but ignore prefix ak_
+	parts := strings.Split(key, ":")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid API key format: expected ak_<random>:<namespace>")
+	}
+	ns := strings.TrimSpace(parts[1])
+	if ns == "" {
+		return "", fmt.Errorf("invalid API key: empty namespace")
+	}
+	return ns, nil
 }

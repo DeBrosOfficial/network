@@ -129,7 +129,8 @@ type ClientConfig struct {
 	RetryAttempts     int           `json:"retry_attempts"`
 	RetryDelay        time.Duration `json:"retry_delay"`
 	QuietMode         bool          `json:"quiet_mode"` // Suppress debug/info logs
-	APIKey            string        `json:"api_key"`   // Optional API key for gateway auth (not enforced by client)
+	APIKey            string        `json:"api_key"`   // API key for gateway auth
+	JWT               string        `json:"jwt"`       // Optional JWT bearer token
 }
 
 // DefaultClientConfig returns a default client configuration
@@ -148,5 +149,6 @@ func DefaultClientConfig(appName string) *ClientConfig {
 		RetryDelay:        time.Second * 5,
 		QuietMode:         false,
 		APIKey:            "",
+		JWT:               "",
 	}
 }

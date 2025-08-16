@@ -13,7 +13,14 @@ func (m *Manager) Subscribe(ctx context.Context, topic string, handler MessageHa
 		return fmt.Errorf("pubsub not initialized")
 	}
 
-	namespacedTopic := fmt.Sprintf("%s.%s", m.namespace, topic)
+	// Determine namespace (allow per-call override via context)
+	ns := m.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
+	namespacedTopic := fmt.Sprintf("%s.%s", ns, topic)
 
 	// Check if already subscribed
 	m.mu.Lock()
@@ -86,7 +93,14 @@ func (m *Manager) Unsubscribe(ctx context.Context, topic string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	namespacedTopic := fmt.Sprintf("%s.%s", m.namespace, topic)
+	// Determine namespace (allow per-call override via context)
+	ns := m.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
+	namespacedTopic := fmt.Sprintf("%s.%s", ns, topic)
 
 	if subscription, exists := m.subscriptions[namespacedTopic]; exists {
 		// Cancel the subscription context to stop the message handler goroutine
@@ -103,7 +117,14 @@ func (m *Manager) ListTopics(ctx context.Context) ([]string, error) {
 	defer m.mu.RUnlock()
 
 	var topics []string
-	prefix := m.namespace + "."
+	// Determine namespace (allow per-call override via context)
+	ns := m.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
+	prefix := ns + "."
 
 	for topic := range m.subscriptions {
 		if len(topic) > len(prefix) && topic[:len(prefix)] == prefix {

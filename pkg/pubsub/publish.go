@@ -11,7 +11,15 @@ func (m *Manager) Publish(ctx context.Context, topic string, data []byte) error 
 		return fmt.Errorf("pubsub not initialized")
 	}
 
-	namespacedTopic := fmt.Sprintf("%s.%s", m.namespace, topic)
+	// Determine namespace (allow per-call override via context)
+	ns := m.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
+
+	namespacedTopic := fmt.Sprintf("%s.%s", ns, topic)
 
 	// Get or create topic
 	libp2pTopic, err := m.getOrCreateTopic(namespacedTopic)
