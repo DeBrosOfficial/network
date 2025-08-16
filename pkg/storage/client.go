@@ -19,6 +19,17 @@ type Client struct {
 	namespace string
 }
 
+// Context utilities for namespace override
+type ctxKey string
+
+// CtxKeyNamespaceOverride is the context key used to override namespace per request
+const CtxKeyNamespaceOverride ctxKey = "storage_ns_override"
+
+// WithNamespace returns a new context that carries a storage namespace override
+func WithNamespace(ctx context.Context, ns string) context.Context {
+	return context.WithValue(ctx, CtxKeyNamespaceOverride, ns)
+}
+
 // NewClient creates a new storage client
 func NewClient(h host.Host, namespace string, logger *zap.Logger) *Client {
 	return &Client{
@@ -30,11 +41,17 @@ func NewClient(h host.Host, namespace string, logger *zap.Logger) *Client {
 
 // Put stores a key-value pair in the distributed storage
 func (c *Client) Put(ctx context.Context, key string, value []byte) error {
+	ns := c.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
 	request := &StorageRequest{
 		Type:      MessageTypePut,
 		Key:       key,
 		Value:     value,
-		Namespace: c.namespace,
+		Namespace: ns,
 	}
 
 	return c.sendRequest(ctx, request)
@@ -42,10 +59,16 @@ func (c *Client) Put(ctx context.Context, key string, value []byte) error {
 
 // Get retrieves a value by key from the distributed storage
 func (c *Client) Get(ctx context.Context, key string) ([]byte, error) {
+	ns := c.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
 	request := &StorageRequest{
 		Type:      MessageTypeGet,
 		Key:       key,
-		Namespace: c.namespace,
+		Namespace: ns,
 	}
 
 	response, err := c.sendRequestWithResponse(ctx, request)
@@ -62,10 +85,16 @@ func (c *Client) Get(ctx context.Context, key string) ([]byte, error) {
 
 // Delete removes a key from the distributed storage
 func (c *Client) Delete(ctx context.Context, key string) error {
+	ns := c.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
 	request := &StorageRequest{
 		Type:      MessageTypeDelete,
 		Key:       key,
-		Namespace: c.namespace,
+		Namespace: ns,
 	}
 
 	return c.sendRequest(ctx, request)
@@ -73,11 +102,17 @@ func (c *Client) Delete(ctx context.Context, key string) error {
 
 // List returns keys with a given prefix
 func (c *Client) List(ctx context.Context, prefix string, limit int) ([]string, error) {
+	ns := c.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
 	request := &StorageRequest{
 		Type:      MessageTypeList,
 		Prefix:    prefix,
 		Limit:     limit,
-		Namespace: c.namespace,
+		Namespace: ns,
 	}
 
 	response, err := c.sendRequestWithResponse(ctx, request)
@@ -94,10 +129,16 @@ func (c *Client) List(ctx context.Context, prefix string, limit int) ([]string, 
 
 // Exists checks if a key exists in the distributed storage
 func (c *Client) Exists(ctx context.Context, key string) (bool, error) {
+	ns := c.namespace
+	if v := ctx.Value(CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			ns = s
+		}
+	}
 	request := &StorageRequest{
 		Type:      MessageTypeExists,
 		Key:       key,
-		Namespace: c.namespace,
+		Namespace: ns,
 	}
 
 	response, err := c.sendRequestWithResponse(ctx, request)
