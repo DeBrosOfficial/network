@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/storage"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
@@ -97,12 +98,14 @@ func (g *Gateway) challengeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Insert namespace if missing, fetch id
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	db := g.client.Database()
-	if _, err := db.Query(ctx, "INSERT OR IGNORE INTO namespaces(name) VALUES (?)", ns); err != nil {
+	if _, err := db.Query(internalCtx, "INSERT OR IGNORE INTO namespaces(name) VALUES (?)", ns); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	nres, err := db.Query(ctx, "SELECT id FROM namespaces WHERE name = ? LIMIT 1", ns)
+	nres, err := db.Query(internalCtx, "SELECT id FROM namespaces WHERE name = ? LIMIT 1", ns)
 	if err != nil || nres == nil || nres.Count == 0 || len(nres.Rows) == 0 || len(nres.Rows[0]) == 0 {
 		writeError(w, http.StatusInternalServerError, "failed to resolve namespace")
 		return
@@ -110,7 +113,7 @@ func (g *Gateway) challengeHandler(w http.ResponseWriter, r *http.Request) {
 	nsID := nres.Rows[0][0]
 
 	// Store nonce with 5 minute expiry
-	if _, err := db.Query(ctx,
+	if _, err := db.Query(internalCtx,
 		"INSERT INTO nonces(namespace_id, wallet, nonce, purpose, expires_at) VALUES (?, ?, ?, ?, datetime('now', '+5 minutes'))",
 		nsID, req.Wallet, nonce, req.Purpose,
 	); err != nil {
@@ -158,6 +161,8 @@ func (g *Gateway) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	db := g.client.Database()
 	nsID, err := g.resolveNamespaceID(ctx, ns)
 	if err != nil {
@@ -165,7 +170,7 @@ func (g *Gateway) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := "SELECT id FROM nonces WHERE namespace_id = ? AND wallet = ? AND nonce = ? AND used_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now')) LIMIT 1"
-	nres, err := db.Query(ctx, q, nsID, req.Wallet, req.Nonce)
+	nres, err := db.Query(internalCtx, q, nsID, req.Wallet, req.Nonce)
 	if err != nil || nres == nil || nres.Count == 0 {
 		writeError(w, http.StatusBadRequest, "invalid or expired nonce")
 		return
@@ -206,7 +211,7 @@ func (g *Gateway) verifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark nonce used now (after successful verification)
-	if _, err := db.Query(ctx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
+	if _, err := db.Query(internalCtx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -227,7 +232,7 @@ func (g *Gateway) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	refresh := base64.RawURLEncoding.EncodeToString(rbuf)
-	if _, err := db.Query(ctx, "INSERT INTO refresh_tokens(namespace_id, subject, token, audience, expires_at) VALUES (?, ?, ?, ?, datetime('now', '+30 days'))", nsID, req.Wallet, refresh, "gateway"); err != nil {
+	if _, err := db.Query(internalCtx, "INSERT INTO refresh_tokens(namespace_id, subject, token, audience, expires_at) VALUES (?, ?, ?, ?, datetime('now', '+30 days'))", nsID, req.Wallet, refresh, "gateway"); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -282,6 +287,8 @@ func (g *Gateway) issueAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	db := g.client.Database()
 	// Resolve namespace id
 	nsID, err := g.resolveNamespaceID(ctx, ns)
@@ -291,7 +298,7 @@ func (g *Gateway) issueAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Validate nonce exists and not used/expired
 	q := "SELECT id FROM nonces WHERE namespace_id = ? AND wallet = ? AND nonce = ? AND used_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now')) LIMIT 1"
-	nres, err := db.Query(ctx, q, nsID, req.Wallet, req.Nonce)
+	nres, err := db.Query(internalCtx, q, nsID, req.Wallet, req.Nonce)
 	if err != nil || nres == nil || nres.Count == 0 {
 		writeError(w, http.StatusBadRequest, "invalid or expired nonce")
 		return
@@ -326,13 +333,13 @@ func (g *Gateway) issueAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Mark nonce used
-	if _, err := db.Query(ctx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
+	if _, err := db.Query(internalCtx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// Check if api key exists for (namespace, wallet) via linkage table
 	var apiKey string
-	r1, err := db.Query(ctx, "SELECT api_keys.key FROM wallet_api_keys JOIN api_keys ON wallet_api_keys.api_key_id = api_keys.id WHERE wallet_api_keys.namespace_id = ? AND LOWER(wallet_api_keys.wallet) = LOWER(?) LIMIT 1", nsID, req.Wallet)
+	r1, err := db.Query(internalCtx, "SELECT api_keys.key FROM wallet_api_keys JOIN api_keys ON wallet_api_keys.api_key_id = api_keys.id WHERE wallet_api_keys.namespace_id = ? AND LOWER(wallet_api_keys.wallet) = LOWER(?) LIMIT 1", nsID, req.Wallet)
 	if err == nil && r1 != nil && r1.Count > 0 && len(r1.Rows) > 0 && len(r1.Rows[0]) > 0 {
 		if s, ok := r1.Rows[0][0].(string); ok {
 			apiKey = s
@@ -349,21 +356,21 @@ func (g *Gateway) issueAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		apiKey = "ak_" + base64.RawURLEncoding.EncodeToString(buf) + ":" + ns
-		if _, err := db.Query(ctx, "INSERT INTO api_keys(key, name, namespace_id) VALUES (?, ?, ?)", apiKey, "", nsID); err != nil {
+		if _, err := db.Query(internalCtx, "INSERT INTO api_keys(key, name, namespace_id) VALUES (?, ?, ?)", apiKey, "", nsID); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		// Create linkage
 		// Find api_key id
-		rid, err := db.Query(ctx, "SELECT id FROM api_keys WHERE key = ? LIMIT 1", apiKey)
+		rid, err := db.Query(internalCtx, "SELECT id FROM api_keys WHERE key = ? LIMIT 1", apiKey)
 		if err == nil && rid != nil && rid.Count > 0 && len(rid.Rows) > 0 && len(rid.Rows[0]) > 0 {
 			apiKeyID := rid.Rows[0][0]
-			_, _ = db.Query(ctx, "INSERT OR IGNORE INTO wallet_api_keys(namespace_id, wallet, api_key_id) VALUES (?, ?, ?)", nsID, strings.ToLower(req.Wallet), apiKeyID)
+			_, _ = db.Query(internalCtx, "INSERT OR IGNORE INTO wallet_api_keys(namespace_id, wallet, api_key_id) VALUES (?, ?, ?)", nsID, strings.ToLower(req.Wallet), apiKeyID)
 		}
 	}
 	// Record ownerships (best-effort)
-	_, _ = db.Query(ctx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, 'api_key', ?)", nsID, apiKey)
-	_, _ = db.Query(ctx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, 'wallet', ?)", nsID, req.Wallet)
+	_, _ = db.Query(internalCtx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, 'api_key', ?)", nsID, apiKey)
+	_, _ = db.Query(internalCtx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, 'wallet', ?)", nsID, req.Wallet)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"api_key":   apiKey,
@@ -399,8 +406,10 @@ func (g *Gateway) apiKeyToJWTHandler(w http.ResponseWriter, r *http.Request) {
 	// Validate and get namespace
 	db := g.client.Database()
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
-	res, err := db.Query(ctx, q, key)
+	res, err := db.Query(internalCtx, q, key)
 	if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
 		writeError(w, http.StatusUnauthorized, "invalid API key")
 		return
@@ -467,6 +476,8 @@ func (g *Gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	db := g.client.Database()
 	nsID, err := g.resolveNamespaceID(ctx, ns)
 	if err != nil {
@@ -475,7 +486,7 @@ func (g *Gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Validate nonce
 	q := "SELECT id FROM nonces WHERE namespace_id = ? AND wallet = ? AND nonce = ? AND used_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now')) LIMIT 1"
-	nres, err := db.Query(ctx, q, nsID, req.Wallet, req.Nonce)
+	nres, err := db.Query(internalCtx, q, nsID, req.Wallet, req.Nonce)
 	if err != nil || nres == nil || nres.Count == 0 || len(nres.Rows) == 0 || len(nres.Rows[0]) == 0 {
 		writeError(w, http.StatusBadRequest, "invalid or expired nonce")
 		return
@@ -515,7 +526,7 @@ func (g *Gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark nonce used now (after successful verification)
-	if _, err := db.Query(ctx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
+	if _, err := db.Query(internalCtx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -533,13 +544,13 @@ func (g *Gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	appID := "app_" + base64.RawURLEncoding.EncodeToString(buf)
 
 	// Persist app
-	if _, err := db.Query(ctx, "INSERT INTO apps(namespace_id, app_id, name, public_key) VALUES (?, ?, ?, ?)", nsID, appID, req.Name, pubHex); err != nil {
+	if _, err := db.Query(internalCtx, "INSERT INTO apps(namespace_id, app_id, name, public_key) VALUES (?, ?, ?, ?)", nsID, appID, req.Name, pubHex); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Record namespace ownership by wallet (best-effort)
-	_, _ = db.Query(ctx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, ?, ?)", nsID, "wallet", req.Wallet)
+	_, _ = db.Query(internalCtx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, ?, ?)", nsID, "wallet", req.Wallet)
 
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"client_id": appID,
@@ -583,6 +594,8 @@ func (g *Gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	db := g.client.Database()
 	nsID, err := g.resolveNamespaceID(ctx, ns)
 	if err != nil {
@@ -590,7 +603,7 @@ func (g *Gateway) refreshHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := "SELECT subject FROM refresh_tokens WHERE namespace_id = ? AND token = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now')) LIMIT 1"
-	rres, err := db.Query(ctx, q, nsID, req.RefreshToken)
+	rres, err := db.Query(internalCtx, q, nsID, req.RefreshToken)
 	if err != nil || rres == nil || rres.Count == 0 {
 		writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
@@ -972,6 +985,8 @@ func (g *Gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ctx := r.Context()
+	// Use internal context to bypass authentication for system operations
+	internalCtx := client.WithInternalAuth(ctx)
 	db := g.client.Database()
 	nsID, err := g.resolveNamespaceID(ctx, ns)
 	if err != nil {
@@ -981,7 +996,7 @@ func (g *Gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	if strings.TrimSpace(req.RefreshToken) != "" {
 		// Revoke specific token
-		if _, err := db.Query(ctx, "UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE namespace_id = ? AND token = ? AND revoked_at IS NULL", nsID, req.RefreshToken); err != nil {
+		if _, err := db.Query(internalCtx, "UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE namespace_id = ? AND token = ? AND revoked_at IS NULL", nsID, req.RefreshToken); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -1001,7 +1016,7 @@ func (g *Gateway) logoutHandler(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnauthorized, "jwt required for all=true")
 			return
 		}
-		if _, err := db.Query(ctx, "UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE namespace_id = ? AND subject = ? AND revoked_at IS NULL", nsID, subject); err != nil {
+		if _, err := db.Query(internalCtx, "UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE namespace_id = ? AND subject = ? AND revoked_at IS NULL", nsID, subject); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
