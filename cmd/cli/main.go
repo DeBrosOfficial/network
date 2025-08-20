@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"git.debros.io/DeBros/network/pkg/anyoneproxy"
+	"git.debros.io/DeBros/network/pkg/auth"
 	"git.debros.io/DeBros/network/pkg/client"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -83,6 +86,7 @@ func main() {
 		handlePeerID()
 	case "help", "--help", "-h":
 		showHelp()
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		showHelp()
@@ -185,6 +189,9 @@ func handleStatus() {
 }
 
 func handleQuery(sql string) {
+	// Ensure user is authenticated
+	_ = ensureAuthenticated()
+
 	client, err := createClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create client: %v\n", err)
@@ -213,6 +220,9 @@ func handleStorage(args []string) {
 		fmt.Fprintf(os.Stderr, "Usage: network-cli storage <get|put|list> [args...]\n")
 		os.Exit(1)
 	}
+
+	// Ensure user is authenticated
+	_ = ensureAuthenticated()
 
 	client, err := createClient()
 	if err != nil {
@@ -282,6 +292,9 @@ func handlePubSub(args []string) {
 		fmt.Fprintf(os.Stderr, "Usage: network-cli pubsub <publish|subscribe|topics> [args...]\n")
 		os.Exit(1)
 	}
+
+	// Ensure user is authenticated
+	_ = ensureAuthenticated()
 
 	client, err := createClient()
 	if err != nil {
@@ -356,6 +369,44 @@ func handlePubSub(args []string) {
 		fmt.Fprintf(os.Stderr, "Unknown pubsub command: %s\n", subcommand)
 		os.Exit(1)
 	}
+}
+
+// ensureAuthenticated ensures the user has valid credentials for the gateway
+// Returns the credentials or exits the program on failure
+func ensureAuthenticated() *auth.Credentials {
+	gatewayURL := auth.GetDefaultGatewayURL()
+
+	credentials, err := auth.GetOrPromptForCredentials(gatewayURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Authentication failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	return credentials
+}
+
+func openBrowser(target string) error {
+	cmds := [][]string{
+		{"xdg-open", target},
+		{"open", target},
+		{"cmd", "/c", "start", target},
+	}
+	for _, c := range cmds {
+		cmd := exec.Command(c[0], c[1:]...)
+		if err := cmd.Start(); err == nil {
+			return nil
+		}
+	}
+	log.Printf("Please open %s manually", target)
+	return nil
+}
+
+// getenvDefault returns env var or default if empty/undefined.
+func getenvDefault(key, def string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return def
 }
 
 func handleConnect(peerAddr string) {
@@ -447,6 +498,39 @@ func handlePeerID() {
 func createClient() (client.NetworkClient, error) {
 	config := client.DefaultClientConfig("network-cli")
 
+	// Check for existing credentials
+	creds, err := auth.GetValidCredentials()
+	if err != nil {
+		// No valid credentials found, trigger authentication flow
+		fmt.Printf("🔐 Authentication required for DeBros Network CLI\n")
+		fmt.Printf("💡 This will open your browser to authenticate with your wallet\n")
+
+		gatewayURL := auth.GetDefaultGatewayURL()
+		fmt.Printf("🌐 Gateway: %s\n\n", gatewayURL)
+
+		// Perform wallet authentication
+		newCreds, authErr := auth.PerformWalletAuthentication(gatewayURL)
+		if authErr != nil {
+			return nil, fmt.Errorf("authentication failed: %w", authErr)
+		}
+
+		// Save credentials
+		if saveErr := auth.SaveCredentialsForDefaultGateway(newCreds); saveErr != nil {
+			fmt.Printf("⚠️  Warning: failed to save credentials: %v\n", saveErr)
+		} else {
+			fmt.Printf("💾 Credentials saved to ~/.debros/credentials.json\n")
+		}
+
+		creds = newCreds
+	}
+
+	// Configure client with API key
+	config.APIKey = creds.APIKey
+
+	// Update last used time
+	creds.UpdateLastUsed()
+	auth.SaveCredentialsForDefaultGateway(creds) // Best effort save
+
 	networkClient, err := client.NewClient(config)
 	if err != nil {
 		return nil, err
@@ -513,25 +597,31 @@ func isPrintableText(s string) bool {
 func showHelp() {
 	fmt.Printf("Network CLI - Distributed P2P Network Management Tool\n\n")
 	fmt.Printf("Usage: network-cli <command> [args...]\n\n")
+	fmt.Printf("🔐 Authentication: Commands requiring authentication will automatically prompt for wallet connection.\n\n")
 	fmt.Printf("Commands:\n")
 	fmt.Printf("  health                    - Check network health\n")
 	fmt.Printf("  peers                     - List connected peers\n")
 	fmt.Printf("  status                    - Show network status\n")
 	fmt.Printf("  peer-id                   - Show this node's peer ID\n")
-	fmt.Printf("  query <sql>               - Execute database query\n")
-	fmt.Printf("  storage get <key>         - Get value from storage\n")
-	fmt.Printf("  storage put <key> <value> - Store value in storage\n")
-	fmt.Printf("  storage list [prefix]     - List storage keys\n")
-	fmt.Printf("  pubsub publish <topic> <msg> - Publish message\n")
-	fmt.Printf("  pubsub subscribe <topic> [duration] - Subscribe to topic\n")
-	fmt.Printf("  pubsub topics             - List topics\n")
+	fmt.Printf("  query <sql>               🔐 Execute database query\n")
+	fmt.Printf("  storage get <key>         🔐 Get value from storage\n")
+	fmt.Printf("  storage put <key> <value> 🔐 Store value in storage\n")
+	fmt.Printf("  storage list [prefix]     🔐 List storage keys\n")
+	fmt.Printf("  pubsub publish <topic> <msg> 🔐 Publish message\n")
+	fmt.Printf("  pubsub subscribe <topic> [duration] 🔐 Subscribe to topic\n")
+	fmt.Printf("  pubsub topics             🔐 List topics\n")
 	fmt.Printf("  connect <peer_address>    - Connect to peer\n")
+
 	fmt.Printf("  help                      - Show this help\n\n")
 	fmt.Printf("Global Flags:\n")
 	fmt.Printf("  -b, --bootstrap <addr>    - Bootstrap peer address (default: /ip4/127.0.0.1/tcp/4001)\n")
 	fmt.Printf("  -f, --format <format>     - Output format: table, json (default: table)\n")
 	fmt.Printf("  -t, --timeout <duration>  - Operation timeout (default: 30s)\n")
 	fmt.Printf("  --production              - Connect to production bootstrap peers\n\n")
+	fmt.Printf("Authentication:\n")
+	fmt.Printf("  Commands marked with 🔐 will automatically prompt for wallet authentication\n")
+	fmt.Printf("  if no valid credentials are found. You can manage multiple wallets and\n")
+	fmt.Printf("  choose between them during the authentication flow.\n\n")
 	fmt.Printf("Examples:\n")
 	fmt.Printf("  network-cli health\n")
 	fmt.Printf("  network-cli peer-id\n")

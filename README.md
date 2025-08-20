@@ -13,6 +13,7 @@ A robust, decentralized peer-to-peer network built in Go, providing distributed 
 - [Deployment & Installation](#deployment--installation)
 - [Configuration](#configuration)
 - [CLI Usage](#cli-usage)
+- [HTTP Gateway](#http-gateway)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -316,9 +317,191 @@ logging:
 --disable-anonrc              # Disable anonymous routing (Tor/SOCKS5)
 ```
 
+### Authentication
+
+The CLI features an enhanced authentication system with automatic wallet detection and multi-wallet support:
+
+- **Automatic Authentication:** No manual auth commands required - authentication happens automatically when operations need credentials
+- **Multi-Wallet Management:** Seamlessly switch between multiple wallet credentials
+- **Persistent Sessions:** Wallet credentials are automatically saved and restored between sessions
+- **Enhanced User Experience:** Streamlined authentication flow with better error handling and user feedback
+
+When using operations that require authentication (storage, database, pubsub), the CLI will automatically:
+1. Check for existing valid credentials
+2. Prompt for wallet authentication if needed
+3. Handle signature verification
+4. Persist credentials for future use
+
+**Example with automatic authentication:**
+```bash
+# First time - will prompt for wallet authentication
+./bin/network-cli storage put user:123 "John Doe"
+
+# Subsequent calls - uses saved credentials automatically
+./bin/network-cli storage get user:123
+./bin/network-cli pubsub publish notifications "Hello World"
+```
+
+---
+
+## HTTP Gateway
+
+The DeBros Network includes a powerful HTTP/WebSocket gateway that provides a modern REST API and WebSocket interface over the P2P network, featuring an enhanced authentication system with multi-wallet support.
+
+### Quick Start
+
+```bash
+make run-gateway
+# Or manually:
+go run ./cmd/gateway
+```
+
+### Configuration
+
+The gateway can be configured via environment variables:
+
+```bash
+# Basic Configuration
+export GATEWAY_ADDR="0.0.0.0:8080"
+export GATEWAY_NAMESPACE="my-app"
+export GATEWAY_BOOTSTRAP_PEERS="/ip4/127.0.0.1/tcp/4001/p2p/YOUR_PEER_ID"
+
+# Authentication Configuration
+export GATEWAY_REQUIRE_AUTH=true
+export GATEWAY_API_KEYS="key1:namespace1,key2:namespace2"
+```
+
+### Enhanced Authentication System
+
+The gateway features a significantly improved authentication system with the following capabilities:
+
+#### Key Features
+- **Automatic Authentication:** No manual auth commands required - authentication happens automatically when needed
+- **Multi-Wallet Support:** Seamlessly manage multiple wallet credentials with automatic switching
+- **Persistent Sessions:** Wallet credentials are automatically saved and restored
+- **Enhanced User Experience:** Streamlined authentication flow with better error handling
+
+#### Authentication Methods
+
+**Wallet-Based Authentication (Ethereum EIP-191)**
+- Uses `personal_sign` for secure wallet verification
+- Supports multiple wallets with automatic detection
+- Addresses are case-insensitive with normalized signature handling
+
+**JWT Tokens**
+- Issued by the gateway with configurable expiration
+- JWKS endpoints available at `/v1/auth/jwks` and `/.well-known/jwks.json`
+- Automatic refresh capability
+
+**API Keys**
+- Support for pre-configured API keys via `Authorization: Bearer <key>` or `X-API-Key` headers
+- Optional namespace mapping for multi-tenant applications
+
+### API Endpoints
+
+#### Health & Status
+```http
+GET /health                 # Basic health check
+GET /v1/health             # Detailed health status
+GET /v1/status             # Network status
+GET /v1/version            # Version information
+```
+
+#### Authentication (Public Endpoints)
+```http
+POST /v1/auth/challenge    # Generate wallet challenge
+POST /v1/auth/verify       # Verify wallet signature
+POST /v1/auth/register     # Register new wallet
+POST /v1/auth/refresh      # Refresh JWT token
+POST /v1/auth/logout       # Clear authentication
+GET  /v1/auth/whoami       # Current auth status
+POST /v1/auth/api-key      # Generate API key (authenticated)
+```
+
+#### Storage Operations
+```http
+POST /v1/storage/get       # Retrieve data
+POST /v1/storage/put       # Store data
+POST /v1/storage/delete    # Delete data
+GET  /v1/storage/list      # List keys with optional prefix
+GET  /v1/storage/exists    # Check key existence
+```
+
+#### Network Operations
+```http
+GET  /v1/network/status    # Network status
+GET  /v1/network/peers     # Connected peers
+POST /v1/network/connect   # Connect to peer
+POST /v1/network/disconnect # Disconnect from peer
+```
+
+#### Pub/Sub Messaging
+
+**WebSocket Interface**
+```http
+GET /v1/pubsub/ws?topic=<topic>  # WebSocket connection for real-time messaging
+```
+
+**REST Interface**
+```http
+POST /v1/pubsub/publish    # Publish message to topic
+GET  /v1/pubsub/topics     # List active topics
+```
+
+### Security Features
+
+- **Namespace Enforcement:** All operations are automatically prefixed with namespace for isolation
+- **CORS Support:** Configurable CORS policies (permissive for development, configurable for production)
+- **Transport Security:** All network communications use Noise/TLS encryption
+- **Authentication Middleware:** Flexible authentication with support for multiple credential types
+
+### Usage Examples
+
+#### Wallet Authentication Flow
+```bash
+# 1. Get challenge (automatic)
+curl -X POST http://localhost:8080/v1/auth/challenge
+
+# 2. Sign challenge with wallet (handled by client)
+# 3. Verify signature (automatic)
+curl -X POST http://localhost:8080/v1/auth/verify \
+  -H "Content-Type: application/json" \
+  -d '{"wallet":"0x...","nonce":"...","signature":"0x..."}'
+```
+
+#### Storage Operations
+```bash
+# Store data
+curl -X POST http://localhost:8080/v1/storage/put \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"user:123","value":"eyJuYW1lIjoiSm9obiJ9"}'
+
+# Retrieve data
+curl -X POST http://localhost:8080/v1/storage/get \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"user:123"}'
+```
+
+#### Real-time Messaging
+```javascript
+// WebSocket connection
+const ws = new WebSocket('ws://localhost:8080/v1/pubsub/ws?topic=chat');
+
+ws.onmessage = (event) => {
+  console.log('Received:', event.data);
+};
+
+// Send message
+ws.send('Hello, network!');
+```
+
 ---
 
 ## Development
+</text>
+
 
 ### Project Structure
 
@@ -380,6 +563,34 @@ scripts/test-multinode.sh
 - **Symptoms:** Memory usage grows continuously
 - **Solutions:** Unsubscribe when done, monitor connection pool, review message retention.
 
+#### Authentication Issues
+
+- **Symptoms:** `Authentication failed`, `Invalid wallet signature`, `JWT token expired`
+- **Solutions:** 
+  - Check wallet signature format (65-byte r||s||v hex)
+  - Ensure nonce matches exactly during wallet verification
+  - Verify wallet address case-insensitivity
+  - Use refresh endpoint or re-authenticate for expired tokens
+  - Clear credential cache if multi-wallet conflicts occur: `rm -rf ~/.debros/credentials`
+
+#### Gateway Issues
+
+- **Symptoms:** `Gateway connection refused`, `CORS errors`, `WebSocket disconnections`
+- **Solutions:**
+  - Verify gateway is running and accessible on configured port
+  - Check CORS configuration for web applications
+  - Ensure proper authentication headers for protected endpoints
+  - Verify namespace configuration and enforcement
+
+#### Database Migration Issues
+
+- **Symptoms:** `Migration failed`, `SQL syntax error`, `Version conflict`
+- **Solutions:**
+  - Check SQL syntax in migration files
+  - Ensure proper statement termination
+  - Verify migration file naming and sequential order
+  - Review migration logs for transaction rollbacks
+
 ### Debugging & Health Checks
 
 ```bash
@@ -389,12 +600,27 @@ export LOG_LEVEL=debug
 ./bin/network-cli query "SELECT 1"
 ./bin/network-cli pubsub publish test "hello"
 ./bin/network-cli pubsub subscribe test 10s
+
+# Test authentication flow
+./bin/network-cli storage put test-key test-value
+
+# Gateway health checks
+curl http://localhost:8080/health
+curl http://localhost:8080/v1/status
 ```
 
 ### Service Logs
 
 ```bash
+# Node service logs
 sudo journalctl -u debros-node.service --since "1 hour ago"
+
+# Gateway service logs (if running as service)
+sudo journalctl -u debros-gateway.service --since "1 hour ago"
+
+# Application logs
+tail -f ./logs/gateway.log
+tail -f ./logs/node.log
 ```
 
 ---

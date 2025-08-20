@@ -2,7 +2,10 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +44,9 @@ type Client struct {
 	connected bool
 	startTime time.Time
 	mu        sync.RWMutex
+
+	// resolvedNamespace is the namespace derived from JWT/APIKey.
+	resolvedNamespace string
 }
 
 // NewClient creates a new network client
@@ -118,6 +124,13 @@ func (c *Client) Connect() error {
 		return nil
 	}
 
+	// Derive and set namespace from provided credentials
+	ns, err := c.deriveNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to derive namespace: %w", err)
+	}
+	c.resolvedNamespace = ns
+
 	// Create LibP2P host with optional Anyone proxy for TCP and optional QUIC disable
 	var opts []libp2p.Option
 	opts = append(opts,
@@ -153,6 +166,8 @@ func (c *Client) Connect() error {
 		zap.Strings("listen_addrs", addrStrs),
 	)
 
+	c.logger.Info("Creating GossipSub...")
+
 	// Create LibP2P GossipSub with PeerExchange enabled (gossip-based peer exchange).
 	// Peer exchange helps propagate peer addresses via pubsub gossip and is enabled
 	// globally so discovery works without Anchat-specific branches.
@@ -165,17 +180,39 @@ func (c *Client) Connect() error {
 		return fmt.Errorf("failed to create pubsub: %w", err)
 	}
 	c.libp2pPS = ps
+	c.logger.Info("GossipSub created successfully")
 
-	// Create pubsub bridge once and store it
-	adapter := pubsub.NewClientAdapter(c.libp2pPS, c.getAppNamespace())
-	c.pubsub = &pubSubBridge{adapter: adapter}
+	c.logger.Info("Creating pubsub bridge...")
 
-	// Create storage client with the host
-	storageClient := storage.NewClient(h, c.getAppNamespace(), c.logger)
+	c.logger.Info("Getting app namespace for pubsub...")
+	// Access namespace directly to avoid deadlock (we already hold c.mu.Lock())
+	var namespace string
+	if c.resolvedNamespace != "" {
+		namespace = c.resolvedNamespace
+	} else {
+		namespace = c.config.AppName
+	}
+	c.logger.Info("App namespace retrieved", zap.String("namespace", namespace))
+
+	c.logger.Info("Calling pubsub.NewClientAdapter...")
+	adapter := pubsub.NewClientAdapter(c.libp2pPS, namespace)
+	c.logger.Info("pubsub.NewClientAdapter completed successfully")
+
+	c.logger.Info("Creating pubSubBridge...")
+	c.pubsub = &pubSubBridge{client: c, adapter: adapter}
+	c.logger.Info("Pubsub bridge created successfully")
+
+	c.logger.Info("Creating storage client...")
+
+	// Create storage client with the host (use namespace directly to avoid deadlock)
+	storageClient := storage.NewClient(h, namespace, c.logger)
 	c.storage = &StorageClientImpl{
 		client:        c,
 		storageClient: storageClient,
 	}
+	c.logger.Info("Storage client created successfully")
+
+	c.logger.Info("Starting bootstrap peer connections...")
 
 	// Connect to bootstrap peers FIRST
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.ConnectTimeout)
@@ -183,6 +220,7 @@ func (c *Client) Connect() error {
 
 	bootstrapPeersConnected := 0
 	for _, bootstrapAddr := range c.config.BootstrapPeers {
+		c.logger.Info("Attempting to connect to bootstrap peer", zap.String("addr", bootstrapAddr))
 		if err := c.connectToBootstrap(ctx, bootstrapAddr); err != nil {
 			c.logger.Warn("Failed to connect to bootstrap peer",
 				zap.String("addr", bootstrapAddr),
@@ -190,11 +228,16 @@ func (c *Client) Connect() error {
 			continue
 		}
 		bootstrapPeersConnected++
+		c.logger.Info("Successfully connected to bootstrap peer", zap.String("addr", bootstrapAddr))
 	}
 
 	if bootstrapPeersConnected == 0 {
 		c.logger.Warn("No bootstrap peers connected, continuing anyway")
+	} else {
+		c.logger.Info("Bootstrap peer connections completed", zap.Int("connected_count", bootstrapPeersConnected))
 	}
+
+	c.logger.Info("Adding bootstrap peers to peerstore...")
 
 	// Add bootstrap peers to peerstore so we can connect to them later
 	for _, bootstrapAddr := range c.config.BootstrapPeers {
@@ -206,6 +249,9 @@ func (c *Client) Connect() error {
 			}
 		}
 	}
+	c.logger.Info("Bootstrap peers added to peerstore")
+
+	c.logger.Info("Starting connection monitoring...")
 
 	// Client is a lightweight P2P participant - no discovery needed
 	// We only connect to known bootstrap peers and let nodes handle discovery
@@ -213,10 +259,14 @@ func (c *Client) Connect() error {
 
 	// Start minimal connection monitoring
 	c.startConnectionMonitoring()
+	c.logger.Info("Connection monitoring started")
+
+	c.logger.Info("Setting connected state...")
 
 	c.connected = true
+	c.logger.Info("Connected state set to true")
 
-	c.logger.Info("Client connected", zap.String("namespace", c.getAppNamespace()))
+	c.logger.Info("Client connected", zap.String("namespace", namespace))
 
 	return nil
 }
@@ -290,5 +340,100 @@ func (c *Client) isConnected() bool {
 
 // getAppNamespace returns the namespace for this app
 func (c *Client) getAppNamespace() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.resolvedNamespace != "" {
+		return c.resolvedNamespace
+	}
 	return c.config.AppName
+}
+
+// requireAccess enforces that credentials are present and that any context-based namespace overrides match
+func (c *Client) requireAccess(ctx context.Context) error {
+	// Allow internal system operations to bypass authentication
+	if IsInternalContext(ctx) {
+		return nil
+	}
+
+	cfg := c.Config()
+	if cfg == nil || (strings.TrimSpace(cfg.APIKey) == "" && strings.TrimSpace(cfg.JWT) == "") {
+		return fmt.Errorf("access denied: API key or JWT required")
+	}
+	ns := c.getAppNamespace()
+	if v := ctx.Value(storage.CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" && s != ns {
+			return fmt.Errorf("access denied: namespace mismatch")
+		}
+	}
+	if v := ctx.Value(pubsub.CtxKeyNamespaceOverride); v != nil {
+		if s, ok := v.(string); ok && s != "" && s != ns {
+			return fmt.Errorf("access denied: namespace mismatch")
+		}
+	}
+	return nil
+}
+
+// deriveNamespace determines the namespace from JWT or API key.
+func (c *Client) deriveNamespace() (string, error) {
+	// Prefer JWT claim {"Namespace": "..."}
+	if strings.TrimSpace(c.config.JWT) != "" {
+		ns, err := parseJWTNamespace(c.config.JWT)
+		if err != nil {
+			return "", err
+		}
+		if ns != "" {
+			return ns, nil
+		}
+	}
+	// Fallback to API key format ak_<random>:<namespace>
+	if strings.TrimSpace(c.config.APIKey) != "" {
+		ns, err := parseAPIKeyNamespace(c.config.APIKey)
+		if err != nil {
+			return "", err
+		}
+		if ns != "" {
+			return ns, nil
+		}
+	}
+	return c.config.AppName, nil
+}
+
+// parseJWTNamespace decodes base64url payload to extract Namespace claim (no signature verification)
+func parseJWTNamespace(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid JWT format")
+	}
+	payload := parts[1]
+	// Decode base64url (raw, no padding)
+	data, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode JWT payload: %w", err)
+	}
+	// Minimal JSON struct
+	var claims struct {
+		Namespace string `json:"Namespace"`
+	}
+	if err := json.Unmarshal(data, &claims); err != nil {
+		return "", fmt.Errorf("failed to parse JWT claims: %w", err)
+	}
+	return strings.TrimSpace(claims.Namespace), nil
+}
+
+// parseAPIKeyNamespace extracts the namespace from ak_<random>:<namespace>
+func parseAPIKeyNamespace(key string) (string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", fmt.Errorf("invalid API key: empty")
+	}
+	// Allow but ignore prefix ak_
+	parts := strings.Split(key, ":")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid API key format: expected ak_<random>:<namespace>")
+	}
+	ns := strings.TrimSpace(parts[1])
+	if ns == "" {
+		return "", fmt.Errorf("invalid API key: empty namespace")
+	}
+	return ns, nil
 }
