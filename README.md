@@ -211,7 +211,6 @@ security:
   enable_tls: false
   private_key_file: ""
   certificate_file: ""
-  auth_enabled: false
 
 logging:
   level: "info"
@@ -252,7 +251,6 @@ security:
   enable_tls: false
   private_key_file: ""
   certificate_file: ""
-  auth_enabled: false
 
 logging:
   level: "info"
@@ -566,7 +564,7 @@ scripts/test-multinode.sh
 #### Authentication Issues
 
 - **Symptoms:** `Authentication failed`, `Invalid wallet signature`, `JWT token expired`
-- **Solutions:** 
+- **Solutions:**
   - Check wallet signature format (65-byte r||s||v hex)
   - Ensure nonce matches exactly during wallet verification
   - Verify wallet address case-insensitivity

@@ -22,15 +22,6 @@ make deps
 - Test: `make test`
 - Format/Vet: `make fmt vet` (or `make lint`)
 
-## Local Development
-
-Start a small cluster for manual testing:
-
-```bash
-make run-node                              # bootstrap (role=bootstrap)
-# In new terminals (replace with printed peer.info if needed):
-make run-node2 BOOTSTRAP="$(cat data/bootstrap/peer.info)" HTTP=5002 RAFT=7002 P2P=4002
-make run-node3 BOOTSTRAP="$(cat data/bootstrap/peer.info)" HTTP=5003 RAFT=7003 P2P=4003
 ```
 
 Useful CLI commands:
