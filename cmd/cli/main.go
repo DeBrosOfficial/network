@@ -5,16 +5,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-    "log"
-    "net"
-    "net/http"
+	"log"
+	"net"
+	"net/http"
 	"os"
-    "os/exec"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"git.debros.io/DeBros/network/pkg/anyoneproxy"
+	"git.debros.io/DeBros/network/pkg/auth"
 	"git.debros.io/DeBros/network/pkg/client"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -87,8 +88,8 @@ func main() {
 		handlePeerID()
 	case "help", "--help", "-h":
 		showHelp()
-    case "auth":
-        handleAuth(args)
+	case "auth":
+		handleAuth(args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		showHelp()
@@ -367,45 +368,63 @@ func handlePubSub(args []string) {
 // handleAuth launches a local webpage to perform wallet signature and obtain an API key.
 // Usage: network-cli auth [--gateway <url>] [--namespace <ns>] [--wallet <evm_addr>] [--plan <free|premium>]
 func handleAuth(args []string) {
-    // Defaults
-    gatewayURL := getenvDefault("GATEWAY_URL", "http://localhost:8080")
-    namespace := getenvDefault("GATEWAY_NAMESPACE", "default")
-    wallet := ""
-    plan := "free"
+	// Defaults
+	gatewayURL := getenvDefault("GATEWAY_URL", "http://localhost:8080")
+	namespace := getenvDefault("GATEWAY_NAMESPACE", "default")
+	wallet := ""
+	plan := "free"
 
-    // Parse simple flags
-    for i := 0; i < len(args); i++ {
-        switch args[i] {
-        case "--gateway":
-            if i+1 < len(args) { gatewayURL = strings.TrimSpace(args[i+1]); i++ }
-        case "--namespace":
-            if i+1 < len(args) { namespace = strings.TrimSpace(args[i+1]); i++ }
-        case "--wallet":
-            if i+1 < len(args) { wallet = strings.TrimSpace(args[i+1]); i++ }
-        case "--plan":
-            if i+1 < len(args) { plan = strings.TrimSpace(strings.ToLower(args[i+1])); i++ }
-        }
-    }
+	// Parse simple flags
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--gateway":
+			if i+1 < len(args) {
+				gatewayURL = strings.TrimSpace(args[i+1])
+				i++
+			}
+		case "--namespace":
+			if i+1 < len(args) {
+				namespace = strings.TrimSpace(args[i+1])
+				i++
+			}
+		case "--wallet":
+			if i+1 < len(args) {
+				wallet = strings.TrimSpace(args[i+1])
+				i++
+			}
+		case "--plan":
+			if i+1 < len(args) {
+				plan = strings.TrimSpace(strings.ToLower(args[i+1]))
+				i++
+			}
+		}
+	}
 
-    // Spin up local HTTP server on random port
-    ln, err := net.Listen("tcp", "localhost:0")
-    if err != nil { fmt.Fprintf(os.Stderr, "Failed to listen: %v\n", err); os.Exit(1) }
-    defer ln.Close()
-    addr := ln.Addr().String()
-    // Normalize URL host to localhost for consistency with gateway default
-    parts := strings.Split(addr, ":")
-    listenURL := "http://localhost:" + parts[len(parts)-1] + "/"
+	// Spin up local HTTP server on random port
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to listen: %v\n", err)
+		os.Exit(1)
+	}
+	defer ln.Close()
+	addr := ln.Addr().String()
+	// Normalize URL host to localhost for consistency with gateway default
+	parts := strings.Split(addr, ":")
+	listenURL := "http://localhost:" + parts[len(parts)-1] + "/"
 
-    // Channel to receive API key
-    type result struct { APIKey string `json:"api_key"`; Namespace string `json:"namespace"` }
-    resCh := make(chan result, 1)
-    srv := &http.Server{}
+	// Channel to receive API key
+	type result struct {
+		APIKey    string `json:"api_key"`
+		Namespace string `json:"namespace"`
+	}
+	resCh := make(chan result, 1)
+	srv := &http.Server{}
 
-    mux := http.NewServeMux()
-    // Root serves the HTML page with embedded gateway URL and defaults
-    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "text/html; charset=utf-8")
-        fmt.Fprintf(w, `<!doctype html>
+	mux := http.NewServeMux()
+	// Root serves the HTML page with embedded gateway URL and defaults
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>DeBros Auth</title>
 <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:2rem;max-width:720px}input,button,select{font-size:1rem;padding:.5rem;margin:.25rem 0}code{background:#f5f5f5;padding:.2rem .4rem;border-radius:4px}</style>
@@ -457,60 +476,77 @@ document.getElementById('sign').onclick = async () => {
 };
 </script>
 </body></html>`, gatewayURL, namespace, wallet, plan)
-    })
-    // Callback to deliver API key back to CLI
-    mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        var payload struct{ APIKey string `json:"api_key"`; Namespace string `json:"namespace"` }
-        if err := json.NewDecoder(r.Body).Decode(&payload); err != nil { w.WriteHeader(http.StatusBadRequest); return }
-        if strings.TrimSpace(payload.APIKey) == "" { w.WriteHeader(http.StatusBadRequest); return }
-        select { case resCh <- result{APIKey: payload.APIKey, Namespace: payload.Namespace}: default: }
-        _, _ = w.Write([]byte("ok"))
-        go func(){ time.Sleep(500*time.Millisecond); _ = srv.Close() }()
-    })
-    srv.Handler = mux
+	})
+	// Callback to deliver API key back to CLI
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var payload struct {
+			APIKey    string `json:"api_key"`
+			Namespace string `json:"namespace"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(payload.APIKey) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		select {
+		case resCh <- result{APIKey: payload.APIKey, Namespace: payload.Namespace}:
+		default:
+		}
+		_, _ = w.Write([]byte("ok"))
+		go func() { time.Sleep(500 * time.Millisecond); _ = srv.Close() }()
+	})
+	srv.Handler = mux
 
-    // Open browser
-    url := listenURL
-    go func(){
-        // Try to open in default browser
-        _ = openBrowser(url)
-    }()
+	// Open browser
+	url := listenURL
+	go func() {
+		// Try to open in default browser
+		_ = openBrowser(url)
+	}()
 
-    // Serve and wait for result or timeout
-    go func(){ _ = srv.Serve(ln) }()
-    fmt.Printf("🌐 Please complete authentication in your browser: %s\n", url)
-    select {
-    case r := <-resCh:
-        fmt.Printf("✅ API Key issued for namespace '%s'\n", r.Namespace)
-        fmt.Printf("%s\n", r.APIKey)
-    case <-time.After(5 * time.Minute):
-        fmt.Fprintf(os.Stderr, "Timed out waiting for wallet signature.\n")
-        _ = srv.Close()
-        os.Exit(1)
-    }
+	// Serve and wait for result or timeout
+	go func() { _ = srv.Serve(ln) }()
+	fmt.Printf("🌐 Please complete authentication in your browser: %s\n", url)
+	select {
+	case r := <-resCh:
+		fmt.Printf("✅ API Key issued for namespace '%s'\n", r.Namespace)
+		fmt.Printf("%s\n", r.APIKey)
+	case <-time.After(5 * time.Minute):
+		fmt.Fprintf(os.Stderr, "Timed out waiting for wallet signature.\n")
+		_ = srv.Close()
+		os.Exit(1)
+	}
 }
 
 func openBrowser(target string) error {
-    cmds := [][]string{
-        {"xdg-open", target},
-        {"open", target},
-        {"cmd", "/c", "start", target},
-    }
-    for _, c := range cmds {
-        cmd := exec.Command(c[0], c[1:]...)
-        if err := cmd.Start(); err == nil { return nil }
-    }
-    log.Printf("Please open %s manually", target)
-    return nil
+	cmds := [][]string{
+		{"xdg-open", target},
+		{"open", target},
+		{"cmd", "/c", "start", target},
+	}
+	for _, c := range cmds {
+		cmd := exec.Command(c[0], c[1:]...)
+		if err := cmd.Start(); err == nil {
+			return nil
+		}
+	}
+	log.Printf("Please open %s manually", target)
+	return nil
 }
 
 // getenvDefault returns env var or default if empty/undefined.
 func getenvDefault(key, def string) string {
-    if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-        return v
-    }
-    return def
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return def
 }
 
 func handleConnect(peerAddr string) {
@@ -602,6 +638,39 @@ func handlePeerID() {
 func createClient() (client.NetworkClient, error) {
 	config := client.DefaultClientConfig("network-cli")
 
+	// Check for existing credentials
+	creds, err := auth.GetValidCredentials()
+	if err != nil {
+		// No valid credentials found, trigger authentication flow
+		fmt.Printf("🔐 Authentication required for DeBros Network CLI\n")
+		fmt.Printf("💡 This will open your browser to authenticate with your wallet\n")
+
+		gatewayURL := auth.GetDefaultGatewayURL()
+		fmt.Printf("🌐 Gateway: %s\n\n", gatewayURL)
+
+		// Perform wallet authentication
+		newCreds, authErr := auth.PerformWalletAuthentication(gatewayURL)
+		if authErr != nil {
+			return nil, fmt.Errorf("authentication failed: %w", authErr)
+		}
+
+		// Save credentials
+		if saveErr := auth.SaveCredentialsForDefaultGateway(newCreds); saveErr != nil {
+			fmt.Printf("⚠️  Warning: failed to save credentials: %v\n", saveErr)
+		} else {
+			fmt.Printf("💾 Credentials saved to ~/.debros/credentials.json\n")
+		}
+
+		creds = newCreds
+	}
+
+	// Configure client with API key
+	config.APIKey = creds.APIKey
+
+	// Update last used time
+	creds.UpdateLastUsed()
+	auth.SaveCredentialsForDefaultGateway(creds) // Best effort save
+
 	networkClient, err := client.NewClient(config)
 	if err != nil {
 		return nil, err
@@ -680,8 +749,8 @@ func showHelp() {
 	fmt.Printf("  pubsub publish <topic> <msg> - Publish message\n")
 	fmt.Printf("  pubsub subscribe <topic> [duration] - Subscribe to topic\n")
 	fmt.Printf("  pubsub topics             - List topics\n")
-    fmt.Printf("  connect <peer_address>    - Connect to peer\n")
-    fmt.Printf("  auth [--gateway URL] [--namespace NS] [--wallet 0x..] [--plan free|premium] - Obtain API key via wallet signature\n")
+	fmt.Printf("  connect <peer_address>    - Connect to peer\n")
+	fmt.Printf("  auth [--gateway URL] [--namespace NS] [--wallet 0x..] [--plan free|premium] - Obtain API key via wallet signature\n")
 	fmt.Printf("  help                      - Show this help\n\n")
 	fmt.Printf("Global Flags:\n")
 	fmt.Printf("  -b, --bootstrap <addr>    - Bootstrap peer address (default: /ip4/127.0.0.1/tcp/4001)\n")

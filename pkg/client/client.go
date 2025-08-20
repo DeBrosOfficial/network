@@ -350,6 +350,11 @@ func (c *Client) getAppNamespace() string {
 
 // requireAccess enforces that credentials are present and that any context-based namespace overrides match
 func (c *Client) requireAccess(ctx context.Context) error {
+	// Allow internal system operations to bypass authentication
+	if IsInternalContext(ctx) {
+		return nil
+	}
+
 	cfg := c.Config()
 	if cfg == nil || (strings.TrimSpace(cfg.APIKey) == "" && strings.TrimSpace(cfg.JWT) == "") {
 		return fmt.Errorf("access denied: API key or JWT required")

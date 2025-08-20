@@ -18,7 +18,6 @@ type Config struct {
 	ListenAddr      string
 	ClientNamespace string
 	BootstrapPeers  []string
-	RequireAuth     bool
 }
 
 type Gateway struct {
@@ -80,9 +79,10 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	// Non-blocking DB migrations: probe RQLite; if reachable, apply migrations asynchronously
 	go func() {
 		if gw.probeRQLiteReachable(3 * time.Second) {
-			if err := gw.applyMigrations(context.Background()); err != nil {
+			internalCtx := gw.withInternalAuth(context.Background())
+			if err := gw.applyMigrations(internalCtx); err != nil {
 				if err == errNoMigrationsFound {
-					if err2 := gw.applyAutoMigrations(context.Background()); err2 != nil {
+					if err2 := gw.applyAutoMigrations(internalCtx); err2 != nil {
 						logger.ComponentWarn(logging.ComponentDatabase, "auto migrations failed", zap.Error(err2))
 					} else {
 						logger.ComponentInfo(logging.ComponentDatabase, "auto migrations applied")
@@ -100,6 +100,11 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Gateway creation completed, returning...")
 	return gw, nil
+}
+
+// withInternalAuth creates a context for internal gateway operations that bypass authentication
+func (g *Gateway) withInternalAuth(ctx context.Context) context.Context {
+	return client.WithInternalAuth(ctx)
 }
 
 // probeRQLiteReachable performs a quick GET /status against candidate endpoints with a short timeout.

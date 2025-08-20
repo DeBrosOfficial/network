@@ -42,7 +42,6 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 	addr := flag.String("addr", getEnvDefault("GATEWAY_ADDR", ":8080"), "HTTP listen address (e.g., :8080)")
 	ns := flag.String("namespace", getEnvDefault("GATEWAY_NAMESPACE", "default"), "Client namespace for scoping resources")
 	peers := flag.String("bootstrap-peers", getEnvDefault("GATEWAY_BOOTSTRAP_PEERS", ""), "Comma-separated bootstrap peers for network client")
-    requireAuth := flag.Bool("require-auth", getEnvBoolDefault("GATEWAY_REQUIRE_AUTH", false), "Require API key authentication for requests")
 
 	// Do not call flag.Parse() elsewhere to avoid double-parsing
 	flag.Parse()
@@ -62,13 +61,11 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 		zap.String("addr", *addr),
 		zap.String("namespace", *ns),
 		zap.Int("bootstrap_peer_count", len(bootstrap)),
-        zap.Bool("require_auth", *requireAuth),
 	)
 
 	return &gateway.Config{
 		ListenAddr:      *addr,
 		ClientNamespace: *ns,
 		BootstrapPeers:  bootstrap,
-		RequireAuth:     *requireAuth,
 	}
 }

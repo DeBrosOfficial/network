@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/logging"
 	"go.uber.org/zap"
 )
@@ -20,6 +21,9 @@ func (g *Gateway) applyAutoMigrations(ctx context.Context) error {
 		return nil
 	}
 	db := g.client.Database()
+
+	// Use internal context to bypass authentication for system migrations
+	internalCtx := client.WithInternalAuth(ctx)
 
 	stmts := []string{
 		// namespaces
@@ -35,8 +39,8 @@ func (g *Gateway) applyAutoMigrations(ctx context.Context) error {
 		"INSERT OR IGNORE INTO namespaces(name) VALUES ('default')",
 	}
 
-	for _, s := range stmts {
-		if _, err := db.Query(ctx, s); err != nil {
+	for _, stmt := range stmts {
+		if _, err := db.Query(internalCtx, stmt); err != nil {
 			return err
 		}
 	}
@@ -49,13 +53,16 @@ func (g *Gateway) applyMigrations(ctx context.Context) error {
 	}
 	db := g.client.Database()
 
+	// Use internal context to bypass authentication for system migrations
+	internalCtx := client.WithInternalAuth(ctx)
+
 	// Ensure schema_migrations exists first
-	if _, err := db.Query(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations (\n\tversion INTEGER PRIMARY KEY,\n\tapplied_at TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))\n)"); err != nil {
+	if _, err := db.Query(internalCtx, "CREATE TABLE IF NOT EXISTS schema_migrations (\n\tversion INTEGER PRIMARY KEY,\n\tapplied_at TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))\n)"); err != nil {
 		return err
 	}
 
-    // Locate migrations directory relative to CWD
-    migDir := "migrations"
+	// Locate migrations directory relative to CWD
+	migDir := "migrations"
 	if fi, err := os.Stat(migDir); err != nil || !fi.IsDir() {
 		return errNoMigrationsFound
 	}
@@ -64,12 +71,19 @@ func (g *Gateway) applyMigrations(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	type mig struct{ ver int; path string }
+	type mig struct {
+		ver  int
+		path string
+	}
 	migrations := make([]mig, 0)
 	for _, e := range entries {
-		if e.IsDir() { continue }
+		if e.IsDir() {
+			continue
+		}
 		name := e.Name()
-		if !strings.HasSuffix(strings.ToLower(name), ".sql") { continue }
+		if !strings.HasSuffix(strings.ToLower(name), ".sql") {
+			continue
+		}
 		if ver, ok := parseMigrationVersion(name); ok {
 			migrations = append(migrations, mig{ver: ver, path: filepath.Join(migDir, name)})
 		}
@@ -79,31 +93,39 @@ func (g *Gateway) applyMigrations(ctx context.Context) error {
 	}
 	sort.Slice(migrations, func(i, j int) bool { return migrations[i].ver < migrations[j].ver })
 
-    // Helper to check if version applied
+	// Helper to check if version applied
 	isApplied := func(ctx context.Context, v int) (bool, error) {
 		res, err := db.Query(ctx, "SELECT 1 FROM schema_migrations WHERE version = ? LIMIT 1", v)
-		if err != nil { return false, err }
+		if err != nil {
+			return false, err
+		}
 		return res != nil && res.Count > 0, nil
 	}
 
 	for _, m := range migrations {
-		applied, err := isApplied(ctx, m.ver)
-		if err != nil { return err }
+		applied, err := isApplied(internalCtx, m.ver)
+		if err != nil {
+			return err
+		}
 		if applied {
 			continue
 		}
 		// Read and split SQL file into statements
 		content, err := os.ReadFile(m.path)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		stmts := splitSQLStatements(string(content))
 		for _, s := range stmts {
-			if s == "" { continue }
-			if _, err := db.Query(ctx, s); err != nil {
+			if s == "" {
+				continue
+			}
+			if _, err := db.Query(internalCtx, s); err != nil {
 				return err
 			}
 		}
 		// Mark as applied
-		if _, err := db.Query(ctx, "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)", m.ver); err != nil {
+		if _, err := db.Query(internalCtx, "INSERT INTO schema_migrations (version) VALUES (?)", m.ver); err != nil {
 			return err
 		}
 		g.logger.ComponentInfo(logging.ComponentDatabase, "applied migration", zap.Int("version", m.ver), zap.String("file", m.path))
@@ -116,9 +138,13 @@ func parseMigrationVersion(name string) (int, bool) {
 	for i < len(name) && name[i] >= '0' && name[i] <= '9' {
 		i++
 	}
-	if i == 0 { return 0, false }
+	if i == 0 {
+		return 0, false
+	}
 	v, err := strconv.Atoi(name[:i])
-	if err != nil { return 0, false }
+	if err != nil {
+		return 0, false
+	}
 	return v, true
 }
 
@@ -127,8 +153,16 @@ func splitSQLStatements(sqlText string) []string {
 	cleaned := make([]string, 0, len(lines))
 	for _, ln := range lines {
 		s := strings.TrimSpace(ln)
-		if s == "" { continue }
-		if strings.HasPrefix(s, "--") { continue }
+		if s == "" {
+			continue
+		}
+		// Handle inline comments by removing everything after --
+		if commentIdx := strings.Index(s, "--"); commentIdx >= 0 {
+			s = strings.TrimSpace(s[:commentIdx])
+			if s == "" {
+				continue // line was only a comment
+			}
+		}
 		upper := strings.ToUpper(s)
 		if upper == "BEGIN;" || upper == "COMMIT;" || upper == "BEGIN" || upper == "COMMIT" {
 			continue
@@ -145,8 +179,10 @@ func splitSQLStatements(sqlText string) []string {
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		sp := strings.TrimSpace(p)
-		if sp == "" { continue }
-		out = append(out, sp)
+		if sp == "" {
+			continue
+		}
+		out = append(out, sp+";")
 	}
 	return out
 }

@@ -2,7 +2,7 @@ package gateway
 
 import (
 	"context"
-    "encoding/json"
+	"encoding/json"
 	"net"
 	"net/http"
 	"strconv"
@@ -51,17 +51,11 @@ func (g *Gateway) loggingMiddleware(next http.Handler) http.Handler {
 
 // authMiddleware enforces auth when enabled via config.
 // Accepts:
-//  - Authorization: Bearer <JWT> (RS256 issued by this gateway)
-//  - Authorization: Bearer <API key> or ApiKey <API key>
-//  - X-API-Key: <API key>
+//   - Authorization: Bearer <JWT> (RS256 issued by this gateway)
+//   - Authorization: Bearer <API key> or ApiKey <API key>
+//   - X-API-Key: <API key>
 func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// If auth not required, pass through.
-		if g.cfg == nil || !g.cfg.RequireAuth {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		// Allow preflight without auth
 		if r.Method == http.MethodOptions {
 			next.ServeHTTP(w, r)
@@ -93,44 +87,44 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-        // 2) Fallback to API key (validate against DB)
-        key := extractAPIKey(r)
-        if key == "" {
-            w.Header().Set("WWW-Authenticate", "Bearer realm=\"gateway\", charset=\"UTF-8\"")
-            writeError(w, http.StatusUnauthorized, "missing API key")
-            return
-        }
+		// 2) Fallback to API key (validate against DB)
+		key := extractAPIKey(r)
+		if key == "" {
+			w.Header().Set("WWW-Authenticate", "Bearer realm=\"gateway\", charset=\"UTF-8\"")
+			writeError(w, http.StatusUnauthorized, "missing API key")
+			return
+		}
 
-        // Look up API key in DB and derive namespace
-        db := g.client.Database()
-        ctx := r.Context()
-        // Join to namespaces to resolve name in one query
-        q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
-        res, err := db.Query(ctx, q, key)
-        if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
-            w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
-            writeError(w, http.StatusUnauthorized, "invalid API key")
-            return
-        }
-        // Extract namespace name
-        var ns string
-        if s, ok := res.Rows[0][0].(string); ok {
-            ns = strings.TrimSpace(s)
-        } else {
-            b, _ := json.Marshal(res.Rows[0][0])
-            _ = json.Unmarshal(b, &ns)
-            ns = strings.TrimSpace(ns)
-        }
-        if ns == "" {
-            w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
-            writeError(w, http.StatusUnauthorized, "invalid API key")
-            return
-        }
+		// Look up API key in DB and derive namespace
+		db := g.client.Database()
+		ctx := r.Context()
+		// Join to namespaces to resolve name in one query
+		q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
+		res, err := db.Query(ctx, q, key)
+		if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+			w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
+			writeError(w, http.StatusUnauthorized, "invalid API key")
+			return
+		}
+		// Extract namespace name
+		var ns string
+		if s, ok := res.Rows[0][0].(string); ok {
+			ns = strings.TrimSpace(s)
+		} else {
+			b, _ := json.Marshal(res.Rows[0][0])
+			_ = json.Unmarshal(b, &ns)
+			ns = strings.TrimSpace(ns)
+		}
+		if ns == "" {
+			w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
+			writeError(w, http.StatusUnauthorized, "invalid API key")
+			return
+		}
 
-        // Attach auth metadata to context for downstream use
-        ctx = context.WithValue(ctx, ctxKeyAPIKey, key)
-        ctx = storage.WithNamespace(ctx, ns)
-        next.ServeHTTP(w, r.WithContext(ctx))
+		// Attach auth metadata to context for downstream use
+		ctx = context.WithValue(ctx, ctxKeyAPIKey, key)
+		ctx = storage.WithNamespace(ctx, ns)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -162,7 +156,7 @@ func extractAPIKey(r *http.Request) string {
 // isPublicPath returns true for routes that should be accessible without API key auth
 func isPublicPath(p string) bool {
 	switch p {
-    case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout", "/v1/auth/api-key":
+	case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/login", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout", "/v1/auth/api-key":
 		return true
 	default:
 		return false
@@ -173,8 +167,8 @@ func isPublicPath(p string) bool {
 // for certain protected paths (e.g., apps CRUD and storage APIs).
 func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip if auth not required or for public/OPTIONS paths
-		if g.cfg == nil || !g.cfg.RequireAuth || r.Method == http.MethodOptions || isPublicPath(r.URL.Path) {
+		// Skip for public/OPTIONS paths only
+		if r.Method == http.MethodOptions || isPublicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -258,16 +252,16 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 // requiresNamespaceOwnership returns true if the path should be guarded by
 // namespace ownership checks.
 func requiresNamespaceOwnership(p string) bool {
-    if p == "/storage" || p == "/v1/storage" || strings.HasPrefix(p, "/v1/storage/") {
-        return true
-    }
-    if p == "/v1/apps" || strings.HasPrefix(p, "/v1/apps/") {
-        return true
-    }
-    if strings.HasPrefix(p, "/v1/pubsub") {
-        return true
-    }
-    return false
+	if p == "/storage" || p == "/v1/storage" || strings.HasPrefix(p, "/v1/storage/") {
+		return true
+	}
+	if p == "/v1/apps" || strings.HasPrefix(p, "/v1/apps/") {
+		return true
+	}
+	if strings.HasPrefix(p, "/v1/pubsub") {
+		return true
+	}
+	return false
 }
 
 // corsMiddleware applies permissive CORS headers suitable for early development

@@ -62,7 +62,7 @@ func (d *DatabaseClientImpl) Query(ctx context.Context, sql string, args ...inte
 	}
 
 	if err := d.client.requireAccess(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	// Determine if this is a read or write operation
@@ -265,7 +265,7 @@ func (d *DatabaseClientImpl) Transaction(ctx context.Context, queries []string) 
 	}
 
 	if err := d.client.requireAccess(ctx); err != nil {
-		return err
+		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	maxRetries := 3
@@ -307,7 +307,7 @@ func (d *DatabaseClientImpl) CreateTable(ctx context.Context, schema string) err
 	}
 
 	if err := d.client.requireAccess(ctx); err != nil {
-		return err
+		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	return d.withRetry(func(conn *gorqlite.Connection) error {
@@ -319,10 +319,6 @@ func (d *DatabaseClientImpl) CreateTable(ctx context.Context, schema string) err
 // DropTable drops a table
 func (d *DatabaseClientImpl) DropTable(ctx context.Context, tableName string) error {
 	if err := d.checkConnection(); err != nil {
-		return err
-	}
-
-	if err := d.client.requireAccess(ctx); err != nil {
 		return err
 	}
 
@@ -340,7 +336,7 @@ func (d *DatabaseClientImpl) GetSchema(ctx context.Context) (*SchemaInfo, error)
 	}
 
 	if err := d.client.requireAccess(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	// Get RQLite connection
@@ -417,7 +413,7 @@ func (s *StorageClientImpl) Get(ctx context.Context, key string) ([]byte, error)
 	}
 
 	if err := s.client.requireAccess(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	return s.storageClient.Get(ctx, key)
@@ -430,7 +426,7 @@ func (s *StorageClientImpl) Put(ctx context.Context, key string, value []byte) e
 	}
 
 	if err := s.client.requireAccess(ctx); err != nil {
-		return err
+		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	err := s.storageClient.Put(ctx, key, value)
@@ -448,7 +444,7 @@ func (s *StorageClientImpl) Delete(ctx context.Context, key string) error {
 	}
 
 	if err := s.client.requireAccess(ctx); err != nil {
-		return err
+		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	err := s.storageClient.Delete(ctx, key)
@@ -466,7 +462,7 @@ func (s *StorageClientImpl) List(ctx context.Context, prefix string, limit int) 
 	}
 
 	if err := s.client.requireAccess(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	return s.storageClient.List(ctx, prefix, limit)
@@ -479,7 +475,7 @@ func (s *StorageClientImpl) Exists(ctx context.Context, key string) (bool, error
 	}
 
 	if err := s.client.requireAccess(ctx); err != nil {
-		return false, err
+		return false, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	return s.storageClient.Exists(ctx, key)
@@ -497,7 +493,7 @@ func (n *NetworkInfoImpl) GetPeers(ctx context.Context) ([]PeerInfo, error) {
 	}
 
 	if err := n.client.requireAccess(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	// Get peers from LibP2P host
@@ -557,7 +553,7 @@ func (n *NetworkInfoImpl) GetStatus(ctx context.Context) (*NetworkStatus, error)
 	}
 
 	if err := n.client.requireAccess(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	host := n.client.host
@@ -600,7 +596,7 @@ func (n *NetworkInfoImpl) ConnectToPeer(ctx context.Context, peerAddr string) er
 	}
 
 	if err := n.client.requireAccess(ctx); err != nil {
-		return err
+		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	host := n.client.host
@@ -635,7 +631,7 @@ func (n *NetworkInfoImpl) DisconnectFromPeer(ctx context.Context, peerID string)
 	}
 
 	if err := n.client.requireAccess(ctx); err != nil {
-		return err
+		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
 	host := n.client.host
