@@ -124,11 +124,6 @@ func (c *Client) Connect() error {
 		return nil
 	}
 
-	// Enforce credentials are present
-	if c.config == nil || (strings.TrimSpace(c.config.APIKey) == "" && strings.TrimSpace(c.config.JWT) == "") {
-		return fmt.Errorf("access denied: API key or JWT required")
-	}
-
 	// Derive and set namespace from provided credentials
 	ns, err := c.deriveNamespace()
 	if err != nil {
@@ -171,6 +166,8 @@ func (c *Client) Connect() error {
 		zap.Strings("listen_addrs", addrStrs),
 	)
 
+	c.logger.Info("Creating GossipSub...")
+
 	// Create LibP2P GossipSub with PeerExchange enabled (gossip-based peer exchange).
 	// Peer exchange helps propagate peer addresses via pubsub gossip and is enabled
 	// globally so discovery works without Anchat-specific branches.
@@ -183,17 +180,39 @@ func (c *Client) Connect() error {
 		return fmt.Errorf("failed to create pubsub: %w", err)
 	}
 	c.libp2pPS = ps
+	c.logger.Info("GossipSub created successfully")
 
-	// Create pubsub bridge once and store it
-	adapter := pubsub.NewClientAdapter(c.libp2pPS, c.getAppNamespace())
+	c.logger.Info("Creating pubsub bridge...")
+
+	c.logger.Info("Getting app namespace for pubsub...")
+	// Access namespace directly to avoid deadlock (we already hold c.mu.Lock())
+	var namespace string
+	if c.resolvedNamespace != "" {
+		namespace = c.resolvedNamespace
+	} else {
+		namespace = c.config.AppName
+	}
+	c.logger.Info("App namespace retrieved", zap.String("namespace", namespace))
+
+	c.logger.Info("Calling pubsub.NewClientAdapter...")
+	adapter := pubsub.NewClientAdapter(c.libp2pPS, namespace)
+	c.logger.Info("pubsub.NewClientAdapter completed successfully")
+
+	c.logger.Info("Creating pubSubBridge...")
 	c.pubsub = &pubSubBridge{client: c, adapter: adapter}
+	c.logger.Info("Pubsub bridge created successfully")
 
-	// Create storage client with the host
-	storageClient := storage.NewClient(h, c.getAppNamespace(), c.logger)
+	c.logger.Info("Creating storage client...")
+
+	// Create storage client with the host (use namespace directly to avoid deadlock)
+	storageClient := storage.NewClient(h, namespace, c.logger)
 	c.storage = &StorageClientImpl{
 		client:        c,
 		storageClient: storageClient,
 	}
+	c.logger.Info("Storage client created successfully")
+
+	c.logger.Info("Starting bootstrap peer connections...")
 
 	// Connect to bootstrap peers FIRST
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.ConnectTimeout)
@@ -201,6 +220,7 @@ func (c *Client) Connect() error {
 
 	bootstrapPeersConnected := 0
 	for _, bootstrapAddr := range c.config.BootstrapPeers {
+		c.logger.Info("Attempting to connect to bootstrap peer", zap.String("addr", bootstrapAddr))
 		if err := c.connectToBootstrap(ctx, bootstrapAddr); err != nil {
 			c.logger.Warn("Failed to connect to bootstrap peer",
 				zap.String("addr", bootstrapAddr),
@@ -208,11 +228,16 @@ func (c *Client) Connect() error {
 			continue
 		}
 		bootstrapPeersConnected++
+		c.logger.Info("Successfully connected to bootstrap peer", zap.String("addr", bootstrapAddr))
 	}
 
 	if bootstrapPeersConnected == 0 {
 		c.logger.Warn("No bootstrap peers connected, continuing anyway")
+	} else {
+		c.logger.Info("Bootstrap peer connections completed", zap.Int("connected_count", bootstrapPeersConnected))
 	}
+
+	c.logger.Info("Adding bootstrap peers to peerstore...")
 
 	// Add bootstrap peers to peerstore so we can connect to them later
 	for _, bootstrapAddr := range c.config.BootstrapPeers {
@@ -224,6 +249,9 @@ func (c *Client) Connect() error {
 			}
 		}
 	}
+	c.logger.Info("Bootstrap peers added to peerstore")
+
+	c.logger.Info("Starting connection monitoring...")
 
 	// Client is a lightweight P2P participant - no discovery needed
 	// We only connect to known bootstrap peers and let nodes handle discovery
@@ -231,10 +259,14 @@ func (c *Client) Connect() error {
 
 	// Start minimal connection monitoring
 	c.startConnectionMonitoring()
+	c.logger.Info("Connection monitoring started")
+
+	c.logger.Info("Setting connected state...")
 
 	c.connected = true
+	c.logger.Info("Connected state set to true")
 
-	c.logger.Info("Client connected", zap.String("namespace", c.getAppNamespace()))
+	c.logger.Info("Client connected", zap.String("namespace", namespace))
 
 	return nil
 }

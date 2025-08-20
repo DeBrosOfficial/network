@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"git.debros.io/DeBros/network/pkg/storage"
+    "git.debros.io/DeBros/network/pkg/storage"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -211,8 +211,8 @@ func (g *Gateway) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "signing key unavailable")
 		return
 	}
-	// Issue access token (15m) and a refresh token (30d)
-	token, expUnix, err := g.generateJWT(ns, req.Wallet, 15*time.Minute)
+    // Issue access token (15m) and a refresh token (30d)
+    token, expUnix, err := g.generateJWT(ns, req.Wallet, 15*time.Minute)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -238,6 +238,176 @@ func (g *Gateway) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		"nonce":              req.Nonce,
 		"signature_verified": true,
 	})
+}
+
+// issueAPIKeyHandler creates or returns an API key for a verified wallet in a namespace.
+// Requires: POST { wallet, nonce, signature, namespace }
+// Behavior:
+//  - Validates nonce and signature like verifyHandler
+//  - Ensures namespace exists
+//  - If an API key already exists for (namespace, wallet), returns it; else creates one
+//  - Records namespace ownership mapping for the wallet and api_key
+func (g *Gateway) issueAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
+    if g.client == nil {
+        writeError(w, http.StatusServiceUnavailable, "client not initialized")
+        return
+    }
+    if r.Method != http.MethodPost {
+        writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+        return
+    }
+    var req struct {
+        Wallet    string `json:"wallet"`
+        Nonce     string `json:"nonce"`
+        Signature string `json:"signature"`
+        Namespace string `json:"namespace"`
+        Plan      string `json:"plan"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        writeError(w, http.StatusBadRequest, "invalid json body")
+        return
+    }
+    if strings.TrimSpace(req.Wallet) == "" || strings.TrimSpace(req.Nonce) == "" || strings.TrimSpace(req.Signature) == "" {
+        writeError(w, http.StatusBadRequest, "wallet, nonce and signature are required")
+        return
+    }
+    ns := strings.TrimSpace(req.Namespace)
+    if ns == "" {
+        ns = strings.TrimSpace(g.cfg.ClientNamespace)
+        if ns == "" { ns = "default" }
+    }
+    ctx := r.Context()
+    db := g.client.Database()
+    // Resolve namespace id
+    nsID, err := g.resolveNamespaceID(ctx, ns)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, err.Error())
+        return
+    }
+    // Validate nonce exists and not used/expired
+    q := "SELECT id FROM nonces WHERE namespace_id = ? AND wallet = ? AND nonce = ? AND used_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now')) LIMIT 1"
+    nres, err := db.Query(ctx, q, nsID, req.Wallet, req.Nonce)
+    if err != nil || nres == nil || nres.Count == 0 {
+        writeError(w, http.StatusBadRequest, "invalid or expired nonce")
+        return
+    }
+    nonceID := nres.Rows[0][0]
+    // Verify signature like verifyHandler
+    msg := []byte(req.Nonce)
+    prefix := []byte("\x19Ethereum Signed Message:\n" + strconv.Itoa(len(msg)))
+    hash := ethcrypto.Keccak256(prefix, msg)
+    sigHex := strings.TrimSpace(req.Signature)
+    if strings.HasPrefix(sigHex, "0x") || strings.HasPrefix(sigHex, "0X") { sigHex = sigHex[2:] }
+    sig, err := hex.DecodeString(sigHex)
+    if err != nil || len(sig) != 65 {
+        writeError(w, http.StatusBadRequest, "invalid signature format")
+        return
+    }
+    if sig[64] >= 27 { sig[64] -= 27 }
+    pub, err := ethcrypto.SigToPub(hash, sig)
+    if err != nil {
+        writeError(w, http.StatusUnauthorized, "signature recovery failed")
+        return
+    }
+    addr := ethcrypto.PubkeyToAddress(*pub).Hex()
+    want := strings.ToLower(strings.TrimPrefix(strings.TrimPrefix(req.Wallet, "0x"), "0X"))
+    got := strings.ToLower(strings.TrimPrefix(strings.TrimPrefix(addr, "0x"), "0X"))
+    if got != want {
+        writeError(w, http.StatusUnauthorized, "signature does not match wallet")
+        return
+    }
+    // Mark nonce used
+    if _, err := db.Query(ctx, "UPDATE nonces SET used_at = datetime('now') WHERE id = ?", nonceID); err != nil {
+        writeError(w, http.StatusInternalServerError, err.Error())
+        return
+    }
+    // Check if api key exists for (namespace, wallet) via linkage table
+    var apiKey string
+    r1, err := db.Query(ctx, "SELECT api_keys.key FROM wallet_api_keys JOIN api_keys ON wallet_api_keys.api_key_id = api_keys.id WHERE wallet_api_keys.namespace_id = ? AND LOWER(wallet_api_keys.wallet) = LOWER(?) LIMIT 1", nsID, req.Wallet)
+    if err == nil && r1 != nil && r1.Count > 0 && len(r1.Rows) > 0 && len(r1.Rows[0]) > 0 {
+        if s, ok := r1.Rows[0][0].(string); ok { apiKey = s } else { b, _ := json.Marshal(r1.Rows[0][0]); _ = json.Unmarshal(b, &apiKey) }
+    }
+    if strings.TrimSpace(apiKey) == "" {
+        // Create new API key with format ak_<random>:<namespace>
+        buf := make([]byte, 18)
+        if _, err := rand.Read(buf); err != nil {
+            writeError(w, http.StatusInternalServerError, "failed to generate api key")
+            return
+        }
+        apiKey = "ak_" + base64.RawURLEncoding.EncodeToString(buf) + ":" + ns
+        if _, err := db.Query(ctx, "INSERT INTO api_keys(key, name, namespace_id) VALUES (?, ?, ?)", apiKey, "", nsID); err != nil {
+            writeError(w, http.StatusInternalServerError, err.Error())
+            return
+        }
+        // Create linkage
+        // Find api_key id
+        rid, err := db.Query(ctx, "SELECT id FROM api_keys WHERE key = ? LIMIT 1", apiKey)
+        if err == nil && rid != nil && rid.Count > 0 && len(rid.Rows) > 0 && len(rid.Rows[0]) > 0 {
+            apiKeyID := rid.Rows[0][0]
+            _, _ = db.Query(ctx, "INSERT OR IGNORE INTO wallet_api_keys(namespace_id, wallet, api_key_id) VALUES (?, ?, ?)", nsID, strings.ToLower(req.Wallet), apiKeyID)
+        }
+    }
+    // Record ownerships (best-effort)
+    _, _ = db.Query(ctx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, 'api_key', ?)", nsID, apiKey)
+    _, _ = db.Query(ctx, "INSERT OR IGNORE INTO namespace_ownership(namespace_id, owner_type, owner_id) VALUES (?, 'wallet', ?)", nsID, req.Wallet)
+
+    writeJSON(w, http.StatusOK, map[string]any{
+        "api_key":   apiKey,
+        "namespace": ns,
+        "plan":      func() string { if strings.TrimSpace(req.Plan) == "" { return "free" } else { return req.Plan } }(),
+        "wallet":    strings.ToLower(strings.TrimPrefix(strings.TrimPrefix(req.Wallet, "0x"), "0X")),
+    })
+}
+
+// apiKeyToJWTHandler issues a short-lived JWT for use with the gateway from a valid API key.
+// Requires Authorization header with API key (Bearer or ApiKey or X-API-Key header).
+// Returns a JWT bound to the namespace derived from the API key record.
+func (g *Gateway) apiKeyToJWTHandler(w http.ResponseWriter, r *http.Request) {
+    if g.client == nil {
+        writeError(w, http.StatusServiceUnavailable, "client not initialized")
+        return
+    }
+    if r.Method != http.MethodPost {
+        writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+        return
+    }
+    key := extractAPIKey(r)
+    if strings.TrimSpace(key) == "" {
+        writeError(w, http.StatusUnauthorized, "missing API key")
+        return
+    }
+    // Validate and get namespace
+    db := g.client.Database()
+    ctx := r.Context()
+    q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
+    res, err := db.Query(ctx, q, key)
+    if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+        writeError(w, http.StatusUnauthorized, "invalid API key")
+        return
+    }
+    var ns string
+    if s, ok := res.Rows[0][0].(string); ok { ns = s } else { b, _ := json.Marshal(res.Rows[0][0]); _ = json.Unmarshal(b, &ns) }
+    ns = strings.TrimSpace(ns)
+    if ns == "" {
+        writeError(w, http.StatusUnauthorized, "invalid API key")
+        return
+    }
+    if g.signingKey == nil {
+        writeError(w, http.StatusServiceUnavailable, "signing key unavailable")
+        return
+    }
+    // Subject is the API key string for now
+    token, expUnix, err := g.generateJWT(ns, key, 15*time.Minute)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, err.Error())
+        return
+    }
+    writeJSON(w, http.StatusOK, map[string]any{
+        "access_token": token,
+        "token_type":   "Bearer",
+        "expires_in":   int(expUnix - time.Now().Unix()),
+        "namespace":    ns,
+    })
 }
 
 func (g *Gateway) registerHandler(w http.ResponseWriter, r *http.Request) {

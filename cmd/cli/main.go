@@ -5,7 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+    "log"
+    "net"
+    "net/http"
 	"os"
+    "os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -83,6 +87,8 @@ func main() {
 		handlePeerID()
 	case "help", "--help", "-h":
 		showHelp()
+    case "auth":
+        handleAuth(args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		showHelp()
@@ -358,6 +364,155 @@ func handlePubSub(args []string) {
 	}
 }
 
+// handleAuth launches a local webpage to perform wallet signature and obtain an API key.
+// Usage: network-cli auth [--gateway <url>] [--namespace <ns>] [--wallet <evm_addr>] [--plan <free|premium>]
+func handleAuth(args []string) {
+    // Defaults
+    gatewayURL := getenvDefault("GATEWAY_URL", "http://localhost:8080")
+    namespace := getenvDefault("GATEWAY_NAMESPACE", "default")
+    wallet := ""
+    plan := "free"
+
+    // Parse simple flags
+    for i := 0; i < len(args); i++ {
+        switch args[i] {
+        case "--gateway":
+            if i+1 < len(args) { gatewayURL = strings.TrimSpace(args[i+1]); i++ }
+        case "--namespace":
+            if i+1 < len(args) { namespace = strings.TrimSpace(args[i+1]); i++ }
+        case "--wallet":
+            if i+1 < len(args) { wallet = strings.TrimSpace(args[i+1]); i++ }
+        case "--plan":
+            if i+1 < len(args) { plan = strings.TrimSpace(strings.ToLower(args[i+1])); i++ }
+        }
+    }
+
+    // Spin up local HTTP server on random port
+    ln, err := net.Listen("tcp", "localhost:0")
+    if err != nil { fmt.Fprintf(os.Stderr, "Failed to listen: %v\n", err); os.Exit(1) }
+    defer ln.Close()
+    addr := ln.Addr().String()
+    // Normalize URL host to localhost for consistency with gateway default
+    parts := strings.Split(addr, ":")
+    listenURL := "http://localhost:" + parts[len(parts)-1] + "/"
+
+    // Channel to receive API key
+    type result struct { APIKey string `json:"api_key"`; Namespace string `json:"namespace"` }
+    resCh := make(chan result, 1)
+    srv := &http.Server{}
+
+    mux := http.NewServeMux()
+    // Root serves the HTML page with embedded gateway URL and defaults
+    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "text/html; charset=utf-8")
+        fmt.Fprintf(w, `<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>DeBros Auth</title>
+<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:2rem;max-width:720px}input,button,select{font-size:1rem;padding:.5rem;margin:.25rem 0}code{background:#f5f5f5;padding:.2rem .4rem;border-radius:4px}</style>
+</head>
+<body>
+<h2>Authenticate with Wallet to Get API Key</h2>
+<p>This will create or return an API key for namespace <code id="ns"></code> on gateway <code id="gw"></code>.</p>
+<label>Wallet Address</label><br>
+<input id="wallet" placeholder="0x..." style="width:100%%"/><br>
+<label>Plan</label><br>
+<select id="plan"><option value="free">free</option><option value="premium">premium (0.1 ETH)</option></select><br>
+<button id="connect">Connect Wallet</button>
+<button id="sign">Sign & Generate API Key</button>
+<pre id="out" style="white-space:pre-wrap"></pre>
+<script>
+const GATEWAY = %q;
+const DEFAULT_NS = %q;
+const DEFAULT_WALLET = %q;
+document.getElementById('gw').textContent = GATEWAY;
+document.getElementById('ns').textContent = DEFAULT_NS;
+document.getElementById('wallet').value = DEFAULT_WALLET;
+document.getElementById('plan').value = %q;
+const out = document.getElementById('out');
+function log(m){ out.textContent += m + "\n" }
+document.getElementById('connect').onclick = async () => {
+  if (!window.ethereum) { log('No wallet provider found (window.ethereum). Install MetaMask.'); return }
+  try { await window.ethereum.request({ method:'eth_requestAccounts' }); log('Wallet connected.'); } catch(e){ log('Connect failed: '+e.message) }
+};
+document.getElementById('sign').onclick = async () => {
+  try {
+    const wallet = document.getElementById('wallet').value.trim();
+    const plan = document.getElementById('plan').value;
+    if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) { log('Enter a valid EVM address'); return }
+    // Request nonce
+    const ch = await fetch(GATEWAY+"/v1/auth/challenge", {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({wallet, purpose:'api_key', namespace: DEFAULT_NS})});
+    if (!ch.ok) { const t = await ch.text(); log('Challenge failed: '+t); return }
+    const cj = await ch.json();
+    const nonce = cj.nonce;
+    // Sign nonce
+    let sig = await window.ethereum.request({ method:'personal_sign', params:[ nonce, wallet ] });
+    // Issue or fetch API key
+    const resp = await fetch(GATEWAY+"/v1/auth/api-key", {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({wallet, nonce, signature: sig, namespace: DEFAULT_NS, plan})});
+    if (!resp.ok) { const t = await resp.text(); log('Issue API key failed: '+t); return }
+    const data = await resp.json();
+    log('API Key: '+data.api_key+'\nNamespace: '+data.namespace);
+    // Send back to CLI
+    await fetch('/callback', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+  } catch(e){ log('Error: '+e.message) }
+};
+</script>
+</body></html>`, gatewayURL, namespace, wallet, plan)
+    })
+    // Callback to deliver API key back to CLI
+    mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        var payload struct{ APIKey string `json:"api_key"`; Namespace string `json:"namespace"` }
+        if err := json.NewDecoder(r.Body).Decode(&payload); err != nil { w.WriteHeader(http.StatusBadRequest); return }
+        if strings.TrimSpace(payload.APIKey) == "" { w.WriteHeader(http.StatusBadRequest); return }
+        select { case resCh <- result{APIKey: payload.APIKey, Namespace: payload.Namespace}: default: }
+        _, _ = w.Write([]byte("ok"))
+        go func(){ time.Sleep(500*time.Millisecond); _ = srv.Close() }()
+    })
+    srv.Handler = mux
+
+    // Open browser
+    url := listenURL
+    go func(){
+        // Try to open in default browser
+        _ = openBrowser(url)
+    }()
+
+    // Serve and wait for result or timeout
+    go func(){ _ = srv.Serve(ln) }()
+    fmt.Printf("🌐 Please complete authentication in your browser: %s\n", url)
+    select {
+    case r := <-resCh:
+        fmt.Printf("✅ API Key issued for namespace '%s'\n", r.Namespace)
+        fmt.Printf("%s\n", r.APIKey)
+    case <-time.After(5 * time.Minute):
+        fmt.Fprintf(os.Stderr, "Timed out waiting for wallet signature.\n")
+        _ = srv.Close()
+        os.Exit(1)
+    }
+}
+
+func openBrowser(target string) error {
+    cmds := [][]string{
+        {"xdg-open", target},
+        {"open", target},
+        {"cmd", "/c", "start", target},
+    }
+    for _, c := range cmds {
+        cmd := exec.Command(c[0], c[1:]...)
+        if err := cmd.Start(); err == nil { return nil }
+    }
+    log.Printf("Please open %s manually", target)
+    return nil
+}
+
+// getenvDefault returns env var or default if empty/undefined.
+func getenvDefault(key, def string) string {
+    if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+        return v
+    }
+    return def
+}
+
 func handleConnect(peerAddr string) {
 	client, err := createClient()
 	if err != nil {
@@ -525,7 +680,8 @@ func showHelp() {
 	fmt.Printf("  pubsub publish <topic> <msg> - Publish message\n")
 	fmt.Printf("  pubsub subscribe <topic> [duration] - Subscribe to topic\n")
 	fmt.Printf("  pubsub topics             - List topics\n")
-	fmt.Printf("  connect <peer_address>    - Connect to peer\n")
+    fmt.Printf("  connect <peer_address>    - Connect to peer\n")
+    fmt.Printf("  auth [--gateway URL] [--namespace NS] [--wallet 0x..] [--plan free|premium] - Obtain API key via wallet signature\n")
 	fmt.Printf("  help                      - Show this help\n\n")
 	fmt.Printf("Global Flags:\n")
 	fmt.Printf("  -b, --bootstrap <addr>    - Bootstrap peer address (default: /ip4/127.0.0.1/tcp/4001)\n")

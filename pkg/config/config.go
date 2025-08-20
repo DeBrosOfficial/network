@@ -110,7 +110,7 @@ func DefaultConfig() *Config {
 		},
 		Discovery: DiscoveryConfig{
 			BootstrapPeers: []string{
-				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWRjaa3STPr2PDVai1eqZ2KEc942sbJpxcd42qSAc1P9A2",
+				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWGqqR8bxgmYsYrGYMKnUWwZUCpioLmA3H37ggRDnAiFa7",
 			},
 			BootstrapPort:     4001,             // Default LibP2P port
 			DiscoveryInterval: time.Second * 15, // Back to 15 seconds for testing

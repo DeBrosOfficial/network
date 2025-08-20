@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+    "encoding/json"
 	"net"
 	"net/http"
 	"strconv"
@@ -92,28 +93,44 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// 2) Fallback to API key
-		key := extractAPIKey(r)
-		if key == "" {
-			w.Header().Set("WWW-Authenticate", "Bearer realm=\"gateway\", charset=\"UTF-8\"")
-			writeError(w, http.StatusUnauthorized, "missing API key")
-			return
-		}
+        // 2) Fallback to API key (validate against DB)
+        key := extractAPIKey(r)
+        if key == "" {
+            w.Header().Set("WWW-Authenticate", "Bearer realm=\"gateway\", charset=\"UTF-8\"")
+            writeError(w, http.StatusUnauthorized, "missing API key")
+            return
+        }
 
-		// Validate key
-		nsOverride, ok := g.cfg.APIKeys[key]
-		if !ok {
-			w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
-			writeError(w, http.StatusUnauthorized, "invalid API key")
-			return
-		}
+        // Look up API key in DB and derive namespace
+        db := g.client.Database()
+        ctx := r.Context()
+        // Join to namespaces to resolve name in one query
+        q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
+        res, err := db.Query(ctx, q, key)
+        if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+            w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
+            writeError(w, http.StatusUnauthorized, "invalid API key")
+            return
+        }
+        // Extract namespace name
+        var ns string
+        if s, ok := res.Rows[0][0].(string); ok {
+            ns = strings.TrimSpace(s)
+        } else {
+            b, _ := json.Marshal(res.Rows[0][0])
+            _ = json.Unmarshal(b, &ns)
+            ns = strings.TrimSpace(ns)
+        }
+        if ns == "" {
+            w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
+            writeError(w, http.StatusUnauthorized, "invalid API key")
+            return
+        }
 
-		// Attach auth metadata to context for downstream use
-		ctx := context.WithValue(r.Context(), ctxKeyAPIKey, key)
-		if ns := strings.TrimSpace(nsOverride); ns != "" {
-			ctx = storage.WithNamespace(ctx, ns)
-		}
-		next.ServeHTTP(w, r.WithContext(ctx))
+        // Attach auth metadata to context for downstream use
+        ctx = context.WithValue(ctx, ctxKeyAPIKey, key)
+        ctx = storage.WithNamespace(ctx, ns)
+        next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -145,7 +162,7 @@ func extractAPIKey(r *http.Request) string {
 // isPublicPath returns true for routes that should be accessible without API key auth
 func isPublicPath(p string) bool {
 	switch p {
-	case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout":
+    case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout", "/v1/auth/api-key":
 		return true
 	default:
 		return false

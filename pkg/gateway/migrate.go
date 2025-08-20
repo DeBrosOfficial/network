@@ -54,8 +54,8 @@ func (g *Gateway) applyMigrations(ctx context.Context) error {
 		return err
 	}
 
-	// Locate migrations directory relative to CWD
-	migDir := "migrations"
+    // Locate migrations directory relative to CWD
+    migDir := "migrations"
 	if fi, err := os.Stat(migDir); err != nil || !fi.IsDir() {
 		return errNoMigrationsFound
 	}
@@ -79,7 +79,7 @@ func (g *Gateway) applyMigrations(ctx context.Context) error {
 	}
 	sort.Slice(migrations, func(i, j int) bool { return migrations[i].ver < migrations[j].ver })
 
-	// Helper to check if version applied
+    // Helper to check if version applied
 	isApplied := func(ctx context.Context, v int) (bool, error) {
 		res, err := db.Query(ctx, "SELECT 1 FROM schema_migrations WHERE version = ? LIMIT 1", v)
 		if err != nil { return false, err }
