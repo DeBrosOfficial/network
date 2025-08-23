@@ -259,6 +259,126 @@ func TestGateway_Database_CreateQueryMigrate(t *testing.T) {
     if resp2.StatusCode != http.StatusOK { t.Fatalf("schema status: %d", resp2.StatusCode) }
 }
 
+func TestGateway_Database_DropTable(t *testing.T) {
+    key := requireAPIKey(t)
+    base := gatewayBaseURL()
+
+    table := fmt.Sprintf("e2e_tmp_%d", time.Now().UnixNano())
+    schema := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, note TEXT)", table)
+    // create
+    body := fmt.Sprintf(`{"schema":%q}`, schema)
+    req, _ := http.NewRequest(http.MethodPost, base+"/v1/db/create-table", strings.NewReader(body))
+    req.Header = authHeader(key)
+    resp, err := httpClient().Do(req)
+    if err != nil { t.Fatalf("create-table do: %v", err) }
+    resp.Body.Close()
+    if resp.StatusCode != http.StatusCreated { t.Fatalf("create-table status: %d", resp.StatusCode) }
+    // drop
+    dbody := fmt.Sprintf(`{"table":%q}`, table)
+    req, _ = http.NewRequest(http.MethodPost, base+"/v1/db/drop-table", strings.NewReader(dbody))
+    req.Header = authHeader(key)
+    resp, err = httpClient().Do(req)
+    if err != nil { t.Fatalf("drop-table do: %v", err) }
+    resp.Body.Close()
+    if resp.StatusCode != http.StatusOK { t.Fatalf("drop-table status: %d", resp.StatusCode) }
+    // verify not in schema
+    req, _ = http.NewRequest(http.MethodGet, base+"/v1/db/schema", nil)
+    req.Header = authHeader(key)
+    resp2, err := httpClient().Do(req)
+    if err != nil { t.Fatalf("schema do: %v", err) }
+    defer resp2.Body.Close()
+    if resp2.StatusCode != http.StatusOK { t.Fatalf("schema status: %d", resp2.StatusCode) }
+    var schemaResp struct{ Tables []struct{ Name string `json:"name"` } `json:"tables"` }
+    if err := json.NewDecoder(resp2.Body).Decode(&schemaResp); err != nil { t.Fatalf("schema decode: %v", err) }
+    for _, tbl := range schemaResp.Tables { if tbl.Name == table { t.Fatalf("table %s still present after drop", table) } }
+}
+
+func TestGateway_Database_RecreateWithFK(t *testing.T) {
+    key := requireAPIKey(t)
+    base := gatewayBaseURL()
+
+    // base tables
+    orgs := fmt.Sprintf("e2e_orgs_%d", time.Now().UnixNano())
+    users := fmt.Sprintf("e2e_users_%d", time.Now().UnixNano())
+    createOrgs := fmt.Sprintf(`{"schema":%q}`, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, name TEXT)", orgs))
+    createUsers := fmt.Sprintf(`{"schema":%q}`, fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, name TEXT, org_id INTEGER, age TEXT)", users))
+
+    for _, body := range []string{createOrgs, createUsers} {
+        req, _ := http.NewRequest(http.MethodPost, base+"/v1/db/create-table", strings.NewReader(body))
+        req.Header = authHeader(key)
+        resp, err := httpClient().Do(req)
+        if err != nil { t.Fatalf("create-table do: %v", err) }
+        resp.Body.Close()
+        if resp.StatusCode != http.StatusCreated { t.Fatalf("create-table status: %d", resp.StatusCode) }
+    }
+    // seed data
+    txSeed := fmt.Sprintf(`{"statements":["INSERT INTO %s(id,name) VALUES (1,'org')","INSERT INTO %s(id,name,org_id,age) VALUES (1,'alice',1,'30')"]}`, orgs, users)
+    req, _ := http.NewRequest(http.MethodPost, base+"/v1/db/transaction", strings.NewReader(txSeed))
+    req.Header = authHeader(key)
+    resp, err := httpClient().Do(req)
+    if err != nil { t.Fatalf("seed tx do: %v", err) }
+    resp.Body.Close()
+    if resp.StatusCode != http.StatusOK { t.Fatalf("seed tx status: %d", resp.StatusCode) }
+
+    // migrate: change users.age TEXT -> INTEGER and add FK to orgs(id)
+    // Note: Some backends may not support connection-scoped BEGIN/COMMIT or PRAGMA via HTTP.
+    // We apply the standard recreate pattern without explicit PRAGMAs/transaction.
+    txMig := fmt.Sprintf(`{"statements":[
+      "CREATE TABLE %s_new (id INTEGER PRIMARY KEY, name TEXT, org_id INTEGER, age INTEGER, FOREIGN KEY(org_id) REFERENCES %s(id) ON DELETE CASCADE)",
+      "INSERT INTO %s_new (id,name,org_id,age) SELECT id,name,org_id, CAST(age AS INTEGER) FROM %s",
+      "DROP TABLE %s",
+      "ALTER TABLE %s_new RENAME TO %s"
+    ]}` , users, orgs, users, users, users, users, users)
+    req, _ = http.NewRequest(http.MethodPost, base+"/v1/db/transaction", strings.NewReader(txMig))
+    req.Header = authHeader(key)
+    resp, err = httpClient().Do(req)
+    if err != nil { t.Fatalf("mig tx do: %v", err) }
+    resp.Body.Close()
+    if resp.StatusCode != http.StatusOK { t.Fatalf("mig tx status: %d", resp.StatusCode) }
+
+    // verify schema type change
+    qBody := fmt.Sprintf(`{"sql":"PRAGMA table_info(%s)"}`, users)
+    req, _ = http.NewRequest(http.MethodPost, base+"/v1/db/query", strings.NewReader(qBody))
+    req.Header = authHeader(key)
+    resp, err = httpClient().Do(req)
+    if err != nil { t.Fatalf("pragma do: %v", err) }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK { t.Fatalf("pragma status: %d", resp.StatusCode) }
+    var qr struct{ Columns []string `json:"columns"`; Rows [][]any `json:"rows"` }
+    if err := json.NewDecoder(resp.Body).Decode(&qr); err != nil { t.Fatalf("pragma decode: %v", err) }
+    // column order: cid,name,type,notnull,dflt_value,pk
+    ageIsInt := false
+    for _, row := range qr.Rows {
+        if len(row) >= 3 && fmt.Sprintf("%v", row[1]) == "age" {
+            tstr := strings.ToUpper(fmt.Sprintf("%v", row[2]))
+            if strings.Contains(tstr, "INT") { ageIsInt = true; break }
+        }
+    }
+    if !ageIsInt {
+        // Fallback: inspect CREATE TABLE SQL from sqlite_master
+        qBody2 := fmt.Sprintf(`{"sql":"SELECT sql FROM sqlite_master WHERE type='table' AND name='%s'"}`, users)
+        req2, _ := http.NewRequest(http.MethodPost, base+"/v1/db/query", strings.NewReader(qBody2))
+        req2.Header = authHeader(key)
+        resp3, err := httpClient().Do(req2)
+        if err != nil { t.Fatalf("sqlite_master do: %v", err) }
+        defer resp3.Body.Close()
+        if resp3.StatusCode != http.StatusOK { t.Fatalf("sqlite_master status: %d", resp3.StatusCode) }
+        var qr2 struct{ Rows [][]any `json:"rows"` }
+        if err := json.NewDecoder(resp3.Body).Decode(&qr2); err != nil { t.Fatalf("sqlite_master decode: %v", err) }
+        found := false
+        for _, row := range qr2.Rows {
+            if len(row) > 0 {
+                sql := strings.ToUpper(fmt.Sprintf("%v", row[0]))
+                if strings.Contains(sql, "AGE INT") || strings.Contains(sql, "AGE INTEGER") {
+                    found = true
+                    break
+                }
+            }
+        }
+        if !found { t.Fatalf("age column type not INTEGER after migration") }
+    }
+}
+
 func toWSURL(httpURL string) string {
 	u, err := url.Parse(httpURL)
 	if err != nil { return httpURL }
