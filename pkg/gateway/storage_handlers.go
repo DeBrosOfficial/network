@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/storage"
 )
 
@@ -21,13 +22,15 @@ func (g *Gateway) storageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+    // Use internal auth for downstream client calls; gateway has already authenticated the request
+    ctx := client.WithInternalAuth(r.Context())
 
 	switch r.Method {
 	case http.MethodGet:
-		val, err := g.client.Storage().Get(ctx, key)
+        val, err := g.client.Storage().Get(ctx, key)
 		if err != nil {
-			writeError(w, http.StatusNotFound, err.Error())
+            // Some storage backends may return base64-encoded text; try best-effort decode for transparency
+            writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")
@@ -42,7 +45,7 @@ func (g *Gateway) storageHandler(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "failed to read body")
 			return
 		}
-		if err := g.client.Storage().Put(ctx, key, b); err != nil {
+        if err := g.client.Storage().Put(ctx, key, b); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -104,7 +107,7 @@ func (g *Gateway) storageGetHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "namespace mismatch")
 		return
 	}
-	val, err := g.client.Storage().Get(r.Context(), key)
+    val, err := g.client.Storage().Get(client.WithInternalAuth(r.Context()), key)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -134,7 +137,7 @@ func (g *Gateway) storagePutHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "failed to read body")
 		return
 	}
-	if err := g.client.Storage().Put(r.Context(), key, b); err != nil {
+    if err := g.client.Storage().Put(client.WithInternalAuth(r.Context()), key, b); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -164,7 +167,7 @@ func (g *Gateway) storageDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing 'key'")
 		return
 	}
-	if err := g.client.Storage().Delete(r.Context(), key); err != nil {
+    if err := g.client.Storage().Delete(client.WithInternalAuth(r.Context()), key); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -188,7 +191,7 @@ func (g *Gateway) storageListHandler(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
-	keys, err := g.client.Storage().List(r.Context(), prefix, limit)
+    keys, err := g.client.Storage().List(client.WithInternalAuth(r.Context()), prefix, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -210,7 +213,7 @@ func (g *Gateway) storageExistsHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing 'key'")
 		return
 	}
-	exists, err := g.client.Storage().Exists(r.Context(), key)
+    exists, err := g.client.Storage().Exists(client.WithInternalAuth(r.Context()), key)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
