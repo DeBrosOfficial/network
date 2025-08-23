@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"git.debros.io/DeBros/network/pkg/client"
 	"git.debros.io/DeBros/network/pkg/logging"
 	"git.debros.io/DeBros/network/pkg/storage"
 	"go.uber.org/zap"
@@ -95,12 +96,13 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Look up API key in DB and derive namespace
-		db := g.client.Database()
-		ctx := r.Context()
-		// Join to namespaces to resolve name in one query
-		q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
-		res, err := db.Query(ctx, q, key)
+        // Look up API key in DB and derive namespace
+        db := g.client.Database()
+        // Use internal auth for DB validation (auth not established yet)
+        internalCtx := client.WithInternalAuth(r.Context())
+        // Join to namespaces to resolve name in one query
+        q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
+        res, err := db.Query(internalCtx, q, key)
 		if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
 			w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
 			writeError(w, http.StatusUnauthorized, "invalid API key")
@@ -121,10 +123,10 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Attach auth metadata to context for downstream use
-		ctx = context.WithValue(ctx, ctxKeyAPIKey, key)
-		ctx = storage.WithNamespace(ctx, ns)
-		next.ServeHTTP(w, r.WithContext(ctx))
+        // Attach auth metadata to context for downstream use
+        reqCtx := context.WithValue(r.Context(), ctxKeyAPIKey, key)
+        reqCtx = storage.WithNamespace(reqCtx, ns)
+        next.ServeHTTP(w, r.WithContext(reqCtx))
 	})
 }
 
@@ -224,22 +226,23 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Check ownership in DB
-		db := g.client.Database()
-		// Ensure namespace exists and get id
-		if _, err := db.Query(ctx, "INSERT OR IGNORE INTO namespaces(name) VALUES (?)", ns); err != nil {
+        // Check ownership in DB using internal auth context
+        db := g.client.Database()
+        internalCtx := client.WithInternalAuth(ctx)
+        // Ensure namespace exists and get id
+        if _, err := db.Query(internalCtx, "INSERT OR IGNORE INTO namespaces(name) VALUES (?)", ns); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		nres, err := db.Query(ctx, "SELECT id FROM namespaces WHERE name = ? LIMIT 1", ns)
+        nres, err := db.Query(internalCtx, "SELECT id FROM namespaces WHERE name = ? LIMIT 1", ns)
 		if err != nil || nres == nil || nres.Count == 0 || len(nres.Rows) == 0 || len(nres.Rows[0]) == 0 {
 			writeError(w, http.StatusForbidden, "namespace not found")
 			return
 		}
 		nsID := nres.Rows[0][0]
 
-		q := "SELECT 1 FROM namespace_ownership WHERE namespace_id = ? AND owner_type = ? AND owner_id = ? LIMIT 1"
-		res, err := db.Query(ctx, q, nsID, ownerType, ownerID)
+        q := "SELECT 1 FROM namespace_ownership WHERE namespace_id = ? AND owner_type = ? AND owner_id = ? LIMIT 1"
+        res, err := db.Query(internalCtx, q, nsID, ownerType, ownerID)
 		if err != nil || res == nil || res.Count == 0 {
 			writeError(w, http.StatusForbidden, "forbidden: not an owner of namespace")
 			return

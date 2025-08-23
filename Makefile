@@ -5,9 +5,15 @@ test:
 	@echo Running tests...
 	go test -v $(TEST)
 
+# Gateway-focused E2E tests assume gateway and nodes are already running
+# Configure via env:
+#   GATEWAY_BASE_URL (default http://127.0.0.1:8080)
+#   GATEWAY_API_KEY  (required for auth-protected routes)
 .PHONY: test-e2e
 test-e2e:
-	@echo Running E2E tests...
+	@echo "Running gateway E2E tests (HTTP/WS only)..."
+	@echo "Base URL: $${GATEWAY_BASE_URL:-http://127.0.0.1:8080}"
+	@test -n "$$GATEWAY_API_KEY" || (echo "GATEWAY_API_KEY must be set" && exit 1)
 	go test -v -tags e2e ./e2e
 
 # Network - Distributed P2P Database System
@@ -36,11 +42,6 @@ clean:
 	rm -rf bin/
 	rm -rf data/
 	@echo "Clean complete!"
-
-# Run tests
-test:
-	@echo "Running tests..."
-	go test -v ./...
 
 # Run bootstrap node (auto-selects identity and data dir)
 run-node:
@@ -150,30 +151,6 @@ dev-setup: deps
 	@mkdir -p data/bootstrap data/node data/node2 data/node3
 	@mkdir -p data/test-bootstrap data/test-node1 data/test-node2
 	@echo "Development setup complete!"
-
-# Multi-node testing
-test-multinode: build
-	@echo "🧪 Starting comprehensive multi-node test..."
-	@chmod +x scripts/test-multinode.sh
-	@./scripts/test-multinode.sh
-
-test-peer-discovery: build
-	@echo "🔍 Testing peer discovery (requires running nodes)..."
-	@echo "Connected peers:"
-	@./bin/network-cli peers --timeout 10s
-
-test-replication: build
-	@echo "🔄 Testing data replication (requires running nodes)..."
-	@./bin/network-cli storage put "replication:test:$$(date +%s)" "Test data - $$(date)"
-	@sleep 2
-	@echo "Retrieving replicated data:"
-	@./bin/network-cli storage list replication:test:
-
-test-consensus: build
-	@echo "🗄️ Testing database consensus (requires running nodes)..."
-	@./bin/network-cli query "CREATE TABLE IF NOT EXISTS consensus_test (id INTEGER PRIMARY KEY, test_data TEXT, timestamp TEXT)"
-	@./bin/network-cli query "INSERT INTO consensus_test (test_data, timestamp) VALUES ('Makefile test', '$$(date)')"
-	@./bin/network-cli query "SELECT * FROM consensus_test ORDER BY id DESC LIMIT 5"
 
 # Start development cluster (requires multiple terminals)
 dev-cluster:

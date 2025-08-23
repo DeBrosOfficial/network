@@ -3,11 +3,11 @@
 package e2e
 
 import (
-	"context"
-	"crypto/rand"
+    "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+    "io"
 	"net/http"
 	"net/url"
 	"os"
@@ -111,11 +111,10 @@ func TestGateway_Storage_PutGetListExistsDelete(t *testing.T) {
 		if err != nil { t.Fatalf("get do: %v", err) }
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK { t.Fatalf("get status: %d", resp.StatusCode) }
-		got := make([]byte, len(payload))
-		n, _ := resp.Body.Read(got)
-		if n == 0 || string(got[:n]) != string(payload[:n]) {
-			t.Fatalf("payload mismatch: want %q got %q", string(payload), string(got[:n]))
-		}
+    got, _ := io.ReadAll(resp.Body)
+    if string(got) != string(payload) {
+        t.Fatalf("payload mismatch: want %q got %q", string(payload), string(got))
+    }
 	}
 
 	// LIST (prefix)
