@@ -478,6 +478,75 @@ POST /v1/pubsub/publish    # Publish message to topic
 GET  /v1/pubsub/topics     # List active topics
 ```
 
+---
+
+## SDK Authoring Guide
+
+### Base concepts
+- OpenAPI: a machine-readable spec is available at `openapi/gateway.yaml` for SDK code generation.
+- **Auth**: send `X-API-Key: <key>` or `Authorization: Bearer <key|JWT>` with every request.
+- **Versioning**: all endpoints are under `/v1/`.
+- **Responses**: mutations return `{status:"ok"}`; queries/lists return JSON; errors return `{ "error": "message" }` with proper HTTP status.
+
+### Key HTTP endpoints for SDKs
+- **Storage**
+  - PUT: `POST /v1/storage/put?key=<k>` body is raw bytes
+  - GET: `GET /v1/storage/get?key=<k>` returns bytes (may be base64-encoded by some backends)
+  - EXISTS: `GET /v1/storage/exists?key=<k>` → `{exists}`
+  - LIST: `GET /v1/storage/list?prefix=<p>` → `{keys}`
+  - DELETE: `POST /v1/storage/delete` `{key}` → `{status:"ok"}`
+- **Database**
+  - Create Table: `POST /v1/db/create-table` `{schema}` → `{status:"ok"}`
+  - Drop Table: `POST /v1/db/drop-table` `{table}` → `{status:"ok"}`
+  - Query: `POST /v1/db/query` `{sql, args?}` → `{columns, rows, count}`
+  - Transaction: `POST /v1/db/transaction` `{statements:[...]}` → `{status:"ok"}`
+  - Schema: `GET /v1/db/schema` → schema JSON
+- **PubSub**
+  - WS Subscribe: `GET /v1/pubsub/ws?topic=<topic>`
+  - Publish: `POST /v1/pubsub/publish` `{topic, data_base64}` → `{status:"ok"}`
+  - Topics: `GET /v1/pubsub/topics` → `{topics:[...]}`
+
+### Migrations
+- Add column: `ALTER TABLE users ADD COLUMN age INTEGER`
+- Change type / add FK (recreate pattern): create `_new` table, copy data, drop old, rename.
+- Always send as one `POST /v1/db/transaction`.
+
+### Minimal examples
+
+TypeScript (Node)
+
+```ts
+import { GatewayClient } from "../examples/sdk-typescript/src/client";
+
+const client = new GatewayClient(process.env.GATEWAY_BASE_URL!, process.env.GATEWAY_API_KEY!);
+await client.createTable("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)");
+const res = await client.query("SELECT name FROM users WHERE id = ?", [1]);
+```
+
+Python
+
+```python
+import os, requests
+
+BASE = os.environ['GATEWAY_BASE_URL']
+KEY  = os.environ['GATEWAY_API_KEY']
+H    = { 'X-API-Key': KEY, 'Content-Type': 'application/json' }
+
+def query(sql, args=None):
+    r = requests.post(f'{BASE}/v1/db/query', json={ 'sql': sql, 'args': args or [] }, headers=H, timeout=15)
+    r.raise_for_status()
+    return r.json()['rows']
+```
+
+Go
+
+```go
+req, _ := http.NewRequest(http.MethodPost, base+"/v1/db/create-table", bytes.NewBufferString(`{"schema":"CREATE TABLE ..."}`))
+req.Header.Set("X-API-Key", apiKey)
+req.Header.Set("Content-Type", "application/json")
+resp, err := http.DefaultClient.Do(req)
+```
+
 ### Security Features
 
 - **Namespace Enforcement:** All operations are automatically prefixed with namespace for isolation

@@ -259,6 +259,70 @@ Notes:
 - The gateway uses internal DB context for validation and execution to avoid circular auth checks.
 - Perform migrations by POSTing DDL statements to `/v1/db/transaction`.
 
+OpenAPI specification: see `openapi/gateway.yaml` for a machine-readable contract covering Storage, Database, and PubSub REST endpoints.
+
+---
+
+## SDK Authoring Guide
+
+### Base concepts
+- Auth: send `X-API-Key: <key>` or `Authorization: Bearer <key|JWT>` on every request.
+- Versioning: all endpoints live under `/v1/`.
+- Response envelopes today are pragmatic:
+  - Success varies by endpoint (e.g., `{status:"ok"}` for mutations, JSON bodies for queries/lists)
+  - Errors are returned as `{ "error": "message" }` with appropriate HTTP status
+
+### HTTP Endpoints (recap)
+- Storage
+  - PUT: `POST /v1/storage/put?key=<k>` body: raw bytes
+  - GET: `GET /v1/storage/get?key=<k>` (returns bytes; some backends may base64-encode)
+  - EXISTS: `GET /v1/storage/exists?key=<k>` → `{exists:boolean}`
+  - LIST: `GET /v1/storage/list?prefix=<p>` → `{keys:[...]}`
+  - DELETE: `POST /v1/storage/delete` body `{key}` → `{status:"ok"}`
+- Database
+  - Create Table: `POST /v1/db/create-table` `{schema}` → `{status:"ok"}`
+  - Drop Table: `POST /v1/db/drop-table` `{table}` → `{status:"ok"}`
+  - Query: `POST /v1/db/query` `{sql, args?}` → `{columns, rows, count}`
+  - Transaction: `POST /v1/db/transaction` `{statements:[...]}` → `{status:"ok"}`
+  - Schema: `GET /v1/db/schema` → schema JSON
+- PubSub
+  - WebSocket: `GET /v1/pubsub/ws?topic=<topic>` (binary frames; ping keepalive)
+  - Publish: `POST /v1/pubsub/publish` `{topic, data_base64}` → `{status:"ok"}`
+  - Topics: `GET /v1/pubsub/topics` → `{topics:[...]}` (already trimmed to namespace)
+
+### Migrations
+- Add a column: `ALTER TABLE users ADD COLUMN age INTEGER`
+- Change type / add FK (recreate pattern):
+  1. `CREATE TABLE users_new (... updated schema ...)`
+  2. `INSERT INTO users_new (...) SELECT ... FROM users`
+  3. `DROP TABLE users`
+  4. `ALTER TABLE users_new RENAME TO users`
+- Wrap the above in a single `POST /v1/db/transaction` call.
+
+### Suggested SDK surface
+- Database
+  - `createTable(schema: string): Promise<void>`
+  - `dropTable(name: string): Promise<void>`
+  - `query<T>(sql: string, args?: any[]): Promise<{ rows: T[] }>`
+  - `transaction(statements: string[]): Promise<void>`
+  - `schema(): Promise<any>`
+- Storage
+  - `put(key: string, value: Uint8Array | string): Promise<void>`
+  - `get(key: string): Promise<Uint8Array>`
+  - `exists(key: string): Promise<boolean>`
+  - `list(prefix?: string): Promise<string[]>`
+  - `delete(key: string): Promise<void>`
+- PubSub
+  - `subscribe(topic: string, handler: (msg: Uint8Array) => void): Promise<() => void>`
+  - `publish(topic: string, data: Uint8Array | string): Promise<void>`
+  - `listTopics(): Promise<string[]>`
+
+### Reliability guidelines
+- Timeouts: 10–30s defaults with per-call overrides
+- Retries: exponential backoff on 429/5xx; respect `Retry-After`
+- Idempotency: for transactions, consider an `Idempotency-Key` header client-side (gateway may ignore)
+- WebSocket: auto-reconnect with jitter; re-subscribe after reconnect
+
 ### Authentication Improvements
 
 The gateway authentication system has been significantly enhanced with the following features:
