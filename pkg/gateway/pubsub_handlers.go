@@ -3,6 +3,8 @@ package gateway
 import (
 	"encoding/base64"
 	"encoding/json"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -58,8 +60,16 @@ func (g *Gateway) pubsubWebsocketHandler(w http.ResponseWriter, r *http.Request)
 	msgs := make(chan []byte, 128)
     // Use internal auth context when interacting with client to avoid circular auth requirements
     ctx := client.WithInternalAuth(r.Context())
-	// Subscribe to the topic; push data into msgs
-	h := func(_ string, data []byte) error {
+    // Subscribe to the topic; push data into msgs with simple per-connection de-dup
+    recent := make(map[string]time.Time)
+    h := func(_ string, data []byte) error {
+        // Drop duplicates seen in the last 2 seconds
+        sum := sha256.Sum256(data)
+        key := hex.EncodeToString(sum[:])
+        if t, ok := recent[key]; ok && time.Since(t) < 2*time.Second {
+            return nil
+        }
+        recent[key] = time.Now()
 		select {
 		case msgs <- data:
 			return nil
@@ -74,6 +84,8 @@ func (g *Gateway) pubsubWebsocketHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
     defer func() { _ = g.client.PubSub().Unsubscribe(ctx, topic) }()
+
+    // no extra fan-out; rely on libp2p subscription
 
 	// Writer loop
 	done := make(chan struct{})
@@ -152,6 +164,7 @@ func (g *Gateway) pubsubPublishHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+    // rely on libp2p to deliver to WS subscribers
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }
 

@@ -203,15 +203,25 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Identify actor from context
-		ownerType := ""
-		ownerID := ""
-		if v := ctx.Value(ctxKeyJWT); v != nil {
-			if claims, ok := v.(*jwtClaims); ok && claims != nil && strings.TrimSpace(claims.Sub) != "" {
-				ownerType = "wallet"
-				ownerID = strings.TrimSpace(claims.Sub)
-			}
-		}
+        // Identify actor from context
+        ownerType := ""
+        ownerID := ""
+        if v := ctx.Value(ctxKeyJWT); v != nil {
+            if claims, ok := v.(*jwtClaims); ok && claims != nil && strings.TrimSpace(claims.Sub) != "" {
+                // Determine subject type.
+                // If subject looks like an API key (e.g., ak_<random>:<namespace>),
+                // treat it as an API key owner; otherwise assume a wallet subject.
+                subj := strings.TrimSpace(claims.Sub)
+                lowerSubj := strings.ToLower(subj)
+                if strings.HasPrefix(lowerSubj, "ak_") || strings.Contains(subj, ":") {
+                    ownerType = "api_key"
+                    ownerID = subj
+                } else {
+                    ownerType = "wallet"
+                    ownerID = subj
+                }
+            }
+        }
 		if ownerType == "" && ownerID == "" {
 			if v := ctx.Value(ctxKeyAPIKey); v != nil {
 				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
