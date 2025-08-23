@@ -39,6 +39,13 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/storage/list", g.storageListHandler)
 	mux.HandleFunc("/v1/storage/exists", g.storageExistsHandler)
 
+	// database
+	mux.HandleFunc("/v1/db/query", g.dbQueryHandler)
+	mux.HandleFunc("/v1/db/transaction", g.dbTransactionHandler)
+	mux.HandleFunc("/v1/db/schema", g.dbSchemaHandler)
+	mux.HandleFunc("/v1/db/create-table", g.dbCreateTableHandler)
+	mux.HandleFunc("/v1/db/drop-table", g.dbDropTableHandler)
+
 	// network
 	mux.HandleFunc("/v1/network/status", g.networkStatusHandler)
 	mux.HandleFunc("/v1/network/peers", g.networkPeersHandler)

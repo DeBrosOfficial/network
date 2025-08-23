@@ -264,6 +264,9 @@ func requiresNamespaceOwnership(p string) bool {
 	if strings.HasPrefix(p, "/v1/pubsub") {
 		return true
 	}
+    if strings.HasPrefix(p, "/v1/db/") {
+        return true
+    }
 	return false
 }
 

@@ -315,6 +315,38 @@ logging:
 --disable-anonrc              # Disable anonymous routing (Tor/SOCKS5)
 ```
 
+### Database Operations (Gateway REST)
+
+```http
+POST /v1/db/create-table      # Body: {"schema": "CREATE TABLE ..."}
+POST /v1/db/drop-table        # Body: {"table": "table_name"}
+POST /v1/db/query             # Body: {"sql": "SELECT ...", "args": [..]}
+POST /v1/db/transaction       # Body: {"statements": ["SQL 1", "SQL 2", ...]}
+GET  /v1/db/schema            # Returns current tables and columns
+```
+
+Common migration workflow:
+
+```bash
+# Add a new table
+curl -X POST "$GW/v1/db/create-table" \
+  -H "Authorization: Bearer $API_KEY" -H 'Content-Type: application/json' \
+  -d '{"schema":"CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)"}'
+
+# Apply multiple statements atomically
+curl -X POST "$GW/v1/db/transaction" \
+  -H "Authorization: Bearer $API_KEY" -H 'Content-Type: application/json' \
+  -d '{"statements":[
+        "ALTER TABLE users ADD COLUMN email TEXT",
+        "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"
+      ]}'
+
+# Verify
+curl -X POST "$GW/v1/db/query" \
+  -H "Authorization: Bearer $API_KEY" -H 'Content-Type: application/json' \
+  -d '{"sql":"PRAGMA table_info(users)"}'
+```
+
 ### Authentication
 
 The CLI features an enhanced authentication system with automatic wallet detection and multi-wallet support:

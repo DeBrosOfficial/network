@@ -246,6 +246,19 @@ make run-gateway
   - `POST /v1/pubsub/publish` → body `{topic, data_base64}` → `{status:"ok"}`
   - `GET  /v1/pubsub/topics` → `{topics:["<topic>", ...]}` (names trimmed to caller namespace)
 
+### Database (Gateway)
+
+- `POST /v1/db/create-table` → `{schema}`: Create tables with SQL DDL
+- `POST /v1/db/drop-table`   → `{table}`: Drop a table
+- `POST /v1/db/query`        → `{sql, args?}`: Execute single SQL
+- `POST /v1/db/transaction`  → `{statements:[...]}`: Apply multiple statements atomically
+- `GET  /v1/db/schema`       → Return tables and columns
+
+Notes:
+- Auth and namespace ownership are enforced for all `/v1/db/*` routes.
+- The gateway uses internal DB context for validation and execution to avoid circular auth checks.
+- Perform migrations by POSTing DDL statements to `/v1/db/transaction`.
+
 ### Authentication Improvements
 
 The gateway authentication system has been significantly enhanced with the following features:

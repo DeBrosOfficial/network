@@ -215,6 +215,50 @@ func TestGateway_PubSub_RestPublishToWS(t *testing.T) {
 	if !found { t.Fatalf("topic %s not found in topics list", topic) }
 }
 
+func TestGateway_Database_CreateQueryMigrate(t *testing.T) {
+    key := requireAPIKey(t)
+    base := gatewayBaseURL()
+
+    // Create table
+    schema := `CREATE TABLE IF NOT EXISTS e2e_items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`
+    body := fmt.Sprintf(`{"schema":%q}`, schema)
+    req, _ := http.NewRequest(http.MethodPost, base+"/v1/db/create-table", strings.NewReader(body))
+    req.Header = authHeader(key)
+    resp, err := httpClient().Do(req)
+    if err != nil { t.Fatalf("create-table do: %v", err) }
+    resp.Body.Close()
+    if resp.StatusCode != http.StatusCreated { t.Fatalf("create-table status: %d", resp.StatusCode) }
+
+    // Insert via transaction (simulate migration/data seed)
+    txBody := `{"statements":["INSERT INTO e2e_items(name) VALUES ('one')","INSERT INTO e2e_items(name) VALUES ('two')"]}`
+    req, _ = http.NewRequest(http.MethodPost, base+"/v1/db/transaction", strings.NewReader(txBody))
+    req.Header = authHeader(key)
+    resp, err = httpClient().Do(req)
+    if err != nil { t.Fatalf("tx do: %v", err) }
+    resp.Body.Close()
+    if resp.StatusCode != http.StatusOK { t.Fatalf("tx status: %d", resp.StatusCode) }
+
+    // Query rows
+    qBody := `{"sql":"SELECT name FROM e2e_items ORDER BY id ASC"}`
+    req, _ = http.NewRequest(http.MethodPost, base+"/v1/db/query", strings.NewReader(qBody))
+    req.Header = authHeader(key)
+    resp, err = httpClient().Do(req)
+    if err != nil { t.Fatalf("query do: %v", err) }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK { t.Fatalf("query status: %d", resp.StatusCode) }
+    var qr struct { Columns []string `json:"columns"`; Rows [][]any `json:"rows"`; Count int `json:"count"` }
+    if err := json.NewDecoder(resp.Body).Decode(&qr); err != nil { t.Fatalf("query decode: %v", err) }
+    if qr.Count < 2 { t.Fatalf("expected at least 2 rows, got %d", qr.Count) }
+
+    // Schema endpoint returns tables
+    req, _ = http.NewRequest(http.MethodGet, base+"/v1/db/schema", nil)
+    req.Header = authHeader(key)
+    resp2, err := httpClient().Do(req)
+    if err != nil { t.Fatalf("schema do: %v", err) }
+    defer resp2.Body.Close()
+    if resp2.StatusCode != http.StatusOK { t.Fatalf("schema status: %d", resp2.StatusCode) }
+}
+
 func toWSURL(httpURL string) string {
 	u, err := url.Parse(httpURL)
 	if err != nil { return httpURL }
