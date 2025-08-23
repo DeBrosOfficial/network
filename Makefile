@@ -1,3 +1,15 @@
+TEST?=./...
+
+.PHONY: test
+test:
+	@echo Running tests...
+	go test -v $(TEST)
+
+.PHONY: test-e2e
+test-e2e:
+	@echo Running E2E tests...
+	go test -v -tags e2e ./e2e
+
 # Network - Distributed P2P Database System
 # Makefile for development and build tasks
 

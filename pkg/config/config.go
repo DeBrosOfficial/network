@@ -53,7 +53,6 @@ type SecurityConfig struct {
 	EnableTLS       bool   `yaml:"enable_tls"`
 	PrivateKeyFile  string `yaml:"private_key_file"`
 	CertificateFile string `yaml:"certificate_file"`
-	AuthEnabled     bool   `yaml:"auth_enabled"`
 }
 
 // LoggingConfig contains logging configuration
@@ -118,8 +117,7 @@ func DefaultConfig() *Config {
 			RaftAdvAddress:    "",
 		},
 		Security: SecurityConfig{
-			EnableTLS:   false,
-			AuthEnabled: false,
+			EnableTLS: false,
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
