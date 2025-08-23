@@ -171,14 +171,8 @@ func (g *Gateway) pubsubTopicsHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-    prefix := ns + "."
-	var filtered []string
-	for _, t := range all {
-        if len(t) >= len(prefix) && t[:len(prefix)] == prefix {
-            filtered = append(filtered, t[len(prefix):])
-        }
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"topics": filtered})
+    // Client returns topics already trimmed to its namespace; return as-is
+    writeJSON(w, http.StatusOK, map[string]any{"topics": all})
 }
 
 // resolveNamespaceFromRequest gets namespace from context set by auth middleware
