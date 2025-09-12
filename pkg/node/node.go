@@ -25,7 +25,6 @@ import (
 	"git.debros.io/DeBros/network/pkg/config"
 	"git.debros.io/DeBros/network/pkg/database"
 	"git.debros.io/DeBros/network/pkg/logging"
-	"git.debros.io/DeBros/network/pkg/storage"
 )
 
 // Node represents a network node with RQLite database
@@ -36,7 +35,6 @@ type Node struct {
 
 	rqliteManager  *database.RQLiteManager
 	rqliteAdapter  *database.RQLiteAdapter
-	storageService *storage.Service
 
 	// Peer discovery
 	discoveryCancel context.CancelFunc
@@ -377,24 +375,6 @@ func (n *Node) startLibP2P() error {
 	return nil
 }
 
-// startStorageService initializes the storage service
-func (n *Node) startStorageService() error {
-	n.logger.ComponentInfo(logging.ComponentStorage, "Starting storage service")
-
-	// Create storage service using the RQLite SQL adapter
-	service, err := storage.NewService(n.rqliteAdapter.GetSQLDB(), n.logger.Logger)
-	if err != nil {
-		return err
-	}
-
-	n.storageService = service
-
-	// Set up stream handler for storage protocol
-	n.host.SetStreamHandler("/network/storage/1.0.0", n.storageService.HandleStorageStream)
-
-	return nil
-}
-
 // loadOrCreateIdentity loads an existing identity or creates a new one
 func (n *Node) loadOrCreateIdentity() (crypto.PrivKey, error) {
 	identityFile := filepath.Join(n.config.Node.DataDir, "identity.key")
@@ -631,11 +611,6 @@ func (n *Node) Stop() error {
 	// Stop peer discovery
 	n.stopPeerDiscovery()
 
-	// Stop storage service
-	if n.storageService != nil {
-		n.storageService.Close()
-	}
-
 	// Stop LibP2P host
 	if n.host != nil {
 		n.host.Close()
@@ -670,11 +645,6 @@ func (n *Node) Start(ctx context.Context) error {
 	// Start LibP2P host
 	if err := n.startLibP2P(); err != nil {
 		return fmt.Errorf("failed to start LibP2P: %w", err)
-	}
-
-	// Start storage service
-	if err := n.startStorageService(); err != nil {
-		return fmt.Errorf("failed to start storage service: %w", err)
 	}
 
 	// Get listen addresses for logging

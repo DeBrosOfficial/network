@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"git.debros.io/DeBros/network/pkg/storage"
-
 	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -398,87 +396,6 @@ func (d *DatabaseClientImpl) GetSchema(ctx context.Context) (*SchemaInfo, error)
 	}
 
 	return schema, nil
-}
-
-// StorageClientImpl implements StorageClient using distributed storage
-type StorageClientImpl struct {
-	client        *Client
-	storageClient *storage.Client
-}
-
-// Get retrieves a value by key
-func (s *StorageClientImpl) Get(ctx context.Context, key string) ([]byte, error) {
-	if !s.client.isConnected() {
-		return nil, fmt.Errorf("client not connected")
-	}
-
-	if err := s.client.requireAccess(ctx); err != nil {
-		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
-	}
-
-	return s.storageClient.Get(ctx, key)
-}
-
-// Put stores a value by key
-func (s *StorageClientImpl) Put(ctx context.Context, key string, value []byte) error {
-	if !s.client.isConnected() {
-		return fmt.Errorf("client not connected")
-	}
-
-	if err := s.client.requireAccess(ctx); err != nil {
-		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
-	}
-
-	err := s.storageClient.Put(ctx, key, value)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Delete removes a key
-func (s *StorageClientImpl) Delete(ctx context.Context, key string) error {
-	if !s.client.isConnected() {
-		return fmt.Errorf("client not connected")
-	}
-
-	if err := s.client.requireAccess(ctx); err != nil {
-		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
-	}
-
-	err := s.storageClient.Delete(ctx, key)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// List returns keys with a given prefix
-func (s *StorageClientImpl) List(ctx context.Context, prefix string, limit int) ([]string, error) {
-	if !s.client.isConnected() {
-		return nil, fmt.Errorf("client not connected")
-	}
-
-	if err := s.client.requireAccess(ctx); err != nil {
-		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
-	}
-
-	return s.storageClient.List(ctx, prefix, limit)
-}
-
-// Exists checks if a key exists
-func (s *StorageClientImpl) Exists(ctx context.Context, key string) (bool, error) {
-	if !s.client.isConnected() {
-		return false, fmt.Errorf("client not connected")
-	}
-
-	if err := s.client.requireAccess(ctx); err != nil {
-		return false, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
-	}
-
-	return s.storageClient.Exists(ctx, key)
 }
 
 // NetworkInfoImpl implements NetworkInfo

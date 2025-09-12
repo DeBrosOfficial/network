@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"git.debros.io/DeBros/network/pkg/pubsub"
-	"git.debros.io/DeBros/network/pkg/storage"
 )
 
 // contextKey for internal operations
@@ -15,11 +14,10 @@ const (
 	ctxKeyInternal contextKey = "internal_operation"
 )
 
-// WithNamespace applies both storage and pubsub namespace overrides to the context.
-// It is a convenience helper for client callers to ensure both subsystems receive
+// WithNamespace applies pubsub namespace override to the context.
+// It is a convenience helper for client callers to ensure subsystems receive
 // the same, consistent namespace override.
 func WithNamespace(ctx context.Context, ns string) context.Context {
-	ctx = storage.WithNamespace(ctx, ns)
 	ctx = pubsub.WithNamespace(ctx, ns)
 	return ctx
 }

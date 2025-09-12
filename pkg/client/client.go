@@ -22,7 +22,6 @@ import (
 
 	"git.debros.io/DeBros/network/pkg/anyoneproxy"
 	"git.debros.io/DeBros/network/pkg/pubsub"
-	"git.debros.io/DeBros/network/pkg/storage"
 )
 
 // Client implements the NetworkClient interface
@@ -36,7 +35,6 @@ type Client struct {
 
 	// Components
 	database *DatabaseClientImpl
-	storage  *StorageClientImpl
 	network  *NetworkInfoImpl
 	pubsub   *pubSubBridge
 
@@ -81,11 +79,6 @@ func NewClient(config *ClientConfig) (NetworkClient, error) {
 // Database returns the database client
 func (c *Client) Database() DatabaseClient {
 	return c.database
-}
-
-// Storage returns the storage client
-func (c *Client) Storage() StorageClient {
-	return c.storage
 }
 
 // PubSub returns the pub/sub client
@@ -202,16 +195,6 @@ func (c *Client) Connect() error {
 	c.pubsub = &pubSubBridge{client: c, adapter: adapter}
 	c.logger.Info("Pubsub bridge created successfully")
 
-	c.logger.Info("Creating storage client...")
-
-	// Create storage client with the host (use namespace directly to avoid deadlock)
-	storageClient := storage.NewClient(h, namespace, c.logger)
-	c.storage = &StorageClientImpl{
-		client:        c,
-		storageClient: storageClient,
-	}
-	c.logger.Info("Storage client created successfully")
-
 	c.logger.Info("Starting bootstrap peer connections...")
 
 	// Connect to bootstrap peers FIRST
@@ -315,7 +298,6 @@ func (c *Client) Health() (*HealthStatus, error) {
 	checks := map[string]string{
 		"connection": "ok",
 		"database":   "ok",
-		"storage":    "ok",
 		"pubsub":     "ok",
 	}
 
@@ -360,11 +342,6 @@ func (c *Client) requireAccess(ctx context.Context) error {
 		return fmt.Errorf("access denied: API key or JWT required")
 	}
 	ns := c.getAppNamespace()
-	if v := ctx.Value(storage.CtxKeyNamespaceOverride); v != nil {
-		if s, ok := v.(string); ok && s != "" && s != ns {
-			return fmt.Errorf("access denied: namespace mismatch")
-		}
-	}
 	if v := ctx.Value(pubsub.CtxKeyNamespaceOverride); v != nil {
 		if s, ok := v.(string); ok && s != "" && s != ns {
 			return fmt.Errorf("access denied: namespace mismatch")

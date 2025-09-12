@@ -31,14 +31,6 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/apps", g.appsHandler)
 	mux.HandleFunc("/v1/apps/", g.appsHandler)
 
-	// storage
-	mux.HandleFunc("/v1/storage", g.storageHandler) // legacy/basic
-	mux.HandleFunc("/v1/storage/get", g.storageGetHandler)
-	mux.HandleFunc("/v1/storage/put", g.storagePutHandler)
-	mux.HandleFunc("/v1/storage/delete", g.storageDeleteHandler)
-	mux.HandleFunc("/v1/storage/list", g.storageListHandler)
-	mux.HandleFunc("/v1/storage/exists", g.storageExistsHandler)
-
 	// database
 	mux.HandleFunc("/v1/db/query", g.dbQueryHandler)
 	mux.HandleFunc("/v1/db/transaction", g.dbTransactionHandler)

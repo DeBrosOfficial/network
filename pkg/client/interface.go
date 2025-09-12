@@ -11,9 +11,6 @@ type NetworkClient interface {
 	// Database operations (namespaced per app)
 	Database() DatabaseClient
 
-	// Key-value storage (namespaced per app)
-	Storage() StorageClient
-
 	// Pub/Sub messaging
 	PubSub() PubSubClient
 
@@ -36,15 +33,6 @@ type DatabaseClient interface {
 	CreateTable(ctx context.Context, schema string) error
 	DropTable(ctx context.Context, tableName string) error
 	GetSchema(ctx context.Context) (*SchemaInfo, error)
-}
-
-// StorageClient provides key-value storage operations
-type StorageClient interface {
-	Get(ctx context.Context, key string) ([]byte, error)
-	Put(ctx context.Context, key string, value []byte) error
-	Delete(ctx context.Context, key string) error
-	List(ctx context.Context, prefix string, limit int) ([]string, error)
-	Exists(ctx context.Context, key string) (bool, error)
 }
 
 // PubSubClient provides publish/subscribe messaging

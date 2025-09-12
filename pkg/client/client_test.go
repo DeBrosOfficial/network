@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"git.debros.io/DeBros/network/pkg/pubsub"
-	"git.debros.io/DeBros/network/pkg/storage"
 )
 
 // MakeJWT creates a minimal JWT-like token with a json payload
@@ -146,10 +145,10 @@ func TestRequireAccess(t *testing.T) {
 		// set resolved namespace to "app" to simulate derived namespace
 		c.resolvedNamespace = "app"
 
-		// override storage namespace to something else
-		ctx := storage.WithNamespace(context.Background(), "other")
+		// override pubsub namespace to something else
+		ctx := pubsub.WithNamespace(context.Background(), "other")
 		if err := c.requireAccess(ctx); err == nil {
-			t.Fatalf("expected namespace mismatch error for storage override")
+			t.Fatalf("expected namespace mismatch error for pubsub override")
 		}
 
 		// override pubsub namespace to something else

@@ -32,9 +32,6 @@ func main() {
 	// Example: Database operations
 	demonstrateDatabase(networkClient)
 
-	// Example: Storage operations
-	demonstrateStorage(networkClient)
-
 	// Example: Pub/Sub messaging
 	demonstratePubSub(networkClient)
 
@@ -81,47 +78,6 @@ func demonstrateDatabase(client client.NetworkClient) {
 		return
 	}
 	log.Printf("Query result: %+v", result)
-}
-
-func demonstrateStorage(client client.NetworkClient) {
-	ctx := context.Background()
-	storage := client.Storage()
-
-	log.Printf("=== Storage Operations ===")
-
-	// Store some data
-	key := "user:123"
-	value := []byte(`{"name": "Alice", "age": 30}`)
-
-	if err := storage.Put(ctx, key, value); err != nil {
-		log.Printf("Error storing data: %v", err)
-		return
-	}
-	log.Printf("Data stored successfully")
-
-	// Retrieve data
-	retrieved, err := storage.Get(ctx, key)
-	if err != nil {
-		log.Printf("Error retrieving data: %v", err)
-		return
-	}
-	log.Printf("Retrieved data: %s", string(retrieved))
-
-	// Check if key exists
-	exists, err := storage.Exists(ctx, key)
-	if err != nil {
-		log.Printf("Error checking existence: %v", err)
-		return
-	}
-	log.Printf("Key exists: %v", exists)
-
-	// List keys
-	keys, err := storage.List(ctx, "user:", 10)
-	if err != nil {
-		log.Printf("Error listing keys: %v", err)
-		return
-	}
-	log.Printf("Keys: %v", keys)
 }
 
 func demonstratePubSub(client client.NetworkClient) {

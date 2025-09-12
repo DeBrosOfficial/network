@@ -72,8 +72,6 @@ func main() {
 			os.Exit(1)
 		}
 		handleQuery(args[0])
-	case "storage":
-		handleStorage(args)
 	case "pubsub":
 		handlePubSub(args)
 	case "connect":
@@ -215,78 +213,6 @@ func handleQuery(sql string) {
 	}
 }
 
-func handleStorage(args []string) {
-	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage: network-cli storage <get|put|list> [args...]\n")
-		os.Exit(1)
-	}
-
-	// Ensure user is authenticated
-	_ = ensureAuthenticated()
-
-	client, err := createClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create client: %v\n", err)
-		os.Exit(1)
-	}
-	defer client.Disconnect()
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	subcommand := args[0]
-	switch subcommand {
-	case "get":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "Usage: network-cli storage get <key>\n")
-			os.Exit(1)
-		}
-		value, err := client.Storage().Get(ctx, args[1])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to get value: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Try to decode if it looks like base64
-		decoded := tryDecodeBase64(string(value))
-		fmt.Printf("%s\n", decoded)
-
-	case "put":
-		if len(args) < 3 {
-			fmt.Fprintf(os.Stderr, "Usage: network-cli storage put <key> <value>\n")
-			os.Exit(1)
-		}
-		err := client.Storage().Put(ctx, args[1], []byte(args[2]))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to store value: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("✅ Stored key: %s\n", args[1])
-
-	case "list":
-		prefix := ""
-		if len(args) > 1 {
-			prefix = args[1]
-		}
-		keys, err := client.Storage().List(ctx, prefix, 100)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to list keys: %v\n", err)
-			os.Exit(1)
-		}
-		if format == "json" {
-			printJSON(keys)
-		} else {
-			for _, key := range keys {
-				fmt.Println(key)
-			}
-		}
-
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown storage command: %s\n", subcommand)
-		os.Exit(1)
-	}
-}
-
 func handlePubSub(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "Usage: network-cli pubsub <publish|subscribe|topics> [args...]\n")
@@ -371,8 +297,6 @@ func handlePubSub(args []string) {
 	}
 }
 
-// ensureAuthenticated ensures the user has valid credentials for the gateway
-// Returns the credentials or exits the program on failure
 func ensureAuthenticated() *auth.Credentials {
 	gatewayURL := auth.GetDefaultGatewayURL()
 
@@ -401,7 +325,6 @@ func openBrowser(target string) error {
 	return nil
 }
 
-// getenvDefault returns env var or default if empty/undefined.
 func getenvDefault(key, def string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
@@ -543,7 +466,6 @@ func createClient() (client.NetworkClient, error) {
 	return networkClient, nil
 }
 
-// discoverBootstrapPeer tries to find the bootstrap peer from saved peer info
 func discoverBootstrapPeer() string {
 	// Look for peer info in common locations
 	peerInfoPaths := []string{
@@ -568,7 +490,6 @@ func discoverBootstrapPeer() string {
 	return "" // Return empty string if no peer info found
 }
 
-// tryDecodeBase64 attempts to decode a string as base64, returns original if not valid base64
 func tryDecodeBase64(s string) string {
 	// Only try to decode if it looks like base64 (no spaces, reasonable length)
 	if len(s) > 0 && len(s)%4 == 0 && !strings.ContainsAny(s, " \n\r\t") {
@@ -583,7 +504,6 @@ func tryDecodeBase64(s string) string {
 	return s
 }
 
-// isPrintableText checks if a string contains mostly printable characters
 func isPrintableText(s string) bool {
 	printableCount := 0
 	for _, r := range s {
@@ -604,9 +524,6 @@ func showHelp() {
 	fmt.Printf("  status                    - Show network status\n")
 	fmt.Printf("  peer-id                   - Show this node's peer ID\n")
 	fmt.Printf("  query <sql>               🔐 Execute database query\n")
-	fmt.Printf("  storage get <key>         🔐 Get value from storage\n")
-	fmt.Printf("  storage put <key> <value> 🔐 Store value in storage\n")
-	fmt.Printf("  storage list [prefix]     🔐 List storage keys\n")
 	fmt.Printf("  pubsub publish <topic> <msg> 🔐 Publish message\n")
 	fmt.Printf("  pubsub subscribe <topic> [duration] 🔐 Subscribe to topic\n")
 	fmt.Printf("  pubsub topics             🔐 List topics\n")
@@ -628,11 +545,8 @@ func showHelp() {
 	fmt.Printf("  network-cli peer-id --format json\n")
 	fmt.Printf("  network-cli peers --format json\n")
 	fmt.Printf("  network-cli peers --production\n")
-	fmt.Printf("  network-cli storage put user:123 '{\"name\":\"Alice\"}'\n")
-	fmt.Printf("  network-cli pubsub subscribe notifications 1m\n")
+	fmt.Printf("  ./bin/network-cli pubsub publish notifications \"Hello World\"\n")
 }
-
-// Print functions
 
 func printHealth(health *client.HealthStatus) {
 	fmt.Printf("🏥 Network Health\n")
