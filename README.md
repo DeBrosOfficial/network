@@ -23,7 +23,6 @@ A robust, decentralized peer-to-peer network built in Go, providing distributed 
 ## Features
 
 - **Distributed SQL Database:** RQLite-backed, Raft-consensus, ACID transactions, automatic failover.
-- **Key-Value Storage:** Namespaced, replicated, CRUD operations, prefix queries.
 - **Pub/Sub Messaging:** Topic-based, real-time, namespaced, automatic cleanup.
 - **Peer Discovery & Management:** Nodes discover peers, bootstrap support, health monitoring.
 - **Application Isolation:** Namespace-based multi-tenancy, per-app config.
@@ -44,10 +43,10 @@ A robust, decentralized peer-to-peer network built in Go, providing distributed 
 │ └─────────────┘ └─────────────┘ └────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │                      Client API                            │
-│ ┌─────────────┐ ┌─────────────┐ ┌────────────────────────┐ │
-│ │  Database   │ │   Storage   │ │        PubSub         │ │
-│ │   Client    │ │   Client    │ │        Client         │ │
-│ └─────────────┘ └─────────────┘ └────────────────────────┘ │
+│ ┌─────────────┐ ┌────────────────────────┐               │
+│ │  Database   │ │        PubSub         │               │
+│ │   Client    │ │        Client         │               │
+│ └─────────────┘ └────────────────────────┘               │
 ├─────────────────────────────────────────────────────────────┤
 │                    Network Node Layer                      │
 │ ┌─────────────┐ ┌─────────────┐ ┌────────────────────────┐ │
@@ -63,7 +62,7 @@ A robust, decentralized peer-to-peer network built in Go, providing distributed 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **Node:** Full P2P participant, runs services, handles peer discovery, database, storage, pubsub.
+- **Node:** Full P2P participant, runs services, handles peer discovery, database, pubsub.
 - **Client:** Lightweight, connects only to bootstrap peers, consumes services, no peer discovery.
 
 ---
@@ -126,8 +125,6 @@ go run ./cmd/node --config configs/node.yaml
 ```bash
 ./bin/network-cli health
 ./bin/network-cli peers
-./bin/network-cli storage put test-key "Hello Network"
-./bin/network-cli storage get test-key
 ./bin/network-cli pubsub publish notifications "Hello World"
 ./bin/network-cli pubsub subscribe notifications 10s
 ```
@@ -282,13 +279,7 @@ logging:
 ./bin/network-cli peers                     # List connected peers
 ```
 
-### Storage Operations
-
-```bash
-./bin/network-cli storage put <key> <value> # Store data
-./bin/network-cli storage get <key>         # Retrieve data
-./bin/network-cli storage list [prefix]     # List keys
-```
+ 
 
 ### Database Operations
 
@@ -364,11 +355,7 @@ When using operations that require authentication (storage, database, pubsub), t
 
 **Example with automatic authentication:**
 ```bash
-# First time - will prompt for wallet authentication
-./bin/network-cli storage put user:123 "John Doe"
-
-# Subsequent calls - uses saved credentials automatically
-./bin/network-cli storage get user:123
+# First time - will prompt for wallet authentication when needed
 ./bin/network-cli pubsub publish notifications "Hello World"
 ```
 
@@ -448,14 +435,7 @@ GET  /v1/auth/whoami       # Current auth status
 POST /v1/auth/api-key      # Generate API key (authenticated)
 ```
 
-#### Storage Operations
-```http
-POST /v1/storage/get       # Retrieve data
-POST /v1/storage/put       # Store data
-POST /v1/storage/delete    # Delete data
-GET  /v1/storage/list      # List keys with optional prefix
-GET  /v1/storage/exists    # Check key existence
-```
+ 
 
 #### Network Operations
 ```http
@@ -489,12 +469,6 @@ GET  /v1/pubsub/topics     # List active topics
 - **Responses**: mutations return `{status:"ok"}`; queries/lists return JSON; errors return `{ "error": "message" }` with proper HTTP status.
 
 ### Key HTTP endpoints for SDKs
-- **Storage**
-  - PUT: `POST /v1/storage/put?key=<k>` body is raw bytes
-  - GET: `GET /v1/storage/get?key=<k>` returns bytes (may be base64-encoded by some backends)
-  - EXISTS: `GET /v1/storage/exists?key=<k>` → `{exists}`
-  - LIST: `GET /v1/storage/list?prefix=<p>` → `{keys}`
-  - DELETE: `POST /v1/storage/delete` `{key}` → `{status:"ok"}`
 - **Database**
   - Create Table: `POST /v1/db/create-table` `{schema}` → `{status:"ok"}`
   - Drop Table: `POST /v1/db/drop-table` `{table}` → `{status:"ok"}`
@@ -568,20 +542,7 @@ curl -X POST http://localhost:8080/v1/auth/verify \
   -d '{"wallet":"0x...","nonce":"...","signature":"0x..."}'
 ```
 
-#### Storage Operations
-```bash
-# Store data
-curl -X POST http://localhost:8080/v1/storage/put \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"key":"user:123","value":"eyJuYW1lIjoiSm9obiJ9"}'
-
-# Retrieve data
-curl -X POST http://localhost:8080/v1/storage/get \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"key":"user:123"}'
-```
+ 
 
 #### Real-time Messaging
 ```javascript
@@ -613,7 +574,6 @@ network/
 │   ├── client/       # Client library
 │   ├── node/         # Node implementation
 │   ├── database/     # RQLite integration
-│   ├── storage/      # Storage service
 │   ├── pubsub/       # Pub/Sub messaging
 │   ├── config/       # Centralized config
 │   └── discovery/    # Peer discovery (node only)
@@ -699,9 +659,6 @@ export LOG_LEVEL=debug
 ./bin/network-cli query "SELECT 1"
 ./bin/network-cli pubsub publish test "hello"
 ./bin/network-cli pubsub subscribe test 10s
-
-# Test authentication flow
-./bin/network-cli storage put test-key test-value
 
 # Gateway health checks
 curl http://localhost:8080/health
