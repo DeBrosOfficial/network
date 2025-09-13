@@ -421,27 +421,15 @@ func handlePeerID() {
 func createClient() (client.NetworkClient, error) {
 	config := client.DefaultClientConfig("network-cli")
 
-	// Check for existing credentials
-	creds, err := auth.GetValidCredentials()
+	// Check for existing credentials using enhanced authentication
+	creds, err := auth.GetValidEnhancedCredentials()
 	if err != nil {
-		// No valid credentials found, trigger authentication flow
-		fmt.Printf("🔐 Authentication required for DeBros Network CLI\n")
-		fmt.Printf("💡 This will open your browser to authenticate with your wallet\n")
-
+		// No valid credentials found, use the enhanced authentication flow
 		gatewayURL := auth.GetDefaultGatewayURL()
-		fmt.Printf("🌐 Gateway: %s\n\n", gatewayURL)
 
-		// Perform wallet authentication
-		newCreds, authErr := auth.PerformWalletAuthentication(gatewayURL)
+		newCreds, authErr := auth.GetOrPromptForCredentials(gatewayURL)
 		if authErr != nil {
 			return nil, fmt.Errorf("authentication failed: %w", authErr)
-		}
-
-		// Save credentials
-		if saveErr := auth.SaveCredentialsForDefaultGateway(newCreds); saveErr != nil {
-			fmt.Printf("⚠️  Warning: failed to save credentials: %v\n", saveErr)
-		} else {
-			fmt.Printf("💾 Credentials saved to ~/.debros/credentials.json\n")
 		}
 
 		creds = newCreds
@@ -450,9 +438,8 @@ func createClient() (client.NetworkClient, error) {
 	// Configure client with API key
 	config.APIKey = creds.APIKey
 
-	// Update last used time
+	// Update last used time - the enhanced store handles saving automatically
 	creds.UpdateLastUsed()
-	auth.SaveCredentialsForDefaultGateway(creds) // Best effort save
 
 	networkClient, err := client.NewClient(config)
 	if err != nil {

@@ -189,27 +189,6 @@ func HasValidCredentials() (bool, error) {
 	return exists && creds.IsValid(), nil
 }
 
-// GetValidCredentials returns valid credentials for the default gateway
-func GetValidCredentials() (*Credentials, error) {
-	store, err := LoadCredentials()
-	if err != nil {
-		return nil, err
-	}
-
-	gatewayURL := GetDefaultGatewayURL()
-	creds, exists := store.GetCredentialsForGateway(gatewayURL)
-
-	if !exists {
-		return nil, fmt.Errorf("no credentials found for gateway %s", gatewayURL)
-	}
-
-	if !creds.IsValid() {
-		return nil, fmt.Errorf("credentials for gateway %s are expired or invalid", gatewayURL)
-	}
-
-	return creds, nil
-}
-
 // SaveCredentialsForDefaultGateway saves credentials for the default gateway
 func SaveCredentialsForDefaultGateway(creds *Credentials) error {
 	store, err := LoadCredentials()

@@ -32,7 +32,7 @@ const (
 	AuthChoiceExit
 )
 
-// LoadEnhancedCredentials loads the enhanced credential store
+// LoadEnhancedCredentials loads the enhanced credential store, with migration support from legacy v2.0 format
 func LoadEnhancedCredentials() (*EnhancedCredentialStore, error) {
 	credPath, err := GetCredentialsPath()
 	if err != nil {
@@ -52,39 +52,94 @@ func LoadEnhancedCredentials() (*EnhancedCredentialStore, error) {
 		return nil, fmt.Errorf("failed to read credentials file: %w", err)
 	}
 
-	// Try to parse as enhanced store first
+	// First, try to parse as the proper enhanced store
 	var enhancedStore EnhancedCredentialStore
 	if err := json.Unmarshal(data, &enhancedStore); err == nil && enhancedStore.Version == "2.0" {
-		// Initialize maps if nil
-		if enhancedStore.Gateways == nil {
-			enhancedStore.Gateways = make(map[string]*GatewayCredentials)
+		// Check if it's already in the enhanced format (has credentials arrays)
+		hasCredentialsArrays := true
+		for _, gwCreds := range enhancedStore.Gateways {
+			if gwCreds == nil || gwCreds.Credentials == nil {
+				hasCredentialsArrays = false
+				break
+			}
 		}
-		return &enhancedStore, nil
+
+		if hasCredentialsArrays {
+			// Already in enhanced format, just sanitize indices
+			if enhancedStore.Gateways == nil {
+				enhancedStore.Gateways = make(map[string]*GatewayCredentials)
+			}
+			for _, gw := range enhancedStore.Gateways {
+				if len(gw.Credentials) == 0 {
+					gw.DefaultIndex = 0
+					gw.LastUsedIndex = 0
+					continue
+				}
+				if gw.DefaultIndex < 0 || gw.DefaultIndex >= len(gw.Credentials) {
+					gw.DefaultIndex = 0
+				}
+				if gw.LastUsedIndex < 0 || gw.LastUsedIndex >= len(gw.Credentials) {
+					gw.LastUsedIndex = gw.DefaultIndex
+				}
+			}
+			return &enhancedStore, nil
+		}
 	}
 
-	// Fall back to old format and migrate
-	var oldStore CredentialStore
-	if err := json.Unmarshal(data, &oldStore); err != nil {
-		return nil, fmt.Errorf("failed to parse credentials file: %w", err)
+	// Parse as legacy v2.0 format (single credential per gateway) and migrate
+	var legacyStore struct {
+		Gateways map[string]*Credentials `json:"gateways"`
+		Version  string                  `json:"version"`
 	}
 
-	// Migrate old format to new
-	enhancedStore = EnhancedCredentialStore{
+	if err := json.Unmarshal(data, &legacyStore); err != nil {
+		return nil, fmt.Errorf("invalid credentials file format: %w", err)
+	}
+
+	if legacyStore.Version != "2.0" {
+		return nil, fmt.Errorf("unsupported credentials version %q; expected \"2.0\"", legacyStore.Version)
+	}
+
+	// Convert legacy format to enhanced format
+	enhanced := &EnhancedCredentialStore{
 		Gateways: make(map[string]*GatewayCredentials),
 		Version:  "2.0",
 	}
 
-	for gatewayURL, creds := range oldStore.Gateways {
-		if creds != nil {
-			enhancedStore.Gateways[gatewayURL] = &GatewayCredentials{
-				Credentials:   []*Credentials{creds},
+	for gwURL, legacyCred := range legacyStore.Gateways {
+		if legacyCred == nil {
+			// Create empty gateway entry
+			enhanced.Gateways[gwURL] = &GatewayCredentials{
+				Credentials:   []*Credentials{},
+				DefaultIndex:  0,
+				LastUsedIndex: 0,
+			}
+			continue
+		}
+
+		// Only add if it looks like a valid credential (has wallet or api key)
+		if legacyCred.Wallet != "" || legacyCred.APIKey != "" {
+			enhanced.Gateways[gwURL] = &GatewayCredentials{
+				Credentials:   []*Credentials{legacyCred},
+				DefaultIndex:  0,
+				LastUsedIndex: 0,
+			}
+		} else {
+			// Create empty gateway entry
+			enhanced.Gateways[gwURL] = &GatewayCredentials{
+				Credentials:   []*Credentials{},
 				DefaultIndex:  0,
 				LastUsedIndex: 0,
 			}
 		}
 	}
 
-	return &enhancedStore, nil
+	// Auto-save the migrated format
+	if err := enhanced.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save migrated credentials: %v\n", err)
+	}
+
+	return enhanced, nil
 }
 
 // Save saves the enhanced credential store

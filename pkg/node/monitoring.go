@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -44,16 +45,37 @@ func logDetailedPeerInfo(n *Node, currentPeerCount int, peers []peer.ID) {
 	}
 }
 
+func GetCPUUsagePercent(n *Node, interval time.Duration) (uint64, error) {
+	before, err := cpu.Get()
+	if err != nil {
+		return 0, err
+	}
+	time.Sleep(interval)
+	after, err := cpu.Get()
+	if err != nil {
+		return 0, err
+	}
+	idle := float64(after.Idle - before.Idle)
+	total := float64(after.Total - before.Total)
+	if total == 0 {
+		return 0, errors.New("Failed to get CPU usage")
+	}
+	usagePercent := (1.0 - idle/total) * 100.0
+	return uint64(usagePercent), nil
+}
+
 func logSystemUsage(n *Node) (*memory.Stats, uint64) {
 	mem, _ := memory.Get()
-	cpuBefore, _ := cpu.Get()
-	time.Sleep(3 * time.Second)
-	cpuAfter, _ := cpu.Get()
-	totalCpu := cpuAfter.Total - cpuBefore.Total
+
+	totalCpu, err := GetCPUUsagePercent(n, 3*time.Second)
+	if err != nil {
+		n.logger.Error("Failed to get CPU usage", zap.Error(err))
+		return mem, 0
+	}
 
 	n.logger.Debug("Node CPU usage",
 		zap.Float64("cpu_usage", float64(totalCpu)),
-		zap.Float64("memory_usage", float64(mem.Used)))
+		zap.Float64("memory_usage_percent", float64(mem.Used)/float64(mem.Total)*100))
 
 	return mem, totalCpu
 }
