@@ -46,6 +46,7 @@ type DiscoveryConfig struct {
 	BootstrapPort     int           `yaml:"bootstrap_port"`     // Default port for bootstrap nodes
 	HttpAdvAddress    string        `yaml:"http_adv_address"`   // HTTP advertisement address
 	RaftAdvAddress    string        `yaml:"raft_adv_address"`   // Raft advertisement
+	NodeNamespace     string        `yaml:"node_namespace"`     // Namespace for node identifiers
 }
 
 // SecurityConfig contains security-related configuration
@@ -115,6 +116,7 @@ func DefaultConfig() *Config {
 			DiscoveryInterval: time.Second * 15, // Back to 15 seconds for testing
 			HttpAdvAddress:    "",
 			RaftAdvAddress:    "",
+			NodeNamespace:     "default",
 		},
 		Security: SecurityConfig{
 			EnableTLS: false,

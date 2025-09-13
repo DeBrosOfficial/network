@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
+	libp2ppubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -257,6 +258,18 @@ func (n *Node) startLibP2P() error {
 	}
 
 	n.host = h
+
+	// Initialize pubsub
+	ps, err := libp2ppubsub.NewGossipSub(context.Background(), h,
+		libp2ppubsub.WithPeerExchange(true),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create pubsub: %w", err)
+	}
+
+	// Create pubsub adapter with "node" namespace
+	n.pubsub = pubsub.NewClientAdapter(ps, n.config.Discovery.NodeNamespace)
+	n.logger.Info("Initialized pubsub adapter on namespace", zap.String("namespace", n.config.Discovery.NodeNamespace))
 
 	// Log configured bootstrap peers
 	if len(n.config.Discovery.BootstrapPeers) > 0 {

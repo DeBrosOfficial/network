@@ -115,6 +115,7 @@ func announceMetrics(n *Node, peers []peer.ID, cpuUsage uint64, memUsage *memory
 	if err := n.pubsub.Publish(ctx, "monitoring", data); err != nil {
 		return err
 	}
+	n.logger.Info("Announced metrics", zap.String("topic", "monitoring"))
 
 	return nil
 }
@@ -123,7 +124,7 @@ func announceMetrics(n *Node, peers []peer.ID, cpuUsage uint64, memUsage *memory
 // Unlike nodes which need extensive monitoring, clients only need basic health checks.
 func (n *Node) startConnectionMonitoring() {
 	go func() {
-		ticker := time.NewTicker(60 * time.Second) // Less frequent than nodes (60s vs 30s)
+		ticker := time.NewTicker(30 * time.Second) // Less frequent than nodes (60s vs 30s)
 		defer ticker.Stop()
 
 		var lastPeerCount int

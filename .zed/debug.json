@@ -56,5 +56,13 @@
     "mode": "debug",
     "program": "./cmd/cli",
     "args": ["pubsub", "subscribe", "monitoring"]
+  },
+  {
+    "adapter": "Delve",
+    "label": "Node Go (Delve)",
+    "request": "launch",
+    "mode": "debug",
+    "program": "./cmd/node",
+    "args": ["--config", "configs/node.yaml"]
   }
 ]
