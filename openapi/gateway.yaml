@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: DeBros Gateway API
-  version: 1.0.0
+  version: 0.40.0
   description: REST API over the DeBros Network client for storage, database, and pubsub.
 servers:
   - url: http://localhost:8080
@@ -79,7 +79,7 @@ paths:
     get:
       summary: Gateway health
       responses:
-        '200': { description: OK }
+        "200": { description: OK }
   /v1/storage/put:
     post:
       summary: Store a value by key
@@ -96,10 +96,26 @@ paths:
               type: string
               format: binary
       responses:
-        '201': { description: Created }
-        '400': { description: Bad Request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '401': { description: Unauthorized }
-        '500': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "201": { description: Created }
+        "400":
+          {
+            description: Bad Request,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+        "401": { description: Unauthorized }
+        "500":
+          {
+            description: Error,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
   /v1/storage/get:
     get:
       summary: Get a value by key
@@ -109,14 +125,22 @@ paths:
           schema: { type: string }
           required: true
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
-        '404': { description: Not Found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "404":
+          {
+            description: Not Found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
   /v1/storage/exists:
     get:
       summary: Check key existence
@@ -126,7 +150,7 @@ paths:
           schema: { type: string }
           required: true
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -143,7 +167,7 @@ paths:
           name: prefix
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -167,7 +191,7 @@ paths:
               properties:
                 key: { type: string }
       responses:
-        '200': { description: OK }
+        "200": { description: OK }
   /v1/db/create-table:
     post:
       summary: Create tables via SQL DDL
@@ -175,11 +199,27 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateTableRequest' }
+            schema: { $ref: "#/components/schemas/CreateTableRequest" }
       responses:
-        '201': { description: Created }
-        '400': { description: Bad Request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '500': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "201": { description: Created }
+        "400":
+          {
+            description: Bad Request,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+        "500":
+          {
+            description: Error,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
   /v1/db/drop-table:
     post:
       summary: Drop a table
@@ -187,9 +227,9 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/DropTableRequest' }
+            schema: { $ref: "#/components/schemas/DropTableRequest" }
       responses:
-        '200': { description: OK }
+        "200": { description: OK }
   /v1/db/query:
     post:
       summary: Execute a single SQL query
@@ -197,15 +237,31 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/QueryRequest' }
+            schema: { $ref: "#/components/schemas/QueryRequest" }
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/QueryResponse' }
-        '400': { description: Bad Request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '500': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+              schema: { $ref: "#/components/schemas/QueryResponse" }
+        "400":
+          {
+            description: Bad Request,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+        "500":
+          {
+            description: Error,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
   /v1/db/transaction:
     post:
       summary: Execute multiple SQL statements atomically
@@ -213,16 +269,32 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/TransactionRequest' }
+            schema: { $ref: "#/components/schemas/TransactionRequest" }
       responses:
-        '200': { description: OK }
-        '400': { description: Bad Request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '500': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "200": { description: OK }
+        "400":
+          {
+            description: Bad Request,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+        "500":
+          {
+            description: Error,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
   /v1/db/schema:
     get:
       summary: Get current database schema
       responses:
-        '200': { description: OK }
+        "200": { description: OK }
   /v1/pubsub/publish:
     post:
       summary: Publish to a topic
@@ -237,13 +309,13 @@ paths:
                 topic: { type: string }
                 data_base64: { type: string }
       responses:
-        '200': { description: OK }
+        "200": { description: OK }
   /v1/pubsub/topics:
     get:
       summary: List topics in caller namespace
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/TopicsResponse' }
+              schema: { $ref: "#/components/schemas/TopicsResponse" }

@@ -9,6 +9,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/libp2p/go-libp2p v0.41.1
 	github.com/libp2p/go-libp2p-pubsub v0.14.2
+	github.com/mackerelio/go-osstat v0.2.6
 	github.com/multiformats/go-multiaddr v0.15.0
 	github.com/rqlite/gorqlite v0.0.0-20250609141355-ac86a4a1c9a8
 	go.uber.org/zap v1.27.0

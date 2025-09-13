@@ -1,0 +1,136 @@
+package node
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mackerelio/go-osstat/cpu"
+	"github.com/mackerelio/go-osstat/memory"
+	"go.uber.org/zap"
+)
+
+func logPeerStatus(n *Node, currentPeerCount int, lastPeerCount int, firstCheck bool) (int, bool) {
+	if firstCheck || currentPeerCount != lastPeerCount {
+		if currentPeerCount == 0 {
+			n.logger.Warn("Node has no connected peers",
+				zap.String("node_id", n.host.ID().String()))
+		} else if currentPeerCount < lastPeerCount {
+			n.logger.Info("Node lost peers",
+				zap.Int("current_peers", currentPeerCount),
+				zap.Int("previous_peers", lastPeerCount))
+		} else if currentPeerCount > lastPeerCount && !firstCheck {
+			n.logger.Debug("Node gained peers",
+				zap.Int("current_peers", currentPeerCount),
+				zap.Int("previous_peers", lastPeerCount))
+		}
+
+		lastPeerCount = currentPeerCount
+		firstCheck = false
+	}
+	return lastPeerCount, firstCheck
+}
+
+func logDetailedPeerInfo(n *Node, currentPeerCount int, peers []peer.ID) {
+	if time.Now().Unix()%300 == 0 && currentPeerCount > 0 {
+		peerIDs := make([]string, 0, currentPeerCount)
+		for _, p := range peers {
+			peerIDs = append(peerIDs, p.String())
+		}
+		n.logger.Debug("Node peer status",
+			zap.Int("peer_count", currentPeerCount),
+			zap.Strings("peer_ids", peerIDs))
+	}
+}
+
+func logSystemUsage(n *Node) (*memory.Stats, uint64) {
+	mem, _ := memory.Get()
+	cpuBefore, _ := cpu.Get()
+	time.Sleep(3 * time.Second)
+	cpuAfter, _ := cpu.Get()
+	totalCpu := cpuAfter.Total - cpuBefore.Total
+
+	n.logger.Debug("Node CPU usage",
+		zap.Float64("cpu_usage", float64(totalCpu)),
+		zap.Float64("memory_usage", float64(mem.Used)))
+
+	return mem, totalCpu
+}
+
+func announceMetrics(n *Node, peers []peer.ID, cpuUsage uint64, memUsage *memory.Stats) error {
+	if n.pubsub == nil {
+		return nil
+	}
+
+	peerIDs := make([]string, 0, len(peers))
+	for _, p := range peers {
+		peerIDs = append(peerIDs, p.String())
+	}
+
+	msg := struct {
+		PeerID    string   `json:"peer_id"`
+		PeerCount int      `json:"peer_count"`
+		PeerIDs   []string `json:"peer_ids,omitempty"`
+		CPU       uint64   `json:"cpu_usage"`
+		Memory    uint64   `json:"memory_usage"`
+		Timestamp int64    `json:"timestamp"`
+	}{
+		PeerID:    n.host.ID().String(),
+		PeerCount: len(peers),
+		PeerIDs:   peerIDs,
+		CPU:       cpuUsage,
+		Memory:    memUsage.Used,
+		Timestamp: time.Now().Unix(),
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	if err := n.pubsub.Publish(ctx, "monitoring", data); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// startConnectionMonitoring starts minimal connection monitoring for the lightweight client.
+// Unlike nodes which need extensive monitoring, clients only need basic health checks.
+func (n *Node) startConnectionMonitoring() {
+	go func() {
+		ticker := time.NewTicker(60 * time.Second) // Less frequent than nodes (60s vs 30s)
+		defer ticker.Stop()
+
+		var lastPeerCount int
+		firstCheck := true
+
+		for range ticker.C {
+			if n.host == nil {
+				return
+			}
+
+			// Get current peer count
+			peers := n.host.Network().Peers()
+			currentPeerCount := len(peers)
+
+			// Only log if peer count changed or on first check
+			lastPeerCount, firstCheck = logPeerStatus(n, currentPeerCount, lastPeerCount, firstCheck)
+
+			// Log detailed peer info at debug level occasionally (every 5 minutes)
+			logDetailedPeerInfo(n, currentPeerCount, peers)
+
+			// Log system usage
+			mem, cpuUsage := logSystemUsage(n)
+
+			// Announce metrics
+			if err := announceMetrics(n, peers, cpuUsage, mem); err != nil {
+				n.logger.Error("Failed to announce metrics", zap.Error(err))
+			}
+		}
+	}()
+
+	n.logger.Debug("Lightweight connection monitoring started")
+}

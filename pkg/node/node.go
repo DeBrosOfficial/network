@@ -25,6 +25,7 @@ import (
 	"git.debros.io/DeBros/network/pkg/config"
 	"git.debros.io/DeBros/network/pkg/database"
 	"git.debros.io/DeBros/network/pkg/logging"
+	"git.debros.io/DeBros/network/pkg/pubsub"
 )
 
 // Node represents a network node with RQLite database
@@ -33,12 +34,15 @@ type Node struct {
 	logger *logging.ColoredLogger
 	host   host.Host
 
-	rqliteManager  *database.RQLiteManager
-	rqliteAdapter  *database.RQLiteAdapter
+	rqliteManager *database.RQLiteManager
+	rqliteAdapter *database.RQLiteAdapter
 
 	// Peer discovery
 	discoveryCancel context.CancelFunc
 	bootstrapCancel context.CancelFunc
+
+	// PubSub
+	pubsub *pubsub.ClientAdapter
 }
 
 // NewNode creates a new network node
@@ -367,7 +371,6 @@ func (n *Node) startLibP2P() error {
 
 	// Start peer discovery and monitoring
 	n.startPeerDiscovery()
-	n.startConnectionMonitoring()
 
 	n.logger.ComponentInfo(logging.ComponentLibP2P, "LibP2P host started",
 		zap.String("peer_id", h.ID().String()))
@@ -566,29 +569,6 @@ func (n *Node) discoverViaPeerExchange(ctx context.Context) int {
 	return connected
 }
 
-// startConnectionMonitoring monitors connection health and logs status
-func (n *Node) startConnectionMonitoring() {
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if n.host == nil {
-					return
-				}
-
-				connectedPeers := n.host.Network().Peers()
-				if len(connectedPeers) == 0 {
-					n.logger.Debug("Node has no connected peers - seeking connections",
-						zap.String("node_id", n.host.ID().String()))
-				}
-			}
-		}
-	}()
-}
-
 // stopPeerDiscovery stops peer discovery
 func (n *Node) stopPeerDiscovery() {
 	if n.discoveryCancel != nil {
@@ -657,6 +637,8 @@ func (n *Node) Start(ctx context.Context) error {
 		zap.String("peer_id", n.host.ID().String()),
 		zap.Strings("listen_addrs", listenAddrs),
 	)
+
+	n.startConnectionMonitoring()
 
 	return nil
 }

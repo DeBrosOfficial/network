@@ -241,7 +241,6 @@ func (c *Client) Connect() error {
 	c.logger.Debug("Client configured as lightweight P2P participant (no discovery)")
 
 	// Start minimal connection monitoring
-	c.startConnectionMonitoring()
 	c.logger.Info("Connection monitoring started")
 
 	c.logger.Info("Setting connected state...")
