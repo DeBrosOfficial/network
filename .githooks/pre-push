@@ -1,0 +1,11 @@
+#!/bin/bash
+
+echo -e "\nRunning tests:"
+go test ./...   # Runs all tests in your repo
+status=$?
+if [ $status -ne 0 ]; then
+  echo "Push aborted: some tests failed."
+  exit 1
+else
+  echo "All tests passed. Proceeding with push."
+fi
