@@ -115,7 +115,6 @@ func announceMetrics(n *Node, peers []peer.ID, cpuUsage uint64, memUsage *memory
 	if err := n.pubsub.Publish(ctx, "monitoring", data); err != nil {
 		return err
 	}
-	n.logger.Info("Announced metrics", zap.String("topic", "monitoring"))
 
 	return nil
 }
