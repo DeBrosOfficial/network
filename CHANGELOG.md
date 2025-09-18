@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog][keepachangelog] and adheres to [Semant
 
 ### Added
 - Added extra comments on main.go
+- Remove backoff_test.go and associated backoff tests
+- Created node_test, write tests for CalculateNextBackoff, AddJitter, GetPeerId, LoadOrCreateIdentity, hasBootstrapConnections
 
 ### Changed
 
