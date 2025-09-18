@@ -19,6 +19,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// setup_logger initializes a logger for the given component.
 func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
 	var err error
 
@@ -30,6 +31,7 @@ func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
 	return logger
 }
 
+// parse_and_return_network_flags it initializes all the network flags coming from the .yaml files
 func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, disableAnon *bool, rqlJoinAddr *string, advAddr *string, help *bool) {
 	logger := setup_logger(logging.ComponentNode)
 
@@ -98,6 +100,8 @@ func LoadConfigFromYAML(path string) (*config.Config, error) {
 	return &cfg, nil
 }
 
+// disable_anon_proxy disables the anonymous proxy routing, by default on development
+// it is not suggested to run anyone proxy
 func disable_anon_proxy(disableAnon *bool) bool {
 	anyoneproxy.SetDisabled(*disableAnon)
 	logger := setup_logger(logging.ComponentAnyone)
@@ -109,6 +113,7 @@ func disable_anon_proxy(disableAnon *bool) bool {
 	return true
 }
 
+// check_if_should_open_help checks if the help flag is set and opens the help if it is
 func check_if_should_open_help(help *bool) {
 	if *help {
 		flag.Usage()
@@ -116,6 +121,7 @@ func check_if_should_open_help(help *bool) {
 	}
 }
 
+// select_data_dir selects the data directory for the node
 func select_data_dir(dataDir *string, nodeID *string) {
 	logger := setup_logger(logging.ComponentNode)
 
@@ -126,10 +132,10 @@ func select_data_dir(dataDir *string, nodeID *string) {
 	logger.Info("Successfully selected Data Directory of: %s", zap.String("dataDir", *dataDir))
 }
 
+// startNode starts the node with the given configuration and port
 func startNode(ctx context.Context, cfg *config.Config, port int) error {
 	logger := setup_logger(logging.ComponentNode)
 
-	// Create and start node using the unified node implementation
 	n, err := node.NewNode(cfg)
 	if err != nil {
 		logger.Error("failed to create node: %v", zap.Error(err))

@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog][keepachangelog] and adheres to [Semant
 ## [Unreleased]
 
 ### Added
-- Added Changelog.md file
+- Added extra comments on main.go
 
 ### Changed
 
