@@ -31,7 +31,7 @@ func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
 }
 
 // parse_and_return_network_flags it initializes all the network flags coming from the .yaml files
-func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr *string, help *bool) {
+func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr, httpAdvAddr, raftAdvAddr *string, help *bool) {
 	logger := setup_logger(logging.ComponentNode)
 
 	configPath = flag.String("config", "", "Path to config YAML file (overrides defaults)")
@@ -42,45 +42,15 @@ func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *stri
 	rqlRaft = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
 	rqlJoinAddr = flag.String("rqlite-join-address", "", "RQLite address to join (e.g., /ip4/)")
 	advAddr = flag.String("adv-addr", "127.0.0.1", "Default Advertise address for rqlite and rafts")
+	httpAdvAddr = flag.String("http-adv-addr", "", "HTTP advertise address (overrides adv-addr for HTTP)")
+	raftAdvAddr = flag.String("raft-adv-addr", "", "Raft advertise address (overrides adv-addr for Raft)")
 	help = flag.Bool("help", false, "Show help")
 	flag.Parse()
 
 	logger.Info("Successfully parsed all flags and arguments.")
 
-	if *configPath != "" {
-		cfg, err := LoadConfigFromYAML(*configPath)
-		if err != nil {
-			logger.Error("Failed to load config from YAML", zap.Error(err))
-			os.Exit(1)
-		}
-		logger.ComponentInfo(logging.ComponentNode, "Configuration loaded from YAML file", zap.String("path", *configPath))
-
-		// Instead of returning flag values, return config values
-		// For ListenAddresses, extract port from multiaddr string if possible, else use default
-		var p2pPortVal int
-		if len(cfg.Node.ListenAddresses) > 0 {
-			// Try to parse port from multiaddr string
-			var port int
-			_, err := fmt.Sscanf(cfg.Node.ListenAddresses[0], "/ip4/0.0.0.0/tcp/%d", &port)
-			if err == nil {
-				p2pPortVal = port
-			} else {
-				p2pPortVal = 4001
-			}
-		} else {
-			p2pPortVal = 4001
-		}
-		return configPath,
-			&cfg.Node.DataDir,
-			&cfg.Node.ID,
-			&p2pPortVal,
-			&cfg.Database.RQLitePort,
-			&cfg.Database.RQLiteRaftPort,
-			&cfg.Database.RQLiteJoinAddress,
-			&cfg.Discovery.HttpAdvAddress,
-			help
-	}
-
+	// Always return the parsed command line flags
+	// Config file loading will be handled separately in main()
 	return
 }
 
@@ -180,9 +150,13 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 		logger.ComponentInfo(logging.ComponentNode, "Setting RQLite join address", zap.String("address", *rqlJoinAddr))
 	}
 
-	if *advAddr != "" {
+	// Only override advertise addresses if they're not already set in config and advAddr is not the default
+	if *advAddr != "" && *advAddr != "127.0.0.1" {
 		cfg.Discovery.HttpAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlHTTP)
 		cfg.Discovery.RaftAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlRaft)
+		logger.ComponentInfo(logging.ComponentNode, "Overriding advertise addresses",
+			zap.String("http_adv_addr", cfg.Discovery.HttpAdvAddress),
+			zap.String("raft_adv_addr", cfg.Discovery.RaftAdvAddress))
 	}
 
 	if *dataDir != "" {
@@ -190,21 +164,89 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 	}
 }
 
+// load_args_into_config_from_yaml applies only explicit command line overrides when loading from YAML
+func load_args_into_config_from_yaml(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr, advAddr, httpAdvAddr, raftAdvAddr, dataDir *string) {
+	logger := setup_logger(logging.ComponentNode)
+
+	// Only override if explicitly set via command line (check if flag was actually provided)
+	if *dataDir != "" {
+		cfg.Node.DataDir = *dataDir
+		logger.ComponentInfo(logging.ComponentNode, "Overriding data directory from command line", zap.String("dataDir", *dataDir))
+	}
+
+	// Check environment variable for RQLite join address (Docker-specific)
+	if rqlJoinEnv := os.Getenv("RQLITE_JOIN_ADDRESS"); rqlJoinEnv != "" {
+		cfg.Database.RQLiteJoinAddress = rqlJoinEnv
+		logger.ComponentInfo(logging.ComponentNode, "Setting RQLite join address from environment", zap.String("address", rqlJoinEnv))
+	}
+
+	// Handle RQLite join address override from command line (takes precedence over env var)
+	if *rqlJoinAddr != "" {
+		cfg.Database.RQLiteJoinAddress = *rqlJoinAddr
+		logger.ComponentInfo(logging.ComponentNode, "Setting RQLite join address from command line", zap.String("address", *rqlJoinAddr))
+	}
+
+	// Check environment variables for advertise addresses (Docker-specific)
+	if httpAdvEnv := os.Getenv("HTTP_ADV_ADDRESS"); httpAdvEnv != "" {
+		cfg.Discovery.HttpAdvAddress = httpAdvEnv
+		logger.ComponentInfo(logging.ComponentNode, "Setting HTTP advertise address from environment", zap.String("http_adv_addr", httpAdvEnv))
+	}
+	if raftAdvEnv := os.Getenv("RAFT_ADV_ADDRESS"); raftAdvEnv != "" {
+		cfg.Discovery.RaftAdvAddress = raftAdvEnv
+		logger.ComponentInfo(logging.ComponentNode, "Setting Raft advertise address from environment", zap.String("raft_adv_addr", raftAdvEnv))
+	}
+
+	// Handle specific advertise address overrides from command line (takes precedence over env vars)
+	if *httpAdvAddr != "" {
+		cfg.Discovery.HttpAdvAddress = *httpAdvAddr
+		logger.ComponentInfo(logging.ComponentNode, "Overriding HTTP advertise address from command line", zap.String("http_adv_addr", *httpAdvAddr))
+	}
+	if *raftAdvAddr != "" {
+		cfg.Discovery.RaftAdvAddress = *raftAdvAddr
+		logger.ComponentInfo(logging.ComponentNode, "Overriding Raft advertise address from command line", zap.String("raft_adv_addr", *raftAdvAddr))
+	}
+
+	// Handle general advertise address (only if specific ones weren't set)
+	if *advAddr != "" && *advAddr != "127.0.0.1" && *httpAdvAddr == "" && *raftAdvAddr == "" && os.Getenv("HTTP_ADV_ADDRESS") == "" && os.Getenv("RAFT_ADV_ADDRESS") == "" {
+		cfg.Discovery.HttpAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlHTTP)
+		cfg.Discovery.RaftAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlRaft)
+		logger.ComponentInfo(logging.ComponentNode, "Overriding advertise addresses from adv-addr flag",
+			zap.String("http_adv_addr", cfg.Discovery.HttpAdvAddress),
+			zap.String("raft_adv_addr", cfg.Discovery.RaftAdvAddress))
+	}
+
+	logger.ComponentInfo(logging.ComponentNode, "YAML configuration loaded with overrides applied")
+}
+
 func main() {
 	logger := setup_logger(logging.ComponentNode)
 
-	_, dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, help := parse_and_return_network_flags()
+	configPath, dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, httpAdvAddr, raftAdvAddr, help := parse_and_return_network_flags()
 
 	check_if_should_open_help(help)
 	select_data_dir(dataDir, nodeID)
 
 	// Load Node Configuration
 	var cfg *config.Config
-	cfg = config.DefaultConfig()
-	logger.ComponentInfo(logging.ComponentNode, "Default configuration loaded successfully")
+	if *configPath != "" {
+		// Load config from YAML file
+		var err error
+		cfg, err = LoadConfigFromYAML(*configPath)
+		if err != nil {
+			logger.Error("Failed to load config from YAML", zap.Error(err))
+			os.Exit(1)
+		}
+		logger.ComponentInfo(logging.ComponentNode, "Configuration loaded from YAML file", zap.String("path", *configPath))
 
-	// Apply command line argument overrides
-	load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, dataDir)
+		// Only apply command line overrides if they were explicitly set (not defaults)
+		load_args_into_config_from_yaml(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, httpAdvAddr, raftAdvAddr, dataDir)
+	} else {
+		cfg = config.DefaultConfig()
+		logger.ComponentInfo(logging.ComponentNode, "Default configuration loaded successfully")
+
+		// Apply command line argument overrides
+		load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, dataDir)
+	}
 	logger.ComponentInfo(logging.ComponentNode, "Command line arguments applied to configuration")
 
 	// LibP2P uses configurable port (default 4001); RQLite uses 5001 (HTTP) and 7001 (Raft)

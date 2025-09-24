@@ -414,6 +414,11 @@ func handlePeerID() {
 func createClient() (client.NetworkClient, error) {
 	config := client.DefaultClientConfig("network-cli")
 
+	// Override bootstrap peers if specified via flag
+	if bootstrapPeer != "/ip4/127.0.0.1/tcp/4001" {
+		config.BootstrapPeers = []string{bootstrapPeer}
+	}
+
 	// Check for existing credentials using enhanced authentication
 	creds, err := auth.GetValidEnhancedCredentials()
 	if err != nil {

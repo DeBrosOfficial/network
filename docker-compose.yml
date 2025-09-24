@@ -1,0 +1,165 @@
+# Docker Compose file for DeBros Network
+
+services:
+  # Bootstrap Node - First node in the network
+  bootstrap-node:
+    build: .
+    container_name: debros-bootstrap
+    hostname: bootstrap-node
+    command: ["./bin/node", "--config", "/app/configs/bootstrap.docker.yaml"]
+    ports:
+      - "4001:4001"   # LibP2P P2P
+      - "5001:5001"   # RQLite HTTP API
+      - "7001:7001"   # RQLite Raft
+    volumes:
+      - bootstrap_data:/app/data
+      - ./configs:/app/configs:ro
+      - bootstrap_logs:/app/logs
+    environment:
+      - NODE_ID=bootstrap
+      - P2P_PORT=4001
+      - RQLITE_PORT=5001
+      - RQLITE_RAFT_PORT=7001
+      - DATA_DIR=/app/data/bootstrap
+      - LOG_LEVEL=info
+    networks:
+      - debros-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5001/status", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # Second Node - Joins the bootstrap node
+  node-2:
+    build: .
+    container_name: debros-node-2
+    hostname: node-2
+    command: ["./bin/node", "--config", "/app/configs/node.docker.yaml"]
+    ports:
+      - "4002:4001"   # LibP2P P2P (mapped to different host port)
+      - "5002:5001"   # RQLite HTTP API
+      - "7002:7001"   # RQLite Raft
+    volumes:
+      - node2_data:/app/data
+      - ./configs:/app/configs:ro
+      - node2_logs:/app/logs
+    environment:
+      - NODE_ID=node-2
+      - P2P_PORT=4001
+      - RQLITE_PORT=5001
+      - RQLITE_RAFT_PORT=7001
+      - RQLITE_JOIN_ADDRESS=bootstrap-node:7001
+      - BOOTSTRAP_PEERS=/ip4/172.20.0.2/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr
+      - DATA_DIR=/app/data/node2
+      - LOG_LEVEL=info
+      - HTTP_ADV_ADDRESS=node-2:5001
+      - RAFT_ADV_ADDRESS=node-2:7001
+    networks:
+      - debros-network
+    depends_on:
+      bootstrap-node:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5001/status", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # Third Node - Additional network participant
+  node-3:
+    build: .
+    container_name: debros-node-3
+    hostname: node-3
+    command: ["./bin/node", "--config", "/app/configs/node.docker.yaml"]
+    ports:
+      - "4003:4001"   # LibP2P P2P
+      - "5003:5001"   # RQLite HTTP API
+      - "7003:7001"   # RQLite Raft
+    volumes:
+      - node3_data:/app/data
+      - ./configs:/app/configs:ro
+      - node3_logs:/app/logs
+    environment:
+      - NODE_ID=node-3
+      - P2P_PORT=4001
+      - RQLITE_PORT=5001
+      - RQLITE_RAFT_PORT=7001
+      - RQLITE_JOIN_ADDRESS=bootstrap-node:7001
+      - BOOTSTRAP_PEERS=/ip4/172.20.0.2/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr
+      - DATA_DIR=/app/data/node3
+      - LOG_LEVEL=info
+      - HTTP_ADV_ADDRESS=node-3:5001
+      - RAFT_ADV_ADDRESS=node-3:7001
+    networks:
+      - debros-network
+    depends_on:
+      bootstrap-node:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5001/status", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # HTTP Gateway - Provides REST API and WebSocket interface
+  gateway:
+    build: .
+    container_name: debros-gateway
+    hostname: gateway
+    command: ["./bin/gateway", "--addr", ":6001", "--namespace", "default", "--bootstrap-peers", "/ip4/bootstrap-node/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr"]
+    ports:
+      - "6001:6001"   # Gateway HTTP/WebSocket
+    volumes:
+      - ./configs:/app/configs:ro
+      - gateway_logs:/app/logs
+    environment:
+      - GATEWAY_ADDR=:6001
+      - GATEWAY_NAMESPACE=default
+      - GATEWAY_BOOTSTRAP_PEERS=/ip4/bootstrap-node/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr
+      - RQLITE_NODES=http://bootstrap-node:5001
+      - RQLITE_DSN=http://bootstrap-node:5001
+      - LOG_LEVEL=info
+    networks:
+      - debros-network
+    depends_on:
+      bootstrap-node:
+        condition: service_healthy
+      node-2:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:6001/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  debros-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  bootstrap_data:
+    driver: local
+  bootstrap_logs:
+    driver: local
+  node2_data:
+    driver: local
+  node2_logs:
+    driver: local
+  node3_data:
+    driver: local
+  node3_logs:
+    driver: local
+  gateway_logs:
+    driver: local
