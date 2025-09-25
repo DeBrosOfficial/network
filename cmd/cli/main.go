@@ -19,10 +19,11 @@ import (
 )
 
 var (
-	bootstrapPeer = "/ip4/127.0.0.1/tcp/4001"
-	timeout       = 30 * time.Second
-	format        = "table"
-	useProduction = false
+	bootstrapPeer    = "/ip4/127.0.0.1/tcp/4001"
+	bootstrapPeerSet = false // Track if bootstrap peer was explicitly set via flag
+	timeout          = 30 * time.Second
+	format           = "table"
+	useProduction    = false
 )
 
 // version metadata populated via -ldflags at build time
@@ -93,6 +94,7 @@ func parseGlobalFlags(args []string) {
 		case "-b", "--bootstrap":
 			if i+1 < len(args) {
 				bootstrapPeer = args[i+1]
+				bootstrapPeerSet = true // Mark as explicitly set
 			}
 		case "-f", "--format":
 			if i+1 < len(args) {
@@ -412,7 +414,20 @@ func handlePeerID() {
 }
 
 func createClient() (client.NetworkClient, error) {
+	// Start with default config (includes YAML/config defaults)
 	config := client.DefaultClientConfig("network-cli")
+
+	// Apply environment variable overrides (precedence: YAML < Env < Flags)
+	if envPeers := os.Getenv("BOOTSTRAP_PEERS"); envPeers != "" {
+		config.BootstrapPeers = strings.Fields(strings.ReplaceAll(envPeers, ",", " "))
+	} else if envPeers := os.Getenv("DEBROS_BOOTSTRAP_PEERS"); envPeers != "" {
+		config.BootstrapPeers = strings.Fields(strings.ReplaceAll(envPeers, ",", " "))
+	}
+
+	// Apply flag overrides (highest precedence)
+	if bootstrapPeerSet {
+		config.BootstrapPeers = []string{bootstrapPeer}
+	}
 
 	// Check for existing credentials using enhanced authentication
 	creds, err := auth.GetValidEnhancedCredentials()

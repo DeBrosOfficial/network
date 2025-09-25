@@ -100,11 +100,15 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 		}
 		cfg.BootstrapPeers = bp
 	}
+	if v := strings.TrimSpace(os.Getenv("RQLITE_DSN")); v != "" {
+		cfg.RQLiteDSN = v
+	}
 
 	// 3) Flags (override env)
 	addr := flag.String("addr", "", "HTTP listen address (e.g., :6001)")
 	ns := flag.String("namespace", "", "Client namespace for scoping resources")
 	peers := flag.String("bootstrap-peers", "", "Comma-separated bootstrap peers for network client")
+	rqliteDSN := flag.String("rqlite-dsn", "", "RQLite database DSN (e.g., http://localhost:5001)")
 
 	// Do not call flag.Parse() elsewhere to avoid double-parsing
 	flag.Parse()
@@ -125,6 +129,9 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 			}
 		}
 		cfg.BootstrapPeers = bp
+	}
+	if r := strings.TrimSpace(*rqliteDSN); r != "" {
+		cfg.RQLiteDSN = r
 	}
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Loaded gateway configuration",

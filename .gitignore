@@ -73,3 +73,6 @@ data/bootstrap/rqlite/
 .env.*
 
 configs/
+
+# PR documentation (temporary files)
+PR_CHANGES.md
