@@ -16,21 +16,36 @@ The format is based on [Keep a Changelog][keepachangelog] and adheres to [Semant
 
 ### Fixed
 
-## [0.50.0] - 2025-09-23
+## [0.51.0] - 2025-01-25
 
 ### Added
 
+- Comprehensive Docker support with multi-container orchestration
+- Docker Compose configuration for 4-node network (bootstrap + 3 nodes + gateway)
+- Individual YAML configuration files for each Docker container
+- Windows Docker setup documentation (WINDOWS_DOCKER_SETUP.md)
+- Environment variable support for CLI bootstrap peer configuration
+- Support for BOOTSTRAP_PEERS and DEBROS_BOOTSTRAP_PEERS environment variables
+
 ### Changed
 
-### Deprecated
+- Updated docker-compose.yml to use YAML config files instead of environment variables
+- Enhanced CLI bootstrap flag to respect proper configuration precedence
+- Improved node configuration loading with YAML file support restoration
+- Updated gateway configuration to use proper bootstrap peer multiaddr format
 
-### Removed
+### Fixed
+
+- Fixed critical CLI bootstrap flag bug where --bootstrap flag was parsed but ignored
+- Corrected configuration precedence order: YAML < Environment Variables < Flags
+- Fixed Docker container networking and peer discovery
+- Resolved CLI bootstrap peer override logic to only apply when explicitly set
+
+## [0.50.1] - 2025-09-23
 
 ### Fixed
 
 - Fixed wrong URL /v1/db to /v1/rqlite
-
-### Security
 
 ## [0.50.0] - 2025-09-23
 

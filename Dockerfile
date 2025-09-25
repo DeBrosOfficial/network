@@ -27,7 +27,7 @@ COPY . .
 # Build only node and gateway executables (CLI is built separately on host)
 RUN mkdir -p bin && \
     go build -ldflags "-X 'main.version=0.50.1-beta' -X 'main.commit=unknown' -X 'main.date=2025-09-23T15:40:00Z'" -o bin/node ./cmd/node && \
-    go build -ldflags "-X 'main.version=0.50.1-beta' -X 'main.commit=unknown' -X 'main.date=2025-09-23T15:40:00Z' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildVersion=0.50.1-beta' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildCommit=unknown' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildTime=2025-09-23T15:40:00Z'" -o bin/gateway ./cmd/gateway
+    go build -ldflags "-X 'main.version=0.50.1-beta' -X 'main.commit=unknown' -X 'main.date=2025-09-23T15:40:00Z' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildVersion=0.51.1-beta' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildCommit=unknown' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildTime=2025-09-23T15:40:00Z'" -o bin/gateway ./cmd/gateway
 
 # Stage 2: Runtime stage
 FROM alpine:latest

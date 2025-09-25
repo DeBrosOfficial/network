@@ -15,13 +15,6 @@ services:
       - bootstrap_data:/app/data
       - ./configs:/app/configs:ro
       - bootstrap_logs:/app/logs
-    environment:
-      - NODE_ID=bootstrap
-      - P2P_PORT=4001
-      - RQLITE_PORT=5001
-      - RQLITE_RAFT_PORT=7001
-      - DATA_DIR=/app/data/bootstrap
-      - LOG_LEVEL=info
     networks:
       - debros-network
     restart: unless-stopped
@@ -37,7 +30,7 @@ services:
     build: .
     container_name: debros-node-2
     hostname: node-2
-    command: ["./bin/node", "--config", "/app/configs/node.docker.yaml"]
+    command: ["./bin/node", "--config", "/app/configs/node-2.docker.yaml"]
     ports:
       - "4002:4001"   # LibP2P P2P (mapped to different host port)
       - "5002:5001"   # RQLite HTTP API
@@ -46,17 +39,6 @@ services:
       - node2_data:/app/data
       - ./configs:/app/configs:ro
       - node2_logs:/app/logs
-    environment:
-      - NODE_ID=node-2
-      - P2P_PORT=4001
-      - RQLITE_PORT=5001
-      - RQLITE_RAFT_PORT=7001
-      - RQLITE_JOIN_ADDRESS=bootstrap-node:7001
-      - BOOTSTRAP_PEERS=/ip4/172.20.0.2/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr
-      - DATA_DIR=/app/data/node2
-      - LOG_LEVEL=info
-      - HTTP_ADV_ADDRESS=node-2:5001
-      - RAFT_ADV_ADDRESS=node-2:7001
     networks:
       - debros-network
     depends_on:
@@ -75,7 +57,7 @@ services:
     build: .
     container_name: debros-node-3
     hostname: node-3
-    command: ["./bin/node", "--config", "/app/configs/node.docker.yaml"]
+    command: ["./bin/node", "--config", "/app/configs/node-3.docker.yaml"]
     ports:
       - "4003:4001"   # LibP2P P2P
       - "5003:5001"   # RQLite HTTP API
@@ -84,17 +66,6 @@ services:
       - node3_data:/app/data
       - ./configs:/app/configs:ro
       - node3_logs:/app/logs
-    environment:
-      - NODE_ID=node-3
-      - P2P_PORT=4001
-      - RQLITE_PORT=5001
-      - RQLITE_RAFT_PORT=7001
-      - RQLITE_JOIN_ADDRESS=bootstrap-node:7001
-      - BOOTSTRAP_PEERS=/ip4/172.20.0.2/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr
-      - DATA_DIR=/app/data/node3
-      - LOG_LEVEL=info
-      - HTTP_ADV_ADDRESS=node-3:5001
-      - RAFT_ADV_ADDRESS=node-3:7001
     networks:
       - debros-network
     depends_on:
@@ -113,19 +84,12 @@ services:
     build: .
     container_name: debros-gateway
     hostname: gateway
-    command: ["./bin/gateway", "--addr", ":6001", "--namespace", "default", "--bootstrap-peers", "/ip4/bootstrap-node/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr"]
+    command: ["./bin/gateway", "--config", "/app/configs/gateway.docker.yaml"]
     ports:
       - "6001:6001"   # Gateway HTTP/WebSocket
     volumes:
       - ./configs:/app/configs:ro
       - gateway_logs:/app/logs
-    environment:
-      - GATEWAY_ADDR=:6001
-      - GATEWAY_NAMESPACE=default
-      - GATEWAY_BOOTSTRAP_PEERS=/ip4/bootstrap-node/tcp/4001/p2p/12D3KooWQX6jcPTVSsBuVuxdkbMbau3DAqZT4pc7UgGh2FvDxrKr
-      - RQLITE_NODES=http://bootstrap-node:5001
-      - RQLITE_DSN=http://bootstrap-node:5001
-      - LOG_LEVEL=info
     networks:
       - debros-network
     depends_on:

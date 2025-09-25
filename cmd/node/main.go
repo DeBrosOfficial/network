@@ -49,8 +49,42 @@ func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *stri
 
 	logger.Info("Successfully parsed all flags and arguments.")
 
-	// Always return the parsed command line flags
-	// Config file loading will be handled separately in main()
+	if *configPath != "" {
+		cfg, err := LoadConfigFromYAML(*configPath)
+		if err != nil {
+			logger.Error("Failed to load config from YAML", zap.Error(err))
+			os.Exit(1)
+		}
+		logger.ComponentInfo(logging.ComponentNode, "Configuration loaded from YAML file", zap.String("path", *configPath))
+
+		// Instead of returning flag values, return config values
+		// For ListenAddresses, extract port from multiaddr string if possible, else use default
+		var p2pPortVal int
+		if len(cfg.Node.ListenAddresses) > 0 {
+			// Try to parse port from multiaddr string
+			var port int
+			_, err := fmt.Sscanf(cfg.Node.ListenAddresses[0], "/ip4/0.0.0.0/tcp/%d", &port)
+			if err == nil {
+				p2pPortVal = port
+			} else {
+				p2pPortVal = 4001
+			}
+		} else {
+			p2pPortVal = 4001
+		}
+		return configPath,
+			&cfg.Node.DataDir,
+			&cfg.Node.ID,
+			&p2pPortVal,
+			&cfg.Database.RQLitePort,
+			&cfg.Database.RQLiteRaftPort,
+			&cfg.Database.RQLiteJoinAddress,
+			&cfg.Discovery.HttpAdvAddress,
+			&cfg.Discovery.HttpAdvAddress, // Using HttpAdvAddress for httpAdvAddr
+			&cfg.Discovery.RaftAdvAddress,
+			help
+	}
+
 	return
 }
 
@@ -150,13 +184,9 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 		logger.ComponentInfo(logging.ComponentNode, "Setting RQLite join address", zap.String("address", *rqlJoinAddr))
 	}
 
-	// Only override advertise addresses if they're not already set in config and advAddr is not the default
-	if *advAddr != "" && *advAddr != "127.0.0.1" {
+	if *advAddr != "" {
 		cfg.Discovery.HttpAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlHTTP)
 		cfg.Discovery.RaftAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlRaft)
-		logger.ComponentInfo(logging.ComponentNode, "Overriding advertise addresses",
-			zap.String("http_adv_addr", cfg.Discovery.HttpAdvAddress),
-			zap.String("raft_adv_addr", cfg.Discovery.RaftAdvAddress))
 	}
 
 	if *dataDir != "" {
