@@ -27,12 +27,6 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/auth/logout", g.logoutHandler)
 	mux.HandleFunc("/v1/auth/whoami", g.whoamiHandler)
 
-	// rqlite ORM HTTP gateway (mounts /v1/rqlite/* endpoints)
-	if g.ormHTTP != nil {
-		g.ormHTTP.BasePath = "/v1/rqlite"
-		g.ormHTTP.RegisterRoutes(mux)
-	}
-
 	// network
 	mux.HandleFunc("/v1/network/status", g.networkStatusHandler)
 	mux.HandleFunc("/v1/network/peers", g.networkPeersHandler)
@@ -43,6 +37,15 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/pubsub/ws", g.pubsubWebsocketHandler)
 	mux.HandleFunc("/v1/pubsub/publish", g.pubsubPublishHandler)
 	mux.HandleFunc("/v1/pubsub/topics", g.pubsubTopicsHandler)
+
+	// database operations (dynamic clustering)
+	mux.HandleFunc("/v1/database/exec", g.databaseExecHandler)
+	mux.HandleFunc("/v1/database/query", g.databaseQueryHandler)
+	mux.HandleFunc("/v1/database/transaction", g.databaseTransactionHandler)
+	mux.HandleFunc("/v1/database/schema", g.databaseSchemaHandler)
+	mux.HandleFunc("/v1/database/create-table", g.databaseCreateTableHandler)
+	mux.HandleFunc("/v1/database/drop-table", g.databaseDropTableHandler)
+	mux.HandleFunc("/v1/database/list", g.databaseListHandler)
 
 	return g.withMiddleware(mux)
 }

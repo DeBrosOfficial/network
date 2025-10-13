@@ -21,7 +21,7 @@ test-e2e:
 
 .PHONY: build clean test run-node run-node2 run-node3 run-example deps tidy fmt vet lint clear-ports
 
-VERSION := 0.51.0-beta
+VERSION := 0.60.0-beta
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.commit=$(COMMIT)' -X 'main.date=$(DATE)'
@@ -53,13 +53,25 @@ run-node:
 # Usage: make run-node2 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5002 RAFT=7002 P2P=4002
 run-node2:
 	@echo "Starting regular node2 with config..."
-	go run ./cmd/node --config configs/node.yaml
+	go run ./cmd/node --config configs/node.yaml -id node2 -p2p-port 4002
 
 # Run third node (regular) - requires join address of bootstrap node
 # Usage: make run-node3 JOINADDR=/ip4/127.0.0.1/tcp/5001 HTTP=5003 RAFT=7003 P2P=4003
 run-node3:
 	@echo "Starting regular node3 with config..."
-	go run ./cmd/node --config configs/node.yaml
+	go run ./cmd/node --config configs/node.yaml -id node3 -p2p-port 4003
+
+run-node4:
+	@echo "Starting regular node4 with config..."
+	go run ./cmd/node --config configs/node.yaml -id node4 -p2p-port 4004
+
+run-node5:
+	@echo "Starting regular node5 with config..."
+	go run ./cmd/node --config configs/node.yaml -id node5 -p2p-port 4005
+
+run-node6:
+	@echo "Starting regular node6 with config..."
+	go run ./cmd/node --config configs/node.yaml -id node6 -p2p-port 4006
 
 # Run gateway HTTP server
 # Usage examples:

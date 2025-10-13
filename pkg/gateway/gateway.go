@@ -4,16 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"database/sql"
 	"strconv"
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
 	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"go.uber.org/zap"
-
-	_ "github.com/rqlite/gorqlite/stdlib"
 )
 
 // Config holds configuration for the gateway server
@@ -34,11 +30,6 @@ type Gateway struct {
 	startedAt  time.Time
 	signingKey *rsa.PrivateKey
 	keyID      string
-
-	// rqlite SQL connection and HTTP ORM gateway
-	sqlDB     *sql.DB
-	ormClient rqlite.Client
-	ormHTTP   *rqlite.HTTPGateway
 }
 
 // New creates and initializes a new Gateway instance
@@ -87,24 +78,7 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 		logger.ComponentWarn(logging.ComponentGeneral, "failed to generate RSA key; jwks will be empty", zap.Error(err))
 	}
 
-	logger.ComponentInfo(logging.ComponentGeneral, "Initializing RQLite ORM HTTP gateway...")
-	dsn := cfg.RQLiteDSN
-	if dsn == "" {
-		dsn = "http://localhost:4001"
-	}
-	db, dbErr := sql.Open("rqlite", dsn)
-	if dbErr != nil {
-		logger.ComponentWarn(logging.ComponentGeneral, "failed to open rqlite sql db; http orm gateway disabled", zap.Error(dbErr))
-	} else {
-		gw.sqlDB = db
-		orm := rqlite.NewClient(db)
-		gw.ormClient = orm
-		gw.ormHTTP = rqlite.NewHTTPGateway(orm, "/v1/db")
-		logger.ComponentInfo(logging.ComponentGeneral, "RQLite ORM HTTP gateway ready",
-			zap.String("dsn", dsn),
-			zap.String("base_path", "/v1/db"),
-		)
-	}
+	logger.ComponentInfo(logging.ComponentGeneral, "Gateway initialized with dynamic database clustering")
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Gateway creation completed, returning...")
 	return gw, nil
@@ -122,7 +96,5 @@ func (g *Gateway) Close() {
 			g.logger.ComponentWarn(logging.ComponentClient, "error during client disconnect", zap.Error(err))
 		}
 	}
-	if g.sqlDB != nil {
-		_ = g.sqlDB.Close()
-	}
+	// No legacy database connections to close
 }

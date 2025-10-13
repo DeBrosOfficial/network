@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -14,9 +15,10 @@ import (
 
 // DatabaseClientImpl implements DatabaseClient
 type DatabaseClientImpl struct {
-	client     *Client
-	connection *gorqlite.Connection
-	mu         sync.RWMutex
+	client       *Client
+	connection   *gorqlite.Connection
+	databaseName string // Empty for default database, or specific database name
+	mu           sync.RWMutex
 }
 
 // checkConnection verifies the client is connected
@@ -176,18 +178,16 @@ func (d *DatabaseClientImpl) getRQLiteConnection() (*gorqlite.Connection, error)
 // getRQLiteNodes returns a list of RQLite node URLs with precedence:
 // 1) client config DatabaseEndpoints
 // 2) RQLITE_NODES env (comma/space separated)
-// 3) library defaults via DefaultDatabaseEndpoints()
+// 3) library defaults via bootstrap peers
 func (d *DatabaseClientImpl) getRQLiteNodes() []string {
 	// 1) Prefer explicit configuration on the client
 	if d.client != nil && d.client.config != nil && len(d.client.config.DatabaseEndpoints) > 0 {
-		return dedupeStrings(normalizeEndpoints(d.client.config.DatabaseEndpoints))
+		return d.client.config.DatabaseEndpoints
 	}
 
-	// 3) Fallback to library defaults derived from bootstrap peers
-	return DefaultDatabaseEndpoints()
+	// 2) Return empty - dynamic clustering will determine endpoints
+	return []string{}
 }
-
-// normalizeEndpoints is now imported from defaults.go
 
 func hasPort(hostport string) bool {
 	// cheap check for :port suffix (IPv6 with brackets handled by url.Parse earlier)
@@ -390,6 +390,46 @@ func (d *DatabaseClientImpl) GetSchema(ctx context.Context) (*SchemaInfo, error)
 	}
 
 	return schema, nil
+}
+
+// Database returns a database client for the named database
+// The database name is prefixed with the app name for isolation
+func (d *DatabaseClientImpl) Database(name string) (DatabaseClient, error) {
+	if !d.client.isConnected() {
+		return nil, fmt.Errorf("client not connected")
+	}
+
+	// Sanitize and prefix database name
+	appName := d.client.getAppNamespace()
+	fullDBName := sanitizeDatabaseName(appName, name)
+
+	// Create a new database client instance for this specific database
+	dbClient := &DatabaseClientImpl{
+		client:       d.client,
+		databaseName: fullDBName,
+	}
+
+	return dbClient, nil
+}
+
+// sanitizeDatabaseName creates a sanitized database name with app prefix
+func sanitizeDatabaseName(appName, dbName string) string {
+	sanitizedApp := sanitizeIdentifier(appName)
+	sanitizedDB := sanitizeIdentifier(dbName)
+	return fmt.Sprintf("%s_%s", sanitizedApp, sanitizedDB)
+}
+
+// sanitizeIdentifier sanitizes an identifier (app or database name)
+func sanitizeIdentifier(name string) string {
+	var result strings.Builder
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || r == '_' {
+			result.WriteRune(unicode.ToLower(r))
+		} else if r == '-' || r == ' ' {
+			result.WriteRune('_')
+		}
+	}
+	return result.String()
 }
 
 // NetworkInfoImpl implements NetworkInfo
