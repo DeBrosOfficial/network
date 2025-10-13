@@ -54,11 +54,15 @@ func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *stri
 
 		// Return config values but preserve command line flag values for overrides
 		// The command line flags will be applied later in load_args_into_config
+		// Create separate variables to avoid modifying config directly
+		configDataDir := cfg.Node.DataDir
+		configAdvAddr := cfg.Discovery.HttpAdvAddress
+
 		return configPath,
-			&cfg.Node.DataDir,
-			&cfg.Node.ID,
+			&configDataDir,
+			nodeID, // Keep the command line flag value, not config value
 			p2pPort, // Keep the command line flag value
-			&cfg.Discovery.HttpAdvAddress,
+			&configAdvAddr,
 			help,
 			cfg // Return the loaded config
 	}
@@ -91,13 +95,12 @@ func check_if_should_open_help(help *bool) {
 func select_data_dir(dataDir *string, nodeID *string) {
 	logger := setup_logger(logging.ComponentNode)
 
-	// If dataDir is not set from config, set it based on nodeID
-	if *dataDir == "" {
-		if *nodeID == "" {
-			*dataDir = "./data/node"
-		} else {
-			*dataDir = fmt.Sprintf("./data/%s", *nodeID)
-		}
+	// If nodeID is provided via command line, use it to override the data directory
+	if *nodeID != "" {
+		*dataDir = fmt.Sprintf("./data/%s", *nodeID)
+	} else if *dataDir == "" {
+		// Fallback to default if neither nodeID nor dataDir is set
+		*dataDir = "./data/node"
 	}
 
 	logger.Info("Successfully selected Data Directory of: %s", zap.String("dataDir", *dataDir))
@@ -175,7 +178,6 @@ func main() {
 	_, dataDir, nodeID, p2pPort, advAddr, help, loadedConfig := parse_and_return_network_flags()
 
 	check_if_should_open_help(help)
-	select_data_dir(dataDir, nodeID)
 
 	// Load Node Configuration - use loaded config if available, otherwise use default
 	var cfg *config.Config
@@ -186,6 +188,9 @@ func main() {
 		cfg = config.DefaultConfig()
 		logger.ComponentInfo(logging.ComponentNode, "Using default configuration")
 	}
+
+	// Select data directory based on node ID (this overrides config)
+	select_data_dir(dataDir, nodeID)
 
 	// Apply command line argument overrides
 	load_args_into_config(cfg, p2pPort, advAddr, dataDir)

@@ -114,7 +114,7 @@ func DefaultConfig() *Config {
 		},
 		Discovery: DiscoveryConfig{
 			BootstrapPeers: []string{
-				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWKdj4B3LdZ8whYGaa97giwWCoSELciRp6qsFrDvz2Etah",
+				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWJSkwRXX1PYA5g2bkAnKani7frhygZp5iY6U853JJPb7K",
 				// "/ip4/217.76.54.168/tcp/4001/p2p/12D3KooWDp7xeShVY9uHfqNVPSsJeCKUatAviFZV8Y1joox5nUvx",
 				// "/ip4/217.76.54.178/tcp/4001/p2p/12D3KooWKZnirPwNT4URtNSWK45f6vLkEs4xyUZ792F8Uj1oYnm1",
 				// "/ip4/51.83.128.181/tcp/4001/p2p/12D3KooWBn2Zf1R8v9pEfmz7hDZ5b3oADxfejA3zJBYzKRCzgvhR",

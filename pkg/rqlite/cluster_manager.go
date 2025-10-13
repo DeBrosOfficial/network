@@ -363,7 +363,16 @@ func (cm *ClusterManager) announceCapacity() {
 
 // monitorHealth monitors the health of active databases
 func (cm *ClusterManager) monitorHealth() {
-	ticker := time.NewTicker(cm.discoveryConfig.HealthCheckInterval)
+	// Use a default interval if the configured one is invalid
+	interval := cm.discoveryConfig.HealthCheckInterval
+	if interval <= 0 {
+		interval = 10 * time.Second
+		cm.logger.Warn("Invalid health check interval, using default",
+			zap.Duration("configured", cm.discoveryConfig.HealthCheckInterval),
+			zap.Duration("default", interval))
+	}
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {

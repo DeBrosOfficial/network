@@ -38,8 +38,9 @@ type Node struct {
 	clusterManager *database.ClusterManager
 
 	// Peer discovery
-	discoveryCancel context.CancelFunc
-	bootstrapCancel context.CancelFunc
+	discoveryCancel      context.CancelFunc
+	bootstrapCancel      context.CancelFunc
+	peerDiscoveryService *pubsub.PeerDiscoveryService
 
 	// PubSub
 	pubsub *pubsub.ClientAdapter
@@ -254,6 +255,15 @@ func (n *Node) startLibP2P() error {
 	// Create pubsub adapter with "node" namespace
 	n.pubsub = pubsub.NewClientAdapter(ps, n.config.Discovery.NodeNamespace)
 	n.logger.Info("Initialized pubsub adapter on namespace", zap.String("namespace", n.config.Discovery.NodeNamespace))
+
+	// Initialize peer discovery service
+	// Note: We need to access the internal manager from the adapter
+	peerDiscoveryManager := pubsub.NewManager(ps, n.config.Discovery.NodeNamespace)
+	n.peerDiscoveryService = pubsub.NewPeerDiscoveryService(h, peerDiscoveryManager, n.logger.Logger)
+	if err := n.peerDiscoveryService.Start(); err != nil {
+		return fmt.Errorf("failed to start peer discovery service: %w", err)
+	}
+	n.logger.ComponentInfo(logging.ComponentNode, "Started active peer discovery service")
 
 	// Log configured bootstrap peers
 	if len(n.config.Discovery.BootstrapPeers) > 0 {
@@ -563,6 +573,13 @@ func (n *Node) Stop() error {
 
 	// Stop peer discovery
 	n.stopPeerDiscovery()
+
+	// Stop peer discovery service
+	if n.peerDiscoveryService != nil {
+		if err := n.peerDiscoveryService.Stop(); err != nil {
+			n.logger.ComponentWarn(logging.ComponentNode, "Error stopping peer discovery service", zap.Error(err))
+		}
+	}
 
 	// Stop cluster manager
 	if n.clusterManager != nil {
