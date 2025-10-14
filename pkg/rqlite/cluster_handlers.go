@@ -125,6 +125,20 @@ func (cm *ClusterManager) handleCreateConfirm(msg *MetadataMessage) error {
 		zap.String("coordinator", confirm.CoordinatorNodeID),
 		zap.Int("nodes", len(confirm.SelectedNodes)))
 
+	// Check if database already exists or is being initialized (ignore duplicate confirmations)
+	cm.mu.RLock()
+	_, alreadyActive := cm.activeClusters[confirm.DatabaseName]
+	_, alreadyInitializing := cm.initializingDBs[confirm.DatabaseName]
+	cm.mu.RUnlock()
+
+	if alreadyActive || alreadyInitializing {
+		cm.logger.Debug("Database already active or initializing on this node, ignoring confirmation",
+			zap.String("database", confirm.DatabaseName),
+			zap.Bool("active", alreadyActive),
+			zap.Bool("initializing", alreadyInitializing))
+		return nil
+	}
+
 	// Check if this node was selected
 	var myAssignment *NodeAssignment
 	for i, node := range confirm.SelectedNodes {
@@ -143,6 +157,11 @@ func (cm *ClusterManager) handleCreateConfirm(msg *MetadataMessage) error {
 	cm.logger.Info("Selected to host database",
 		zap.String("database", confirm.DatabaseName),
 		zap.String("role", myAssignment.Role))
+
+	// Mark database as initializing to prevent duplicate confirmations
+	cm.mu.Lock()
+	cm.initializingDBs[confirm.DatabaseName] = true
+	cm.mu.Unlock()
 
 	// Create database metadata
 	portMappings := make(map[string]PortPair)
@@ -203,12 +222,21 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 		// Join to the leader
 		leaderNodeID := metadata.LeaderNodeID
 		if leaderPorts, exists := metadata.PortMappings[leaderNodeID]; exists {
-			joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
+			joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.HTTPPort)
+			cm.logger.Info("Follower joining leader",
+				zap.String("database", metadata.DatabaseName),
+				zap.String("leader_node", leaderNodeID),
+				zap.String("join_address", joinAddr),
+				zap.Int("leader_raft_port", leaderPorts.RaftPort))
+		} else {
+			cm.logger.Error("Leader node not found in port mappings",
+				zap.String("database", metadata.DatabaseName),
+				zap.String("leader_node", leaderNodeID))
 		}
 	}
 
-	// Start the instance
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Start the instance with longer timeout for bootstrap
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if err := instance.Start(ctx, isLeader, joinAddr); err != nil {
@@ -216,14 +244,20 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 			zap.String("database", metadata.DatabaseName),
 			zap.Error(err))
 
+		// Clear initializing flag on failure
+		cm.mu.Lock()
+		delete(cm.initializingDBs, metadata.DatabaseName)
+		cm.mu.Unlock()
+
 		// Broadcast failure status
 		cm.broadcastStatusUpdate(metadata.DatabaseName, StatusInitializing)
 		return
 	}
 
-	// Store active instance
+	// Store active instance and clear initializing flag
 	cm.mu.Lock()
 	cm.activeClusters[metadata.DatabaseName] = instance
+	delete(cm.initializingDBs, metadata.DatabaseName)
 	cm.mu.Unlock()
 
 	// Broadcast active status
@@ -435,7 +469,7 @@ func (cm *ClusterManager) getAdvertiseAddress() string {
 		}
 		return addr
 	}
-	return "127.0.0.1"
+	return "0.0.0.0"
 }
 
 // handleIdleNotification processes idle notifications from other nodes

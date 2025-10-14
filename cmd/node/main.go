@@ -38,7 +38,7 @@ func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *stri
 	dataDir = flag.String("data", "", "Data directory (auto-detected if not provided)")
 	nodeID = flag.String("id", "", "Node identifier (for running multiple local nodes)")
 	p2pPort = flag.Int("p2p-port", 4001, "LibP2P listen port")
-	advAddr = flag.String("adv-addr", "127.0.0.1", "Default Advertise address for rqlite and rafts")
+	advAddr = flag.String("adv-addr", "0.0.0.0", "Default Advertise address for rqlite and rafts")
 	help = flag.Bool("help", false, "Show help")
 	flag.Parse()
 

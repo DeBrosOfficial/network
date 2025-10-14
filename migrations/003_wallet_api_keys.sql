@@ -1,8 +1,6 @@
 -- DeBros Gateway - Wallet to API Key linkage (Phase 3)
 -- Ensures one API key per (namespace, wallet) and enables lookup
 
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS wallet_api_keys (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     namespace_id  INTEGER NOT NULL,
@@ -17,5 +15,3 @@ CREATE TABLE IF NOT EXISTS wallet_api_keys (
 CREATE INDEX IF NOT EXISTS idx_wallet_api_keys_ns ON wallet_api_keys(namespace_id);
 
 INSERT OR IGNORE INTO schema_migrations(version) VALUES (3);
-
-COMMIT;

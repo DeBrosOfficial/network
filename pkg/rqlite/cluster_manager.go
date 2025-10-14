@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/config"
 	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/rqlite/gorqlite"
 	"go.uber.org/zap"
 )
 
@@ -26,6 +28,7 @@ type ClusterManager struct {
 	portManager         *PortManager
 	pubsubAdapter       *pubsub.ClientAdapter
 	coordinatorRegistry *CoordinatorRegistry
+	initializingDBs     map[string]bool // Track databases currently being initialized
 
 	mu     sync.RWMutex
 	ctx    context.Context
@@ -60,6 +63,7 @@ func NewClusterManager(
 		portManager:         portManager,
 		pubsubAdapter:       pubsubAdapter,
 		coordinatorRegistry: NewCoordinatorRegistry(),
+		initializingDBs:     make(map[string]bool),
 		ctx:                 ctx,
 		cancel:              cancel,
 	}
@@ -139,10 +143,6 @@ func (cm *ClusterManager) handleMetadataMessage(topic string, data []byte) error
 	if msg.NodeID == cm.nodeID && msg.Type != MsgDatabaseCreateConfirm {
 		return nil
 	}
-
-	cm.logger.Debug("Received metadata message",
-		zap.String("type", string(msg.Type)),
-		zap.String("from", msg.NodeID))
 
 	switch msg.Type {
 	case MsgDatabaseCreateRequest:
@@ -593,9 +593,9 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 		zap.String("database", systemDBName),
 		zap.Int("replication_factor", cm.config.ReplicationFactor))
 
-	// Wait longer for nodes to discover each other
+	// Wait longer for nodes to discover each other and for system DB metadata to propagate
 	cm.logger.Info("Waiting for peer discovery before system database creation...")
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// Check if system database already exists in metadata
 	existingDB := cm.metadataStore.GetDatabase(systemDBName)
@@ -611,14 +611,18 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 		maxRetries := 3
 		var lastErr error
 		for attempt := 1; attempt <= maxRetries; attempt++ {
-			// Check again if it was created by another node
-			if cm.metadataStore.GetDatabase(systemDBName) != nil {
-				cm.logger.Info("System database now exists (created by another node)")
+			// Check again if it was created by another node (metadata may have been received via pubsub)
+			existingDB = cm.metadataStore.GetDatabase(systemDBName)
+			if existingDB != nil {
+				cm.logger.Info("System database now exists (created by another node)",
+					zap.Int("attempt", attempt))
+				lastErr = nil
 				break
 			}
 
 			lastErr = cm.CreateDatabase(systemDBName, cm.config.ReplicationFactor)
 			if lastErr == nil {
+				cm.logger.Info("System database creation initiated successfully")
 				break
 			}
 
@@ -628,14 +632,17 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 				zap.Error(lastErr))
 
 			if attempt < maxRetries {
-				// Wait before retry to allow more nodes to join
+				// Wait before retry to allow more nodes to join and metadata to sync
+				cm.logger.Info("Waiting before retry",
+					zap.Duration("wait_time", 3*time.Second))
 				time.Sleep(3 * time.Second)
 			}
 		}
 
 		if lastErr != nil {
-			cm.logger.Warn("System database creation completed with errors (may be created by another node)",
-				zap.Error(lastErr))
+			cm.logger.Info("System database creation completed with errors, will wait for it to become active",
+				zap.Error(lastErr),
+				zap.String("note", "This node may not be selected for system database hosting"))
 		}
 	}
 
@@ -725,16 +732,31 @@ func (cm *ClusterManager) runMigrations(dbName string) error {
 			return fmt.Errorf("failed to read migration file %s: %w", file, err)
 		}
 
-		// Execute the migration using Execute (no automatic transaction wrapping)
-		// Migration files already contain BEGIN/COMMIT
-		_, err = conn.Execute(string(content))
-		if err != nil {
-			cm.logger.Error("Migration failed",
-				zap.String("file", filepath.Base(file)),
-				zap.Error(err))
-			// Continue with other migrations even if one fails
-			// (tables might already exist from previous runs)
-			continue
+		// Parse SQL content into individual statements
+		sqlContent := string(content)
+
+		// Split by semicolon but preserve multi-line statements
+		// Simple approach: execute the whole file as one batch
+		statements := []string{sqlContent}
+
+		// Execute using WriteParameterized to avoid auto-transaction wrapping
+		for _, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
+
+			_, err = conn.WriteOneParameterized(gorqlite.ParameterizedStatement{
+				Query: stmt,
+			})
+			if err != nil {
+				cm.logger.Error("Migration failed",
+					zap.String("file", filepath.Base(file)),
+					zap.Error(err))
+				// Continue with other migrations even if one fails
+				// (tables might already exist from previous runs)
+				break
+			}
 		}
 
 		cm.logger.Info("Migration completed",

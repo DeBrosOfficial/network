@@ -168,7 +168,7 @@ func (ri *RQLiteInstance) waitForReady(ctx context.Context) error {
 	url := fmt.Sprintf("http://localhost:%d/status", ri.HTTPPort)
 	client := &http.Client{Timeout: 2 * time.Second}
 
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -198,7 +198,7 @@ func (ri *RQLiteInstance) waitForSQLAvailable(ctx context.Context) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

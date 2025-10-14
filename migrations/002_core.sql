@@ -2,8 +2,6 @@
 -- Adds apps, nonces, subscriptions, refresh_tokens, audit_events, namespace_ownership
 -- SQLite/RQLite dialect
 
-BEGIN;
-
 -- Apps registered within a namespace (optional public key for attestation)
 CREATE TABLE IF NOT EXISTS apps (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,5 +89,3 @@ CREATE INDEX IF NOT EXISTS idx_ns_owner_ns ON namespace_ownership(namespace_id);
 
 -- Optional marker (ignored by runner)
 INSERT OR IGNORE INTO schema_migrations(version) VALUES (2);
-
-COMMIT;
