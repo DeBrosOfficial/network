@@ -4,11 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
 	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
 )
 
@@ -17,10 +21,6 @@ type Config struct {
 	ListenAddr      string
 	ClientNamespace string
 	BootstrapPeers  []string
-
-	// Optional DSN for rqlite database/sql driver, e.g. "http://localhost:4001"
-	// If empty, defaults to "http://localhost:4001".
-	RQLiteDSN string
 }
 
 type Gateway struct {
@@ -32,14 +32,75 @@ type Gateway struct {
 	keyID      string
 }
 
+// deriveRQLiteEndpoints extracts IP addresses from bootstrap peer multiaddrs
+// and constructs RQLite HTTP endpoints using the fixed system database port (5001)
+func deriveRQLiteEndpoints(bootstrapPeers []string, systemHTTPPort int) []string {
+	if systemHTTPPort == 0 {
+		systemHTTPPort = 5001 // default
+	}
+
+	endpoints := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, peerAddr := range bootstrapPeers {
+		ma, err := multiaddr.NewMultiaddr(peerAddr)
+		if err != nil {
+			continue
+		}
+
+		// Extract IP address from multiaddr
+		var ip string
+		multiaddr.ForEach(ma, func(c multiaddr.Component) bool {
+			if c.Protocol().Code == multiaddr.P_IP4 {
+				ip = c.Value()
+				return false // stop iteration
+			}
+			if c.Protocol().Code == multiaddr.P_IP6 {
+				ip = "[" + c.Value() + "]" // IPv6 needs brackets
+				return false
+			}
+			return true
+		})
+
+		if ip != "" && !seen[ip] {
+			endpoint := fmt.Sprintf("http://%s:%d", ip, systemHTTPPort)
+			endpoints = append(endpoints, endpoint)
+			seen[ip] = true
+		}
+	}
+
+	return endpoints
+}
+
 // New creates and initializes a new Gateway instance
 func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	logger.ComponentInfo(logging.ComponentGeneral, "Building client config...")
 
 	// Build client config from gateway cfg
-	cliCfg := client.DefaultClientConfig(cfg.ClientNamespace)
+	// Gateway uses the system database for API keys, wallets, etc.
+	cliCfg := client.DefaultClientConfig("_system")
+	cliCfg.DatabaseName = "_system" // Override to use system database directly
 	if len(cfg.BootstrapPeers) > 0 {
 		cliCfg.BootstrapPeers = cfg.BootstrapPeers
+	}
+
+	// Derive RQLite endpoints from bootstrap peers
+	// Check for env override first
+	if envDSN := strings.TrimSpace(os.Getenv("GATEWAY_RQLITE_DSN")); envDSN != "" {
+		cliCfg.DatabaseEndpoints = strings.Split(envDSN, ",")
+		for i, ep := range cliCfg.DatabaseEndpoints {
+			cliCfg.DatabaseEndpoints[i] = strings.TrimSpace(ep)
+		}
+		logger.ComponentInfo(logging.ComponentGeneral, "Using RQLite endpoints from GATEWAY_RQLITE_DSN env",
+			zap.Strings("endpoints", cliCfg.DatabaseEndpoints))
+	} else {
+		// Auto-derive from bootstrap peers + system port (5001)
+		// This will try port 5001 on each peer (works for single-node and distributed clusters)
+		// For multi-node localhost, set GATEWAY_RQLITE_DSN to the actual ports
+		cliCfg.DatabaseEndpoints = deriveRQLiteEndpoints(cfg.BootstrapPeers, 5001)
+		logger.ComponentInfo(logging.ComponentGeneral, "Derived RQLite endpoints from bootstrap peers",
+			zap.Strings("endpoints", cliCfg.DatabaseEndpoints),
+			zap.String("note", "For multi-node localhost, set GATEWAY_RQLITE_DSN env to actual ports"))
 	}
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Creating network client...")

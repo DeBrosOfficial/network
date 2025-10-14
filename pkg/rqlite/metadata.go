@@ -3,6 +3,8 @@ package rqlite
 import (
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // DatabaseStatus represents the state of a database cluster
@@ -56,6 +58,7 @@ type MetadataStore struct {
 	databases map[string]*DatabaseMetadata // key = database name
 	nodes     map[string]*NodeCapacity     // key = node ID
 	mu        sync.RWMutex
+	logger    *zap.Logger
 }
 
 // NewMetadataStore creates a new metadata store
@@ -63,7 +66,15 @@ func NewMetadataStore() *MetadataStore {
 	return &MetadataStore{
 		databases: make(map[string]*DatabaseMetadata),
 		nodes:     make(map[string]*NodeCapacity),
+		logger:    zap.NewNop(), // Default no-op logger
 	}
+}
+
+// SetLogger sets the logger for the metadata store
+func (ms *MetadataStore) SetLogger(logger *zap.Logger) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.logger = logger
 }
 
 // GetDatabase retrieves metadata for a database

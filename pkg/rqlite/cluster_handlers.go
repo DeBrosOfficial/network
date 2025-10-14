@@ -33,8 +33,35 @@ func (cm *ClusterManager) handleCreateRequest(msg *MetadataMessage) error {
 		return nil
 	}
 
-	// Allocate ports
-	ports, err := cm.portManager.AllocatePortPair(req.DatabaseName)
+	// Allocate ports - prefer fixed ports for system database, fall back to dynamic
+	var ports PortPair
+	var err error
+
+	systemDBName := cm.config.SystemDatabaseName
+	if systemDBName == "" {
+		systemDBName = "_system"
+	}
+
+	if req.DatabaseName == systemDBName && cm.config.SystemHTTPPort > 0 {
+		// Try to use fixed ports for system database first
+		ports = PortPair{
+			HTTPPort: cm.config.SystemHTTPPort,
+			RaftPort: cm.config.SystemRaftPort,
+		}
+		err = cm.portManager.AllocateSpecificPortPair(req.DatabaseName, ports)
+		if err != nil {
+			// Fixed ports unavailable (likely multi-node localhost) - use dynamic
+			cm.logger.Info("Fixed system ports unavailable, using dynamic allocation",
+				zap.String("database", req.DatabaseName),
+				zap.Int("attempted_http", ports.HTTPPort),
+				zap.Int("attempted_raft", ports.RaftPort))
+			ports, err = cm.portManager.AllocatePortPair(req.DatabaseName)
+		}
+	} else {
+		// Use dynamic ports for other databases
+		ports, err = cm.portManager.AllocatePortPair(req.DatabaseName)
+	}
+
 	if err != nil {
 		cm.logger.Warn("Cannot allocate ports for database",
 			zap.String("database", req.DatabaseName),

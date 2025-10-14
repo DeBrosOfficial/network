@@ -71,10 +71,17 @@ func (cm *ClusterManager) Start() error {
 		zap.String("node_id", cm.nodeID),
 		zap.Int("max_databases", cm.config.MaxDatabases))
 
+	cm.metadataStore.SetLogger(cm.logger.With(zap.String("component", "metadata_store")))
+
 	// Subscribe to metadata topic
 	metadataTopic := "/debros/metadata/v1"
 	if err := cm.pubsubAdapter.Subscribe(cm.ctx, metadataTopic, cm.handleMetadataMessage); err != nil {
 		return fmt.Errorf("failed to subscribe to metadata topic: %w", err)
+	}
+
+	// Initialize system database
+	if err := cm.initializeSystemDatabase(); err != nil {
+		return fmt.Errorf("failed to initialize system database: %w", err)
 	}
 
 	// Announce node capacity
@@ -128,8 +135,8 @@ func (cm *ClusterManager) handleMetadataMessage(topic string, data []byte) error
 		return nil
 	}
 
-	// Skip messages from self
-	if msg.NodeID == cm.nodeID {
+	// Skip messages from self (except DATABASE_CREATE_CONFIRM which coordinator needs to process)
+	if msg.NodeID == cm.nodeID && msg.Type != MsgDatabaseCreateConfirm {
 		return nil
 	}
 
@@ -191,6 +198,54 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 	cm.coordinatorRegistry.Register(coordinator)
 	defer cm.coordinatorRegistry.Remove(dbName)
 
+	// Check if this node can also participate
+	cm.mu.RLock()
+	currentCount := len(cm.activeClusters)
+	cm.mu.RUnlock()
+
+	if currentCount < cm.config.MaxDatabases {
+		// This node can host - add self-response
+		systemDBName := cm.config.SystemDatabaseName
+		if systemDBName == "" {
+			systemDBName = "_system"
+		}
+
+		var selfPorts PortPair
+		var portErr error
+
+		if dbName == systemDBName && cm.config.SystemHTTPPort > 0 {
+			// Try fixed ports for system database
+			selfPorts = PortPair{
+				HTTPPort: cm.config.SystemHTTPPort,
+				RaftPort: cm.config.SystemRaftPort,
+			}
+			portErr = cm.portManager.AllocateSpecificPortPair(dbName, selfPorts)
+			if portErr != nil {
+				// Fixed ports unavailable - use dynamic
+				cm.logger.Info("Fixed system ports unavailable on requester, using dynamic",
+					zap.String("database", dbName))
+				selfPorts, portErr = cm.portManager.AllocatePortPair(dbName)
+			}
+		} else {
+			// Dynamic ports for non-system databases
+			selfPorts, portErr = cm.portManager.AllocatePortPair(dbName)
+		}
+
+		if portErr == nil {
+			// Add self as a candidate
+			selfResponse := DatabaseCreateResponse{
+				DatabaseName:   dbName,
+				NodeID:         cm.nodeID,
+				AvailablePorts: selfPorts,
+			}
+			coordinator.AddResponse(selfResponse)
+			cm.logger.Debug("Added self as candidate for database",
+				zap.String("database", dbName),
+				zap.Int("http_port", selfPorts.HTTPPort),
+				zap.Int("raft_port", selfPorts.RaftPort))
+		}
+	}
+
 	// Broadcast create request
 	req := DatabaseCreateRequest{
 		DatabaseName:      dbName,
@@ -230,13 +285,13 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 		zap.String("database", dbName),
 		zap.Int("count", len(selectedResponses)))
 
-	// Determine if this node is the coordinator (lowest ID among responders)
-	allNodeIDs := make([]string, len(selectedResponses))
-	for i, resp := range selectedResponses {
-		allNodeIDs[i] = resp.NodeID
-	}
-	coordinatorID := SelectCoordinator(allNodeIDs)
-	isCoordinator := coordinatorID == cm.nodeID
+	// The requesting node is always the coordinator for its own request
+	// This ensures deterministic coordination and avoids race conditions
+	isCoordinator := true
+
+	cm.logger.Info("This node is the requester and will coordinate",
+		zap.String("database", dbName),
+		zap.String("requester_node", cm.nodeID))
 
 	if isCoordinator {
 		cm.logger.Info("This node is coordinator, broadcasting confirmation",
@@ -525,4 +580,169 @@ func (cm *ClusterManager) reconcileOrphanedData() {
 
 	cm.logger.Info("Orphaned data reconciliation complete",
 		zap.Int("orphans_found", orphanCount))
+}
+
+// initializeSystemDatabase creates and starts the system database on this node
+func (cm *ClusterManager) initializeSystemDatabase() error {
+	systemDBName := cm.config.SystemDatabaseName
+	if systemDBName == "" {
+		systemDBName = "_system"
+	}
+
+	cm.logger.Info("Initializing system database",
+		zap.String("database", systemDBName),
+		zap.Int("replication_factor", cm.config.ReplicationFactor))
+
+	// Wait longer for nodes to discover each other
+	cm.logger.Info("Waiting for peer discovery before system database creation...")
+	time.Sleep(5 * time.Second)
+
+	// Check if system database already exists in metadata
+	existingDB := cm.metadataStore.GetDatabase(systemDBName)
+	if existingDB != nil {
+		cm.logger.Info("System database already exists in metadata, waiting for it to become active",
+			zap.String("database", systemDBName))
+	} else {
+		// Only create if we don't see it in metadata yet
+		cm.logger.Info("Creating system database",
+			zap.String("database", systemDBName))
+
+		// Try creating with retries (important for system database)
+		maxRetries := 3
+		var lastErr error
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			// Check again if it was created by another node
+			if cm.metadataStore.GetDatabase(systemDBName) != nil {
+				cm.logger.Info("System database now exists (created by another node)")
+				break
+			}
+
+			lastErr = cm.CreateDatabase(systemDBName, cm.config.ReplicationFactor)
+			if lastErr == nil {
+				break
+			}
+
+			cm.logger.Warn("System database creation attempt failed",
+				zap.Int("attempt", attempt),
+				zap.Int("max_retries", maxRetries),
+				zap.Error(lastErr))
+
+			if attempt < maxRetries {
+				// Wait before retry to allow more nodes to join
+				time.Sleep(3 * time.Second)
+			}
+		}
+
+		if lastErr != nil {
+			cm.logger.Warn("System database creation completed with errors (may be created by another node)",
+				zap.Error(lastErr))
+		}
+	}
+
+	// Wait for system database to become active (longer timeout)
+	maxWait := 60 * time.Second
+	checkInterval := 500 * time.Millisecond
+	startTime := time.Now()
+
+	for {
+		if time.Since(startTime) > maxWait {
+			// Don't fail startup - system database might be created later
+			cm.logger.Warn("Timeout waiting for system database, continuing startup",
+				zap.String("database", systemDBName),
+				zap.Duration("waited", time.Since(startTime)))
+			return nil // Return nil to allow node to start
+		}
+
+		cm.mu.RLock()
+		instance, exists := cm.activeClusters[systemDBName]
+		cm.mu.RUnlock()
+
+		if exists && instance.Status == StatusActive {
+			cm.logger.Info("System database is active",
+				zap.String("database", systemDBName))
+
+			// Run migrations if configured
+			if cm.config.MigrationsPath != "" {
+				if err := cm.runMigrations(systemDBName); err != nil {
+					cm.logger.Error("Failed to run migrations on system database",
+						zap.Error(err))
+					// Don't fail startup, just log the error
+				}
+			}
+
+			return nil
+		}
+
+		time.Sleep(checkInterval)
+	}
+}
+
+// runMigrations executes SQL migrations on a database
+func (cm *ClusterManager) runMigrations(dbName string) error {
+	cm.logger.Info("Running migrations",
+		zap.String("database", dbName),
+		zap.String("migrations_path", cm.config.MigrationsPath))
+
+	cm.mu.RLock()
+	instance, exists := cm.activeClusters[dbName]
+	cm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("database %s not found in active clusters", dbName)
+	}
+
+	conn := instance.Connection
+	if conn == nil {
+		return fmt.Errorf("no connection available for database %s", dbName)
+	}
+
+	// Read migration files
+	files, err := filepath.Glob(filepath.Join(cm.config.MigrationsPath, "*.sql"))
+	if err != nil {
+		return fmt.Errorf("failed to read migration files: %w", err)
+	}
+
+	if len(files) == 0 {
+		cm.logger.Info("No migration files found",
+			zap.String("path", cm.config.MigrationsPath))
+		return nil
+	}
+
+	// Sort files to ensure consistent order
+	// Files are expected to be named like 001_initial.sql, 002_core.sql, etc.
+	// filepath.Glob already returns them sorted
+
+	cm.logger.Info("Found migration files",
+		zap.Int("count", len(files)))
+
+	// Execute each migration file
+	for _, file := range files {
+		cm.logger.Info("Executing migration",
+			zap.String("file", filepath.Base(file)))
+
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", file, err)
+		}
+
+		// Execute the migration using Execute (no automatic transaction wrapping)
+		// Migration files already contain BEGIN/COMMIT
+		_, err = conn.Execute(string(content))
+		if err != nil {
+			cm.logger.Error("Migration failed",
+				zap.String("file", filepath.Base(file)),
+				zap.Error(err))
+			// Continue with other migrations even if one fails
+			// (tables might already exist from previous runs)
+			continue
+		}
+
+		cm.logger.Info("Migration completed",
+			zap.String("file", filepath.Base(file)))
+	}
+
+	cm.logger.Info("All migrations completed",
+		zap.String("database", dbName))
+
+	return nil
 }

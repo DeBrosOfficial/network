@@ -38,6 +38,12 @@ type DatabaseConfig struct {
 	PortRangeHTTPEnd   int           `yaml:"port_range_http_end"`   // HTTP port range end
 	PortRangeRaftStart int           `yaml:"port_range_raft_start"` // Raft port range start
 	PortRangeRaftEnd   int           `yaml:"port_range_raft_end"`   // Raft port range end
+
+	// System database (always-on, holds API keys, wallets, etc.)
+	SystemDatabaseName string `yaml:"system_database_name"` // Name of the system database (default: "_system")
+	SystemHTTPPort     int    `yaml:"rqlite_port"`          // Fixed HTTP port for _system database
+	SystemRaftPort     int    `yaml:"rqlite_raft_port"`     // Fixed Raft port for _system database
+	MigrationsPath     string `yaml:"migrations_path"`      // Path to SQL migrations directory
 }
 
 // DiscoveryConfig contains peer discovery configuration
@@ -111,10 +117,16 @@ func DefaultConfig() *Config {
 			PortRangeHTTPEnd:   5999,
 			PortRangeRaftStart: 7001,
 			PortRangeRaftEnd:   7999,
+
+			// System database
+			SystemDatabaseName: "_system",
+			SystemHTTPPort:     5001,
+			SystemRaftPort:     7001,
+			MigrationsPath:     "./migrations",
 		},
 		Discovery: DiscoveryConfig{
 			BootstrapPeers: []string{
-				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWJSkwRXX1PYA5g2bkAnKani7frhygZp5iY6U853JJPb7K",
+				"/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWD2GoaF6Y6XYZ9d3xKpYqGPsjcKseRGFMnpvHMjScx8w7",
 				// "/ip4/217.76.54.168/tcp/4001/p2p/12D3KooWDp7xeShVY9uHfqNVPSsJeCKUatAviFZV8Y1joox5nUvx",
 				// "/ip4/217.76.54.178/tcp/4001/p2p/12D3KooWKZnirPwNT4URtNSWK45f6vLkEs4xyUZ792F8Uj1oYnm1",
 				// "/ip4/51.83.128.181/tcp/4001/p2p/12D3KooWBn2Zf1R8v9pEfmz7hDZ5b3oADxfejA3zJBYzKRCzgvhR",

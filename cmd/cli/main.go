@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
@@ -131,19 +133,10 @@ func handleHealth() {
 }
 
 func handlePeers() {
-	client, err := createClient()
+	// Query the gateway directly for peer information
+	peers, err := getPeersFromGateway()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create client: %v\n", err)
-		os.Exit(1)
-	}
-	defer client.Disconnect()
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	peers, err := client.Network().GetPeers(ctx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get peers: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to get peers from gateway: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -287,6 +280,52 @@ func handlePubSub(args []string) {
 		fmt.Fprintf(os.Stderr, "Unknown pubsub command: %s\n", subcommand)
 		os.Exit(1)
 	}
+}
+
+func getPeersFromGateway() ([]client.PeerInfo, error) {
+	// Get gateway URL
+	gatewayURL := auth.GetDefaultGatewayURL()
+
+	// Get credentials for authentication
+	credentials, err := auth.GetOrPromptForCredentials(gatewayURL)
+	if err != nil {
+		return nil, fmt.Errorf("authentication failed: %w", err)
+	}
+
+	// Create HTTP client with timeout
+	httpClient := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Create request to gateway's peers endpoint
+	req, err := http.NewRequest("GET", gatewayURL+"/v1/network/peers", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication header - try X-API-Key first as it's more explicit
+	req.Header.Set("X-API-Key", credentials.APIKey)
+
+	// Make the request
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("gateway returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var peers []client.PeerInfo
+	if err := json.NewDecoder(resp.Body).Decode(&peers); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return peers, nil
 }
 
 func ensureAuthenticated() *auth.Credentials {
