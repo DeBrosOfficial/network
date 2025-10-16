@@ -25,7 +25,14 @@ func (cm *ClusterManager) handleCreateRequest(msg *MetadataMessage) error {
 	currentCount := len(cm.activeClusters)
 	cm.mu.RUnlock()
 
-	if currentCount >= cm.config.MaxDatabases {
+	// Get system DB name for capacity check
+	systemDBName := cm.config.SystemDatabaseName
+	if systemDBName == "" {
+		systemDBName = "_system"
+	}
+
+	// Bypass capacity check for system database (it replicates to all nodes)
+	if req.DatabaseName != systemDBName && currentCount >= cm.config.MaxDatabases {
 		cm.logger.Debug("Cannot host database: at capacity",
 			zap.String("database", req.DatabaseName),
 			zap.Int("current", currentCount),
@@ -36,11 +43,6 @@ func (cm *ClusterManager) handleCreateRequest(msg *MetadataMessage) error {
 	// Allocate ports - prefer fixed ports for system database, fall back to dynamic
 	var ports PortPair
 	var err error
-
-	systemDBName := cm.config.SystemDatabaseName
-	if systemDBName == "" {
-		systemDBName = "_system"
-	}
 
 	if req.DatabaseName == systemDBName && cm.config.SystemHTTPPort > 0 {
 		// Try to use fixed ports for system database first

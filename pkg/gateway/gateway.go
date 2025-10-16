@@ -24,12 +24,13 @@ type Config struct {
 }
 
 type Gateway struct {
-	logger     *logging.ColoredLogger
-	cfg        *Config
-	client     client.NetworkClient
-	startedAt  time.Time
-	signingKey *rsa.PrivateKey
-	keyID      string
+	logger      *logging.ColoredLogger
+	cfg         *Config
+	client      client.NetworkClient
+	startedAt   time.Time
+	signingKey  *rsa.PrivateKey
+	keyID       string
+	dbMetaCache *DatabaseMetadataCache
 }
 
 // deriveRQLiteEndpoints extracts IP addresses from bootstrap peer multiaddrs
@@ -123,11 +124,21 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Creating gateway instance...")
 	gw := &Gateway{
-		logger:    logger,
-		cfg:       cfg,
-		client:    c,
-		startedAt: time.Now(),
+		logger:      logger,
+		cfg:         cfg,
+		client:      c,
+		startedAt:   time.Now(),
+		dbMetaCache: NewDatabaseMetadataCache(logger),
 	}
+
+	logger.ComponentInfo(logging.ComponentGeneral, "Starting metadata subscriber...")
+	// Start metadata subscriber in background
+	go func() {
+		ctx := context.Background()
+		if err := gw.StartMetadataSubscriber(ctx); err != nil {
+			logger.ComponentWarn(logging.ComponentGeneral, "failed to start metadata subscriber", zap.Error(err))
+		}
+	}()
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Generating RSA signing key...")
 	// Generate local RSA signing key for JWKS/JWT (ephemeral for now)

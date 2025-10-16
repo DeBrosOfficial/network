@@ -45,7 +45,9 @@ func (g *Gateway) Routes() http.Handler {
 	mux.HandleFunc("/v1/database/schema", g.databaseSchemaHandler)
 	mux.HandleFunc("/v1/database/create-table", g.databaseCreateTableHandler)
 	mux.HandleFunc("/v1/database/drop-table", g.databaseDropTableHandler)
-	mux.HandleFunc("/v1/database/list", g.databaseListHandler)
+
+	// admin endpoints
+	mux.HandleFunc("/v1/admin/databases/create", g.databaseCreateHandler)
 
 	return g.withMiddleware(mux)
 }

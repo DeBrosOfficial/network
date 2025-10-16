@@ -276,8 +276,28 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 
 	// Select nodes
 	responses := coordinator.GetResponses()
-	if len(responses) < replicationFactor {
-		return fmt.Errorf("insufficient nodes responded: got %d, need %d", len(responses), replicationFactor)
+
+	// For system database, always select all responders (replicate to all nodes)
+	systemDBName := cm.config.SystemDatabaseName
+	if systemDBName == "" {
+		systemDBName = "_system"
+	}
+
+	effectiveReplicationFactor := replicationFactor
+	if dbName == systemDBName {
+		effectiveReplicationFactor = len(responses)
+		cm.logger.Info("System database: selecting all responders",
+			zap.String("database", dbName),
+			zap.Int("responders", len(responses)))
+	}
+
+	if len(responses) < effectiveReplicationFactor {
+		return fmt.Errorf("insufficient nodes responded: got %d, need %d", len(responses), effectiveReplicationFactor)
+	}
+
+	// Update coordinator replication factor if needed for system DB
+	if dbName == systemDBName {
+		coordinator.replicationFactor = effectiveReplicationFactor
 	}
 
 	selectedResponses := coordinator.SelectNodes()
@@ -852,6 +872,85 @@ func (cm *ClusterManager) getActiveMembers(metadata *DatabaseMetadata) []string 
 	return activeMembers
 }
 
+// autoJoinSystemDatabase handles joining a new node to an existing system database cluster
+func (cm *ClusterManager) autoJoinSystemDatabase(metadata *DatabaseMetadata) error {
+	systemDBName := cm.config.SystemDatabaseName
+	if systemDBName == "" {
+		systemDBName = "_system"
+	}
+
+	// Find leader node
+	leaderNodeID := metadata.LeaderNodeID
+	if leaderNodeID == "" {
+		cm.logger.Warn("No leader found in system database metadata")
+		return fmt.Errorf("no leader for system database")
+	}
+
+	// Get leader's Raft port
+	leaderPorts, exists := metadata.PortMappings[leaderNodeID]
+	if !exists {
+		cm.logger.Warn("Leader ports not found in metadata",
+			zap.String("leader", leaderNodeID))
+		return fmt.Errorf("leader ports not available")
+	}
+
+	joinAddr := fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
+	cm.logger.Info("Auto-joining system database as follower",
+		zap.String("database", systemDBName),
+		zap.String("leader", leaderNodeID),
+		zap.String("join_address", joinAddr))
+
+	// Allocate ports for this node
+	var ports PortPair
+	var err error
+	if cm.config.SystemHTTPPort > 0 {
+		ports = PortPair{
+			HTTPPort: cm.config.SystemHTTPPort,
+			RaftPort: cm.config.SystemRaftPort,
+		}
+		err = cm.portManager.AllocateSpecificPortPair(systemDBName, ports)
+		if err != nil {
+			ports, err = cm.portManager.AllocatePortPair(systemDBName)
+		}
+	} else {
+		ports, err = cm.portManager.AllocatePortPair(systemDBName)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to allocate ports: %w", err)
+	}
+
+	// Create RQLite instance for system DB as a follower
+	advHTTPAddr := fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), ports.HTTPPort)
+	advRaftAddr := fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), ports.RaftPort)
+
+	instance := NewRQLiteInstance(
+		systemDBName,
+		ports,
+		cm.dataDir,
+		advHTTPAddr,
+		advRaftAddr,
+		cm.logger,
+	)
+
+	// Start as follower with join address
+	ctx, cancel := context.WithTimeout(cm.ctx, 30*time.Second)
+	defer cancel()
+
+	if err := instance.Start(ctx, false, joinAddr); err != nil {
+		cm.logger.Error("Failed to start system database instance",
+			zap.Error(err))
+		return err
+	}
+
+	// Store the instance
+	cm.mu.Lock()
+	cm.activeClusters[systemDBName] = instance
+	cm.mu.Unlock()
+
+	return nil
+}
+
 // initializeSystemDatabase creates and starts the system database on this node
 func (cm *ClusterManager) initializeSystemDatabase() error {
 	systemDBName := cm.config.SystemDatabaseName
@@ -892,9 +991,46 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 		}
 
 		if !isMember {
-			cm.logger.Info("This node is not a member of existing system database, skipping creation",
+			cm.logger.Info("This node is not a member of existing system database, auto-joining",
 				zap.String("database", systemDBName))
-			return nil
+
+			// Auto-join as a follower to the existing cluster
+			if err := cm.autoJoinSystemDatabase(existingDB); err != nil {
+				cm.logger.Warn("Failed to auto-join system database",
+					zap.String("database", systemDBName),
+					zap.Error(err))
+				// Don't fail - the node can still operate without the system database
+				return nil
+			}
+
+			// Update metadata to add this node
+			existingDB.NodeIDs = append(existingDB.NodeIDs, cm.nodeID)
+			if existingDB.PortMappings == nil {
+				existingDB.PortMappings = make(map[string]PortPair)
+			}
+
+			// Get ports from the active cluster
+			cm.mu.RLock()
+			instance := cm.activeClusters[systemDBName]
+			cm.mu.RUnlock()
+
+			if instance != nil {
+				existingDB.PortMappings[cm.nodeID] = PortPair{
+					HTTPPort: instance.HTTPPort,
+					RaftPort: instance.RaftPort,
+				}
+			}
+
+			UpdateDatabaseMetadata(existingDB, cm.nodeID)
+			cm.metadataStore.SetDatabase(existingDB)
+
+			// Broadcast metadata sync
+			syncMsg := MetadataSync{Metadata: existingDB}
+			msgData, _ := MarshalMetadataMessage(MsgMetadataSync, cm.nodeID, syncMsg)
+			_ = cm.pubsubAdapter.Publish(cm.ctx, "/debros/metadata/v1", msgData)
+
+			cm.logger.Info("Node joined system database cluster",
+				zap.String("database", systemDBName))
 		}
 
 		// Fall through to wait for activation
