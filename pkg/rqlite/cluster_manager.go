@@ -330,6 +330,35 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 
 		cm.logger.Info("Database creation confirmation broadcasted",
 			zap.String("database", dbName))
+
+		// Create and broadcast metadata immediately
+		metadata := &DatabaseMetadata{
+			DatabaseName: dbName,
+			NodeIDs:      make([]string, len(assignments)),
+			PortMappings: make(map[string]PortPair),
+			Status:       StatusInitializing,
+			CreatedAt:    time.Now(),
+			LastAccessed: time.Now(),
+			LeaderNodeID: assignments[0].NodeID,
+			Version:      1,
+			VectorClock:  NewVectorClock(),
+		}
+
+		for i, node := range assignments {
+			metadata.NodeIDs[i] = node.NodeID
+			metadata.PortMappings[node.NodeID] = PortPair{
+				HTTPPort: node.HTTPPort,
+				RaftPort: node.RaftPort,
+			}
+		}
+
+		// Store locally
+		cm.metadataStore.SetDatabase(metadata)
+
+		// Broadcast to all nodes
+		syncMsg := MetadataSync{Metadata: metadata}
+		syncData, _ := MarshalMetadataMessage(MsgMetadataSync, cm.nodeID, syncMsg)
+		cm.pubsubAdapter.Publish(cm.ctx, topic, syncData)
 	}
 
 	return nil
@@ -443,15 +472,212 @@ func (cm *ClusterManager) monitorHealth() {
 // checkDatabaseHealth checks if all active databases are healthy
 func (cm *ClusterManager) checkDatabaseHealth() {
 	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
+	failedDatabases := make([]string, 0)
 	for dbName, instance := range cm.activeClusters {
 		if !instance.IsRunning() {
-			cm.logger.Warn("Database instance is not running",
-				zap.String("database", dbName))
-			// TODO: Implement recovery logic
+			failedDatabases = append(failedDatabases, dbName)
 		}
 	}
+	cm.mu.RUnlock()
+
+	// Attempt recovery for failed databases
+	for _, dbName := range failedDatabases {
+		cm.logger.Warn("Database instance is not running, attempting recovery",
+			zap.String("database", dbName))
+
+		// Get database metadata
+		metadata := cm.metadataStore.GetDatabase(dbName)
+		if metadata == nil {
+			cm.logger.Error("Cannot recover database: metadata not found",
+				zap.String("database", dbName))
+			continue
+		}
+
+		// Check if this node is still supposed to host this database
+		isMember := false
+		for _, nodeID := range metadata.NodeIDs {
+			if nodeID == cm.nodeID {
+				isMember = true
+				break
+			}
+		}
+
+		if !isMember {
+			cm.logger.Info("Node is no longer a member of database, removing from active clusters",
+				zap.String("database", dbName))
+			cm.mu.Lock()
+			delete(cm.activeClusters, dbName)
+			cm.mu.Unlock()
+			continue
+		}
+
+		// Attempt to restart the database instance
+		go cm.attemptDatabaseRecovery(dbName, metadata)
+	}
+}
+
+// attemptDatabaseRecovery attempts to recover a failed database instance
+func (cm *ClusterManager) attemptDatabaseRecovery(dbName string, metadata *DatabaseMetadata) {
+	cm.logger.Info("Attempting database recovery",
+		zap.String("database", dbName))
+
+	// Check if we have quorum before attempting recovery
+	if !cm.hasQuorum(metadata) {
+		cm.logger.Warn("Cannot recover database: insufficient quorum",
+			zap.String("database", dbName),
+			zap.Int("required", (len(metadata.NodeIDs)/2)+1),
+			zap.Int("active", len(cm.getActiveMembers(metadata))))
+		return
+	}
+
+	// Determine if this node should be the leader
+	isLeader := metadata.LeaderNodeID == cm.nodeID
+
+	// Get ports for this database
+	ports, exists := metadata.PortMappings[cm.nodeID]
+	if !exists {
+		cm.logger.Error("Cannot recover database: port mapping not found",
+			zap.String("database", dbName),
+			zap.String("node_id", cm.nodeID))
+		return
+	}
+
+	// Create advertised addresses
+	advHTTPAddr := fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), ports.HTTPPort)
+	advRaftAddr := fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), ports.RaftPort)
+
+	// Create new instance
+	instance := NewRQLiteInstance(
+		dbName,
+		ports,
+		cm.dataDir,
+		advHTTPAddr,
+		advRaftAddr,
+		cm.logger.With(zap.String("database", dbName)),
+	)
+
+	// Determine join address if not leader
+	var joinAddr string
+	if !isLeader && len(metadata.NodeIDs) > 1 {
+		// Get list of active members
+		activeMembers := cm.getActiveMembers(metadata)
+
+		// Prefer the leader if healthy
+		for _, nodeID := range activeMembers {
+			if nodeID == metadata.LeaderNodeID && nodeID != cm.nodeID {
+				if leaderPorts, exists := metadata.PortMappings[nodeID]; exists {
+					joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
+					cm.logger.Info("Recovery: joining healthy leader",
+						zap.String("database", dbName),
+						zap.String("leader_node", nodeID),
+						zap.String("join_address", joinAddr))
+					break
+				}
+			}
+		}
+
+		// If leader not available, try any other healthy node
+		if joinAddr == "" {
+			for _, nodeID := range activeMembers {
+				if nodeID != cm.nodeID {
+					if nodePorts, exists := metadata.PortMappings[nodeID]; exists {
+						joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), nodePorts.RaftPort)
+						cm.logger.Info("Recovery: joining healthy follower",
+							zap.String("database", dbName),
+							zap.String("node", nodeID),
+							zap.String("join_address", joinAddr))
+						break
+					}
+				}
+			}
+		}
+
+		// If no healthy nodes found, warn and fail
+		if joinAddr == "" {
+			cm.logger.Error("Cannot recover: no healthy nodes available to join",
+				zap.String("database", dbName),
+				zap.Int("total_nodes", len(metadata.NodeIDs)),
+				zap.Int("active_nodes", len(activeMembers)))
+			return
+		}
+	}
+
+	// Check if instance has existing state
+	if instance.hasExistingData() {
+		wasInCluster := instance.wasInCluster()
+		cm.logger.Info("Recovery: found existing RQLite state",
+			zap.String("database", dbName),
+			zap.Bool("is_leader", isLeader),
+			zap.Bool("was_in_cluster", wasInCluster))
+
+		// For leaders with existing cluster state, peer config will be cleared
+		if isLeader && wasInCluster {
+			cm.logger.Info("Recovery: leader will clear peer configuration for clean restart",
+				zap.String("database", dbName))
+		}
+
+		// For followers, ensure join address is valid and will use join-as
+		if !isLeader {
+			if joinAddr == "" {
+				cm.logger.Error("Cannot recover follower without join address",
+					zap.String("database", dbName))
+				return
+			}
+			if wasInCluster {
+				cm.logger.Info("Recovery: follower will rejoin cluster as voter",
+					zap.String("database", dbName),
+					zap.String("join_address", joinAddr))
+			}
+		}
+	}
+
+	// Start the instance
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := instance.Start(ctx, isLeader, joinAddr); err != nil {
+		cm.logger.Error("Database recovery failed",
+			zap.String("database", dbName),
+			zap.Error(err))
+		return
+	}
+
+	// Update active clusters
+	cm.mu.Lock()
+	cm.activeClusters[dbName] = instance
+	cm.mu.Unlock()
+
+	// Update metadata status
+	metadata.Status = StatusActive
+	UpdateDatabaseMetadata(metadata, cm.nodeID)
+	cm.metadataStore.SetDatabase(metadata)
+
+	// Broadcast status update
+	statusUpdate := DatabaseStatusUpdate{
+		DatabaseName: dbName,
+		NodeID:       cm.nodeID,
+		Status:       StatusActive,
+		HTTPPort:     ports.HTTPPort,
+		RaftPort:     ports.RaftPort,
+	}
+
+	msgData, err := MarshalMetadataMessage(MsgDatabaseStatusUpdate, cm.nodeID, statusUpdate)
+	if err != nil {
+		cm.logger.Warn("Failed to marshal status update during recovery",
+			zap.String("database", dbName),
+			zap.Error(err))
+	} else {
+		topic := "/debros/metadata/v1"
+		if err := cm.pubsubAdapter.Publish(cm.ctx, topic, msgData); err != nil {
+			cm.logger.Warn("Failed to publish status update during recovery",
+				zap.String("database", dbName),
+				zap.Error(err))
+		}
+	}
+
+	cm.logger.Info("Database recovery completed successfully",
+		zap.String("database", dbName),
+		zap.Bool("is_leader", isLeader))
 }
 
 // monitorIdleDatabases monitors for idle databases to hibernate
@@ -582,6 +808,50 @@ func (cm *ClusterManager) reconcileOrphanedData() {
 		zap.Int("orphans_found", orphanCount))
 }
 
+// isNodeHealthy checks if a node is healthy and recently active
+func (cm *ClusterManager) isNodeHealthy(nodeID string) bool {
+	node := cm.metadataStore.GetNode(nodeID)
+	if node == nil {
+		return false
+	}
+
+	// Consider node stale if not heard from in 30 seconds
+	staleDuration := 30 * time.Second
+	if time.Since(node.LastHealthCheck) > staleDuration {
+		return false
+	}
+
+	return node.IsHealthy
+}
+
+// hasQuorum checks if there are enough healthy nodes for a database
+func (cm *ClusterManager) hasQuorum(metadata *DatabaseMetadata) bool {
+	if metadata == nil {
+		return false
+	}
+
+	activeNodes := 0
+	for _, nodeID := range metadata.NodeIDs {
+		if cm.isNodeHealthy(nodeID) || nodeID == cm.nodeID {
+			activeNodes++
+		}
+	}
+
+	requiredQuorum := (len(metadata.NodeIDs) / 2) + 1
+	return activeNodes >= requiredQuorum
+}
+
+// getActiveMembers returns list of active member node IDs for a database
+func (cm *ClusterManager) getActiveMembers(metadata *DatabaseMetadata) []string {
+	activeMembers := make([]string, 0)
+	for _, nodeID := range metadata.NodeIDs {
+		if cm.isNodeHealthy(nodeID) || nodeID == cm.nodeID {
+			activeMembers = append(activeMembers, nodeID)
+		}
+	}
+	return activeMembers
+}
+
 // initializeSystemDatabase creates and starts the system database on this node
 func (cm *ClusterManager) initializeSystemDatabase() error {
 	systemDBName := cm.config.SystemDatabaseName
@@ -600,6 +870,34 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 	// Check if system database already exists in metadata
 	existingDB := cm.metadataStore.GetDatabase(systemDBName)
 	if existingDB != nil {
+		cm.logger.Info("System database already exists in metadata, checking local instance",
+			zap.String("database", systemDBName),
+			zap.Int("member_count", len(existingDB.NodeIDs)),
+			zap.Strings("members", existingDB.NodeIDs))
+
+		// Check quorum status
+		hasQuorum := cm.hasQuorum(existingDB)
+		cm.logger.Info("System database quorum status",
+			zap.String("database", systemDBName),
+			zap.Bool("has_quorum", hasQuorum),
+			zap.Int("active_members", len(cm.getActiveMembers(existingDB))))
+
+		// Check if this node is a member
+		isMember := false
+		for _, nodeID := range existingDB.NodeIDs {
+			if nodeID == cm.nodeID {
+				isMember = true
+				break
+			}
+		}
+
+		if !isMember {
+			cm.logger.Info("This node is not a member of existing system database, skipping creation",
+				zap.String("database", systemDBName))
+			return nil
+		}
+
+		// Fall through to wait for activation
 		cm.logger.Info("System database already exists in metadata, waiting for it to become active",
 			zap.String("database", systemDBName))
 	} else {

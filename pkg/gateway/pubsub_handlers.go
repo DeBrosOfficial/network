@@ -62,6 +62,28 @@ func (g *Gateway) pubsubWebsocketHandler(w http.ResponseWriter, r *http.Request)
 	ctx := client.WithInternalAuth(r.Context())
 	// Subscribe to the topic; push data into msgs with simple per-connection de-dup
 	recent := make(map[string]time.Time)
+
+	// Start cleanup goroutine to prevent memory leak
+	cleanupTicker := time.NewTicker(30 * time.Second)
+	defer cleanupTicker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-cleanupTicker.C:
+				// Clean up old entries to prevent memory leak
+				now := time.Now()
+				for key, timestamp := range recent {
+					if now.Sub(timestamp) > 2*time.Minute {
+						delete(recent, key)
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	h := func(_ string, data []byte) error {
 		// Drop duplicates seen in the last 2 seconds
 		sum := sha256.Sum256(data)

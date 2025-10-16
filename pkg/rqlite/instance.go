@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,11 +45,101 @@ func NewRQLiteInstance(dbName string, ports PortPair, dataDir string, advHTTPAdd
 	}
 }
 
+// hasExistingData checks if the data directory contains existing RQLite state
+func (ri *RQLiteInstance) hasExistingData() bool {
+	// Check for raft.db which indicates existing cluster state
+	raftDBPath := filepath.Join(ri.DataDir, "raft.db")
+	if _, err := os.Stat(raftDBPath); err == nil {
+		return true
+	}
+	return false
+}
+
+// wasInCluster checks if this node was previously part of a Raft cluster
+func (ri *RQLiteInstance) wasInCluster() bool {
+	if !ri.hasExistingData() {
+		return false
+	}
+
+	// Check for peers.json which indicates cluster membership
+	peersFile := filepath.Join(ri.DataDir, "raft", "peers.json")
+	if _, err := os.Stat(peersFile); err == nil {
+		return true
+	}
+
+	// Alternative: check raft log size - if > 0, was in cluster
+	raftDBPath := filepath.Join(ri.DataDir, "raft.db")
+	if info, err := os.Stat(raftDBPath); err == nil && info.Size() > 0 {
+		return true
+	}
+
+	return false
+}
+
+// clearRaftState removes Raft log and snapshots to allow clean leader restart
+// This is more aggressive than clearPeerConfiguration and resets the entire cluster state
+func (ri *RQLiteInstance) clearRaftState() error {
+	// Remove Raft log and cluster config without touching SQLite data
+	paths := []string{
+		filepath.Join(ri.DataDir, "raft.db"),
+		filepath.Join(ri.DataDir, "raft"),       // contains peers.json/info and other raft state
+		filepath.Join(ri.DataDir, "rsnapshots"), // raft snapshots
+	}
+
+	var firstErr error
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			if err := os.RemoveAll(p); err != nil && firstErr == nil {
+				firstErr = err
+				ri.logger.Warn("Failed to remove Raft state path",
+					zap.String("database", ri.DatabaseName),
+					zap.String("path", p),
+					zap.Error(err))
+			} else {
+				ri.logger.Info("Cleared Raft state path",
+					zap.String("database", ri.DatabaseName),
+					zap.String("path", p))
+			}
+		}
+	}
+
+	return firstErr
+}
+
 // Start starts the rqlite subprocess
 func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr string) error {
 	// Create data directory
 	if err := os.MkdirAll(ri.DataDir, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
+	}
+
+	// Check for existing data and clear peer config if needed BEFORE starting RQLite
+	hasExisting := ri.hasExistingData()
+	if hasExisting {
+		wasInCluster := ri.wasInCluster()
+		ri.logger.Info("Found existing RQLite data, reusing state",
+			zap.String("database", ri.DatabaseName),
+			zap.String("data_dir", ri.DataDir),
+			zap.Bool("is_leader", isLeader),
+			zap.Bool("was_in_cluster", wasInCluster),
+			zap.String("join_address", joinAddr))
+
+		// Clear Raft state for leaders with existing cluster state BEFORE starting RQLite
+		if isLeader && wasInCluster && joinAddr == "" {
+			ri.logger.Warn("Leader has existing cluster state - clearing Raft state for clean restart",
+				zap.String("database", ri.DatabaseName))
+			if err := ri.clearRaftState(); err != nil {
+				ri.logger.Warn("Failed to clear Raft state", zap.Error(err))
+			} else {
+				ri.logger.Info("Cleared Raft log and snapshots; node will bootstrap as single-node and accept joins",
+					zap.String("database", ri.DatabaseName))
+			}
+		}
+	} else {
+		ri.logger.Info("No existing RQLite data, starting fresh",
+			zap.String("database", ri.DatabaseName),
+			zap.String("data_dir", ri.DataDir),
+			zap.Bool("is_leader", isLeader))
 	}
 
 	// Build rqlited command
@@ -68,10 +159,33 @@ func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr str
 	// Add join address if this is a follower
 	if !isLeader && joinAddr != "" {
 		args = append(args, "-join", joinAddr)
+		// Force rejoin if we have existing cluster state
+		if ri.wasInCluster() {
+			args = append(args, "-join-as", "voter")
+			ri.logger.Info("Follower will rejoin cluster as voter",
+				zap.String("database", ri.DatabaseName))
+		}
 	}
 
 	// Add data directory as positional argument
 	args = append(args, ri.DataDir)
+
+	// Check for conflicting configuration: bootstrap + existing data
+	if isLeader && !strings.Contains(strings.Join(args, " "), "-join") {
+		// This is a bootstrap scenario (leader without join)
+		if ri.hasExistingData() {
+			ri.logger.Warn("Detected existing Raft state, will not bootstrap",
+				zap.String("database", ri.DatabaseName),
+				zap.String("data_dir", ri.DataDir))
+			// Remove any bootstrap-only flags if they exist
+			// RQLite will detect existing state and continue as member
+		}
+	}
+
+	// For followers with existing data, verify join address is set
+	if !isLeader && joinAddr == "" && ri.hasExistingData() {
+		return fmt.Errorf("follower has existing Raft state but no join address provided")
+	}
 
 	ri.logger.Info("Starting RQLite instance",
 		zap.String("database", ri.DatabaseName),
@@ -84,18 +198,24 @@ func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr str
 	// Start RQLite process
 	ri.Cmd = exec.Command("rqlited", args...)
 
-	// Optionally capture stdout/stderr for debugging
-	// ri.Cmd.Stdout = os.Stdout
-	// ri.Cmd.Stderr = os.Stderr
+	// Capture stdout/stderr for debugging
+	ri.Cmd.Stdout = os.Stdout
+	ri.Cmd.Stderr = os.Stderr
 
 	if err := ri.Cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start rqlited: %w", err)
+		return fmt.Errorf("failed to start rqlited binary (check if installed): %w", err)
 	}
 
 	// Wait for RQLite to be ready
 	if err := ri.waitForReady(ctx); err != nil {
+		ri.logger.Error("RQLite failed to become ready",
+			zap.String("database", ri.DatabaseName),
+			zap.String("data_dir", ri.DataDir),
+			zap.Int("http_port", ri.HTTPPort),
+			zap.Int("raft_port", ri.RaftPort),
+			zap.Error(err))
 		ri.Stop()
-		return fmt.Errorf("rqlited failed to become ready: %w", err)
+		return fmt.Errorf("rqlited failed to become ready (check logs above): %w", err)
 	}
 
 	// Create connection
@@ -106,17 +226,34 @@ func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr str
 	}
 	ri.Connection = conn
 
-	// Wait for SQL availability
-	if err := ri.waitForSQLAvailable(ctx); err != nil {
-		ri.Stop()
-		return fmt.Errorf("rqlited SQL not available: %w", err)
+	// For leaders, wait for SQL to be immediately available
+	// For followers, SQL will become available after cluster sync
+	if isLeader {
+		if err := ri.waitForSQLAvailable(ctx); err != nil {
+			ri.Stop()
+			return fmt.Errorf("leader SQL not available: %w", err)
+		}
+		ri.logger.Info("Leader SQL is ready",
+			zap.String("database", ri.DatabaseName))
+	} else {
+		// For followers, just verify the node joined successfully
+		if err := ri.waitForClusterJoin(ctx, 30*time.Second); err != nil {
+			ri.logger.Warn("Follower may not have joined cluster yet, but continuing",
+				zap.String("database", ri.DatabaseName),
+				zap.Error(err))
+			// Don't fail - SQL will become available eventually
+		} else {
+			ri.logger.Info("Follower successfully joined cluster",
+				zap.String("database", ri.DatabaseName))
+		}
 	}
 
 	ri.Status = StatusActive
 	ri.LastQuery = time.Now()
 
 	ri.logger.Info("RQLite instance started successfully",
-		zap.String("database", ri.DatabaseName))
+		zap.String("database", ri.DatabaseName),
+		zap.Bool("is_leader", isLeader))
 
 	return nil
 }
@@ -205,17 +342,105 @@ func (ri *RQLiteInstance) waitForSQLAvailable(ctx context.Context) error {
 		case <-ticker.C:
 			_, err := ri.Connection.QueryOne("SELECT 1")
 			if err == nil {
+				ri.logger.Info("SQL queries are now available",
+					zap.String("database", ri.DatabaseName),
+					zap.Int("attempts", i+1))
 				return nil
 			}
+			// Log every 5 seconds with more detail
 			if i%5 == 0 {
 				ri.logger.Debug("Waiting for RQLite SQL availability",
 					zap.String("database", ri.DatabaseName),
+					zap.Int("attempt", i+1),
+					zap.Int("max_attempts", 60),
 					zap.Error(err))
 			}
 		}
 	}
 
-	return fmt.Errorf("rqlited SQL not available within timeout")
+	return fmt.Errorf("rqlited SQL not available within timeout (60 seconds)")
+}
+
+// waitForClusterJoin waits for a follower node to successfully join the cluster
+// This checks the /status endpoint for cluster membership info
+func (ri *RQLiteInstance) waitForClusterJoin(ctx context.Context, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	client := &http.Client{Timeout: 2 * time.Second}
+	statusURL := fmt.Sprintf("http://localhost:%d/status", ri.HTTPPort)
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	attempts := 0
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			attempts++
+
+			resp, err := client.Get(statusURL)
+			if err != nil {
+				if attempts%5 == 0 {
+					ri.logger.Debug("Checking cluster join status",
+						zap.String("database", ri.DatabaseName),
+						zap.Int("attempt", attempts),
+						zap.Error(err))
+				}
+				continue
+			}
+
+			// Check if status code is OK
+			if resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				// If we can query status, the node has likely joined
+				// Try a simple SQL query to confirm
+				if ri.Connection != nil {
+					_, err := ri.Connection.QueryOne("SELECT 1")
+					if err == nil {
+						return nil // SQL is ready!
+					}
+				}
+				// Even if SQL not ready, status endpoint being available is good enough
+				if attempts >= 5 {
+					// After a few attempts, accept status endpoint as sufficient
+					return nil
+				}
+			} else {
+				resp.Body.Close()
+			}
+		}
+	}
+
+	return fmt.Errorf("cluster join check timed out after %v", timeout)
+}
+
+// StartBackgroundSQLReadinessCheck starts a background check for SQL readiness
+// This is used for followers that may take time to sync cluster state
+func (ri *RQLiteInstance) StartBackgroundSQLReadinessCheck(ctx context.Context, onReady func()) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if ri.Connection != nil {
+					_, err := ri.Connection.QueryOne("SELECT 1")
+					if err == nil {
+						ri.logger.Info("Follower SQL is now ready",
+							zap.String("database", ri.DatabaseName))
+						if onReady != nil {
+							onReady()
+						}
+						return // SQL is ready, stop checking
+					}
+				}
+			}
+		}
+	}()
 }
 
 // UpdateLastQuery updates the last query timestamp

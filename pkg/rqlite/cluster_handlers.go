@@ -125,21 +125,7 @@ func (cm *ClusterManager) handleCreateConfirm(msg *MetadataMessage) error {
 		zap.String("coordinator", confirm.CoordinatorNodeID),
 		zap.Int("nodes", len(confirm.SelectedNodes)))
 
-	// Check if database already exists or is being initialized (ignore duplicate confirmations)
-	cm.mu.RLock()
-	_, alreadyActive := cm.activeClusters[confirm.DatabaseName]
-	_, alreadyInitializing := cm.initializingDBs[confirm.DatabaseName]
-	cm.mu.RUnlock()
-
-	if alreadyActive || alreadyInitializing {
-		cm.logger.Debug("Database already active or initializing on this node, ignoring confirmation",
-			zap.String("database", confirm.DatabaseName),
-			zap.Bool("active", alreadyActive),
-			zap.Bool("initializing", alreadyInitializing))
-		return nil
-	}
-
-	// Check if this node was selected
+	// Check if this node was selected first (before any locking)
 	var myAssignment *NodeAssignment
 	for i, node := range confirm.SelectedNodes {
 		if node.NodeID == cm.nodeID {
@@ -154,14 +140,28 @@ func (cm *ClusterManager) handleCreateConfirm(msg *MetadataMessage) error {
 		return nil
 	}
 
+	// Use atomic check-and-set to prevent race conditions
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Check if database already exists or is being initialized (atomic check)
+	_, alreadyActive := cm.activeClusters[confirm.DatabaseName]
+	_, alreadyInitializing := cm.initializingDBs[confirm.DatabaseName]
+
+	if alreadyActive || alreadyInitializing {
+		cm.logger.Debug("Database already active or initializing on this node, ignoring confirmation",
+			zap.String("database", confirm.DatabaseName),
+			zap.Bool("active", alreadyActive),
+			zap.Bool("initializing", alreadyInitializing))
+		return nil
+	}
+
+	// Atomically mark database as initializing to prevent duplicate confirmations
+	cm.initializingDBs[confirm.DatabaseName] = true
+
 	cm.logger.Info("Selected to host database",
 		zap.String("database", confirm.DatabaseName),
 		zap.String("role", myAssignment.Role))
-
-	// Mark database as initializing to prevent duplicate confirmations
-	cm.mu.Lock()
-	cm.initializingDBs[confirm.DatabaseName] = true
-	cm.mu.Unlock()
 
 	// Create database metadata
 	portMappings := make(map[string]PortPair)
@@ -222,7 +222,7 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 		// Join to the leader
 		leaderNodeID := metadata.LeaderNodeID
 		if leaderPorts, exists := metadata.PortMappings[leaderNodeID]; exists {
-			joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.HTTPPort)
+			joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
 			cm.logger.Info("Follower joining leader",
 				zap.String("database", metadata.DatabaseName),
 				zap.String("leader_node", leaderNodeID),
@@ -235,13 +235,34 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 		}
 	}
 
-	// Start the instance with longer timeout for bootstrap
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// For followers with existing data, ensure we have a join address
+	if !isLeader && instance.hasExistingData() {
+		if joinAddr == "" {
+			cm.logger.Error("Follower has existing data but no join address available",
+				zap.String("database", metadata.DatabaseName))
+			// Clear initializing flag
+			cm.mu.Lock()
+			delete(cm.initializingDBs, metadata.DatabaseName)
+			cm.mu.Unlock()
+			return
+		}
+		cm.logger.Info("Follower restarting with existing data, will rejoin cluster",
+			zap.String("database", metadata.DatabaseName),
+			zap.String("join_address", joinAddr))
+	}
+
+	// Start the instance with appropriate timeout
+	timeout := 60 * time.Second
+	if isLeader {
+		timeout = 90 * time.Second // Leaders need more time for bootstrap
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	if err := instance.Start(ctx, isLeader, joinAddr); err != nil {
 		cm.logger.Error("Failed to start database instance",
 			zap.String("database", metadata.DatabaseName),
+			zap.Bool("is_leader", isLeader),
 			zap.Error(err))
 
 		// Clear initializing flag on failure
@@ -254,6 +275,14 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 		return
 	}
 
+	// For followers, start background SQL readiness check
+	if !isLeader {
+		instance.StartBackgroundSQLReadinessCheck(cm.ctx, func() {
+			cm.logger.Info("Follower SQL became ready",
+				zap.String("database", metadata.DatabaseName))
+		})
+	}
+
 	// Store active instance and clear initializing flag
 	cm.mu.Lock()
 	cm.activeClusters[metadata.DatabaseName] = instance
@@ -264,7 +293,23 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 	cm.broadcastStatusUpdate(metadata.DatabaseName, StatusActive)
 
 	cm.logger.Info("Database instance started and active",
-		zap.String("database", metadata.DatabaseName))
+		zap.String("database", metadata.DatabaseName),
+		zap.Bool("is_leader", isLeader))
+
+	// Broadcast metadata sync to all nodes
+	syncMsg := MetadataSync{Metadata: metadata}
+	syncData, err := MarshalMetadataMessage(MsgMetadataSync, cm.nodeID, syncMsg)
+	if err == nil {
+		topic := "/debros/metadata/v1"
+		if err := cm.pubsubAdapter.Publish(cm.ctx, topic, syncData); err != nil {
+			cm.logger.Warn("Failed to broadcast metadata sync",
+				zap.String("database", metadata.DatabaseName),
+				zap.Error(err))
+		} else {
+			cm.logger.Debug("Broadcasted metadata sync",
+				zap.String("database", metadata.DatabaseName))
+		}
+	}
 }
 
 // handleStatusUpdate processes database status updates
@@ -345,13 +390,18 @@ func (cm *ClusterManager) handleMetadataSync(msg *MetadataMessage) error {
 		return nil
 	}
 
+	cm.logger.Debug("Received metadata sync",
+		zap.String("database", sync.Metadata.DatabaseName),
+		zap.String("from_node", msg.NodeID))
+
 	// Check if we need to update local metadata
 	existing := cm.metadataStore.GetDatabase(sync.Metadata.DatabaseName)
 	if existing == nil {
 		// New database we didn't know about
 		cm.metadataStore.SetDatabase(sync.Metadata)
 		cm.logger.Info("Learned about new database via sync",
-			zap.String("database", sync.Metadata.DatabaseName))
+			zap.String("database", sync.Metadata.DatabaseName),
+			zap.Strings("node_ids", sync.Metadata.NodeIDs))
 		return nil
 	}
 
@@ -360,7 +410,8 @@ func (cm *ClusterManager) handleMetadataSync(msg *MetadataMessage) error {
 	if winner != existing {
 		cm.metadataStore.SetDatabase(winner)
 		cm.logger.Info("Updated database metadata via sync",
-			zap.String("database", sync.Metadata.DatabaseName))
+			zap.String("database", sync.Metadata.DatabaseName),
+			zap.Uint64("new_version", winner.Version))
 	}
 
 	return nil
@@ -699,7 +750,7 @@ func (cm *ClusterManager) wakeupDatabase(dbName string, dbMeta *DatabaseMetadata
 	joinAddr := ""
 	if len(dbMeta.NodeIDs) > 0 && dbMeta.NodeIDs[0] != cm.nodeID {
 		firstNodePorts := dbMeta.PortMappings[dbMeta.NodeIDs[0]]
-		joinAddr = fmt.Sprintf("http://%s:%d", cm.getAdvertiseAddress(), firstNodePorts.RaftPort)
+		joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), firstNodePorts.RaftPort)
 	}
 
 	// Create and start instance
@@ -853,7 +904,7 @@ func (cm *ClusterManager) handleNodeReplacementOffer(msg *MetadataMessage) error
 			continue // Skip failed nodes (would need proper tracking)
 		}
 		ports := dbMeta.PortMappings[nodeID]
-		joinAddr = fmt.Sprintf("http://%s:%d", cm.getAdvertiseAddress(), ports.RaftPort)
+		joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), ports.RaftPort)
 		break
 	}
 
