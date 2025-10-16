@@ -19,8 +19,9 @@ const (
 
 // PortPair represents HTTP and Raft ports for a database instance
 type PortPair struct {
-	HTTPPort int `json:"http_port"`
-	RaftPort int `json:"raft_port"`
+	HTTPPort int    `json:"http_port"`
+	RaftPort int    `json:"raft_port"`
+	Host     string `json:"host"`
 }
 
 // DatabaseMetadata contains metadata for a single database cluster

@@ -72,6 +72,7 @@ type NodeAssignment struct {
 	NodeID   string `json:"node_id"`
 	HTTPPort int    `json:"http_port"`
 	RaftPort int    `json:"raft_port"`
+	Host     string `json:"host"`
 	Role     string `json:"role"` // "leader" or "follower"
 }
 

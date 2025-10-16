@@ -40,27 +40,53 @@ func (cm *ClusterManager) handleCreateRequest(msg *MetadataMessage) error {
 		return nil
 	}
 
-	// Allocate ports - prefer fixed ports for system database, fall back to dynamic
+	// Allocate ports with sticky behavior
 	var ports PortPair
 	var err error
 
+	// Try to load previously saved ports first (for sticky ports across restarts)
+	savedPorts := LoadSavedPorts(cm.dataDir, req.DatabaseName, cm.logger)
+
 	if req.DatabaseName == systemDBName && cm.config.SystemHTTPPort > 0 {
-		// Try to use fixed ports for system database first
+		// System database: MUST use fixed ports, do not fall back to dynamic
 		ports = PortPair{
 			HTTPPort: cm.config.SystemHTTPPort,
 			RaftPort: cm.config.SystemRaftPort,
+			Host:     cm.getAdvertiseAddress(),
 		}
 		err = cm.portManager.AllocateSpecificPortPair(req.DatabaseName, ports)
 		if err != nil {
-			// Fixed ports unavailable (likely multi-node localhost) - use dynamic
-			cm.logger.Info("Fixed system ports unavailable, using dynamic allocation",
+			// Fixed ports unavailable - DO NOT respond for system database
+			cm.logger.Warn("System database requires fixed ports, but they are unavailable - not responding",
 				zap.String("database", req.DatabaseName),
 				zap.Int("attempted_http", ports.HTTPPort),
-				zap.Int("attempted_raft", ports.RaftPort))
+				zap.Int("attempted_raft", ports.RaftPort),
+				zap.Error(err))
+			return nil
+		}
+	} else if savedPorts != nil {
+		// Try to reuse saved ports for sticky allocation
+		ports = PortPair{
+			HTTPPort: savedPorts.HTTPPort,
+			RaftPort: savedPorts.RaftPort,
+			Host:     cm.getAdvertiseAddress(),
+		}
+		err = cm.portManager.AllocateSpecificPortPair(req.DatabaseName, ports)
+		if err != nil {
+			// Saved ports unavailable, fall back to dynamic
+			cm.logger.Info("Saved ports unavailable, allocating new ports",
+				zap.String("database", req.DatabaseName),
+				zap.Int("attempted_http", savedPorts.HTTPPort),
+				zap.Int("attempted_raft", savedPorts.RaftPort))
 			ports, err = cm.portManager.AllocatePortPair(req.DatabaseName)
+		} else {
+			cm.logger.Info("Reusing saved ports for database",
+				zap.String("database", req.DatabaseName),
+				zap.Int("http_port", ports.HTTPPort),
+				zap.Int("raft_port", ports.RaftPort))
 		}
 	} else {
-		// Use dynamic ports for other databases
+		// No saved ports, allocate dynamically
 		ports, err = cm.portManager.AllocatePortPair(req.DatabaseName)
 	}
 
@@ -73,9 +99,13 @@ func (cm *ClusterManager) handleCreateRequest(msg *MetadataMessage) error {
 
 	// Send response offering to host
 	response := DatabaseCreateResponse{
-		DatabaseName:   req.DatabaseName,
-		NodeID:         cm.nodeID,
-		AvailablePorts: ports,
+		DatabaseName: req.DatabaseName,
+		NodeID:       cm.nodeID,
+		AvailablePorts: PortPair{
+			HTTPPort: ports.HTTPPort,
+			RaftPort: ports.RaftPort,
+			Host:     cm.getAdvertiseAddress(),
+		},
 	}
 
 	msgData, err := MarshalMetadataMessage(MsgDatabaseCreateResponse, cm.nodeID, response)
@@ -173,6 +203,7 @@ func (cm *ClusterManager) handleCreateConfirm(msg *MetadataMessage) error {
 		portMappings[node.NodeID] = PortPair{
 			HTTPPort: node.HTTPPort,
 			RaftPort: node.RaftPort,
+			Host:     node.Host,
 		}
 	}
 
@@ -224,11 +255,17 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 		// Join to the leader
 		leaderNodeID := metadata.LeaderNodeID
 		if leaderPorts, exists := metadata.PortMappings[leaderNodeID]; exists {
-			joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
+			// Use leader's host if available, fallback to this node's advertise address
+			host := leaderPorts.Host
+			if host == "" {
+				host = cm.getAdvertiseAddress()
+			}
+			joinAddr = fmt.Sprintf("%s:%d", host, leaderPorts.RaftPort)
 			cm.logger.Info("Follower joining leader",
 				zap.String("database", metadata.DatabaseName),
 				zap.String("leader_node", leaderNodeID),
 				zap.String("join_address", joinAddr),
+				zap.String("leader_host", host),
 				zap.Int("leader_raft_port", leaderPorts.RaftPort))
 		} else {
 			cm.logger.Error("Leader node not found in port mappings",
@@ -275,6 +312,14 @@ func (cm *ClusterManager) startDatabaseInstance(metadata *DatabaseMetadata, isLe
 		// Broadcast failure status
 		cm.broadcastStatusUpdate(metadata.DatabaseName, StatusInitializing)
 		return
+	}
+
+	// Save ports for sticky allocation on restart
+	if err := SavePorts(cm.dataDir, metadata.DatabaseName, ports, cm.logger); err != nil {
+		cm.logger.Warn("Failed to save ports for database",
+			zap.String("database", metadata.DatabaseName),
+			zap.Error(err))
+		// Don't fail startup, just log the warning
 	}
 
 	// For followers, start background SQL readiness check
@@ -752,7 +797,12 @@ func (cm *ClusterManager) wakeupDatabase(dbName string, dbMeta *DatabaseMetadata
 	joinAddr := ""
 	if len(dbMeta.NodeIDs) > 0 && dbMeta.NodeIDs[0] != cm.nodeID {
 		firstNodePorts := dbMeta.PortMappings[dbMeta.NodeIDs[0]]
-		joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), firstNodePorts.RaftPort)
+		// Use first node's host if available, fallback to this node's advertise address
+		host := firstNodePorts.Host
+		if host == "" {
+			host = cm.getAdvertiseAddress()
+		}
+		joinAddr = fmt.Sprintf("%s:%d", host, firstNodePorts.RaftPort)
 	}
 
 	// Create and start instance
@@ -772,6 +822,13 @@ func (cm *ClusterManager) wakeupDatabase(dbName string, dbMeta *DatabaseMetadata
 		cm.logger.Error("Failed to start instance during wakeup", zap.Error(err))
 		cm.portManager.ReleasePortPair(allocatedPorts)
 		return
+	}
+
+	// Save ports for sticky allocation on restart
+	if err := SavePorts(cm.dataDir, dbName, allocatedPorts, cm.logger); err != nil {
+		cm.logger.Warn("Failed to save ports for database during wakeup",
+			zap.String("database", dbName),
+			zap.Error(err))
 	}
 
 	// Add to active clusters
@@ -906,7 +963,12 @@ func (cm *ClusterManager) handleNodeReplacementOffer(msg *MetadataMessage) error
 			continue // Skip failed nodes (would need proper tracking)
 		}
 		ports := dbMeta.PortMappings[nodeID]
-		joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), ports.RaftPort)
+		// Use node's host if available, fallback to this node's advertise address
+		host := ports.Host
+		if host == "" {
+			host = cm.getAdvertiseAddress()
+		}
+		joinAddr = fmt.Sprintf("%s:%d", host, ports.RaftPort)
 		break
 	}
 
@@ -1001,6 +1063,13 @@ func (cm *ClusterManager) startReplacementInstance(dbName string, ports PortPair
 		cm.logger.Error("Failed to start replacement instance", zap.Error(err))
 		cm.portManager.ReleasePortPair(ports)
 		return
+	}
+
+	// Save ports for sticky allocation on restart
+	if err := SavePorts(cm.dataDir, dbName, ports, cm.logger); err != nil {
+		cm.logger.Warn("Failed to save ports for replacement instance",
+			zap.String("database", dbName),
+			zap.Error(err))
 	}
 
 	// Add to active clusters

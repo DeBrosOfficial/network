@@ -213,30 +213,62 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 		var selfPorts PortPair
 		var portErr error
 
+		// Try to load previously saved ports first (for sticky ports across restarts)
+		savedPorts := LoadSavedPorts(cm.dataDir, dbName, cm.logger)
+
 		if dbName == systemDBName && cm.config.SystemHTTPPort > 0 {
-			// Try fixed ports for system database
+			// System database: MUST use fixed ports, do not fall back to dynamic
 			selfPorts = PortPair{
 				HTTPPort: cm.config.SystemHTTPPort,
 				RaftPort: cm.config.SystemRaftPort,
+				Host:     cm.getAdvertiseAddress(),
 			}
 			portErr = cm.portManager.AllocateSpecificPortPair(dbName, selfPorts)
 			if portErr != nil {
-				// Fixed ports unavailable - use dynamic
-				cm.logger.Info("Fixed system ports unavailable on requester, using dynamic",
-					zap.String("database", dbName))
+				// Fixed ports unavailable - DO NOT add self for system database
+				cm.logger.Warn("System database requires fixed ports, but they are unavailable - not hosting",
+					zap.String("database", dbName),
+					zap.Int("attempted_http", selfPorts.HTTPPort),
+					zap.Int("attempted_raft", selfPorts.RaftPort),
+					zap.Error(portErr))
+				// Set portErr to non-nil so we skip adding self as candidate
+			}
+		} else if savedPorts != nil {
+			// Try to reuse saved ports for sticky allocation
+			selfPorts = PortPair{
+				HTTPPort: savedPorts.HTTPPort,
+				RaftPort: savedPorts.RaftPort,
+				Host:     cm.getAdvertiseAddress(),
+			}
+			portErr = cm.portManager.AllocateSpecificPortPair(dbName, selfPorts)
+			if portErr != nil {
+				// Saved ports unavailable, fall back to dynamic
+				cm.logger.Info("Saved ports unavailable for self, allocating new ports",
+					zap.String("database", dbName),
+					zap.Int("attempted_http", savedPorts.HTTPPort),
+					zap.Int("attempted_raft", savedPorts.RaftPort))
 				selfPorts, portErr = cm.portManager.AllocatePortPair(dbName)
+			} else {
+				cm.logger.Info("Reusing saved ports for self",
+					zap.String("database", dbName),
+					zap.Int("http_port", selfPorts.HTTPPort),
+					zap.Int("raft_port", selfPorts.RaftPort))
 			}
 		} else {
-			// Dynamic ports for non-system databases
+			// No saved ports, allocate dynamically
 			selfPorts, portErr = cm.portManager.AllocatePortPair(dbName)
 		}
 
 		if portErr == nil {
 			// Add self as a candidate
 			selfResponse := DatabaseCreateResponse{
-				DatabaseName:   dbName,
-				NodeID:         cm.nodeID,
-				AvailablePorts: selfPorts,
+				DatabaseName: dbName,
+				NodeID:       cm.nodeID,
+				AvailablePorts: PortPair{
+					HTTPPort: selfPorts.HTTPPort,
+					RaftPort: selfPorts.RaftPort,
+					Host:     cm.getAdvertiseAddress(),
+				},
 			}
 			coordinator.AddResponse(selfResponse)
 			cm.logger.Debug("Added self as candidate for database",
@@ -328,6 +360,7 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 				NodeID:   resp.NodeID,
 				HTTPPort: resp.AvailablePorts.HTTPPort,
 				RaftPort: resp.AvailablePorts.RaftPort,
+				Host:     resp.AvailablePorts.Host,
 				Role:     role,
 			}
 		}
@@ -369,6 +402,7 @@ func (cm *ClusterManager) CreateDatabase(dbName string, replicationFactor int) e
 			metadata.PortMappings[node.NodeID] = PortPair{
 				HTTPPort: node.HTTPPort,
 				RaftPort: node.RaftPort,
+				Host:     node.Host,
 			}
 		}
 
@@ -586,11 +620,17 @@ func (cm *ClusterManager) attemptDatabaseRecovery(dbName string, metadata *Datab
 		for _, nodeID := range activeMembers {
 			if nodeID == metadata.LeaderNodeID && nodeID != cm.nodeID {
 				if leaderPorts, exists := metadata.PortMappings[nodeID]; exists {
-					joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
+					// Use leader's host if available, fallback to this node's advertise address
+					host := leaderPorts.Host
+					if host == "" {
+						host = cm.getAdvertiseAddress()
+					}
+					joinAddr = fmt.Sprintf("%s:%d", host, leaderPorts.RaftPort)
 					cm.logger.Info("Recovery: joining healthy leader",
 						zap.String("database", dbName),
 						zap.String("leader_node", nodeID),
-						zap.String("join_address", joinAddr))
+						zap.String("join_address", joinAddr),
+						zap.String("leader_host", host))
 					break
 				}
 			}
@@ -601,11 +641,17 @@ func (cm *ClusterManager) attemptDatabaseRecovery(dbName string, metadata *Datab
 			for _, nodeID := range activeMembers {
 				if nodeID != cm.nodeID {
 					if nodePorts, exists := metadata.PortMappings[nodeID]; exists {
-						joinAddr = fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), nodePorts.RaftPort)
+						// Use node's host if available, fallback to this node's advertise address
+						host := nodePorts.Host
+						if host == "" {
+							host = cm.getAdvertiseAddress()
+						}
+						joinAddr = fmt.Sprintf("%s:%d", host, nodePorts.RaftPort)
 						cm.logger.Info("Recovery: joining healthy follower",
 							zap.String("database", dbName),
 							zap.String("node", nodeID),
-							zap.String("join_address", joinAddr))
+							zap.String("join_address", joinAddr),
+							zap.String("node_host", host))
 						break
 					}
 				}
@@ -660,6 +706,13 @@ func (cm *ClusterManager) attemptDatabaseRecovery(dbName string, metadata *Datab
 			zap.String("database", dbName),
 			zap.Error(err))
 		return
+	}
+
+	// Save ports for sticky allocation on restart
+	if err := SavePorts(cm.dataDir, dbName, ports, cm.logger); err != nil {
+		cm.logger.Warn("Failed to save ports during recovery",
+			zap.String("database", dbName),
+			zap.Error(err))
 	}
 
 	// Update active clusters
@@ -894,11 +947,17 @@ func (cm *ClusterManager) autoJoinSystemDatabase(metadata *DatabaseMetadata) err
 		return fmt.Errorf("leader ports not available")
 	}
 
-	joinAddr := fmt.Sprintf("%s:%d", cm.getAdvertiseAddress(), leaderPorts.RaftPort)
+	// Use leader's host if available, fallback to this node's advertise address
+	host := leaderPorts.Host
+	if host == "" {
+		host = cm.getAdvertiseAddress()
+	}
+	joinAddr := fmt.Sprintf("%s:%d", host, leaderPorts.RaftPort)
 	cm.logger.Info("Auto-joining system database as follower",
 		zap.String("database", systemDBName),
 		zap.String("leader", leaderNodeID),
-		zap.String("join_address", joinAddr))
+		zap.String("join_address", joinAddr),
+		zap.String("leader_host", host))
 
 	// Allocate ports for this node
 	var ports PortPair
@@ -941,6 +1000,13 @@ func (cm *ClusterManager) autoJoinSystemDatabase(metadata *DatabaseMetadata) err
 		cm.logger.Error("Failed to start system database instance",
 			zap.Error(err))
 		return err
+	}
+
+	// Save ports for sticky allocation on restart
+	if err := SavePorts(cm.dataDir, systemDBName, ports, cm.logger); err != nil {
+		cm.logger.Warn("Failed to save ports for system database",
+			zap.String("database", systemDBName),
+			zap.Error(err))
 	}
 
 	// Store the instance
@@ -1018,6 +1084,7 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 				existingDB.PortMappings[cm.nodeID] = PortPair{
 					HTTPPort: instance.HTTPPort,
 					RaftPort: instance.RaftPort,
+					Host:     cm.getAdvertiseAddress(),
 				}
 			}
 
@@ -1102,12 +1169,22 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 			cm.logger.Info("System database is active",
 				zap.String("database", systemDBName))
 
-			// Run migrations if configured
+			// Run migrations only on the elected leader
 			if cm.config.MigrationsPath != "" {
-				if err := cm.runMigrations(systemDBName); err != nil {
-					cm.logger.Error("Failed to run migrations on system database",
-						zap.Error(err))
-					// Don't fail startup, just log the error
+				// Get current metadata to check if this node is the leader
+				metadata := cm.metadataStore.GetDatabase(systemDBName)
+				if metadata != nil && metadata.LeaderNodeID == cm.nodeID {
+					cm.logger.Info("This node is the leader, running migrations",
+						zap.String("database", systemDBName))
+					if err := cm.runMigrations(systemDBName); err != nil {
+						cm.logger.Error("Failed to run migrations on system database",
+							zap.Error(err))
+						// Don't fail startup, just log the error
+					}
+				} else {
+					cm.logger.Info("This node is not the leader, skipping migrations",
+						zap.String("database", systemDBName),
+						zap.String("leader_node", metadata.LeaderNodeID))
 				}
 			}
 
@@ -1116,6 +1193,86 @@ func (cm *ClusterManager) initializeSystemDatabase() error {
 
 		time.Sleep(checkInterval)
 	}
+}
+
+// parseSQLStatements splits SQL content into individual statements using simple string parsing
+func parseSQLStatements(content string) ([]string, error) {
+	var statements []string
+
+	// Remove comments and normalize whitespace
+	lines := strings.Split(content, "\n")
+	var cleanLines []string
+
+	for _, line := range lines {
+		// Remove single-line comments (-- comments)
+		if idx := strings.Index(line, "--"); idx != -1 {
+			line = line[:idx]
+		}
+		// Remove multi-line comments (/* */ comments) - simple approach
+		line = strings.ReplaceAll(line, "/*", "")
+		line = strings.ReplaceAll(line, "*/", "")
+
+		// Keep non-empty lines
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			cleanLines = append(cleanLines, trimmed)
+		}
+	}
+
+	// Join lines and split by semicolons
+	cleanContent := strings.Join(cleanLines, " ")
+
+	// Split by semicolons, but be careful about semicolons in strings
+	var currentStmt strings.Builder
+	inString := false
+	escapeNext := false
+
+	for _, char := range cleanContent {
+		if escapeNext {
+			currentStmt.WriteRune(char)
+			escapeNext = false
+			continue
+		}
+
+		if char == '\\' {
+			escapeNext = true
+			currentStmt.WriteRune(char)
+			continue
+		}
+
+		if char == '\'' || char == '"' {
+			inString = !inString
+		}
+
+		if char == ';' && !inString {
+			// End of statement
+			stmt := strings.TrimSpace(currentStmt.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			currentStmt.Reset()
+		} else {
+			currentStmt.WriteRune(char)
+		}
+	}
+
+	// Handle any remaining content (statements without trailing semicolon)
+	if currentStmt.Len() > 0 {
+		stmt := strings.TrimSpace(currentStmt.String())
+		if stmt != "" {
+			statements = append(statements, stmt)
+		}
+	}
+
+	return statements, nil
+}
+
+// truncateString truncates a string to maxLen for logging
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // runMigrations executes SQL migrations on a database
@@ -1167,29 +1324,32 @@ func (cm *ClusterManager) runMigrations(dbName string) error {
 		}
 
 		// Parse SQL content into individual statements
-		sqlContent := string(content)
+		statements, err := parseSQLStatements(string(content))
+		if err != nil {
+			return fmt.Errorf("failed to parse migration %s: %w", filepath.Base(file), err)
+		}
 
-		// Split by semicolon but preserve multi-line statements
-		// Simple approach: execute the whole file as one batch
-		statements := []string{sqlContent}
+		cm.logger.Info("Parsed SQL statements",
+			zap.String("file", filepath.Base(file)),
+			zap.Int("statement_count", len(statements)))
 
-		// Execute using WriteParameterized to avoid auto-transaction wrapping
-		for _, stmt := range statements {
-			stmt = strings.TrimSpace(stmt)
+		// Execute each statement
+		for i, stmt := range statements {
 			if stmt == "" {
 				continue
 			}
+
+			cm.logger.Debug("Executing statement",
+				zap.String("file", filepath.Base(file)),
+				zap.Int("statement_num", i+1),
+				zap.String("statement_preview", truncateString(stmt, 100)))
 
 			_, err = conn.WriteOneParameterized(gorqlite.ParameterizedStatement{
 				Query: stmt,
 			})
 			if err != nil {
-				cm.logger.Error("Migration failed",
-					zap.String("file", filepath.Base(file)),
-					zap.Error(err))
-				// Continue with other migrations even if one fails
-				// (tables might already exist from previous runs)
-				break
+				return fmt.Errorf("migration %s failed at statement %d: %w",
+					filepath.Base(file), i+1, err)
 			}
 		}
 

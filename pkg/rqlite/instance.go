@@ -76,36 +76,6 @@ func (ri *RQLiteInstance) wasInCluster() bool {
 	return false
 }
 
-// clearRaftState removes Raft log and snapshots to allow clean leader restart
-// This is more aggressive than clearPeerConfiguration and resets the entire cluster state
-func (ri *RQLiteInstance) clearRaftState() error {
-	// Remove Raft log and cluster config without touching SQLite data
-	paths := []string{
-		filepath.Join(ri.DataDir, "raft.db"),
-		filepath.Join(ri.DataDir, "raft"),       // contains peers.json/info and other raft state
-		filepath.Join(ri.DataDir, "rsnapshots"), // raft snapshots
-	}
-
-	var firstErr error
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			if err := os.RemoveAll(p); err != nil && firstErr == nil {
-				firstErr = err
-				ri.logger.Warn("Failed to remove Raft state path",
-					zap.String("database", ri.DatabaseName),
-					zap.String("path", p),
-					zap.Error(err))
-			} else {
-				ri.logger.Info("Cleared Raft state path",
-					zap.String("database", ri.DatabaseName),
-					zap.String("path", p))
-			}
-		}
-	}
-
-	return firstErr
-}
-
 // Start starts the rqlite subprocess
 func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr string) error {
 	// Create data directory
@@ -124,17 +94,6 @@ func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr str
 			zap.Bool("was_in_cluster", wasInCluster),
 			zap.String("join_address", joinAddr))
 
-		// Clear Raft state for leaders with existing cluster state BEFORE starting RQLite
-		if isLeader && wasInCluster && joinAddr == "" {
-			ri.logger.Warn("Leader has existing cluster state - clearing Raft state for clean restart",
-				zap.String("database", ri.DatabaseName))
-			if err := ri.clearRaftState(); err != nil {
-				ri.logger.Warn("Failed to clear Raft state", zap.Error(err))
-			} else {
-				ri.logger.Info("Cleared Raft log and snapshots; node will bootstrap as single-node and accept joins",
-					zap.String("database", ri.DatabaseName))
-			}
-		}
 	} else {
 		ri.logger.Info("No existing RQLite data, starting fresh",
 			zap.String("database", ri.DatabaseName),
@@ -159,12 +118,10 @@ func (ri *RQLiteInstance) Start(ctx context.Context, isLeader bool, joinAddr str
 	// Add join address if this is a follower
 	if !isLeader && joinAddr != "" {
 		args = append(args, "-join", joinAddr)
-		// Force rejoin if we have existing cluster state
-		if ri.wasInCluster() {
-			args = append(args, "-join-as", "voter")
-			ri.logger.Info("Follower will rejoin cluster as voter",
-				zap.String("database", ri.DatabaseName))
-		}
+		// Always add -join-as voter for rqlite v8 compatibility
+		args = append(args, "-join-as", "voter")
+		ri.logger.Info("Follower will join cluster as voter",
+			zap.String("database", ri.DatabaseName))
 	}
 
 	// Add data directory as positional argument
