@@ -34,12 +34,13 @@ type Node struct {
 	logger *logging.ColoredLogger
 	host   host.Host
 
-	rqliteManager *database.RQLiteManager
-	rqliteAdapter *database.RQLiteAdapter
+	// Dynamic database clustering
+	clusterManager *database.ClusterManager
 
 	// Peer discovery
-	discoveryCancel context.CancelFunc
-	bootstrapCancel context.CancelFunc
+	discoveryCancel      context.CancelFunc
+	bootstrapCancel      context.CancelFunc
+	peerDiscoveryService *pubsub.PeerDiscoveryService
 
 	// PubSub
 	pubsub *pubsub.ClientAdapter
@@ -59,25 +60,26 @@ func NewNode(cfg *config.Config) (*Node, error) {
 	}, nil
 }
 
-// startRQLite initializes and starts the RQLite database
-func (n *Node) startRQLite(ctx context.Context) error {
-	n.logger.Info("Starting RQLite database")
+// startClusterManager initializes and starts the cluster manager for dynamic databases
+func (n *Node) startClusterManager(ctx context.Context) error {
+	n.logger.Info("Starting dynamic database cluster manager")
 
-	// Create RQLite manager
-	n.rqliteManager = database.NewRQLiteManager(&n.config.Database, &n.config.Discovery, n.config.Node.DataDir, n.logger.Logger)
+	// Create cluster manager
+	n.clusterManager = database.NewClusterManager(
+		n.host.ID().String(),
+		&n.config.Database,
+		&n.config.Discovery,
+		n.config.Node.DataDir,
+		n.pubsub,
+		n.logger.Logger,
+	)
 
-	// Start RQLite
-	if err := n.rqliteManager.Start(ctx); err != nil {
-		return err
+	// Start cluster manager
+	if err := n.clusterManager.Start(); err != nil {
+		return fmt.Errorf("failed to start cluster manager: %w", err)
 	}
 
-	// Create adapter for sql.DB compatibility
-	adapter, err := database.NewRQLiteAdapter(n.rqliteManager)
-	if err != nil {
-		return fmt.Errorf("failed to create RQLite adapter: %w", err)
-	}
-	n.rqliteAdapter = adapter
-
+	n.logger.Info("Dynamic database cluster manager started successfully")
 	return nil
 }
 
@@ -253,6 +255,15 @@ func (n *Node) startLibP2P() error {
 	// Create pubsub adapter with "node" namespace
 	n.pubsub = pubsub.NewClientAdapter(ps, n.config.Discovery.NodeNamespace)
 	n.logger.Info("Initialized pubsub adapter on namespace", zap.String("namespace", n.config.Discovery.NodeNamespace))
+
+	// Initialize peer discovery service
+	// Note: We need to access the internal manager from the adapter
+	peerDiscoveryManager := pubsub.NewManager(ps, n.config.Discovery.NodeNamespace)
+	n.peerDiscoveryService = pubsub.NewPeerDiscoveryService(h, peerDiscoveryManager, n.logger.Logger)
+	if err := n.peerDiscoveryService.Start(); err != nil {
+		return fmt.Errorf("failed to start peer discovery service: %w", err)
+	}
+	n.logger.ComponentInfo(logging.ComponentNode, "Started active peer discovery service")
 
 	// Log configured bootstrap peers
 	if len(n.config.Discovery.BootstrapPeers) > 0 {
@@ -563,17 +574,23 @@ func (n *Node) Stop() error {
 	// Stop peer discovery
 	n.stopPeerDiscovery()
 
+	// Stop peer discovery service
+	if n.peerDiscoveryService != nil {
+		if err := n.peerDiscoveryService.Stop(); err != nil {
+			n.logger.ComponentWarn(logging.ComponentNode, "Error stopping peer discovery service", zap.Error(err))
+		}
+	}
+
+	// Stop cluster manager
+	if n.clusterManager != nil {
+		if err := n.clusterManager.Stop(); err != nil {
+			n.logger.ComponentWarn(logging.ComponentNode, "Error stopping cluster manager", zap.Error(err))
+		}
+	}
+
 	// Stop LibP2P host
 	if n.host != nil {
 		n.host.Close()
-	}
-
-	// Stop RQLite
-	if n.rqliteAdapter != nil {
-		n.rqliteAdapter.Close()
-	}
-	if n.rqliteManager != nil {
-		_ = n.rqliteManager.Stop()
 	}
 
 	n.logger.ComponentInfo(logging.ComponentNode, "Network node stopped")
@@ -589,14 +606,14 @@ func (n *Node) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	// Start RQLite
-	if err := n.startRQLite(ctx); err != nil {
-		return fmt.Errorf("failed to start RQLite: %w", err)
-	}
-
-	// Start LibP2P host
+	// Start LibP2P host (required before cluster manager)
 	if err := n.startLibP2P(); err != nil {
 		return fmt.Errorf("failed to start LibP2P: %w", err)
+	}
+
+	// Start cluster manager for dynamic databases
+	if err := n.startClusterManager(ctx); err != nil {
+		return fmt.Errorf("failed to start cluster manager: %w", err)
 	}
 
 	// Get listen addresses for logging

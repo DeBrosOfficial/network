@@ -2,8 +2,6 @@
 -- This file scaffolds core tables used by the HTTP gateway for auth, observability, and namespacing.
 -- Apply via your migration tooling or manual execution in RQLite.
 
-BEGIN;
-
 -- Tracks applied migrations (optional if your runner manages this separately)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version     INTEGER PRIMARY KEY,
@@ -51,5 +49,3 @@ INSERT OR IGNORE INTO namespaces(name) VALUES ('default');
 
 -- Mark this migration as applied (optional)
 INSERT OR IGNORE INTO schema_migrations(version) VALUES (1);
-
-COMMIT;

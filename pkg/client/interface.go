@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -33,6 +32,11 @@ type DatabaseClient interface {
 	CreateTable(ctx context.Context, schema string) error
 	DropTable(ctx context.Context, tableName string) error
 	GetSchema(ctx context.Context) (*SchemaInfo, error)
+
+	// Multi-database support (NEW)
+	// Database returns a database client for the named database
+	// The database name will be prefixed with the app name for isolation
+	Database(name string) (DatabaseClient, error)
 }
 
 // PubSubClient provides publish/subscribe messaging
@@ -119,24 +123,4 @@ type ClientConfig struct {
 	QuietMode         bool          `json:"quiet_mode"` // Suppress debug/info logs
 	APIKey            string        `json:"api_key"`    // API key for gateway auth
 	JWT               string        `json:"jwt"`        // Optional JWT bearer token
-}
-
-// DefaultClientConfig returns a default client configuration
-func DefaultClientConfig(appName string) *ClientConfig {
-	// Base defaults
-	peers := DefaultBootstrapPeers()
-	endpoints := DefaultDatabaseEndpoints()
-
-	return &ClientConfig{
-		AppName:           appName,
-		DatabaseName:      fmt.Sprintf("%s_db", appName),
-		BootstrapPeers:    peers,
-		DatabaseEndpoints: endpoints,
-		ConnectTimeout:    time.Second * 30,
-		RetryAttempts:     3,
-		RetryDelay:        time.Second * 5,
-		QuietMode:         false,
-		APIKey:            "",
-		JWT:               "",
-	}
 }

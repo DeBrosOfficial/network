@@ -4,16 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"database/sql"
+	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
 	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
-
-	_ "github.com/rqlite/gorqlite/stdlib"
 )
 
 // Config holds configuration for the gateway server
@@ -21,24 +21,56 @@ type Config struct {
 	ListenAddr      string
 	ClientNamespace string
 	BootstrapPeers  []string
-
-	// Optional DSN for rqlite database/sql driver, e.g. "http://localhost:4001"
-	// If empty, defaults to "http://localhost:4001".
-	RQLiteDSN string
 }
 
 type Gateway struct {
-	logger     *logging.ColoredLogger
-	cfg        *Config
-	client     client.NetworkClient
-	startedAt  time.Time
-	signingKey *rsa.PrivateKey
-	keyID      string
+	logger      *logging.ColoredLogger
+	cfg         *Config
+	client      client.NetworkClient
+	startedAt   time.Time
+	signingKey  *rsa.PrivateKey
+	keyID       string
+	dbMetaCache *DatabaseMetadataCache
+}
 
-	// rqlite SQL connection and HTTP ORM gateway
-	sqlDB     *sql.DB
-	ormClient rqlite.Client
-	ormHTTP   *rqlite.HTTPGateway
+// deriveRQLiteEndpoints extracts IP addresses from bootstrap peer multiaddrs
+// and constructs RQLite HTTP endpoints using the fixed system database port (5001)
+func deriveRQLiteEndpoints(bootstrapPeers []string, systemHTTPPort int) []string {
+	if systemHTTPPort == 0 {
+		systemHTTPPort = 5001 // default
+	}
+
+	endpoints := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, peerAddr := range bootstrapPeers {
+		ma, err := multiaddr.NewMultiaddr(peerAddr)
+		if err != nil {
+			continue
+		}
+
+		// Extract IP address from multiaddr
+		var ip string
+		multiaddr.ForEach(ma, func(c multiaddr.Component) bool {
+			if c.Protocol().Code == multiaddr.P_IP4 {
+				ip = c.Value()
+				return false // stop iteration
+			}
+			if c.Protocol().Code == multiaddr.P_IP6 {
+				ip = "[" + c.Value() + "]" // IPv6 needs brackets
+				return false
+			}
+			return true
+		})
+
+		if ip != "" && !seen[ip] {
+			endpoint := fmt.Sprintf("http://%s:%d", ip, systemHTTPPort)
+			endpoints = append(endpoints, endpoint)
+			seen[ip] = true
+		}
+	}
+
+	return endpoints
 }
 
 // New creates and initializes a new Gateway instance
@@ -46,9 +78,30 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	logger.ComponentInfo(logging.ComponentGeneral, "Building client config...")
 
 	// Build client config from gateway cfg
-	cliCfg := client.DefaultClientConfig(cfg.ClientNamespace)
+	// Gateway uses the system database for API keys, wallets, etc.
+	cliCfg := client.DefaultClientConfig("_system")
+	cliCfg.DatabaseName = "_system" // Override to use system database directly
 	if len(cfg.BootstrapPeers) > 0 {
 		cliCfg.BootstrapPeers = cfg.BootstrapPeers
+	}
+
+	// Derive RQLite endpoints from bootstrap peers
+	// Check for env override first
+	if envDSN := strings.TrimSpace(os.Getenv("GATEWAY_RQLITE_DSN")); envDSN != "" {
+		cliCfg.DatabaseEndpoints = strings.Split(envDSN, ",")
+		for i, ep := range cliCfg.DatabaseEndpoints {
+			cliCfg.DatabaseEndpoints[i] = strings.TrimSpace(ep)
+		}
+		logger.ComponentInfo(logging.ComponentGeneral, "Using RQLite endpoints from GATEWAY_RQLITE_DSN env",
+			zap.Strings("endpoints", cliCfg.DatabaseEndpoints))
+	} else {
+		// Auto-derive from bootstrap peers + system port (5001)
+		// This will try port 5001 on each peer (works for single-node and distributed clusters)
+		// For multi-node localhost, set GATEWAY_RQLITE_DSN to the actual ports
+		cliCfg.DatabaseEndpoints = deriveRQLiteEndpoints(cfg.BootstrapPeers, 5001)
+		logger.ComponentInfo(logging.ComponentGeneral, "Derived RQLite endpoints from bootstrap peers",
+			zap.Strings("endpoints", cliCfg.DatabaseEndpoints),
+			zap.String("note", "For multi-node localhost, set GATEWAY_RQLITE_DSN env to actual ports"))
 	}
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Creating network client...")
@@ -71,11 +124,21 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Creating gateway instance...")
 	gw := &Gateway{
-		logger:    logger,
-		cfg:       cfg,
-		client:    c,
-		startedAt: time.Now(),
+		logger:      logger,
+		cfg:         cfg,
+		client:      c,
+		startedAt:   time.Now(),
+		dbMetaCache: NewDatabaseMetadataCache(logger),
 	}
+
+	logger.ComponentInfo(logging.ComponentGeneral, "Starting metadata subscriber...")
+	// Start metadata subscriber in background
+	go func() {
+		ctx := context.Background()
+		if err := gw.StartMetadataSubscriber(ctx); err != nil {
+			logger.ComponentWarn(logging.ComponentGeneral, "failed to start metadata subscriber", zap.Error(err))
+		}
+	}()
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Generating RSA signing key...")
 	// Generate local RSA signing key for JWKS/JWT (ephemeral for now)
@@ -87,24 +150,7 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 		logger.ComponentWarn(logging.ComponentGeneral, "failed to generate RSA key; jwks will be empty", zap.Error(err))
 	}
 
-	logger.ComponentInfo(logging.ComponentGeneral, "Initializing RQLite ORM HTTP gateway...")
-	dsn := cfg.RQLiteDSN
-	if dsn == "" {
-		dsn = "http://localhost:4001"
-	}
-	db, dbErr := sql.Open("rqlite", dsn)
-	if dbErr != nil {
-		logger.ComponentWarn(logging.ComponentGeneral, "failed to open rqlite sql db; http orm gateway disabled", zap.Error(dbErr))
-	} else {
-		gw.sqlDB = db
-		orm := rqlite.NewClient(db)
-		gw.ormClient = orm
-		gw.ormHTTP = rqlite.NewHTTPGateway(orm, "/v1/db")
-		logger.ComponentInfo(logging.ComponentGeneral, "RQLite ORM HTTP gateway ready",
-			zap.String("dsn", dsn),
-			zap.String("base_path", "/v1/db"),
-		)
-	}
+	logger.ComponentInfo(logging.ComponentGeneral, "Gateway initialized with dynamic database clustering")
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Gateway creation completed, returning...")
 	return gw, nil
@@ -122,7 +168,5 @@ func (g *Gateway) Close() {
 			g.logger.ComponentWarn(logging.ComponentClient, "error during client disconnect", zap.Error(err))
 		}
 	}
-	if g.sqlDB != nil {
-		_ = g.sqlDB.Close()
-	}
+	// No legacy database connections to close
 }

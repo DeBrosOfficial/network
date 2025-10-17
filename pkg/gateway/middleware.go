@@ -14,6 +14,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// min returns the smaller of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // context keys for request-scoped auth metadata (private to package)
 type contextKey string
 
@@ -98,12 +106,39 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 
 		// Look up API key in DB and derive namespace
 		db := g.client.Database()
+		if db == nil {
+			g.logger.ComponentError(logging.ComponentDatabase, "Database client not initialized",
+				zap.String("api_key_prefix", key[:min(10, len(key))]))
+			writeError(w, http.StatusServiceUnavailable, "database unavailable")
+			return
+		}
+
 		// Use internal auth for DB validation (auth not established yet)
 		internalCtx := client.WithInternalAuth(r.Context())
 		// Join to namespaces to resolve name in one query
 		q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
 		res, err := db.Query(internalCtx, q, key)
-		if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+
+		// Enhanced error handling to distinguish database errors from invalid keys
+		if err != nil {
+			// Database connectivity error - return 503
+			g.logger.ComponentError(logging.ComponentDatabase, "Failed to query API key",
+				zap.Error(err),
+				zap.String("api_key_prefix", key[:min(10, len(key))]))
+			writeError(w, http.StatusServiceUnavailable, "database unavailable")
+			return
+		}
+
+		if res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+			// API key not found in database - return 401
+			g.logger.ComponentWarn(logging.ComponentGeneral, "API key not found in database",
+				zap.String("api_key_prefix", key[:min(10, len(key))]),
+				zap.Int64("result_count", func() int64 {
+					if res == nil {
+						return -1
+					}
+					return res.Count
+				}()))
 			w.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\"")
 			writeError(w, http.StatusUnauthorized, "invalid API key")
 			return

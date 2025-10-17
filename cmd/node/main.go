@@ -31,17 +31,14 @@ func setup_logger(component logging.Component) (logger *logging.ColoredLogger) {
 }
 
 // parse_and_return_network_flags it initializes all the network flags coming from the .yaml files
-func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *string, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr *string, help *bool) {
+func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *string, p2pPort *int, advAddr *string, help *bool, loadedConfig *config.Config) {
 	logger := setup_logger(logging.ComponentNode)
 
 	configPath = flag.String("config", "", "Path to config YAML file (overrides defaults)")
 	dataDir = flag.String("data", "", "Data directory (auto-detected if not provided)")
 	nodeID = flag.String("id", "", "Node identifier (for running multiple local nodes)")
 	p2pPort = flag.Int("p2p-port", 4001, "LibP2P listen port")
-	rqlHTTP = flag.Int("rqlite-http-port", 5001, "RQLite HTTP API port")
-	rqlRaft = flag.Int("rqlite-raft-port", 7001, "RQLite Raft port")
-	rqlJoinAddr = flag.String("rqlite-join-address", "", "RQLite address to join (e.g., /ip4/)")
-	advAddr = flag.String("adv-addr", "127.0.0.1", "Default Advertise address for rqlite and rafts")
+	advAddr = flag.String("adv-addr", "0.0.0.0", "Default Advertise address for rqlite and rafts")
 	help = flag.Bool("help", false, "Show help")
 	flag.Parse()
 
@@ -55,33 +52,22 @@ func parse_and_return_network_flags() (configPath *string, dataDir, nodeID *stri
 		}
 		logger.ComponentInfo(logging.ComponentNode, "Configuration loaded from YAML file", zap.String("path", *configPath))
 
-		// Instead of returning flag values, return config values
-		// For ListenAddresses, extract port from multiaddr string if possible, else use default
-		var p2pPortVal int
-		if len(cfg.Node.ListenAddresses) > 0 {
-			// Try to parse port from multiaddr string
-			var port int
-			_, err := fmt.Sscanf(cfg.Node.ListenAddresses[0], "/ip4/0.0.0.0/tcp/%d", &port)
-			if err == nil {
-				p2pPortVal = port
-			} else {
-				p2pPortVal = 4001
-			}
-		} else {
-			p2pPortVal = 4001
-		}
+		// Return config values but preserve command line flag values for overrides
+		// The command line flags will be applied later in load_args_into_config
+		// Create separate variables to avoid modifying config directly
+		configDataDir := cfg.Node.DataDir
+		configAdvAddr := cfg.Discovery.HttpAdvAddress
+
 		return configPath,
-			&cfg.Node.DataDir,
-			&cfg.Node.ID,
-			&p2pPortVal,
-			&cfg.Database.RQLitePort,
-			&cfg.Database.RQLiteRaftPort,
-			&cfg.Database.RQLiteJoinAddress,
-			&cfg.Discovery.HttpAdvAddress,
-			help
+			&configDataDir,
+			nodeID, // Keep the command line flag value, not config value
+			p2pPort, // Keep the command line flag value
+			&configAdvAddr,
+			help,
+			cfg // Return the loaded config
 	}
 
-	return
+	return configPath, dataDir, nodeID, p2pPort, advAddr, help, nil
 }
 
 // LoadConfigFromYAML loads a config from a YAML file
@@ -109,7 +95,11 @@ func check_if_should_open_help(help *bool) {
 func select_data_dir(dataDir *string, nodeID *string) {
 	logger := setup_logger(logging.ComponentNode)
 
-	if *nodeID == "" {
+	// If nodeID is provided via command line, use it to override the data directory
+	if *nodeID != "" {
+		*dataDir = fmt.Sprintf("./data/%s", *nodeID)
+	} else if *dataDir == "" {
+		// Fallback to default if neither nodeID nor dataDir is set
 		*dataDir = "./data/node"
 	}
 
@@ -151,38 +141,30 @@ func startNode(ctx context.Context, cfg *config.Config, port int) error {
 }
 
 // load_args_into_config applies command line argument overrides to the config
-func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, rqlJoinAddr *string, advAddr *string, dataDir *string) {
+func load_args_into_config(cfg *config.Config, p2pPort *int, advAddr *string, dataDir *string) {
 	logger := setup_logger(logging.ComponentNode)
 
-	// Apply RQLite HTTP port override
-	if *rqlHTTP != 5001 {
-		cfg.Database.RQLitePort = *rqlHTTP
-		logger.ComponentInfo(logging.ComponentNode, "Overriding RQLite HTTP port", zap.Int("port", *rqlHTTP))
+	// Apply P2P port override - check if command line port differs from config
+	var configPort int = 4001 // default
+	if len(cfg.Node.ListenAddresses) > 0 {
+		// Try to parse port from multiaddr string in config
+		_, err := fmt.Sscanf(cfg.Node.ListenAddresses[0], "/ip4/0.0.0.0/tcp/%d", &configPort)
+		if err != nil {
+			configPort = 4001 // fallback to default
+		}
 	}
 
-	// Apply RQLite Raft port override
-	if *rqlRaft != 7001 {
-		cfg.Database.RQLiteRaftPort = *rqlRaft
-		logger.ComponentInfo(logging.ComponentNode, "Overriding RQLite Raft port", zap.Int("port", *rqlRaft))
-	}
-
-	// Apply P2P port override
-	if *p2pPort != 4001 {
+	// Override if command line port is different from config port
+	if *p2pPort != configPort {
 		cfg.Node.ListenAddresses = []string{
 			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *p2pPort),
 		}
 		logger.ComponentInfo(logging.ComponentNode, "Overriding P2P port", zap.Int("port", *p2pPort))
 	}
 
-	// Apply RQLite join address
-	if *rqlJoinAddr != "" {
-		cfg.Database.RQLiteJoinAddress = *rqlJoinAddr
-		logger.ComponentInfo(logging.ComponentNode, "Setting RQLite join address", zap.String("address", *rqlJoinAddr))
-	}
-
 	if *advAddr != "" {
-		cfg.Discovery.HttpAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlHTTP)
-		cfg.Discovery.RaftAdvAddress = fmt.Sprintf("%s:%d", *advAddr, *rqlRaft)
+		cfg.Discovery.HttpAdvAddress = *advAddr
+		cfg.Discovery.RaftAdvAddress = *advAddr
 	}
 
 	if *dataDir != "" {
@@ -193,30 +175,37 @@ func load_args_into_config(cfg *config.Config, p2pPort, rqlHTTP, rqlRaft *int, r
 func main() {
 	logger := setup_logger(logging.ComponentNode)
 
-	_, dataDir, nodeID, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, help := parse_and_return_network_flags()
+	_, dataDir, nodeID, p2pPort, advAddr, help, loadedConfig := parse_and_return_network_flags()
 
 	check_if_should_open_help(help)
+
+	// Load Node Configuration - use loaded config if available, otherwise use default
+	var cfg *config.Config
+	if loadedConfig != nil {
+		cfg = loadedConfig
+		logger.ComponentInfo(logging.ComponentNode, "Using configuration from YAML file")
+	} else {
+		cfg = config.DefaultConfig()
+		logger.ComponentInfo(logging.ComponentNode, "Using default configuration")
+	}
+
+	// Select data directory based on node ID (this overrides config)
 	select_data_dir(dataDir, nodeID)
 
-	// Load Node Configuration
-	var cfg *config.Config
-	cfg = config.DefaultConfig()
-	logger.ComponentInfo(logging.ComponentNode, "Default configuration loaded successfully")
-
 	// Apply command line argument overrides
-	load_args_into_config(cfg, p2pPort, rqlHTTP, rqlRaft, rqlJoinAddr, advAddr, dataDir)
+	load_args_into_config(cfg, p2pPort, advAddr, dataDir)
 	logger.ComponentInfo(logging.ComponentNode, "Command line arguments applied to configuration")
 
-	// LibP2P uses configurable port (default 4001); RQLite uses 5001 (HTTP) and 7001 (Raft)
+	// LibP2P uses configurable port (default 4001)
 	port := *p2pPort
 
 	logger.ComponentInfo(logging.ComponentNode, "Node configuration summary",
 		zap.Strings("listen_addresses", cfg.Node.ListenAddresses),
-		zap.Int("rqlite_http_port", cfg.Database.RQLitePort),
-		zap.Int("rqlite_raft_port", cfg.Database.RQLiteRaftPort),
 		zap.Int("p2p_port", port),
 		zap.Strings("bootstrap_peers", cfg.Discovery.BootstrapPeers),
-		zap.String("rqlite_join_address", cfg.Database.RQLiteJoinAddress),
+		zap.Int("max_databases", cfg.Database.MaxDatabases),
+		zap.String("port_range_http", fmt.Sprintf("%d-%d", cfg.Database.PortRangeHTTPStart, cfg.Database.PortRangeHTTPEnd)),
+		zap.String("port_range_raft", fmt.Sprintf("%d-%d", cfg.Database.PortRangeRaftStart, cfg.Database.PortRangeRaftEnd)),
 		zap.String("data_directory", *dataDir))
 
 	// Create context for graceful shutdown

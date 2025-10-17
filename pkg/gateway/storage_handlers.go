@@ -3,6 +3,8 @@ package gateway
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/DeBrosOfficial/network/pkg/client"
 )
 
 // Database HTTP handlers
@@ -26,7 +28,8 @@ func (g *Gateway) networkPeersHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "client not initialized")
 		return
 	}
-	ctx := r.Context()
+	// Use internal auth context to bypass client authentication since gateway middleware already authenticated
+	ctx := client.WithInternalAuth(r.Context())
 	peers, err := g.client.Network().GetPeers(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

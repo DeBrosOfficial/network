@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/DeBrosOfficial/network/pkg/logging"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"go.uber.org/zap"
 )
 
 func (g *Gateway) whoamiHandler(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +411,15 @@ func (g *Gateway) apiKeyToJWTHandler(w http.ResponseWriter, r *http.Request) {
 	internalCtx := client.WithInternalAuth(ctx)
 	q := "SELECT namespaces.name FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? LIMIT 1"
 	res, err := db.Query(internalCtx, q, key)
-	if err != nil || res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+	if err != nil {
+		// Database connectivity error - return 503
+		g.logger.ComponentError(logging.ComponentDatabase, "Failed to query API key",
+			zap.Error(err))
+		writeError(w, http.StatusServiceUnavailable, "database unavailable")
+		return
+	}
+	if res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+		// API key not found in database - return 401
 		writeError(w, http.StatusUnauthorized, "invalid API key")
 		return
 	}
