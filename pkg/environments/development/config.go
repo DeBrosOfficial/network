@@ -143,16 +143,21 @@ func (ce *ConfigEnsurer) ensureNodeConfig(nodeSpec NodeSpec, peerAddrs []string)
 
 	// Generate node config (all nodes are unified)
 	data := templates.NodeConfigData{
-		NodeID:             nodeSpec.Name,
-		P2PPort:            nodeSpec.P2PPort,
-		DataDir:            nodeDir,
-		RQLiteHTTPPort:     nodeSpec.RQLiteHTTPPort,
-		RQLiteRaftPort:     nodeSpec.RQLiteRaftPort,
-		RQLiteJoinAddress:  nodeSpec.RQLiteJoinTarget,
-		BootstrapPeers:     peerAddrs,
-		ClusterAPIPort:     nodeSpec.ClusterAPIPort,
-		IPFSAPIPort:        nodeSpec.IPFSAPIPort,
-		UnifiedGatewayPort: nodeSpec.UnifiedGatewayPort,
+		NodeID:         nodeSpec.Name,
+		P2PPort:        nodeSpec.P2PPort,
+		DataDir:        nodeDir,
+		RQLiteHTTPPort: nodeSpec.RQLiteHTTPPort,
+		RQLiteRaftPort: nodeSpec.RQLiteRaftPort,
+		// Internal Raft port is the same as the external in local dev
+		RQLiteRaftInternalPort: nodeSpec.RQLiteRaftPort,
+		RQLiteJoinAddress:      nodeSpec.RQLiteJoinTarget,
+		BootstrapPeers:         peerAddrs,
+		ClusterAPIPort:         nodeSpec.ClusterAPIPort,
+		IPFSAPIPort:            nodeSpec.IPFSAPIPort,
+		UnifiedGatewayPort:     nodeSpec.UnifiedGatewayPort,
+		// Advertise local addresses for HTTP and Raft in dev
+		HTTPAdvAddress: fmt.Sprintf("localhost:%d", nodeSpec.UnifiedGatewayPort),
+		RaftAdvAddress: fmt.Sprintf("localhost:%d", nodeSpec.RQLiteRaftPort),
 	}
 
 	config, err := templates.RenderNodeConfig(data)
