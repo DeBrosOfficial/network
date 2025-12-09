@@ -23,7 +23,6 @@ import (
 	noise "github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/DeBrosOfficial/network/pkg/config"
@@ -809,16 +808,12 @@ func (n *Node) startHTTPGateway(ctx context.Context) error {
 		}
 
 		// Create TLS configuration with Let's Encrypt autocert
-		// Using STAGING environment to avoid rate limits during development/testing
-		// TODO: Switch to production when ready (remove Client field)
+		// Using PRODUCTION Let's Encrypt (default when Client is nil)
 		certManager = &autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist(gwCfg.DomainName),
 			Cache:      autocert.DirCache(tlsCacheDir),
 			Email:      fmt.Sprintf("admin@%s", gwCfg.DomainName),
-			Client: &acme.Client{
-				DirectoryURL: "https://acme-staging-v02.api.letsencrypt.org/directory",
-			},
 		}
 
 		// Store certificate manager for use by SNI gateway

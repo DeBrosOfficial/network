@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog][keepachangelog] and adheres to [Semant
 ### Deprecated
 
 ### Fixed
+## [0.72.1] - 2025-12-09
+
+### Added
+\n
+### Changed
+- Switched Let's Encrypt automatic certificate management to use the production environment instead of staging.
+- Updated development environment configuration to explicitly set HTTP and Raft advertise addresses for RQLite.
+- Updated README to reflect the change from `make down` to `make stop` for stopping the development environment.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+\n
 ## [0.72.0] - 2025-11-28
 
 ### Added

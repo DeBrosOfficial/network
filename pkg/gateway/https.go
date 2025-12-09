@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/DeBrosOfficial/network/pkg/config"
@@ -56,33 +55,22 @@ func NewHTTPSGateway(logger *logging.ColoredLogger, cfg *config.HTTPGatewayConfi
 		)
 		// Don't set certManager - will use CertFile/KeyFile from config
 	} else if cfg.HTTPS.AutoCert {
-		// Use Let's Encrypt STAGING (consistent with SNI gateway)
+		// Use Let's Encrypt PRODUCTION (default when Client is nil)
 		cacheDir := cfg.HTTPS.CacheDir
 		if cacheDir == "" {
 			cacheDir = "/home/debros/.orama/tls-cache"
 		}
-
-		// Use Let's Encrypt STAGING - provides higher rate limits for testing/development
-		directoryURL := "https://acme-staging-v02.api.letsencrypt.org/directory"
-		logger.ComponentWarn(logging.ComponentGeneral,
-			"Using Let's Encrypt STAGING - certificates will not be trusted by production clients",
-			zap.String("domain", cfg.HTTPS.Domain),
-		)
 
 		gateway.certManager = &autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist(cfg.HTTPS.Domain),
 			Cache:      autocert.DirCache(cacheDir),
 			Email:      cfg.HTTPS.Email,
-			Client: &acme.Client{
-				DirectoryURL: directoryURL,
-			},
 		}
 
-		logger.ComponentInfo(logging.ComponentGeneral, "Let's Encrypt autocert configured",
+		logger.ComponentInfo(logging.ComponentGeneral, "Let's Encrypt autocert configured (production)",
 			zap.String("domain", cfg.HTTPS.Domain),
 			zap.String("cache_dir", cacheDir),
-			zap.String("acme_environment", "staging"),
 		)
 	}
 

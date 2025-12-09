@@ -143,16 +143,19 @@ func (ce *ConfigEnsurer) ensureNodeConfig(nodeSpec NodeSpec, peerAddrs []string)
 
 	// Generate node config (all nodes are unified)
 	data := templates.NodeConfigData{
-		NodeID:             nodeSpec.Name,
-		P2PPort:            nodeSpec.P2PPort,
-		DataDir:            nodeDir,
-		RQLiteHTTPPort:     nodeSpec.RQLiteHTTPPort,
-		RQLiteRaftPort:     nodeSpec.RQLiteRaftPort,
-		RQLiteJoinAddress:  nodeSpec.RQLiteJoinTarget,
-		BootstrapPeers:     peerAddrs,
-		ClusterAPIPort:     nodeSpec.ClusterAPIPort,
-		IPFSAPIPort:        nodeSpec.IPFSAPIPort,
-		UnifiedGatewayPort: nodeSpec.UnifiedGatewayPort,
+		NodeID:                 nodeSpec.Name,
+		P2PPort:                nodeSpec.P2PPort,
+		DataDir:                nodeDir,
+		RQLiteHTTPPort:         nodeSpec.RQLiteHTTPPort,
+		RQLiteRaftPort:         nodeSpec.RQLiteRaftPort,
+		RQLiteRaftInternalPort: nodeSpec.RQLiteRaftPort,
+		RQLiteJoinAddress:      nodeSpec.RQLiteJoinTarget,
+		BootstrapPeers:         peerAddrs,
+		ClusterAPIPort:         nodeSpec.ClusterAPIPort,
+		IPFSAPIPort:            nodeSpec.IPFSAPIPort,
+		UnifiedGatewayPort:     nodeSpec.UnifiedGatewayPort,
+		HTTPAdvAddress:         fmt.Sprintf("localhost:%d", nodeSpec.RQLiteHTTPPort),
+		RaftAdvAddress:         fmt.Sprintf("localhost:%d", nodeSpec.RQLiteRaftPort),
 	}
 
 	config, err := templates.RenderNodeConfig(data)

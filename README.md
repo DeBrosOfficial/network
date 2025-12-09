@@ -33,7 +33,7 @@ The cluster automatically performs health checks before declaring success. Check
 ### Stop Development Environment
 
 ```bash
-make down
+make stop
 ```
 
 ## Testing Services
