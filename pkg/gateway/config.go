@@ -18,6 +18,12 @@ type Config struct {
 	DomainName  string // Domain name for HTTPS certificate
 	TLSCacheDir string // Directory to cache TLS certificates (default: ~/.orama/tls-cache)
 
+	// Domain routing configuration
+	BaseDomain string // Base domain for deployment routing. Set via node config http_gateway.base_domain. Defaults to "dbrs.space"
+
+	// Data directory configuration
+	DataDir string // Base directory for node-local data (SQLite databases, deployments). Defaults to ~/.orama
+
 	// Olric cache configuration
 	OlricServers []string      // List of Olric server addresses (e.g., ["localhost:3320"]). If empty, defaults to ["localhost:3320"]
 	OlricTimeout time.Duration // Timeout for Olric operations (default: 10s)

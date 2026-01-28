@@ -1,6 +1,7 @@
 package install
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,6 +26,11 @@ func NewOrchestrator(flags *Flags) (*Orchestrator, error) {
 	oramaHome := "/home/debros"
 	oramaDir := oramaHome + "/.orama"
 
+	// Prompt for base domain if not provided via flag
+	if flags.BaseDomain == "" {
+		flags.BaseDomain = promptForBaseDomain()
+	}
+
 	// Normalize peers
 	peers, err := utils.NormalizePeers(flags.PeersStr)
 	if err != nil {
@@ -32,6 +38,22 @@ func NewOrchestrator(flags *Flags) (*Orchestrator, error) {
 	}
 
 	setup := production.NewProductionSetup(oramaHome, os.Stdout, flags.Force, flags.Branch, flags.NoPull, flags.SkipChecks)
+	setup.SetNameserver(flags.Nameserver)
+
+	// Configure Anyone relay if enabled
+	if flags.AnyoneRelay {
+		setup.SetAnyoneRelayConfig(&production.AnyoneRelayConfig{
+			Enabled:  true,
+			Exit:     flags.AnyoneExit,
+			Migrate:  flags.AnyoneMigrate,
+			Nickname: flags.AnyoneNickname,
+			Contact:  flags.AnyoneContact,
+			Wallet:   flags.AnyoneWallet,
+			ORPort:   flags.AnyoneORPort,
+			MyFamily: flags.AnyoneFamily,
+		})
+	}
+
 	validator := NewValidator(flags, oramaDir)
 
 	return &Orchestrator{
@@ -59,7 +81,18 @@ func (o *Orchestrator) Execute() error {
 
 	// Dry-run mode: show what would be done and exit
 	if o.flags.DryRun {
-		utils.ShowDryRunSummary(o.flags.VpsIP, o.flags.Domain, o.flags.Branch, o.peers, o.flags.JoinAddress, o.validator.IsFirstNode(), o.oramaDir)
+		var relayInfo *utils.AnyoneRelayDryRunInfo
+		if o.flags.AnyoneRelay {
+			relayInfo = &utils.AnyoneRelayDryRunInfo{
+				Enabled:  true,
+				Exit:     o.flags.AnyoneExit,
+				Nickname: o.flags.AnyoneNickname,
+				Contact:  o.flags.AnyoneContact,
+				Wallet:   o.flags.AnyoneWallet,
+				ORPort:   o.flags.AnyoneORPort,
+			}
+		}
+		utils.ShowDryRunSummaryWithRelay(o.flags.VpsIP, o.flags.Domain, o.flags.Branch, o.peers, o.flags.JoinAddress, o.validator.IsFirstNode(), o.oramaDir, relayInfo)
 		return nil
 	}
 
@@ -68,9 +101,16 @@ func (o *Orchestrator) Execute() error {
 		return err
 	}
 
-	// Save branch preference for future upgrades
-	if err := production.SaveBranchPreference(o.oramaDir, o.flags.Branch); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to save branch preference: %v\n", err)
+	// Save preferences for future upgrades (branch + nameserver)
+	prefs := &production.NodePreferences{
+		Branch:     o.flags.Branch,
+		Nameserver: o.flags.Nameserver,
+	}
+	if err := production.SavePreferences(o.oramaDir, prefs); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to save preferences: %v\n", err)
+	}
+	if o.flags.Nameserver {
+		fmt.Printf("  ℹ️  This node will be a nameserver (CoreDNS + Caddy)\n")
 	}
 
 	// Phase 1: Check prerequisites
@@ -99,8 +139,11 @@ func (o *Orchestrator) Execute() error {
 
 	// Phase 4: Generate configs (BEFORE service initialization)
 	fmt.Printf("\n⚙️  Phase 4: Generating configurations...\n")
-	enableHTTPS := o.flags.Domain != ""
-	if err := o.setup.Phase4GenerateConfigs(o.peers, o.flags.VpsIP, enableHTTPS, o.flags.Domain, o.flags.JoinAddress); err != nil {
+	// Internal gateway always runs HTTP on port 6001
+	// When using Caddy (nameserver mode), Caddy handles external HTTPS and proxies to internal gateway
+	// When not using Caddy, the gateway runs HTTP-only (use a reverse proxy for HTTPS)
+	enableHTTPS := false
+	if err := o.setup.Phase4GenerateConfigs(o.peers, o.flags.VpsIP, enableHTTPS, o.flags.Domain, o.flags.BaseDomain, o.flags.JoinAddress); err != nil {
 		return fmt.Errorf("configuration generation failed: %w", err)
 	}
 
@@ -189,4 +232,53 @@ func (o *Orchestrator) printFirstNodeSecrets() {
 	// Print peer ID
 	fmt.Printf("  Node Peer ID:\n")
 	fmt.Printf("    %s\n\n", o.setup.NodePeerID)
+}
+
+// promptForBaseDomain interactively prompts the user to select a network environment
+// Returns the selected base domain for deployment routing
+func promptForBaseDomain() string {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("\n🌐 Network Environment Selection")
+	fmt.Println("=================================")
+	fmt.Println("Select the network environment for this node:")
+	fmt.Println()
+	fmt.Println("  1. devnet-orama.network   (Development - for testing)")
+	fmt.Println("  2. testnet-orama.network  (Testnet - pre-production)")
+	fmt.Println("  3. mainnet-orama.network  (Mainnet - production)")
+	fmt.Println("  4. Custom domain...")
+	fmt.Println()
+	fmt.Print("Select option [1-4] (default: 1): ")
+
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
+
+	switch choice {
+	case "", "1":
+		fmt.Println("✓ Selected: devnet-orama.network")
+		return "devnet-orama.network"
+	case "2":
+		fmt.Println("✓ Selected: testnet-orama.network")
+		return "testnet-orama.network"
+	case "3":
+		fmt.Println("✓ Selected: mainnet-orama.network")
+		return "mainnet-orama.network"
+	case "4":
+		fmt.Print("Enter custom base domain (e.g., example.com): ")
+		customDomain, _ := reader.ReadString('\n')
+		customDomain = strings.TrimSpace(customDomain)
+		if customDomain == "" {
+			fmt.Println("⚠️  No domain entered, using devnet-orama.network")
+			return "devnet-orama.network"
+		}
+		// Remove any protocol prefix if user included it
+		customDomain = strings.TrimPrefix(customDomain, "https://")
+		customDomain = strings.TrimPrefix(customDomain, "http://")
+		customDomain = strings.TrimSuffix(customDomain, "/")
+		fmt.Printf("✓ Selected: %s\n", customDomain)
+		return customDomain
+	default:
+		fmt.Println("⚠️  Invalid option, using devnet-orama.network")
+		return "devnet-orama.network"
+	}
 }

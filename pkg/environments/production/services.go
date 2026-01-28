@@ -231,18 +231,13 @@ StandardOutput=append:%[4]s
 StandardError=append:%[4]s
 SyslogIdentifier=debros-node
 
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-
 PrivateTmp=yes
-ProtectSystem=strict
 ProtectHome=read-only
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictRealtime=yes
-RestrictSUIDSGID=yes
-ReadWritePaths=%[2]s
+ReadWritePaths=%[2]s /etc/systemd/system
 
 [Install]
 WantedBy=multi-user.target
@@ -327,6 +322,91 @@ ReadWritePaths=%[3]s
 [Install]
 WantedBy=multi-user.target
 `, ssg.oramaHome, logFile, ssg.oramaDir)
+}
+
+// GenerateAnyoneRelayService generates the Anyone Relay operator systemd unit
+// Uses debian-anon user created by the anon apt package
+func (ssg *SystemdServiceGenerator) GenerateAnyoneRelayService() string {
+	return `[Unit]
+Description=Anyone Relay (Orama Network)
+Documentation=https://docs.anyone.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=debian-anon
+Group=debian-anon
+ExecStart=/usr/bin/anon --agree-to-terms
+Restart=always
+RestartSec=10
+SyslogIdentifier=anon-relay
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+ReadWritePaths=/var/lib/anon /var/log/anon /etc/anon
+
+[Install]
+WantedBy=multi-user.target
+`
+}
+
+// GenerateCoreDNSService generates the CoreDNS systemd unit
+func (ssg *SystemdServiceGenerator) GenerateCoreDNSService() string {
+	return `[Unit]
+Description=CoreDNS DNS Server with RQLite backend
+Documentation=https://coredns.io
+After=network-online.target debros-node.service
+Wants=network-online.target debros-node.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/coredns -conf /etc/coredns/Corefile
+Restart=on-failure
+RestartSec=5
+SyslogIdentifier=coredns
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+`
+}
+
+// GenerateCaddyService generates the Caddy systemd unit for SSL/TLS
+func (ssg *SystemdServiceGenerator) GenerateCaddyService() string {
+	return `[Unit]
+Description=Caddy HTTP/2 Server
+Documentation=https://caddyserver.com/docs/
+After=network-online.target debros-node.service coredns.service
+Wants=network-online.target
+Requires=debros-node.service
+
+[Service]
+Type=simple
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=on-failure
+RestartSec=5
+SyslogIdentifier=caddy
+
+[Install]
+WantedBy=multi-user.target
+`
 }
 
 // SystemdController manages systemd service operations

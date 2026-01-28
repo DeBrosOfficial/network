@@ -45,6 +45,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# E2E test config (contains production credentials)
+e2e/config.yaml
+
 # Temporary files
 tmp/
 temp/
@@ -81,3 +84,14 @@ configs/
 .claude/
 .mcp.json
 .cursor/
+
+# Remote node credentials
+scripts/remote-nodes.conf
+
+orama-cli-linux
+
+rnd/
+
+keys_backup/
+
+vps.txt
