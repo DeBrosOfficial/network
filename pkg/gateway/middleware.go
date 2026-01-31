@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/DeBrosOfficial/network/pkg/deployments"
 	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
 	"github.com/DeBrosOfficial/network/pkg/logging"
 	"go.uber.org/zap"
@@ -17,11 +19,32 @@ import (
 
 // Note: context keys (ctxKeyAPIKey, ctxKeyJWT, CtxKeyNamespaceOverride) are now defined in context.go
 
-// withMiddleware adds CORS and logging middleware
+// withMiddleware adds CORS, security headers, rate limiting, and logging middleware
 func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
-	// Order: logging (outermost) -> CORS -> auth -> handler
-	// Add authorization layer after auth to enforce namespace ownership
-	return g.loggingMiddleware(g.corsMiddleware(g.authMiddleware(g.authorizationMiddleware(next))))
+	// Order: logging -> security headers -> rate limit -> CORS -> domain routing -> auth -> handler
+	return g.loggingMiddleware(
+		g.securityHeadersMiddleware(
+			g.rateLimitMiddleware(
+				g.corsMiddleware(
+					g.domainRoutingMiddleware(
+						g.authMiddleware(
+							g.authorizationMiddleware(next)))))))
+}
+
+// securityHeadersMiddleware adds standard security headers to all responses
+func (g *Gateway) securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "0")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		// HSTS only when behind TLS (Caddy)
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // loggingMiddleware logs basic request info and duration
@@ -191,16 +214,43 @@ func isPublicPath(p string) bool {
 		return true
 	}
 
+	// Internal replica coordination endpoints (auth handled by replica handler)
+	if strings.HasPrefix(p, "/v1/internal/deployments/replica/") {
+		return true
+	}
+
+	// WireGuard peer exchange (auth handled by cluster secret in handler)
+	if strings.HasPrefix(p, "/v1/internal/wg/") {
+		return true
+	}
+
+	// Node join endpoint (auth handled by invite token in handler)
+	if p == "/v1/internal/join" {
+		return true
+	}
+
+	// Namespace spawn endpoint (auth handled by internal auth header)
+	if p == "/v1/internal/namespace/spawn" {
+		return true
+	}
+
 	switch p {
-	case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/login", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout", "/v1/auth/api-key", "/v1/auth/simple-key", "/v1/network/status", "/v1/network/peers":
+	case "/health", "/v1/health", "/status", "/v1/status", "/v1/auth/jwks", "/.well-known/jwks.json", "/v1/version", "/v1/auth/login", "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/register", "/v1/auth/refresh", "/v1/auth/logout", "/v1/auth/api-key", "/v1/auth/simple-key", "/v1/network/status", "/v1/network/peers", "/v1/internal/tls/check", "/v1/internal/acme/present", "/v1/internal/acme/cleanup":
 		return true
 	default:
+		// Also exempt namespace status polling endpoint
+		if strings.HasPrefix(p, "/v1/namespace/status") {
+			return true
+		}
 		return false
 	}
 }
 
 // authorizationMiddleware enforces that the authenticated actor owns the namespace
 // for certain protected paths (e.g., apps CRUD and storage APIs).
+// Also enforces cross-namespace access control:
+// - "default" namespace: accessible by any valid API key
+// - Other namespaces: API key must belong to that specific namespace
 func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip for public/OPTIONS paths only
@@ -215,7 +265,40 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Only enforce for specific resource paths
+		// Exempt namespace status endpoint
+		if strings.HasPrefix(r.URL.Path, "/v1/namespace/status") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Cross-namespace access control for namespace gateways
+		// The gateway's ClientNamespace determines which namespace this gateway serves
+		gatewayNamespace := "default"
+		if g.cfg != nil && g.cfg.ClientNamespace != "" {
+			gatewayNamespace = strings.TrimSpace(g.cfg.ClientNamespace)
+		}
+
+		// Get user's namespace from context (derived from API key/JWT)
+		userNamespace := ""
+		if v := r.Context().Value(CtxKeyNamespaceOverride); v != nil {
+			if s, ok := v.(string); ok {
+				userNamespace = strings.TrimSpace(s)
+			}
+		}
+
+		// For non-default namespace gateways, the API key must belong to this namespace
+		// This enforces physical isolation: alice's gateway only accepts alice's API keys
+		if gatewayNamespace != "default" && userNamespace != "" && userNamespace != gatewayNamespace {
+			g.logger.ComponentWarn(logging.ComponentGeneral, "cross-namespace access denied",
+				zap.String("user_namespace", userNamespace),
+				zap.String("gateway_namespace", gatewayNamespace),
+				zap.String("path", r.URL.Path),
+			)
+			writeError(w, http.StatusForbidden, "API key does not belong to this namespace")
+			return
+		}
+
+		// Only enforce ownership for specific resource paths
 		if !requiresNamespaceOwnership(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
@@ -425,4 +508,635 @@ func getClientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// domainRoutingMiddleware handles requests to deployment domains and namespace gateways
+// This must come BEFORE auth middleware so deployment domains work without API keys
+//
+// Domain routing patterns:
+// - ns-{namespace}.{baseDomain} -> Namespace gateway (proxy to namespace cluster)
+// - {name}-{random}.{baseDomain} -> Deployment domain
+// - {name}.{baseDomain} -> Deployment domain (legacy)
+// - {name}.node-xxx.{baseDomain} -> Legacy format (deprecated, returns 404 for new deployments)
+func (g *Gateway) domainRoutingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := strings.Split(r.Host, ":")[0] // Strip port
+
+		// Get base domain from config (default to dbrs.space)
+		baseDomain := "dbrs.space"
+		if g.cfg != nil && g.cfg.BaseDomain != "" {
+			baseDomain = g.cfg.BaseDomain
+		}
+
+		// Only process base domain and its subdomains
+		if !strings.HasSuffix(host, "."+baseDomain) && host != baseDomain {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Skip API paths (they should use JWT/API key auth)
+		if strings.HasPrefix(r.URL.Path, "/v1/") || strings.HasPrefix(r.URL.Path, "/.well-known/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check for namespace gateway domain: ns-{namespace}.{baseDomain}
+		suffix := "." + baseDomain
+		if strings.HasSuffix(host, suffix) {
+			subdomain := strings.TrimSuffix(host, suffix)
+			if strings.HasPrefix(subdomain, "ns-") {
+				// This is a namespace gateway request
+				namespaceName := strings.TrimPrefix(subdomain, "ns-")
+				g.handleNamespaceGatewayRequest(w, r, namespaceName)
+				return
+			}
+		}
+
+		// Check if deployment handlers are available
+		if g.deploymentService == nil || g.staticHandler == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Try to find deployment by domain
+		deployment, err := g.getDeploymentByDomain(r.Context(), host)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if deployment == nil {
+			// Domain matches .{baseDomain} but no deployment found
+			http.NotFound(w, r)
+			return
+		}
+
+		// Inject deployment context
+		ctx := context.WithValue(r.Context(), CtxKeyNamespaceOverride, deployment.Namespace)
+		ctx = context.WithValue(ctx, "deployment", deployment)
+
+		// Route based on deployment type
+		if deployment.Port == 0 {
+			// Static deployment - serve from IPFS
+			g.staticHandler.HandleServe(w, r.WithContext(ctx), deployment)
+		} else {
+			// Dynamic deployment - proxy to local port
+			g.proxyToDynamicDeployment(w, r.WithContext(ctx), deployment)
+		}
+	})
+}
+
+// handleNamespaceGatewayRequest proxies requests to a namespace's dedicated gateway cluster
+// This enables physical isolation where each namespace has its own RQLite, Olric, and Gateway
+func (g *Gateway) handleNamespaceGatewayRequest(w http.ResponseWriter, r *http.Request, namespaceName string) {
+	// Look up namespace cluster gateway IPs from DNS records
+	db := g.client.Database()
+	internalCtx := client.WithInternalAuth(r.Context())
+
+	baseDomain := "dbrs.space"
+	if g.cfg != nil && g.cfg.BaseDomain != "" {
+		baseDomain = g.cfg.BaseDomain
+	}
+
+	// Query DNS records for the namespace gateway
+	fqdn := "ns-" + namespaceName + "." + baseDomain + "."
+	query := `SELECT value FROM dns_records WHERE fqdn = ? AND record_type = 'A' AND is_active = TRUE ORDER BY RANDOM() LIMIT 1`
+	result, err := db.Query(internalCtx, query, fqdn)
+	if err != nil || result == nil || len(result.Rows) == 0 {
+		// No gateway found for this namespace
+		g.logger.ComponentWarn(logging.ComponentGeneral, "namespace gateway not found",
+			zap.String("namespace", namespaceName),
+			zap.String("fqdn", fqdn),
+		)
+		http.Error(w, "Namespace gateway not found", http.StatusNotFound)
+		return
+	}
+
+	gatewayIP := getString(result.Rows[0][0])
+	if gatewayIP == "" {
+		http.Error(w, "Namespace gateway not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Get the gateway port from namespace_port_allocations
+	// Gateway HTTP port is port_start + 4
+	portQuery := `
+		SELECT npa.gateway_http_port
+		FROM namespace_port_allocations npa
+		JOIN namespace_clusters nc ON npa.namespace_cluster_id = nc.id
+		WHERE nc.namespace_name = ?
+		LIMIT 1
+	`
+	portResult, err := db.Query(internalCtx, portQuery, namespaceName)
+	gatewayPort := 10004 // Default to first namespace's gateway port
+	if err == nil && portResult != nil && len(portResult.Rows) > 0 {
+		if p := getInt(portResult.Rows[0][0]); p > 0 {
+			gatewayPort = p
+		}
+	}
+
+	// Proxy request to the namespace gateway
+	targetURL := "http://" + gatewayIP + ":" + strconv.Itoa(gatewayPort) + r.URL.Path
+	if r.URL.RawQuery != "" {
+		targetURL += "?" + r.URL.RawQuery
+	}
+
+	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	if err != nil {
+		g.logger.ComponentError(logging.ComponentGeneral, "failed to create namespace gateway proxy request",
+			zap.String("namespace", namespaceName),
+			zap.Error(err),
+		)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Copy headers
+	for key, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(key, value)
+		}
+	}
+	proxyReq.Header.Set("X-Forwarded-For", getClientIP(r))
+	proxyReq.Header.Set("X-Forwarded-Proto", "https")
+	proxyReq.Header.Set("X-Forwarded-Host", r.Host)
+	proxyReq.Header.Set("X-Original-Host", r.Host)
+
+	// Execute proxy request
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(proxyReq)
+	if err != nil {
+		g.logger.ComponentError(logging.ComponentGeneral, "namespace gateway proxy request failed",
+			zap.String("namespace", namespaceName),
+			zap.String("target", gatewayIP),
+			zap.Error(err),
+		)
+		http.Error(w, "Namespace gateway unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	// Write status code and body
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+// getDeploymentByDomain looks up a deployment by its domain
+// Supports formats like:
+//   - {name}-{random}.{baseDomain} (e.g., myapp-f3o4if.dbrs.space) - new format with random suffix
+//   - {name}.{baseDomain} (e.g., myapp.dbrs.space) - legacy format (backwards compatibility)
+//   - {name}.node-{shortID}.{baseDomain} (legacy format for backwards compatibility)
+//   - custom domains via deployment_domains table
+func (g *Gateway) getDeploymentByDomain(ctx context.Context, domain string) (*deployments.Deployment, error) {
+	if g.deploymentService == nil {
+		return nil, nil
+	}
+
+	// Strip trailing dot if present
+	domain = strings.TrimSuffix(domain, ".")
+
+	// Get base domain from config (default to dbrs.space)
+	baseDomain := "dbrs.space"
+	if g.cfg != nil && g.cfg.BaseDomain != "" {
+		baseDomain = g.cfg.BaseDomain
+	}
+
+	db := g.client.Database()
+	internalCtx := client.WithInternalAuth(ctx)
+
+	// Parse domain to extract deployment subdomain/name
+	suffix := "." + baseDomain
+	if strings.HasSuffix(domain, suffix) {
+		subdomain := strings.TrimSuffix(domain, suffix)
+		parts := strings.Split(subdomain, ".")
+
+		// Primary format: {subdomain}.{baseDomain} (e.g., myapp-f3o4if.dbrs.space)
+		// The subdomain can be either:
+		// - {name}-{random} (new format)
+		// - {name} (legacy format)
+		if len(parts) == 1 {
+			subdomainOrName := parts[0]
+
+			// First, try to find by subdomain (new format: name-random)
+			query := `
+				SELECT id, namespace, name, type, port, content_cid, status, home_node_id, subdomain
+				FROM deployments
+				WHERE subdomain = ?
+				AND status = 'active'
+				LIMIT 1
+			`
+			result, err := db.Query(internalCtx, query, subdomainOrName)
+			if err == nil && len(result.Rows) > 0 {
+				row := result.Rows[0]
+				return &deployments.Deployment{
+					ID:         getString(row[0]),
+					Namespace:  getString(row[1]),
+					Name:       getString(row[2]),
+					Type:       deployments.DeploymentType(getString(row[3])),
+					Port:       getInt(row[4]),
+					ContentCID: getString(row[5]),
+					Status:     deployments.DeploymentStatus(getString(row[6])),
+					HomeNodeID: getString(row[7]),
+					Subdomain:  getString(row[8]),
+				}, nil
+			}
+
+			// Fallback: try by name for legacy deployments (without random suffix)
+			query = `
+				SELECT id, namespace, name, type, port, content_cid, status, home_node_id, subdomain
+				FROM deployments
+				WHERE name = ?
+				AND status = 'active'
+				LIMIT 1
+			`
+			result, err = db.Query(internalCtx, query, subdomainOrName)
+			if err == nil && len(result.Rows) > 0 {
+				row := result.Rows[0]
+				return &deployments.Deployment{
+					ID:         getString(row[0]),
+					Namespace:  getString(row[1]),
+					Name:       getString(row[2]),
+					Type:       deployments.DeploymentType(getString(row[3])),
+					Port:       getInt(row[4]),
+					ContentCID: getString(row[5]),
+					Status:     deployments.DeploymentStatus(getString(row[6])),
+					HomeNodeID: getString(row[7]),
+					Subdomain:  getString(row[8]),
+				}, nil
+			}
+		}
+
+		// Legacy format: {name}.node-{shortID}.{baseDomain} (backwards compatibility)
+		if len(parts) == 2 && strings.HasPrefix(parts[1], "node-") {
+			deploymentName := parts[0]
+			shortNodeID := parts[1] // e.g., "node-kv4la8"
+
+			// Query by name and matching short node ID
+			query := `
+				SELECT id, namespace, name, type, port, content_cid, status, home_node_id
+				FROM deployments
+				WHERE name = ?
+				AND ('node-' || substr(home_node_id, 9, 6) = ? OR home_node_id = ?)
+				AND status = 'active'
+				LIMIT 1
+			`
+			result, err := db.Query(internalCtx, query, deploymentName, shortNodeID, shortNodeID)
+			if err == nil && len(result.Rows) > 0 {
+				row := result.Rows[0]
+				return &deployments.Deployment{
+					ID:         getString(row[0]),
+					Namespace:  getString(row[1]),
+					Name:       getString(row[2]),
+					Type:       deployments.DeploymentType(getString(row[3])),
+					Port:       getInt(row[4]),
+					ContentCID: getString(row[5]),
+					Status:     deployments.DeploymentStatus(getString(row[6])),
+					HomeNodeID: getString(row[7]),
+				}, nil
+			}
+		}
+	}
+
+	// Try custom domain from deployment_domains table
+	query := `
+		SELECT d.id, d.namespace, d.name, d.type, d.port, d.content_cid, d.status, d.home_node_id
+		FROM deployments d
+		JOIN deployment_domains dd ON d.id = dd.deployment_id
+		WHERE dd.domain = ? AND dd.verified_at IS NOT NULL
+		AND d.status = 'active'
+		LIMIT 1
+	`
+	result, err := db.Query(internalCtx, query, domain)
+	if err == nil && len(result.Rows) > 0 {
+		row := result.Rows[0]
+		return &deployments.Deployment{
+			ID:         getString(row[0]),
+			Namespace:  getString(row[1]),
+			Name:       getString(row[2]),
+			Type:       deployments.DeploymentType(getString(row[3])),
+			Port:       getInt(row[4]),
+			ContentCID: getString(row[5]),
+			Status:     deployments.DeploymentStatus(getString(row[6])),
+			HomeNodeID: getString(row[7]),
+		}, nil
+	}
+
+	return nil, nil
+}
+
+// proxyToDynamicDeployment proxies requests to a dynamic deployment's local port
+// If the deployment is on a different node, it forwards the request to that node.
+// With replica support, it first checks if the current node is a replica and can
+// serve the request locally using the replica's port.
+func (g *Gateway) proxyToDynamicDeployment(w http.ResponseWriter, r *http.Request, deployment *deployments.Deployment) {
+	if deployment.Port == 0 {
+		http.Error(w, "Deployment has no assigned port", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Check if request was already forwarded by another node (loop prevention)
+	proxyNode := r.Header.Get("X-Orama-Proxy-Node")
+
+	// Check if this deployment is on the current node (primary)
+	if g.nodePeerID != "" && deployment.HomeNodeID != "" &&
+		deployment.HomeNodeID != g.nodePeerID && proxyNode == "" {
+
+		// Check if this node is a replica and can serve locally
+		if g.replicaManager != nil {
+			replicaPort, err := g.replicaManager.GetReplicaPort(r.Context(), deployment.ID, g.nodePeerID)
+			if err == nil && replicaPort > 0 {
+				// This node is a replica — serve locally using the replica's port
+				g.logger.Debug("Serving from local replica",
+					zap.String("deployment", deployment.Name),
+					zap.Int("replica_port", replicaPort),
+				)
+				deployment.Port = replicaPort
+				// Fall through to local proxy below
+				goto serveLocal
+			}
+		}
+
+		// Not a replica on this node — proxy to a healthy replica node
+		if g.proxyCrossNodeWithReplicas(w, r, deployment) {
+			return
+		}
+		// Fall through if cross-node proxy failed - try local anyway
+		g.logger.Warn("Cross-node proxy failed, attempting local fallback",
+			zap.String("deployment", deployment.Name),
+			zap.String("home_node", deployment.HomeNodeID),
+		)
+	}
+
+serveLocal:
+
+	// Create a simple reverse proxy to localhost
+	target := "http://localhost:" + strconv.Itoa(deployment.Port)
+
+	// Set proxy headers
+	r.Header.Set("X-Forwarded-For", getClientIP(r))
+	r.Header.Set("X-Forwarded-Proto", "https")
+	r.Header.Set("X-Forwarded-Host", r.Host)
+
+	// Create a new request to the backend
+	backendURL := target + r.URL.Path
+	if r.URL.RawQuery != "" {
+		backendURL += "?" + r.URL.RawQuery
+	}
+
+	proxyReq, err := http.NewRequest(r.Method, backendURL, r.Body)
+	if err != nil {
+		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
+		return
+	}
+
+	// Copy headers
+	for key, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(key, value)
+		}
+	}
+
+	// Execute proxy request
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(proxyReq)
+	if err != nil {
+		g.logger.ComponentError(logging.ComponentGeneral, "local proxy request failed",
+			zap.String("target", target),
+			zap.Error(err),
+		)
+
+		// Local process is down — try other replica nodes before giving up
+		if g.replicaManager != nil {
+			if g.proxyCrossNodeWithReplicas(w, r, deployment) {
+				return
+			}
+		}
+
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	// Write status code and body
+	w.WriteHeader(resp.StatusCode)
+	if _, err := w.(io.Writer).Write([]byte{}); err == nil {
+		io.Copy(w, resp.Body)
+	}
+}
+
+// proxyCrossNode forwards a request to the home node of a deployment
+// Returns true if the request was successfully forwarded, false otherwise
+func (g *Gateway) proxyCrossNode(w http.ResponseWriter, r *http.Request, deployment *deployments.Deployment) bool {
+	// Get home node IP from dns_nodes table
+	db := g.client.Database()
+	internalCtx := client.WithInternalAuth(r.Context())
+
+	query := "SELECT COALESCE(internal_ip, ip_address) FROM dns_nodes WHERE id = ? LIMIT 1"
+	result, err := db.Query(internalCtx, query, deployment.HomeNodeID)
+	if err != nil || result == nil || len(result.Rows) == 0 {
+		g.logger.Warn("Failed to get home node IP",
+			zap.String("home_node_id", deployment.HomeNodeID),
+			zap.Error(err))
+		return false
+	}
+
+	homeIP := getString(result.Rows[0][0])
+	if homeIP == "" {
+		g.logger.Warn("Home node IP is empty", zap.String("home_node_id", deployment.HomeNodeID))
+		return false
+	}
+
+	g.logger.Info("Proxying request to home node",
+		zap.String("deployment", deployment.Name),
+		zap.String("home_node_id", deployment.HomeNodeID),
+		zap.String("home_ip", homeIP),
+		zap.String("current_node", g.nodePeerID),
+	)
+
+	// Proxy to home node via internal HTTP port (6001)
+	// This is node-to-node internal communication - no TLS needed
+	targetURL := "http://" + homeIP + ":6001" + r.URL.Path
+	if r.URL.RawQuery != "" {
+		targetURL += "?" + r.URL.RawQuery
+	}
+
+	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	if err != nil {
+		g.logger.Error("Failed to create cross-node proxy request", zap.Error(err))
+		return false
+	}
+
+	// Copy headers and set Host header to original domain for routing
+	for key, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(key, value)
+		}
+	}
+	proxyReq.Host = r.Host // Keep original host for domain routing on target node
+	proxyReq.Header.Set("X-Forwarded-For", getClientIP(r))
+	proxyReq.Header.Set("X-Orama-Proxy-Node", g.nodePeerID) // Prevent loops
+
+	// Simple HTTP client for internal node-to-node communication
+	httpClient := &http.Client{
+		Timeout: 120 * time.Second,
+	}
+
+	resp, err := httpClient.Do(proxyReq)
+	if err != nil {
+		g.logger.Error("Cross-node proxy request failed",
+			zap.String("target_ip", homeIP),
+			zap.String("host", r.Host),
+			zap.Error(err))
+		return false
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	// Write status code and body
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+
+	return true
+}
+
+// proxyCrossNodeWithReplicas tries to proxy a request to any healthy replica node.
+// It first tries the primary (home node), then falls back to other replicas.
+// Returns true if the request was successfully proxied.
+func (g *Gateway) proxyCrossNodeWithReplicas(w http.ResponseWriter, r *http.Request, deployment *deployments.Deployment) bool {
+	if g.replicaManager == nil {
+		// No replica manager — fall back to original single-node proxy
+		return g.proxyCrossNode(w, r, deployment)
+	}
+
+	// Get all active replica nodes
+	replicaNodes, err := g.replicaManager.GetActiveReplicaNodes(r.Context(), deployment.ID)
+	if err != nil || len(replicaNodes) == 0 {
+		// Fall back to original home node proxy
+		return g.proxyCrossNode(w, r, deployment)
+	}
+
+	// Try each replica node (primary first if present)
+	for _, nodeID := range replicaNodes {
+		if nodeID == g.nodePeerID {
+			continue // Skip self
+		}
+
+		nodeIP, err := g.replicaManager.GetNodeIP(r.Context(), nodeID)
+		if err != nil {
+			g.logger.Warn("Failed to get replica node IP",
+				zap.String("node_id", nodeID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		// Proxy using the same logic as proxyCrossNode
+		proxyDeployment := *deployment
+		proxyDeployment.HomeNodeID = nodeID
+		if g.proxyCrossNodeToIP(w, r, &proxyDeployment, nodeIP) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// proxyCrossNodeToIP forwards a request to a specific node IP.
+// This is a variant of proxyCrossNode that takes a resolved IP directly.
+func (g *Gateway) proxyCrossNodeToIP(w http.ResponseWriter, r *http.Request, deployment *deployments.Deployment, nodeIP string) bool {
+	g.logger.Info("Proxying request to replica node",
+		zap.String("deployment", deployment.Name),
+		zap.String("node_id", deployment.HomeNodeID),
+		zap.String("node_ip", nodeIP),
+	)
+
+	targetURL := "http://" + nodeIP + ":6001" + r.URL.Path
+	if r.URL.RawQuery != "" {
+		targetURL += "?" + r.URL.RawQuery
+	}
+
+	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	if err != nil {
+		g.logger.Error("Failed to create cross-node proxy request", zap.Error(err))
+		return false
+	}
+
+	for key, values := range r.Header {
+		for _, value := range values {
+			proxyReq.Header.Add(key, value)
+		}
+	}
+	proxyReq.Host = r.Host
+	proxyReq.Header.Set("X-Forwarded-For", getClientIP(r))
+	proxyReq.Header.Set("X-Orama-Proxy-Node", g.nodePeerID)
+
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	resp, err := httpClient.Do(proxyReq)
+	if err != nil {
+		g.logger.Warn("Replica proxy request failed",
+			zap.String("target_ip", nodeIP),
+			zap.Error(err),
+		)
+		return false
+	}
+	defer resp.Body.Close()
+
+	// If the remote node returned a gateway error, try the next replica
+	if resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout {
+		g.logger.Warn("Replica returned gateway error, trying next",
+			zap.String("target_ip", nodeIP),
+			zap.Int("status", resp.StatusCode),
+		)
+		return false
+	}
+
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+
+	return true
+}
+
+// Helper functions for type conversion
+func getString(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func getInt(v interface{}) int {
+	if i, ok := v.(int); ok {
+		return i
+	}
+	if i, ok := v.(int64); ok {
+		return int(i)
+	}
+	if f, ok := v.(float64); ok {
+		return int(f)
+	}
+	return 0
 }

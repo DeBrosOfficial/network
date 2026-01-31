@@ -25,7 +25,38 @@ type Orchestrator struct {
 func NewOrchestrator(flags *Flags) *Orchestrator {
 	oramaHome := "/home/debros"
 	oramaDir := oramaHome + "/.orama"
-	setup := production.NewProductionSetup(oramaHome, os.Stdout, flags.Force, flags.Branch, flags.NoPull, false)
+
+	// Load existing preferences
+	prefs := production.LoadPreferences(oramaDir)
+
+	// Use saved branch if not specified
+	branch := flags.Branch
+	if branch == "" {
+		branch = prefs.Branch
+	}
+
+	// Use saved nameserver preference if not explicitly specified
+	isNameserver := prefs.Nameserver
+	if flags.Nameserver != nil {
+		isNameserver = *flags.Nameserver
+	}
+
+	setup := production.NewProductionSetup(oramaHome, os.Stdout, flags.Force, branch, flags.NoPull, false)
+	setup.SetNameserver(isNameserver)
+
+	// Configure Anyone relay if enabled
+	if flags.AnyoneRelay {
+		setup.SetAnyoneRelayConfig(&production.AnyoneRelayConfig{
+			Enabled:  true,
+			Exit:     flags.AnyoneExit,
+			Migrate:  flags.AnyoneMigrate,
+			Nickname: flags.AnyoneNickname,
+			Contact:  flags.AnyoneContact,
+			Wallet:   flags.AnyoneWallet,
+			ORPort:   flags.AnyoneORPort,
+			MyFamily: flags.AnyoneFamily,
+		})
+	}
 
 	return &Orchestrator{
 		oramaHome: oramaHome,
@@ -111,9 +142,15 @@ func (o *Orchestrator) Execute() error {
 
 	// Phase 5: Update systemd services
 	fmt.Printf("\n🔧 Phase 5: Updating systemd services...\n")
-	enableHTTPS, _ := o.extractGatewayConfig()
+	enableHTTPS, _, _ := o.extractGatewayConfig()
 	if err := o.setup.Phase5CreateSystemdServices(enableHTTPS); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Service update warning: %v\n", err)
+	}
+
+	// Re-apply UFW firewall rules (idempotent)
+	fmt.Printf("\n🛡️  Re-applying firewall rules...\n")
+	if err := o.setup.Phase6bSetupFirewall(false); err != nil {
+		fmt.Fprintf(os.Stderr, "  ⚠️  Warning: Firewall re-apply failed: %v\n", err)
 	}
 
 	fmt.Printf("\n✅ Upgrade complete!\n")
@@ -132,31 +169,51 @@ func (o *Orchestrator) Execute() error {
 }
 
 func (o *Orchestrator) handleBranchPreferences() error {
-	// If branch was explicitly provided, save it for future upgrades
+	// Load current preferences
+	prefs := production.LoadPreferences(o.oramaDir)
+	prefsChanged := false
+
+	// If branch was explicitly provided, update it
 	if o.flags.Branch != "" {
-		if err := production.SaveBranchPreference(o.oramaDir, o.flags.Branch); err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to save branch preference: %v\n", err)
-		} else {
-			fmt.Printf("  Using branch: %s (saved for future upgrades)\n", o.flags.Branch)
-		}
+		prefs.Branch = o.flags.Branch
+		prefsChanged = true
+		fmt.Printf("  Using branch: %s (saved for future upgrades)\n", o.flags.Branch)
 	} else {
-		// Show which branch is being used (read from saved preference)
-		currentBranch := production.ReadBranchPreference(o.oramaDir)
-		fmt.Printf("  Using branch: %s (from saved preference)\n", currentBranch)
+		fmt.Printf("  Using branch: %s (from saved preference)\n", prefs.Branch)
+	}
+
+	// If nameserver was explicitly provided, update it
+	if o.flags.Nameserver != nil {
+		prefs.Nameserver = *o.flags.Nameserver
+		prefsChanged = true
+	}
+	if o.setup.IsNameserver() {
+		fmt.Printf("  Nameserver mode: enabled (CoreDNS + Caddy)\n")
+	}
+
+	// Save preferences if anything changed
+	if prefsChanged {
+		if err := production.SavePreferences(o.oramaDir, prefs); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  Warning: Failed to save preferences: %v\n", err)
+		}
 	}
 	return nil
 }
 
 func (o *Orchestrator) stopServices() error {
-	fmt.Printf("\n⏹️  Stopping services before upgrade...\n")
+	fmt.Printf("\n⏹️  Stopping all services before upgrade...\n")
 	serviceController := production.NewSystemdController()
+	// Stop services in reverse dependency order
 	services := []string{
-		"debros-gateway.service",
-		"debros-node.service",
-		"debros-ipfs-cluster.service",
-		"debros-ipfs.service",
-		// Note: RQLite is managed by node process, not as separate service
-		"debros-olric.service",
+		"caddy.service",              // Depends on node
+		"coredns.service",            // Depends on node
+		"debros-gateway.service",     // Legacy
+		"debros-node.service",        // Depends on cluster, olric
+		"debros-ipfs-cluster.service", // Depends on IPFS
+		"debros-ipfs.service",        // Base IPFS
+		"debros-olric.service",       // Independent
+		"debros-anyone-client.service", // Client mode
+		"debros-anyone-relay.service",  // Relay mode
 	}
 	for _, svc := range services {
 		unitPath := filepath.Join("/etc/systemd/system", svc)
@@ -169,7 +226,7 @@ func (o *Orchestrator) stopServices() error {
 		}
 	}
 	// Give services time to shut down gracefully
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	return nil
 }
 
@@ -242,7 +299,7 @@ func (o *Orchestrator) extractNetworkConfig() (vpsIP, joinAddress string) {
 	return vpsIP, joinAddress
 }
 
-func (o *Orchestrator) extractGatewayConfig() (enableHTTPS bool, domain string) {
+func (o *Orchestrator) extractGatewayConfig() (enableHTTPS bool, domain string, baseDomain string) {
 	gatewayConfigPath := filepath.Join(o.oramaDir, "configs", "gateway.yaml")
 	if data, err := os.ReadFile(gatewayConfigPath); err == nil {
 		configStr := string(data)
@@ -265,13 +322,45 @@ func (o *Orchestrator) extractGatewayConfig() (enableHTTPS bool, domain string) 
 			}
 		}
 	}
-	return enableHTTPS, domain
+
+	// Also check node.yaml for domain and base_domain
+	nodeConfigPath := filepath.Join(o.oramaDir, "configs", "node.yaml")
+	if data, err := os.ReadFile(nodeConfigPath); err == nil {
+		configStr := string(data)
+		for _, line := range strings.Split(configStr, "\n") {
+			trimmed := strings.TrimSpace(line)
+			// Extract domain from node.yaml (under node: section) if not already found
+			if domain == "" && strings.HasPrefix(trimmed, "domain:") && !strings.HasPrefix(trimmed, "domain_") {
+				parts := strings.SplitN(trimmed, ":", 2)
+				if len(parts) > 1 {
+					d := strings.TrimSpace(parts[1])
+					d = strings.Trim(d, "\"'")
+					if d != "" && d != "null" {
+						domain = d
+						enableHTTPS = true
+					}
+				}
+			}
+			if strings.HasPrefix(trimmed, "base_domain:") {
+				parts := strings.SplitN(trimmed, ":", 2)
+				if len(parts) > 1 {
+					baseDomain = strings.TrimSpace(parts[1])
+					baseDomain = strings.Trim(baseDomain, "\"'")
+					if baseDomain == "null" || baseDomain == "" {
+						baseDomain = ""
+					}
+				}
+			}
+		}
+	}
+
+	return enableHTTPS, domain, baseDomain
 }
 
 func (o *Orchestrator) regenerateConfigs() error {
 	peers := o.extractPeers()
 	vpsIP, joinAddress := o.extractNetworkConfig()
-	enableHTTPS, domain := o.extractGatewayConfig()
+	enableHTTPS, domain, baseDomain := o.extractGatewayConfig()
 
 	fmt.Printf("  Preserving existing configuration:\n")
 	if len(peers) > 0 {
@@ -283,12 +372,15 @@ func (o *Orchestrator) regenerateConfigs() error {
 	if domain != "" {
 		fmt.Printf("    - Domain: %s\n", domain)
 	}
+	if baseDomain != "" {
+		fmt.Printf("    - Base domain: %s\n", baseDomain)
+	}
 	if joinAddress != "" {
 		fmt.Printf("    - Join address: %s\n", joinAddress)
 	}
 
 	// Phase 4: Generate configs
-	if err := o.setup.Phase4GenerateConfigs(peers, vpsIP, enableHTTPS, domain, joinAddress); err != nil {
+	if err := o.setup.Phase4GenerateConfigs(peers, vpsIP, enableHTTPS, domain, baseDomain, joinAddress); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Config generation warning: %v\n", err)
 		fmt.Fprintf(os.Stderr, "   Existing configs preserved\n")
 	}
@@ -305,6 +397,18 @@ func (o *Orchestrator) restartServices() error {
 
 	// Restart services to apply changes - use getProductionServices to only restart existing services
 	services := utils.GetProductionServices()
+
+	// If this is a nameserver, also restart CoreDNS and Caddy
+	if o.setup.IsNameserver() {
+		nameserverServices := []string{"coredns", "caddy"}
+		for _, svc := range nameserverServices {
+			unitPath := filepath.Join("/etc/systemd/system", svc+".service")
+			if _, err := os.Stat(unitPath); err == nil {
+				services = append(services, svc)
+			}
+		}
+	}
+
 	if len(services) == 0 {
 		fmt.Printf("   ⚠️  No services found to restart\n")
 	} else {
@@ -316,6 +420,24 @@ func (o *Orchestrator) restartServices() error {
 			}
 		}
 		fmt.Printf("   ✓ All services restarted\n")
+	}
+
+	// Seed DNS records after services are running (RQLite must be up)
+	if o.setup.IsNameserver() {
+		fmt.Printf("   Seeding DNS records...\n")
+		// Wait for RQLite to fully start - it takes about 10 seconds to initialize
+		fmt.Printf("   Waiting for RQLite to start (10s)...\n")
+		time.Sleep(10 * time.Second)
+
+		_, _, baseDomain := o.extractGatewayConfig()
+		peers := o.extractPeers()
+		vpsIP, _ := o.extractNetworkConfig()
+
+		if err := o.setup.SeedDNSRecords(baseDomain, vpsIP, peers); err != nil {
+			fmt.Fprintf(os.Stderr, "   ⚠️  Warning: Failed to seed DNS records: %v\n", err)
+		} else {
+			fmt.Printf("   ✓ DNS records seeded\n")
+		}
 	}
 
 	return nil
