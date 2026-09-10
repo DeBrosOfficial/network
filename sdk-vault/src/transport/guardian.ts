@@ -113,17 +113,35 @@ export class GuardianClient {
 
   // ── V2 secrets CRUD ─────────────────────────────────────────────────
 
-  /** PUT /v2/vault/secrets/{name} — store a secret. Requires session token. */
-  async putSecret(name: string, share: Uint8Array, version: number): Promise<StoreSecretResponse> {
-    return this.authedRequest<StoreSecretResponse>('PUT', `/v2/vault/secrets/${encodeURIComponent(name)}`, {
-      share: uint8ToBase64(share),
-      version,
-    });
+  /** PUT /v2/vault/secrets/{name} — store a secret. Requires session token + ownership headers. */
+  async putSecret(
+    name: string,
+    share: Uint8Array,
+    version: number,
+    ownership: Record<string, string> = {},
+  ): Promise<StoreSecretResponse> {
+    return this.authedRequest<StoreSecretResponse>(
+      'PUT',
+      `/v2/vault/secrets/${encodeURIComponent(name)}`,
+      {
+        share: uint8ToBase64(share),
+        version,
+      },
+      ownership,
+    );
   }
 
-  /** GET /v2/vault/secrets/{name} — retrieve a secret. Requires session token. */
-  async getSecret(name: string): Promise<{ share: Uint8Array; name: string; version: number; created_ns: number; updated_ns: number }> {
-    const resp = await this.authedRequest<GetSecretResponse>('GET', `/v2/vault/secrets/${encodeURIComponent(name)}`);
+  /** GET /v2/vault/secrets/{name} — retrieve a secret. Requires session token + ownership headers. */
+  async getSecret(
+    name: string,
+    ownership: Record<string, string> = {},
+  ): Promise<{ share: Uint8Array; name: string; version: number; created_ns: number; updated_ns: number }> {
+    const resp = await this.authedRequest<GetSecretResponse>(
+      'GET',
+      `/v2/vault/secrets/${encodeURIComponent(name)}`,
+      undefined,
+      ownership,
+    );
     return {
       share: base64ToUint8(resp.share),
       name: resp.name,
@@ -133,19 +151,32 @@ export class GuardianClient {
     };
   }
 
-  /** DELETE /v2/vault/secrets/{name} — delete a secret. Requires session token. */
-  async deleteSecret(name: string): Promise<DeleteSecretResponse> {
-    return this.authedRequest<DeleteSecretResponse>('DELETE', `/v2/vault/secrets/${encodeURIComponent(name)}`);
+  /** DELETE /v2/vault/secrets/{name} — delete a secret. Requires session token + ownership headers. */
+  async deleteSecret(
+    name: string,
+    ownership: Record<string, string> = {},
+  ): Promise<DeleteSecretResponse> {
+    return this.authedRequest<DeleteSecretResponse>(
+      'DELETE',
+      `/v2/vault/secrets/${encodeURIComponent(name)}`,
+      undefined,
+      ownership,
+    );
   }
 
-  /** GET /v2/vault/secrets — list all secrets. Requires session token. */
-  async listSecrets(): Promise<ListSecretsResponse> {
-    return this.authedRequest<ListSecretsResponse>('GET', '/v2/vault/secrets');
+  /** GET /v2/vault/secrets — list all secrets. Requires session token + ownership headers. */
+  async listSecrets(ownership: Record<string, string> = {}): Promise<ListSecretsResponse> {
+    return this.authedRequest<ListSecretsResponse>('GET', '/v2/vault/secrets', undefined, ownership);
   }
 
   // ── Internal HTTP methods ───────────────────────────────────────────
 
-  private async authedRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async authedRequest<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<T> {
     if (!this.sessionToken) {
       throw new GuardianError('AUTH', 'No session token set. Call authenticate() first.');
     }
@@ -156,6 +187,7 @@ export class GuardianClient {
     try {
       const headers: Record<string, string> = {
         'X-Session-Token': this.sessionToken,
+        ...extraHeaders,
       };
       const init: RequestInit = {
         method,

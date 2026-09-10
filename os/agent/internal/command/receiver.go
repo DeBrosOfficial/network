@@ -55,7 +55,7 @@ func logPathForService(service string) string {
 
 // Command represents an incoming command from the Gateway.
 type Command struct {
-	Action  string `json:"action"`  // "restart", "status", "logs", "leave"
+	Action  string `json:"action"`  // "restart", "status", "stop", "leave"
 	Service string `json:"service"` // optional: specific service name
 }
 
@@ -174,6 +174,10 @@ func (r *Receiver) handleCommand(w http.ResponseWriter, req *http.Request) {
 	case "status":
 		status := r.supervisor.GetStatus()
 		writeJSON(w, http.StatusOK, status)
+
+	case "stop", "leave":
+		r.supervisor.StopAll()
+		writeJSON(w, http.StatusOK, map[string]string{"status": "stopped"})
 
 	default:
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown action: " + cmd.Action})

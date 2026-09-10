@@ -341,7 +341,7 @@ This path depends on the key wrapping scheme (DEK encrypted by KEK1 from mnemoni
 | Quorum logic | Complete | Write quorum W=min(N, max(K+1, ceil(2N/3))), read quorum K |
 | Challenge-response auth | Complete | HMAC-based, 60s expiry, wired to router |
 | Session tokens | Complete | HMAC-based, 1h expiry, wired to router |
-| Auth enforcement on V2 | Complete | Mandatory session auth on all V2 secrets endpoints |
+| Auth enforcement on V2 | Complete | Mandatory session token + Ed25519 ownership proof on all V2 secrets endpoints |
 | Auth enforcement on V1 push/pull | Complete | Mandatory session token + Ed25519 ownership proof |
 | Config file parsing | Complete | key=value format (not YAML); defaults when file absent |
 | Rate limiting | Complete | Per-IP, 120 requests per 60s window in the listener |

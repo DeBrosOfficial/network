@@ -74,6 +74,8 @@ export {
   deriveKeyHKDF,
   shamirSplit,
   shamirCombine,
+  identityFromSeed,
+  publicKeyFromSeed,
 } from "./crypto";
 export type {
   EncryptedData,

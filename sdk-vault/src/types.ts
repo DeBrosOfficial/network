@@ -9,8 +9,17 @@ export interface VaultConfig {
    * guardian listed here, and the write quorum is computed from its size.
    */
   guardians: GuardianEndpoint[];
-  /** Identity hash (hex string, 64 chars). */
-  identityHex: string;
+  /**
+   * 32-byte Ed25519 seed. Identity is SHA-256 of the public key.
+   * The HMAC session is not an ownership proof — every V2 secret
+   * request is signed with this key.
+   */
+  privateKey: Uint8Array;
+  /**
+   * Optional identity hex. If set it must equal SHA-256(public key).
+   * Prefer omitting it and letting the client derive the identity.
+   */
+  identityHex?: string;
   /** Request timeout in ms (default: 10000). */
   timeoutMs?: number;
 }

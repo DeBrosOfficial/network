@@ -40,7 +40,7 @@ files, including three that our own documentation still asserts:
 
 - The cluster database does not enforce HTTP authentication — the config field
   that would pass credentials to it is never assigned.
-- Secret custody (the vault) is not a usable service.
+- Secret custody: applications use the gateway's `/v1/vault/push` and `/v1/vault/pull` (server-side Shamir of a client-encrypted envelope, Ed25519 ownership). Overlay clients use `@debros/orama-vault` against guardian `:10106` with the same ownership proof. OramaOS LUKS unseal is not a fleet path.
 - The dedicated node image has never been booted.
 
 If you change platform behaviour that this document describes, update the
