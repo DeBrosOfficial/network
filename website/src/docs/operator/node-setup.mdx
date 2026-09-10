@@ -231,12 +231,12 @@ orama node report --json
 Stream logs from a specific service using shorthand aliases:
 
 ```bash
-orama node logs node       # Node service logs (includes RQLite)
-orama node logs gateway    # Gateway logs (embedded in the node service)
+orama node logs node       # Supervisor logs
+orama node logs gateway    # Index gateway (orama-namespace-gateway@index)
 orama node logs ipfs       # IPFS daemon logs
 orama node logs cluster    # IPFS Cluster logs
 orama node logs olric      # Olric cache logs
-orama node logs rqlite     # RQLite logs (included in node service logs)
+orama node logs rqlite     # Index RQLite (orama-namespace-rqlite@index)
 ```
 
 ### Invite Tokens

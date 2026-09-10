@@ -34,7 +34,8 @@ func Handle() error {
 	fmt.Printf("Stopping namespace services...\n")
 	stopNamespaceServices()
 
-	// All global services (orama-gateway is legacy — now embedded in orama-node)
+	// Host-level leftovers from before the factory split. The live gateway is
+	// orama-namespace-gateway@index (and @<tenant>), stopped above as a namespace unit.
 	services := []string{
 		"orama-gateway", // Legacy: kept for cleanup of old installs
 		"orama-node",

@@ -69,7 +69,7 @@ From the repository root, `make build` and `make test` delegate to `core/` for y
 |--------|-------------|---------|
 | `orama` | `cmd/cli/` | CLI tool for all operations |
 | `gateway` | `cmd/gateway/` | API gateway / reverse proxy |
-| `orama-node` | `cmd/node/` | P2P node (RQLite + libp2p) |
+| `orama-node` | `cmd/node/` | Supervisor: starts systemd units; does not embed the gateway or rqlited |
 | `sfu` | `cmd/sfu/` | WebRTC Selective Forwarding Unit |
 | `turn` | `cmd/turn/` | TURN relay server for WebRTC |
 | `identity` | `cmd/identity/` | P2P identity key generator |
@@ -131,13 +131,12 @@ Import the `core/` directory as a Go module project. The Go module configuration
 network/
   core/          # Go network services + CLI (the Go module root)
     cmd/         # Binary entry points
-      cli/       # CLI (orama command)
+      cli/       # CLI (orama command, including inspect)
       gateway/   # API gateway
-      node/      # P2P node
+      node/      # supervisor
       sfu/       # WebRTC SFU
       turn/      # TURN relay
       identity/  # Key generator
-      inspector/ # SSH health inspector
       sni-router/ # SNI-based TLS router
     pkg/         # All Go packages
       gateway/   # Gateway core + handlers
