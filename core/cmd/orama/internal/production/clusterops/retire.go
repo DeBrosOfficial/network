@@ -40,6 +40,17 @@ func RetirementPlan(rec NodeRecord) []RetireStep {
 				retiredLastSeen, peer),
 		},
 		{
+			// The 120s system reaper only matches status='active'. A retired
+			// node is already inactive, so apex/wildcard/NS-glue A records
+			// pointing at it would otherwise stay forever. Namespace and TURN
+			// records are found through the dns_nodes row we just marked, and
+			// the 15-minute purge handles those.
+			What: "remove this node's system DNS A records",
+			SQL: fmt.Sprintf(
+				`DELETE FROM dns_records WHERE record_type = 'A' AND namespace = 'system' AND value = (SELECT ip_address FROM dns_nodes WHERE id = '%s')`,
+				peer),
+		},
+		{
 			What: "release the mesh address",
 			SQL:  fmt.Sprintf(`DELETE FROM wireguard_peers WHERE node_id = '%s'`, peer),
 		},

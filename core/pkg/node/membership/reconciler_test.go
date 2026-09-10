@@ -47,6 +47,13 @@ func membershipDB(t *testing.T) *sql.DB {
 			public_key TEXT NOT NULL,
 			enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			revoked_at TIMESTAMP
+		);
+		CREATE TABLE dns_records (
+			fqdn TEXT NOT NULL,
+			record_type TEXT NOT NULL DEFAULT 'A',
+			value TEXT NOT NULL,
+			namespace TEXT NOT NULL DEFAULT 'system',
+			UNIQUE(fqdn, record_type, value)
 		);`); err != nil {
 		t.Fatalf("schema: %v", err)
 	}
@@ -359,5 +366,38 @@ func TestReconcile_revokesTheKeyOfADepartedNode(t *testing.T) {
 	}
 	if !revoked.Valid || revoked.String == "" {
 		t.Error("a departed node kept a live credential, so its disk still speaks for it")
+	}
+}
+
+// Dropping the dns_nodes row first stranded system A records: the purge
+// finds the IP through that row. Delete them while the row still exists.
+func TestReconcile_dropsSystemDNSRecordsBeforeTheNodeRow(t *testing.T) {
+	db := membershipDB(t)
+	seedNode(t, db, "peerGone", "10.0.0.9", 86400)
+	seedTombstone(t, db, "10.0.0.9:10101", "peerGone", int(TombstoneGrace.Seconds())+3600)
+	if _, err := db.Exec(
+		`INSERT INTO dns_records (fqdn, record_type, value, namespace) VALUES
+		 ('example.', 'A', '203.0.113.1', 'system'),
+		 ('ns-alice.example.', 'A', '203.0.113.1', 'namespace:alice')`); err != nil {
+		t.Fatalf("seed dns_records: %v", err)
+	}
+
+	r := NewReconciler(db, fakeDiscovery{}, func() bool { return true }, nil)
+	if err := r.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	var systemLeft, nsLeft int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM dns_records WHERE namespace = 'system'`).Scan(&systemLeft); err != nil {
+		t.Fatalf("count system: %v", err)
+	}
+	if systemLeft != 0 {
+		t.Errorf("system A records left after the node row was dropped: %d", systemLeft)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM dns_records WHERE namespace = 'namespace:alice'`).Scan(&nsLeft); err != nil {
+		t.Fatalf("count namespace: %v", err)
+	}
+	if nsLeft != 1 {
+		t.Errorf("namespace A records = %d, want 1 (the last-record purge is a different loop)", nsLeft)
 	}
 }

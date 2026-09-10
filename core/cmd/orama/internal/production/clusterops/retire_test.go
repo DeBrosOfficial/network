@@ -110,6 +110,24 @@ func TestRetirementPlan_is_idempotent(t *testing.T) {
 // set verifies nothing AND cannot be enrolled again; deleting it would send the
 // machine back down the never-seen path, where it could enrol a key of its own
 // choosing and speak as that node again.
+func TestRetirementPlan_deletesSystemARecordsWhileTheNodeRowStillExists(t *testing.T) {
+	sql := planSQL(t, "peerA")
+	if !strings.Contains(sql, "DELETE FROM dns_records") {
+		t.Fatal("retirement does not delete system A records, so apex/glue stay after the 120s reaper skips an already-inactive node")
+	}
+	if !strings.Contains(sql, "namespace = 'system'") {
+		t.Error("the delete must be scoped to system records, not namespace hosts")
+	}
+	if !strings.Contains(sql, "SELECT ip_address FROM dns_nodes WHERE id = 'peerA'") {
+		t.Error("the delete must find the IP through the dns_nodes row, which still exists at this step")
+	}
+	mark := strings.Index(sql, "UPDATE dns_nodes SET status = 'inactive'")
+	drop := strings.Index(sql, "DELETE FROM dns_records")
+	if mark < 0 || drop < 0 || drop < mark {
+		t.Error("system A records must be deleted after the node is marked inactive, while the row still exists")
+	}
+}
+
 func TestRetirementPlan_revokesTheNodeKeyRatherThanDeletingIt(t *testing.T) {
 	sql := planSQL(t, "peerA")
 

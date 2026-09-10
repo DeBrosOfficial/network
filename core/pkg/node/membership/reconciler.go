@@ -140,6 +140,15 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 			  WHERE node_id = ? AND revoked_at IS NULL`, peerID); err != nil {
 			return fmt.Errorf("revoke the key of departed node %s: %w", peerID, err)
 		}
+		// System A records (apex, wildcard, NS glue) are keyed on the public
+		// IP in dns_nodes. Delete them while the row still exists; dropping
+		// the row first strands them, which is what retire.go was written to
+		// avoid.
+		if _, err := rqlite.SafeExecContext(r.db, ctx,
+			`DELETE FROM dns_records WHERE record_type = 'A' AND namespace = 'system'
+			   AND value = (SELECT ip_address FROM dns_nodes WHERE id = ?)`, peerID); err != nil {
+			return fmt.Errorf("drop system DNS records of departed node %s: %w", peerID, err)
+		}
 		if _, err := rqlite.SafeExecContext(r.db, ctx,
 			`DELETE FROM dns_nodes WHERE id = ?`, peerID); err != nil {
 			return fmt.Errorf("drop dns node %s: %w", peerID, err)

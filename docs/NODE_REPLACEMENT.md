@@ -613,6 +613,11 @@ DELETE FROM webrtc_port_allocations  WHERE node_id = '<OLD_LIBP2P_ID>';
 -- node's A records, its NS glue and the namespace records pointing at it.
 UPDATE dns_nodes SET status = 'inactive', last_seen = '1970-01-01 00:00:00',
   updated_at = datetime('now') WHERE id = '<OLD_LIBP2P_ID>';
+
+-- The 120s system reaper only matches status='active'. A retired node is
+-- already inactive, so apex/wildcard/NS-glue A records would otherwise stay.
+DELETE FROM dns_records WHERE record_type = 'A' AND namespace = 'system'
+  AND value = (SELECT ip_address FROM dns_nodes WHERE id = '<OLD_LIBP2P_ID>');
 ```
 
 Finally erase the box with `orama node wipe --env <env> --node <OLD_PUBLIC_IP>`,
