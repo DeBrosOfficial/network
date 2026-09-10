@@ -299,6 +299,38 @@ func TestDisableNamespaceRecord_surfacesAWriteFailure(t *testing.T) {
 	}
 }
 
+func TestCreateNamespaceRecords_isAdditive(t *testing.T) {
+	// Provision used to DELETE every row for the FQDN then INSERT. The 30s
+	// per-node ensure races that: one node wiped the round-robin while
+	// another re-inserted only itself.
+	mockDB := newMockRQLiteClient()
+	manager := NewDNSRecordManager(mockDB, "orama-devnet.network", zap.NewNop())
+
+	if err := manager.CreateNamespaceRecords(context.Background(), "alice", []string{"203.0.113.1", "203.0.113.2"}); err != nil {
+		t.Fatalf("CreateNamespaceRecords: %v", err)
+	}
+
+	for _, call := range mockDB.execCalls {
+		if strings.Contains(strings.ToUpper(call.Query), "DELETE FROM DNS_RECORDS") {
+			t.Fatalf("provision deleted the round-robin set:\n%s", call.Query)
+		}
+	}
+	inserts := 0
+	for _, call := range mockDB.execCalls {
+		if !strings.Contains(call.Query, "INSERT INTO dns_records") {
+			continue
+		}
+		inserts++
+		if !strings.Contains(call.Query, "ON CONFLICT(fqdn, record_type, value)") {
+			t.Fatalf("the insert is not an upsert:\n%s", call.Query)
+		}
+	}
+	// Two IPs × (primary + wildcard).
+	if inserts != 4 {
+		t.Fatalf("expected 4 upserts, got %d", inserts)
+	}
+}
+
 func TestAddNamespaceRecord_revivesASoftDisabledRow(t *testing.T) {
 	// dns_records has UNIQUE(fqdn, record_type, value) and
 	// DisableNamespaceRecord leaves the row in place with is_active = 0. A bare

@@ -32,8 +32,6 @@ func NewDNSRecordManager(db rqlite.Client, baseDomain string, logger *zap.Logger
 // Each namespace gets records for ns-{namespace}.{baseDomain} pointing to its gateway nodes.
 // Multiple A records enable round-robin DNS load balancing.
 func (drm *DNSRecordManager) CreateNamespaceRecords(ctx context.Context, namespaceName string, nodeIPs []string) error {
-	internalCtx := client.WithInternalAuth(ctx)
-
 	if len(nodeIPs) == 0 {
 		return &ClusterError{Message: "no node IPs provided for DNS records"}
 	}
@@ -47,61 +45,12 @@ func (drm *DNSRecordManager) CreateNamespaceRecords(ctx context.Context, namespa
 		zap.Strings("node_ips", nodeIPs),
 	)
 
-	// First, delete any existing records for this namespace
-	deleteQuery := `DELETE FROM dns_records WHERE fqdn = ? AND namespace = ?`
-	_, err := drm.db.Exec(internalCtx, deleteQuery, fqdn, "namespace:"+namespaceName)
-	if err != nil {
-		drm.logger.Warn("Failed to delete existing DNS records", zap.Error(err))
-		// Continue anyway - the insert will just add more records
-	}
-
-	// Create A records for each node IP
+	// Additive. A DELETE of the whole FQDN here raced the 30s per-node
+	// ensure: one node wiped the round-robin while another re-inserted its
+	// own row. Repair already uses AddNamespaceRecord; provision does too.
 	for _, ip := range nodeIPs {
-		insertQuery := `
-			INSERT INTO dns_records (
-				fqdn, record_type, value, ttl, namespace, created_by, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`
-		now := time.Now()
-		_, err := drm.db.Exec(internalCtx, insertQuery,
-			fqdn, "A", ip, 60,
-			"namespace:"+namespaceName, "cluster-manager",
-			now, now,
-		)
-		if err != nil {
-			return &ClusterError{
-				Message: fmt.Sprintf("failed to create DNS record for %s -> %s", fqdn, ip),
-				Cause:   err,
-			}
-		}
-	}
-
-	// Also create wildcard records for deployments under this namespace
-	// *.ns-{namespace}.{baseDomain} -> same IPs
-	wildcardFqdn := fmt.Sprintf("*.ns-%s.%s.", namespaceName, drm.baseDomain)
-
-	// Delete existing wildcard records
-	_, _ = drm.db.Exec(internalCtx, deleteQuery, wildcardFqdn, "namespace:"+namespaceName)
-
-	for _, ip := range nodeIPs {
-		insertQuery := `
-			INSERT INTO dns_records (
-				fqdn, record_type, value, ttl, namespace, created_by, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`
-		now := time.Now()
-		_, err := drm.db.Exec(internalCtx, insertQuery,
-			wildcardFqdn, "A", ip, 60,
-			"namespace:"+namespaceName, "cluster-manager",
-			now, now,
-		)
-		if err != nil {
-			drm.logger.Warn("Failed to create wildcard DNS record",
-				zap.String("fqdn", wildcardFqdn),
-				zap.String("ip", ip),
-				zap.Error(err),
-			)
-			// Continue - wildcard is nice to have but not critical
+		if err := drm.AddNamespaceRecord(ctx, namespaceName, ip); err != nil {
+			return err
 		}
 	}
 
