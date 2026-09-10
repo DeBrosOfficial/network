@@ -39,6 +39,7 @@ type Client struct {
 	ipfsAPIURL string
 	httpClient *http.Client
 	logger     *zap.Logger
+	wrapKey    []byte
 }
 
 // Config holds configuration for the IPFS client
@@ -54,6 +55,11 @@ type Config struct {
 	// Timeout is the timeout for client operations
 	// If zero, defaults to 60 seconds
 	Timeout time.Duration
+
+	// WrapKey is a 32-byte AES-256 key used to encrypt private blobs before
+	// Add (feat-270). Empty skips wrapping (tests). UnixFS directories and
+	// extract=true tarballs are never wrapped.
+	WrapKey []byte
 }
 
 // PinStatus represents the status of a pinned CID
@@ -140,6 +146,7 @@ func NewClient(cfg Config, logger *zap.Logger) (*Client, error) {
 		ipfsAPIURL: ipfsAPIURL,
 		httpClient: httpClient,
 		logger:     logger,
+		wrapKey:    append([]byte(nil), cfg.WrapKey...),
 	}, nil
 }
 
@@ -208,6 +215,13 @@ func (c *Client) Add(ctx context.Context, reader io.Reader, name string) (*AddRe
 		return nil, fmt.Errorf("failed to read data: %w", err)
 	}
 	originalSize := int64(len(data))
+	if wrapPrivateBlob(name) && len(c.wrapKey) == 32 {
+		sealed, err := sealBlob(data, c.wrapKey)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt before IPFS add: %w", err)
+		}
+		data = sealed
+	}
 
 	// Create multipart form request for IPFS Cluster API
 	var buf bytes.Buffer
@@ -642,7 +656,7 @@ func (c *Client) Get(ctx context.Context, cid string, ipfsAPIURL string) (io.Rea
 	// budget. That is the mechanism behind the cold-fetch stalls in bug-167.
 	// dagBlocks already does this correctly; Get did not.
 	if body, err := c.catOnce(ctx, ipfsAPIURL, cid, true, offlineCatTimeout); err == nil {
-		return body, nil
+		return c.unwrapGet(body)
 	} else if !isContentNotFound(err) {
 		// A local read that failed for any reason OTHER than "we do not have
 		// it" is a real failure of this node, and retrying it over the network
@@ -655,7 +669,20 @@ func (c *Client) Get(ctx context.Context, cid string, ipfsAPIURL string) (io.Rea
 	if err != nil {
 		return nil, err
 	}
-	return body, nil
+	return c.unwrapGet(body)
+}
+
+func (c *Client) unwrapGet(body io.ReadCloser) (io.ReadCloser, error) {
+	data, err := io.ReadAll(body)
+	_ = body.Close()
+	if err != nil {
+		return nil, err
+	}
+	plain, err := openBlob(data, c.wrapKey)
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(plain)), nil
 }
 
 // offlineCatTimeout bounds the local-only attempt. It reads from disk, so this

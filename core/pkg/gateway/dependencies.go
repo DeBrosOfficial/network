@@ -27,6 +27,7 @@ import (
 	pushexpo "github.com/DeBrosOfficial/network/pkg/push/providers/expo"
 	pushntfy "github.com/DeBrosOfficial/network/pkg/push/providers/ntfy"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/DeBrosOfficial/network/pkg/secrets"
 	"github.com/DeBrosOfficial/network/pkg/serverless"
 	"github.com/DeBrosOfficial/network/pkg/serverless/hostfunctions"
 	"github.com/DeBrosOfficial/network/pkg/serverless/persistent"
@@ -541,6 +542,13 @@ func initializeIPFS(logger *logging.ColoredLogger, cfg *Config, deps *Dependenci
 		ClusterAPIURL: ipfsClusterURL,
 		IPFSAPIURL:    ipfsAPIURL,
 		Timeout:       ipfsTimeout,
+	}
+	if cfg.ClusterSecret != "" {
+		if key, err := secrets.DeriveKey(cfg.ClusterSecret, ipfs.WrapPurpose); err != nil {
+			logger.ComponentWarn(logging.ComponentGeneral, "failed to derive IPFS wrap key", zap.Error(err))
+		} else {
+			ipfsCfg.WrapKey = key
+		}
 	}
 
 	ipfsClient, err := ipfs.NewClient(ipfsCfg, logger.Logger)
