@@ -45,12 +45,12 @@ func NewClusterNodeSelector(db rqlite.Client, portAllocator *NamespacePortAlloca
 	}
 }
 
-// SelectNodesForCluster selects the optimal N nodes for a new namespace cluster.
-// Returns the node IDs sorted by score (best first).
-func (cns *ClusterNodeSelector) SelectNodesForCluster(ctx context.Context, nodeCount int) ([]NodeCapacity, error) {
+// ListEligibleNodes returns every active node with a free namespace slot,
+// sorted by capacity score (highest first). Provision uses the length of this
+// list to pick N=1 (eval) or N=3 (production) — it is not "try 3, then 1".
+func (cns *ClusterNodeSelector) ListEligibleNodes(ctx context.Context) ([]NodeCapacity, error) {
 	internalCtx := client.WithInternalAuth(ctx)
 
-	// Get all active nodes
 	activeNodes, err := cns.getActiveNodes(internalCtx)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,6 @@ func (cns *ClusterNodeSelector) SelectNodesForCluster(ctx context.Context, nodeC
 
 	cns.logger.Debug("Found active nodes", zap.Int("count", len(activeNodes)))
 
-	// Filter nodes that have capacity for namespace instances
 	eligibleNodes := make([]NodeCapacity, 0)
 	for _, node := range activeNodes {
 		capacity, err := cns.getNodeCapacity(internalCtx, node.NodeID, node.IPAddress, node.InternalIP)
@@ -70,7 +69,6 @@ func (cns *ClusterNodeSelector) SelectNodesForCluster(ctx context.Context, nodeC
 			continue
 		}
 
-		// Only include nodes with available namespace slots
 		if capacity.AvailableNamespaceSlots > 0 {
 			eligibleNodes = append(eligibleNodes, *capacity)
 		} else {
@@ -83,7 +81,20 @@ func (cns *ClusterNodeSelector) SelectNodesForCluster(ctx context.Context, nodeC
 
 	cns.logger.Debug("Eligible nodes after filtering", zap.Int("count", len(eligibleNodes)))
 
-	// Check if we have enough nodes
+	sort.Slice(eligibleNodes, func(i, j int) bool {
+		return eligibleNodes[i].Score > eligibleNodes[j].Score
+	})
+	return eligibleNodes, nil
+}
+
+// SelectNodesForCluster selects the optimal N nodes for a new namespace cluster.
+// Returns the node IDs sorted by score (best first).
+func (cns *ClusterNodeSelector) SelectNodesForCluster(ctx context.Context, nodeCount int) ([]NodeCapacity, error) {
+	eligibleNodes, err := cns.ListEligibleNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(eligibleNodes) < nodeCount {
 		return nil, &ClusterError{
 			Message: ErrInsufficientNodes.Message,
@@ -91,12 +102,6 @@ func (cns *ClusterNodeSelector) SelectNodesForCluster(ctx context.Context, nodeC
 		}
 	}
 
-	// Sort by score (highest first)
-	sort.Slice(eligibleNodes, func(i, j int) bool {
-		return eligibleNodes[i].Score > eligibleNodes[j].Score
-	})
-
-	// Return top N nodes
 	selectedNodes := eligibleNodes[:nodeCount]
 
 	cns.logger.Info("Selected nodes for cluster",

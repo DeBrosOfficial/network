@@ -421,6 +421,19 @@ func (cm *ClusterManager) ReplaceClusterNode(ctx context.Context, cluster *Names
 		return cm.settleClusterStatus(ctx, cluster)
 	}
 
+	if cluster.RQLiteNodeCount == 1 {
+		cm.logger.Warn("eval cluster of size 1 cannot be replaced onto another machine; waiting for this node to return",
+			zap.String("namespace", cluster.NamespaceName),
+			zap.String("dead_node", deadNodeID),
+		)
+		if err := cm.updateClusterNodeStatus(ctx, cluster.ID, deadNodeID, NodeStatusFailed); err != nil {
+			cm.logger.Warn("Failed to mark node as failed in cluster", zap.Error(err))
+		}
+		cm.updateClusterStatus(ctx, cluster.ID, ClusterStatusDegraded,
+			fmt.Sprintf("Node %s is dead; eval cluster of size 1 has no spare machine", deadNodeID))
+		return ErrEvalClusterNoReplacement
+	}
+
 	// 1. Mark dead node's assignments as failed
 	if err := cm.updateClusterNodeStatus(ctx, cluster.ID, deadNodeID, NodeStatusFailed); err != nil {
 		cm.logger.Warn("Failed to mark node as failed in cluster", zap.Error(err))
@@ -887,6 +900,22 @@ const staleClusterNodeSQL = `
 // twice — no lock or election is needed the way role reallocation needs one.
 func (cm *ClusterManager) pruneStaleClusterNodes(ctx context.Context, clusterID string) ([]string, error) {
 	internalCtx := client.WithInternalAuth(ctx)
+
+	// An N=1 eval tenant has one member. Pruning it deletes the only
+	// membership and port allocation, after which local restore has nothing
+	// to join and RepairCluster cannot bootstrap a leader. Leave the row;
+	// bounce is restore, not replace.
+	if cluster, err := cm.GetCluster(internalCtx, clusterID); err != nil {
+		cm.logger.Warn("Could not load cluster before pruning stale members — continuing",
+			zap.String("cluster_id", clusterID), zap.Error(err))
+	} else if cluster != nil && cluster.RQLiteNodeCount == 1 {
+		cm.logger.Warn("not pruning members of a 1-node eval cluster; local restore needs the membership",
+			zap.String("cluster_id", clusterID),
+			zap.String("namespace", cluster.NamespaceName),
+		)
+		return nil, nil
+	}
+
 	type row struct {
 		NodeID string `db:"node_id"`
 	}
@@ -1169,6 +1198,14 @@ func (cm *ClusterManager) RepairCluster(ctx context.Context, namespaceName strin
 		// this is what left a fully-recovered cluster marked degraded, which the
 		// edge router then refused to serve (bugboard #278).
 		return cm.settleClusterStatus(ctx, cluster)
+	}
+
+	if cluster.RQLiteNodeCount == 1 {
+		cm.logger.Warn("eval cluster of size 1 cannot add a replacement node; waiting for this node to return",
+			zap.String("namespace", namespaceName),
+			zap.Int("active_nodes", activeCount),
+		)
+		return ErrEvalClusterNoReplacement
 	}
 
 	cm.logger.Info("Cluster needs repair — adding missing nodes",

@@ -263,6 +263,39 @@ func TestBlueprintTenantN_1_and_5(t *testing.T) {
 	}
 }
 
+func TestTenantBlueprintForEligibleCount(t *testing.T) {
+	tests := []struct {
+		eligible int
+		wantN    int
+		wantErr  error
+	}{
+		{0, 0, ErrInsufficientNodes},
+		{1, 1, nil},
+		{2, 0, ErrTwoNodeFleet},
+		{3, 3, nil},
+		{10, 3, nil},
+	}
+	for _, tt := range tests {
+		bp, err := TenantBlueprintForEligibleCount(tt.eligible)
+		if tt.wantErr != nil {
+			if err != tt.wantErr {
+				t.Errorf("eligible=%d err = %v, want %v", tt.eligible, err, tt.wantErr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("eligible=%d unexpected err %v", tt.eligible, err)
+			continue
+		}
+		if bp.SelectCount != tt.wantN {
+			t.Errorf("eligible=%d SelectCount = %d, want %d", tt.eligible, bp.SelectCount, tt.wantN)
+		}
+		if err := bp.Validate(); err != nil {
+			t.Errorf("eligible=%d blueprint invalid: %v", tt.eligible, err)
+		}
+	}
+}
+
 func TestBlueprint_gatewayOnlyOnePort(t *testing.T) {
 	bp := Blueprint{
 		Name:        BlueprintNameTenant,

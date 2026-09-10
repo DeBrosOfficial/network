@@ -426,10 +426,11 @@ K = max(2, floor(alive_count / 3))
 
 - Adding nodes generally does not change K until the cluster grows significantly.
 - Removing nodes may reduce K if the alive count drops enough.
-- K never drops below 2. One guardian must never hold enough to reconstruct on
-  its own, and the write quorum W = min(N, max(K+1, ceil(2N/3))) is always
-  greater than K, so a write reported successful stores more shares than a read
-  needs.
+- K never drops below 2 **except on a one-node eval cluster**, where Shamir
+  cannot run and the gateway stores the envelope as a local key (`K=1`, `W=1`)
+  on that disk. That is eval-only; see [EVAL.md](../EVAL.md).
+- For N≥3 the write quorum W = min(N, max(K+1, ceil(2N/3))) is greater than K,
+  so a write reported successful stores more shares than a read needs.
 
 ### Write Quorum
 

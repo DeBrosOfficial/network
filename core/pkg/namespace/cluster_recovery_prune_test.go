@@ -163,6 +163,10 @@ func TestStaleClusterNodeSQL_purgeHorizonBoundary(t *testing.T) {
 func TestPruneStaleClusterNodes_removesReturnedRowsAndReportsThem(t *testing.T) {
 	db := &recoveryMockDB{}
 	db.queryFunc = func(dest any, query string, _ ...any) error {
+		if strings.Contains(query, "FROM namespace_clusters") {
+			appendToSlice(dest, map[string]any{"ID": "cluster-1", "RQLiteNodeCount": 3})
+			return nil
+		}
 		if query != staleClusterNodeSQL {
 			t.Fatalf("unexpected query: %s", query)
 		}
@@ -212,6 +216,10 @@ func TestPruneStaleClusterNodes_removesReturnedRowsAndReportsThem(t *testing.T) 
 func TestPruneStaleClusterNodes_noStaleMembersIsNoop(t *testing.T) {
 	db := &recoveryMockDB{}
 	db.queryFunc = func(dest any, query string, _ ...any) error {
+		if strings.Contains(query, "FROM namespace_clusters") {
+			appendToSlice(dest, map[string]any{"ID": "cluster-1", "RQLiteNodeCount": 3})
+			return nil
+		}
 		if query != staleClusterNodeSQL {
 			t.Fatalf("unexpected query: %s", query)
 		}

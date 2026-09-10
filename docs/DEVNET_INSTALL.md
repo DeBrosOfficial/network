@@ -3,6 +3,9 @@
 Anyone is installed as a **client** on every node by default (SOCKS5 on `:9050`
 for `/v1/proxy/anon`). There is no relay/ORPort mode.
 
+A single VPS (index + one tenant, not HA) is [EVAL.md](EVAL.md). This page is
+the three-nameserver cluster path.
+
 **Note:** Store credentials securely (not in version control).
 
 ## Installation Order

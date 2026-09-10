@@ -427,9 +427,10 @@ func (cm *ClusterManager) spawnGatewayWithSystemd(ctx context.Context, cfg gatew
 	return cm.systemdSpawner.SpawnGateway(ctx, cfg.Namespace, cfg.NodeID, cfg)
 }
 
-// ProvisionCluster provisions a tenant namespace cluster (BlueprintTenant:
-// 3 nodes, rqlite → olric → gateway, 5-port block). Signature is unchanged;
-// the HTTP path uses ProvisionNamespaceCluster for background provision.
+// ProvisionCluster provisions a tenant namespace cluster (BlueprintTenant N=3
+// when the fleet can support it; BlueprintTenantN(1) on a one-node eval fleet).
+// Signature is unchanged; the HTTP path uses ProvisionNamespaceCluster for
+// background provision.
 func (cm *ClusterManager) ProvisionCluster(ctx context.Context, namespaceID int, namespaceName, provisionedBy string) (*NamespaceCluster, error) {
 	// Check if already provisioning
 	cm.provisioningMu.Lock()
@@ -452,7 +453,13 @@ func (cm *ClusterManager) ProvisionCluster(ctx context.Context, namespaceID int,
 		zap.String("provisioned_by", provisionedBy),
 	)
 
-	cluster := newProvisioningCluster(namespaceID, namespaceName, provisionedBy)
+	bp, err := cm.tenantBlueprintForFleet(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cm.logEvalProvision(namespaceName, bp)
+
+	cluster := newProvisioningClusterFrom(bp, namespaceID, namespaceName, provisionedBy)
 
 	// Insert cluster record
 	if err := cm.insertCluster(ctx, cluster); err != nil {
@@ -462,7 +469,6 @@ func (cm *ClusterManager) ProvisionCluster(ctx context.Context, namespaceID int,
 	// Log event
 	cm.logEvent(ctx, cluster.ID, EventProvisioningStarted, "", "Cluster provisioning started", nil)
 
-	bp := BlueprintTenant()
 	nodes, err := cm.nodeSelector.SelectNodesForCluster(ctx, bp.SelectCount)
 	if err != nil {
 		cm.updateClusterStatus(ctx, cluster.ID, ClusterStatusFailed, err.Error())
@@ -1509,7 +1515,16 @@ func (cm *ClusterManager) ProvisionNamespaceCluster(ctx context.Context, namespa
 	cm.provisioning[namespaceName] = true
 	cm.provisioningMu.Unlock()
 
-	cluster := newProvisioningCluster(namespaceID, namespaceName, wallet)
+	bp, err := cm.tenantBlueprintForFleet(ctx)
+	if err != nil {
+		cm.provisioningMu.Lock()
+		delete(cm.provisioning, namespaceName)
+		cm.provisioningMu.Unlock()
+		return "", "", err
+	}
+	cm.logEvalProvision(namespaceName, bp)
+
+	cluster := newProvisioningClusterFrom(bp, namespaceID, namespaceName, wallet)
 
 	// Insert cluster record
 	if err := cm.insertCluster(ctx, cluster); err != nil {
@@ -1522,14 +1537,33 @@ func (cm *ClusterManager) ProvisionNamespaceCluster(ctx context.Context, namespa
 	cm.logEvent(ctx, cluster.ID, EventProvisioningStarted, "", "Cluster provisioning started", nil)
 
 	// Start actual provisioning in background goroutine
-	go cm.provisionClusterAsync(cluster, namespaceID, namespaceName, wallet)
+	go cm.provisionClusterAsync(cluster, bp, namespaceID, namespaceName, wallet)
 
 	pollURL := "/v1/namespace/status?id=" + cluster.ID
 	return cluster.ID, pollURL, nil
 }
 
+// tenantBlueprintForFleet lists eligible nodes and picks N=1 (eval) or N=3
+// (production). It does not retry a failed N=3 select as N=1.
+func (cm *ClusterManager) tenantBlueprintForFleet(ctx context.Context) (Blueprint, error) {
+	eligible, err := cm.nodeSelector.ListEligibleNodes(ctx)
+	if err != nil {
+		return Blueprint{}, err
+	}
+	return TenantBlueprintForEligibleCount(len(eligible))
+}
+
+func (cm *ClusterManager) logEvalProvision(namespaceName string, bp Blueprint) {
+	if bp.SelectCount != 1 {
+		return
+	}
+	cm.logger.Warn("provisioning tenant as a 1-node eval cluster; this is not HA; vault is a local key on this disk",
+		zap.String("namespace", namespaceName),
+	)
+}
+
 // provisionClusterAsync performs the actual cluster provisioning in the background
-func (cm *ClusterManager) provisionClusterAsync(cluster *NamespaceCluster, namespaceID int, namespaceName, provisionedBy string) {
+func (cm *ClusterManager) provisionClusterAsync(cluster *NamespaceCluster, bp Blueprint, namespaceID int, namespaceName, provisionedBy string) {
 	defer func() {
 		// Recover from panics (e.g., gorqlite index-out-of-range) so the
 		// goroutine doesn't die silently leaving status stuck at "provisioning".
@@ -1559,7 +1593,6 @@ func (cm *ClusterManager) provisionClusterAsync(cluster *NamespaceCluster, names
 		zap.String("provisioned_by", provisionedBy),
 	)
 
-	bp := BlueprintTenant()
 	nodes, err := cm.nodeSelector.SelectNodesForCluster(ctx, bp.SelectCount)
 	if err != nil {
 		cm.updateClusterStatus(ctx, cluster.ID, ClusterStatusFailed, err.Error())

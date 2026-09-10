@@ -71,6 +71,8 @@ Install enables **only** `orama-node.service`. That process is a supervisor: it 
 | **nameserver** | this node, if `--nameserver` | `orama-namespace-coredns@nameserver` | `:53` |
 | **tenant** | N members chosen at provision | `orama-namespace-{rqlite,olric,gateway}@<name>` (+ `sfu`/`turn` if WebRTC) | `10000–10099` |
 
+Default tenant provision is N=3. A fleet with one eligible node provisions N=1 (eval, not HA; see [EVAL.md](EVAL.md)). Two eligible nodes are refused. A larger fleet still provisions tenants at N=3, not at fleet size. WebRTC still requires 3 members.
+
 Reserved namespace names: **`index`** and **`nameserver`**. They are not tenant-provisionable.
 
 Drive nodes through the `orama` CLI (`orama node …`). Do not `systemctl start` leftover host units (`orama-ipfs`, `orama-olric`, `caddy.service`, `coredns.service`, `wg-quick@wg0`). Those files may still exist on disk for rollback; they are disabled. Inter-node traffic uses the WireGuard overlay (`10.0.0.x`). Rolling upgrades never restart multiple index RQLite voters at once.
