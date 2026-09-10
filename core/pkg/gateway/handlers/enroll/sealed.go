@@ -13,26 +13,22 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// Enrollment hands a booting OramaOS node the cluster secret, the swarm key and
-// its WireGuard configuration. That exchange used to happen over plaintext HTTP
-// on the node's public IP with no authentication in either direction: the node
-// served its registration code to whoever asked first, its config endpoint
-// accepted any POST, and the cluster secret crossed the network in the clear.
+// Enrollment hands a booting OramaOS node the cluster secret and its WireGuard
+// configuration. That exchange used to happen over plaintext HTTP on the node's
+// public IP with no authentication in either direction: the node served its
+// registration code to whoever asked first, its config endpoint accepted any
+// POST, and the cluster secret crossed the network in the clear.
 //
 // The registration code is the only secret both ends share before the node is a
 // member of anything, and the operator carries it from the node's console to
 // this gateway. So it authenticates the exchange and encrypts the payload, and
-// it is never fetched from the node — this gateway proves it holds the code
-// instead of asking for it.
+// it is never fetched from the node — this gateway proves it holds the code by
+// producing a payload that decrypts under it. The code is not sent as a header.
 //
 // This is the mirror of os/agent/internal/enroll/sealed.go. The two are
 // separate Go modules and cannot share the code, so a shared vector in
 // contracts/ pins the format: change one side and the other side's test fails.
 const (
-	// HeaderEnrollmentCode carries the registration code the operator read off
-	// the node's console.
-	HeaderEnrollmentCode = "X-Orama-Enrollment-Code"
-
 	// sealPurpose is the HKDF domain separator.
 	sealPurpose = "orama-enrollment-seal-v1"
 )

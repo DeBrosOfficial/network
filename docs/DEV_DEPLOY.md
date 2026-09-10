@@ -770,8 +770,8 @@ For OramaOS nodes (mainnet, devnet, testnet), use the enrollment flow instead of
 # 2. Generate invite token on existing cluster node
 orama node invite --expiry 24h
 
-# 3. Enroll the OramaOS node
-orama node enroll --node-ip <vps-public-ip> --token <invite-token> --gateway <gateway-url>
+# 3. Enroll the OramaOS node — --code is printed on the node's console
+orama node enroll --node-ip <vps-public-ip> --code <registration-code> --token <invite-token> --gateway <gateway-url>
 
 # 4. For genesis node reboots (before 5+ peers exist)
 orama node unlock --genesis --node-ip <wg-ip>

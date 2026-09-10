@@ -97,6 +97,15 @@ func (h *Handler) HandleEnroll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "node_ip must be a valid IPv4 address", http.StatusBadRequest)
 		return
 	}
+	// This address is stored as wireguard_peers.public_ip (the Endpoint of
+	// every other node) AND is the target of an outbound HTTP push from this
+	// gateway. A loopback, RFC1918, link-local or metadata address is both a
+	// useless mesh endpoint and an SSRF. Refuse it before the invite token is
+	// consumed.
+	if reservedNodeIP(nodeIP) {
+		http.Error(w, "node_ip must be a public IPv4 address", http.StatusBadRequest)
+		return
+	}
 	req.NodeIP = nodeIP.String()
 
 	ctx := r.Context()
@@ -254,10 +263,11 @@ func (h *Handler) consumeToken(ctx context.Context, token, usedByIP string) erro
 // under the registration code the operator carried from its console, and
 // returns the credential the node mints for this gateway.
 //
-// The payload carries the cluster secret, the swarm key and the node's
-// WireGuard configuration. It used to be plaintext JSON over HTTP on the node's
-// public IP, to an endpoint that accepted any POST at all — so it could be read
-// by anyone on the path and written by anyone who got there first.
+// The payload carries the cluster secret and the node's WireGuard
+// configuration. It used to be plaintext JSON over HTTP on the node's public
+// IP, to an endpoint that accepted any POST at all — so it could be read by
+// anyone on the path and written by anyone who got there first. The code is
+// not sent as a header: decrypting the body is the proof the caller holds it.
 func (h *Handler) pushConfigToNode(nodeIP, code string, config *EnrollResponse) (string, error) {
 	return h.pushConfigTo(fmt.Sprintf("http://%s:9999/v1/agent/enroll/complete", nodeIP), code, config)
 }
@@ -279,17 +289,21 @@ func (h *Handler) pushConfigTo(endpoint, code string, config *EnrollResponse) (s
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set(HeaderEnrollmentCode, code)
 	req.Header.Set("Content-Type", "text/plain")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to push config: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized {
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusBadRequest {
 		return "", fmt.Errorf("the node rejected the registration code: check the code " +
 			"shown on its console")
 	}

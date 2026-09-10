@@ -8,63 +8,42 @@ import (
 	"testing"
 )
 
-func completeRequest(t *testing.T, code string, payload any) *http.Request {
+func completeRequest(t *testing.T, sealUnder string, payload any) *http.Request {
 	t.Helper()
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	sealed, err := Seal(testCode, body)
+	sealed, err := Seal(sealUnder, body)
 	if err != nil {
 		t.Fatalf("seal: %v", err)
 	}
-	r := httptest.NewRequest(http.MethodPost, "/v1/agent/enroll/complete", strings.NewReader(sealed))
-	if code != "" {
-		r.Header.Set(HeaderEnrollmentCode, code)
-	}
-	return r
+	return httptest.NewRequest(http.MethodPost, "/v1/agent/enroll/complete", strings.NewReader(sealed))
 }
 
 // The endpoint used to accept any POST at all: reaching a booting node before
 // its operator's gateway did was enough to enrol it into another cluster, with
 // another cluster's WireGuard peers and cluster secret.
-func TestCompleteHandler_refusesWithoutTheCode(t *testing.T) {
-	s := NewServer("")
-	enrolled := make(chan *Result, 1)
-	w := httptest.NewRecorder()
-
-	s.completeHandler(testCode, "token", enrolled)(w, completeRequest(t, "", Result{NodeID: "attacker"}))
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("status %d, want 401", w.Code)
-	}
-	select {
-	case r := <-enrolled:
-		t.Errorf("the node was enrolled as %q by a caller with no code", r.NodeID)
-	default:
-	}
-}
-
-func TestCompleteHandler_refusesTheWrongCode(t *testing.T) {
-	s := NewServer("")
+func TestCompleteHandler_refusesAPayloadItCannotOpen(t *testing.T) {
+	s := NewServer()
 	enrolled := make(chan *Result, 1)
 	w := httptest.NewRecorder()
 
 	s.completeHandler(testCode, "token", enrolled)(w,
 		completeRequest(t, "00000000000000000000", Result{NodeID: "attacker"}))
 
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("status %d, want 401", w.Code)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status %d, want 400", w.Code)
 	}
 	select {
-	case <-enrolled:
-		t.Error("the node was enrolled by a caller with the wrong code")
+	case r := <-enrolled:
+		t.Errorf("the node was enrolled as %q by a caller who did not know the code", r.NodeID)
 	default:
 	}
 }
 
 func TestCompleteHandler_acceptsTheOperatorsGateway(t *testing.T) {
-	s := NewServer("")
+	s := NewServer()
 	enrolled := make(chan *Result, 1)
 	w := httptest.NewRecorder()
 
@@ -85,11 +64,34 @@ func TestCompleteHandler_acceptsTheOperatorsGateway(t *testing.T) {
 	}
 }
 
+// Successful decrypt is the proof. A header carrying the code used to put the
+// seal key on the wire next to the ciphertext; the handler must not need one.
+func TestCompleteHandler_doesNotRequireACodeHeader(t *testing.T) {
+	s := NewServer()
+	enrolled := make(chan *Result, 1)
+	w := httptest.NewRecorder()
+
+	r := completeRequest(t, testCode, Result{NodeID: "node-1"})
+	if r.Header.Get("X-Orama-Enrollment-Code") != "" {
+		t.Fatal("the test request still carries the enrollment-code header")
+	}
+	s.completeHandler(testCode, "token", enrolled)(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200: %s", w.Code, w.Body.String())
+	}
+	select {
+	case <-enrolled:
+	default:
+		t.Fatal("a payload that decrypted was refused because no header was sent")
+	}
+}
+
 // The agent mints its own credential and hands it back sealed. The gateway
 // presents it on every later command; anyone watching the exchange must not
 // learn it.
 func TestCompleteHandler_returnsTheAgentTokenSealed(t *testing.T) {
-	s := NewServer("")
+	s := NewServer()
 	enrolled := make(chan *Result, 1)
 	w := httptest.NewRecorder()
 
@@ -113,42 +115,49 @@ func TestCompleteHandler_returnsTheAgentTokenSealed(t *testing.T) {
 	}
 }
 
-// A payload sealed under a different code cannot be opened, so a caller who
-// somehow learned the code header but not the code itself gets nowhere.
-func TestCompleteHandler_refusesAPayloadItCannotOpen(t *testing.T) {
-	s := NewServer("")
-	enrolled := make(chan *Result, 1)
-	w := httptest.NewRecorder()
-
-	sealed, err := Seal("00000000000000000000", []byte(`{"node_id":"attacker"}`))
-	if err != nil {
-		t.Fatalf("seal: %v", err)
-	}
-	r := httptest.NewRequest(http.MethodPost, "/v1/agent/enroll/complete", strings.NewReader(sealed))
-	r.Header.Set(HeaderEnrollmentCode, testCode)
-
-	s.completeHandler(testCode, "token", enrolled)(w, r)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status %d, want 400", w.Code)
-	}
-	select {
-	case <-enrolled:
-		t.Error("a payload that did not decrypt enrolled the node")
-	default:
-	}
-}
-
 func TestCompleteHandler_refusesOtherMethods(t *testing.T) {
-	s := NewServer("")
+	s := NewServer()
 	enrolled := make(chan *Result, 1)
 	w := httptest.NewRecorder()
 
 	r := httptest.NewRequest(http.MethodGet, "/v1/agent/enroll/complete", nil)
-	r.Header.Set(HeaderEnrollmentCode, testCode)
 	s.completeHandler(testCode, "token", enrolled)(w, r)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status %d, want 405", w.Code)
+	}
+}
+
+// A second POST that decrypts used to land on a size-1 channel after a 200,
+// so the first writer won and the second blocked. The second is 409.
+func TestCompleteHandler_refusesASecondComplete(t *testing.T) {
+	s := NewServer()
+	enrolled := make(chan *Result, 2)
+	h := s.completeHandler(testCode, "token", enrolled)
+
+	first := httptest.NewRecorder()
+	h(first, completeRequest(t, testCode, Result{NodeID: "first"}))
+	if first.Code != http.StatusOK {
+		t.Fatalf("first status %d, want 200", first.Code)
+	}
+
+	second := httptest.NewRecorder()
+	h(second, completeRequest(t, testCode, Result{NodeID: "second"}))
+	if second.Code != http.StatusConflict {
+		t.Fatalf("second status %d, want 409", second.Code)
+	}
+
+	select {
+	case got := <-enrolled:
+		if got.NodeID != "first" {
+			t.Errorf("enrolled as %q, want first", got.NodeID)
+		}
+	default:
+		t.Fatal("the first completion never enrolled the node")
+	}
+	select {
+	case got := <-enrolled:
+		t.Errorf("a second completion enrolled the node as %q", got.NodeID)
+	default:
 	}
 }

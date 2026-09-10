@@ -44,10 +44,6 @@ const (
 	// WireGuardConfigPath is the path to the WireGuard configuration baked into rootfs
 	// during enrollment, or written during first boot.
 	WireGuardConfigPath = "/etc/wireguard/wg0.conf"
-
-	// GatewayEndpoint is the default gateway URL for enrollment WebSocket.
-	// Overridden by /etc/orama/gateway-url if present.
-	GatewayEndpoint = "wss://gateway.orama.network/v1/agent/enroll"
 )
 
 // Agent is the main orchestrator for the OramaOS node.
@@ -94,7 +90,7 @@ func (a *Agent) enrollmentBoot() error {
 	log.Println("ENROLLMENT MODE: first boot detected")
 
 	// 1. Start enrollment server on port 9999
-	enrollServer := enroll.NewServer(resolveGatewayEndpoint())
+	enrollServer := enroll.NewServer()
 	result, agentToken, err := enrollServer.Run()
 	if err != nil {
 		return fmt.Errorf("enrollment failed: %w", err)
@@ -317,13 +313,4 @@ func (a *Agent) Shutdown() {
 	if a.supervisor != nil {
 		a.supervisor.StopAll()
 	}
-}
-
-// resolveGatewayEndpoint reads the gateway URL from config or uses the default.
-func resolveGatewayEndpoint() string {
-	data, err := os.ReadFile("/etc/orama/gateway-url")
-	if err == nil {
-		return string(data)
-	}
-	return GatewayEndpoint
 }

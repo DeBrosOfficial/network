@@ -53,11 +53,11 @@ wget https://releases.orama.network/oramaos-v1.0.0-amd64.qcow2
 ### Step 2: First Boot — Enrollment Mode
 
 On first boot, the agent:
-1. Generates a random 8-character registration code
-2. Starts a temporary HTTP server on port 9999 that serves the code (one-shot)
-3. Waits for the Gateway to push cluster config via HTTP `POST` to `/v1/agent/enroll/complete` on port 9999
+1. Generates an 80-bit registration code (20 hex characters)
+2. Prints it on the console TTY (not the journal)
+3. Starts a temporary HTTP server on port 9999 and waits for the Gateway to `POST` a payload sealed under that code to `/v1/agent/enroll/complete`
 
-The registration code is displayed on the VPS console (if available) and served at `http://<vps-ip>:9999/`.
+The code is **not** served over the network. A `GET` on port 9999 used to return it.
 
 ### Step 3: Run Enrollment from CLI
 
@@ -67,18 +67,17 @@ On your local machine (where you have the `orama` CLI and rootwallet):
 # Generate an invite token on any existing cluster node
 orama node invite --expiry 24h
 
-# Enroll the OramaOS node
-orama node enroll --node-ip <vps-public-ip> --token <invite-token> --gateway <gateway-url>
+# Enroll the OramaOS node — --code is the value printed on the node's console
+orama node enroll --node-ip <vps-public-ip> --code <registration-code> --token <invite-token> --gateway <gateway-url>
 ```
 
 The enrollment command:
-1. Fetches the registration code from the node (port 9999)
-2. Sends the code + invite token to the Gateway
-3. Gateway validates everything, assigns a WireGuard IP, and pushes config to the node
-4. Node configures WireGuard, formats the LUKS-encrypted data partition
-5. LUKS key is split via Shamir and distributed to peer vault-guardians
-6. Services start in sandboxed namespaces
-7. Port 9999 closes permanently
+1. Sends the console code + invite token + public node IP to the Gateway
+2. Gateway validates the invite, assigns a WireGuard IP, and pushes config sealed under the code
+3. Node configures WireGuard, formats the LUKS-encrypted data partition
+4. LUKS key is split via Shamir and distributed to peer vault-guardians
+5. Services start in sandboxed namespaces
+6. Port 9999 closes permanently
 
 ### Step 4: Verify
 

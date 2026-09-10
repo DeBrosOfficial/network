@@ -12,12 +12,14 @@ var enrollCmd = &cobra.Command{
 	Short: "Enroll an OramaOS node into the cluster",
 	Long: `Enroll a freshly booted OramaOS node into the cluster.
 
-The OramaOS node displays a registration code on port 9999. Provide this code
-along with an invite token to complete enrollment. The Gateway pushes cluster
-configuration (WireGuard, secrets, peer list) to the node.
+The OramaOS node prints a registration code on its console. Provide that code
+along with an invite token. The Gateway pushes cluster configuration
+(WireGuard, secrets, peer list) to the node, sealed under the code.
+
+The code is not served over the network. A GET on port 9999 used to return it.
 
 Usage:
-  orama node enroll --node-ip <ip> --code <code> --token <invite-token> --env <environment>
+  orama node enroll --node-ip <ip> --code <code> --token <invite-token> --gateway <url>
 
 The node must be reachable over the public internet on port 9999 (enrollment only).
 After enrollment, port 9999 is permanently closed and all communication goes over WireGuard.`,
@@ -29,8 +31,12 @@ After enrollment, port 9999 is permanently closed and all communication goes ove
 func init() {
 	f := enrollCmd.Flags()
 	f.StringVar(&enrollFlags.NodeIP, "node-ip", "", "Public IP of the OramaOS node (required)")
-	f.StringVar(&enrollFlags.Code, "code", "", "Registration code from the node (auto-fetched if not provided)")
+	f.StringVar(&enrollFlags.Code, "code", "", "Registration code from the node's console (required)")
 	f.StringVar(&enrollFlags.Token, "token", "", "Invite token for cluster joining (required)")
 	f.StringVar(&enrollFlags.GatewayURL, "gateway", "", "Gateway URL (required, e.g. https://gateway.example.com)")
 	f.StringVar(&enrollFlags.Env, "env", "production", "Environment name")
+	_ = enrollCmd.MarkFlagRequired("code")
+	_ = enrollCmd.MarkFlagRequired("node-ip")
+	_ = enrollCmd.MarkFlagRequired("token")
+	_ = enrollCmd.MarkFlagRequired("gateway")
 }

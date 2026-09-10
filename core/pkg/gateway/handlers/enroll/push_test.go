@@ -11,14 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// fakeAgent is an OramaOS node's enrollment listener: it requires the
-// registration code, opens the payload under it, and seals its answer.
+// fakeAgent is an OramaOS node's enrollment listener: it opens the payload
+// under the registration code and seals its answer. The code is not a header.
 func fakeAgent(t *testing.T, code, agentToken string, received *EnrollResponse) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(HeaderEnrollmentCode) != code {
-			http.Error(w, "registration code mismatch", http.StatusUnauthorized)
-			return
+		if r.Header.Get("X-Orama-Enrollment-Code") != "" {
+			t.Error("the gateway sent the registration code as a header")
 		}
 		raw, _ := io.ReadAll(r.Body)
 		plaintext, err := Open(code, string(raw))

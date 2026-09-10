@@ -203,7 +203,7 @@ For mainnet, devnet, and testnet, nodes run **OramaOS** — a custom minimal Lin
 - **Service sandboxing** — Linux namespaces + seccomp per service
 - **Single root process** — the orama-agent manages boot, WireGuard, services, and updates
 
-Nodes join via `orama node enroll` (not `orama node install`). The enrollment uses a registration code + invite token + wallet verification to push cluster config to the node.
+Nodes join via `orama node enroll` (not `orama node install`). The operator reads an 80-bit registration code off the node's console and gives it to the CLI with an invite token; the gateway pushes cluster config sealed under that code.
 
 Sandbox clusters remain on Ubuntu for development convenience.
 
