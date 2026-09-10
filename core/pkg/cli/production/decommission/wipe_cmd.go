@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/DeBrosOfficial/network/pkg/cli/noderesolver"
-	"github.com/DeBrosOfficial/network/pkg/cli/remotessh"
+	"github.com/DeBrosOfficial/network/pkg/remotessh"
 )
 
 // WipeFlags holds wipe command flags.

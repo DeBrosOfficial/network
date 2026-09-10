@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/cli/remotessh"
+	"github.com/DeBrosOfficial/network/pkg/remotessh"
 )
 
 // Setup runs the interactive sandbox setup wizard.

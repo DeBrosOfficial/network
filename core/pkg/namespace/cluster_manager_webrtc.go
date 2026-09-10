@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/secrets"
 	"github.com/DeBrosOfficial/network/pkg/sfu"
 	"github.com/DeBrosOfficial/network/pkg/systemd"
@@ -710,7 +710,7 @@ func (cm *ClusterManager) restartGatewaysWithWebRTC(
 			}
 		}
 
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             cluster.NamespaceName,
 			NodeID:                node.NodeID,
 			HTTPPort:              pb.GatewayHTTPPort,
@@ -751,7 +751,7 @@ func (cm *ClusterManager) restartGatewaysWithWebRTC(
 }
 
 // restartGatewayRemote sends a restart-gateway request to a remote node.
-func (cm *ClusterManager) restartGatewayRemote(ctx context.Context, nodeIP string, cfg gateway.InstanceConfig) {
+func (cm *ClusterManager) restartGatewayRemote(ctx context.Context, nodeIP string, cfg gatewayspec.InstanceConfig) {
 	ipfsTimeout := ""
 	if cfg.IPFSTimeout > 0 {
 		ipfsTimeout = cfg.IPFSTimeout.String()

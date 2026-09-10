@@ -1,4 +1,4 @@
-package health
+package peerhealth
 
 import (
 	"context"

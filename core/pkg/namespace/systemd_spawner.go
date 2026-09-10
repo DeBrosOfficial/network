@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"github.com/DeBrosOfficial/network/pkg/sfu"
@@ -534,7 +534,7 @@ func (s *SystemdSpawner) oramaDir() string {
 }
 
 // SpawnGateway starts a Gateway instance using systemd
-func (s *SystemdSpawner) SpawnGateway(ctx context.Context, namespace, nodeID string, cfg gateway.InstanceConfig) error {
+func (s *SystemdSpawner) SpawnGateway(ctx context.Context, namespace, nodeID string, cfg gatewayspec.InstanceConfig) error {
 	s.logger.Info("Spawning Gateway via systemd",
 		zap.String("namespace", namespace),
 		zap.String("node_id", nodeID))
@@ -647,7 +647,7 @@ func (s *SystemdSpawner) StopGateway(ctx context.Context, namespace, nodeID stri
 
 // RestartGateway stops and re-spawns a Gateway instance with updated config.
 // Used when gateway config changes at runtime (e.g., WebRTC enable/disable).
-func (s *SystemdSpawner) RestartGateway(ctx context.Context, namespace, nodeID string, cfg gateway.InstanceConfig) error {
+func (s *SystemdSpawner) RestartGateway(ctx context.Context, namespace, nodeID string, cfg gatewayspec.InstanceConfig) error {
 	s.logger.Info("Restarting Gateway via systemd",
 		zap.String("namespace", namespace),
 		zap.String("node_id", nodeID))
@@ -668,7 +668,7 @@ func (s *SystemdSpawner) RestartGateway(ctx context.Context, namespace, nodeID s
 // Compares only the WebRTC-relevant fields (bugboard #25 drift surface).
 // Pure function so the reconcile decision is unit-testable without files
 // or systemd.
-func gatewayWebRTCInSync(onDisk gateway.GatewayYAMLWebRTC, cfg gateway.InstanceConfig) bool {
+func gatewayWebRTCInSync(onDisk gatewayspec.GatewayYAMLWebRTC, cfg gatewayspec.InstanceConfig) bool {
 	return onDisk.Enabled == cfg.WebRTCEnabled &&
 		onDisk.SFUPort == cfg.SFUPort &&
 		onDisk.TURNSecret == cfg.TURNSecret &&
@@ -693,8 +693,8 @@ func (s *SystemdSpawner) readAPIKeyHMACSecret() (string, error) {
 // ReconcileGateway share. Adding a field to GatewayYAMLConfig without
 // putting it here makes spawn and reconcile diverge; the field-coverage
 // test in reconcile_gateway_test.go fails when that happens.
-func gatewayYAMLFromInstance(cfg gateway.InstanceConfig, hmacSecret, clusterSecretPath, listenAddr string) gateway.GatewayYAMLConfig {
-	return gateway.GatewayYAMLConfig{
+func gatewayYAMLFromInstance(cfg gatewayspec.InstanceConfig, hmacSecret, clusterSecretPath, listenAddr string) gatewayspec.GatewayYAMLConfig {
+	return gatewayspec.GatewayYAMLConfig{
 		ListenAddr:            listenAddr,
 		ClientNamespace:       cfg.Namespace,
 		RQLiteDSN:             cfg.RQLiteDSN,
@@ -709,7 +709,7 @@ func gatewayYAMLFromInstance(cfg gateway.InstanceConfig, hmacSecret, clusterSecr
 		ClusterSecretPath:     clusterSecretPath,
 		SecretsEncryptionKey:  cfg.SecretsEncryptionKey,
 		APIKeyHMACSecret:      hmacSecret,
-		WebRTC: gateway.GatewayYAMLWebRTC{
+		WebRTC: gatewayspec.GatewayYAMLWebRTC{
 			Enabled:           cfg.WebRTCEnabled,
 			SFUPort:           cfg.SFUPort,
 			TURNDomain:        cfg.TURNDomain,
@@ -753,7 +753,7 @@ func stringSetEqual(a, b []string) bool {
 // gatewayYAMLEqual compares every spawn-written GatewayYAMLConfig field.
 // Olric server order is ignored (discovery can reshuffle). Empty / "0s"
 // timeouts compare equal so omitempty on-disk values match a zero duration.
-func gatewayYAMLEqual(a, b gateway.GatewayYAMLConfig) bool {
+func gatewayYAMLEqual(a, b gatewayspec.GatewayYAMLConfig) bool {
 	return a.ListenAddr == b.ListenAddr &&
 		a.ClientNamespace == b.ClientNamespace &&
 		a.RQLiteDSN == b.RQLiteDSN &&
@@ -782,7 +782,7 @@ func gatewayYAMLEqual(a, b gateway.GatewayYAMLConfig) bool {
 // gatewayConfigInSync reports whether on-disk YAML matches what spawn would
 // write for cfg. Comparison is exhaustive over GatewayYAMLConfig (bugboard
 // #165): a new YAML field that spawn writes cannot silently skip reconcile.
-func gatewayConfigInSync(onDisk gateway.GatewayYAMLConfig, cfg gateway.InstanceConfig, hmacSecret, clusterSecretPath, listenAddr string) bool {
+func gatewayConfigInSync(onDisk gatewayspec.GatewayYAMLConfig, cfg gatewayspec.InstanceConfig, hmacSecret, clusterSecretPath, listenAddr string) bool {
 	return gatewayYAMLEqual(onDisk, gatewayYAMLFromInstance(cfg, hmacSecret, clusterSecretPath, listenAddr))
 }
 
@@ -805,7 +805,7 @@ func gatewayConfigInSync(onDisk gateway.GatewayYAMLConfig, cfg gateway.InstanceC
 // surface (bugboard #25); other fields are intentionally not compared to
 // avoid spurious restarts from harmless differences (e.g. olric server
 // ordering).
-func (s *SystemdSpawner) ReconcileGateway(ctx context.Context, namespace, nodeID string, cfg gateway.InstanceConfig) error {
+func (s *SystemdSpawner) ReconcileGateway(ctx context.Context, namespace, nodeID string, cfg gatewayspec.InstanceConfig) error {
 	configPath := filepath.Join(s.namespaceBase, namespace, "configs", fmt.Sprintf("gateway-%s.yaml", nodeID))
 	existing, err := os.ReadFile(configPath)
 	if err != nil {
@@ -814,7 +814,7 @@ func (s *SystemdSpawner) ReconcileGateway(ctx context.Context, namespace, nodeID
 		// problem the caller's cold-spawn path handles.
 		return fmt.Errorf("read gateway config for reconcile: %w", err)
 	}
-	var onDisk gateway.GatewayYAMLConfig
+	var onDisk gatewayspec.GatewayYAMLConfig
 	if err := yaml.Unmarshal(existing, &onDisk); err != nil {
 		return fmt.Errorf("parse gateway config for reconcile: %w", err)
 	}

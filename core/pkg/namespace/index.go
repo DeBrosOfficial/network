@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"github.com/DeBrosOfficial/network/pkg/systemd"
@@ -16,8 +16,8 @@ import (
 )
 
 // IsIndexGateway reports whether this process is the core/index gateway.
-func IsIndexGateway(cfg *gateway.Config) bool {
-	return cfg != nil && cfg.ClientNamespace == BlueprintNameIndex
+func IsIndexGateway(clientNamespace string) bool {
+	return clientNamespace == BlueprintNameIndex
 }
 
 // ErrEmptyAdopt is returned when @index rqlite would start with no raft.db.
@@ -191,7 +191,7 @@ func (s *IndexSupervisor) EnsurePubsub(_ context.Context, nodeID string, bootstr
 
 // EnsureGateway starts orama-namespace-gateway@index on the index gateway port.
 // RQLiteDSN is the core DB; GlobalRQLiteDSN is left empty (this process is the core).
-func (s *IndexSupervisor) EnsureGateway(ctx context.Context, cfg gateway.InstanceConfig) error {
+func (s *IndexSupervisor) EnsureGateway(ctx context.Context, cfg gatewayspec.InstanceConfig) error {
 	cfg.Namespace = BlueprintNameIndex
 	cfg.HTTPPort = IndexGatewayHTTPPort
 	if cfg.RQLiteDSN == "" {

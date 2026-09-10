@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 )
@@ -36,7 +36,7 @@ type SpawnRequest struct {
 type provisionState struct {
 	rqlite  []*rqlite.Instance
 	olric   []*olric.OlricInstance
-	gateway []*gateway.GatewayInstance
+	gateway []*gatewayspec.GatewayInstance
 }
 
 type driverRegistry struct {

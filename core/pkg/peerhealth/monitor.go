@@ -1,8 +1,8 @@
-// Package health provides peer-to-peer node failure detection using a
+// Package peerhealth provides peer-to-peer node failure detection using a
 // ring-based monitoring topology. Each node probes a small, deterministic
 // subset of peers (the next K nodes in a sorted ring) so total probe
 // traffic is O(N) instead of O(N²).
-package health
+package peerhealth
 
 import (
 	"context"

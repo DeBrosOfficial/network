@@ -11,7 +11,7 @@ package decommission
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/cli/remotessh"
+	"github.com/DeBrosOfficial/network/pkg/remotessh"
 	"github.com/DeBrosOfficial/network/pkg/inspector"
 )
 

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/ipfs"
 	"github.com/DeBrosOfficial/network/pkg/logging"
 	"github.com/DeBrosOfficial/network/pkg/namespace"
@@ -48,7 +48,7 @@ func (n *Node) startIndexGateway(ctx context.Context) error {
 		olricServers = []string{net.JoinHostPort(bindAddr, fmt.Sprintf("%d", namespace.IndexOlricHTTPPort))}
 	}
 
-	return sup.EnsureGateway(ctx, gateway.InstanceConfig{
+	return sup.EnsureGateway(ctx, gatewayspec.InstanceConfig{
 		NodeID:                n.nodeID(),
 		BaseDomain:            n.config.HTTPGateway.BaseDomain,
 		OlricServers:          olricServers,

@@ -43,7 +43,7 @@ func main() {
 
 	logger.ComponentInfo(logging.ComponentGeneral, "Gateway initialization completed successfully")
 
-	if namespace.IsIndexGateway(cfg) {
+	if namespace.IsIndexGateway(cfg.ClientNamespace) {
 		if err := namespacehandlers.WireCoreGateway(context.Background(), gw, cfg, logger.Logger); err != nil {
 			logger.ComponentError(logging.ComponentGeneral, "failed to wire index gateway cluster manager", zap.Error(err))
 			os.Exit(1)

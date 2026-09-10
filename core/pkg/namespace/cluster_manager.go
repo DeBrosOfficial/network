@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"github.com/DeBrosOfficial/network/pkg/sfu"
@@ -422,7 +422,7 @@ func (cm *ClusterManager) writePeersJSON(dataDir string, peers []rqlite.RaftPeer
 }
 
 // spawnGatewayWithSystemd spawns Gateway via systemd (config creation now handled by spawner)
-func (cm *ClusterManager) spawnGatewayWithSystemd(ctx context.Context, cfg gateway.InstanceConfig) error {
+func (cm *ClusterManager) spawnGatewayWithSystemd(ctx context.Context, cfg gatewayspec.InstanceConfig) error {
 	// SystemdSpawner now handles config file creation
 	return cm.systemdSpawner.SpawnGateway(ctx, cfg.Namespace, cfg.NodeID, cfg)
 }
@@ -795,8 +795,8 @@ func (cm *ClusterManager) startOlricCluster(ctx context.Context, cluster *Namesp
 }
 
 // startGatewayCluster starts Gateway instances on all nodes (locally or remotely)
-func (cm *ClusterManager) startGatewayCluster(ctx context.Context, cluster *NamespaceCluster, nodes []NodeCapacity, portBlocks []*PortBlock, rqliteInstances []*rqlite.Instance, olricInstances []*olric.OlricInstance) ([]*gateway.GatewayInstance, error) {
-	instances := make([]*gateway.GatewayInstance, len(nodes))
+func (cm *ClusterManager) startGatewayCluster(ctx context.Context, cluster *NamespaceCluster, nodes []NodeCapacity, portBlocks []*PortBlock, rqliteInstances []*rqlite.Instance, olricInstances []*olric.OlricInstance) ([]*gatewayspec.GatewayInstance, error) {
+	instances := make([]*gatewayspec.GatewayInstance, len(nodes))
 
 	// Build Olric server addresses — always use WireGuard IPs (Olric binds to WireGuard interface)
 	olricServers := make([]string, len(olricInstances))
@@ -809,7 +809,7 @@ func (cm *ClusterManager) startGatewayCluster(ctx context.Context, cluster *Name
 		// Connect to local RQLite instance on each node
 		rqliteDSN := fmt.Sprintf("http://localhost:%d", portBlocks[i].RQLiteHTTPPort)
 
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             cluster.NamespaceName,
 			NodeID:                node.NodeID,
 			HTTPPort:              portBlocks[i].GatewayHTTPPort,
@@ -826,20 +826,20 @@ func (cm *ClusterManager) startGatewayCluster(ctx context.Context, cluster *Name
 			NtfyBaseURL:           cm.ntfyBaseURL,
 		}
 
-		var instance *gateway.GatewayInstance
+		var instance *gatewayspec.GatewayInstance
 		var err error
 		if node.NodeID == cm.localNodeID {
 			cm.logger.Info("Spawning Gateway locally", zap.String("node", node.NodeID))
 			err = cm.spawnGatewayWithSystemd(ctx, cfg)
 			if err == nil {
-				instance = &gateway.GatewayInstance{
+				instance = &gatewayspec.GatewayInstance{
 					Namespace:    cfg.Namespace,
 					NodeID:       cfg.NodeID,
 					HTTPPort:     cfg.HTTPPort,
 					BaseDomain:   cfg.BaseDomain,
 					RQLiteDSN:    cfg.RQLiteDSN,
 					OlricServers: cfg.OlricServers,
-					Status:       gateway.InstanceStatusRunning,
+					Status:       gatewayspec.InstanceStatusRunning,
 					StartedAt:    time.Now(),
 				}
 			}
@@ -916,7 +916,7 @@ func (cm *ClusterManager) spawnOlricRemote(ctx context.Context, nodeIP string, c
 }
 
 // spawnGatewayRemote sends a spawn-gateway request to a remote node
-func (cm *ClusterManager) spawnGatewayRemote(ctx context.Context, nodeIP string, cfg gateway.InstanceConfig) (*gateway.GatewayInstance, error) {
+func (cm *ClusterManager) spawnGatewayRemote(ctx context.Context, nodeIP string, cfg gatewayspec.InstanceConfig) (*gatewayspec.GatewayInstance, error) {
 	ipfsTimeout := ""
 	if cfg.IPFSTimeout > 0 {
 		ipfsTimeout = cfg.IPFSTimeout.String()
@@ -956,7 +956,7 @@ func (cm *ClusterManager) spawnGatewayRemote(ctx context.Context, nodeIP string,
 	if err != nil {
 		return nil, err
 	}
-	return &gateway.GatewayInstance{
+	return &gatewayspec.GatewayInstance{
 		Namespace:    cfg.Namespace,
 		NodeID:       cfg.NodeID,
 		HTTPPort:     cfg.HTTPPort,
@@ -1902,7 +1902,7 @@ func (cm *ClusterManager) restoreClusterOnNode(ctx context.Context, clusterID, n
 				olricServers = append(olricServers, fmt.Sprintf("%s:%d", np.InternalIP, np.OlricHTTPPort))
 			}
 
-			gwCfg := gateway.InstanceConfig{
+			gwCfg := gatewayspec.InstanceConfig{
 				Namespace:             namespaceName,
 				NodeID:                cm.localNodeID,
 				HTTPPort:              pb.GatewayHTTPPort,
@@ -2564,7 +2564,7 @@ func (cm *ClusterManager) restoreClusterFromState(ctx context.Context, state *Cl
 		for _, np := range state.AllNodes {
 			olricServers = append(olricServers, fmt.Sprintf("%s:%d", np.InternalIP, np.OlricHTTPPort))
 		}
-		gwCfg := gateway.InstanceConfig{
+		gwCfg := gatewayspec.InstanceConfig{
 			Namespace:             state.NamespaceName,
 			NodeID:                cm.localNodeID,
 			HTTPPort:              pb.GatewayHTTPPort,

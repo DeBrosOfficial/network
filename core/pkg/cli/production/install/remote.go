@@ -8,7 +8,7 @@ import (
 
 	"github.com/DeBrosOfficial/network/pkg/cli"
 	"github.com/DeBrosOfficial/network/pkg/cli/noderesolver"
-	"github.com/DeBrosOfficial/network/pkg/cli/remotessh"
+	"github.com/DeBrosOfficial/network/pkg/remotessh"
 	"github.com/DeBrosOfficial/network/pkg/inspector"
 )
 

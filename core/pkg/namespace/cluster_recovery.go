@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"go.uber.org/zap"
@@ -585,7 +585,7 @@ func (cm *ClusterManager) ReplaceClusterNode(ctx context.Context, cluster *Names
 		}
 		olricServers = append(olricServers, fmt.Sprintf("%s:%d", replacement.InternalIP, portBlock.OlricHTTPPort))
 
-		gwCfg := gateway.InstanceConfig{
+		gwCfg := gatewayspec.InstanceConfig{
 			Namespace:             cluster.NamespaceName,
 			NodeID:                replacement.NodeID,
 			HTTPPort:              portBlock.GatewayHTTPPort,
@@ -1366,7 +1366,7 @@ func (cm *ClusterManager) addNodeToCluster(
 	}
 	olricServers = append(olricServers, fmt.Sprintf("%s:%d", replacement.InternalIP, portBlock.OlricHTTPPort))
 
-	gwCfg := gateway.InstanceConfig{
+	gwCfg := gatewayspec.InstanceConfig{
 		Namespace:             cluster.NamespaceName,
 		NodeID:                replacement.NodeID,
 		HTTPPort:              portBlock.GatewayHTTPPort,

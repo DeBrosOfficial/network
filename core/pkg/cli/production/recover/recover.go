@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/cli/noderesolver"
-	"github.com/DeBrosOfficial/network/pkg/cli/remotessh"
+	"github.com/DeBrosOfficial/network/pkg/remotessh"
 	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/inspector"
 )
