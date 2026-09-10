@@ -1281,15 +1281,19 @@ const webrtcReconcileInterval = 60 * time.Second
 // record, but only while its namespace gateway is actually answering (bugboard
 // #286).
 //
-// Advertising is gated on real evidence rather than on the node merely believing
-// it holds the role: a record pointing at a gateway that is down is the #161
-// symptom in a different place — clients round-robin onto a dead endpoint.
+// Advertising is gated on the same HTTP /v1/health probe the withdraw loop
+// uses. A record pointing at a gateway that is down — or that accepts TCP
+// but cannot serve — is the #161 symptom in a different place: clients
+// round-robin onto a dead endpoint.
 func (cm *ClusterManager) ensureNamespaceHostRecordIfServing(ctx context.Context, state *ClusterLocalState) {
 	port := state.LocalPorts.GatewayHTTPPort
 	if port <= 0 {
 		return
 	}
-	if err := probeTCP(fmt.Sprintf("127.0.0.1:%d", port)); err != nil {
+	// HTTP /v1/health, not TCP-open. The withdraw loop in namespace_health.go
+	// keys on the same probe: a gateway that accepts TCP but is still starting
+	// (or 404s) must not be re-advertised here, or the two fight.
+	if err := gatewayReady(ctx, fmt.Sprintf("127.0.0.1:%d", port)); err != nil {
 		// Not serving yet — say nothing and retry on the next tick. This is the
 		// normal state for the first minute after a restart.
 		return
