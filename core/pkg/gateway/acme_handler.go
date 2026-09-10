@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DeBrosOfficial/network/pkg/auth"
 	"github.com/DeBrosOfficial/network/pkg/client"
 	"go.uber.org/zap"
 )
@@ -23,6 +24,12 @@ type ACMERequest struct {
 func (g *Gateway) acmePresentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !auth.IsNodeLocal(r) {
+		// 404 rather than 403: an endpoint the public has no business
+		// reaching should not confirm that it exists. Same as node register.
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
@@ -81,6 +88,10 @@ func (g *Gateway) acmePresentHandler(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) acmeCleanupHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !auth.IsNodeLocal(r) {
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
