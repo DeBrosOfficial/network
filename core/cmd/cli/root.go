@@ -45,9 +45,14 @@ var (
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "orama",
-		Short: "Orama CLI - Distributed P2P Network Management Tool",
-		Long: `Orama CLI is a tool for managing nodes, deploying applications,
-and interacting with the Orama distributed network.`,
+		Short: "Orama CLI — operate nodes and manage a namespace",
+		Long: `The human interface to the Orama network. One binary, two audiences:
+
+  Operators  orama node, inspect, rollout, invite, monitor, …
+  Tenants    orama deploy, app, function, db, namespace, …
+
+Programs use the SDK and the gateway HTTP API. There is no Orama dashboard
+and no Orama MCP.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
