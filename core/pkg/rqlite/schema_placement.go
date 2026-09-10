@@ -122,7 +122,6 @@ var tablePlacement = map[string]tableNote{
 	"dns_records":                  {PlacementNamespace, "cluster DNS; unverified, see ARCH-2"},
 	"dns_nodes":                    {PlacementNamespace, "cluster DNS; unverified, see ARCH-2"},
 	"dns_nameservers":              {PlacementNamespace, "cluster DNS; unverified, see ARCH-2"},
-	"reserved_domains":             {PlacementNamespace, "cluster DNS; unverified, see ARCH-2"},
 	"raft_evicted_nodes":           {PlacementNamespace, "cluster membership; unverified, see ARCH-2"},
 	"node_health_events":           {PlacementNamespace, "cluster health; unverified, see ARCH-2"},
 	"rqlite_backups":               {PlacementNamespace, "cluster backups; unverified, see ARCH-2"},

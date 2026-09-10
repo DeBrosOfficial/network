@@ -1245,9 +1245,10 @@ func (cm *ClusterManager) DeprovisionCluster(ctx context.Context, namespaceID in
 	cm.portAllocator.DeallocateAllPortBlocks(ctx, cluster.ID)
 	cm.webrtcPortAllocator.DeallocateAll(ctx, cluster.ID)
 
-	// 5. Delete namespace DNS records (gateway + TURN)
+	// 5. Delete namespace DNS records (gateway + TURN + stealth)
 	cm.dnsManager.DeleteNamespaceRecords(ctx, cluster.NamespaceName)
 	cm.dnsManager.DeleteTURNRecords(ctx, cluster.NamespaceName)
+	cm.dnsManager.DeleteStealthTURNRecords(ctx, cluster.NamespaceName)
 
 	// 6. Explicitly delete child tables (FK cascades disabled in rqlite)
 	cm.db.Exec(ctx, `DELETE FROM namespace_cluster_events WHERE namespace_cluster_id = ?`, cluster.ID)
