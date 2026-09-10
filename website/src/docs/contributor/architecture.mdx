@@ -160,7 +160,8 @@ The Gateway depends on Olric being fully initialized. Olric depends on RQLite fo
 
 | Binary | Entry Point | Purpose |
 |--------|-------------|---------|
-| `orama` | `cmd/cli/` | CLI tool (deploy, manage, monitor). Cluster health is `orama inspect`. |
+| `orama` | `cmd/orama/` | CLI tool (deploy, manage, monitor). Cluster health is `orama inspect`. |
+| `pubsub` | `cmd/pubsub/` | Namespace gossipsub HTTP API (`make build` writes `bin/pubsub`) |
 | `gateway` | `cmd/gateway/` | API gateway — one binary for `@index` and `@<tenant>` |
 | `orama-node` | `cmd/node/` | Supervisor: starts systemd units; does not embed the gateway or rqlited |
 | `sfu` | `cmd/sfu/` | WebRTC Selective Forwarding Unit |

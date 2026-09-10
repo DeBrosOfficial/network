@@ -56,7 +56,7 @@ make build
 # Run tests
 make test
 
-# The main CLI binary is built from cmd/cli/
+# The main CLI binary is built from cmd/orama/
 # After make build, binaries are in core/bin/
 ./bin/orama version
 ```
@@ -67,7 +67,8 @@ From the repository root, `make build` and `make test` delegate to `core/` for y
 
 | Binary | Entry Point | Purpose |
 |--------|-------------|---------|
-| `orama` | `cmd/cli/` | CLI tool for all operations |
+| `orama` | `cmd/orama/` | CLI tool for all operations |
+| `pubsub` | `cmd/pubsub/` | Namespace gossipsub HTTP API |
 | `gateway` | `cmd/gateway/` | API gateway / reverse proxy |
 | `orama-node` | `cmd/node/` | Supervisor: starts systemd units; does not embed the gateway or rqlited |
 | `sfu` | `cmd/sfu/` | WebRTC Selective Forwarding Unit |

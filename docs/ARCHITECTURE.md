@@ -706,7 +706,7 @@ Every node runs Anyone as a **client** only: a local SOCKS5 proxy on `127.0.0.1:
 - `pkg/anyoneproxy/socks.go` - SOCKS5 proxy client interface
 - `pkg/gateway/anon_proxy_handler.go` - Anonymous request proxy endpoint
 - `pkg/gateway/anon_tunnel_handler.go` - Authenticated tunnelling proxy (bugboard #168)
-- `pkg/environments/production/installers/anyone_installer.go` - Client binary + anonrc
+- `pkg/install/installers/anyone_installer.go` - Client binary + anonrc
 
 **Features:**
 - Smart routing (bypasses proxy for local/private addresses)
@@ -1085,6 +1085,7 @@ and `orama inspect` CLI commands.
 
 - **Average file size:** ~150 lines
 - **Package structure:** Domain-driven, feature-focused
+- **Operator CLI:** `cmd/orama/` (implementation under `cmd/orama/internal/`). The live node install engine is `pkg/install/` plus the unit files in `core/systemd/`.
 - **Testing:** Unit tests for logic, E2E tests for integration
 - **Documentation:** Godoc comments on all public APIs
 

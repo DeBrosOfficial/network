@@ -262,7 +262,7 @@ These measures apply to all nodes (Ubuntu and OramaOS).
   ```
 - `ReadWritePaths` is per-service (data dir + logs), not the whole `.orama` tree
 - Units that do not need cluster secrets set `InaccessiblePaths=…/secrets`; the gateway and node keep `ReadOnlyPaths` on `secrets/`
-- Applied to both template files (`pkg/environments/templates/`) and hardcoded unit generators (`pkg/environments/production/services.go`) plus `core/systemd/orama-namespace-*@.service`
+- Applied to both template files (`pkg/install/templates/`) and hardcoded unit generators (`pkg/install/services.go`) plus `core/systemd/orama-namespace-*@.service`
 
 **Tenant deployments**
 - A deployment is a tenant's own code, uploaded through the API and run on a node that also runs the cluster's control plane. Its unit had none of the hardening above: no `User=`, so it ran as root, and only `PrivateTmp`

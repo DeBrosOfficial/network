@@ -870,7 +870,7 @@ const staleClusterNodeSQL = `
 // heartbeat loop (startDNSHeartbeat, 30s tick) flips a silent node's
 // dns_nodes.status to 'inactive' after just 120s
 // (cleanupStaleNodeRecords, pkg/node/dns_registration.go), and the ring-based
-// health monitor's getRingNeighbors (pkg/node/health/monitor.go) only
+// health monitor's getRingNeighbors (pkg/peerhealth/monitor.go) only
 // considers status='active' nodes as probe targets. Once a node flips
 // inactive it drops out of every node's neighbor set, pruneStaleState wipes
 // its accumulated miss count, and it can never again reach the monitor's own

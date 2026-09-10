@@ -1121,7 +1121,7 @@ func webrtcReconcileMajorityHeld(viable, rawMembers int) bool {
 // webrtcReconcileStartupGrace bounds how soon after this node's own process
 // start it will act as WebRTC reconcile coordinator (bugboard #171). Mirrors
 // the reasoning behind health.DefaultStartupGracePeriod
-// (pkg/node/health/monitor.go, 5m — cannot import directly, pkg/node imports
+// (pkg/peerhealth/monitor.go, 5m — cannot import directly, pkg/node imports
 // pkg/namespace, see cluster_manager.go's startedAt field doc): a node that
 // has JUST come back up has not yet had time to observe its peers report back
 // in, so its very first read of cluster membership can look exactly like "I
