@@ -738,11 +738,6 @@ app-runtime API key alone is refused.
 - Error wrapping with context
 - Stack traces
 
-**Contracts (`pkg/contracts/`):**
-- Interface definitions for all services
-- Enables dependency injection
-- Clean abstractions
-
 ## Data Flow
 
 ### 1. HTTP Request Flow

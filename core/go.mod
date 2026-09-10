@@ -43,7 +43,6 @@ require (
 	github.com/RoaringBitmap/roaring v1.9.4 // indirect
 	github.com/apparentlymart/go-cidr v1.1.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

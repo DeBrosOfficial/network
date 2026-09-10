@@ -8,10 +8,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/database"
 	"github.com/DeBrosOfficial/network/pkg/deployments"
 	"go.uber.org/zap"
 )
+
+// Database is the query surface the health checker needs. RQLite's client
+// satisfies it; tests stub it.
+type Database interface {
+	Query(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	QueryOne(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Exec(ctx context.Context, query string, args ...interface{}) (interface{}, error)
+}
 
 // Tuning constants.
 const (
@@ -58,7 +65,7 @@ type replicaState struct {
 
 // HealthChecker monitors deployment health on the local node.
 type HealthChecker struct {
-	db             database.Database
+	db             Database
 	logger         *zap.Logger
 	workers        int
 	nodeID         string
@@ -75,7 +82,7 @@ type HealthChecker struct {
 }
 
 // NewHealthChecker creates a new health checker.
-func NewHealthChecker(db database.Database, logger *zap.Logger, nodeID string, pm ProcessManager) *HealthChecker {
+func NewHealthChecker(db Database, logger *zap.Logger, nodeID string, pm ProcessManager) *HealthChecker {
 	return &HealthChecker{
 		db:             db,
 		logger:         logger,

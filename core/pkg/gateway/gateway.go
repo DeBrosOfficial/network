@@ -292,7 +292,7 @@ func (a *authDatabaseAdapter) Query(ctx context.Context, sql string, args ...int
 	}, nil
 }
 
-// deploymentDatabaseAdapter adapts rqlite.Client to database.Database
+// deploymentDatabaseAdapter adapts rqlite.Client to health.Database
 type deploymentDatabaseAdapter struct {
 	client rqlite.Client
 }
@@ -669,7 +669,7 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 			zap.Error(envCodecErr))
 	}
 	if deps.ORMClient != nil && deps.IPFSClient != nil && envCodec != nil {
-		// Convert rqlite.Client to database.Database interface for health checker
+		// Convert rqlite.Client to health.Database for the deployment checker
 		dbAdapter := &deploymentDatabaseAdapter{client: deps.ORMClient}
 
 		// Create deployment service

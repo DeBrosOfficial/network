@@ -31,7 +31,7 @@ type execCall struct {
 	args  []interface{}
 }
 
-// mockDB implements database.Database with configurable responses.
+// mockDB implements Database with configurable responses.
 type mockDB struct {
 	mu sync.Mutex
 

@@ -105,6 +105,7 @@ build: deps
 	go build -ldflags "$(LDFLAGS)" -o bin/sfu ./cmd/sfu
 	go build -ldflags "$(LDFLAGS)" -o bin/turn ./cmd/turn
 	go build -ldflags "$(LDFLAGS)" -o bin/orama-sni-router ./cmd/sni-router
+	go build -ldflags "$(LDFLAGS)" -o bin/pubsub ./cmd/pubsub
 	@echo "Build complete! Run ./bin/orama version"
 
 # Cross-compile CLI for Linux (only binary needed locally; VPS builds everything else from source)
