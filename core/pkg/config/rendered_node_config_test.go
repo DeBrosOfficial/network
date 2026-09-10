@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/environments/templates"
+	"github.com/DeBrosOfficial/network/pkg/install/templates"
 )
 
 // Every shape of the rendered node.yaml must survive the node's own strict

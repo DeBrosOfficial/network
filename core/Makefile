@@ -99,7 +99,7 @@ build: deps
 	@mkdir -p bin
 	go build -ldflags "$(LDFLAGS)" -o bin/identity ./cmd/identity
 	go build -ldflags "$(LDFLAGS)" -o bin/orama-node ./cmd/node
-	go build -ldflags "$(LDFLAGS)" -o bin/orama ./cmd/cli/
+	go build -ldflags "$(LDFLAGS)" -o bin/orama ./cmd/orama/
 	# Inject gateway build metadata via pkg path variables
 	go build -ldflags "$(LDFLAGS) -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildVersion=$(VERSION)' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildCommit=$(COMMIT)' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildTime=$(DATE)'" -o bin/gateway ./cmd/gateway
 	go build -ldflags "$(LDFLAGS)" -o bin/sfu ./cmd/sfu
@@ -112,7 +112,7 @@ build: deps
 build-linux: deps
 	@echo "Cross-compiling CLI for linux/amd64 (version=$(VERSION))..."
 	@mkdir -p bin-linux
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS_LINUX)" -trimpath -o bin-linux/orama ./cmd/cli/
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS_LINUX)" -trimpath -o bin-linux/orama ./cmd/orama/
 	@echo "✓ CLI built at bin-linux/orama"
 	@echo ""
 	@echo "Prefer 'make build-archive' for full pre-built binary archive."
@@ -120,7 +120,7 @@ build-linux: deps
 # Build pre-compiled binary archive for deployment (all binaries + deps)
 build-archive: deps
 	@echo "Building binary archive (version=$(VERSION))..."
-	go build -ldflags "$(LDFLAGS)" -o bin/orama ./cmd/cli/
+	go build -ldflags "$(LDFLAGS)" -o bin/orama ./cmd/orama/
 	./bin/orama build --output /tmp/orama-$(VERSION)-linux-amd64.tar.gz
 
 # Install git hooks
@@ -159,9 +159,9 @@ rollout-testnet:
 # Regenerate ../docs/CLI_REFERENCE.md from the cobra command tree.
 #
 # The reference is not written by hand, so command documentation cannot drift
-# from the code. `go test ./cmd/cli` fails when the file and the tree disagree.
+# from the code. `go test ./cmd/orama` fails when the file and the tree disagree.
 docs:
-	go test -count=1 ./cmd/cli -run TestCLIReference -update-cli-reference
+	go test -count=1 ./cmd/orama -run TestCLIReference -update-cli-reference
 
 # Contract tests against the fixtures in ../contracts.
 #

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/DeBrosOfficial/network/pkg/environments/production"
+	"github.com/DeBrosOfficial/network/pkg/install"
 	"github.com/DeBrosOfficial/network/pkg/systemd"
 	"github.com/DeBrosOfficial/network/pkg/turn"
 	"go.uber.org/zap"
@@ -413,7 +413,7 @@ func tenantNames(tenants []hostTURNTenant) []string {
 // orama-node runs unprivileged; the sudoers drop-in grants exactly the `ufw`
 // verbs this needs.
 func (cm *ClusterManager) openTURNRelayPorts() {
-	fw := production.NewFirewallProvisioner(production.FirewallConfig{})
+	fw := install.NewFirewallProvisioner(install.FirewallConfig{})
 	if err := fw.AddWebRTCRules(TURNRelayPortRangeStart, TURNRelayPortRangeEnd); err != nil {
 		// Not fatal: on a node whose firewall phase already opened these, TURN
 		// works regardless. Loud because the failure mode when they are NOT open

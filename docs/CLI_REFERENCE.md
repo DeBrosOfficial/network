@@ -1,5 +1,5 @@
 <!--
-Generated from the cobra command tree by core/cmd/cli/reference_test.go.
+Generated from the cobra command tree by core/cmd/orama/reference_test.go.
 Do not edit by hand: run `make -C core docs`.
 -->
 
