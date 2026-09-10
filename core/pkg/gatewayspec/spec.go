@@ -70,6 +70,8 @@ type InstanceConfig struct {
 	BaseDomain            string
 	RQLiteDSN             string
 	GlobalRQLiteDSN       string
+	RQLiteUsername        string
+	RQLitePassword        string
 	OlricServers          []string
 	OlricTimeout          time.Duration
 	NodePeerID            string
@@ -105,6 +107,8 @@ type GatewayYAMLConfig struct {
 	ClientNamespace       string            `yaml:"client_namespace"`
 	RQLiteDSN             string            `yaml:"rqlite_dsn"`
 	GlobalRQLiteDSN       string            `yaml:"global_rqlite_dsn,omitempty"`
+	RQLiteUsername        string            `yaml:"rqlite_username,omitempty"`
+	RQLitePassword        string            `yaml:"rqlite_password,omitempty"`
 	BootstrapPeers        []string          `yaml:"bootstrap_peers,omitempty"`
 	EnableHTTPS           bool              `yaml:"enable_https,omitempty"`
 	DomainName            string            `yaml:"domain_name,omitempty"`

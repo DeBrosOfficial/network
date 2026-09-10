@@ -195,7 +195,7 @@ func (s *IndexSupervisor) EnsureGateway(ctx context.Context, cfg gatewayspec.Ins
 	cfg.Namespace = BlueprintNameIndex
 	cfg.HTTPPort = IndexGatewayHTTPPort
 	if cfg.RQLiteDSN == "" {
-		cfg.RQLiteDSN = fmt.Sprintf("http://localhost:%d", IndexRQLiteHTTPPort)
+		cfg.RQLiteDSN = fmt.Sprintf("http://127.0.0.1:%d", IndexRQLiteHTTPPort)
 	}
 	cfg.GlobalRQLiteDSN = ""
 	if err := s.spawner.SpawnGateway(ctx, BlueprintNameIndex, cfg.NodeID, cfg); err != nil {

@@ -58,7 +58,11 @@ func buildRQLiteDSNWithLevel(host string, port int, username, password, level st
 
 // NewRQLiteAdapter creates a new adapter that provides sql.DB interface for RQLite.
 func NewRQLiteAdapter(manager *RQLiteManager) (*RQLiteAdapter, error) {
-	dsn := buildRQLiteDSN("localhost", manager.config.RQLitePort,
+	host := "127.0.0.1"
+	if manager.discoverConfig != nil {
+		host = BindHost(manager.discoverConfig.HttpAdvAddress)
+	}
+	dsn := buildRQLiteDSN(host, manager.config.RQLitePort,
 		manager.config.RQLiteUsername, manager.config.RQLitePassword)
 	db, err := sql.Open("rqlite", dsn)
 	if err != nil {
@@ -140,7 +144,11 @@ func (a *RQLiteAdapter) LocalDB() (*sql.DB, error) {
 	if a.manager == nil || a.manager.config == nil {
 		return nil, fmt.Errorf("rqlite adapter: manager config unavailable, cannot open local read connection")
 	}
-	dsn := buildRQLiteDSNWithLevel("localhost", a.manager.config.RQLitePort,
+	host := "127.0.0.1"
+	if a.manager.discoverConfig != nil {
+		host = BindHost(a.manager.discoverConfig.HttpAdvAddress)
+	}
+	dsn := buildRQLiteDSNWithLevel(host, a.manager.config.RQLitePort,
 		a.manager.config.RQLiteUsername, a.manager.config.RQLitePassword,
 		localReadConsistencyLevel)
 	db, err := sql.Open("rqlite", dsn)

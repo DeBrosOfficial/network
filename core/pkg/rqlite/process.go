@@ -40,7 +40,15 @@ func (r *RQLiteManager) connect(ctx context.Context) error {
 	// The /nodes endpoint probes all cluster members including unreachable ones,
 	// which can block for the full HTTP timeout (~10s per attempt).
 	// This is safe because rqlited followers automatically forward writes to the leader.
-	connURL := fmt.Sprintf("http://localhost:%d?disableClusterDiscovery=true", r.config.RQLitePort)
+	host := "127.0.0.1"
+	if r.discoverConfig != nil {
+		host = BindHost(r.discoverConfig.HttpAdvAddress)
+	}
+	user, pass := "", ""
+	if r.config != nil {
+		user, pass = r.config.RQLiteUsername, r.config.RQLitePassword
+	}
+	connURL := buildRQLiteDSN(host, r.config.RQLitePort, user, pass)
 
 	backoff := connectBaseBackoff
 	var lastErr error

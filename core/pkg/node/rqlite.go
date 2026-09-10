@@ -212,12 +212,6 @@ func indexRQLiteExtraArgs(db config.DatabaseConfig) string {
 	if lease == 0 {
 		lease = 2 * time.Second
 	}
-	args := fmt.Sprintf("-raft-election-timeout %s -raft-timeout %s -raft-apply-timeout %s -raft-leader-lease-timeout %s",
+	return fmt.Sprintf("-raft-election-timeout %s -raft-timeout %s -raft-apply-timeout %s -raft-leader-lease-timeout %s",
 		election, heartbeat, apply, lease)
-	// Enforcement is opt-in and independent of merely having credentials: see
-	// DatabaseConfig.RQLiteEnforceAuth for why the two are separate.
-	if db.RQLiteEnforceAuth {
-		args += " -auth " + db.RQLiteAuthFile
-	}
-	return args
 }

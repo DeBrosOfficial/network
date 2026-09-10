@@ -50,6 +50,7 @@ func (n *Node) startIndexGateway(ctx context.Context) error {
 
 	return sup.EnsureGateway(ctx, gatewayspec.InstanceConfig{
 		NodeID:                n.nodeID(),
+		RQLiteDSN:             fmt.Sprintf("http://%s:%d", bindAddr, namespace.IndexRQLiteHTTPPort),
 		BaseDomain:            n.config.HTTPGateway.BaseDomain,
 		OlricServers:          olricServers,
 		OlricTimeout:          n.config.HTTPGateway.OlricTimeout,

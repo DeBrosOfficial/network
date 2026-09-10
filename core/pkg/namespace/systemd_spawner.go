@@ -280,18 +280,31 @@ func (s *SystemdSpawner) SpawnRQLite(ctx context.Context, namespace, nodeID stri
 	if dataDir == "" {
 		dataDir = rqliteUnitDataDir(namespace, nodeID, s.namespaceBase, "")
 	}
+	authSrc := cfg.AuthFile
+	if authSrc == "" {
+		authSrc = filepath.Join(s.oramaDir(), "secrets", "rqlite-auth.json")
+	}
+	authDest, err := rqlite.InstallAuthFile(authSrc, dataDir)
+	if err != nil {
+		return fmt.Errorf("rqlite auth file missing — refusing to start: %w", err)
+	}
+	httpAddr, err := rqlite.BindAddr(cfg.HTTPAdvAddress, cfg.HTTPPort)
+	if err != nil {
+		return fmt.Errorf("rqlite HTTP bind: %w", err)
+	}
+	raftAddr, err := rqlite.BindAddr(cfg.RaftAdvAddress, cfg.RaftPort)
+	if err != nil {
+		return fmt.Errorf("rqlite Raft bind: %w", err)
+	}
 	envVars := map[string]string{
-		"HTTP_ADDR":     fmt.Sprintf("0.0.0.0:%d", cfg.HTTPPort),
-		"RAFT_ADDR":     fmt.Sprintf("0.0.0.0:%d", cfg.RaftPort),
+		"HTTP_ADDR":     httpAddr,
+		"RAFT_ADDR":     raftAddr,
 		"HTTP_ADV_ADDR": cfg.HTTPAdvAddress,
 		"RAFT_ADV_ADDR": cfg.RaftAdvAddress,
 		"JOIN_ARGS":     joinArgs,
 		"NODE_ID":       nodeID,
 		"DATA_DIR":      dataDir,
-		"EXTRA_ARGS":    cfg.ExtraArgs,
-	}
-	if cfg.AuthFile != "" {
-		envVars["EXTRA_ARGS"] = strings.TrimSpace(envVars["EXTRA_ARGS"] + " -auth " + cfg.AuthFile)
+		"EXTRA_ARGS":    strings.TrimSpace(cfg.ExtraArgs + " -auth " + authDest),
 	}
 
 	if err := s.systemdMgr.GenerateEnvFile(namespace, nodeID, systemd.ServiceTypeRQLite, envVars); err != nil {
@@ -568,6 +581,14 @@ func (s *SystemdSpawner) SpawnGateway(ctx context.Context, namespace, nodeID str
 	if err != nil {
 		return err
 	}
+	user, pass, err := s.readRQLitePassword()
+	if err != nil {
+		return err
+	}
+	cfg.RQLiteUsername = user
+	cfg.RQLitePassword = pass
+	cfg.RQLiteDSN = injectRQLiteUserinfo(cfg.RQLiteDSN, user, pass)
+	cfg.GlobalRQLiteDSN = injectRQLiteUserinfo(cfg.GlobalRQLiteDSN, user, pass)
 	gatewayConfig := gatewayYAMLFromInstance(cfg, apiKeyHMACSecret, s.clusterSecretPath, listenAddr)
 
 	configBytes, err := yaml.Marshal(gatewayConfig)
@@ -676,6 +697,35 @@ func gatewayWebRTCInSync(onDisk gatewayspec.GatewayYAMLWebRTC, cfg gatewayspec.I
 		onDisk.TURNStealthDomain == cfg.TURNStealthDomain
 }
 
+func (s *SystemdSpawner) readRQLitePassword() (user, pass string, err error) {
+	path := filepath.Join(s.oramaDir(), "secrets", "rqlite-password")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", "", fmt.Errorf("read rqlite password at %s (required once rqlited -auth is on): %w", path, err)
+	}
+	pass = strings.TrimSpace(string(b))
+	if pass == "" {
+		return "", "", fmt.Errorf("rqlite password file %s is empty", path)
+	}
+	return "orama", pass, nil
+}
+
+func injectRQLiteUserinfo(dsn, user, pass string) string {
+	if user == "" || pass == "" || dsn == "" {
+		return dsn
+	}
+	for _, scheme := range []string{"https://", "http://"} {
+		if strings.HasPrefix(dsn, scheme) {
+			rest := dsn[len(scheme):]
+			if strings.Contains(rest, "@") {
+				return dsn
+			}
+			return scheme + user + ":" + pass + "@" + rest
+		}
+	}
+	return dsn
+}
+
 func (s *SystemdSpawner) readAPIKeyHMACSecret() (string, error) {
 	path := filepath.Join(s.oramaDir(), "secrets", apiKeyHMACSecretFileName)
 	secretBytes, err := os.ReadFile(path)
@@ -699,6 +749,8 @@ func gatewayYAMLFromInstance(cfg gatewayspec.InstanceConfig, hmacSecret, cluster
 		ClientNamespace:       cfg.Namespace,
 		RQLiteDSN:             cfg.RQLiteDSN,
 		GlobalRQLiteDSN:       cfg.GlobalRQLiteDSN,
+		RQLiteUsername:        cfg.RQLiteUsername,
+		RQLitePassword:        cfg.RQLitePassword,
 		DomainName:            cfg.BaseDomain,
 		OlricServers:          cfg.OlricServers,
 		OlricTimeout:          cfg.OlricTimeout.String(),
@@ -758,6 +810,8 @@ func gatewayYAMLEqual(a, b gatewayspec.GatewayYAMLConfig) bool {
 		a.ClientNamespace == b.ClientNamespace &&
 		a.RQLiteDSN == b.RQLiteDSN &&
 		a.GlobalRQLiteDSN == b.GlobalRQLiteDSN &&
+		a.RQLiteUsername == b.RQLiteUsername &&
+		a.RQLitePassword == b.RQLitePassword &&
 		stringSetEqual(a.BootstrapPeers, b.BootstrapPeers) &&
 		a.EnableHTTPS == b.EnableHTTPS &&
 		a.DomainName == b.DomainName &&
@@ -921,6 +975,11 @@ func (s *SystemdSpawner) SpawnSFU(ctx context.Context, namespace, nodeID string,
 	}
 
 	configPath := filepath.Join(configDir, fmt.Sprintf("sfu-%s.yaml", nodeID))
+	if user, pass, err := s.readRQLitePassword(); err != nil {
+		return err
+	} else {
+		cfg.RQLiteDSN = injectRQLiteUserinfo(cfg.RQLiteDSN, user, pass)
+	}
 	if err := writeSFUConfig(configPath, cfg); err != nil {
 		return err
 	}

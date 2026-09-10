@@ -105,9 +105,17 @@ func (is *InstanceSpawner) SpawnInstance(ctx context.Context, cfg InstanceConfig
 
 	// Build command arguments
 	// Note: All flags must come BEFORE the data directory argument
+	httpAddr, err := BindAddr(cfg.HTTPAdvAddress, cfg.HTTPPort)
+	if err != nil {
+		return nil, fmt.Errorf("rqlite HTTP bind: %w", err)
+	}
+	raftAddr, err := BindAddr(cfg.RaftAdvAddress, cfg.RaftPort)
+	if err != nil {
+		return nil, fmt.Errorf("rqlite Raft bind: %w", err)
+	}
 	args := []string{
-		"-http-addr", fmt.Sprintf("0.0.0.0:%d", cfg.HTTPPort),
-		"-raft-addr", fmt.Sprintf("0.0.0.0:%d", cfg.RaftPort),
+		"-http-addr", httpAddr,
+		"-raft-addr", raftAddr,
 		"-http-adv-addr", cfg.HTTPAdvAddress,
 		"-raft-adv-addr", cfg.RaftAdvAddress,
 	}

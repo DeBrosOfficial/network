@@ -140,7 +140,7 @@ func getNamespaceRQLitePorts() map[string]int {
 }
 
 // parseHTTPPortFromEnv reads an env file and extracts the HTTP port from
-// the HTTP_ADDR=0.0.0.0:PORT line.
+// the HTTP_ADDR=HOST:PORT line.
 func parseHTTPPortFromEnv(envFile string) int {
 	f, err := os.Open(envFile)
 	if err != nil {
