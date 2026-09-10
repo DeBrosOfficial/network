@@ -154,14 +154,6 @@ func (cg *ConfigGenerator) GenerateNodeConfig(peerAddresses []string, vpsIP stri
 	}
 	// If no join address and no peers, this is the first node - it will create the cluster
 
-	// TLS/ACME configuration
-	tlsCacheDir := ""
-	httpPort := 80
-	httpsPort := 443
-	if enableHTTPS {
-		tlsCacheDir = filepath.Join(cg.oramaDir, "tls-cache")
-	}
-
 	// Credentials for every rqlite client this node opens. EnsureRQLiteAuth is
 	// idempotent — it reuses the existing password and rewrites the auth JSON —
 	// so the rendered config and the file rqlited would read cannot disagree.
@@ -195,10 +187,6 @@ func (cg *ConfigGenerator) GenerateNodeConfig(peerAddresses []string, vpsIP stri
 		UnifiedGatewayPort:     constants.GatewayAPIPort,
 		Domain:                 domain,
 		BaseDomain:             baseDomain,
-		EnableHTTPS:            enableHTTPS,
-		TLSCacheDir:            tlsCacheDir,
-		HTTPPort:               httpPort,
-		HTTPSPort:              httpsPort,
 		WGIP:                   vpsIP,
 	}
 
@@ -210,10 +198,7 @@ func (cg *ConfigGenerator) GenerateNodeConfig(peerAddresses []string, vpsIP stri
 	// which refuses to write a single-node peers.json.
 	data.MinClusterSize = 1
 
-	// RQLite node-to-node TLS encryption is disabled by default
-	// This simplifies certificate management - RQLite uses plain TCP for internal Raft
-	// HTTPS is still used for client-facing gateway traffic via autocert
-	// TLS can be enabled manually later if needed for inter-node encryption
+	// RQLite node-to-node TLS is off by default. Public TLS is Caddy DNS-01.
 
 	// Operator metadata (set by orama node setup via --ssh-user, --environment, --operator-wallet)
 	data.SSHUser = cg.SSHUser
@@ -440,21 +425,14 @@ rqlite_url = http://127.0.0.1:%d
 
 // GenerateGatewayConfig generates gateway.yaml configuration
 func (cg *ConfigGenerator) GenerateGatewayConfig(peerAddresses []string, enableHTTPS bool, domain string, olricServers []string) (string, error) {
-	tlsCacheDir := ""
-	if enableHTTPS {
-		tlsCacheDir = filepath.Join(cg.oramaDir, "tls-cache")
-	}
-
 	data := templates.GatewayConfigData{
 		ListenPort:     constants.GatewayAPIPort,
 		BootstrapPeers: peerAddresses,
 		OlricServers:   olricServers,
 		ClusterAPIPort: constants.IPFSClusterAPIPort,
 		IPFSAPIPort:    constants.IPFSAPIPort,
-		EnableHTTPS:    enableHTTPS,
 		DomainName:     domain,
-		TLSCacheDir:    tlsCacheDir,
-		RQLiteDSN:      "", // Empty for now, can be configured later
+		RQLiteDSN:      "",
 	}
 	return templates.RenderGatewayConfig(data)
 }

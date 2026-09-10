@@ -4,11 +4,8 @@ rqlite_dsn: "{{.RQLiteDSN}}"
 bootstrap_peers:
 {{range .BootstrapPeers}}  - "{{.}}"
 {{end}}
-enable_https: {{.EnableHTTPS}}
-{{if .EnableHTTPS}}domain_name: "{{.DomainName}}"
-tls_cache_dir: "{{.TLSCacheDir}}"
-{{end}}
-olric_servers:
+{{if .DomainName}}domain_name: "{{.DomainName}}"
+{{end}}olric_servers:
 {{range .OlricServers}}  - "{{.}}"
 {{end}}
 olric_timeout: "10s"

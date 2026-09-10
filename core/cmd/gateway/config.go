@@ -82,11 +82,16 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 	}
 
 	type yamlCfg struct {
-		ListenAddr            string        `yaml:"listen_addr"`
-		ClientNamespace       string        `yaml:"client_namespace"`
-		RQLiteDSN             string        `yaml:"rqlite_dsn"`
-		GlobalRQLiteDSN       string        `yaml:"global_rqlite_dsn"`
-		Peers                 []string      `yaml:"bootstrap_peers"`
+		ListenAddr      string   `yaml:"listen_addr"`
+		ClientNamespace string   `yaml:"client_namespace"`
+		RQLiteDSN       string   `yaml:"rqlite_dsn"`
+		GlobalRQLiteDSN string   `yaml:"global_rqlite_dsn"`
+		RQLiteUsername  string   `yaml:"rqlite_username"`
+		RQLitePassword  string   `yaml:"rqlite_password"`
+		Peers           []string `yaml:"bootstrap_peers"`
+		// EnableHTTPS is accepted so DecodeStrict does not reject leftover
+		// YAML. The gateway never terminates public TLS (Caddy does). A
+		// true value is a config error, not a silent no-op.
 		EnableHTTPS           bool          `yaml:"enable_https"`
 		DomainName            string        `yaml:"domain_name"`
 		TLSCacheDir           string        `yaml:"tls_cache_dir"`
@@ -149,9 +154,7 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 		BootstrapPeers:        nil,
 		RQLiteDSN:             "",
 		GlobalRQLiteDSN:       "",
-		EnableHTTPS:           false,
 		DomainName:            "",
-		TLSCacheDir:           "",
 		OlricServers:          nil,
 		OlricTimeout:          0,
 		IPFSClusterAPIURL:     "",
@@ -172,6 +175,12 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 	if v := strings.TrimSpace(y.GlobalRQLiteDSN); v != "" {
 		cfg.GlobalRQLiteDSN = v
 	}
+	if v := strings.TrimSpace(y.RQLiteUsername); v != "" {
+		cfg.RQLiteUsername = v
+	}
+	if v := strings.TrimSpace(y.RQLitePassword); v != "" {
+		cfg.RQLitePassword = v
+	}
 	if len(y.Peers) > 0 {
 		var peers []string
 		for _, p := range y.Peers {
@@ -185,20 +194,14 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 		}
 	}
 
-	// HTTPS configuration
-	cfg.EnableHTTPS = y.EnableHTTPS
+	if y.EnableHTTPS {
+		logger.ComponentError(logging.ComponentGeneral, "enable_https is not supported; Caddy terminates public TLS")
+		fmt.Fprintf(os.Stderr, "\nenable_https is not supported. Public TLS is Caddy (DNS-01).\n")
+		os.Exit(1)
+	}
 	if v := strings.TrimSpace(y.DomainName); v != "" {
 		cfg.DomainName = v
 		cfg.BaseDomain = v
-	}
-	if v := strings.TrimSpace(y.TLSCacheDir); v != "" {
-		cfg.TLSCacheDir = v
-	} else if cfg.EnableHTTPS {
-		// Default TLS cache directory if HTTPS is enabled but not specified
-		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			cfg.TLSCacheDir = filepath.Join(homeDir, ".orama", "tls-cache")
-		}
 	}
 
 	// Olric configuration

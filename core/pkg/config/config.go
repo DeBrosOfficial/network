@@ -149,7 +149,7 @@ func DefaultConfig() *Config {
 				APIURL:            fmt.Sprintf("http://localhost:%d", constants.IPFSAPIPort),
 				Timeout:           60 * time.Second,
 				ReplicationFactor: 3,
-				EnableEncryption:  true,
+				EnableEncryption:  false,
 			},
 		},
 		Discovery: DiscoveryConfig{
