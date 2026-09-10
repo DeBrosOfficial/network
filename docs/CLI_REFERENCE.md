@@ -148,6 +148,7 @@ is the index.
   - [`orama node wipe`](#orama-node-wipe) — Erase Orama from remote nodes (target-side only)
 - [`orama nodes`](#orama-nodes) — List your nodes across environments
 - [`orama operator`](#orama-operator) — Operate the cluster
+  - [`orama operator rotate-secrets`](#orama-operator-rotate-secrets) — Re-encrypt stored secrets, optionally under a new encryption root
   - [`orama operator rotate-signing-key`](#orama-operator-rotate-signing-key) — Replace the key this gateway signs tokens with
 - [`orama push`](#orama-push) — Push the binary archive to your nodes
 - [`orama rollout`](#orama-rollout) — Build, push, and rolling upgrade every node in an environment
@@ -2216,7 +2217,33 @@ Commands for the wallets on the cluster's operator list.
 Every one of them needs the admin grant and a wallet on that list; a namespace's
 own admin key is not enough.
 
-Subcommands: `rotate-signing-key`
+Subcommands: `rotate-secrets`, `rotate-signing-key`
+
+### orama operator rotate-secrets
+
+Re-encrypt stored secrets, optionally under a new encryption root
+
+```
+orama operator rotate-secrets [flags]
+```
+
+Rewrite function secrets, push tokens, TURN secrets, deployment
+environments and agent tokens onto the versioned envelope (enc:v1:<id>:).
+
+Without --rotate the IKM does not change: leftover plaintext and the legacy
+enc: form are rewritten so a captured snapshot of the old format is no longer
+the live one, and Decrypt can fail closed.
+
+With --rotate a new encryption root is generated. Existing ciphertext is
+re-encrypted under it. A disk that holds only the previous root cannot open
+the new rows. IPFS-Cluster and the mesh bearer are not touched.
+
+Do not run this until every gateway is on a binary that can read enc:v1:.
+The walker is idempotent; if it is interrupted, run it again.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--rotate` | `false` | Generate a new encryption root and re-encrypt under it |
 
 ### orama operator rotate-signing-key
 

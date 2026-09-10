@@ -220,6 +220,7 @@ unit test read, so a shape change on either side fails without a cluster.
 | `/v1/operator/invite` | CLI | Mint a node invite. `orama invite`. |
 | `/v1/operator/node/register` | CLI | Record a node in the inventory. |
 | `/v1/operator/rotate-signing-key` | CLI | Generate a new signing key for this gateway, publish it, and leave the outgoing one verifying what it already signed for one access-token lifetime. Admin grant **and** a wallet on the operator list. `orama operator rotate-signing-key`. |
+| `/v1/operator/rotate-secrets` | CLI | Rewrite stored ciphertext onto `enc:v1:<id>:`. `--rotate` generates a new encryption root first. Admin grant **and** operator list. `orama operator rotate-secrets`. |
 | `/v1/operator/nodes` | CLI | Fleet inventory. |
 
 ### Internal (node to node)
@@ -234,6 +235,7 @@ unit test read, so a shape change on either side fails without a cluster.
 | `/v1/internal/deployments/replica/update` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
 | `/v1/internal/join` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
 | `/v1/internal/namespace/repair` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
+| `/v1/internal/secrets/reencrypt` | internal | Index fans out `orama operator rotate-secrets` to each namespace gateway. Coordination MAC + overlay. |
 | `/v1/internal/namespace/spawn` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
 | `/v1/internal/node/enrol-key` | internal | From the node's own process over loopback, stamped with the node's libp2p identity key. Refused from off the host. |
 | `/v1/internal/node/heartbeat` | internal | From the node's own process over loopback, stamped with the key that node enrolled. Refused from off the host. |

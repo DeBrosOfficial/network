@@ -178,6 +178,7 @@ func TestIsPublicPath(t *testing.T) {
 		{"internal join", "/v1/internal/join", true},
 		{"internal namespace spawn", "/v1/internal/namespace/spawn", true},
 		{"internal namespace repair", "/v1/internal/namespace/repair", true},
+		{"internal secrets reencrypt", "/v1/internal/secrets/reencrypt", true},
 		// The internal WebRTC mgmt endpoints were removed: nothing in the
 		// repository called them — `orama namespace enable webrtc` goes to the
 		// public route, which does the work itself — and they were three paths

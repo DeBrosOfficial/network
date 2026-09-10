@@ -972,7 +972,7 @@ internal-auth check both accept.
 
 - **Refresh tokens:** Stored as SHA-256 hashes (never plaintext)
 - **API keys:** Stored as HMAC-SHA256 hashes with a server-side secret
-- **TURN secrets:** Encrypted at rest with AES-256-GCM (key derived from cluster secret)
+- **TURN secrets, function secrets, push tokens, deployment env, agent tokens:** Encrypted at rest with AES-256-GCM. The key is HKDF of `secrets/encryption-root` (a cluster-wide IKM that starts as a copy of the cluster secret). `orama operator rotate-secrets --rotate` replaces the IKM and re-encrypts; the cluster secret (IPFS-Cluster PSK / mesh bearer) is not touched
 - **Binary signing:** Build archives signed with rootwallet EVM signature, verified on install
 
 ### Process Isolation

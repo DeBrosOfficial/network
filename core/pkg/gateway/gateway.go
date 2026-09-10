@@ -45,6 +45,7 @@ import (
 	nodehealth "github.com/DeBrosOfficial/network/pkg/peerhealth"
 	"github.com/DeBrosOfficial/network/pkg/ratelimit"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/DeBrosOfficial/network/pkg/secrets"
 	"github.com/DeBrosOfficial/network/pkg/serverless"
 	"github.com/DeBrosOfficial/network/pkg/serverless/persistent"
 	"github.com/DeBrosOfficial/network/pkg/serverless/triggers"
@@ -84,6 +85,12 @@ type Gateway struct {
 	sqlDB     *sql.DB
 	ormClient rqlite.Client
 	ormHTTP   *rqlite.HTTPGateway
+
+	// encHolder is the process-wide encryption root. Stored-ciphertext
+	// keys are derived from it so a rotate takes effect without a restart.
+	encHolder *secrets.Holder
+	registry  rqlite.Client
+	envCodec  *deployments.EnvCodec
 
 	// Global RQLite client for API key validation (namespace gateways only)
 	authClient client.NetworkClient
@@ -359,6 +366,8 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 		sqlDB:                  deps.SQLDB,
 		ormClient:              deps.ORMClient,
 		ormHTTP:                deps.ORMHTTP,
+		registry:               deps.GlobalORMClient,
+		encHolder:              deps.EncHolder,
 		olricClient:            deps.OlricClient,
 		ipfsClient:             deps.IPFSClient,
 		serverlessEngine:       deps.ServerlessEngine,
@@ -662,11 +671,22 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	// secret. Without that secret there is no key, so the deployment system
 	// does not start rather than storing every tenant's credentials in the
 	// clear in a Raft-replicated table.
-	envCodec, envCodecErr := deployments.NewEnvCodec(cfg.ClusterSecret)
+	if gw.encHolder == nil {
+		gw.encHolder = bootstrapEncryptionRoot(cfg, deps)
+	}
+	envIKM := gw.encHolder.Get().CurrentIKM
+	if envIKM == "" {
+		envIKM = cfg.ClusterSecret
+	}
+	envCodec, envCodecErr := deployments.NewEnvCodec(envIKM)
 	if envCodecErr != nil {
-		logger.Logger.Error("deployments are unavailable on this gateway: without a cluster secret "+
+		logger.Logger.Error("deployments are unavailable on this gateway: without an encryption root "+
 			"there is no key to encrypt deployment environments with",
 			zap.Error(envCodecErr))
+	}
+	if envCodec != nil {
+		envCodec.SetHolder(gw.encHolder)
+		gw.envCodec = envCodec
 	}
 	if deps.ORMClient != nil && deps.IPFSClient != nil && envCodec != nil {
 		// Convert rqlite.Client to health.Database for the deployment checker

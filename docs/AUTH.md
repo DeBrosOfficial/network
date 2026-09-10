@@ -446,6 +446,12 @@ verifying the tokens it already signed until they expire. Two `kid`s are in
 flight for that window. Nobody is signed out and nothing restarts. It needs the
 admin grant **and** a wallet on the operator list.
 
+Stored secrets (function secrets, push tokens, TURN, deployment environments,
+agent tokens) are sealed under an encryption root that starts as a copy of the
+cluster secret. `orama operator rotate-secrets` rewrites the envelope;
+`--rotate` generates a new root so a captured previous IKM cannot open new
+rows. The cluster secret (IPFS-Cluster PSK / mesh bearer) is not touched.
+
 `GET /v1/auth/jwks` serves every live key, each carrying the namespace it is
 bound to alongside the standard members.
 

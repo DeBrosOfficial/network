@@ -167,6 +167,7 @@ func TestReadJoinSecrets_readsEverythingPresent(t *testing.T) {
 	want := joinSecrets{
 		ClusterSecret: "cs", SwarmKey: "sk", APIKeyHMACSecret: "hmac",
 		RQLitePassword: "pw", SecretsEncryptionKey: "sek", TURNSecret: "turn",
+		EncryptionRoot: "cs", EncryptionRootID: "1",
 	}
 	if got != want {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -207,6 +208,9 @@ func TestReadJoinSecrets_optionalSecretsMayBeAbsent(t *testing.T) {
 	if got.APIKeyHMACSecret != "" || got.RQLitePassword != "" ||
 		got.SecretsEncryptionKey != "" || got.TURNSecret != "" {
 		t.Fatalf("expected the optional secrets to be empty, got %+v", got)
+	}
+	if got.EncryptionRoot != "cs" || got.EncryptionRootID != "1" {
+		t.Fatalf("encryption root should fall back to the cluster secret, got %+v", got)
 	}
 }
 

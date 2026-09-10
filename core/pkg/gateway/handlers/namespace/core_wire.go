@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/DeBrosOfficial/network/pkg/encryption"
 	"github.com/DeBrosOfficial/network/pkg/gateway"
@@ -38,8 +39,14 @@ func WireCoreGateway(ctx context.Context, apiGateway *gateway.Gateway, cfg *gate
 	baseDataDir := filepath.Join(oramaDir, "data", "namespaces")
 
 	var turnEncKey []byte
-	if cfg.ClusterSecret != "" {
-		if key, keyErr := secrets.DeriveKey(cfg.ClusterSecret, "turn-encryption"); keyErr == nil {
+	turnIKM := cfg.ClusterSecret
+	if raw, err := os.ReadFile(filepath.Join(oramaDir, "secrets", secrets.FileName)); err == nil {
+		if v := strings.TrimSpace(string(raw)); v != "" {
+			turnIKM = v
+		}
+	}
+	if turnIKM != "" {
+		if key, keyErr := secrets.DeriveKey(turnIKM, "turn-encryption"); keyErr == nil {
 			turnEncKey = key
 		}
 	}

@@ -52,6 +52,7 @@ var protectedTables = map[string]string{
 	// Public keys too, but writing one is deciding which machine the cluster
 	// will accept as a node, and deleting a row un-revokes a retired one.
 	"node_credentials":           "which key the cluster accepts as a node",
+	"encryption_roots":           "the IKM stored secrets are derived from",
 	"grants":                     "who may do what in a namespace",
 	"wireguard_peers":            "mesh membership and node agent tokens",
 	"namespace_push_credentials": "push credentials",

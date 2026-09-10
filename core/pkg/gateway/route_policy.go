@@ -127,6 +127,7 @@ func buildRoutePolicies() *routepolicy.Table {
 		// RQLite does not have it.
 		// Signed internal header plus a WireGuard-peer source check.
 		"/v1/internal/namespace/spawn", "/v1/internal/namespace/repair",
+		"/v1/internal/secrets/reencrypt",
 		"/v1/internal/storage/evict",
 		"/v1/internal/deployments/replica/setup", "/v1/internal/deployments/replica/update",
 		"/v1/internal/deployments/replica/rollback", "/v1/internal/deployments/replica/teardown",
@@ -205,7 +206,7 @@ func buildRoutePolicies() *routepolicy.Table {
 		"/v1/network/connect", "/v1/network/disconnect",
 		"/v1/node/command", "/v1/node/leave",
 		"/v1/operator/nodes", "/v1/operator/node/register",
-		"/v1/operator/rotate-signing-key")
+		"/v1/operator/rotate-signing-key", "/v1/operator/rotate-secrets")
 	t.Add(policyUnrestricted, "/v1/operator/invite")
 
 	// --- Control plane on a namespace's own resources ------------------

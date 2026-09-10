@@ -126,6 +126,10 @@ type Dependencies struct {
 
 	// Authentication service
 	AuthService *auth.Service
+
+	// EncHolder is the process-wide encryption root for stored ciphertext.
+	EncHolder  *secrets.Holder
+	SecretsMgr *hostfunctions.DBSecretsManager
 }
 
 // NewDependencies creates and initializes all gateway dependencies based on the provided configuration.
@@ -663,24 +667,26 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 
 	// Create secrets manager for serverless functions (AES-256-GCM encrypted).
 	//
-	// The encryption key is DERIVED from the cluster secret via HKDF
-	// (resolveSecretsEncryptionKeyHex), so every gateway in the cluster computes
-	// the identical key and a secret written on one node decrypts on every other
-	// node and survives rolling upgrades. This replaces the old per-node
-	// crypto/rand key file, whose divergence across an upgraded cluster kept
-	// get_secret broken (bugboard #837). The file key (cfg.SecretsEncryptionKey)
-	// remains only as a fallback when no cluster secret is available (legacy /
-	// single-node test rigs). allowEphemeral=false: a missing/invalid key fails
-	// loudly here and disables get_secret rather than silently corrupting
-	// secrets.
+	// The encryption key is derived from the encryption root via HKDF, so every
+	// gateway computes the identical key. The root starts as a copy of the
+	// cluster secret so existing rows stay readable; an operator rotate
+	// replaces the IKM without touching IPFS-Cluster or the mesh bearer.
+	deps.EncHolder = bootstrapEncryptionRoot(cfg, deps)
+	ikm := deps.EncHolder.Get().CurrentIKM
+	if ikm == "" {
+		ikm = cfg.ClusterSecret
+	}
+
 	var secretsMgr serverless.SecretsManager
-	if secretsKeyHex, keyErr := resolveSecretsEncryptionKeyHex(cfg.ClusterSecret, cfg.SecretsEncryptionKey); keyErr != nil {
+	if secretsKeyHex, keyErr := resolveSecretsEncryptionKeyHex(ikm, cfg.SecretsEncryptionKey); keyErr != nil {
 		logger.ComponentWarn(logging.ComponentGeneral, "Failed to derive secrets encryption key; get_secret will be unavailable",
 			zap.Error(keyErr))
 	} else if smImpl, secretsErr := hostfunctions.NewDBSecretsManager(deps.ORMClient, secretsKeyHex, false, logger.Logger); secretsErr != nil {
 		logger.ComponentWarn(logging.ComponentGeneral, "Failed to initialize secrets manager; get_secret will be unavailable",
 			zap.Error(secretsErr))
 	} else {
+		smImpl.SetHolder(deps.EncHolder)
+		deps.SecretsMgr = smImpl
 		secretsMgr = smImpl
 	}
 
@@ -695,7 +701,7 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 	//
 	// PushDispatcher (legacy) is set only when YAML defaults exist —
 	// kept for back-compat with code that hasn't migrated to Manager.
-	pushDispatcher, pushStore, pushManager, pushCfgStore, pushCredManager, err := buildPushDispatcher(cfg, deps.ORMClient, deps.Client, logger)
+	pushDispatcher, pushStore, pushManager, pushCfgStore, pushCredManager, err := buildPushDispatcher(cfg, deps.ORMClient, deps.Client, logger, ikm, deps.EncHolder)
 	if err != nil {
 		// Non-fatal: log and continue. Functions calling push_send will get nil
 		// (silent no-op) and HTTP /v1/push/* endpoints return 503.
@@ -1140,16 +1146,24 @@ func buildPushDispatcher(
 	db rqlite.Client,
 	globalDB client.NetworkClient,
 	logger *logging.ColoredLogger,
+	ikm string,
+	holder *secrets.Holder,
 ) (*push.PushDispatcher, push.PushDeviceStore, *push.Manager, push.ConfigStore, *pushcreds.Manager, error) {
-	if cfg.ClusterSecret == "" {
-		// Without the cluster secret we can't encrypt credentials at rest.
+	if strings.TrimSpace(ikm) == "" {
+		ikm = cfg.ClusterSecret
+	}
+	if ikm == "" {
+		// Without an IKM we can't encrypt credentials at rest.
 		// Disable the whole push subsystem; HTTP routes return 503.
 		return nil, nil, nil, nil, nil, nil
 	}
 
-	store, err := push.NewRqliteDeviceStore(db, cfg.ClusterSecret, logger.Logger)
+	store, err := push.NewRqliteDeviceStore(db, ikm, logger.Logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("init push device store: %w", err)
+	}
+	if h, ok := any(store).(interface{ SetHolder(*secrets.Holder) }); ok {
+		h.SetHolder(holder)
 	}
 
 	// Backfill token_fp for rows registered before the bugboard #981 migration
@@ -1183,18 +1197,24 @@ func buildPushDispatcher(
 		}
 	}()
 
-	cfgStore, err := push.NewRqliteConfigStore(db, cfg.ClusterSecret, logger.Logger)
+	cfgStore, err := push.NewRqliteConfigStore(db, ikm, logger.Logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("init push config store: %w", err)
+	}
+	if h, ok := any(cfgStore).(interface{ SetHolder(*secrets.Holder) }); ok {
+		h.SetHolder(holder)
 	}
 
 	// Per-namespace, per-provider credentials (feature #72). Generic
 	// store — used by APNs, ntfy (post-migration), FCM-direct (future).
 	// Provider packages register their Validator at gateway startup
 	// (see pushcreds.Register calls below).
-	credStore, err := pushcreds.NewRqliteStore(db, cfg.ClusterSecret, logger.Logger)
+	credStore, err := pushcreds.NewRqliteStore(db, ikm, logger.Logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("init push credentials store: %w", err)
+	}
+	if h, ok := any(credStore).(interface{ SetHolder(*secrets.Holder) }); ok {
+		h.SetHolder(holder)
 	}
 	credManager := pushcreds.NewManager(credStore, logger.Logger)
 
@@ -1369,4 +1389,31 @@ func signingKeyNamespace(clientNamespace string) string {
 		return ""
 	}
 	return ns
+}
+
+func bootstrapEncryptionRoot(cfg *Config, deps *Dependencies) *secrets.Holder {
+	dir := ""
+	cs := ""
+	if cfg != nil {
+		cs = cfg.ClusterSecret
+		if cfg.DataDir != "" {
+			dir = secrets.SecretsDir(cfg.DataDir)
+		}
+	}
+	var store secrets.Store
+	if deps != nil {
+		if deps.GlobalORMClient != nil {
+			store = deps.GlobalORMClient
+		} else {
+			store = deps.ORMClient
+		}
+	}
+	r, err := secrets.LoadOrMaterialize(context.Background(), store, dir, cs)
+	if err != nil {
+		if strings.TrimSpace(cs) != "" {
+			return secrets.NewHolder(secrets.Root{CurrentID: secrets.FirstID, CurrentIKM: strings.TrimSpace(cs)})
+		}
+		return secrets.NewHolder(secrets.Root{})
+	}
+	return secrets.NewHolder(r)
 }
