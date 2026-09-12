@@ -4,6 +4,8 @@
 
 Orama Network is a high-performance API Gateway and Reverse Proxy designed for a decentralized ecosystem. It serves as a unified entry point that orchestrates traffic between clients and various backend services.
 
+How you talk to it: humans use the `orama` CLI; programs use the SDK and the gateway HTTP API. There is no Orama dashboard and no Orama MCP. See [CLIENT_SURFACE.md](CLIENT_SURFACE.md).
+
 ## Architecture Pattern
 
 **Modular Gateway / Edge Proxy Architecture**
@@ -13,7 +15,7 @@ The system follows a clean, layered architecture with clear separation of concer
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Clients                               │
-│              (Web, Mobile, CLI, SDKs)                        │
+│              (CLI, SDKs, tenant apps)                        │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          │ HTTPS/WSS
@@ -1197,6 +1199,7 @@ Sandbox clusters remain on Ubuntu for development convenience.
 
 ## Resources
 
+- [How you talk to the network](CLIENT_SURFACE.md)
 - [RQLite Documentation](https://rqlite.io/docs/)
 - [IPFS Documentation](https://docs.ipfs.tech/)
 - [LibP2P Documentation](https://docs.libp2p.io/)

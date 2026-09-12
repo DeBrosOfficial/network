@@ -1,7 +1,10 @@
 # Gateway API surface
 
-Every route the gateway registers, and which client owns it. The point is that
-the TypeScript SDK's coverage is a decision rather than an accident: it reaches
+Every route the gateway registers, and which client owns it. Who those clients
+are is [CLIENT_SURFACE.md](CLIENT_SURFACE.md): humans use the CLI, programs use
+the SDK and this HTTP API, and there is no Orama dashboard.
+
+The TypeScript SDK's coverage is a decision rather than an accident: it reaches
 35 of 136 routes, and the other 101 are here with a reason.
 
 `core/pkg/gateway/api_surface_test.go` keeps this document honest in both
