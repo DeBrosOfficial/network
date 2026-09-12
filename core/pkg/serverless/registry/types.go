@@ -86,7 +86,7 @@ type LogEntry struct {
 // nested under WASMLogs (which may be empty).
 //
 // This is the right answer to "what happened on this invocation" — the
-// CLI's `function logs` and dashboard log views consume this. The
+// CLI's `function logs` consumes this. The
 // older GetLogs(LogEntry) returns ONLY WASM-emitted entries, which is
 // usually empty and confused users (bug #211).
 type Invocation struct {
