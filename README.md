@@ -33,6 +33,7 @@ make vault-build
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | System architecture and design patterns |
+| [Client surface](docs/CLIENT_SURFACE.md) | Humans use the CLI; programs use the SDK / HTTP. No dashboard, no Orama MCP |
 | [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Deploy apps, databases, and domains |
 | [Dev & Deploy](docs/DEV_DEPLOY.md) | Building, deploying to VPS, rolling upgrades |
 | [Authentication](docs/AUTH.md) | Who someone is, what they may do, and how the gateway decides |

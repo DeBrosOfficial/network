@@ -30,6 +30,7 @@ const MANIFEST = {
     ["DEV_DEPLOY.md", "release-and-rollout", "Release & Rollout", "Build binaries, deploy to VPS nodes, enroll OramaOS, and run rolling cluster upgrades."],
   ],
   Reference: [
+    ["CLIENT_SURFACE.md", "client-surface", "Client Surface", "Humans use the orama CLI; programs use the SDK and gateway HTTP. No dashboard, no Orama MCP."],
     ["ARCHITECTURE.md", "architecture", "Architecture", "System architecture: gateway, namespaces, RQLite, Olric cache, IPFS storage, WASM runtime."],
     ["CLI_REFERENCE.md", "cli-reference", "CLI Reference", "Every orama command and flag, generated from the command tree."],
     ["API_SURFACE.md", "api-surface", "API Surface", "Every gateway route and which client owns it: SDK, CLI, direct, or internal."],

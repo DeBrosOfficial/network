@@ -87,9 +87,10 @@ Every command the ` + "`orama`" + ` binary defines, with its flags. Generated fr
 command tree, so it cannot drift from the code: a test fails when this file and
 the tree disagree.
 
-Task-shaped documentation lives elsewhere — [deploying apps](DEPLOYMENT_GUIDE.md),
-[building and rolling out](DEV_DEPLOY.md), [functions](SERVERLESS.md). This page
-is the index.
+Who uses this binary, and what does not exist (no dashboard, no Orama MCP), is
+[CLIENT_SURFACE.md](CLIENT_SURFACE.md). Task-shaped documentation lives
+elsewhere — [deploying apps](DEPLOYMENT_GUIDE.md), [building and rolling
+out](DEV_DEPLOY.md), [functions](SERVERLESS.md). This page is the index.
 
 `)
 
