@@ -9,10 +9,10 @@ import (
 )
 
 // EnvEncryptionPurpose is the HKDF info label that separates the deployment
-// environment key from every other key derived from the cluster secret.
+// environment key from every other key derived from the encryption root.
 //
-// Changing it is a deliberate rotation that makes every stored environment
-// unreadable, so it must never be edited casually.
+// This label is a domain separator, not a rotation handle. Rotating stored
+// secrets is `orama operator rotate-secrets --rotate`.
 const EnvEncryptionPurpose = "orama-deployment-environment-v1"
 
 // EnvCodec turns a deployment's environment into the single column it is stored
@@ -25,15 +25,23 @@ const EnvEncryptionPurpose = "orama-deployment-environment-v1"
 // key derived from the cluster secret, so a node's database file is not a list
 // of every tenant's credentials.
 type EnvCodec struct {
-	key []byte
+	key    []byte
+	holder *secrets.Holder
 }
 
-// NewEnvCodec derives the environment key from the cluster secret.
+// SetHolder lets a rotate take effect without restarting this process.
+func (c *EnvCodec) SetHolder(h *secrets.Holder) {
+	if c != nil {
+		c.holder = h
+	}
+}
+
+// NewEnvCodec derives the environment key from the encryption-root IKM.
 //
-// It refuses an empty secret rather than storing plaintext: the caller decides
+// It refuses an empty IKM rather than storing plaintext: the caller decides
 // what to do without one, and nothing decides to write secrets in the clear.
-func NewEnvCodec(clusterSecret string) (*EnvCodec, error) {
-	key, err := secrets.DeriveKey(strings.TrimSpace(clusterSecret), EnvEncryptionPurpose)
+func NewEnvCodec(ikm string) (*EnvCodec, error) {
+	key, err := secrets.DeriveKey(strings.TrimSpace(ikm), EnvEncryptionPurpose)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive the deployment environment key: %w", err)
 	}
@@ -55,7 +63,7 @@ func (c *EnvCodec) Encode(env map[string]string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to encode the deployment environment: %w", err)
 	}
-	sealed, err := secrets.Encrypt(string(plain), c.key)
+	sealed, err := secrets.Seal(c.holder, EnvEncryptionPurpose, c.key, string(plain))
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt the deployment environment: %w", err)
 	}
@@ -82,7 +90,7 @@ func (c *EnvCodec) Decode(stored string) (map[string]string, error) {
 	plain := stored
 	if secrets.IsEncrypted(stored) {
 		var err error
-		plain, err = secrets.Decrypt(stored, c.key)
+		plain, err = secrets.Open(c.holder, EnvEncryptionPurpose, c.key, stored)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt the deployment environment: %w", err)
 		}

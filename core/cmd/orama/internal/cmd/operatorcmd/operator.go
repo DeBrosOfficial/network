@@ -66,6 +66,67 @@ invalidates every token in the cluster at once.`,
 	},
 }
 
+var rotateSecretsRotate bool
+
+var rotateSecretsCmd = &cobra.Command{
+	Use:   "rotate-secrets",
+	Short: "Re-encrypt stored secrets, optionally under a new encryption root",
+	Long: `Rewrite function secrets, push tokens, TURN secrets, deployment
+environments and agent tokens onto the versioned envelope (enc:v1:<id>:).
+
+Without --rotate the IKM does not change: leftover plaintext and the legacy
+enc: form are rewritten so a captured snapshot of the old format is no longer
+the live one, and Decrypt can fail closed.
+
+With --rotate a new encryption root is generated. Existing ciphertext is
+re-encrypted under it. A disk that holds only the previous root cannot open
+the new rows. IPFS-Cluster and the mesh bearer are not touched.
+
+Do not run this until every gateway is on a binary that can read enc:v1:.
+The walker is idempotent; if it is interrupted, run it again.`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		body := map[string]bool{"rotate": rotateSecretsRotate}
+		raw, err := shared.Request("POST", "/v1/operator/rotate-secrets", body)
+		if err != nil {
+			return err
+		}
+		var resp struct {
+			KeyID      string `json:"key_id"`
+			PreviousID string `json:"previous_id"`
+			Rotated    bool   `json:"rotated"`
+			Index      struct {
+				Scanned  int      `json:"scanned"`
+				Rewrote  int      `json:"rewrote"`
+				Skipped  int      `json:"skipped"`
+				Failures []string `json:"failures"`
+			} `json:"index"`
+		}
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return clierr.Failure("could not parse the gateway's reply: %w", err)
+		}
+		fmt.Printf("Stored secrets rewritten.\n\n")
+		fmt.Printf("  Key id:     %s\n", resp.KeyID)
+		if resp.PreviousID != "" {
+			fmt.Printf("  Previous:   %s\n", resp.PreviousID)
+		}
+		if resp.Rotated {
+			fmt.Printf("  IKM:        replaced (a captured previous root cannot open new rows)\n")
+		} else {
+			fmt.Printf("  IKM:        unchanged (format rewrite only)\n")
+		}
+		fmt.Printf("  Index:      scanned %d, rewrote %d, skipped %d\n",
+			resp.Index.Scanned, resp.Index.Rewrote, resp.Index.Skipped)
+		if len(resp.Index.Failures) > 0 {
+			fmt.Printf("  Failures:   %d\n", len(resp.Index.Failures))
+		}
+		return nil
+	},
+}
+
 func init() {
+	rotateSecretsCmd.Flags().BoolVar(&rotateSecretsRotate, "rotate", false,
+		"Generate a new encryption root and re-encrypt under it")
 	Cmd.AddCommand(rotateSigningKeyCmd)
+	Cmd.AddCommand(rotateSecretsCmd)
 }

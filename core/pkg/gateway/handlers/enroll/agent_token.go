@@ -72,12 +72,30 @@ func (h *Handler) AgentToken(ctx context.Context, nodeID string) (string, error)
 	return token, nil
 }
 
-// agentTokenKey derives the encryption key from the cluster secret on disk.
+// agentTokenKey derives the encryption key from the encryption root on disk,
+// falling back to the cluster secret so a node that has not materialised the
+// root file yet still reads tokens written before this release.
 func (h *Handler) agentTokenKey() ([]byte, error) {
-	raw, err := os.ReadFile(h.oramaDir + "/secrets/cluster-secret")
+	ikm, err := readIKM(h.oramaDir)
 	if err != nil {
-		return nil, fmt.Errorf("could not read the cluster secret, so agent tokens cannot be "+
-			"encrypted or read: %w", err)
+		return nil, err
 	}
-	return secrets.DeriveKey(strings.TrimSpace(string(raw)), agentTokenPurpose)
+	return secrets.DeriveKey(ikm, agentTokenPurpose)
+}
+
+func readIKM(oramaDir string) (string, error) {
+	if raw, err := os.ReadFile(oramaDir + "/secrets/" + secrets.FileName); err == nil {
+		if v := strings.TrimSpace(string(raw)); v != "" {
+			return v, nil
+		}
+	}
+	raw, err := os.ReadFile(oramaDir + "/secrets/cluster-secret")
+	if err != nil {
+		return "", fmt.Errorf("could not read the encryption root or cluster secret, so agent tokens cannot be encrypted or read: %w", err)
+	}
+	v := strings.TrimSpace(string(raw))
+	if v == "" {
+		return "", fmt.Errorf("encryption root and cluster secret are empty")
+	}
+	return v, nil
 }

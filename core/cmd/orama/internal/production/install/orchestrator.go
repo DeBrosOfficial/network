@@ -539,6 +539,26 @@ func (o *Orchestrator) saveSecretsFromJoinResponse(resp *joinhandlers.JoinRespon
 
 	// Write TURN shared secret (feat-124 #913) — identical on every node so
 	// WebRTC TURN credentials validate cluster-wide and survive config regen.
+	if resp.EncryptionRoot != "" {
+		if err := os.WriteFile(filepath.Join(secretsDir, "encryption-root"), []byte(resp.EncryptionRoot), 0600); err != nil {
+			return fmt.Errorf("failed to write encryption-root: %w", err)
+		}
+		id := resp.EncryptionRootID
+		if id == "" {
+			id = "1"
+		}
+		if err := os.WriteFile(filepath.Join(secretsDir, "encryption-root.id"), []byte(id), 0600); err != nil {
+			return fmt.Errorf("failed to write encryption-root.id: %w", err)
+		}
+	} else if resp.ClusterSecret != "" {
+		if err := os.WriteFile(filepath.Join(secretsDir, "encryption-root"), []byte(resp.ClusterSecret), 0600); err != nil {
+			return fmt.Errorf("failed to write encryption-root: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(secretsDir, "encryption-root.id"), []byte("1"), 0600); err != nil {
+			return fmt.Errorf("failed to write encryption-root.id: %w", err)
+		}
+	}
+
 	if resp.TURNSecret != "" {
 		if err := os.WriteFile(filepath.Join(secretsDir, "turn-secret"), []byte(resp.TURNSecret), 0600); err != nil {
 			return fmt.Errorf("failed to write turn-secret: %w", err)

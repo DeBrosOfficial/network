@@ -91,6 +91,7 @@ var publicRoutes = []string{
 	"/v1/internal/join",
 	"/v1/internal/namespace/repair",
 	"/v1/internal/namespace/spawn",
+	"/v1/internal/secrets/reencrypt",
 	"/v1/internal/node/enrol-key",
 	"/v1/internal/node/heartbeat",
 	"/v1/internal/node/register",

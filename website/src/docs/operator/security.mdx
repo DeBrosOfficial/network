@@ -52,7 +52,7 @@ All internal services require authentication:
 
 ### At Rest
 
-- **TURN secrets** encrypted with AES-256-GCM in the database (key derived from cluster secret)
+- **TURN secrets, function secrets, push tokens, deployment env, agent tokens** encrypted with AES-256-GCM. The key is HKDF of `secrets/encryption-root` (starts as a copy of the cluster secret). `orama operator rotate-secrets --rotate` replaces the IKM without touching IPFS-Cluster or the mesh bearer
 - **OramaOS nodes** — Full-disk LUKS2 encryption with Shamir key distribution (see the OramaOS page)
 - **Refresh tokens and API keys** — Stored as cryptographic hashes, not plaintext
 

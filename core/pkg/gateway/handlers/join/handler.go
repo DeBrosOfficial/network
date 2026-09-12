@@ -57,6 +57,10 @@ type JoinResponse struct {
 	// TURN shared secret (feat-124 #913) — must be identical on every node so
 	// WebRTC TURN credentials validate cluster-wide.
 	TURNSecret string `json:"turn_secret,omitempty"`
+	// EncryptionRoot is the IKM stored-ciphertext keys are derived from.
+	// Starts as a copy of the cluster secret; an operator rotate replaces it.
+	EncryptionRoot   string `json:"encryption_root,omitempty"`
+	EncryptionRootID string `json:"encryption_root_id,omitempty"`
 
 	// Cluster join info (all using WG IPs)
 	RQLiteJoinAddress  string   `json:"rqlite_join_address"`
@@ -364,6 +368,8 @@ func (h *Handler) HandleJoin(w http.ResponseWriter, r *http.Request) {
 		RQLitePassword:       secrets.RQLitePassword,
 		SecretsEncryptionKey: secrets.SecretsEncryptionKey,
 		TURNSecret:           secrets.TURNSecret,
+		EncryptionRoot:       secrets.EncryptionRoot,
+		EncryptionRootID:     secrets.EncryptionRootID,
 		RQLiteJoinAddress:    constants.RQLiteRaftAddrFor(myWGIP),
 		IPFSPeer:             ipfsPeer,
 		IPFSClusterPeer:      ipfsClusterPeer,
@@ -577,6 +583,8 @@ type joinSecrets struct {
 	RQLitePassword       string
 	SecretsEncryptionKey string
 	TURNSecret           string
+	EncryptionRoot       string
+	EncryptionRootID     string
 }
 
 // readJoinSecrets loads every secret the response carries.
@@ -608,10 +616,18 @@ func (h *Handler) readJoinSecrets() (joinSecrets, error) {
 		{"rqlite-password", &out.RQLitePassword},
 		{"secrets-encryption-key", &out.SecretsEncryptionKey},
 		{"turn-secret", &out.TURNSecret},
+		{"encryption-root", &out.EncryptionRoot},
+		{"encryption-root.id", &out.EncryptionRootID},
 	} {
 		if data, err := os.ReadFile(h.oramaDir + "/secrets/" + opt.file); err == nil {
 			*opt.dst = strings.TrimSpace(string(data))
 		}
+	}
+	if out.EncryptionRoot == "" {
+		out.EncryptionRoot = out.ClusterSecret
+	}
+	if out.EncryptionRootID == "" && out.EncryptionRoot != "" {
+		out.EncryptionRootID = "1"
 	}
 
 	return out, nil

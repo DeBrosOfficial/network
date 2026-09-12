@@ -69,6 +69,7 @@ func (g *Gateway) Routes() http.Handler {
 
 	// Namespace cluster repair (internal, handler does its own auth)
 	mux.HandleFunc("/v1/internal/namespace/repair", g.namespaceClusterRepairHandler)
+	mux.HandleFunc("/v1/internal/secrets/reencrypt", g.handleInternalReencrypt)
 
 	// Namespace WebRTC enable/disable/status (public, JWT/API key auth via middleware)
 	mux.HandleFunc("/v1/namespace/webrtc/enable", g.namespaceWebRTCEnablePublicHandler)
@@ -201,6 +202,7 @@ func (g *Gateway) Routes() http.Handler {
 		mux.HandleFunc("/v1/operator/nodes", g.operatorHandler.HandleListNodes)
 		mux.HandleFunc("/v1/operator/node/register", g.operatorHandler.HandleRegister)
 		mux.HandleFunc("/v1/operator/rotate-signing-key", g.handleRotateSigningKey)
+		mux.HandleFunc("/v1/operator/rotate-secrets", g.handleRotateSecrets)
 	}
 
 	// vault proxy (public, rate-limited per identity within handler)

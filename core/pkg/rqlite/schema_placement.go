@@ -69,6 +69,7 @@ var tablePlacement = map[string]tableNote{
 	"device_authorizations": {PlacementCluster, "started on one gateway, approved on another"},
 	"operators":             {PlacementCluster, "who may operate the cluster"},
 	"audit_events":          {PlacementCluster, "a record its own subject could delete is not a record"},
+	"encryption_roots":      {PlacementCluster, "the IKM stored secrets are derived from; a tenant copy would be a KEK they can rewrite"},
 
 	// --- the tenant's data plane: the namespace's own RQLite --------------
 	//

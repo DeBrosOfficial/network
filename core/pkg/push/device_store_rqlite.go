@@ -29,7 +29,15 @@ type RqliteDeviceStore struct {
 	db     rqlite.Client
 	encKey []byte // derived once at construction (token encryption)
 	fpKey  []byte // derived once at construction (token fingerprint, bugboard #981)
+	holder *secrets.Holder
 	logger *zap.Logger
+}
+
+// SetHolder lets a rotate take effect without restarting this process.
+func (s *RqliteDeviceStore) SetHolder(h *secrets.Holder) {
+	if s != nil {
+		s.holder = h
+	}
 }
 
 // NewRqliteDeviceStore derives the per-cluster encryption + fingerprint keys
@@ -101,7 +109,7 @@ func (s *RqliteDeviceStore) Upsert(ctx context.Context, dev PushDevice) (string,
 		return "", ErrEmptyToken
 	}
 
-	encToken, err := secrets.Encrypt(dev.Token, s.encKey)
+	encToken, err := secrets.Seal(s.holder, SecretsKeyPurpose, s.encKey, dev.Token)
 	if err != nil {
 		return "", fmt.Errorf("encrypt token: %w", err)
 	}
@@ -232,7 +240,7 @@ func (s *RqliteDeviceStore) BackfillTokenFP(ctx context.Context) (int, error) {
 	}
 	updated := 0
 	for _, r := range rows {
-		token, err := secrets.Decrypt(r.TokenEncrypted, s.encKey)
+		token, err := secrets.Open(s.holder, SecretsKeyPurpose, s.encKey, r.TokenEncrypted)
 		if err != nil {
 			s.logger.Warn("backfill: failed to decrypt token; skipping row",
 				zap.String("device_row_id", r.ID),
@@ -293,7 +301,7 @@ func (s *RqliteDeviceStore) ListForUser(ctx context.Context, namespace, userID s
 
 	out := make([]PushDevice, 0, len(rows))
 	for _, r := range rows {
-		token, err := secrets.Decrypt(r.TokenEncrypted, s.encKey)
+		token, err := secrets.Open(s.holder, SecretsKeyPurpose, s.encKey, r.TokenEncrypted)
 		if err != nil {
 			s.logger.Warn("failed to decrypt push token; skipping device",
 				zap.String("device_id", r.DeviceID),

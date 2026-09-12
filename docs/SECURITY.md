@@ -333,6 +333,16 @@ These measures apply to all nodes (Ubuntu and OramaOS).
 - Each gateway generates its own key now, `0600` in its own secrets directory, and publishes the public half in `signing_keys` so the rest of the cluster verifies what it mints. A namespace gateway's key is **bound to its namespace**: a token signed with it is refused unless its `namespace` claim matches, on every verifier including the one that signed it
 - The index gateway's key is bound to nothing, deliberately. It is the control plane and it mints what the CLI signs in with for every namespace; a compromise of it is not a tenant-boundary problem
 - `orama operator rotate-signing-key` publishes a successor, signs with it, and leaves the outgoing key verifying what it already signed for one access-token lifetime. Two `kid`s in flight, no forced logouts, nothing restarted. It needs the operator list, not just the admin grant
+
+**Stored secrets (function secrets, push tokens, TURN, deployment env, agent tokens)**
+- These used to be `AES-GCM` under `HKDF(cluster secret, purpose)` wrapped as `enc:<base64>`. The cluster secret is also IPFS-Cluster's PSK and the mesh bearer, so rotating stored secrets meant partitioning the cluster. In practice the cluster secret is never rotated
+- The IKM is now `secrets/encryption-root`, a cluster-wide value that starts as a copy of the cluster secret so existing rows stay readable. Join ships it. `encryption_roots` in the registry is the source of truth after the first persist
+- The envelope is `enc:` until an operator rewrite, then `enc:v1:<keyid>:<base64>`. Decrypt fails closed on anything else. Leftover plaintext (deployment env, TURN) is still recognised by `IsEncrypted` at the caller and sealed by the walker
+- `orama operator rotate-secrets` rewrites every sealed column. Without `--rotate` the IKM does not change. With `--rotate` a new root is generated and the walker re-encrypts; a disk that holds only the previous root cannot open the new rows. IPFS-Cluster and the mesh bearer are not touched
+- Do not run it until every gateway is on a binary that can read `enc:v1:`. The walker is idempotent; if it is interrupted, run it again
+- Editing the HKDF purpose label in Go is not a rotation. It orphans every stored value
+- HKDF salt stays omitted (RFC 5869 zeros). Adding a salt is a key change and belongs inside `--rotate` if it is ever wanted, not as a silent upgrade
+- Rotating the cluster secret itself (IPFS-Cluster PSK + mesh bearer + coordination MACs) is a maintenance window, not this command
 - The old cluster-derived key is accepted for one access-token lifetime after each gateway boots, so tokens issued before the upgrade do not break — and no longer, because a key every node can derive would otherwise keep the hole open for ever
 - A key that is retired and a key whose retirement cannot be parsed are treated the same way: refused. `signing_keys` is on the list of tables a tenant's SQL may not name, because publishing a key is minting authority by another route
 

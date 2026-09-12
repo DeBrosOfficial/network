@@ -98,7 +98,15 @@ var ErrConfigNotFound = errors.New("push config not found for namespace")
 type rqliteConfigStore struct {
 	db     rqlite.Client
 	encKey []byte
+	holder *secrets.Holder
 	logger *zap.Logger
+}
+
+// SetHolder lets a rotate take effect without restarting this process.
+func (s *rqliteConfigStore) SetHolder(h *secrets.Holder) {
+	if s != nil {
+		s.holder = h
+	}
 }
 
 // NewRqliteConfigStore wires the store to RQLite with a cluster-secret-
@@ -156,14 +164,14 @@ func (s *rqliteConfigStore) Get(ctx context.Context, namespace string) (*Config,
 		UpdatedBy:   r.UpdatedBy,
 	}
 	if r.NtfyAuthTokenEncrypted != "" {
-		v, err := secrets.Decrypt(r.NtfyAuthTokenEncrypted, s.encKey)
+		v, err := secrets.Open(s.holder, purposeNamespacePushConfig, s.encKey, r.NtfyAuthTokenEncrypted)
 		if err != nil {
 			return nil, fmt.Errorf("push config: decrypt ntfy auth token: %w", err)
 		}
 		cfg.NtfyAuthToken = v
 	}
 	if r.ExpoAccessTokenEncrypted != "" {
-		v, err := secrets.Decrypt(r.ExpoAccessTokenEncrypted, s.encKey)
+		v, err := secrets.Open(s.holder, purposeNamespacePushConfig, s.encKey, r.ExpoAccessTokenEncrypted)
 		if err != nil {
 			return nil, fmt.Errorf("push config: decrypt expo access token: %w", err)
 		}
@@ -181,14 +189,14 @@ func (s *rqliteConfigStore) Upsert(ctx context.Context, cfg Config) error {
 
 	var ntfyEnc, expoEnc string
 	if cfg.NtfyAuthToken != "" {
-		v, err := secrets.Encrypt(cfg.NtfyAuthToken, s.encKey)
+		v, err := secrets.Seal(s.holder, purposeNamespacePushConfig, s.encKey, cfg.NtfyAuthToken)
 		if err != nil {
 			return fmt.Errorf("push config: encrypt ntfy auth token: %w", err)
 		}
 		ntfyEnc = v
 	}
 	if cfg.ExpoAccessToken != "" {
-		v, err := secrets.Encrypt(cfg.ExpoAccessToken, s.encKey)
+		v, err := secrets.Seal(s.holder, purposeNamespacePushConfig, s.encKey, cfg.ExpoAccessToken)
 		if err != nil {
 			return fmt.Errorf("push config: encrypt expo access token: %w", err)
 		}
