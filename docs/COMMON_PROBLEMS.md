@@ -221,25 +221,20 @@ ssh -n user@host 'command'
 
 **Symptom:** RQLite queries fail with HTTP 401.
 
-**Cause:** `rqlited` is started with `-auth` only when `database.rqlite_enforce_auth` is set, which is off by default. Two possibilities:
-
-1. **Enforcement is off** (the normal state) — then the 401 is not Orama's. Something else is in front of RQLite: a reverse proxy, or a hand-edited unit file.
-2. **Enforcement was switched on** while some caller still has no credentials.
+**Cause:** This release starts rqlited with `-auth` (auth JSON copied into the instance data dir). Unauthenticated calls are 401 by design.
 
 **Fix:**
 
 ```bash
-grep -E 'rqlite_(auth_file|enforce_auth|username|password)' /opt/orama/.orama/configs/node.yaml
+grep -E 'rqlite_(auth_file|username|password)' /opt/orama/.orama/configs/node.yaml
+sudo cat /opt/orama/.orama/secrets/rqlite-password
 ```
 
-If `rqlite_enforce_auth: true`, every client must send the credentials from `/opt/orama/.orama/secrets/rqlite-auth.json`. The node's own admin calls do (`core/pkg/rqlite/adminclient.go` reads `rqlite_auth_file`), and so does its SQL DSN. **The gateway and namespace DSNs do not** — `gateway.Config.RQLiteUsername`/`RQLitePassword` are never assigned — so enforcement is not yet safe to switch on fleet-wide.
+Every client must send `orama` + that password. Gateway YAML has `rqlite_username` / `rqlite_password`. AdminClient reads the auth file. CoreDNS Corefile has `username` / `password` when the secret exists.
+
+A 401 during a mixed-fleet upgrade means an old binary (no DSN creds) is talking to a new rqlited. Finish the rolling upgrade, followers first, leader last.
 
 Errors from `AdminClient` name a 401 explicitly ("rqlite rejected the credentials (401)"). A 401 that reads instead as reconciliation or backups silently stopping means some caller is still bypassing `AdminClient`.
-
-**Enabling enforcement is two passes, in this order** (doing them in one 401s every peer still on the old binary — see `docs/SECURITY.md`):
-
-1. Roll out configs carrying `rqlite_auth_file`, enforcement off, to **every** node.
-2. Only then set `rqlite_enforce_auth: true`, restarting followers first and the leader last.
 
 ---
 

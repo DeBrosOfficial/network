@@ -47,12 +47,24 @@ func writeAPIKeyHMACSecret(t *testing.T, root, contents string) string {
 	return path
 }
 
+func writeRQLitePassword(t *testing.T, root, contents string) {
+	t.Helper()
+	secretsDir := filepath.Join(root, "secrets")
+	if err := os.MkdirAll(secretsDir, 0755); err != nil {
+		t.Fatalf("mkdir secrets dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(secretsDir, "rqlite-password"), []byte(contents), 0600); err != nil {
+		t.Fatalf("write rqlite-password: %v", err)
+	}
+}
+
 func TestSpawnGateway_apiKeyHMACSecretPresent_renderedYAMLContainsSecret(t *testing.T) {
 	withOverlayIP(t, "10.0.0.5", nil)
 	root, namespaceBase := setupOramaDirs(t)
 	// Trailing whitespace/newline must be trimmed, same as the main gateway
 	// (pkg/node/gateway.go:52).
 	writeAPIKeyHMACSecret(t, root, "the-hmac-secret\n")
+	writeRQLitePassword(t, root, "s3cret\n")
 
 	s := NewSystemdSpawner(namespaceBase, "", zap.NewNop())
 	cfg := gatewayspec.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
@@ -74,6 +86,9 @@ func TestSpawnGateway_apiKeyHMACSecretPresent_renderedYAMLContainsSecret(t *test
 	}
 	if onDisk.APIKeyHMACSecret != "the-hmac-secret" {
 		t.Errorf("APIKeyHMACSecret = %q, want %q", onDisk.APIKeyHMACSecret, "the-hmac-secret")
+	}
+	if onDisk.RQLiteUsername != "orama" || onDisk.RQLitePassword != "s3cret" {
+		t.Errorf("rqlite creds = %q/%q, want orama/s3cret", onDisk.RQLiteUsername, onDisk.RQLitePassword)
 	}
 
 	info, err := os.Stat(configPath)

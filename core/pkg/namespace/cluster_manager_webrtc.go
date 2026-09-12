@@ -179,7 +179,7 @@ func (cm *ClusterManager) EnableWebRTC(ctx context.Context, namespaceName, enabl
 	for _, node := range clusterNodes {
 		sfuBlock := sfuBlocks[node.NodeID]
 		pb := nodePortBlocks[node.NodeID]
-		rqliteDSN := fmt.Sprintf("http://localhost:%d", pb.RQLiteHTTPPort)
+		rqliteDSN := localRQLiteDSN(node.InternalIP, pb.RQLiteHTTPPort)
 
 		sfuCfg := SFUInstanceConfig{
 			Namespace:      namespaceName,
@@ -715,7 +715,7 @@ func (cm *ClusterManager) restartGatewaysWithWebRTC(
 			NodeID:                node.NodeID,
 			HTTPPort:              pb.GatewayHTTPPort,
 			BaseDomain:            cm.baseDomain,
-			RQLiteDSN:             fmt.Sprintf("http://localhost:%d", pb.RQLiteHTTPPort),
+			RQLiteDSN:             localRQLiteDSN(node.InternalIP, pb.RQLiteHTTPPort),
 			GlobalRQLiteDSN:       cm.globalRQLiteDSN,
 			OlricServers:          olricServers,
 			OlricTimeout:          30 * time.Second,
@@ -1648,7 +1648,7 @@ func (cm *ClusterManager) spawnAllocatedWebRTCServices(ctx context.Context, stat
 				},
 				TURNSecret:  webrtcCfg.TURNSharedSecret,
 				TURNCredTTL: webrtcCfg.TURNCredentialTTL,
-				RQLiteDSN:   fmt.Sprintf("http://localhost:%d", state.LocalPorts.RQLiteHTTPPort),
+				RQLiteDSN:   localRQLiteDSN(state.LocalIP, state.LocalPorts.RQLiteHTTPPort),
 			}); serr != nil {
 				cm.recordSpawnFailure(state.NamespaceName)
 				cm.logger.Warn("Failed to start newly-allocated SFU (backing off)",

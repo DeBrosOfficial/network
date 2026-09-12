@@ -523,36 +523,13 @@ func (o *Orchestrator) extractNetworkConfig() (vpsIP, joinAddress string) {
 }
 
 func (o *Orchestrator) extractGatewayConfig() (enableHTTPS bool, domain string, baseDomain string) {
-	gatewayConfigPath := filepath.Join(o.oramaDir, "configs", "gateway.yaml")
-	if data, err := os.ReadFile(gatewayConfigPath); err == nil {
-		configStr := string(data)
-		if strings.Contains(configStr, "domain:") {
-			for _, line := range strings.Split(configStr, "\n") {
-				trimmed := strings.TrimSpace(line)
-				if strings.HasPrefix(trimmed, "domain:") {
-					parts := strings.SplitN(trimmed, ":", 2)
-					if len(parts) > 1 {
-						domain = strings.TrimSpace(parts[1])
-						if domain != "" && domain != "\"\"" && domain != "''" && domain != "null" {
-							domain = strings.Trim(domain, "\"'")
-							enableHTTPS = true
-						} else {
-							domain = ""
-						}
-					}
-					break
-				}
-			}
-		}
-	}
-
-	// Also check node.yaml for domain and base_domain
+	// enableHTTPS is always false: public TLS is Caddy. A leftover domain:
+	// line in node.yaml must not re-enable gateway autocert.
 	nodeConfigPath := filepath.Join(o.oramaDir, "configs", "node.yaml")
 	if data, err := os.ReadFile(nodeConfigPath); err == nil {
 		configStr := string(data)
 		for _, line := range strings.Split(configStr, "\n") {
 			trimmed := strings.TrimSpace(line)
-			// Extract domain from node.yaml (under node: section) if not already found
 			if domain == "" && strings.HasPrefix(trimmed, "domain:") && !strings.HasPrefix(trimmed, "domain_") {
 				parts := strings.SplitN(trimmed, ":", 2)
 				if len(parts) > 1 {
@@ -560,7 +537,6 @@ func (o *Orchestrator) extractGatewayConfig() (enableHTTPS bool, domain string, 
 					d = strings.Trim(d, "\"'")
 					if d != "" && d != "null" {
 						domain = d
-						enableHTTPS = true
 					}
 				}
 			}
@@ -577,7 +553,7 @@ func (o *Orchestrator) extractGatewayConfig() (enableHTTPS bool, domain string, 
 		}
 	}
 
-	return enableHTTPS, domain, baseDomain
+	return false, domain, baseDomain
 }
 
 // reexecAfterBinarySwap replaces this process with the newly-installed

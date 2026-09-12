@@ -806,8 +806,8 @@ func (cm *ClusterManager) startGatewayCluster(ctx context.Context, cluster *Name
 
 	// Start all Gateway instances
 	for i, node := range nodes {
-		// Connect to local RQLite instance on each node
-		rqliteDSN := fmt.Sprintf("http://localhost:%d", portBlocks[i].RQLiteHTTPPort)
+		// Connect to local RQLite instance on each node (WG bind, feat-269)
+		rqliteDSN := localRQLiteDSN(node.InternalIP, portBlocks[i].RQLiteHTTPPort)
 
 		cfg := gatewayspec.InstanceConfig{
 			Namespace:             cluster.NamespaceName,
@@ -1908,7 +1908,7 @@ func (cm *ClusterManager) restoreClusterOnNode(ctx context.Context, clusterID, n
 				NodeID:                cm.localNodeID,
 				HTTPPort:              pb.GatewayHTTPPort,
 				BaseDomain:            cm.baseDomain,
-				RQLiteDSN:             fmt.Sprintf("http://localhost:%d", pb.RQLiteHTTPPort),
+				RQLiteDSN:             localRQLiteDSN(localIP, pb.RQLiteHTTPPort),
 				GlobalRQLiteDSN:       cm.globalRQLiteDSN,
 				OlricServers:          olricServers,
 				OlricTimeout:          30 * time.Second,
@@ -2570,7 +2570,7 @@ func (cm *ClusterManager) restoreClusterFromState(ctx context.Context, state *Cl
 			NodeID:                cm.localNodeID,
 			HTTPPort:              pb.GatewayHTTPPort,
 			BaseDomain:            state.BaseDomain,
-			RQLiteDSN:             fmt.Sprintf("http://localhost:%d", pb.RQLiteHTTPPort),
+			RQLiteDSN:             localRQLiteDSN(localIP, pb.RQLiteHTTPPort),
 			GlobalRQLiteDSN:       cm.globalRQLiteDSN,
 			OlricServers:          olricServers,
 			OlricTimeout:          30 * time.Second,
@@ -2868,7 +2868,7 @@ func (cm *ClusterManager) restoreClusterFromState(ctx context.Context, state *Cl
 						},
 						TURNSecret:  webrtcCfg.TURNSharedSecret,
 						TURNCredTTL: webrtcCfg.TURNCredentialTTL,
-						RQLiteDSN:   fmt.Sprintf("http://localhost:%d", pb.RQLiteHTTPPort),
+						RQLiteDSN:   localRQLiteDSN(localIP, pb.RQLiteHTTPPort),
 					}
 					if err := cm.systemdSpawner.SpawnSFU(ctx, state.NamespaceName, cm.localNodeID, sfuCfg); err != nil {
 						cm.logger.Error("Failed to restore SFU", zap.String("namespace", state.NamespaceName), zap.Error(err))

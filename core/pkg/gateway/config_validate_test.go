@@ -79,39 +79,6 @@ func TestValidateRQLiteDSN(t *testing.T) {
 	}
 }
 
-func TestIsValidDomainName(t *testing.T) {
-	tests := []struct {
-		name   string
-		domain string
-		want   bool
-	}{
-		{"valid example.com", "example.com", true},
-		{"valid sub.domain.co.uk", "sub.domain.co.uk", true},
-		{"valid with numbers", "host123.example.com", true},
-		{"valid with hyphen", "my-host.example.com", true},
-		{"valid uppercase", "Example.COM", true},
-		{"invalid starts with hyphen", "-example.com", false},
-		{"invalid ends with hyphen", "example.com-", false},
-		{"invalid starts with dot", ".example.com", false},
-		{"invalid ends with dot", "example.com.", false},
-		{"invalid special chars", "exam!ple.com", false},
-		{"invalid underscore", "my_host.example.com", false},
-		{"invalid space", "example .com", false},
-		{"empty string", "", false},
-		{"no dot", "localhost", false},
-		{"single char domain", "a.b", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isValidDomainName(tt.domain)
-			if got != tt.want {
-				t.Errorf("isValidDomainName(%q) = %v, want %v", tt.domain, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestExtractTCPPort_Gateway(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -308,84 +275,15 @@ func TestValidateConfig_InvalidRQLiteDSN(t *testing.T) {
 	}
 }
 
-func TestValidateConfig_HTTPSWithoutDomain(t *testing.T) {
+func TestValidateConfig_DomainNameWithoutHTTPSIsFine(t *testing.T) {
 	cfg := &Config{
-		ListenAddr:      ":443",
+		ListenAddr:      ":10104",
 		ClientNamespace: "default",
-		EnableHTTPS:     true,
-	}
-	errs := cfg.ValidateConfig()
-
-	var foundDomain bool
-	for _, err := range errs {
-		if strings.Contains(err.Error(), "domain_name") {
-			foundDomain = true
-			break
-		}
-	}
-
-	if !foundDomain {
-		t.Errorf("expected domain_name error when HTTPS enabled without domain, got: %v", errs)
-	}
-}
-
-func TestValidateConfig_HTTPSWithInvalidDomain(t *testing.T) {
-	cfg := &Config{
-		ListenAddr:      ":443",
-		ClientNamespace: "default",
-		EnableHTTPS:     true,
-		DomainName:      "-invalid",
-		TLSCacheDir:     "/tmp/tls",
-	}
-	errs := cfg.ValidateConfig()
-
-	var foundDomain bool
-	for _, err := range errs {
-		if strings.Contains(err.Error(), "domain_name") && strings.Contains(err.Error(), "invalid domain") {
-			foundDomain = true
-			break
-		}
-	}
-
-	if !foundDomain {
-		t.Errorf("expected invalid domain_name error, got: %v", errs)
-	}
-}
-
-func TestValidateConfig_HTTPSWithoutTLSCacheDir(t *testing.T) {
-	cfg := &Config{
-		ListenAddr:      ":443",
-		ClientNamespace: "default",
-		EnableHTTPS:     true,
 		DomainName:      "example.com",
 	}
 	errs := cfg.ValidateConfig()
-
-	var foundTLS bool
-	for _, err := range errs {
-		if strings.Contains(err.Error(), "tls_cache_dir") {
-			foundTLS = true
-			break
-		}
-	}
-
-	if !foundTLS {
-		t.Errorf("expected tls_cache_dir error when HTTPS enabled without TLS cache dir, got: %v", errs)
-	}
-}
-
-func TestValidateConfig_ValidHTTPS(t *testing.T) {
-	cfg := &Config{
-		ListenAddr:      ":443",
-		ClientNamespace: "default",
-		EnableHTTPS:     true,
-		DomainName:      "example.com",
-		TLSCacheDir:     "/tmp/tls",
-	}
-	errs := cfg.ValidateConfig()
-
 	if len(errs) > 0 {
-		t.Errorf("valid HTTPS config should not produce errors, got: %v", errs)
+		t.Errorf("domain_name without enable_https must be valid (Caddy terminates TLS), got: %v", errs)
 	}
 }
 

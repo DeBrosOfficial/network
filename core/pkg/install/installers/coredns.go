@@ -453,6 +453,11 @@ func (ci *CoreDNSInstaller) executeRQLiteStatements(rqliteDSN string, statements
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if data, err := os.ReadFile("/opt/orama/.orama/secrets/rqlite-password"); err == nil {
+		if password := strings.TrimSpace(string(data)); password != "" {
+			req.SetBasicAuth("orama", password)
+		}
+	}
 
 	// Execute with timeout
 	client := &http.Client{Timeout: 10 * time.Second}

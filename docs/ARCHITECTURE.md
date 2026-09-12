@@ -892,7 +892,7 @@ All inter-node communication is encrypted via a WireGuard VPN mesh:
 - **UFW Firewall:** Only public ports are exposed: 22 (SSH; Ubuntu/sandbox only — OramaOS has no SSH), 53 (DNS, nameservers only), 80/443 (HTTP/HTTPS), 51820 (WireGuard UDP)
 - **IPv6 disabled:** System-wide via sysctl to prevent bypass of IPv4 firewall rules
 - **A tenant's namespace gateway binds the overlay address**, not every interface, so it cannot be reached from a public one however the firewall is written. The index gateway keeps binding everything: Caddy reverse-proxies to localhost and the ACME internal endpoint is reached there. A node whose WireGuard is not up refuses to configure a tenant gateway rather than putting it on the public interface
-- **A namespace's RQLite still binds every interface** (`HTTP_ADDR=0.0.0.0:<port>`, `RAFT_ADDR=0.0.0.0:<port>`), so for that one the firewall is still the only thing between it and the internet. Moving it needs the DSN moved with it — the namespace gateway reaches its own database at `http://localhost:<port>` — and that is chg-387's remaining half
+- **Namespace and index RQLite bind the WireGuard advertise address**, not `0.0.0.0`. The namespace gateway DSN uses that same host. `-auth` is always passed; missing auth file refuses to start. See `docs/SECURITY.md`
 - **UFW is still the outer boundary** for everything on the node, but it is no longer the only one for the gateway
 - **Invite tokens:** Single-use and time-limited, and there is no standing cluster password. The token is still a secret passed as a command-line argument, so it is visible to `ps` and lands in shell history on the machine that runs `orama node install`
 - **Join flow:** New nodes authenticate via HTTPS (443) with TOFU certificate pinning, establish WireGuard tunnel, then join all services over the encrypted mesh. The joining node establishes its libp2p identity before it asks to join, so the request carries the peer id the cluster will key it by
@@ -955,9 +955,10 @@ internal-auth check both accept.
 
 ### Service Authentication
 
-- **RQLite:** credentials are generated at genesis and written into every generated `node.yaml` (`database.rqlite_auth_file` / `rqlite_username` / `rqlite_password`). `rqlited` is **not** started with `-auth` today — that is a separate setting, `database.rqlite_enforce_auth`, default off — so overlay + firewall keep the HTTP API off the public internet. Every admin call (`/status`, `/nodes`, `/join`, `/remove`, `/db/backup`, transfer-leadership) goes through one client, `pkg/rqlite/adminclient.go`, which sends those credentials. The gateway and namespace SQL DSNs still do not, which is what blocks enforcement; see `docs/SECURITY.md`
+- **RQLite:** credentials are generated at genesis. `orama-namespace-rqlite@*` copies `rqlite-auth.json` into the instance data dir and starts rqlited with `-auth`. HTTP/Raft bind the WireGuard advertise address, not `0.0.0.0`. Gateway YAML carries `rqlite_username` / `rqlite_password`. Missing auth file refuses to start. See `docs/SECURITY.md`
 - **Olric:** memberlist binds the WireGuard address. Olric v0.7.0 YAML has no `encryptionKey`; overlay is the control
-- **IPFS Cluster:** TrustedPeers restricted to known cluster peer IDs (not `*`). The systemd unit is not written if `CLUSTER_SECRET` is missing or empty
+- **IPFS Cluster:** `TrustedPeers` is `["*"]`; membership is CLUSTER_SECRET + overlay + invite. The systemd unit is not written if `CLUSTER_SECRET` is missing or empty. Private blobs are encrypted before Add (`HKDF(cluster-secret, "ipfs-wrap-v1")`)
+- **TLS:** Caddy terminates public TLS (DNS-01). The gateway process does not bind `:80`/`:443` and refuses `enable_https: true`
 - **Internal endpoints:** every `/v1/internal/wg/*` endpoint requires the caller to be on the WireGuard overlay **and** to present the cluster secret. A gateway with no cluster secret configured refuses them outright rather than serving them unauthenticated
 - **Vault:** V1 push/pull endpoints require session token authentication when guardian is configured
 - **WebSockets:** Origin header validated against the node's configured domain

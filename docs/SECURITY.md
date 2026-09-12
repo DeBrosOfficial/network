@@ -150,20 +150,13 @@ These measures apply to all nodes (Ubuntu and OramaOS).
 **Node enrolment (`/v1/node/enroll`)**
 - `node_ip` is parsed as IPv4 and stored canonicalised. It is rendered into `Endpoint =` in the `wg0.conf` of every other node, so an unvalidated value is a WireGuard config injection
 
-**RQLite Authentication (Step 1.7)**
-- Credentials are generated at genesis and written to `rqlite-auth.json` / `rqlite-password`
-- `rqlited` is **not** started with `-auth` today. What keeps the RQLite API off the public internet is the firewall / WireGuard overlay, not RQLite HTTP auth
-- Enabling it is a **two-pass rollout**, and the config has two settings so the passes can be separated:
-  - `database.rqlite_auth_file` — the credentials clients send. `GenerateNodeConfig` now writes this (plus `rqlite_username` / `rqlite_password`) into every generated `node.yaml`. Setting it is always safe: rqlite ignores credentials it does not require
-  - `database.rqlite_enforce_auth` — starts `rqlited` with `-auth`, making it reject unauthenticated callers. Default off
-- These were **one** setting until change-287. That made the rollout impossible: the only way to give a node credentials was to simultaneously start refusing every peer that had none — including every node still on the previous release, whose `/join`, `/status` and `/remove` calls would 401 mid-upgrade and look exactly like Raft breaking
-- Setting `rqlite_enforce_auth` with no `rqlite_auth_file` is a config **error**, not a silent no-op (`pkg/config/validate/database.go`)
-
-**RQLite admin client**
-- Every call to rqlite's admin API (`/status`, `/nodes`, `/join`, `/remove`, `/db/backup`, transfer-leadership) goes through one client, `pkg/rqlite/adminclient.go`, which attaches credentials from the auth file
-- Before change-287 these were fourteen bare `http.Client` calls, none sending credentials. Enabling `-auth` would have 401'd all of them at once: reconciliation, backups and leadership transfer would stop, and nothing in the logs would say "credentials". `AdminClient` names a 401 explicitly for that reason
-- The one remaining direct client in `pkg/rqlite` is `client.freshHTTP` — the SQL read path, which authenticates from its DSN
-- **Still unauthenticated:** the gateway and namespace SQL DSNs. `gateway.Config.RQLiteUsername` / `RQLitePassword` are read but never assigned outside tests, so those DSNs carry no credentials. `rqlite_enforce_auth` cannot be switched on fleet-wide until that is fixed
+**RQLite Authentication (Step 1.7 / feat-269)**
+- Credentials are generated at genesis (`rqlite-auth.json` / `rqlite-password`) and written into `node.yaml`
+- `orama-namespace-rqlite@*` copies the auth JSON into the instance data dir (the unit's `InaccessiblePaths` blocks `secrets/`) and **always** starts rqlited with `-auth`. Empty or missing file → refuse to start
+- HTTP and Raft bind the WireGuard IP from the advertise address, not `0.0.0.0`
+- Gateway and namespace YAML carry `rqlite_username` / `rqlite_password`; DSNs embed userinfo. AdminClient, the node SQL adapter, `connect()`, and CoreDNS seed send Basic Auth
+- Unauthenticated `POST /db/execute` from the mesh is 401 once this binary is running. Rolling this release: followers first, leader last — a mixed fleet of old binaries (no `-auth`, no DSN creds) and new ones 401s admin calls to upgraded nodes
+- Setting `rqlite_enforce_auth` with no `rqlite_auth_file` remains a config **error** (`pkg/config/validate/database.go`)
 
 **Olric Gossip Encryption (Step 1.8)**
 - Olric v0.7.0's YAML loader has **no** `encryptionKey` field; a generated key was shipped and silently dropped
@@ -171,9 +164,9 @@ These measures apply to all nodes (Ubuntu and OramaOS).
 - Wiring `MemberlistConfig.SecretKey` would require embedding Olric, not a YAML field
 
 **IPFS Cluster TrustedPeers (Step 1.9)**
-- IPFS Cluster `TrustedPeers` populated with actual cluster peer IDs (was `["*"]`)
-- New peers added to TrustedPeers on all existing nodes during join
-- Prevents unauthorized peers from controlling IPFS pinning
+- `TrustedPeers` is `["*"]`. A join-time allowlist silently dropped pins from any node the bootstrap set did not yet trust. Membership is cluster secret + WireGuard + invite
+- CLUSTER_SECRET empty-refuse still holds
+- **IPFS wrap (feat-270):** private blobs (storage upload, WASM, SQLite backups) are AES-256-GCM sealed with `HKDF(cluster-secret, "ipfs-wrap-v1")` before Add. Envelope magic `ORMAW1` so Get passes through historical plaintext CIDs. UnixFS directories and `extract=true` tarball deploys are not wrapped. `enable_encryption` in node.yaml is ignored (DecodeStrict compatibility)
 
 **Vault V1 Auth Enforcement (Step 1.14)**
 - V1 push/pull endpoints require a valid session token when vault-guardian is configured
@@ -426,9 +419,8 @@ Stated so the gaps above are known positions, not implied protections:
 
 - **RAM snapshot** of a running node (secrets in process memory, including gateway vault combine)
 - **Hosting-provider / hypervisor access** to the guest
-- **Ubuntu fleet SSH** — Zero Operator Access and LUKS FDE apply to OramaOS only
+- **Ubuntu fleet SSH** — Zero Operator Access and LUKS FDE apply to OramaOS only. Ubuntu disk encryption is design-only: [DISK_ENCRYPTION.md](DISK_ENCRYPTION.md)
 - **dm-verity at boot** — hashes may exist in the OramaOS image; they are not wired into the boot path
-- **RQLite HTTP auth** — `rqlited -auth` is not enabled; overlay + firewall are the control. The clients are ready (see above); the gateway/namespace DSNs are not
 - **ntfy** — no auth-file in v1; listen-localhost is the control
 - **Namespace gateways bind every interface** (`:PORT`, not the overlay address). Reaching one directly still requires a MAC to assert anything, so this is exposure of a listener rather than of an authorization decision. Moving it needs the two local health checks in `pkg/namespace/cluster_manager.go` moved with it — see the bugboard issue
 - **A captured disk snapshot of RQLite** — plaintext application data, including `deployment_env_vars`

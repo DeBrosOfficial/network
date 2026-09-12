@@ -23,7 +23,7 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 RestrictNamespaces=yes
 ProtectProc=invisible
-ReadWritePaths=/opt/orama/.orama/data/namespaces/%i /opt/orama/.orama/logs
+ReadWritePaths=/opt/orama/.orama/data /opt/orama/.orama/data/namespaces/%i /opt/orama/.orama/logs
 InaccessiblePaths=/opt/orama/.orama/secrets
 WorkingDirectory=/opt/orama
 

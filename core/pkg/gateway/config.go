@@ -30,10 +30,9 @@ type Config struct {
 	// is reachable. Zero takes defaultSchemaApplyTimeout.
 	SchemaApplyTimeout time.Duration
 
-	// HTTPS configuration
-	EnableHTTPS bool   // Enable HTTPS with ACME (Let's Encrypt)
-	DomainName  string // Domain name for HTTPS certificate
-	TLSCacheDir string // Directory to cache TLS certificates (default: ~/.orama/tls-cache)
+	// DomainName is loaded from YAML domain_name and copied onto BaseDomain.
+	// Public TLS is Caddy, not this process.
+	DomainName string
 
 	// Domain routing configuration
 	BaseDomain string // Base domain for deployment routing. Set via node config http_gateway.base_domain. Defaults to "dbrs.space"

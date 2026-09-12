@@ -647,7 +647,11 @@ func (ps *ProductionSetup) Phase4GenerateConfigs(peerAddresses []string, vpsIP s
 			ns3IP = peerAddresses[2]
 		}
 
-		rqliteDSN := fmt.Sprintf("http://localhost:%d", constants.RQLiteHTTPPort)
+		rqliteHost := "127.0.0.1"
+		if vpsIP != "" {
+			rqliteHost = vpsIP
+		}
+		rqliteDSN := fmt.Sprintf("http://%s:%d", rqliteHost, constants.RQLiteHTTPPort)
 		if err := ps.binaryInstaller.ConfigureCoreDNS(dnsZone, rqliteDSN, ns1IP, ns2IP, ns3IP); err != nil {
 			ps.logf("  ⚠️  CoreDNS config warning: %v", err)
 		} else {
@@ -949,7 +953,11 @@ func (ps *ProductionSetup) SeedDNSRecords(baseDomain, vpsIP string, peerAddresse
 		ns3IP = extractedIPs[2]
 	}
 
-	rqliteDSN := fmt.Sprintf("http://localhost:%d", constants.RQLiteHTTPPort)
+	rqliteHost := "127.0.0.1"
+	if vpsIP != "" {
+		rqliteHost = vpsIP
+	}
+	rqliteDSN := fmt.Sprintf("http://%s:%d", rqliteHost, constants.RQLiteHTTPPort)
 	if err := ps.binaryInstaller.SeedDNS(baseDomain, rqliteDSN, ns1IP, ns2IP, ns3IP); err != nil {
 		return fmt.Errorf("failed to seed DNS records: %w", err)
 	}
