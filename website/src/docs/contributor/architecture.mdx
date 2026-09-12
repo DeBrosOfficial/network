@@ -156,18 +156,17 @@ The Gateway depends on Olric being fully initialized. Olric depends on RQLite fo
 
 ## Binaries
 
-`core/cmd/` contains entry points for these binaries. `make build` and the `orama build` deployment archive compile all of them except `orama-inspector`, which currently has no build target in the Makefile or builder:
+`core/cmd/` contains entry points for these binaries. `make build` compiles:
 
 | Binary | Entry Point | Purpose |
 |--------|-------------|---------|
-| `orama` | `cmd/cli/` | CLI tool (deploy, manage, monitor) |
-| `gateway` | `cmd/gateway/` | API gateway / reverse proxy |
-| `orama-node` | `cmd/node/` | P2P node (RQLite + libp2p) |
+| `orama` | `cmd/cli/` | CLI tool (deploy, manage, monitor). Cluster health is `orama inspect`. |
+| `gateway` | `cmd/gateway/` | API gateway — one binary for `@index` and `@<tenant>` |
+| `orama-node` | `cmd/node/` | Supervisor: starts systemd units; does not embed the gateway or rqlited |
 | `sfu` | `cmd/sfu/` | WebRTC Selective Forwarding Unit |
 | `turn` | `cmd/turn/` | TURN relay server |
 | `identity` | `cmd/identity/` | P2P identity key generator |
 | `orama-sni-router` | `cmd/sni-router/` | SNI-based TLS router |
-| `orama-inspector` | `cmd/inspector/` | SSH-based health inspector (not built by `make build`; run via `go run ./cmd/inspector`) |
 
 ## Security Architecture
 

@@ -775,7 +775,8 @@ func (ps *ProductionSetup) Phase5CreateSystemdServices(enableHTTPS bool) error {
 	}
 	ps.logf("  ✓ IPFS Cluster service created: orama-ipfs-cluster.service")
 
-	// RQLite is managed internally by each node - no separate systemd service needed
+	// Index RQLite is orama-namespace-rqlite@index, started by the supervisor.
+	// There is no leftover host-level orama-rqlite.service to write.
 
 	// Olric service
 	olricUnit := ps.serviceGenerator.GenerateOlricService(olricBinary)

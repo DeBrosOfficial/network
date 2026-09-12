@@ -25,8 +25,8 @@ func NewGatewayInstaller(arch string, logWriter io.Writer) *GatewayInstaller {
 
 // IsInstalled checks if gateway binaries are already installed
 func (gi *GatewayInstaller) IsInstalled() bool {
-	// Check if binaries exist (gateway is embedded in orama-node)
-	return false // Always build to ensure latest version
+	// Always rebuild so the node and the standalone gateway binary stay in step.
+	return false
 }
 
 // Install clones and builds Orama binaries

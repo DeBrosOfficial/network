@@ -36,8 +36,8 @@ RestrictNamespaces=yes
 ProtectProc=invisible`
 
 // oramaNodeHardening is like oramaServiceHardening but WITHOUT NoNewPrivileges.
-// The node process (which includes the gateway) needs to use sudo to manage
-// namespace systemd services. NoNewPrivileges prevents sudo from working.
+// The supervisor starts namespace systemd units and needs sudo for that.
+// NoNewPrivileges prevents sudo from working.
 const oramaNodeHardening = `User=orama
 Group=orama
 ProtectSystem=strict
