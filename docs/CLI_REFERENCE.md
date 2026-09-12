@@ -1602,19 +1602,21 @@ orama node enroll [flags]
 
 Enroll a freshly booted OramaOS node into the cluster.
 
-The OramaOS node displays a registration code on port 9999. Provide this code
-along with an invite token to complete enrollment. The Gateway pushes cluster
-configuration (WireGuard, secrets, peer list) to the node.
+The OramaOS node prints a registration code on its console. Provide that code
+along with an invite token. The Gateway pushes cluster configuration
+(WireGuard, secrets, peer list) to the node, sealed under the code.
+
+The code is not served over the network. A GET on port 9999 used to return it.
 
 Usage:
-  orama node enroll --node-ip <ip> --code <code> --token <invite-token> --env <environment>
+  orama node enroll --node-ip <ip> --code <code> --token <invite-token> --gateway <url>
 
 The node must be reachable over the public internet on port 9999 (enrollment only).
 After enrollment, port 9999 is permanently closed and all communication goes over WireGuard.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--code` | — | Registration code from the node (auto-fetched if not provided) |
+| `--code` | — | Registration code from the node's console (required) |
 | `--env` | `production` | Environment name |
 | `--gateway` | — | Gateway URL (required, e.g. https://gateway.example.com) |
 | `--node-ip` | — | Public IP of the OramaOS node (required) |

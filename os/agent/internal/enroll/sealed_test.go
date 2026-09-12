@@ -8,9 +8,8 @@ import (
 
 const testCode = "a1b2c3d4e5f60718293a"
 
-// Enrollment carries the cluster secret, the swarm key and the node's WireGuard
-// configuration. It used to cross the network as plaintext JSON on the node's
-// public IP.
+// Enrollment carries the cluster secret and the node's WireGuard configuration.
+// It used to cross the network as plaintext JSON on the node's public IP.
 func TestSealAndOpen_roundTrip(t *testing.T) {
 	payload := []byte(`{"cluster_secret":"the-cluster-secret"}`)
 

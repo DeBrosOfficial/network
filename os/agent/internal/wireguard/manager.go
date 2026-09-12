@@ -36,6 +36,11 @@ func NewManager() *Manager {
 // Configure writes the WireGuard configuration to disk.
 // Called during enrollment with config received from the Gateway.
 func (m *Manager) Configure(config string) error {
+	priv, err := privateKeyFromConfig(config)
+	if err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll("/etc/wireguard", 0700); err != nil {
 		return fmt.Errorf("failed to create wireguard dir: %w", err)
 	}
@@ -44,8 +49,38 @@ func (m *Manager) Configure(config string) error {
 		return fmt.Errorf("failed to write WG config: %w", err)
 	}
 
+	// LUKS share distribution derives this node's vault identity as
+	// SHA-256 of this file. Writing only wg0.conf left that file missing,
+	// so enrollment failed after the gateway had already pushed config.
+	if err := os.WriteFile(PrivateKeyPath, []byte(priv+"\n"), 0600); err != nil {
+		return fmt.Errorf("failed to write WG private key: %w", err)
+	}
+
 	log.Println("WireGuard configuration written")
 	return nil
+}
+
+// privateKeyFromConfig extracts the Interface PrivateKey from a wg0.conf body.
+func privateKeyFromConfig(config string) (string, error) {
+	for _, line := range strings.Split(config, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(trimmed, "=")
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(key) != "PrivateKey" {
+			continue
+		}
+		priv := strings.TrimSpace(val)
+		if priv == "" {
+			return "", fmt.Errorf("WireGuard config PrivateKey is empty")
+		}
+		return priv, nil
+	}
+	return "", fmt.Errorf("WireGuard config has no PrivateKey")
 }
 
 // Up brings the WireGuard interface up using wg-quick.

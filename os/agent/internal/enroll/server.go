@@ -2,24 +2,26 @@
 //
 // On first boot the agent prints a registration code on the console and listens
 // on port 9999. The operator reads the code off the console and gives it to the
-// gateway (`orama node enroll`). The gateway proves it holds that code and
-// sends the cluster configuration encrypted under it.
+// gateway (`orama node enroll`). The gateway proves it holds that code by
+// sending a payload that decrypts under it.
 //
 // The code is never served over the network. It used to be: a GET on / handed
 // it to whoever asked first, which both published the secret and let anyone
-// race the operator for it.
+// race the operator for it. It was also sent as an HTTP header on the
+// completion POST, which put the seal key on the wire next to the ciphertext.
 package enroll
 
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/DeBrosOfficial/orama-os/agent/internal/types"
@@ -56,15 +58,13 @@ type completionResponse struct {
 
 // Server is the enrollment HTTP server.
 type Server struct {
-	gatewayURL string
-	done       chan struct{}
+	done chan struct{}
 }
 
 // NewServer creates a new enrollment server.
-func NewServer(gatewayURL string) *Server {
+func NewServer() *Server {
 	return &Server{
-		gatewayURL: gatewayURL,
-		done:       make(chan struct{}),
+		done: make(chan struct{}),
 	}
 }
 
@@ -81,8 +81,10 @@ func (s *Server) Run() (*Result, string, error) {
 		return nil, "", fmt.Errorf("failed to generate agent token: %w", err)
 	}
 
-	// The console is the only place this is printed. Nothing serves it.
-	log.Printf("ENROLLMENT CODE: %s", code)
+	// The console is the only place this is printed. The journal used to
+	// receive it via log.Printf, so anyone who could read `orama node logs`
+	// during the window had the seal key.
+	printEnrollmentCode(code)
 	log.Printf("Waiting for enrollment on port 9999...")
 
 	enrollCh := make(chan *Result, 1)
@@ -116,23 +118,32 @@ func (s *Server) Run() (*Result, string, error) {
 	}
 }
 
+// printEnrollmentCode writes the registration code to the console TTY, not the
+// process logger. The unit captures stdout/stderr into the journal.
+func printEnrollmentCode(code string) {
+	line := fmt.Sprintf("ENROLLMENT CODE: %s\n", code)
+	f, err := os.OpenFile("/dev/console", os.O_WRONLY, 0)
+	if err != nil {
+		// Tests and hosts without a console still need the operator to see it.
+		_, _ = os.Stderr.WriteString(line)
+		return
+	}
+	defer f.Close()
+	_, _ = io.WriteString(f, line)
+}
+
 // completeHandler accepts the cluster configuration, from a caller that proves
-// it holds the registration code.
+// it holds the registration code by producing a payload that decrypts under it.
 //
 // This endpoint used to accept any POST at all: reaching a booting node before
 // its operator's gateway did was enough to enrol it into another cluster, with
-// another cluster's WireGuard peers.
+// another cluster's WireGuard peers. It then required the code in a header,
+// which put the seal key on the wire next to the ciphertext.
 func (s *Server) completeHandler(code, agentToken string, enrolled chan<- *Result) http.HandlerFunc {
+	var taken atomic.Bool
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		presented := r.Header.Get(HeaderEnrollmentCode)
-		if subtle.ConstantTimeCompare([]byte(presented), []byte(code)) != 1 {
-			log.Printf("refused an enrollment attempt with the wrong registration code from %s", r.RemoteAddr)
-			http.Error(w, "registration code mismatch", http.StatusUnauthorized)
 			return
 		}
 
@@ -142,11 +153,9 @@ func (s *Server) completeHandler(code, agentToken string, enrolled chan<- *Resul
 			return
 		}
 
-		// The code authenticated the header; this authenticates the payload,
-		// and is what makes the cluster secret unreadable on the wire.
 		plaintext, err := Open(code, string(body))
 		if err != nil {
-			log.Printf("refused an enrollment payload that did not decrypt: %v", err)
+			log.Printf("refused an enrollment payload that did not decrypt from %s: %v", r.RemoteAddr, err)
 			http.Error(w, "the enrollment payload did not decrypt", http.StatusBadRequest)
 			return
 		}
@@ -160,6 +169,11 @@ func (s *Server) completeHandler(code, agentToken string, enrolled chan<- *Resul
 		sealed, err := Seal(code, mustJSON(completionResponse{Status: "ok", AgentToken: agentToken}))
 		if err != nil {
 			http.Error(w, "could not seal the response", http.StatusInternalServerError)
+			return
+		}
+
+		if !taken.CompareAndSwap(false, true) {
+			http.Error(w, "enrollment already complete", http.StatusConflict)
 			return
 		}
 

@@ -1180,7 +1180,7 @@ These OramaOS properties do **not** apply to the production Ubuntu fleet (sandbo
 - Command reception from Gateway over WireGuard (port 9998)
 - OS updates (download, verify, A/B swap, reboot with rollback)
 
-**Node enrollment:** OramaOS nodes join via `orama node enroll` instead of `orama node install`. The enrollment flow uses a registration code + invite token + wallet verification.
+**Node enrollment:** OramaOS nodes join via `orama node enroll` instead of `orama node install`. The operator reads an 80-bit registration code off the node's console and gives it to the CLI with an invite token; the gateway pushes cluster config sealed under that code. There is no WebSocket enrollment path.
 
 See [ORAMAOS_DEPLOYMENT.md](ORAMAOS_DEPLOYMENT.md) for the full deployment guide.
 

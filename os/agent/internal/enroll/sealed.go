@@ -15,10 +15,9 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// Enrollment hands a booting node the cluster secret, the swarm key and its
-// WireGuard configuration — everything needed to be a member of the cluster.
-// That exchange used to happen over plaintext HTTP on the node's public IP,
-// with no authentication in either direction:
+// Enrollment hands a booting node the cluster secret and its WireGuard
+// configuration. That exchange used to happen over plaintext HTTP on the
+// node's public IP, with no authentication in either direction:
 //
 //   - the node served its registration code to whoever asked first, so the
 //     secret meant to prove the operator's identity was published;
@@ -30,19 +29,14 @@ import (
 // The registration code is the only secret both ends share before the node is
 // a member of anything, and the operator carries it from the node's console to
 // the gateway. So it is what authenticates the exchange and what the payload is
-// encrypted under. The code is never sent anywhere it could be read: the
-// gateway proves it knows it, rather than asking for it.
+// encrypted under. Successful decrypt is the proof: the code is not sent as a
+// header, which used to put the seal key on the wire next to the ciphertext.
 //
 // Phase 1 of the auth redesign replaces this with a node principal credential
 // issued at join. Until then this is a code the operator physically carried,
 // used as a code should be.
 
 const (
-	// HeaderEnrollmentCode carries the registration code the operator read off
-	// the node's console. It proves the caller is the gateway the operator
-	// spoke to, and it keys the payload.
-	HeaderEnrollmentCode = "X-Orama-Enrollment-Code"
-
 	// sealPurpose is the HKDF domain separator, so the key that encrypts an
 	// enrollment payload is unrelated to anything else derived from the code.
 	sealPurpose = "orama-enrollment-seal-v1"

@@ -266,9 +266,9 @@ orama node unlock --genesis --node-ip <wg-ip>
 
 **Symptom:** `orama node enroll` hangs or times out.
 
-**Cause:** The OramaOS node's port 9999 isn't reachable, or the Gateway can't reach the node's WebSocket.
+**Cause:** The OramaOS node's port 9999 isn't reachable from the gateway, `--code` is missing or wrong, or `--node-ip` is not the node's public IPv4.
 
-**Fix:** Check that port 9999 is open in your VPS provider's external firewall (Hetzner firewall, AWS security groups, etc.). OramaOS opens it internally, but provider-level firewalls must be configured separately.
+**Fix:** Read the registration code from the node's console (it is not served on port 9999). Check that port 9999 is open in your VPS provider's external firewall (Hetzner firewall, AWS security groups, etc.). OramaOS opens it internally, but provider-level firewalls must be configured separately. There is no WebSocket enrollment path.
 
 ---
 
