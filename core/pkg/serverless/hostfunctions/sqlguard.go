@@ -75,7 +75,6 @@ var protectedTables = map[string]string{
 	"dns_records":                  "DNS",
 	"dns_nodes":                    "DNS",
 	"dns_nameservers":              "DNS",
-	"reserved_domains":             "domain reservation",
 	"raft_evicted_nodes":           "cluster membership",
 	"cluster_locks":                "cluster coordination",
 	"orama_schema_migrations":      "the platform's own schema bookkeeping",

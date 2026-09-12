@@ -53,6 +53,12 @@ var namespaceName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$`)
 var reservedNamespaces = map[string]bool{
 	"default": true, "index": true, "nameserver": true,
 	"system": true, "orama": true, "admin": true, "internal": true,
+	// Platform DNS labels. These used to live in a reserved_domains table
+	// that nothing ever read. A namespace of this name becomes ns-<name>
+	// and also collides with hosts the nameserver already answers.
+	"api": true, "www": true, "mail": true, "cdn": true, "docs": true,
+	"status": true, "push": true, "turn": true,
+	"ns1": true, "ns2": true, "ns3": true, "ns4": true,
 }
 
 // Provisioner starts a namespace's cluster. Satisfied by the gateway's cluster

@@ -229,8 +229,8 @@ unit test read, so a shape change on either side fails without a cluster.
 
 | Route | Owner | Notes |
 |-------|-------|-------|
-| `/v1/internal/acme/cleanup` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
-| `/v1/internal/acme/present` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
+| `/v1/internal/acme/cleanup` | internal | Caddy on this host, over loopback, with no forwarding header. Refused from the internet (Caddy reverse-proxies every path). |
+| `/v1/internal/acme/present` | internal | Caddy on this host, over loopback, with no forwarding header. Refused from the internet (Caddy reverse-proxies every path). |
 | `/v1/internal/deployments/replica/rollback` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
 | `/v1/internal/deployments/replica/setup` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |
 | `/v1/internal/deployments/replica/teardown` | internal | Node-to-node over the WireGuard overlay. Never reachable by a client. |

@@ -102,8 +102,10 @@ func buildRoutePolicies() *routepolicy.Table {
 		// Polled while a namespace's cluster is still provisioning, by a client
 		// that has not been given anything to poll it with yet.
 		"/v1/namespace/status",
-		// Called by Caddy on this host; neither authenticates. Both are on the
-		// list of things Phase 2 has to give a credential to.
+		// Called by Caddy on this host. Present and cleanup refuse anything
+		// that arrived through the public reverse-proxy (`IsNodeLocal`); they
+		// stay Open so Caddy does not have to mint a credential. tls/check is
+		// still on the list of things Phase 2 has to give a credential to.
 		"/v1/internal/acme/present", "/v1/internal/acme/cleanup", "/v1/internal/tls/check",
 		// Peer health probing. Returns the node id and nothing else.
 		"/v1/internal/ping",

@@ -237,8 +237,15 @@ func (h *DomainHandler) HandleVerifyDomain(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Create DNS record for the domain
-	go h.createDNSRecord(ctx, domain, domainRecord.DeploymentID)
+	// Write the A record before answering. A goroutine on the request
+	// context cancelled as soon as this handler returned, so "verified"
+	// often meant no DNS row.
+	if err := h.createDNSRecord(ctx, domain, domainRecord.DeploymentID); err != nil {
+		h.logger.Error("Failed to create DNS record for verified domain",
+			zap.String("domain", domain), zap.Error(err))
+		http.Error(w, "Failed to create DNS record", http.StatusInternalServerError)
+		return
+	}
 
 	h.logger.Info("Domain verified successfully",
 		zap.String("domain", domain),
@@ -468,7 +475,7 @@ func (h *DomainHandler) verifyTXTRecord(record, expectedValue string) bool {
 	return false
 }
 
-func (h *DomainHandler) createDNSRecord(ctx context.Context, domain, deploymentID string) {
+func (h *DomainHandler) createDNSRecord(ctx context.Context, domain, deploymentID string) error {
 	// Get deployment node IP
 	type deploymentRow struct {
 		HomeNodeID string `db:"home_node_id"`
@@ -477,9 +484,11 @@ func (h *DomainHandler) createDNSRecord(ctx context.Context, domain, deploymentI
 	var rows []deploymentRow
 	query := `SELECT home_node_id FROM deployments WHERE id = ?`
 	err := h.service.db.Query(ctx, &rows, query, deploymentID)
-	if err != nil || len(rows) == 0 {
-		h.logger.Error("Failed to get deployment node", zap.Error(err))
-		return
+	if err != nil {
+		return fmt.Errorf("look up deployment %s: %w", deploymentID, err)
+	}
+	if len(rows) == 0 {
+		return fmt.Errorf("deployment %s has no home node", deploymentID)
 	}
 
 	homeNodeID := rows[0].HomeNodeID
@@ -492,9 +501,11 @@ func (h *DomainHandler) createDNSRecord(ctx context.Context, domain, deploymentI
 	var nodeRows []nodeRow
 	nodeQuery := `SELECT ip_address FROM dns_nodes WHERE id = ? AND status = 'active'`
 	err = h.service.db.Query(ctx, &nodeRows, nodeQuery, homeNodeID)
-	if err != nil || len(nodeRows) == 0 {
-		h.logger.Error("Failed to get node IP", zap.Error(err))
-		return
+	if err != nil {
+		return fmt.Errorf("look up node %s: %w", homeNodeID, err)
+	}
+	if len(nodeRows) == 0 {
+		return fmt.Errorf("node %s has no active public address", homeNodeID)
 	}
 
 	nodeIP := nodeRows[0].IPAddress
@@ -515,12 +526,12 @@ func (h *DomainHandler) createDNSRecord(ctx context.Context, domain, deploymentI
 
 	_, err = h.service.db.Exec(ctx, dnsQuery, fqdn, nodeIP, "", deploymentID, homeNodeID, now, now)
 	if err != nil {
-		h.logger.Error("Failed to create DNS record", zap.Error(err))
-		return
+		return fmt.Errorf("insert A record for %s: %w", domain, err)
 	}
 
 	h.logger.Info("DNS record created for custom domain",
 		zap.String("domain", domain),
 		zap.String("ip", nodeIP),
 	)
+	return nil
 }
