@@ -3,22 +3,22 @@ package node
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/environments/production"
+	"github.com/DeBrosOfficial/network/pkg/install"
 	"github.com/DeBrosOfficial/network/pkg/logging"
 )
 
 // fakeProvisioner records reconciler decisions instead of touching a real
 // WireGuard interface.
 type fakeProvisioner struct {
-	added      []production.WireGuardPeer
+	added      []install.WireGuardPeer
 	removed    []string
-	persisted  [][]production.WireGuardPeer
+	persisted  [][]install.WireGuardPeer
 	addErr     error
 	rmErr      error
 	persistErr error
 }
 
-func (f *fakeProvisioner) PersistPeers(peers []production.WireGuardPeer) error {
+func (f *fakeProvisioner) PersistPeers(peers []install.WireGuardPeer) error {
 	if f.persistErr != nil {
 		return f.persistErr
 	}
@@ -26,7 +26,7 @@ func (f *fakeProvisioner) PersistPeers(peers []production.WireGuardPeer) error {
 	return nil
 }
 
-func (f *fakeProvisioner) AddPeer(peer production.WireGuardPeer) error {
+func (f *fakeProvisioner) AddPeer(peer install.WireGuardPeer) error {
 	if f.addErr != nil {
 		return f.addErr
 	}
@@ -54,18 +54,18 @@ func testNode(t *testing.T) *Node {
 // peerSet builds a live-interface peer map. The endpoint and allowed IP match
 // what desired() produces, so an existing key looks converged rather than
 // drifted unless a test says otherwise.
-func peerSet(keys ...string) map[string]production.WireGuardPeer {
-	s := make(map[string]production.WireGuardPeer, len(keys))
+func peerSet(keys ...string) map[string]install.WireGuardPeer {
+	s := make(map[string]install.WireGuardPeer, len(keys))
 	for _, k := range keys {
-		s[k] = production.WireGuardPeer{PublicKey: k, AllowedIP: "10.0.0.9/32", Endpoint: "203.0.113.9:51820"}
+		s[k] = install.WireGuardPeer{PublicKey: k, AllowedIP: "10.0.0.9/32", Endpoint: "203.0.113.9:51820"}
 	}
 	return s
 }
 
 func desired(auth bool, source string, keys ...string) desiredWGPeers {
-	m := make(map[string]production.WireGuardPeer, len(keys))
+	m := make(map[string]install.WireGuardPeer, len(keys))
 	for _, k := range keys {
-		m[k] = production.WireGuardPeer{PublicKey: k, AllowedIP: "10.0.0.9/32", Endpoint: "203.0.113.9:51820"}
+		m[k] = install.WireGuardPeer{PublicKey: k, AllowedIP: "10.0.0.9/32", Endpoint: "203.0.113.9:51820"}
 	}
 	return desiredWGPeers{peers: m, authoritative: auth, source: source}
 }

@@ -50,7 +50,7 @@ jobs:
       # it needs the same -count=1.
       - name: CLI reference is current
         working-directory: core
-        run: go test -count=1 ./cmd/cli -run TestCLIReference
+        run: go test -count=1 ./cmd/orama -run TestCLIReference
 
   agent-test:
     name: OramaOS agent tests

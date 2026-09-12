@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/secrets"
 	"github.com/DeBrosOfficial/network/pkg/sfu"
 	"github.com/DeBrosOfficial/network/pkg/systemd"
@@ -710,7 +710,7 @@ func (cm *ClusterManager) restartGatewaysWithWebRTC(
 			}
 		}
 
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             cluster.NamespaceName,
 			NodeID:                node.NodeID,
 			HTTPPort:              pb.GatewayHTTPPort,
@@ -751,7 +751,7 @@ func (cm *ClusterManager) restartGatewaysWithWebRTC(
 }
 
 // restartGatewayRemote sends a restart-gateway request to a remote node.
-func (cm *ClusterManager) restartGatewayRemote(ctx context.Context, nodeIP string, cfg gateway.InstanceConfig) {
+func (cm *ClusterManager) restartGatewayRemote(ctx context.Context, nodeIP string, cfg gatewayspec.InstanceConfig) {
 	ipfsTimeout := ""
 	if cfg.IPFSTimeout > 0 {
 		ipfsTimeout = cfg.IPFSTimeout.String()
@@ -1121,7 +1121,7 @@ func webrtcReconcileMajorityHeld(viable, rawMembers int) bool {
 // webrtcReconcileStartupGrace bounds how soon after this node's own process
 // start it will act as WebRTC reconcile coordinator (bugboard #171). Mirrors
 // the reasoning behind health.DefaultStartupGracePeriod
-// (pkg/node/health/monitor.go, 5m — cannot import directly, pkg/node imports
+// (pkg/peerhealth/monitor.go, 5m — cannot import directly, pkg/node imports
 // pkg/namespace, see cluster_manager.go's startedAt field doc): a node that
 // has JUST come back up has not yet had time to observe its peers report back
 // in, so its very first read of cluster membership can look exactly like "I

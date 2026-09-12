@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"go.uber.org/zap"
@@ -585,7 +585,7 @@ func (cm *ClusterManager) ReplaceClusterNode(ctx context.Context, cluster *Names
 		}
 		olricServers = append(olricServers, fmt.Sprintf("%s:%d", replacement.InternalIP, portBlock.OlricHTTPPort))
 
-		gwCfg := gateway.InstanceConfig{
+		gwCfg := gatewayspec.InstanceConfig{
 			Namespace:             cluster.NamespaceName,
 			NodeID:                replacement.NodeID,
 			HTTPPort:              portBlock.GatewayHTTPPort,
@@ -870,7 +870,7 @@ const staleClusterNodeSQL = `
 // heartbeat loop (startDNSHeartbeat, 30s tick) flips a silent node's
 // dns_nodes.status to 'inactive' after just 120s
 // (cleanupStaleNodeRecords, pkg/node/dns_registration.go), and the ring-based
-// health monitor's getRingNeighbors (pkg/node/health/monitor.go) only
+// health monitor's getRingNeighbors (pkg/peerhealth/monitor.go) only
 // considers status='active' nodes as probe targets. Once a node flips
 // inactive it drops out of every node's neighbor set, pruneStaleState wipes
 // its accumulated miss count, and it can never again reach the monitor's own
@@ -1366,7 +1366,7 @@ func (cm *ClusterManager) addNodeToCluster(
 	}
 	olricServers = append(olricServers, fmt.Sprintf("%s:%d", replacement.InternalIP, portBlock.OlricHTTPPort))
 
-	gwCfg := gateway.InstanceConfig{
+	gwCfg := gatewayspec.InstanceConfig{
 		Namespace:             cluster.NamespaceName,
 		NodeID:                replacement.NodeID,
 		HTTPPort:              portBlock.GatewayHTTPPort,

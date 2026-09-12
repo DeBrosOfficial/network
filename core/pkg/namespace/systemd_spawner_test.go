@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
@@ -55,7 +55,7 @@ func TestSpawnGateway_apiKeyHMACSecretPresent_renderedYAMLContainsSecret(t *test
 	writeAPIKeyHMACSecret(t, root, "the-hmac-secret\n")
 
 	s := NewSystemdSpawner(namespaceBase, "", zap.NewNop())
-	cfg := gateway.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
+	cfg := gatewayspec.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
 
 	// Ignore the return: systemd isn't available in this sandbox, so
 	// StartService fails after the config is written. That's fine — we only
@@ -68,7 +68,7 @@ func TestSpawnGateway_apiKeyHMACSecretPresent_renderedYAMLContainsSecret(t *test
 		t.Fatalf("expected gateway config to be written before the systemd error, got: %v", err)
 	}
 
-	var onDisk gateway.GatewayYAMLConfig
+	var onDisk gatewayspec.GatewayYAMLConfig
 	if err := yaml.Unmarshal(data, &onDisk); err != nil {
 		t.Fatalf("unmarshal rendered gateway config: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestSpawnGateway_apiKeyHMACSecretMissing_returnsErrorNoConfigEmitted(t *tes
 	_, namespaceBase := setupOramaDirs(t)
 
 	s := NewSystemdSpawner(namespaceBase, "", zap.NewNop())
-	cfg := gateway.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
+	cfg := gatewayspec.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
 
 	err := s.SpawnGateway(context.Background(), "anchat-test", "node-1", cfg)
 	if err == nil {
@@ -116,7 +116,7 @@ func TestSpawnGateway_apiKeyHMACSecretWhitespaceOnly_returnsErrorNoConfigEmitted
 	writeAPIKeyHMACSecret(t, root, "   \n\t  ")
 
 	s := NewSystemdSpawner(namespaceBase, "", zap.NewNop())
-	cfg := gateway.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
+	cfg := gatewayspec.InstanceConfig{Namespace: "anchat-test", HTTPPort: 6101}
 
 	err := s.SpawnGateway(context.Background(), "anchat-test", "node-1", cfg)
 	if err == nil {

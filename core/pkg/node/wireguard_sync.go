@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/environments/production"
+	"github.com/DeBrosOfficial/network/pkg/install"
 	"github.com/DeBrosOfficial/network/pkg/logging"
 	"github.com/DeBrosOfficial/network/pkg/rqlite"
 	"go.uber.org/zap"
@@ -47,7 +47,7 @@ const wgPeerQuery = "SELECT node_id, wg_ip, public_key, public_ip, wg_port FROM 
 // from "this is the best guess I could scrape locally". Only an authoritative
 // set may drive REMOVALS — see reconcileWireGuardPeers.
 type desiredWGPeers struct {
-	peers         map[string]production.WireGuardPeer
+	peers         map[string]install.WireGuardPeer
 	authoritative bool
 	source        string
 }
@@ -98,14 +98,14 @@ func (n *Node) loadDesiredWireGuardPeers(ctx context.Context, localPubKey string
 // dropping rows shrinks the desired set, and a short desired set used to mean
 // "remove the peers that are missing from it" — i.e. a malformed row could cut
 // the node out of the mesh. Callers get all-or-nothing.
-func scanWGPeers(ctx context.Context, db *sql.DB, localPubKey string) (map[string]production.WireGuardPeer, error) {
+func scanWGPeers(ctx context.Context, db *sql.DB, localPubKey string) (map[string]install.WireGuardPeer, error) {
 	rows, err := rqlite.SafeQueryContext(db, ctx, wgPeerQuery)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	peers := make(map[string]production.WireGuardPeer)
+	peers := make(map[string]install.WireGuardPeer)
 	for rows.Next() {
 		var nodeID, wgIP, pubKey, pubIP string
 		var wgPort int
@@ -121,7 +121,7 @@ func scanWGPeers(ctx context.Context, db *sql.DB, localPubKey string) (map[strin
 		if wgPort == 0 {
 			wgPort = defaultWireGuardPort
 		}
-		peers[pubKey] = production.WireGuardPeer{
+		peers[pubKey] = install.WireGuardPeer{
 			PublicKey: pubKey,
 			Endpoint:  fmt.Sprintf("%s:%d", pubIP, wgPort),
 			AllowedIP: wgIP + "/32",
@@ -165,7 +165,7 @@ func (n *Node) syncWireGuardPeers(ctx context.Context) error {
 	// Read the live peers WITH their endpoints and allowed IPs. `wg show` alone
 	// only yields keys, which is why an endpoint that moved could never be
 	// detected as drift.
-	currentPeers, err := production.ReadLiveWGPeers("wg0")
+	currentPeers, err := install.ReadLiveWGPeers("wg0")
 	if err != nil {
 		return fmt.Errorf("read live wireguard peers: %w", err)
 	}
@@ -179,18 +179,18 @@ func (n *Node) syncWireGuardPeers(ctx context.Context) error {
 	return nil
 }
 
-// wgPeerProvisioner is the subset of production.WireGuardProvisioner the
+// wgPeerProvisioner is the subset of install.WireGuardProvisioner the
 // reconciler needs. Declared here so reconcileWireGuardPeers can be exercised
 // without shelling out to `wg` — the add/remove decisions are the part worth
 // testing, and getting them wrong severs the cluster.
 type wgPeerProvisioner interface {
-	AddPeer(peer production.WireGuardPeer) error
+	AddPeer(peer install.WireGuardPeer) error
 	RemovePeer(publicKey string) error
 	// PersistPeers writes the resulting peer set to wg0.conf so the mesh
 	// survives the next `wg-quick up`. Kernel state and file state are applied
 	// separately and reported separately: a peer that reached the interface is
 	// live even if the file could not be written.
-	PersistPeers(peers []production.WireGuardPeer) error
+	PersistPeers(peers []install.WireGuardPeer) error
 }
 
 // reconcileWireGuardPeers applies desired onto the live interface.
@@ -202,16 +202,16 @@ type wgPeerProvisioner interface {
 // migration in flight all produce an empty read. Treating that as "remove every
 // peer" severs the mesh, and severing the mesh is what makes the loss
 // unrecoverable. Adding peers is always safe, so adds are unconditional.
-func (n *Node) reconcileWireGuardPeers(currentPeers map[string]production.WireGuardPeer, desired desiredWGPeers) {
-	n.reconcileWireGuardPeersWith(production.NewWGPeerManager(""), currentPeers, desired)
+func (n *Node) reconcileWireGuardPeers(currentPeers map[string]install.WireGuardPeer, desired desiredWGPeers) {
+	n.reconcileWireGuardPeersWith(install.NewWGPeerManager(""), currentPeers, desired)
 }
 
 // reconcileWireGuardPeersWith is reconcileWireGuardPeers against an injected
 // provisioner.
-func (n *Node) reconcileWireGuardPeersWith(wp wgPeerProvisioner, currentPeers map[string]production.WireGuardPeer, desired desiredWGPeers) {
+func (n *Node) reconcileWireGuardPeersWith(wp wgPeerProvisioner, currentPeers map[string]install.WireGuardPeer, desired desiredWGPeers) {
 	// live tracks what the interface holds as we change it, so the file we
 	// persist at the end describes the mesh that actually exists.
-	live := make(map[string]production.WireGuardPeer, len(currentPeers))
+	live := make(map[string]install.WireGuardPeer, len(currentPeers))
 	for k, v := range currentPeers {
 		live[k] = v
 	}
@@ -303,7 +303,7 @@ func (n *Node) reconcileWireGuardPeersWith(wp wgPeerProvisioner, currentPeers ma
 // it should be. AllowedIP is compared with the /32 suffix normalised away
 // because `wg show dump` always prints a prefix length and the desired set may
 // not.
-func wgPeerDrifted(live, desired production.WireGuardPeer) bool {
+func wgPeerDrifted(live, desired install.WireGuardPeer) bool {
 	if desired.Endpoint != "" && live.Endpoint != desired.Endpoint {
 		return true
 	}
@@ -316,8 +316,8 @@ func normalizeAllowedIP(v string) string {
 }
 
 // mapToPeerSlice flattens the live peer map for persistence.
-func mapToPeerSlice(peers map[string]production.WireGuardPeer) []production.WireGuardPeer {
-	out := make([]production.WireGuardPeer, 0, len(peers))
+func mapToPeerSlice(peers map[string]install.WireGuardPeer) []install.WireGuardPeer {
+	out := make([]install.WireGuardPeer, 0, len(peers))
 	for _, p := range peers {
 		out = append(out, p)
 	}
@@ -545,7 +545,7 @@ func (n *Node) bootstrapWireGuardMesh(ctx context.Context) {
 	}
 	localPubKey := parseWGShowLocalKey(string(out))
 
-	currentPeers, err := production.ReadLiveWGPeers("wg0")
+	currentPeers, err := install.ReadLiveWGPeers("wg0")
 	if err != nil {
 		n.logger.ComponentWarn(logging.ComponentNode,
 			"WireGuard bootstrap: cannot read live peers — mesh repair skipped",

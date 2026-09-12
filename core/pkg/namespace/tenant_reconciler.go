@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
 	"github.com/DeBrosOfficial/network/pkg/olric"
 	"github.com/DeBrosOfficial/network/pkg/systemd"
 	"go.uber.org/zap"
@@ -173,7 +173,7 @@ func (cm *ClusterManager) reconcileNamespaceOnThisNode(ctx context.Context, a te
 // namespace, derived from live membership.
 type localServiceConfig struct {
 	Olric   olric.InstanceConfig
-	Gateway gateway.InstanceConfig
+	Gateway gatewayspec.InstanceConfig
 }
 
 // reconcileClusterMembership is the coordinator leg: forget members that are
@@ -300,7 +300,7 @@ func (cm *ClusterManager) desiredLocalConfig(ctx context.Context, clusterID stri
 			AdvertiseAddr:  localIP,
 			PeerAddresses:  olricPeers,
 		},
-		Gateway: gateway.InstanceConfig{
+		Gateway: gatewayspec.InstanceConfig{
 			NodeID:       cm.localNodeID,
 			HTTPPort:     block.GatewayHTTPPort,
 			OlricServers: olricServers,

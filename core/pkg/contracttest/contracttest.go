@@ -64,8 +64,8 @@ type Call struct {
 //
 // It walks up looking for a directory that holds both contracts/ and docs/,
 // which is true only of the repository root. Looking for a directory named
-// "contracts" alone is not enough: core/pkg/contracts is an unrelated Go
-// package, and it would be found first from any test under core/pkg.
+// "contracts" alone is not enough: a directory named contracts under
+// core/ would be found first from any test under core/pkg.
 func Dir(startingAt string) (string, error) {
 	dir, err := filepath.Abs(startingAt)
 	if err != nil {

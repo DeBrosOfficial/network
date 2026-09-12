@@ -1,19 +1,15 @@
 package namespace
 
-import (
-	"testing"
-
-	"github.com/DeBrosOfficial/network/pkg/gateway"
-)
+import "testing"
 
 func TestIsIndexGateway(t *testing.T) {
-	if IsIndexGateway(nil) {
-		t.Fatal("nil config is not index")
+	if IsIndexGateway("") {
+		t.Fatal("empty namespace is not index")
 	}
-	if IsIndexGateway(&gateway.Config{ClientNamespace: "anchat-test", GlobalRQLiteDSN: "http://localhost:5001"}) {
+	if IsIndexGateway("anchat-test") {
 		t.Fatal("tenant gateway must not be index")
 	}
-	if !IsIndexGateway(&gateway.Config{ClientNamespace: BlueprintNameIndex}) {
+	if !IsIndexGateway(BlueprintNameIndex) {
 		t.Fatal("client_namespace=index must be the core gateway")
 	}
 }
