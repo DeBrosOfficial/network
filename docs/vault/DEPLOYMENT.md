@@ -209,7 +209,7 @@ sudo ufw allow from 10.0.0.0/24 to any port 7501 proto tcp comment "vault-guardi
 
 **Port 7501 must NEVER be exposed on the public interface.** The peer protocol has no authentication beyond WireGuard -- it trusts that only authorized nodes can reach it.
 
-The standalone vault binary still defaults to `--port 7500` when run without Orama's `vault.yaml`. Production installs write `client_port = 10106`. Do not expose the client port on the public interface; the gateway reverse-proxies it.
+The standalone vault binary still defaults to `--port 7500` when run without Orama's `vault.yaml`. Production installs write `client_port = 10106`. Do not expose the client port on the public interface. Applications reach vault over HTTPS on the gateway, which splits and combines in-process (a trust point for that request); overlay clients talk to `:10106` directly.
 
 ---
 

@@ -117,7 +117,8 @@ func (h *Handler) HandleNodeLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleNodeLeave handles POST /v1/node/leave — graceful node departure.
-// Orchestrates: stop services → redistribute Shamir shares → remove WG peer.
+// Stops services on the leaving node and removes it from the WireGuard mesh.
+// Shamir redistribution is not implemented (guardian clustering is unwired).
 func (h *Handler) HandleNodeLeave(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -150,16 +151,16 @@ func (h *Handler) HandleNodeLeave(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("node leave requested", zap.String("wg_ip", wgIP))
 
-	// Step 1: Tell the agent to stop services
-	_, _, err := h.proxyToAgent(wgIP, "POST", "/v1/agent/command",
+	ctx := r.Context()
+
+	_, status, err := h.proxyToAgent(wgIP, "POST", "/v1/agent/command",
 		[]byte(`{"action":"stop"}`))
 	if err != nil {
 		h.logger.Warn("failed to stop services on leaving node", zap.Error(err))
-		// Continue — node may already be down
+	} else if status >= 400 {
+		h.logger.Warn("leaving node refused stop", zap.Int("status", status))
 	}
 
-	// Step 2: Remove WG peer from database
-	ctx := r.Context()
 	if _, err := h.rqliteClient.Exec(ctx,
 		"DELETE FROM wireguard_peers WHERE wg_ip = ?", wgIP); err != nil {
 		h.logger.Error("failed to remove WG peer from database", zap.Error(err))
@@ -167,14 +168,6 @@ func (h *Handler) HandleNodeLeave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 3: Remove from local WireGuard interface
-	// Get the peer's public key first
-	var rows []struct {
-		PublicKey string `db:"public_key"`
-	}
-	_ = h.rqliteClient.Query(ctx, &rows,
-		"SELECT public_key FROM wireguard_peers WHERE wg_ip = ?", wgIP)
-	// Peer already deleted above, but try to remove from wg0 anyway
 	h.removeWGPeerLocally(wgIP)
 
 	h.logger.Info("node removed from cluster", zap.String("wg_ip", wgIP))

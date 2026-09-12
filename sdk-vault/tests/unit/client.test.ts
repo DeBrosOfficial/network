@@ -15,7 +15,7 @@ import type { GuardianEndpoint } from '../../src/transport/types';
  * transport and auth suites.
  */
 
-const IDENTITY = 'a'.repeat(64);
+const PRIVATE_KEY = new Uint8Array(32).fill(7);
 
 function endpoints(count: number): GuardianEndpoint[] {
   return Array.from({ length: count }, (_, i) => ({ address: `10.0.0.${i + 1}`, port: 7500 }));
@@ -96,7 +96,7 @@ function fakeGuardians(
 }
 
 function client(guardians: GuardianEndpoint[]) {
-  return new VaultClient({ guardians, identityHex: IDENTITY });
+  return new VaultClient({ guardians, privateKey: PRIVATE_KEY });
 }
 
 function encodedShare(x: number, y: Uint8Array): Uint8Array {

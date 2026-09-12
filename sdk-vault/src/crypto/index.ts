@@ -24,4 +24,9 @@ export type { EncryptedData, SerializedEncryptedData } from './aes';
 export { deriveKeyHKDF } from './hkdf';
 
 export { split as shamirSplit, combine as shamirCombine } from './shamir';
+export {
+  identityFromSeed,
+  publicKeyFromSeed,
+  signUtf8,
+} from './ownership';
 export type { Share as ShamirShare } from './shamir';

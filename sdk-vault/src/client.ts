@@ -5,6 +5,17 @@ import type { GuardianClient } from "./transport/guardian";
 import type { GuardianEndpoint } from "./transport/types";
 import { split, combine } from "./crypto/shamir";
 import type { Share } from "./crypto/shamir";
+import {
+  deleteMessage,
+  getMessage,
+  identityFromSeed,
+  listMessage,
+  publicKeyFromSeed,
+  putMessage,
+  signUtf8,
+  unixSeconds,
+} from "./crypto/ownership";
+import { bytesToHex } from "@noble/hashes/utils";
 import { adaptiveThreshold, writeQuorum } from "./quorum";
 import type {
   VaultConfig,
@@ -54,10 +65,28 @@ function decodeShare(bytes: Uint8Array): Share {
 export class VaultClient {
   private config: VaultConfig;
   private auth: AuthClient;
+  private identityHex: string;
+  private publicKeyHex: string;
 
   constructor(config: VaultConfig) {
     this.config = config;
-    this.auth = new AuthClient(config.identityHex, config.timeoutMs);
+    this.identityHex = identityFromSeed(config.privateKey);
+    if (config.identityHex && config.identityHex.toLowerCase() !== this.identityHex) {
+      throw new Error("identityHex does not match SHA-256 of the Ed25519 public key");
+    }
+    this.publicKeyHex = bytesToHex(publicKeyFromSeed(config.privateKey));
+    this.auth = new AuthClient(this.identityHex, config.timeoutMs);
+  }
+
+  private ownershipHeaders(message: string, withTimestamp?: number): Record<string, string> {
+    const headers: Record<string, string> = {
+      "X-Vault-Pubkey": this.publicKeyHex,
+      "X-Vault-Signature": signUtf8(this.config.privateKey, message),
+    };
+    if (withTimestamp !== undefined) {
+      headers["X-Vault-Timestamp"] = String(withTimestamp);
+    }
+    return headers;
   }
 
   /**
@@ -102,7 +131,12 @@ export class VaultClient {
             throw new Error("authentication failed");
           }
           return withRetry(() =>
-            client.putSecret(name, encodeShare(shares[index]!), version),
+            client.putSecret(
+              name,
+              encodeShare(shares[index]!),
+              version,
+              this.ownershipHeaders(putMessage(this.identityHex, name, version)),
+            ),
           );
         }),
       );
@@ -159,8 +193,10 @@ export class VaultClient {
 
     const authed = await this.auth.authenticateAll(guardians);
 
+    const ts = unixSeconds();
+    const getHeaders = this.ownershipHeaders(getMessage(this.identityHex, name, ts), ts);
     const pulls = await Promise.allSettled(
-      authed.map(({ client }) => withTimeout(client.getSecret(name), PULL_TIMEOUT_MS)),
+      authed.map(({ client }) => withTimeout(client.getSecret(name, getHeaders), PULL_TIMEOUT_MS)),
     );
 
     const byVersion = new Map<number, Share[]>();
@@ -235,8 +271,10 @@ export class VaultClient {
       });
     }
 
+    const ts = unixSeconds();
+    const listHeaders = this.ownershipHeaders(listMessage(this.identityHex, ts), ts);
     const listings = await Promise.allSettled(
-      authed.map(({ client }) => client.listSecrets()),
+      authed.map(({ client }) => client.listSecrets(listHeaders)),
     );
 
     // Per name: how many guardians hold it, and the newest entry any of them
@@ -296,7 +334,13 @@ export class VaultClient {
         if (!client) {
           throw new Error("authentication failed");
         }
-        return withRetry(() => client.deleteSecret(name));
+        const ts = unixSeconds();
+        return withRetry(() =>
+          client.deleteSecret(
+            name,
+            this.ownershipHeaders(deleteMessage(this.identityHex, name, ts), ts),
+          ),
+        );
       }),
     );
 

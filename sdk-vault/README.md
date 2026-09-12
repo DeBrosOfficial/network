@@ -32,11 +32,12 @@ import { VaultClient, QuorumError } from "@debros/orama-vault";
 
 const vault = new VaultClient({
   guardians: [
-    { address: "10.0.0.1", port: 7500 },
-    { address: "10.0.0.2", port: 7500 },
-    { address: "10.0.0.3", port: 7500 },
+    { address: "10.0.0.1", port: 10106 },
+    { address: "10.0.0.2", port: 10106 },
+    { address: "10.0.0.3", port: 10106 },
   ],
-  identityHex: "…64 hex characters…",
+  // 32-byte Ed25519 seed. Identity is SHA-256 of the public key.
+  privateKey,
 });
 
 const secret = new TextEncoder().encode("sk-live-…");
