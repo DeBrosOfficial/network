@@ -251,6 +251,24 @@ func BlueprintNameserver() Blueprint {
 	}
 }
 
+// TenantBlueprintForEligibleCount picks the tenant recipe for a fleet of this
+// many eligible nodes. Production stays N=3 whenever the fleet can support it
+// (never N=fleet). A single eligible node is eval — the same units, replica
+// count 1, not HA. Two nodes are refused: that size is neither eval nor a
+// Raft quorum. Zero is insufficient.
+func TenantBlueprintForEligibleCount(eligible int) (Blueprint, error) {
+	switch {
+	case eligible >= DefaultRQLiteNodeCount:
+		return BlueprintTenant(), nil
+	case eligible == 1:
+		return BlueprintTenantN(1), nil
+	case eligible == 2:
+		return Blueprint{}, ErrTwoNodeFleet
+	default:
+		return Blueprint{}, ErrInsufficientNodes
+	}
+}
+
 // BlueprintTenantN is a tenant cluster of n members. n=3 is the API-key
 // default (BlueprintTenant). n=1 is a single-node cluster (rqlite leader,
 // no -join). Port needs stay 2+2+1.

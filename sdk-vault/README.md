@@ -84,11 +84,14 @@ K = max(2, floor(N/3))              read threshold
 W = min(N, max(K + 1, ceil(2N/3)))  write quorum
 ```
 
-N is the number of configured guardians. `W > K` is the durability guarantee: a
-write reported successful has persisted strictly more shares than a read
+N is the number of configured guardians. `W > K` is the durability guarantee for
+N≥3: a write reported successful has persisted strictly more shares than a read
 requires. The same two formulas are implemented in
 `vault/src/membership/quorum.zig` and `core/pkg/shamir/shamir.go`, and the three
-must agree exactly.
+must agree exactly. A one-node eval cluster does not Shamir-split: the Orama
+gateway stores the envelope as a local key (`K=1`, `W=1`). Direct overlay
+clients that call `split(data, 1, 2)` still fail; eval apps use the HTTPS
+gateway. See `docs/EVAL.md`.
 
 ## Authentication, and its current limit
 

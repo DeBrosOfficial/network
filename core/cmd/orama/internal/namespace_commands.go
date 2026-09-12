@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/DeBrosOfficial/network/pkg/auth"
 	"github.com/DeBrosOfficial/network/pkg/constants"
 )
 
@@ -345,8 +345,8 @@ func NamespaceDelete(force bool) error {
 	if !force {
 		fmt.Printf("This will permanently delete namespace '%s' and all its resources:\n", namespace)
 		fmt.Printf("  - All deployments and their processes\n")
-		fmt.Printf("  - RQLite cluster (3 nodes)\n")
-		fmt.Printf("  - Olric cache cluster (3 nodes)\n")
+		fmt.Printf("  - RQLite cluster\n")
+		fmt.Printf("  - Olric cache cluster\n")
 		fmt.Printf("  - Gateway instances\n")
 		fmt.Printf("  - API keys and credentials\n")
 		fmt.Printf("  - IPFS content and DNS records\n\n")

@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"sync"
 	"sync/atomic"
-
-	"github.com/DeBrosOfficial/network/pkg/shamir"
 )
 
 // HealthResponse is returned for GET /v1/vault/health.
@@ -40,8 +38,7 @@ func (h *Handlers) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	n := len(guardians)
 	healthy := h.probeGuardians(r.Context(), guardians)
 
-	k := shamir.AdaptiveThreshold(n)
-	wq := shamir.WriteQuorum(n)
+	k, wq := thresholdsForGuardianCount(n)
 
 	status := "healthy"
 	if healthy < wq {
@@ -70,12 +67,13 @@ func (h *Handlers) HandleStatus(w http.ResponseWriter, r *http.Request) {
 
 	n := len(guardians)
 	healthy := h.probeGuardians(r.Context(), guardians)
+	k, wq := thresholdsForGuardianCount(n)
 
 	writeJSON(w, http.StatusOK, StatusResponse{
 		Guardians:   n,
 		Healthy:     healthy,
-		Threshold:   shamir.AdaptiveThreshold(n),
-		WriteQuorum: shamir.WriteQuorum(n),
+		Threshold:   k,
+		WriteQuorum: wq,
 	})
 }
 

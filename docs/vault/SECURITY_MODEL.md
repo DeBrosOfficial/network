@@ -52,6 +52,7 @@ reported successful.
 
 | Alive Nodes (N) | Threshold (K) | Write Quorum (W) | Read Fault Tolerance (N-K) |
 |------------------|---------------|------------------|-----------------------------|
+| 1 (eval only) | 1 | 1 | 0 — local key, not Shamir |
 | 3 | 2 | 3 | 1 |
 | 5 | 2 | 4 | 3 |
 | 9 | 3 | 6 | 6 |
@@ -60,10 +61,18 @@ reported successful.
 | 50 | 16 | 34 | 34 |
 | 100 | 33 | 67 | 67 |
 
-Two is the smallest threshold that keeps the secret secret: with K = 1 a single
-guardian holds enough to reconstruct on its own.
+Two is the smallest Shamir threshold that keeps the secret secret: with K = 1 a
+single guardian holds enough to reconstruct on its own.
 
-`W > K` is the durability guarantee. A write reported successful has persisted
+**Eval exception (one VPS).** Shamir `Split` requires `K≥2` and `N≥K`, so a
+single guardian cannot split. The gateway stores the envelope as a local key on
+that disk (`K=1`, `W=1`) and logs it. That is not information-theoretic secret
+sharing; lose the disk, lose the secret. See [EVAL.md](../EVAL.md). Production
+(`N≥3`) is unchanged. Do not fold K=1 into `AdaptiveThreshold`.
+
+`W > K` is the durability guarantee for **N≥3**. At N=1 it cannot hold (one
+disk). At N=2, W=K=2 (no spare share). A two-node fleet is refused at tenant
+provision. A write reported successful has persisted
 strictly more shares than a read requires, so it is always recoverable and
 survives the loss of at least one guardian. The floor used to be 3, which broke
 that guarantee in the other direction: at N = 3 it gave K = 3 against W = 2, so
