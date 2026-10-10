@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
 )
 
 // An environment no command could use was stored as given (stagenet e2e,
@@ -39,7 +40,7 @@ func TestValidateNewEnvironment(t *testing.T) {
 // A negative lifetime was dropped before the request and the key minted with
 // the default (stagenet e2e, 2026-09-30); it is a usage mistake.
 func TestNamespaceKeys_negativeDaysAreUsage(t *testing.T) {
-	if err := NamespaceKeysCreate("acme", "cache", "", -1); clierr.CodeOf(err) != clierr.CodeUsage {
+	if err := NamespaceKeysCreate(printer.Std(), "acme", "cache", "", -1); clierr.CodeOf(err) != clierr.CodeUsage {
 		t.Errorf("create --expires-in-days -1: %v (code %d)", err, clierr.CodeOf(err))
 	}
 	if err := NamespaceKeysRotate("acme", 1, -1, 0); clierr.CodeOf(err) != clierr.CodeUsage {

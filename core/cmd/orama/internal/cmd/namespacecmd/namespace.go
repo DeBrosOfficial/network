@@ -92,7 +92,7 @@ var keysCreateCmd = &cobra.Command{
 		label, _ := cmd.Flags().GetString("label")
 		ns, _ := cmd.Flags().GetString("namespace")
 		days, _ := cmd.Flags().GetInt("expires-in-days")
-		return cli.NamespaceKeysCreate(ns, scope, label, days)
+		return cli.NamespaceKeysCreate(printer.For(cmd), ns, scope, label, days)
 	},
 }
 

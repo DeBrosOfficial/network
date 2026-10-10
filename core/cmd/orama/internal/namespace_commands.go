@@ -115,8 +115,9 @@ func confirmExact(prompt, want string) error {
 
 // --- API keys (bugboard #148) ---------------------------------------------
 
-// NamespaceKeysCreate mints a scoped API key.
-func NamespaceKeysCreate(ns, scope, label string, expiresInDays int) error {
+// NamespaceKeysCreate mints a scoped API key and prints it through out: the
+// lines a person reads, or with --json one object holding the key.
+func NamespaceKeysCreate(out *printer.Printer, ns, scope, label string, expiresInDays int) error {
 	if strings.TrimSpace(scope) == "" {
 		return clierr.Usage("--scope is required: a profile (invoke-only, app-runtime, admin) " +
 			"or an explicit grant list such as \"invoke,storage,push\"")
@@ -145,15 +146,31 @@ func NamespaceKeysCreate(ns, scope, label string, expiresInDays int) error {
 		return err
 	}
 
-	fmt.Printf("API key created.\n")
-	fmt.Printf("  id:        %v\n", result["id"])
-	fmt.Printf("  scopes:    %v\n", result["scopes"])
-	fmt.Printf("  namespace: %v\n", result["namespace"])
-	fmt.Printf("  expires:   %v\n", result["expires_at"])
-	if l, _ := result["label"].(string); l != "" {
-		fmt.Printf("  label:     %s\n", l)
+	return printCreatedKey(out, result)
+}
+
+// printCreatedKey prints the gateway's answer to a key creation.
+func printCreatedKey(out *printer.Printer, result map[string]any) error {
+	if out.JSONMode() {
+		label, _ := result["label"].(string)
+		return out.JSON(struct {
+			ID        any    `json:"id"`
+			Scopes    any    `json:"scopes"`
+			Namespace any    `json:"namespace"`
+			Expires   any    `json:"expires"`
+			Label     string `json:"label"`
+			Key       any    `json:"key"`
+		}{result["id"], result["scopes"], result["namespace"], result["expires_at"], label, result["api_key"]})
 	}
-	fmt.Printf("\n  API KEY (shown once — store it now):\n  %v\n", result["api_key"])
+	out.Printf("API key created.\n")
+	out.Printf("  id:        %v\n", result["id"])
+	out.Printf("  scopes:    %v\n", result["scopes"])
+	out.Printf("  namespace: %v\n", result["namespace"])
+	out.Printf("  expires:   %v\n", result["expires_at"])
+	if l, _ := result["label"].(string); l != "" {
+		out.Printf("  label:     %s\n", l)
+	}
+	out.Printf("\n  API KEY (shown once — store it now):\n  %v\n", result["api_key"])
 	return nil
 }
 

@@ -93,6 +93,7 @@ orama namespace keys revoke --id 12
 
 Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
 
+- **For a script:** `orama namespace keys create --json` prints one JSON object (`id`, `scopes`, `namespace`, `expires`, `label` and `key`) and nothing else.
 - **Format.** `orama_<type>_<payload>_<checksum>`, base62. `sk` labels a key holding the control plane and `rk` one holding only the data plane; the row decides authority, not the label. The checksum is not a security property, but a leaked key is recognisable offline by a secret scanner, and a mistyped one is refused without a database lookup.
 - **It does not name its namespace.** It used to be `ak_<random>:<namespace>`, so a key pasted into an issue published which tenant it belonged to.
 - **Every key expires:** 90 days by default, a year at most (`--expires-in-days`). There is no way to ask for one that does not.

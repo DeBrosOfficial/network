@@ -98,6 +98,44 @@ func TestNamespaceKeys_cliLifecycle(t *testing.T) {
 	}
 }
 
+// TestNamespaceKeys_createHonoursJSON: with the global --json, keys create
+// prints one JSON object (id, scopes, namespace, expires, label and key) and
+// none of the lines a person reads.
+func TestNamespaceKeys_createHonoursJSON(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	n := ns.New(t, f, ns.Options{Via: ns.ViaOperator})
+	out := n.CLI.MustOK(t, "namespace", "keys", "create", "--scope", "app-runtime", "--label", "cli-json", "--json").Stdout
+	var got struct {
+		ID        int64  `json:"id"`
+		Scopes    string `json:"scopes"`
+		Namespace string `json:"namespace"`
+		Expires   string `json:"expires"`
+		Label     string `json:"label"`
+		Key       string `json:"key"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("keys create --json printed something that is not one JSON object: %v", err)
+	}
+	if got.Key != "" {
+		protect(t, harness.GW(t), got.Key)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cleanupBudget)
+		defer cancel()
+		res, err := n.CLI.Run(ctx, "namespace", "keys", "revoke", "--id", fmt.Sprint(got.ID))
+		if err != nil || (res.Exit != 0 && res.Exit != exitNotFound) {
+			t.Errorf("cleanup: failed to revoke key %d: %v %s", got.ID, err, res.Stderr)
+		}
+	})
+	if got.ID == 0 || got.Scopes == "" || got.Namespace == "" || got.Expires == "" || got.Label != "cli-json" || !cliKeyShape.MatchString(got.Key+"\n") {
+		t.Errorf("keys create --json = id %d, scopes %q, namespace %q, expires %q, label %q, and a key that is %d characters", got.ID, got.Scopes, got.Namespace, got.Expires, got.Label, len(got.Key))
+	}
+	if strings.Contains(out, shownOnce) {
+		t.Error("keys create --json also printed the lines for a person")
+	}
+}
+
 // followPrintsNewEvents: `orama audit --follow` prints the history, keeps
 // running, and prints a key.issue recorded after the history was out.
 func followPrintsNewEvents(t *testing.T, n *ns.Namespace) {
