@@ -58,8 +58,8 @@ func (p *Proxy) serveIndex(w http.ResponseWriter, r *http.Request, rest string) 
 	switch kind {
 	case queryPaged:
 		q, ok = pageQuery(r)
-	case queryLimit:
-		q, ok = limitQuery(r)
+	case queryTxList:
+		q, ok = txListQuery(r)
 	default:
 		ok = r.URL.RawQuery == ""
 	}
@@ -72,14 +72,48 @@ func (p *Proxy) serveIndex(w http.ResponseWriter, r *http.Request, rest string) 
 		writeErr(w, http.StatusServiceUnavailable, msgNoIndexer)
 		return
 	}
-	p.forward(w, r, p.index, upstreamIndexBase+upstream, q)
+	p.forwardIndex(w, r, upstreamIndexBase+upstream, q)
 }
 
-// What query an index route takes: none, page and limit, or limit alone.
+// cacheNoStore is the Cache-Control of every chain answer the proxy does not know to be cacheable.
+const cacheNoStore = "no-store"
+
+// indexMaxCacheAge is the longest, in seconds, the proxy lets a copy of an indexer answer be kept: an hour,
+// whatever the indexer writes.
+const indexMaxCacheAge = 3600
+
+// cacheAgePattern is the one form of Cache-Control the indexer writes on a successful answer
+// (chain/indexer/cache.go).
+var cacheAgePattern = regexp.MustCompile(`^public, max-age=([1-9][0-9]{0,3})$`)
+
+// indexCacheControl is what the indexer said about how long its answer may be kept, if it said it in
+// the form it writes and within indexMaxCacheAge; otherwise the answer is not cacheable. A header a
+// compromised or misconfigured upstream could send in another form is not passed on.
+func indexCacheControl(resp *http.Response) string {
+	if resp.StatusCode != http.StatusOK {
+		return cacheNoStore
+	}
+	m := cacheAgePattern.FindStringSubmatch(resp.Header.Get("Cache-Control"))
+	if m == nil {
+		return cacheNoStore
+	}
+	if n, err := strconv.Atoi(m[1]); err != nil || n > indexMaxCacheAge {
+		return cacheNoStore
+	}
+	return m[0]
+}
+
+// forwardIndex relays an indexer answer and, unlike the other routes, lets a successful one be cached for
+// as long as the indexer says: a page of a closed epoch is the same for everyone who asks.
+func (p *Proxy) forwardIndex(w http.ResponseWriter, r *http.Request, path string, q url.Values) {
+	p.relay(w, r, p.index, path, q, indexCacheControl)
+}
+
+// What query an index route takes: none, page and limit, or page, limit and a filter.
 const (
 	queryNone = iota
 	queryPaged
-	queryLimit
+	queryTxList
 )
 
 // indexRoute returns the upstream path after /index/v1/ and the query the route
@@ -90,8 +124,12 @@ func indexRoute(segs []string) (string, int, bool) {
 		return "status", queryNone, true
 	case len(segs) == 1 && segs[0] == "stats":
 		return "stats", queryNone, true
+	case len(segs) == 1 && segs[0] == "home":
+		return "home", queryNone, true
+	case len(segs) == 1 && segs[0] == "blocks":
+		return "blocks", queryPaged, true
 	case len(segs) == 1 && segs[0] == "txs":
-		return "txs", queryLimit, true
+		return "txs", queryTxList, true
 	case len(segs) == 2 && segs[0] == "blocks":
 		h, ok := parsePositive(segs[1])
 		return "blocks/" + strconv.FormatInt(h, 10), queryNone, ok
@@ -101,7 +139,9 @@ func indexRoute(segs []string) (string, int, bool) {
 	case len(segs) == 2 && segs[0] == "accounts":
 		return "accounts/" + segs[1], queryNone, accountPattern.MatchString(segs[1])
 	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "txs":
-		return "accounts/" + segs[1] + "/txs", queryPaged, accountPattern.MatchString(segs[1])
+		return "accounts/" + segs[1] + "/txs", queryTxList, accountPattern.MatchString(segs[1])
+	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "rewards":
+		return "accounts/" + segs[1] + "/rewards", queryPaged, accountPattern.MatchString(segs[1])
 	case len(segs) == 3 && segs[0] == "cnft" && segs[1] == "assets":
 		return "cnft/assets/" + strings.ToLower(segs[2]), queryNone, hash32Pattern.MatchString(segs[2])
 	case len(segs) == 4 && segs[0] == "cnft" && segs[1] == "owners" && segs[3] == "assets":
@@ -114,7 +154,7 @@ func indexRoute(segs []string) (string, int, bool) {
 // validatorLists are the per-validator lists the indexer pages through, and seriesNames the
 // statistics series it serves beyond the 48 hourly buckets of /stats.
 var (
-	validatorLists = map[string]bool{"epochs": true, "slashes": true, "jails": true}
+	validatorLists = map[string]bool{"epochs": true, "slashes": true, "jails": true, "rewards": true}
 	seriesNames    = map[string]bool{"hourly": true, "daily": true, "weekly": true}
 )
 
@@ -128,9 +168,9 @@ func aggregateRoute(segs []string) (string, int, bool) {
 	case len(segs) == 2 && segs[0] == "epochs":
 		n, ok := parsePositive(segs[1])
 		return "epochs/" + strconv.FormatInt(n, 10), queryNone, ok
-	case len(segs) == 3 && segs[0] == "epochs" && segs[2] == "validators":
+	case len(segs) == 3 && segs[0] == "epochs" && (segs[2] == "validators" || segs[2] == "rewards"):
 		n, ok := parsePositive(segs[1])
-		return "epochs/" + strconv.FormatInt(n, 10) + "/validators", queryPaged, ok
+		return "epochs/" + strconv.FormatInt(n, 10) + "/" + segs[2], queryPaged, ok
 	case len(segs) == 2 && segs[0] == "validators":
 		return "validators/" + segs[1], queryNone, validatorPattern.MatchString(segs[1])
 	case len(segs) == 3 && segs[0] == "validators" && validatorLists[segs[2]]:
@@ -142,19 +182,25 @@ func aggregateRoute(segs []string) (string, int, bool) {
 	}
 }
 
-// limitQuery accepts limit (1 to indexMaxLimit), at most once, and nothing else.
-func limitQuery(r *http.Request) (url.Values, bool) {
-	q, ok := singleQuery(r, "limit")
+// txListFilters are the values of the filter parameter of the transaction lists (chain/indexer/kinds.go).
+var txListFilters = map[string]bool{"all": true, "failed": true, "transfers": true, "staking": true, "storage": true}
+
+// txListQuery accepts page and limit as pageQuery does, and filter, each at most once, and nothing else.
+func txListQuery(r *http.Request) (url.Values, bool) {
+	q, ok := singleQuery(r, "page", "limit", "filter")
 	if !ok {
 		return nil, false
 	}
-	out := url.Values{}
-	if raw := q.Get("limit"); raw != "" {
-		n, good := parsePositive(raw)
-		if !good || n > indexMaxLimit {
-			return nil, false
-		}
-		out.Set("limit", strconv.FormatInt(n, 10))
+	filter := q.Get("filter")
+	if filter != "" && !txListFilters[filter] {
+		return nil, false
+	}
+	out, ok := pageValues(q)
+	if !ok {
+		return nil, false
+	}
+	if filter != "" {
+		out.Set("filter", filter)
 	}
 	return out, true
 }
@@ -166,6 +212,11 @@ func pageQuery(r *http.Request) (url.Values, bool) {
 	if !ok {
 		return nil, false
 	}
+	return pageValues(q)
+}
+
+// pageValues checks the page and limit among the values of a query.
+func pageValues(q url.Values) (url.Values, bool) {
 	out := url.Values{}
 	for key, max := range map[string]int64{"page": indexMaxPage, "limit": indexMaxLimit} {
 		raw := q.Get(key)

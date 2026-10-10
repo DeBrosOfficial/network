@@ -170,6 +170,12 @@ type Proxy struct {
 	broadcastSlots chan struct{}
 	// lightSlots bounds the light-client calls in flight (light.go).
 	lightSlots chan struct{}
+	// heads shares one reader of the node's status among the open head streams, and headSlots bounds
+	// those streams (head.go).
+	heads     *headHub
+	headSlots chan struct{}
+	// headMaxAge is how long a head stream lasts.
+	headMaxAge time.Duration
 	// faucet and faucetSlots are the faucet route's service and its requests in flight (faucet.go).
 	faucet       FaucetService
 	faucetSlots  chan struct{}
@@ -202,7 +208,7 @@ func New(cfg Config) (*Proxy, error) {
 	if cfg.IndexInstalled == nil {
 		cfg.IndexInstalled = func() bool { return true }
 	}
-	return &Proxy{
+	p := &Proxy{
 		rpc:            rpc,
 		rest:           rest,
 		index:          index,
@@ -220,7 +226,11 @@ func New(cfg Config) (*Proxy, error) {
 		faucetSlots:    make(chan struct{}, faucetMaxConcurrent),
 		faucetBudget:   chainfaucet.NewBudget(big.NewInt(chainfaucet.DefaultBudgetNorama), chainfaucet.BudgetWindow),
 		faucetCeiling:  chainfaucet.NewBudget(big.NewInt(chainfaucet.DefaultCeilingNorama), chainfaucet.BudgetWindow),
-	}, nil
+		headSlots:      make(chan struct{}, headStreamMaxConcurrent),
+		headMaxAge:     headStreamMaxAge,
+	}
+	p.heads = newHeadHub(p.readHead, headPollInterval)
+	return p, nil
 }
 
 func parseBase(raw, what string) (*url.URL, error) {
@@ -316,6 +326,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case lightPath:
 		p.serveLight(w, r)
+		return
+	case headStreamPath:
+		p.serveHeadStream(w, r)
 		return
 	case faucetPath:
 		p.serveFaucet(w, r)
@@ -535,6 +548,12 @@ func parseTxHash(s string) (string, bool) {
 }
 
 func (p *Proxy) forward(w http.ResponseWriter, r *http.Request, base *url.URL, path string, q url.Values) {
+	p.relay(w, r, base, path, q, func(*http.Response) string { return cacheNoStore })
+}
+
+// relay answers with the upstream's body. cacheControl chooses the Cache-Control of a successful answer from
+// the upstream's own response.
+func (p *Proxy) relay(w http.ResponseWriter, r *http.Request, base *url.URL, path string, q url.Values, cacheControl func(*http.Response) string) {
 	resp, body, ok := p.fetch(w, r, base, path, q, p.maxBody)
 	if !ok {
 		return
@@ -551,7 +570,7 @@ func (p *Proxy) forward(w http.ResponseWriter, r *http.Request, base *url.URL, p
 		return
 	}
 	w.Header().Set("Content-Type", passContentType(resp.Header.Get("Content-Type")))
-	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Cache-Control", cacheControl(resp))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(body)

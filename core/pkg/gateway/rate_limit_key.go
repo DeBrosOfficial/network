@@ -29,6 +29,15 @@ const (
 	chainQueryBurst       = 30
 
 	chainQueryPathPrefix = "/v1/chain/query/"
+
+	// chainHeadStreamPath is the chain's head as server-sent events (handlers/chainread/head.go).
+	// A stream lasts a hundred seconds and a browser connects again when it ends, so a page open
+	// all day opens about a thousand a day; the bucket lets a household of tabs do that and not
+	// a client that opens streams to hold the gateway's slots. How many streams are open at once
+	// is bounded by the handler.
+	chainHeadStreamPath       = "/v1/chain/head/stream"
+	chainHeadStreamsPerMinute = 12
+	chainHeadStreamBurst      = 6
 )
 
 // isChainQueryPath reports whether path is the public Orama module-query route.

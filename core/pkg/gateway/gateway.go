@@ -232,6 +232,8 @@ type Gateway struct {
 	// chainQueryRateLimiter caps the public module-query route (/v1/chain/query/),
 	// per client address, far below the general limit. See isChainQueryPath.
 	chainQueryRateLimiter *RateLimiter
+	// chainHeadRateLimiter bounds the head streams (/v1/chain/head/stream) one client network opens.
+	chainHeadRateLimiter *RateLimiter
 	// chainSimulateLimiter and chainBroadcastLimiter cap the wallet transaction routes
 	// (/v1/chain/simulate, /v1/chain/broadcast), per client network and per route.
 	chainSimulateLimiter  *chainTxLimiter
@@ -1694,6 +1696,9 @@ func configureRateLimiters(gw *Gateway) {
 
 	gw.chainQueryRateLimiter = NewRateLimiter(chainQueriesPerMinute, chainQueryBurst)
 	gw.chainQueryRateLimiter.StartCleanup(5*time.Minute, 10*time.Minute)
+
+	gw.chainHeadRateLimiter = NewRateLimiter(chainHeadStreamsPerMinute, chainHeadStreamBurst)
+	gw.chainHeadRateLimiter.StartCleanup(5*time.Minute, 10*time.Minute)
 
 	gw.chainSimulateLimiter = newChainTxLimiter(chainSimulatePerAddressPerMinute, chainSimulatePerAddressBurst,
 		chainSimulateRoutePerMinute, chainSimulateRouteBurst)

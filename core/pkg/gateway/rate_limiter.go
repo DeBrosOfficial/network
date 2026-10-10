@@ -187,6 +187,18 @@ func (g *Gateway) rateLimitMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Opening a head stream is cheap to ask for and holds a connection for a hundred seconds, so
+		// it has a bucket of its own.
+		if g.chainHeadRateLimiter != nil && r.URL.Path == chainHeadStreamPath && !g.chainHeadRateLimiter.Allow(ip) {
+			w.Header().Set("Retry-After", "10")
+			httputil.WriteRPCError(w, http.StatusTooManyRequests,
+				httputil.ErrCodeRateLimited,
+				"too many chain streams from this address — wait a moment and try again",
+				httputil.WithRetryable(),
+				httputil.WithRetryAfter(10))
+			return
+		}
+
 		// Simulating and broadcasting a transaction each have two buckets of their own: the
 		// client's network and the route as a whole (chain_tx_limit.go).
 		if l := g.chainTxLimiterFor(r); l != nil && !l.allow(ip) {
