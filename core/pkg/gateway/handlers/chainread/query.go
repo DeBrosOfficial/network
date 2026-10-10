@@ -75,14 +75,17 @@ var publicQuery = names(
 	"orama.nodes.v1.Query/NodeUnbondings", // capped at MaxUnbondingsPerQuery by x/nodes
 	"orama.nodes.v1.Query/NodeByName", "orama.nodes.v1.Query/NameOfNode",
 	"orama.nodes.v1.Query/NodeNames", // paged by key, at most MaxNodeNamesPerPage names a page, by x/nodes
+	"orama.nodes.v1.Query/Nodes",     // paged by key, at most MaxNodesPerPage nodes a page, by x/nodes
 	"orama.power.v1.Query/Params", "orama.power.v1.Query/BootstrapCommittee", "orama.power.v1.Query/Lambda",
 	"orama.power.v1.Query/ValidatorPower",
 	"orama.relay.v1.Query/Params", "orama.relay.v1.Query/Reporters", "orama.relay.v1.Query/Relay",
 	"orama.relay.v1.Query/EpochResult",
+	"orama.relay.v1.Query/Relays", // paged by key, at most MaxRelaysPerPage relays a page, by x/relay
 	"orama.shielded.v1.Query/Params", "orama.shielded.v1.Query/TreeState", "orama.shielded.v1.Query/NullifierSpent",
 	"orama.storage.v1.Query/Params", "orama.storage.v1.Query/Deal", "orama.storage.v1.Query/Slot",
 	"orama.storage.v1.Query/Authorization", "orama.storage.v1.Query/Challenges", "orama.storage.v1.Query/EpochMint",
 	"orama.storage.v1.Query/Queue", "orama.storage.v1.Query/NodeFailures",
+	"orama.storage.v1.Query/Deals", // paged by key, at most MaxDealsPerPage deals a page, by x/storage
 	"orama.token.v1.Query/Params", "orama.token.v1.Query/Token", "orama.token.v1.Query/Frozen",
 )
 

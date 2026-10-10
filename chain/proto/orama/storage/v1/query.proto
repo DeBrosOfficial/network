@@ -3,6 +3,7 @@ package orama.storage.v1;
 
 option go_package = "github.com/DeBrosOfficial/network/chain/x/storage/types";
 
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";
 import "gogoproto/gogo.proto";
 import "orama/storage/v1/storage.proto";
@@ -14,6 +15,9 @@ service Query {
   }
   rpc Deal(QueryDealRequest) returns (QueryDealResponse) {
     option (google.api.http).get = "/orama/storage/v1/deal/{deal_id}";
+  }
+  rpc Deals(QueryDealsRequest) returns (QueryDealsResponse) {
+    option (google.api.http).get = "/orama/storage/v1/deals";
   }
   rpc Slot(QuerySlotRequest) returns (QuerySlotResponse) {
     option (google.api.http).get = "/orama/storage/v1/slot/{deal_id}/{slot}";
@@ -60,6 +64,16 @@ message QueryDealRequest {
 
 message QueryDealResponse {
   Deal deal = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryDealsRequest pages through every deal in id order; pagination.reverse lists the newest first.
+message QueryDealsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryDealsResponse {
+  repeated Deal deals = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 message QuerySlotRequest {

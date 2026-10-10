@@ -8,9 +8,11 @@ import (
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/DeBrosOfficial/network/chain/x/internal/pagebound"
 	"github.com/DeBrosOfficial/network/chain/x/storage/types"
 )
 
@@ -42,6 +44,30 @@ func (q queryServer) Deal(goCtx context.Context, req *types.QueryDealRequest) (*
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	return &types.QueryDealResponse{Deal: deal}, nil
+}
+
+// MaxDealsPerPage bounds one Deals page.
+const MaxDealsPerPage = 100
+
+// Deals pages through every deal in id order (the newest first with pagination.reverse). A page
+// key resumes after the last deal of the previous page.
+func (q queryServer) Deals(goCtx context.Context, req *types.QueryDealsRequest) (*types.QueryDealsResponse, error) {
+	if req == nil {
+		req = &types.QueryDealsRequest{}
+	}
+	pagination, err := pagebound.Clamp(req.Pagination, MaxDealsPerPage)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	deals, page, err := query.CollectionPaginate(sdk.UnwrapSDKContext(goCtx), q.Keeper.Deals, pagination,
+		func(_ uint64, deal types.Deal) (types.Deal, error) { return deal, nil })
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if deals == nil {
+		deals = []types.Deal{}
+	}
+	return &types.QueryDealsResponse{Deals: deals, Pagination: page}, nil
 }
 
 func (q queryServer) Slot(goCtx context.Context, req *types.QuerySlotRequest) (*types.QuerySlotResponse, error) {

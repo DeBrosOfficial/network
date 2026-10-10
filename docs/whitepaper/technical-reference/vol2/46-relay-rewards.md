@@ -48,7 +48,7 @@ Four constraints shape the design.
 | `MsgReportEpoch` | a reporter | adds one chunk of a report |
 | `MsgUpdateReporters` | no one | accepted only inside a passed structural proposal (below) |
 
-Queries: `Params`, `Reporters`, `Relay` (by fingerprint hex), `EpochResult`, `Invariants`. There is no message that removes a relay, and no message that jails one. The module has no `MsgUpdateParams`: its six parameters are fixed at genesis (`chain/x/relay/types/params.go`).
+Queries: `Params`, `Reporters`, `Relay` (by fingerprint hex), `Relays` (every relay, in fingerprint order, at most 100 a page by the page key), `EpochResult`, `Invariants`. There is no message that removes a relay, and no message that jails one. The module has no `MsgUpdateParams`: its six parameters are fixed at genesis (`chain/x/relay/types/params.go`).
 
 ## How it works
 

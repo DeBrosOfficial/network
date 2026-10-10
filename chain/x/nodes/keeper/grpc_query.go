@@ -3,10 +3,13 @@ package keeper
 import (
 	"context"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/DeBrosOfficial/network/chain/x/internal/pagebound"
 	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
 )
 
@@ -15,6 +18,12 @@ var _ types.QueryServer = queryServer{}
 // MaxUnbondingsPerQuery bounds one NodeUnbondings response: an operator can queue many small
 // unbondings on a node, and a public query must not walk them all.
 const MaxUnbondingsPerQuery = 1000
+
+// MaxNodesPerPage bounds one Nodes page. A node record carries its bindings and endpoints, up to
+// 64 of each at the largest genesis parameters (about 26 KB), so a full page of such records
+// reads more than the node's query gas limit allows. The page is therefore bounded by entries,
+// and the query runs on a meter of its own, as Invariants does.
+const MaxNodesPerPage = 100
 
 type queryServer struct {
 	Keeper
@@ -83,6 +92,28 @@ func (q queryServer) NodeUnbondings(goCtx context.Context, req *types.QueryNodeU
 		entries = []types.UnbondingEntry{}
 	}
 	return &types.QueryNodeUnbondingsResponse{Unbondings: entries}, nil
+}
+
+// Nodes pages through every registered node in node id order, whatever its status. A page key
+// resumes after the last node of the previous page.
+func (q queryServer) Nodes(goCtx context.Context, req *types.QueryNodesRequest) (*types.QueryNodesResponse, error) {
+	if req == nil {
+		req = &types.QueryNodesRequest{}
+	}
+	pagination, err := pagebound.Clamp(req.Pagination, MaxNodesPerPage)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx).WithGasMeter(storetypes.NewInfiniteGasMeter())
+	nodes, page, err := query.CollectionPaginate(ctx, q.Keeper.Nodes, pagination,
+		func(_ string, node types.Node) (types.Node, error) { return node, nil })
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if nodes == nil {
+		nodes = []types.Node{}
+	}
+	return &types.QueryNodesResponse{Nodes: nodes, Pagination: page}, nil
 }
 
 func (q queryServer) Invariants(goCtx context.Context, _ *types.QueryInvariantsRequest) (*types.QueryInvariantsResponse, error) {
