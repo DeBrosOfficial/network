@@ -35,6 +35,32 @@ type Block struct {
 	// Burned is the norama its transactions burned as base fee (the "base_fee"
 	// attribute of each "tx" event). Finalize-block burns are not included.
 	Burned string `json:"burned"`
+	// CommitSigned and CommitSize count the votes the block carries for the block before it: how
+	// many validators of that block's set voted for it, and how many the set had. Both are 0 for
+	// the chain's first block, which carries none.
+	CommitSigned int `json:"commit_signed"`
+	CommitSize   int `json:"commit_size"`
+}
+
+// BlockSummary is a block without its transaction hashes, as the block list and the home snapshot
+// show it.
+type BlockSummary struct {
+	Height       int64     `json:"height"`
+	Hash         string    `json:"hash"`
+	Time         time.Time `json:"time"`
+	Proposer     string    `json:"proposer"`
+	TxCount      int       `json:"tx_count"`
+	GasUsed      int64     `json:"gas_used"`
+	Burned       string    `json:"burned"`
+	CommitSigned int       `json:"commit_signed"`
+	CommitSize   int       `json:"commit_size"`
+}
+
+func (b Block) summary() BlockSummary {
+	return BlockSummary{
+		Height: b.Height, Hash: b.Hash, Time: b.Time, Proposer: b.Proposer, TxCount: b.TxCount,
+		GasUsed: b.GasUsed, Burned: b.Burned, CommitSigned: b.CommitSigned, CommitSize: b.CommitSize,
+	}
 }
 
 // Attribute is one event attribute as the chain emitted it.

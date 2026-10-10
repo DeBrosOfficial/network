@@ -159,6 +159,7 @@ func (f *Follower) indexBlock(ctx context.Context, height int64) error {
 	}
 	block.TxCount = len(block.TxHashes)
 	block.Burned = burned.String()
+	block.CommitSigned, block.CommitSize = commitTally(blk.Block.LastCommit)
 	if err := w.putBlock(block); err != nil {
 		return errors.Join(err, w.close())
 	}
@@ -221,11 +222,18 @@ func (f *Follower) writeTx(w *writer, pos txPos, hash []byte, t Tx, res *abci.Ex
 	if err := w.addLatest(pos.height, pos.index, hash); err != nil {
 		return err
 	}
+	kinds := kindsOf(t.Messages, res.Code != 0)
+	if err := w.addKinds(kinds, pos.height, pos.index, hash); err != nil {
+		return err
+	}
 	if err := w.addToBuckets(pos.time, res.Code != 0, burned); err != nil {
 		return err
 	}
 	for _, addr := range eventAddresses(res.Events) {
 		if err := w.addAccountTx(addr, pos.height, pos.index, hash); err != nil {
+			return err
+		}
+		if err := w.addAccountKinds(addr, kinds, pos.height, pos.index, hash); err != nil {
 			return err
 		}
 		if err := w.touchAccount(addr, pos.time); err != nil {
@@ -278,3 +286,17 @@ func baseFeeBurned(events []abci.Event) (math.Int, error) {
 }
 
 func lowerHex(b []byte) string { return hex.EncodeToString(b) }
+
+// commitTally counts the votes in a commit that are for the block, and all its entries; the first
+// block has no commit.
+func commitTally(c *cmttypes.Commit) (signed, size int) {
+	if c == nil {
+		return 0, 0
+	}
+	for _, sig := range c.Signatures {
+		if sig.BlockIDFlag == cmttypes.BlockIDFlagCommit {
+			signed++
+		}
+	}
+	return signed, len(c.Signatures)
+}

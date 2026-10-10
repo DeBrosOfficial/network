@@ -11,6 +11,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	gogoproto "github.com/cosmos/gogoproto/proto"
 )
 
 // API limits. The gateway (core/pkg/gateway/handlers/chainread) applies the
@@ -29,15 +32,31 @@ type TipSource interface {
 	HeightRange(ctx context.Context) (int64, int64, error)
 }
 
+// StateReader runs a query against the state committed at a height (0 is the latest).
+type StateReader interface {
+	QueryAt(ctx context.Context, height int64, method string, req, resp gogoproto.Message) error
+}
+
+// ChainReader is what the API reads from the node: its heights, and, for the home snapshot, its
+// state. *node.Client implements it.
+type ChainReader interface {
+	TipSource
+	StateReader
+}
+
 // API serves the index read-only. Any path, method, or query parameter
 // outside the routes below is refused.
 type API struct {
 	store *Store
-	chain TipSource
+	chain ChainReader
+	home  homeCache
+	now   func() time.Time
 }
 
 // NewAPI returns the HTTP handler over store.
-func NewAPI(store *Store, chain TipSource) *API { return &API{store: store, chain: chain} }
+func NewAPI(store *Store, chain ChainReader) *API {
+	return &API{store: store, chain: chain, now: time.Now}
+}
 
 var (
 	positiveRE = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
@@ -55,9 +74,14 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	w.Header().Set("Cache-Control", cacheControl(segs))
 	switch {
 	case len(segs) == 1 && segs[0] == "status":
 		a.serveStatus(w, r)
+	case len(segs) == 1 && segs[0] == "home":
+		a.serveHome(w, r)
+	case len(segs) == 1 && segs[0] == "blocks":
+		a.serveBlocks(w, r)
 	case len(segs) == 2 && segs[0] == "blocks":
 		a.serveBlock(w, r, segs[1])
 	case len(segs) == 1 && segs[0] == "txs":
@@ -149,21 +173,6 @@ func (a *API) serveTx(w http.ResponseWriter, r *http.Request, raw string) {
 	answer(w, t, found, err)
 }
 
-// serveLatestTxs answers the newest transactions. It takes limit only: there is
-// no page, because the newest are what move.
-func (a *API) serveLatestTxs(w http.ResponseWriter, r *http.Request) {
-	limit, ok := limitQuery(w, r)
-	if !ok {
-		return
-	}
-	txs, err := a.store.LatestTxs(limit)
-	if err != nil {
-		internalError(w, err)
-		return
-	}
-	writeJSON(w, map[string]any{"limit": limit, "txs": txs})
-}
-
 func (a *API) serveStats(w http.ResponseWriter, r *http.Request) {
 	if !noQuery(w, r) {
 		return
@@ -191,23 +200,6 @@ func (a *API) serveAccount(w http.ResponseWriter, r *http.Request, addr string) 
 	}
 	sum, found, err := a.store.Account(addr)
 	answer(w, sum, found, err)
-}
-
-func (a *API) serveAccountTxs(w http.ResponseWriter, r *http.Request, addr string) {
-	page, limit, ok := pageQuery(w, r)
-	if !ok {
-		return
-	}
-	if !IsAccountAddress(addr) {
-		writeError(w, http.StatusBadRequest, "address must be a lowercase orama account address")
-		return
-	}
-	txs, err := a.store.AccountTxs(addr, page, limit)
-	if err != nil {
-		internalError(w, err)
-		return
-	}
-	writeJSON(w, map[string]any{"page": page, "limit": limit, "txs": txs})
 }
 
 func (a *API) serveAsset(w http.ResponseWriter, r *http.Request, raw string) {
@@ -358,6 +350,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func writeError(w http.ResponseWriter, code int, msg string) {
+	w.Header().Set("Cache-Control", cacheNoStore)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code)

@@ -132,6 +132,8 @@ func (l *fakeLedger) answer(method string, height int64, req gogoproto.Message) 
 		}, nil
 	case querySupplyOf:
 		return &banktypes.QuerySupplyOfResponse{Amount: sdkCoin(l.supply(height))}, nil
+	case queryBaseFee:
+		return &feestypes.QueryBaseFeeResponse{BaseFee: math.NewInt(7)}, nil
 	case queryBalance:
 		return l.balance(req.(*banktypes.QueryBalanceRequest).Address)
 	case queryValidators:

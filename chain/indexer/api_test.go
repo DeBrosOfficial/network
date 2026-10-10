@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
 	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
@@ -22,6 +24,11 @@ type fixedTip struct {
 
 func (f fixedTip) HeightRange(context.Context) (int64, int64, error) {
 	return f.earliest, f.latest, f.err
+}
+
+// QueryAt answers nothing: a fixedTip serves the routes that read the index alone.
+func (f fixedTip) QueryAt(_ context.Context, height int64, method string, _, _ gogoproto.Message) error {
+	return fmt.Errorf("fixedTip answers no %s at height %d", method, height)
 }
 
 // apiFixture indexes three bank sends from alice and one minted asset.
@@ -133,7 +140,6 @@ func TestAPI_refusesUnknownPathsAndMethods(t *testing.T) {
 	api, _, alice, _ := apiFixture(t)
 	for _, target := range []string{
 		"/index/v1/",
-		"/index/v1/blocks",
 		"/index/v1/blocks/1/txs",
 		"/index/v1//blocks/1",
 		"/index/v1/blocks/1/",

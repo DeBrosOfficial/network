@@ -68,29 +68,6 @@ func (w *writer) addLatest(height int64, index uint32, hash []byte) error {
 	return w.set(latestKey(height, index), hash)
 }
 
-// LatestTxs returns the newest transactions, newest first.
-func (s *Store) LatestTxs(limit int) ([]Tx, error) {
-	snap := s.db.NewSnapshot()
-	defer snap.Close()
-	rows, err := scan(snap, []byte(pfxLatest), true, 1, limit)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Tx, 0, len(rows))
-	for _, row := range rows {
-		var t Tx
-		ok, err := getJSON(snap, txKey(row.value), &t)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, fmt.Errorf("latest-transaction index names %x but the index does not hold it", row.value)
-		}
-		out = append(out, t)
-	}
-	return out, nil
-}
-
 // Account returns what the index knows of addr.
 func (s *Store) Account(addr string) (AccountSummary, bool, error) {
 	var sum AccountSummary
@@ -103,17 +80,25 @@ func (s *Store) Account(addr string) (AccountSummary, bool, error) {
 // transaction is a bucket of zeros, so the series has no holes. It is empty on
 // an index with no block.
 func (s *Store) Stats() ([]HourStat, error) {
-	st, err := s.Status()
+	snap := s.db.NewSnapshot()
+	defer snap.Close()
+	st, err := s.statusAt(snap)
 	if err != nil {
 		return nil, err
 	}
-	if st.Cursor == 0 {
+	return hoursAt(snap, st.Cursor)
+}
+
+// hoursAt reads the HourlyWindow hours ending with the hour of the block at cursor.
+func hoursAt(g getter, cursor int64) ([]HourStat, error) {
+	if cursor == 0 {
 		return []HourStat{}, nil
 	}
-	head, ok, err := s.Block(st.Cursor)
+	var head Block
+	ok, err := getJSON(g, blockKey(cursor), &head)
 	if err != nil || !ok {
 		if err == nil {
-			err = fmt.Errorf("index cursor is block %d but the index does not hold it", st.Cursor)
+			err = fmt.Errorf("index cursor is block %d but the index does not hold it", cursor)
 		}
 		return nil, err
 	}
@@ -122,7 +107,7 @@ func (s *Store) Stats() ([]HourStat, error) {
 	out := make([]HourStat, 0, HourlyWindow)
 	for h := first; h <= last; h++ {
 		rec := hourRecord{Burned: "0"}
-		if _, err := getJSON(s.db, hourKey(h), &rec); err != nil {
+		if _, err := getJSON(g, hourKey(h), &rec); err != nil {
 			return nil, err
 		}
 		out = append(out, HourStat{

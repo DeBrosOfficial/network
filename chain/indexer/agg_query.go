@@ -82,7 +82,7 @@ func moduleAddress(name string) (string, error) {
 // chainReader asks the chain for its state at one height.
 type chainReader struct {
 	ctx    context.Context
-	chain  Chain
+	chain  StateReader
 	height int64
 }
 

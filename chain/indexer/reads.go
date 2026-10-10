@@ -14,36 +14,42 @@ func (s *Store) Block(height int64) (Block, bool, error) {
 	return b, ok, err
 }
 
+// Blocks returns one page of the indexed blocks, newest first, without their transaction hashes.
+// page starts at 1.
+func (s *Store) Blocks(page, limit int) ([]BlockSummary, error) { return blockPage(s.db, page, limit) }
+
+// blockPage reads a page of blocks by height. The index holds every block from its start height to
+// its cursor, so a page is addressed, not scanned for: the cost of the last page is that of the first.
+func blockPage(db getter, page, limit int) ([]BlockSummary, error) {
+	start, _, err := getUint(db, []byte(keyStart))
+	if err != nil {
+		return nil, err
+	}
+	cursor, _, err := getUint(db, []byte(keyCursor))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BlockSummary, 0, limit)
+	top := int64(cursor) - int64(page-1)*int64(limit)
+	for h := top; h >= int64(start) && h > 0 && len(out) < limit; h-- {
+		var b Block
+		ok, err := getJSON(db, blockKey(h), &b)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("index holds blocks %d to %d but not block %d", start, cursor, h)
+		}
+		out = append(out, b.summary())
+	}
+	return out, nil
+}
+
 // Tx returns the indexed transaction with this 32-byte hash.
 func (s *Store) Tx(hash []byte) (Tx, bool, error) {
 	var t Tx
 	ok, err := getJSON(s.db, txKey(hash), &t)
 	return t, ok, err
-}
-
-// AccountTxs returns one page of the transactions whose events name addr,
-// newest first. page starts at 1.
-func (s *Store) AccountTxs(addr string, page, limit int) ([]Tx, error) {
-	snap := s.db.NewSnapshot()
-	defer snap.Close()
-	rows, err := scan(snap, accountPrefix(addr), true, page, limit)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Tx, 0, len(rows))
-	for _, row := range rows {
-		h := row.value
-		var t Tx
-		ok, err := getJSON(snap, txKey(h), &t)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, fmt.Errorf("index names transaction %x for %s but does not hold it", h, addr)
-		}
-		out = append(out, t)
-	}
-	return out, nil
 }
 
 // maxAssetRecords bounds the records one asset id answers with. The chain

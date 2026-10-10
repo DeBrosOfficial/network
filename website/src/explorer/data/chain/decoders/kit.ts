@@ -257,8 +257,21 @@ export interface Spec {
   amount?: (r: Reader) => Norama | null;
 }
 
+/**
+ * The category each message type is shown under, recorded as the decoders are defined. The indexer
+ * filters its transaction lists by the same categories (chain/indexer/message_kinds.json); a test
+ * holds that file to this table.
+ */
+const categories = new Map<string, MessageCategory>();
+
+/** The category of every message type defined so far, by type URL. */
+export function categoryTable(): ReadonlyMap<string, MessageCategory> {
+  return categories;
+}
+
 /** A decoder for one message type, built from its sentence and facts. */
 export function define(typeUrl: string, spec: Spec): readonly [string, Decoder] {
+  categories.set(typeUrl, spec.category ?? "other");
   const decode: Decoder = (m, env) => {
     const r = reader(m, env);
     const who = r.who(spec.actor);

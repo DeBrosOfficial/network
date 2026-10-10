@@ -14,22 +14,24 @@ import (
 // Key layout. Heights, ids and indices are big-endian so byte order is
 // numeric order. Addresses are bech32 and never contain '/'.
 const (
-	keyStart   = "m/start"
-	keyCursor  = "m/cursor"
-	keyVersion = "m/version"
-	pfxBlock   = "b/" // height
-	pfxTx      = "t/" // 32-byte hash
-	pfxAccount = "a/" // address "/" height index → 32-byte hash
-	pfxAsset   = "c/a/"
-	pfxOwner   = "c/o/" // owner "/" asset location → empty
-	pfxTree    = "c/t/" // tree id → collection id
-	pfxListing = "k/l/" // listing id → listing
-	pfxBid     = "k/b/" // listing id, bid id → bidder
-	pfxLatest  = "l/"   // height index → 32-byte hash, for the newest-first transaction list
-	pfxHour    = "s/h/" // unix hour → hour statistics
-	pfxSummary = "s/a/" // address → account summary
-	pfxDay     = "s/d/" // unix day → day statistics
-	pfxWeek    = "s/w/" // Monday-based week number → week statistics
+	keyStart    = "m/start"
+	keyCursor   = "m/cursor"
+	keyVersion  = "m/version"
+	pfxBlock    = "b/" // height
+	pfxTx       = "t/" // 32-byte hash
+	pfxAccount  = "a/" // address "/" height index → 32-byte hash
+	pfxAsset    = "c/a/"
+	pfxOwner    = "c/o/" // owner "/" asset location → empty
+	pfxTree     = "c/t/" // tree id → collection id
+	pfxListing  = "k/l/" // listing id → listing
+	pfxBid      = "k/b/" // listing id, bid id → bidder
+	pfxLatest   = "l/"   // height index → 32-byte hash, for the newest-first transaction list
+	pfxKindTx   = "f/g/" // filter "/" height, index → 32-byte hash, for the filtered transaction lists
+	pfxKindAcct = "f/a/" // address "/" filter "/" height, index → 32-byte hash, for an account's filtered lists
+	pfxHour     = "s/h/" // unix hour → hour statistics
+	pfxSummary  = "s/a/" // address → account summary
+	pfxDay      = "s/d/" // unix day → day statistics
+	pfxWeek     = "s/w/" // Monday-based week number → week statistics
 
 	keyWatch       = "e/w"  // the aggregator's position
 	keyAggFrom     = "e/b"  // the height the aggregates begin at
@@ -113,16 +115,19 @@ func (s *Store) Close() error {
 // Status reads the start height, the last indexed height, the height the aggregates begin at and
 // whether the follower is stuck. The heights are zero on an index that has never been bound to a
 // start height, and AggregatesFrom is zero until the aggregates have begun.
-func (s *Store) Status() (Status, error) {
-	start, _, err := getUint(s.db, []byte(keyStart))
+func (s *Store) Status() (Status, error) { return s.statusAt(s.db) }
+
+// statusAt is Status read from g, a snapshot when the caller reads other keys of the same state.
+func (s *Store) statusAt(g getter) (Status, error) {
+	start, _, err := getUint(g, []byte(keyStart))
 	if err != nil {
 		return Status{}, err
 	}
-	cursor, _, err := getUint(s.db, []byte(keyCursor))
+	cursor, _, err := getUint(g, []byte(keyCursor))
 	if err != nil {
 		return Status{}, err
 	}
-	from, _, err := getUint(s.db, []byte(keyAggFrom))
+	from, _, err := getUint(g, []byte(keyAggFrom))
 	if err != nil {
 		return Status{}, err
 	}
