@@ -154,7 +154,9 @@ func (r *runner) installCluster(ctx context.Context, n *nodeRun) error {
 		Create: n.plan.Cluster == ClusterCreate, Name: n.plan.Name, IP: ip, User: r.opts.UserFor(ip), Env: r.plan.Env,
 		Domain: r.opts.Domain, ACMECA: r.opts.ACMECA, Wallet: r.evm, NodeNamesZone: r.nodeNamesZone(),
 	}
-	if !in.Create {
+	if in.Create {
+		in.ReleaseRepo, in.UpdateChannel = r.net.Manifest.ReleaseRepo, r.net.Manifest.Channel
+	} else {
 		if r.via == nil {
 			return clierr.Failure("machine %s joins a cluster, and no node of it is reachable to mint the invite", ip)
 		}

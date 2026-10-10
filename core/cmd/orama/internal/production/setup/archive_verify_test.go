@@ -74,6 +74,27 @@ func TestInstallCommand_genesisHasNoJoinFlags(t *testing.T) {
 	}
 }
 
+// The install that creates a cluster stores the network's update settings; a join takes the
+// cluster's own and is never given them.
+func TestInstallCommand_updateSettingsAreForAGenesisInstallOnly(t *testing.T) {
+	opts := Options{IP: "203.0.113.5", Genesis: true, UpdateRepo: "https://releases.example", UpdateChannel: "nightly"}
+	cmd := InstallCommand(opts, operatorWallet, nil, "")
+	for _, want := range []string{"--release-repo 'https://releases.example'", "--update-channel 'nightly'"} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("genesis command lacks %q: %s", want, cmd)
+		}
+	}
+	opts.Genesis = false
+	cmd = InstallCommand(opts, operatorWallet, []string{operatorWallet}, "orama1_abc")
+	if strings.Contains(cmd, "--release-repo") || strings.Contains(cmd, "--update-channel") {
+		t.Errorf("a join carries update settings: %s", cmd)
+	}
+	opts.Genesis, opts.UpdateRepo, opts.UpdateChannel = true, "", ""
+	if cmd := InstallCommand(opts, operatorWallet, nil, ""); strings.Contains(cmd, "--release-repo") || strings.Contains(cmd, "--update-channel") {
+		t.Errorf("settings nobody gave are passed: %s", cmd)
+	}
+}
+
 // An empty archive path is refused before any node is touched, for every node.
 func TestEnsureArchives_needsAnArchive(t *testing.T) {
 	err := EnsureArchives([]inspector.Node{{Host: "203.0.113.5"}, {Host: "203.0.113.6"}}, "", []string{operatorWallet})

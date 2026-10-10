@@ -317,3 +317,33 @@ func TestRun_aJoinersDomainClusterPublishesNoNodeNames(t *testing.T) {
 		t.Errorf("zone %q", got)
 	}
 }
+
+// The cluster a creation makes takes the network's release repository and channel as its
+// update settings, written by the install that creates it; the machines that join it
+// carry neither, since the settings belong to the cluster.
+func TestRunCreate_theGenesisInstallCarriesTheNetworksReleaseRepoAndChannelAndJoinsCarryNone(t *testing.T) {
+	h := newCreateHarness(t)
+	h.mustCreate(t, h.createOpts(fiveIPs...))
+	first := h.enroll.created[fiveIPs[0]].installed
+	if !first.Create || first.ReleaseRepo != DefaultReleaseRepo || first.UpdateChannel != "nightly" {
+		t.Errorf("genesis install = %+v", first)
+	}
+	for _, ip := range fiveIPs[1:] {
+		got := h.enroll.created[ip].installed
+		if got.Create || got.ReleaseRepo != "" || got.UpdateChannel != "" {
+			t.Errorf("%s joined with %+v", ip, got)
+		}
+	}
+}
+
+// An operator's private cluster on the network is a cluster of its own, with the same rule.
+func TestRun_aJoinersPrivateClusterTakesTheNetworksReleaseRepoAndChannel(t *testing.T) {
+	h := newHarness()
+	opts := h.opts(ip1)
+	opts.ClusterOnly, opts.StorageGB = true, 0
+	mustRun(t, h, opts)
+	got := h.enroll.created[ip1].installed
+	if !got.Create || got.ReleaseRepo != "https://releases.example" || got.UpdateChannel != "nightly" {
+		t.Errorf("install = %+v", got)
+	}
+}

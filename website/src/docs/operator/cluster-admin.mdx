@@ -37,7 +37,7 @@ An operator is not on the allowlist unless added. An empty list lets nobody crea
 
 ## Update policy
 
-The same `orama maint cluster settings` command holds the cluster's automatic-update policy: `release-repo`, `update-channel`, `update-window` and `auto-update` (`off`, `notify` or `auto`). The default is `notify`, and nothing updates until `release-repo` is set. [Upgrades](/docs/operator/upgrades#automatic-updates) explains what each node does with them.
+The same `orama maint cluster settings` command holds the cluster's automatic-update policy: `release-repo`, `update-channel`, `update-window` and `auto-update` (`off`, `notify` or `auto`). The default is `notify`, and nothing updates until `release-repo` is set (a cluster created by `orama setup` has the network's repository and channel set already). [Upgrades](/docs/operator/upgrades#automatic-updates) explains what each node does with them.
 
 ## Removing a namespace its owner cannot delete
 

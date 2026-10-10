@@ -149,6 +149,10 @@ type ClusterInstall struct {
 	// NodeNamesZone is the zone the node publishes node identification names under;
 	// empty publishes none.
 	NodeNamesZone string
+	// ReleaseRepo and UpdateChannel are the network's, stored as the cluster's
+	// update settings by the install that creates it; a join carries neither.
+	ReleaseRepo   string
+	UpdateChannel string
 	Wallet        string
 	// Invite and Signers are what a joiner needs.
 	Invite  string

@@ -195,11 +195,13 @@ joining node takes it from the cluster in the join response. With --remote,
 | `--node-names-zone` | — | Zone this node's cluster publishes node identification names under, strictly below --base-domain (for example nodes.&amp;lt;base-domain>); omit to keep the zone node.yaml carries |
 | `--operator-wallet` | — | Operator wallet address |
 | `--peers` | — | Comma-separated list of bootstrap peer multiaddrs |
+| `--release-repo` | — | When creating a cluster: the https release repository to store as its release_repo setting, so the auto-update agent has one to look in; a setting the cluster already has is kept |
 | `--remote` | `false` | Install the machine at --vps-ip over SSH, instead of this machine |
 | `--skip-checks` | `false` | Skip minimum resource checks (disk, RAM, CPU) |
 | `--skip-firewall` | `false` | Skip UFW firewall setup (for users who manage their own firewall) |
 | `--ssh-user` | — | SSH user for remote management |
 | `--token` | — | Invite from 'orama maint invite'; it carries the gateway to join and the certificate to pin |
+| `--update-channel` | — | When creating a cluster: the release channel (nightly, main, dev/&amp;lt;branch>) to store as its update_channel setting; a setting the cluster already has is kept |
 | `--vps-ip` | — | Public IP of this VPS (required) |
 
 ## orama maint node migrate-conf

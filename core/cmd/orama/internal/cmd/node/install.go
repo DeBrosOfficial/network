@@ -60,6 +60,10 @@ func init() {
 	f.StringVar(&installFlags.ACMECA, "acme-ca", "", "ACME directory for TLS certificates: letsencrypt (production, the default), letsencrypt-staging (clusters rebuilt many times a week) or an https URL")
 	f.StringVar(&installFlags.NodeNamesZone, "node-names-zone", "",
 		"Zone this node's cluster publishes node identification names under, strictly below --base-domain (for example nodes.<base-domain>); omit to keep the zone node.yaml carries")
+	f.StringVar(&installFlags.ReleaseRepo, "release-repo", "",
+		"When creating a cluster: the https release repository to store as its release_repo setting, so the auto-update agent has one to look in; a setting the cluster already has is kept")
+	f.StringVar(&installFlags.UpdateChannel, "update-channel", "",
+		"When creating a cluster: the release channel (nightly, main, dev/<branch>) to store as its update_channel setting; a setting the cluster already has is kept")
 
 	// Peering details the invite token now carries. Kept for the manual join
 	// path and for clusters mid-upgrade.

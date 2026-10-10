@@ -337,6 +337,12 @@ func (o *Orchestrator) executeGenesisFlow() error {
 		return err
 	}
 
+	// The node is up and its migrations have made the settings table: the new
+	// cluster's update settings go in before anything else reads them.
+	if err := o.setup.SeedUpdatePolicy(context.Background(), o.flags.ReleaseRepo, o.flags.UpdateChannel); err != nil {
+		return fmt.Errorf("store the cluster's update settings: %w", err)
+	}
+
 	o.setup.LogSetupComplete(o.setup.NodePeerID)
 	fmt.Printf("✅ Production installation complete!\n\n")
 	o.printFirstNodeSecrets()

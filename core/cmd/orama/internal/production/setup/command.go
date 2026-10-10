@@ -72,6 +72,11 @@ type Options struct {
 	// NodeNamesZone is passed to `orama maint node install --node-names-zone`: the
 	// zone the cluster publishes node identification names under.
 	NodeNamesZone string
+	// UpdateRepo and UpdateChannel are passed to a genesis `orama maint node
+	// install --release-repo --update-channel`: the cluster's release_repo and
+	// update_channel settings. A joining node is given neither.
+	UpdateRepo    string
+	UpdateChannel string
 	// Release installs a published release instead of an archive built here:
 	// the version to fetch from ReleaseRepo on Channel, verified against the
 	// root in ReleaseRoot, then signed by the operator's wallet (build
@@ -537,6 +542,15 @@ func InstallCommand(opts Options, wallet string, expected []string, token string
 	}
 
 	flag("--operator-wallet", wallet)
+
+	if opts.Genesis {
+		if opts.UpdateRepo != "" {
+			flag("--release-repo", opts.UpdateRepo)
+		}
+		if opts.UpdateChannel != "" {
+			flag("--update-channel", opts.UpdateChannel)
+		}
+	}
 
 	if !opts.Genesis {
 		flag("--expect-archive-signers", strings.Join(expected, ","))

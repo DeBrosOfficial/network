@@ -5,10 +5,12 @@ package joinonecommand
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
 	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
 )
 
@@ -82,6 +84,7 @@ func TestSetup_createANetworkOnThreeFreshServers(t *testing.T) {
 					t.Errorf("%s: chain %+v, want an answering validator (the committee seat)", n.Host, n.Chain)
 				}
 			}
+			requireReleaseRepoStored(t, f, extras)
 			genesis = publishedGenesis(t, publishDir)
 		}},
 		{"theSameCommandAgainKeepsTheGenesis", func(t *testing.T) {
@@ -96,6 +99,20 @@ func TestSetup_createANetworkOnThreeFreshServers(t *testing.T) {
 	for _, s := range steps {
 		if !t.Run(s.name, s.run) {
 			t.Fatalf("step %s failed; the later steps depend on it", s.name)
+		}
+	}
+}
+
+// requireReleaseRepoStored fails when the auto-update agent of a machine of the created
+// cluster says the cluster has no release repository: the creation stores the network's
+// release repository and channel as the cluster's update settings, so the agent has one to
+// look in. What it finds there (a release, or nothing newer) is the repository's business.
+func requireReleaseRepoStored(t *testing.T, f *fleet.Fleet, extras []harness.Extra) {
+	t.Helper()
+	for _, e := range extras {
+		out := f.Exec(t, e.Node, infra.OramaCommand("maint", "node", "autoupdate", "run"))
+		if strings.Contains(out.Stdout+out.Stderr, "no release repository is configured") {
+			t.Errorf("%s: the created cluster stores no release repository for its auto-update agent:\n%s%s", e.PublicIP, out.Stdout, out.Stderr)
 		}
 	}
 }

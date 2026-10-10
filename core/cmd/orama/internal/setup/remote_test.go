@@ -177,6 +177,28 @@ func TestSSHMachine_nodeNamesZoneReachesTheInstall(t *testing.T) {
 	}
 }
 
+func TestSSHMachine_genesisInstallCarriesTheUpdateSettingsAndAJoinNone(t *testing.T) {
+	sh := &recShell{}
+	m, _ := testMachine(sh)
+	in := ClusterInstall{Create: true, IP: ip1, User: "root", Env: "e", Wallet: testEVM, ReleaseRepo: "https://releases.example", UpdateChannel: "nightly"}
+	if err := m.InstallCluster(context.Background(), in); err != nil {
+		t.Fatal(err)
+	}
+	cmd := sh.calls[0]
+	for _, want := range []string{"--release-repo 'https://releases.example'", "--update-channel 'nightly'"} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("command lacks %q: %s", want, cmd)
+		}
+	}
+	join := ClusterInstall{IP: ip2, User: "root", Env: "e", Wallet: testEVM, Invite: realInvite(t), Signers: []string{testEVM}, ReleaseRepo: "https://releases.example", UpdateChannel: "nightly"}
+	if err := m.InstallCluster(context.Background(), join); err != nil {
+		t.Fatal(err)
+	}
+	if cmd := sh.calls[1]; strings.Contains(cmd, "release-repo") || strings.Contains(cmd, "update-channel") {
+		t.Errorf("a join passes the cluster's settings: %s", cmd)
+	}
+}
+
 func realInvite(t *testing.T) string {
 	t.Helper()
 	inv, err := invite.Encode(invite.Invite{JoinURL: "https://" + ip1, Token: strings.Repeat("ab", 32)})

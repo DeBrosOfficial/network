@@ -7,6 +7,7 @@ import (
 	"github.com/DeBrosOfficial/network/pkg/archivetrust"
 	"github.com/DeBrosOfficial/network/pkg/config/validate"
 	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
 )
 
 // Flags represents install command flags
@@ -66,6 +67,13 @@ type Flags struct {
 	// node.yaml carries, if any.
 	NodeNamesZone string
 
+	// ReleaseRepo and UpdateChannel are the cluster's update settings (cluster
+	// settings release_repo and update_channel) that a genesis install stores
+	// once the node is up, unless the cluster already has them. A join does not
+	// take them: the settings belong to the cluster it joins.
+	ReleaseRepo   string
+	UpdateChannel string
+
 	// ExpectArchiveSigners (comma-separated) is the archive signer list a
 	// joining node expects the cluster to send: the join response must name
 	// exactly these, and the archive is verified against them before the join
@@ -107,6 +115,28 @@ func (f *Flags) validateNodeNamesZone() error {
 	if f.BaseDomain != "" && !validate.ZoneServedBy(f.NodeNamesZone, f.BaseDomain) {
 		return clierr.Usage("--node-names-zone %q is not a sub-zone below --base-domain %q: use a dedicated subdomain such as nodes.%s",
 			f.NodeNamesZone, f.BaseDomain, f.BaseDomain)
+	}
+	return nil
+}
+
+// validateUpdatePolicy refuses a --release-repo or --update-channel the cluster
+// would not accept as a setting, and refuses them on a join, which has no
+// settings of its own to write.
+func (f *Flags) validateUpdatePolicy() error {
+	if f.ReleaseRepo == "" && f.UpdateChannel == "" {
+		return nil
+	}
+	if f.JoinAddress != "" && f.Token != "" {
+		return clierr.Usage("--release-repo and --update-channel are for the install that creates a cluster: " +
+			"a joining node takes the cluster's update settings, which an operator changes with `orama cluster set`")
+	}
+	if err := updatepolicy.ValidRepo(f.ReleaseRepo); err != nil {
+		return clierr.Usage("--release-repo: %v", err)
+	}
+	if f.UpdateChannel != "" {
+		if err := updatepolicy.ValidChannel(f.UpdateChannel); err != nil {
+			return clierr.Usage("--update-channel: %v", err)
+		}
 	}
 	return nil
 }
