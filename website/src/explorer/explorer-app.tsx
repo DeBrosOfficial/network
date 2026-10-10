@@ -11,6 +11,7 @@ import { ErrorBoundary } from "./ui/error-boundary";
 import { NotFoundBox } from "./ui/query-states";
 import { Page } from "./ui/page";
 import { BlockPage } from "./pages/block";
+import { EconomicsPage } from "./pages/economics";
 import { EmissionPage } from "./pages/emission";
 import { EpochPage } from "./pages/epoch";
 import { EpochsPage } from "./pages/epochs";
@@ -42,6 +43,7 @@ export function ExplorerApp({ source }: ExplorerAppProps) {
                 <Route path="epochs" element={<EpochsPage />} />
                 <Route path="epoch/:epoch" element={<EpochPage />} />
                 <Route path="emission" element={<EmissionPage />} />
+                <Route path="economics" element={<EconomicsPage />} />
                 <Route
                   path="*"
                   element={

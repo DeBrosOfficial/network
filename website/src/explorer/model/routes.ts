@@ -7,6 +7,7 @@ export const explorerPaths = {
   epochs: `${EXPLORER_BASE}/epochs`,
   epoch: (epoch: number) => `${EXPLORER_BASE}/epoch/${epoch}`,
   emission: `${EXPLORER_BASE}/emission`,
+  economics: `${EXPLORER_BASE}/economics`,
   tx: (hash: string) => `${EXPLORER_BASE}/tx/${encodeURIComponent(hash)}`,
   wallet: (address: string) => `${EXPLORER_BASE}/wallet/${encodeURIComponent(address)}`,
   block: (height: number) => `${EXPLORER_BASE}/block/${height}`,

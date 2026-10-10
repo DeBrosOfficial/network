@@ -22,6 +22,10 @@ export function EmissionPage() {
           <Link to={explorerPaths.epochs} className="underline decoration-dotted underline-offset-4 hover:text-fg">
             Epochs
           </Link>
+          , and the resulting supply under{" "}
+          <Link to={explorerPaths.economics} className="underline decoration-dotted underline-offset-4 hover:text-fg">
+            Supply
+          </Link>
           .
         </p>
       </div>

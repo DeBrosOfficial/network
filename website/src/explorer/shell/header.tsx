@@ -12,6 +12,7 @@ const NAV = [
   { label: "Validators", to: explorerPaths.validators, end: false },
   { label: "Epochs", to: explorerPaths.epochs, end: false },
   { label: "Emission", to: explorerPaths.emission, end: false },
+  { label: "Supply", to: explorerPaths.economics, end: false },
 ] as const;
 
 function NavLinks({ className }: { className?: string }) {
