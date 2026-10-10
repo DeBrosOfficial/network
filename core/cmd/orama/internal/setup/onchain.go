@@ -37,7 +37,7 @@ func (r *runner) onchainPhase(ctx context.Context) error {
 	}
 	for _, n := range full {
 		if err := r.registerNode(ctx, sess, n, budget.Bonds[n.plan.Name]); err != nil {
-			r.emit(n.plan.IP, StepOnchain, StateFailed, err.Error())
+			r.emit(n.plan.IP, StepOnchain, StateFailed, failureDetail(err))
 			return fmt.Errorf("machine %s: %w", n.plan.IP, err)
 		}
 		if err := r.claimName(ctx, sess, n); err != nil {
@@ -45,6 +45,26 @@ func (r *runner) onchainPhase(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// stepFailure is an error whose reason was already reported on its own step, so the step that was
+// running when it happened is closed without saying the reason again.
+type stepFailure struct {
+	step Step
+	err  error
+}
+
+func (e *stepFailure) Error() string { return e.err.Error() }
+func (e *stepFailure) Unwrap() error { return e.err }
+
+// failureDetail is what the failed event of a running step says: the error, or, when a step
+// inside it has reported the error, where to read it.
+func failureDetail(err error) string {
+	var inner *stepFailure
+	if errors.As(err, &inner) {
+		return "stopped at the " + string(inner.step) + " step, which says why"
+	}
+	return err.Error()
 }
 
 // checkNamesFree asks the chain, before the run signs or spends anything, who holds each
@@ -216,7 +236,7 @@ func (r *runner) fundHotKey(ctx context.Context, sess ChainSession, n *nodeRun, 
 	have, err := sess.FeeBalance(ctx, hotKey)
 	if err != nil {
 		r.emit(ip, StepHotKey, StateFailed, err.Error())
-		return fmt.Errorf("read the fee balance of the hot key %s of node %q: %w", hotKey, id, err)
+		return &stepFailure{StepHotKey, fmt.Errorf("read the fee balance of the hot key %s of node %q: %w", hotKey, id, err)}
 	}
 	want := big.NewInt(hotKeyFundingPerNode)
 	if have.Cmp(want) >= 0 {
@@ -227,7 +247,7 @@ func (r *runner) fundHotKey(ctx context.Context, sess ChainSession, n *nodeRun, 
 	r.emit(ip, StepHotKey, StateRunning, "funding the hot key "+hotKey+" of node "+id+" with "+Orama(delta)+" ORAMA from the operator's bank balance")
 	if _, err := sess.FundHotKey(ctx, clusterreg.HotKeyFunding{NodeID: id, Amount: delta.String(), FromBank: true}); err != nil {
 		r.emit(ip, StepHotKey, StateFailed, err.Error())
-		return fmt.Errorf("fund the hot key %s of node %q with %s ORAMA from the operator's bank balance: %w", hotKey, id, Orama(delta), err)
+		return &stepFailure{StepHotKey, fmt.Errorf("fund the hot key %s of node %q with %s ORAMA from the operator's bank balance: %w", hotKey, id, Orama(delta), err)}
 	}
 	r.emit(ip, StepHotKey, StateDone, Orama(delta)+" ORAMA to the hot key of node "+id)
 	return nil

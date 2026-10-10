@@ -47,8 +47,10 @@ type world struct {
 	balance      *big.Int
 	// feeBalances are the hot keys' fee-only balances, by hot key address.
 	feeBalances map[string]*big.Int
-	// fundHotKeyErr, when set, is what every MsgFundHotKey fails with.
+	// fundHotKeyErr, when set, is what every MsgFundHotKey fails with, and feeBalanceErr what every
+	// read of a fee balance fails with.
 	fundHotKeyErr error
+	feeBalanceErr error
 	faucetPays    *big.Int
 	faucetCalls   int
 	// faucetLag is how many balance reads pass before a drip is visible through the session, as a
@@ -371,6 +373,9 @@ func (s *fakeSession) Balance(context.Context, string) (*big.Int, error) {
 func (s *fakeSession) FeeBalance(_ context.Context, address string) (*big.Int, error) {
 	s.w.mu.Lock()
 	defer s.w.mu.Unlock()
+	if s.w.feeBalanceErr != nil {
+		return nil, s.w.feeBalanceErr
+	}
 	if have := s.w.feeBalances[address]; have != nil {
 		return new(big.Int).Set(have), nil
 	}
