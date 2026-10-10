@@ -1,3 +1,6 @@
+import { ASSET_PAGE_KINDS, assetPathsFor } from "./assets-routes";
+import type { AssetPaths } from "./assets-routes";
+
 /**
  * Every explorer URL is built here, so a route change is one edit.
  *
@@ -17,7 +20,11 @@ export const CHAIN_PARAM = "chain";
 
 /** The first segment of every page, which a network segment can therefore never be. */
 export const PAGE_KINDS = ["validators", "validator", "tx", "wallet", "block", "epochs", "epoch", "emission", "economics", "nodes", "node", "storage", "tor"] as const;
-export type PageKind = (typeof PAGE_KINDS)[number];
+export type PageKind = (typeof PAGE_KINDS)[number] | (typeof ASSET_PAGE_KINDS)[number];
+
+/** True for the first segment of a page of the explorer, which no network may be named. */
+export const isPageKind = (segment: string): segment is PageKind =>
+  (PAGE_KINDS as readonly string[]).includes(segment) || (ASSET_PAGE_KINDS as readonly string[]).includes(segment);
 
 export interface ExplorerPaths {
   home: string;
@@ -38,6 +45,8 @@ export interface ExplorerPaths {
   tor: string;
   /** A pathname of this explorer (one the trail kept) with what this network needs to open again. */
   keep: (pathname: string) => string;
+  /** The pages for tokens, NFTs, contracts, the market, governance and the shielded pool. */
+  assets: AssetPaths;
 }
 
 /**
@@ -63,6 +72,7 @@ export function explorerPathsFor(segment: string | null, query = ""): ExplorerPa
     storage: `${base}/storage${query}`,
     tor: `${base}/tor${query}`,
     keep: (pathname) => `${pathname}${query}`,
+    assets: assetPathsFor(base, query),
   };
 }
 
@@ -84,12 +94,12 @@ export function parseExplorerPath(pathname: string): ParsedPath {
   const segs = pathname.split("/").filter((s) => s !== "").slice(1);
   let network: string | null = null;
   const first = segs[0];
-  if (first !== undefined && !(PAGE_KINDS as readonly string[]).includes(first) && NETWORK_SEGMENT.test(first)) {
+  if (first !== undefined && !isPageKind(first) && NETWORK_SEGMENT.test(first)) {
     network = first;
     segs.shift();
   }
   const kind = segs[0];
   if (kind === undefined) return { network, kind: "home", id: "" };
-  if ((PAGE_KINDS as readonly string[]).includes(kind)) return { network, kind: kind as PageKind, id: segs[1] ?? "" };
+  if (isPageKind(kind)) return { network, kind, id: segs[1] ?? "" };
   return { network, kind: "other", id: "" };
 }

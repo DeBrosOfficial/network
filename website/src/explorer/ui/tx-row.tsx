@@ -3,8 +3,10 @@ import { amountOf, describeMessage } from "../model/describe";
 import { useExplorerPaths } from "../network/active";
 import type { TxSummary } from "../model/types";
 import { cn } from "../../lib/utils";
+import { privacyOf } from "../model/shielded";
 import { Amount } from "./amount";
 import { moreMessagesBadge, txLinkName } from "./message-text";
+import { PrivacyBadge } from "./privacy-badge";
 import { RelTime } from "./rel-time";
 import { Sentence } from "./sentence";
 import { TxIcon } from "./tx-icon";
@@ -31,6 +33,9 @@ export function TxRow({ tx }: { tx: TxSummary }) {
         <div className="text-xs text-muted">
           {failed ? <span className="text-loss">Failed: {tx.status.ok ? "" : tx.status.reason}. Nothing moved.</span> : "Completed"}
           {more && <span className="ml-2 rounded bg-surface-3 px-1.5 py-0.5 text-[11px]">{more}</span>}
+          <span className="ml-2 align-middle">
+            <PrivacyBadge privacy={privacyOf(tx.messages)} />
+          </span>
         </div>
       </div>
       <div className="pointer-events-none shrink-0 text-right">

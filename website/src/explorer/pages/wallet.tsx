@@ -12,6 +12,7 @@ import { COUNTERPARTY_LIMIT } from "./wallet/constants";
 import { CounterpartiesCard } from "./wallet/counterparties-card";
 import { Insight } from "./wallet/insight";
 import { MoneyMapCard } from "./wallet/money-map-card";
+import { PublicNote } from "./wallet/public-note";
 import { useWalletActivity } from "./wallet/use-wallet-activity";
 import { WalletHeader } from "./wallet/wallet-header";
 import { walletParam } from "./wallet/wallet-param";
@@ -41,6 +42,7 @@ function WalletView({ profile }: { profile: WalletProfile }) {
     <>
       <WalletHeader profile={profile} loaded={activity.items} />
       <Insight profile={profile} />
+      <PublicNote />
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="space-y-4">
           <BalanceCard balance={profile.balance} />

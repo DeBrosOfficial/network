@@ -58,3 +58,14 @@ The `CONTRACT` unshield path and its adapter, `DEPOSIT` unshields, vintage migra
 ## Queries
 
 `Params`, `TreeState` and `NullifierSpent` are public. `Pools` and `Invariants` are withheld from the gateway.
+
+## What the chain shows
+
+A shielded transaction is public in these ways and no others (the [explorer](/docs/blockchain/reading-the-chain#public-and-private-transactions) shows exactly this):
+
+- **Every accepted bundle emits a `shielded_bundle` event** with its `kind` (`transfer`, `shield`, `shield_earnings` or `unshield`), its number of `actions` and its `amount`: the fee of a private transfer, the amount shielded, or the amount unshielded. A transaction the chain refuses emits none.
+- **A private transfer** has no signer, no receiver and no amount. Its fee, its action count, the size of its proof, its block and its time are public.
+- **A shield, a shield of earnings and an unshield** have a signer, because the signer's public balance, earnings or bond is on the other side. The signer and the amount are public; which notes an unshield spent and who owns the value inside the pool are not.
+- **The pool as a whole**: its module account's bank balance (the pool plus any unshields waiting in the queue), `TreeState` (the note commitments added to the tree, one per action of every accepted bundle, and the nullifiers recorded, one per action), and `Params`. The chain indexer lists the transactions whose events name the pool's account, which is every shield, shield of earnings and unshield and every private transfer (each burns its fee from the pool). The turnstile is a rule of the module, checked by its invariant, which the gateway withholds.
+
+An address's balance and its activity cover public funds only; value in the pool belongs to no address.

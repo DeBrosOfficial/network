@@ -2,6 +2,7 @@ import type { EpochClock, EpochListQuery, EpochRow, EpochValidator, IndexPage, S
 import type { NodeDetail, NodeSet } from "../model/nodes";
 import type { ArchiveHealth, DealList, DealReplica, SettlementQueue } from "../model/storage";
 import type { TorRelays } from "../model/tor";
+import type { AssetsSource } from "./assets-source";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -58,6 +59,8 @@ export function clampLimit(limit: number): number {
 export interface ExplorerDataSource {
   /** Where the data comes from, shown in the footer: the chain id of the network read. */
   readonly origin: { label: string };
+  /** Tokens, NFTs, contracts, the market, governance and the shielded pool. */
+  readonly assets: AssetsSource;
 
   /** Chain-wide numbers as of the head. Rejects with an Error if they cannot be read. */
   getNetwork(): Promise<NetworkSnapshot>;

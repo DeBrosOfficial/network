@@ -32,4 +32,4 @@ There is no admin key and no parameter that can be changed. There are no events:
 
 At settlement the royalty (`price x royalty_bps / 10000`, rounded down) goes to the collection creator's earnings and the rest goes to the seller's earnings. There is no market fee and no burn. The market module makes this payment into earnings; a bank send between users would pay a public balance instead.
 
-Queries: `Listing` and `Bid` are public. An invariant checks that the market module account holds exactly the open bids.
+Queries: `Listing` and `Bid` are public. An invariant checks that the market module account holds exactly the open bids. Neither module has a list query, so the [explorer](/docs/blockchain/reading-the-chain#tokens-nfts-contracts-the-market-and-governance) opens a listing by its number, finds the newest collection by asking whether collection 1, 2, 4, 8 … exists, and takes an owner's assets from the chain indexer.

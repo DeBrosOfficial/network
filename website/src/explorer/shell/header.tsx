@@ -6,9 +6,10 @@ import { useExplorerPaths } from "../network/active";
 import { formatInt } from "../model/units";
 import { cn } from "../../lib/utils";
 import oramaIcon from "../../assets/orama-icon.png";
+import { AssetsMenu } from "./assets-menu";
 import { usePalette } from "./palette";
 
-function NavLinks({ className }: { className?: string }) {
+function NavLinks({ className, narrow = false }: { className?: string; narrow?: boolean }) {
   const paths = useExplorerPaths();
   const { pathname } = useLocation();
   // A validator's own page is part of the Validators section.
@@ -39,6 +40,7 @@ function NavLinks({ className }: { className?: string }) {
           {n.label}
         </NavLink>
       ))}
+      <AssetsMenu inline={narrow} />
     </div>
   );
 }
@@ -76,7 +78,7 @@ export function ExplorerHeader() {
           </span>
         </div>
       </div>
-      <NavLinks className="overflow-x-auto border-t border-border px-3 py-1.5 [scrollbar-width:none] xl:hidden [&::-webkit-scrollbar]:hidden" />
+      <NavLinks narrow className="overflow-x-auto border-t border-border px-3 py-1.5 [scrollbar-width:none] xl:hidden [&::-webkit-scrollbar]:hidden" />
     </header>
   );
 }

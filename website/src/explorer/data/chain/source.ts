@@ -1,4 +1,5 @@
 import { categoryOf } from "../../model/describe";
+import { SHIELDED_POOL_ADDRESS, SHIELDED_POOL_LABEL } from "../../model/shielded";
 import type { EpochListQuery } from "../../model/epochs";
 import type { NodeDetail, NodeSet } from "../../model/nodes";
 import type { ArchiveHealth, DealList, DealReplica, SettlementQueue } from "../../model/storage";
@@ -30,6 +31,7 @@ import { nextHead } from "../head";
 import { clampLimit } from "../source";
 import type { ExplorerDataSource } from "../source";
 import { loadArchiveHealth } from "./archive";
+import { createAssetsSource } from "./assets-source";
 import { loadBaseFee, loadEpoch, loadEpochClock, loadEpochs, loadEpochValidators, loadSupply } from "./aggregates";
 import { BLOCKS_PER_CALL, loadBlock, loadRecentBlocks } from "./blocks";
 import { ChainNotFound, chainPath, createClient, withQuery } from "./client";
@@ -131,7 +133,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
   const context = async (): Promise<Context> => {
     const dir = await directory();
     return {
-      label: (address) => dir.byOperator.get(address)?.ref.moniker,
+      label: (address) => (address === SHIELDED_POOL_ADDRESS ? SHIELDED_POOL_LABEL : dir.byOperator.get(address)?.ref.moniker),
       validator: (operator): ValidatorRef => dir.byOperator.get(operator)?.ref ?? { moniker: operator, operator },
     };
   };
@@ -166,6 +168,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
 
   return {
     origin: { label: options.label ?? DEFAULT_ORIGIN_LABEL },
+    assets: createAssetsSource(client, now),
 
     getNetwork(): Promise<NetworkSnapshot> {
       return loadNetwork(client);
