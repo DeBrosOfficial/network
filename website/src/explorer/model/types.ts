@@ -25,7 +25,7 @@ export interface WalletRef {
 
 export interface ValidatorRef {
   moniker: string;
-  /** The operator's wallet address; the validator's page is that wallet. */
+  /** The operator's wallet address (orama1…); the validator's page is /validator/<this>. */
   operator: string;
 }
 
@@ -259,12 +259,43 @@ export interface Counterparty {
   volume: Norama;
 }
 
+export type ValidatorStatus = "bonded" | "unbonding" | "unbonded";
+
 export interface Validator {
   ref: ValidatorRef;
   type: "committee" | "community";
   /** Share of voting power, 0 to 1. */
   power: number;
   jailed: boolean;
+  status: ValidatorStatus;
+  /** The commission rate the validator takes from its delegators' rewards, 0 to 1. */
+  commission: number;
+  /** Everything bonded to the validator: its own bond and its delegators'. */
+  tokens: Norama;
+}
+
+/** x/power's per-operator cap on voting power (the Lambda and Params queries). */
+export interface PowerCap {
+  /** The cap in force now, as a share of total power, 0 to 1. */
+  current: number;
+  /** The cap while at most `stepDownCount` validators are active. */
+  normal: number;
+  /** The cap once more than `stepDownCount` validators are active. */
+  reduced: number;
+  stepDownCount: number;
+}
+
+/** What drives lambda, the share of voting power that comes from stake instead of the founding committee. */
+export interface Handover {
+  /** 0 to 1; only ever rises. */
+  lambda: number;
+  /** Bonded stake against the stake at which lambda reaches 1 (x/power bootstrap_exit_stake). */
+  stake: { bonded: Norama; exit: Norama };
+  /** The current epoch against the epoch by which lambda reaches 1 whatever is staked (bootstrap_deadline_epochs). */
+  epochs: { current: number; deadline: number };
+  /** Until the validator-count gate is met once, lambda is held at or below this, 0 to 1. */
+  preGateCap: number;
+  cap: PowerCap;
 }
 
 export interface ValidatorSet {
@@ -275,6 +306,99 @@ export interface ValidatorSet {
   totalStaked: Norama;
   jailed: number;
   validators: Validator[];
+  handover: Handover;
+}
+
+/** The operator a validator's stake counts toward under x/power's cap. */
+export type PowerOperator = { kind: "registered"; address: string } | { kind: "unlinked" };
+
+export interface ValidatorDetail {
+  validator: Validator;
+  website: string;
+  details: string;
+  commission: {
+    rate: number;
+    maxRate: number;
+    /** The most the rate may change in one day. */
+    maxChangePerDay: number;
+    /** Null when the rate has never been changed since the validator was created. */
+    updatedAt: string | null;
+  };
+  minSelfDelegation: Norama;
+  /** What the operator's own wallet has bonded to the validator; "0" when it has none. */
+  selfBond: Norama;
+  /** Everything bonded to the validator less the self-bond. */
+  delegatedByOthers: Norama;
+  /** When the validator finishes unbonding, or null. */
+  unbondsAt: string | null;
+  /** x/power's view: the CometBFT power and the operator the cap counts the validator under. Null when x/power knows no such validator. */
+  power: { cometPower: string; operator: PowerOperator } | null;
+}
+
+/** One closed epoch of one validator, from the chain indexer. */
+export interface ValidatorEpoch {
+  epoch: number;
+  /** CometBFT voting power in that epoch, in the chain's integer units (not a share). */
+  cometPower: number;
+  signedBlocks: number;
+  missedBlocks: number;
+  /** Signed over signed plus missed, 0 to 1; null when the epoch carried no commit for it. */
+  uptime: number | null;
+  slashes: number;
+  slashedBurned: Norama;
+  jailed: boolean;
+  status: ValidatorStatus;
+}
+
+export interface SlashEvent {
+  height: number;
+  time: string;
+  epoch: number;
+  /** x/slashing's own reason: double_sign, missing_signature or unspecified. */
+  reason: string;
+  power: number;
+  burned: Norama;
+}
+
+export interface JailPeriod {
+  /** Null when the validator was jailed before the index's first block. */
+  jailedHeight: number | null;
+  jailedTime: string | null;
+  reason: string;
+  /** Null while it is still jailed. */
+  unjailedHeight: number | null;
+  unjailedTime: string | null;
+}
+
+/** A validator's history from the chain indexer: newest first. */
+export interface ValidatorHistory {
+  epochs: ValidatorEpoch[];
+  slashes: SlashEvent[];
+  jails: JailPeriod[];
+}
+
+/** One validator's signing in the newest closed epoch, from the chain indexer. */
+export interface ValidatorSigning {
+  /** The operator wallet (orama1…), as Validator.ref.operator. */
+  operator: string;
+  epoch: number;
+  uptime: number | null;
+  missedBlocks: number;
+  slashes: number;
+}
+
+export interface OperatorGroup {
+  operator: PowerOperator;
+  validators: Validator[];
+  /** The group's combined share of voting power, 0 to 1. */
+  power: number;
+}
+
+export interface OperatorGroups {
+  /** Largest combined power first. */
+  groups: OperatorGroup[];
+  /** Active validators whose operator was not read, because only the largest are looked up. */
+  unresolved: number;
 }
 
 export interface Head {

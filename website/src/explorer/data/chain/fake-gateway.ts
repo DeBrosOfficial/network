@@ -1,4 +1,5 @@
 import { bech32Encode } from "../../model/bech32";
+import { withQuery } from "./client";
 import { consensusAddress } from "./directory";
 
 /** A stand-in for the gateway's /v1/chain/ proxy, for tests: it answers by path and counts what was asked. */
@@ -12,6 +13,45 @@ export const CHAIN_ID = "orama-test-1";
 
 /** The base64 of a 32-byte ed25519 key made of one repeated byte. */
 export const keyOf = (n: number) => btoa(String.fromCharCode(...new Uint8Array(32).fill(n)));
+
+/** The paths of the module queries a validator page makes, as the client builds them. */
+export const powerPath = (valoperAddress: string) =>
+  withQuery("query/orama.power.v1.Query/ValidatorPower", { json: JSON.stringify({ operator_address: valoperAddress }) });
+export const delegationPath = (delegator: string, valoperAddress: string) =>
+  withQuery("query/cosmos.staking.v1beta1.Query/Delegation", { json: JSON.stringify({ delegator_addr: delegator, validator_addr: valoperAddress }) });
+
+/** A validator as the node's REST staking list writes it (decimals with a point). */
+export function stakingValidator(n: number, keyByte: number, over: Record<string, unknown> = {}) {
+  return {
+    operator_address: valoper(n),
+    consensus_pubkey: { "@type": "/cosmos.crypto.ed25519.PubKey", key: keyOf(keyByte) },
+    jailed: false,
+    status: "BOND_STATUS_BONDED",
+    tokens: "2000000000000",
+    delegator_shares: "2000000000000.000000000000000000",
+    description: { moniker: `V${n}`, identity: "", website: "", security_contact: "", details: "" },
+    unbonding_height: "0",
+    unbonding_time: "1970-01-01T00:00:00Z",
+    commission: { commission_rates: { rate: "0.100000000000000000", max_rate: "0.200000000000000000", max_change_rate: "0.010000000000000000" }, update_time: "1970-01-01T00:00:00Z" },
+    min_self_delegation: "1",
+    ...over,
+  };
+}
+
+/** x/power's Params as the module-query route writes them: decimals unscaled, as on the live gateway. */
+export const POWER_PARAMS = {
+  params: {
+    min_committee_size: "5",
+    bootstrap_exit_stake: "271000000000000",
+    bootstrap_deadline_epochs: "365",
+    cap_fraction_normal: "50000000000000000",
+    cap_fraction_reduced: "30000000000000000",
+    cap_step_down_validator_count: "60",
+    cap_step_up_validator_count: "50",
+    cap_hysteresis_epochs: "30",
+    pre_gate_lambda_cap: "950000000000000000",
+  },
+};
 
 export const hashOf = (n: number) => n.toString(16).padStart(64, "0");
 
@@ -72,12 +112,13 @@ export async function chainFixture(): Promise<FakeGateway> {
   }));
   gw.on("staking/validators", {
     validators: [
-      { operator_address: valoper(7), consensus_pubkey: { "@type": "/cosmos.crypto.ed25519.PubKey", key: keyOf(11) }, jailed: false, description: { moniker: "Alpha" } },
-      { operator_address: valoper(8), consensus_pubkey: { "@type": "/cosmos.crypto.ed25519.PubKey", key: keyOf(12) }, jailed: true, description: { moniker: "Beta‮" } },
+      stakingValidator(7, 11, { description: { moniker: "Alpha" }, tokens: "4000000000000" }),
+      stakingValidator(8, 12, { jailed: true, description: { moniker: "Beta‮" }, tokens: "3000000000000" }),
     ],
   });
   gw.on("query/orama.power.v1.Query/BootstrapCommittee", { members: [{ operator_address: addr(7), moniker: "Alpha" }] });
-  gw.on("query/orama.power.v1.Query/Lambda", { lambda: "0.250000000000000000" });
+  gw.on("query/orama.power.v1.Query/Lambda", { lambda: "250000000000000000", last_updated_epoch: "12", current_cap_bps: "500", below_step_up_streak_epochs: "0" });
+  gw.on("query/orama.power.v1.Query/Params", POWER_PARAMS);
   gw.on("staking/pool", { pool: { not_bonded_tokens: "0", bonded_tokens: "7000000000000" } });
   gw.on("supply/norama", { amount: { denom: "norama", amount: "41000000000000000" } });
   gw.on("query/orama.fees.v1.Query/BaseFee", { base_fee: "1000" });

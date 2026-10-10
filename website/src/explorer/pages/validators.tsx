@@ -7,6 +7,7 @@ import { Query, Skeleton } from "../ui/query-states";
 import { Stat } from "../ui/stat";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { HandoverCard } from "./validators/handover-card";
+import { OperatorsCard } from "./validators/operators-card";
 import { summarize } from "./validators/summary";
 import { ValidatorTable } from "./validators/validator-table";
 
@@ -25,9 +26,12 @@ function Loading() {
 
 function ValidatorsBody({ set }: { set: ValidatorSet }) {
   const summary = summarize(set);
+  // The indexer's figures and the operators are separate reads: the table and the hand-over show without them, and each says why it is missing.
+  const signing = useQuery((s) => s.getValidatorSigning(), []);
+  const operators = useQuery((s) => s.getOperatorGroups(), []);
   return (
     <>
-      <HandoverCard summary={summary} lambda={set.lambda} />
+      <HandoverCard summary={summary} handover={set.handover} />
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat
           label="Validators signing"
@@ -46,7 +50,8 @@ function ValidatorsBody({ set }: { set: ValidatorSet }) {
         />
         <Stat label="Total staked" value={<>{formatCompact(set.totalStaked)} <span className="text-sm font-normal text-muted">ORAMA</span></>} detail="bonded to validators" />
       </div>
-      <ValidatorTable validators={set.validators} />
+      <ValidatorTable validators={set.validators} signing={signing.state} />
+      <OperatorsCard state={operators.state} onRetry={operators.refetch} cap={set.handover.cap} />
     </>
   );
 }

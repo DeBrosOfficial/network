@@ -2,11 +2,15 @@ import { useMemo } from "react";
 import { activityToCsv, csvFilename } from "./csv";
 import { BUTTON_CLASS } from "./constants";
 import type { ActivityItem, WalletProfile } from "../../model/types";
+import { Link } from "react-router";
+import { useExplorerPaths } from "../../network/active";
 import { Badge } from "../../ui/badge";
 import { CopyChip } from "../../ui/copy";
 import { Identicon } from "../../ui/identicon";
 
 const IDENTICON_SIZE = 60;
+/** The role the chain source gives a wallet that runs a validator (data/chain/wallet.ts). */
+const VALIDATOR_ROLE = "Validator operator";
 const CSV_TYPE = "text/csv;charset=utf-8";
 /** Some browsers cancel a download whose object URL is revoked in the same tick as the click. */
 const REVOKE_DELAY_MS = 0;
@@ -27,6 +31,7 @@ export interface WalletHeaderProps {
 }
 
 export function WalletHeader({ profile, loaded }: WalletHeaderProps) {
+  const paths = useExplorerPaths();
   const { ref, roles } = profile;
   const csv = useMemo(() => (loaded.length > 0 ? activityToCsv(loaded) : ""), [loaded]);
   const count = loaded.length;
@@ -40,6 +45,11 @@ export function WalletHeader({ profile, loaded }: WalletHeaderProps) {
             {roles.map((role) => (
               <Badge key={role}>{role}</Badge>
             ))}
+            {roles.includes(VALIDATOR_ROLE) && (
+              <Link to={paths.validator(ref.address)} className="text-sm underline decoration-dotted underline-offset-4 hover:text-fg">
+                Open its validator page
+              </Link>
+            )}
             {ref.verified && <Badge tone="signal">Verified label</Badge>}
           </div>
         )}

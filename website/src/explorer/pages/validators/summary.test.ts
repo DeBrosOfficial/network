@@ -7,6 +7,9 @@ const v = (moniker: string, type: Validator["type"], power: number, jailed = fal
   type,
   power,
   jailed,
+  status: jailed ? "unbonding" : "bonded",
+  commission: 0.1,
+  tokens: "1000000000",
 });
 
 const set = (validators: Validator[], lambda: number): ValidatorSet => ({
@@ -15,6 +18,13 @@ const set = (validators: Validator[], lambda: number): ValidatorSet => ({
   totalStaked: "0",
   jailed: 0,
   validators,
+  handover: {
+    lambda,
+    stake: { bonded: "0", exit: "100" },
+    epochs: { current: 1, deadline: 365 },
+    preGateCap: 0.95,
+    cap: { current: 0.05, normal: 0.05, reduced: 0.03, stepDownCount: 60 },
+  },
 });
 
 describe("summarize", () => {

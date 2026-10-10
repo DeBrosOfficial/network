@@ -3,11 +3,13 @@ import type { ValidatorRef } from "../../model/types";
 import { shortAddress } from "../../model/units";
 import { ChainReadError, chainPath } from "./client";
 import type { ChainClient } from "./client";
+import { readStakingFields } from "./staking";
+import type { StakingFields } from "./staking";
 import { clean } from "./text";
 import { arr, bool, digits, optArr, optStr, rec, rpcResult, str } from "./wire";
 
 /** Every validator the chain knows, joined across the staking module, CometBFT and x/power. */
-export interface DirectoryValidator {
+export interface DirectoryValidator extends StakingFields {
   ref: ValidatorRef;
   /** The oramavaloper address, as the staking module names the validator. */
   valoper: string;
@@ -60,7 +62,7 @@ export async function consensusAddress(keyBase64: string): Promise<string> {
   return toHex(new Uint8Array(digest).slice(0, CONSENSUS_ADDRESS_BYTES));
 }
 
-interface StakingValidator {
+interface StakingValidator extends StakingFields {
   valoper: string;
   operator: string;
   consensus: string;
@@ -80,6 +82,7 @@ async function readStaking(raw: unknown): Promise<StakingValidator[]> {
       if (key["@type"] !== ED25519_KEY_TYPE) throw new ChainReadError("The chain sent a validator key of a type this explorer cannot read.");
       const description = v.description === undefined ? {} : rec(v.description, "validator description");
       return {
+        ...readStakingFields(v),
         valoper,
         operator,
         consensus: await consensusAddress(str(key.key, "validator key", 128)),
@@ -128,13 +131,11 @@ export async function loadDirectory(client: ChainClient): Promise<Directory> {
   ]);
   const staking = await readStaking(stakingRaw);
   const committee = readCommittee(committeeRaw);
-  const validators: DirectoryValidator[] = staking.map((s) => ({
-    ref: { moniker: s.moniker === "" ? shortAddress(s.operator) : s.moniker, operator: s.operator },
-    valoper: s.valoper,
-    consensus: s.consensus,
-    jailed: s.jailed,
+  const validators: DirectoryValidator[] = staking.map(({ moniker, operator, ...s }) => ({
+    ...s,
+    ref: { moniker: moniker === "" ? shortAddress(operator) : moniker, operator },
     power: comet.get(s.consensus)?.power ?? 0n,
-    committee: committee.has(s.operator),
+    committee: committee.has(operator),
   }));
   const totalPower = [...comet.values()].reduce((sum, v) => sum + v.power, 0n);
   return {

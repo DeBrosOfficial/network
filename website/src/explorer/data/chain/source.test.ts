@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addr, CHAIN_ID, chainFixture, FakeGateway, HEAD, HEAD_TIME, hashOf, indexTx, rpc, valoper } from "./fake-gateway";
+import { addr, CHAIN_ID, chainFixture, FakeGateway, HEAD, HEAD_TIME, hashOf, indexTx, rpc, stakingValidator } from "./fake-gateway";
 import { createChainSource } from "./source";
 import { addressQuery } from "./wallet";
 
@@ -113,6 +113,7 @@ describe("validators", () => {
     const { source } = await setup();
     const set = await source.getValidators();
     expect(set.lambda).toBe(0.25);
+    expect(set.handover.lambda).toBe(0.25);
     expect(set.totalStaked).toBe("7000000000000");
     expect(set.jailed).toBe(1);
     expect(set.nakamoto).toBe(1);
@@ -131,8 +132,8 @@ describe("validators", () => {
     const { gw, source } = await setup();
     gw.on("staking/validators", {
       validators: [
-        { operator_address: valoper(7), consensus_pubkey: { "@type": "/cosmos.crypto.ed25519.PubKey", key: "CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws=" }, jailed: false, description: { moniker: "Big Alpha" } },
-        { operator_address: valoper(8), consensus_pubkey: { "@type": "/cosmos.crypto.ed25519.PubKey", key: "DAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw=" }, jailed: false, description: { moniker: "Alphabet" } },
+        stakingValidator(7, 11, { description: { moniker: "Big Alpha" } }),
+        stakingValidator(8, 12, { description: { moniker: "Alphabet" } }),
       ],
     });
     const found = await source.searchLabels("alpha", 5);

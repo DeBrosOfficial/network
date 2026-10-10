@@ -34,7 +34,7 @@ export function WalletLink({ wallet, className, bare = false }: WalletLinkProps)
 export function ValidatorLink({ validator, className }: { validator: ValidatorRef; className?: string }) {
   const paths = useExplorerPaths();
   return (
-    <Link to={paths.wallet(validator.operator)} className={cn(linkClass, "text-fg font-medium", className)}>
+    <Link to={paths.validator(validator.operator)} className={cn(linkClass, "text-fg font-medium", className)}>
       <Identicon seed={validator.operator} size={16} />
       {validator.moniker}
     </Link>

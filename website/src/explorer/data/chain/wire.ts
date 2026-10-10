@@ -93,12 +93,34 @@ export function account(value: unknown, what: string): string {
   return text;
 }
 
-/** A decimal fraction such as "0.250000000000000000", as a number from 0 to 1. */
-export function share(value: unknown, what: string): number {
-  const text = str(value, what, 64);
-  if (!/^[0-9]+(\.[0-9]+)?$/.test(text)) throw malformed(what);
-  const n = Number(text);
-  if (!Number.isFinite(n) || n < 0 || n > 1) throw malformed(what);
+const DEC_PLACES = 18;
+const DEC_TEXT = /^[0-9]+(\.[0-9]+)?$/;
+
+/**
+ * A cosmos-sdk LegacyDec as a number. The node's REST API writes it as a
+ * decimal, "0.050000000000000000"; the gateway's module-query route
+ * (query/<Service>/<Method>) writes the same value as the unscaled integer,
+ * "50000000000000000" (18 places), which is how x/power's lambda and caps
+ * arrive. A text with a point is a decimal and one without is unscaled.
+ */
+export function legacyDec(value: unknown, what: string): number {
+  const text = str(value, what, 96);
+  if (!DEC_TEXT.test(text)) throw malformed(what);
+  let n: number;
+  if (text.includes(".")) {
+    n = Number(text);
+  } else {
+    const padded = text.padStart(DEC_PLACES + 1, "0");
+    n = Number(`${padded.slice(0, -DEC_PLACES)}.${padded.slice(-DEC_PLACES)}`);
+  }
+  if (!Number.isFinite(n)) throw malformed(what);
+  return n;
+}
+
+/** A LegacyDec that is a fraction, 0 to 1 (a share, a rate, a cap). */
+export function decShare(value: unknown, what: string): number {
+  const n = legacyDec(value, what);
+  if (n > 1) throw malformed(what);
   return n;
 }
 

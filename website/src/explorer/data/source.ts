@@ -9,10 +9,14 @@ import type {
   ExampleTargets,
   Head,
   NetworkSnapshot,
+  OperatorGroups,
   Page,
   TxDetail,
   TxSummary,
+  ValidatorDetail,
+  ValidatorHistory,
   ValidatorSet,
+  ValidatorSigning,
   WalletProfile,
   WalletRef,
 } from "../model/types";
@@ -87,6 +91,18 @@ export interface ExplorerDataSource {
 
   /** Every validator, in no particular order; the UI ranks them. */
   getValidators(): Promise<ValidatorSet>;
+  /** One validator by its operator wallet (orama1…); null when no validator has that operator. */
+  getValidator(address: string): Promise<ValidatorDetail | null>;
+  /**
+   * A validator's closed epochs, slashes and jail periods, newest first, from
+   * the chain indexer: it rejects when the node has none. Null when the index
+   * has not seen the validator yet.
+   */
+  getValidatorHistory(address: string): Promise<ValidatorHistory | null>;
+  /** Each validator's signing in the newest closed epoch, from the chain indexer; it rejects when the node has none. */
+  getValidatorSigning(): Promise<ValidatorSigning[]>;
+  /** The active validators grouped by the operator x/power counts their stake under. */
+  getOperatorGroups(): Promise<OperatorGroups>;
 
   /** The epoch in progress and what closes it. Needs the chain only, not the index. */
   getEpochClock(): Promise<EpochClock>;

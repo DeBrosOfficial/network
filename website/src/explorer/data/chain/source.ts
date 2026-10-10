@@ -10,11 +10,15 @@ import type {
   ExampleTargets,
   Head,
   NetworkSnapshot,
+  OperatorGroups,
   Page,
   TxDetail,
   TxSummary,
+  ValidatorDetail,
+  ValidatorHistory,
   ValidatorRef,
   ValidatorSet,
+  ValidatorSigning,
   WalletProfile,
   WalletRef,
 } from "../../model/types";
@@ -31,6 +35,7 @@ import type { Directory } from "./directory";
 import { loadNetwork, readHead } from "./network";
 import { detailOf, readIndexTx, summaryOf, walletRef } from "./tx";
 import type { Context, IndexTx } from "./tx";
+import { loadHistory, loadOperatorGroups, loadSigning, loadValidator } from "./validator-detail";
 import { loadValidatorSet } from "./validators";
 import { loadActivity, loadCounterparties, loadWallet } from "./wallet";
 import { arr, rec, uint } from "./wire";
@@ -213,6 +218,22 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     getEpochValidators: (epoch: number, query: EpochListQuery) => loadEpochValidators(client, directory, epoch, query),
     getSupplyHistory: (limit: number) => loadSupply(client, limit),
     getBaseFee: () => loadBaseFee(client),
+
+    async getValidator(address: string): Promise<ValidatorDetail | null> {
+      return loadValidator(client, await directory(), address.toLowerCase());
+    },
+
+    async getValidatorHistory(address: string): Promise<ValidatorHistory | null> {
+      return loadHistory(client, await directory(), address.toLowerCase());
+    },
+
+    getValidatorSigning(): Promise<ValidatorSigning[]> {
+      return loadSigning(client);
+    },
+
+    async getOperatorGroups(): Promise<OperatorGroups> {
+      return loadOperatorGroups(client, await directory());
+    },
 
     async searchLabels(query: string, limit: number): Promise<WalletRef[]> {
       const wanted = clampLimit(limit);
