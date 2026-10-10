@@ -20,6 +20,15 @@ export function nextTrail(trail: readonly string[], path: string): string[] {
   return next.length > MAX_TRAIL ? next.slice(next.length - MAX_TRAIL) : next;
 }
 
+/** A path segment as the reader would type it; the segment as it is when it is not valid percent-encoding. */
+function readableSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 /** A short crumb label derived from the path alone. */
 export function crumbLabel(path: string): string {
   const { kind, id } = parseExplorerPath(path);
@@ -34,12 +43,20 @@ export function crumbLabel(path: string): string {
       return `Block ${id}`;
     case "validators":
       return "Validators";
+    case "nodes":
+      return "Nodes";
+    case "node":
+      return `Node ${readableSegment(id)}`;
+    case "storage":
+      return "Storage";
+    case "tor":
+      return "Tor";
     default:
       return "Explorer";
   }
 }
 
-const KNOWN_PATH = /^\/explorer(\/[a-z][a-z0-9-]{0,31})?\/(validators|(tx|wallet|block|validator)\/[A-Za-z0-9]+)$/;
+const KNOWN_PATH = /^\/explorer(\/[a-z][a-z0-9-]{0,31})?\/(validators|nodes|storage|tor|(tx|wallet|block|validator)\/[A-Za-z0-9]+|node\/[A-Za-z0-9%][A-Za-z0-9._:%-]{0,191})$/;
 
 /** True for a path this explorer serves. Used to reject a hostile shared trail. */
 export function isTrailPath(path: string): boolean {

@@ -1,4 +1,7 @@
 import type { EpochClock, EpochListQuery, EpochRow, EpochValidator, IndexPage, SupplyPoint } from "../model/epochs";
+import type { NodeDetail, NodeSet } from "../model/nodes";
+import type { ArchiveHealth, DealList, DealReplica, SettlementQueue } from "../model/storage";
+import type { TorRelays } from "../model/tor";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -119,6 +122,23 @@ export interface ExplorerDataSource {
   getSupplyHistory(limit: number): Promise<SupplyPoint[]>;
   /** The base fee now, in norama per gas. The chain keeps no history of it, and neither does the index. */
   getBaseFee(): Promise<number>;
+
+  /** Every node x/nodes holds, whatever its status, with the module's parameters. */
+  getNetworkNodes(): Promise<NodeSet>;
+  /** One node by the id it was registered under; null when the chain holds no such node. */
+  getNode(id: string): Promise<NodeDetail | null>;
+
+  /** The newest storage deals, newest first, with x/storage's parameters. */
+  getDeals(): Promise<DealList>;
+  /** A deal's replicas (at most a dozen), one per slot. */
+  getDealReplicas(dealId: number, replicas: number): Promise<DealReplica[]>;
+  /** How many settlements (payments and penalties) wait for a block. */
+  getSettlementQueue(): Promise<SettlementQueue>;
+  /** What x/archive holds: the archived prefix, the retain height and the oldest ranges not archived yet. */
+  getArchiveHealth(): Promise<ArchiveHealth>;
+
+  /** The relays x/relay holds with its parameters, reporters and the newest closed epoch's settlement. */
+  getTorRelays(): Promise<TorRelays>;
 
   /** Wallets and validators whose label contains the query, best match first. */
   searchLabels(query: string, limit: number): Promise<WalletRef[]>;

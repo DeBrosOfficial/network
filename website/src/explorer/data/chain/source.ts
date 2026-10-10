@@ -1,5 +1,8 @@
 import { categoryOf } from "../../model/describe";
 import type { EpochListQuery } from "../../model/epochs";
+import type { NodeDetail, NodeSet } from "../../model/nodes";
+import type { ArchiveHealth, DealList, DealReplica, SettlementQueue } from "../../model/storage";
+import type { TorRelays } from "../../model/tor";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -26,6 +29,7 @@ import { toError } from "../errors";
 import { nextHead } from "../head";
 import { clampLimit } from "../source";
 import type { ExplorerDataSource } from "../source";
+import { loadArchiveHealth } from "./archive";
 import { loadBaseFee, loadEpoch, loadEpochClock, loadEpochs, loadEpochValidators, loadSupply } from "./aggregates";
 import { BLOCKS_PER_CALL, loadBlock, loadRecentBlocks } from "./blocks";
 import { ChainNotFound, chainPath, createClient, withQuery } from "./client";
@@ -33,6 +37,9 @@ import type { ChainClient, ChainFetch } from "./client";
 import { loadDirectory } from "./directory";
 import type { Directory } from "./directory";
 import { loadNetwork, readHead } from "./network";
+import { loadNodeDetail, loadNodeSet } from "./nodes";
+import { loadDeals, loadReplicas, loadSettlementQueue } from "./storage";
+import { loadTorRelays } from "./tor";
 import { detailOf, readIndexTx, summaryOf, walletRef } from "./tx";
 import type { Context, IndexTx } from "./tx";
 import { loadHistory, loadOperatorGroups, loadSigning, loadValidator } from "./validator-detail";
@@ -42,6 +49,8 @@ import { arr, rec, uint } from "./wire";
 
 /** How long a read validator directory is reused. Validators change in epochs, not in blocks. */
 const DIRECTORY_TTL_MS = 30_000;
+/** How long a read node list is reused: the nodes, storage and Tor pages each read it, and nodes change in registrations, not in blocks. */
+const NODE_SET_TTL_MS = 30_000;
 /** How often a page open in a visible tab asks for the head. Blocks come every few seconds. */
 const HEAD_POLL_MS = 3_000;
 /** The newest transactions one list read asks the indexer for (its maximum). */
@@ -104,6 +113,19 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
       });
     }
     return cached.directory;
+  };
+
+  let nodeSet: { at: number; nodes: Promise<NodeSet> } | null = null;
+
+  const nodes = (): Promise<NodeSet> => {
+    if (nodeSet === null || now() - nodeSet.at > NODE_SET_TTL_MS) {
+      const pending = loadNodeSet(client);
+      nodeSet = { at: now(), nodes: pending };
+      pending.catch(() => {
+        if (nodeSet?.nodes === pending) nodeSet = null;
+      });
+    }
+    return nodeSet.nodes;
   };
 
   const context = async (): Promise<Context> => {
@@ -234,6 +256,14 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     async getOperatorGroups(): Promise<OperatorGroups> {
       return loadOperatorGroups(client, await directory());
     },
+
+    getNetworkNodes: nodes,
+    getNode: (id: string): Promise<NodeDetail | null> => loadNodeDetail(client, id),
+    getDeals: (): Promise<DealList> => loadDeals(client),
+    getDealReplicas: (dealId: number, replicas: number): Promise<DealReplica[]> => loadReplicas(client, dealId, replicas),
+    getSettlementQueue: (): Promise<SettlementQueue> => loadSettlementQueue(client),
+    getArchiveHealth: (): Promise<ArchiveHealth> => loadArchiveHealth(client),
+    getTorRelays: (): Promise<TorRelays> => loadTorRelays(client),
 
     async searchLabels(query: string, limit: number): Promise<WalletRef[]> {
       const wanted = clampLimit(limit);

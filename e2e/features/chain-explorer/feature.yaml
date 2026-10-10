@@ -7,7 +7,12 @@
 # an account's summary) and the aggregates the indexer keeps for the explorer's
 # epoch, supply and validator pages (the epochs, the supply per epoch, each
 # validator's epochs, slashes and jail periods, and the hourly, daily and weekly
-# series), checked for their order, their bounds and their refusals. The REST routes are checked against the run's own
+# series), checked for their order, their bounds and their refusals. The list queries the
+# nodes, storage and Tor pages read (x/nodes Nodes, x/storage Deals, x/relay Relays) are
+# checked through the gateway for the node and the relay a test registers, the deal order
+# (newest first descends and oldest first ascends), each entry against the point query
+# of the same record, and the page cap of 100; the archive numbers the storage page shows are
+# checked for the invariant that the retain height is never above the last archived height. The REST routes are checked against the run's own
 # validators (the bank balance equals `orama chain balance`'s answer, the
 # validator set holds the run's validators bonded) and every refusal (a
 # malformed address, a caller query, another method) is checked for its status.
@@ -28,6 +33,10 @@ requires:
 covers:
   routes:
     - /v1/chain/
+  queries:
+    - orama.nodes.v1.Nodes
+    - orama.storage.v1.Deals
+    - orama.relay.v1.Relays
   claims:
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: AllBalances, DelegatorDelegations and DelegatorUnbondingDelegations of /v1/chain/query/ answer an address's balances, delegations and unbonding, at most 100 entries"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: GET /v1/chain/staking/validators is the node's REST staking validators, at most 200"
@@ -41,3 +50,6 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/status carries aggregates_from, and stuck while the follower cannot advance; the fleet's indexers are not stuck"
     - "website/src/docs/blockchain/reading-the-chain.mdx#epochs-the-index-could-not-read: an epoch row is either exact or unavailable with a reason and no figure"
     - "website/src/docs/blockchain/reading-the-chain.mdx#the-explorer: each gateway answers the explorer's origin, https://orama.network, on a GET (and its preflight) under /v1/chain/ and refuses it on every other route"
+    - "website/src/docs/blockchain/reading-the-chain.mdx#list-queries: Nodes, Deals and Relays page by key, at most 100 entries a page, and a limit above 100 is a 400"
+    - "docs/whitepaper/technical-reference/vol2/41-storage-deals.md: Deals pages in id order, or newest first with pagination.reverse, and the highest id is the number of deals made"
+    - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md: Relays lists every relay in fingerprint order, at most 100 a page by the page key"

@@ -21,6 +21,10 @@ describe("explorer routes render on the server", () => {
     ["/explorer/epoch/not-a-number", "That is not an epoch number"],
     ["/explorer/emission", "Emission"],
     ["/explorer/economics", "Supply and economics"],
+    ["/explorer/nodes", "The machines that make up"],
+    ["/explorer/node/node-1", "Search address, transaction, block"],
+    ["/explorer/storage", "Storage and archive"],
+    ["/explorer/tor", "Tor and relays"],
     [`/explorer/tx/${HASH}`, "Search address, transaction, block"],
     [`/explorer/wallet/${ADDRESS}`, "Search address, transaction, block"],
     ["/explorer/block/42", "Search address, transaction, block"],
@@ -33,7 +37,7 @@ describe("explorer routes render on the server", () => {
   }, 20_000);
 
   it("TestExplorerRender_says_it_shows_live_data_and_never_demo_data", async () => {
-    for (const path of ["/explorer", "/explorer/validators", "/explorer/block/1", "/explorer/epochs", "/explorer/emission", "/explorer/economics"]) {
+    for (const path of ["/explorer", "/explorer/validators", "/explorer/block/1", "/explorer/epochs", "/explorer/emission", "/explorer/economics", "/explorer/nodes", "/explorer/storage", "/explorer/tor"]) {
       const html = await render(path);
       expect(html).toContain("Live data from");
       expect(html).not.toContain("demo");

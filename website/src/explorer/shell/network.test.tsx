@@ -52,6 +52,22 @@ describe("the network switcher", () => {
     expect(html).toContain("Live data from testnet at testnet.orama.network");
   });
 
+  it("TestNetworkBar_the_nodes_storage_and_tor_pages_are_per_network", () => {
+    const html = app("/explorer/testnet");
+    for (const page of ["nodes", "storage", "tor"]) expect(html).toContain(`href="/explorer/testnet/${page}"`);
+    const own = app("/explorer");
+    for (const page of ["nodes", "storage", "tor"]) expect(own).toContain(`href="/explorer/${page}"`);
+  });
+
+  it("TestNodesPage_links_the_status_page_of_the_network_being_read", () => {
+    expect(app("/explorer/testnet/nodes")).toContain('href="https://testnet.orama.network/status"');
+    expect(app("/explorer/nodes")).toContain('href="https://stagenet.orama.network/status"');
+  });
+
+  it("TestNodesPage_a_custom_network_without_a_gateway_has_no_status_link", () => {
+    expect(app("/explorer/custom/nodes")).not.toContain("/status");
+  });
+
   it("TestNetworkBar_links_inside_a_network_stay_in_it", () => {
     const html = app("/explorer/testnet");
     expect(html).toContain('href="/explorer/testnet/validators"');

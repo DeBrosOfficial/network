@@ -23,6 +23,10 @@ import { EmissionPage } from "./pages/emission";
 import { EpochPage } from "./pages/epoch";
 import { EpochsPage } from "./pages/epochs";
 import { HomePage } from "./pages/home";
+import { NodePage } from "./pages/node";
+import { NodesPage } from "./pages/nodes";
+import { StoragePage } from "./pages/storage";
+import { TorPage } from "./pages/tor";
 import { TxPage } from "./pages/tx";
 import { ValidatorPage } from "./pages/validator";
 import { ValidatorsPage } from "./pages/validators";
@@ -49,6 +53,10 @@ function Pages({ routePath }: { routePath: string }) {
         <Route path="epoch/:epoch" element={<EpochPage />} />
         <Route path="emission" element={<EmissionPage />} />
         <Route path="economics" element={<EconomicsPage />} />
+        <Route path="nodes" element={<NodesPage />} />
+        <Route path="node/:id" element={<NodePage />} />
+        <Route path="storage" element={<StoragePage />} />
+        <Route path="tor" element={<TorPage />} />
         <Route path="validator/:address" element={<ValidatorPage />} />
         <Route
           path="*"

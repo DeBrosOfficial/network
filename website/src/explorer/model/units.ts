@@ -106,3 +106,22 @@ export function shortHash(hash: string): string {
   if (hash.length <= 14) return hash;
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
+
+const BYTE_UNITS = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"] as const;
+const BYTES_PER_STEP = 1024n;
+const BYTES_TENTHS = 10n;
+
+/** "1.5 GiB" from a byte count in a decimal string; truncated to one decimal like every figure here. */
+export function formatBytes(bytes: string): string {
+  const n = parseNorama(bytes);
+  if (n < 0n) throw new Error(`byte count is negative: ${JSON.stringify(bytes)}`);
+  let unit = 0;
+  let scaled = n * BYTES_TENTHS;
+  while (scaled >= BYTES_PER_STEP * BYTES_TENTHS && unit < BYTE_UNITS.length - 1) {
+    scaled /= BYTES_PER_STEP;
+    unit += 1;
+  }
+  const whole = scaled / BYTES_TENTHS;
+  const tenth = scaled % BYTES_TENTHS;
+  return `${groupDigits(whole)}${tenth === 0n || unit === 0 ? "" : `.${tenth}`} ${BYTE_UNITS[unit]}`;
+}

@@ -49,3 +49,13 @@ export function BlockLink({ height, className }: { height: number; className?: s
     </Link>
   );
 }
+
+/** A node by its id; opens the node page. */
+export function NodeLink({ id, className }: { id: string; className?: string }) {
+  const paths = useExplorerPaths();
+  return (
+    <Link to={paths.node(id)} className={cn("font-mono text-[0.92em] border-b border-dotted border-fg/30 hover:border-fg/80", className)}>
+      {id}
+    </Link>
+  );
+}

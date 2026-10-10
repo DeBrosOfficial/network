@@ -12,10 +12,15 @@ function NavLinks({ className }: { className?: string }) {
   const paths = useExplorerPaths();
   const { pathname } = useLocation();
   // A validator's own page is part of the Validators section.
-  const inValidators = parseExplorerPath(pathname).kind === "validator";
+  const kind = parseExplorerPath(pathname).kind;
+  const inValidators = kind === "validator";
+  const inNodes = kind === "node";
   const nav = [
     { label: "Explore", to: paths.home, end: true, current: false },
     { label: "Validators", to: paths.validators, end: false, current: inValidators },
+    { label: "Nodes", to: paths.nodes, end: false, current: inNodes },
+    { label: "Storage", to: paths.storage, end: false, current: false },
+    { label: "Tor", to: paths.tor, end: false, current: false },
     { label: "Epochs", to: paths.epochs, end: false, current: false },
     { label: "Emission", to: paths.emission, end: false, current: false },
     { label: "Supply", to: paths.economics, end: false, current: false },
@@ -49,7 +54,7 @@ export function ExplorerHeader() {
           <img src={oramaIcon} alt="" className="h-6 w-6" />
           <span className="font-display text-sm font-bold tracking-[0.14em]">ORAMA</span>
         </Link>
-        <NavLinks className="hidden md:flex" />
+        <NavLinks className="hidden xl:flex" />
         <button
           type="button"
           onClick={open}
@@ -71,7 +76,7 @@ export function ExplorerHeader() {
           </span>
         </div>
       </div>
-      <NavLinks className="overflow-x-auto border-t border-border px-3 py-1.5 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden" />
+      <NavLinks className="overflow-x-auto border-t border-border px-3 py-1.5 [scrollbar-width:none] xl:hidden [&::-webkit-scrollbar]:hidden" />
     </header>
   );
 }

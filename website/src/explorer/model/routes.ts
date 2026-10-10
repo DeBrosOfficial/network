@@ -16,7 +16,7 @@ export const GATEWAY_PARAM = "gateway";
 export const CHAIN_PARAM = "chain";
 
 /** The first segment of every page, which a network segment can therefore never be. */
-export const PAGE_KINDS = ["validators", "validator", "tx", "wallet", "block", "epochs", "epoch", "emission", "economics"] as const;
+export const PAGE_KINDS = ["validators", "validator", "tx", "wallet", "block", "epochs", "epoch", "emission", "economics", "nodes", "node", "storage", "tor"] as const;
 export type PageKind = (typeof PAGE_KINDS)[number];
 
 export interface ExplorerPaths {
@@ -31,6 +31,11 @@ export interface ExplorerPaths {
   epoch: (epoch: number) => string;
   emission: string;
   economics: string;
+  nodes: string;
+  /** `id` is the node id the chain knows the node by. */
+  node: (id: string) => string;
+  storage: string;
+  tor: string;
   /** A pathname of this explorer (one the trail kept) with what this network needs to open again. */
   keep: (pathname: string) => string;
 }
@@ -53,6 +58,10 @@ export function explorerPathsFor(segment: string | null, query = ""): ExplorerPa
     epoch: (epoch) => `${base}/epoch/${epoch}${query}`,
     emission: `${base}/emission${query}`,
     economics: `${base}/economics${query}`,
+    nodes: `${base}/nodes${query}`,
+    node: (id) => `${base}/node/${encodeURIComponent(id)}${query}`,
+    storage: `${base}/storage${query}`,
+    tor: `${base}/tor${query}`,
     keep: (pathname) => `${pathname}${query}`,
   };
 }
