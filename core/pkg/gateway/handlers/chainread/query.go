@@ -119,7 +119,7 @@ var (
 
 // queryAllowed is the set of "<service>/<method>" names the public route serves: the embedded
 // Orama Query methods that publicQuery lists, and the embedded cosmos-sdk and wasmd ones that
-// walletQuery lists.
+// walletQuery and explorerQuery list.
 func queryAllowed() (map[string]struct{}, error) {
 	queryOnce.Do(func() {
 		orama, err := chainread.Methods()
@@ -132,14 +132,16 @@ func queryAllowed() (map[string]struct{}, error) {
 			queryErr = err
 			return
 		}
-		queryMethods = make(map[string]struct{}, len(orama)+len(walletQuery))
+		queryMethods = make(map[string]struct{}, len(orama)+len(walletQuery)+len(explorerQuery))
 		for _, n := range orama {
 			if _, ok := publicQuery[n]; ok {
 				queryMethods[n] = struct{}{}
 			}
 		}
 		for _, n := range sdk {
-			if _, ok := walletQuery[n]; ok {
+			_, wallet := walletQuery[n]
+			_, explorer := explorerQuery[n]
+			if wallet || explorer {
 				queryMethods[n] = struct{}{}
 			}
 		}

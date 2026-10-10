@@ -144,7 +144,7 @@ func TestExplorerReads_refusals(t *testing.T) {
 		want  int
 	}{
 		{"/query/cosmos.bank.v1beta1.Query/AllBalances", url.Values{"json": {`{"address":"` + strings.ToUpper(addr) + `","pagination":{"limit":"1000"}}`}}, http.StatusBadRequest},
-		{"/query/cosmos.bank.v1beta1.Query/TotalSupply", nil, http.StatusNotFound},
+		{"/query/cosmos.bank.v1beta1.Query/Params", nil, http.StatusNotFound},
 		{"/bank/balances/" + addr, nil, http.StatusNotFound},
 		{"/staking/validators", url.Values{"pagination.limit": {"100000"}}, http.StatusBadRequest},
 		{"/staking/validators", url.Values{"status": {"BOND_STATUS_UNBONDED"}}, http.StatusBadRequest},

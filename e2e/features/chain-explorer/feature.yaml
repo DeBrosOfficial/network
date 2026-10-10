@@ -12,7 +12,13 @@
 # checked through the gateway for the node and the relay a test registers, the deal order
 # (newest first descends and oldest first ascends), each entry against the point query
 # of the same record, and the page cap of 100; the archive numbers the storage page shows are
-# checked for the invariant that the retain height is never above the last archived height. The REST routes are checked against the run's own
+# checked for the invariant that the retain height is never above the last archived height.
+# The token, NFT, contract,
+# market, governance and shielded pages' reads (assets_test.go) are checked the same way: the bank's
+# denom list and a denom's holders, wasmd's codes, a code's contracts, a contract's state, the houses,
+# market, cnft and token queries, the shielded pool's parameters, tree and account, each with its page
+# cap and its 404, and the queries that run a contract or are withheld (the shielded Pools, wasmd's
+# SmartContractState and Code) are refused. The REST routes are checked against the run's own
 # validators (the bank balance equals `orama chain balance`'s answer, the
 # validator set holds the run's validators bonded) and every refusal (a
 # malformed address, a caller query, another method) is checked for its status.
@@ -37,7 +43,25 @@ covers:
     - orama.nodes.v1.Nodes
     - orama.storage.v1.Deals
     - orama.relay.v1.Relays
+    - orama.token.v1.Params
+    - orama.token.v1.Token
+    - orama.token.v1.Frozen
+    - orama.cnft.v1.Collection
+    - orama.cnft.v1.Tree
+    - orama.market.v1.Listing
+    - orama.market.v1.Bid
+    - orama.houses.v1.Params
+    - orama.houses.v1.Proposal
+    - orama.houses.v1.Vote
+    - orama.houses.v1.HouseBond
+    - orama.houses.v1.Enacted
+    - orama.shielded.v1.Params
+    - orama.shielded.v1.TreeState
   claims:
+    - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: the explorer list adds bank TotalSupply and DenomOwners and wasmd Codes, CodeInfo, ContractsByCode, ContractsByCreator, ContractHistory and AllContractState to the served queries, each paginated one capped at 100 entries a page"
+    - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: wasmd's SmartContractState and Code, and x/shielded's Pools, are not served"
+    - "website/src/docs/blockchain/reading-the-chain.mdx#explorer-queries: a code id that is not stored and an address that is no contract are a 404 on CodeInfo and AllContractState, as on ContractInfo"
+    - "website/src/docs/blockchain/shielded.mdx#what-the-chain-shows: the pool account's balance, the note tree's size and the transactions that name the pool's account are public through the gateway, and a private transfer shows only its fee"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: AllBalances, DelegatorDelegations and DelegatorUnbondingDelegations of /v1/chain/query/ answer an address's balances, delegations and unbonding, at most 100 entries"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: GET /v1/chain/staking/validators is the node's REST staking validators, at most 200"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: the validator list route takes no query and a page limit above 100 on a wallet query is a 400"
