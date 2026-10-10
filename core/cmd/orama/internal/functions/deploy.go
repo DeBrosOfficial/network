@@ -83,7 +83,14 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\nInvoke with:\n")
-	fmt.Printf("  orama function invoke %s --data '{\"name\": \"World\"}'\n", cfg.Name)
+	fmt.Printf("  %s\n", invokeHint(cfg.Name))
 
 	return nil
+}
+
+// invokeHint is the command a deploy suggests for trying the function. It sends
+// an empty object: what a function takes is its own business, and a deploy
+// cannot know it.
+func invokeHint(name string) string {
+	return fmt.Sprintf("orama function invoke %s --data '{}'", name)
 }
