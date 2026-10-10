@@ -19,6 +19,7 @@ import (
 	"cosmossdk.io/math"
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
+	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
 	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -56,6 +57,10 @@ func (c benchChain) QueryAt(_ context.Context, _ int64, method string, _, resp g
 		r.Amount = sdkCoin(1_000_000_000)
 	case *feestypes.QueryBaseFeeResponse:
 		r.BaseFee = math.NewInt(7)
+	case *emissiontypes.QueryCurrentEpochResponse:
+		r.EpochState = emissiontypes.EpochState{CurrentEpoch: benchEpochs + 1, EpochStartUnixNano: time.Now().UnixNano()}
+	case *emissiontypes.QueryParamsResponse:
+		r.Params = emissiontypes.Params{EpochDurationSeconds: benchBlocksPerEp * benchBlockSeconds}
 	default:
 		return fmt.Errorf("the bench chain answers no %s", method)
 	}

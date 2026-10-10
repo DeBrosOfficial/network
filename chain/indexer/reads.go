@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cockroachdb/pebble"
@@ -16,11 +17,16 @@ func (s *Store) Block(height int64) (Block, bool, error) {
 
 // Blocks returns one page of the indexed blocks, newest first, without their transaction hashes.
 // page starts at 1.
-func (s *Store) Blocks(page, limit int) ([]BlockSummary, error) { return blockPage(s.db, page, limit) }
+func (s *Store) Blocks(page, limit int) ([]BlockSummary, error) {
+	snap := s.db.NewSnapshot()
+	defer snap.Close()
+	return blockPage(snap, page, limit)
+}
 
 // blockPage reads a page of blocks by height. The index holds every block from its start height to
-// its cursor, so a page is addressed, not scanned for: the cost of the last page is that of the first.
-func blockPage(db getter, page, limit int) ([]BlockSummary, error) {
+// its cursor, so the page begins at a height worked out from the page number and is read by seeking
+// there, not by skipping the blocks before it: the cost of the last page is that of the first.
+func blockPage(db iterable, page, limit int) ([]BlockSummary, error) {
 	start, _, err := getUint(db, []byte(keyStart))
 	if err != nil {
 		return nil, err
@@ -29,18 +35,32 @@ func blockPage(db getter, page, limit int) ([]BlockSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]BlockSummary, 0, limit)
 	top := int64(cursor) - int64(page-1)*int64(limit)
-	for h := top; h >= int64(start) && h > 0 && len(out) < limit; h-- {
+	out := make([]BlockSummary, 0, limit)
+	if top < int64(start) || top < 1 {
+		return out, nil
+	}
+	it, err := db.NewIter(&pebble.IterOptions{LowerBound: []byte(pfxBlock), UpperBound: prefixEnd([]byte(pfxBlock))})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open index iterator: %w", err)
+	}
+	next := top
+	for ok := it.SeekLT(blockKey(top + 1)); ok && len(out) < limit && next >= int64(start); ok = it.Prev() {
 		var b Block
-		ok, err := getJSON(db, blockKey(h), &b)
-		if err != nil {
-			return nil, err
+		if err := json.Unmarshal(it.Value(), &b); err != nil {
+			return nil, errors.Join(fmt.Errorf("failed to decode block %d: %w", next, err), closeIter(it))
 		}
-		if !ok {
-			return nil, fmt.Errorf("index holds blocks %d to %d but not block %d", start, cursor, h)
+		if b.Height != next {
+			return nil, errors.Join(fmt.Errorf("index holds blocks %d to %d but not block %d", start, cursor, next), closeIter(it))
 		}
 		out = append(out, b.summary())
+		next--
+	}
+	if err := closeIter(it); err != nil {
+		return nil, err
+	}
+	if len(out) < limit && next >= int64(start) && next >= 1 {
+		return nil, fmt.Errorf("index holds blocks %d to %d but not block %d", start, cursor, next)
 	}
 	return out, nil
 }

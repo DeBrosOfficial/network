@@ -38,7 +38,7 @@ type HomeStatus struct {
 	Stuck          *Stuck `json:"stuck,omitempty"`
 }
 
-// HomeEpoch is the epoch in progress as of the index's cursor.
+// HomeEpoch is the epoch in progress at the chain's tip, as x/emission has it.
 type HomeEpoch struct {
 	Number          uint64    `json:"number"`
 	StartTime       time.Time `json:"start_time"`
@@ -54,15 +54,16 @@ type HomeExamples struct {
 }
 
 // Home is everything the explorer's home page shows, in one answer: the position of the index, the
-// newest blocks and transactions, the last 48 hours of transaction counts, the epoch in progress,
-// and the chain's supply and base fee at its tip.
+// newest blocks and transactions, the last 48 hours of transaction counts, and the chain's epoch in
+// progress, supply and base fee at its tip.
 type Home struct {
 	Status HomeStatus     `json:"status"`
 	Blocks []BlockSummary `json:"blocks"`
 	Txs    []Tx           `json:"txs"`
 	Hours  []HourStat     `json:"hours"`
-	Epoch  *HomeEpoch     `json:"epoch,omitempty"`
-	// Supply and BaseFee are read from the chain at SupplyHeight, the tip when the snapshot was built.
+	// Epoch, Supply and BaseFee are read from the chain at SupplyHeight, the tip when the snapshot was
+	// built. They need no index: they are the same on a node whose index has only begun.
+	Epoch        HomeEpoch    `json:"epoch"`
 	Supply       string       `json:"supply"`
 	BaseFee      string       `json:"base_fee"`
 	SupplyHeight int64        `json:"supply_height"`
@@ -94,6 +95,9 @@ func (a *API) buildHome(ctx context.Context) ([]byte, error) {
 	var fee feestypes.QueryBaseFeeResponse
 	if err := r.ask(queryBaseFee, &feestypes.QueryBaseFeeRequest{}, &fee); err != nil {
 		return nil, chainReadError{fmt.Errorf("failed to read the base fee for the home snapshot: %w", err)}
+	}
+	if h.Epoch, err = homeEpoch(r); err != nil {
+		return nil, chainReadError{fmt.Errorf("failed to read the epoch for the home snapshot: %w", err)}
 	}
 	h.Supply, h.BaseFee, h.SupplyHeight = supply.String(), fee.BaseFee.String(), tip
 	body, err := json.Marshal(h)
@@ -127,9 +131,6 @@ func (s *Store) homeFromIndex(earliest, tip int64) (Home, error) {
 	if h.Hours, err = hoursAt(snap, st.Cursor); err != nil {
 		return Home{}, err
 	}
-	if h.Epoch, err = epochAt(snap); err != nil {
-		return Home{}, err
-	}
 	return h, nil
 }
 
@@ -161,17 +162,20 @@ func examplesOf(txs []Tx) HomeExamples {
 	return ex
 }
 
-// epochAt reads the epoch in progress from the aggregator's position; nil before the aggregates begin.
-func epochAt(g getter) (*HomeEpoch, error) {
-	var wt watch
-	ok, err := getJSON(g, []byte(keyWatch), &wt)
-	if err != nil || !ok {
-		return nil, err
+// homeEpoch reads the epoch in progress and the rule that ends it from x/emission.
+func homeEpoch(r chainReader) (HomeEpoch, error) {
+	state, err := r.emissionState()
+	if err != nil {
+		return HomeEpoch{}, err
 	}
-	start := epochStart(wt)
-	return &HomeEpoch{
-		Number: wt.Epoch, StartTime: start, DurationSeconds: wt.DurationSec,
-		EndsAt: start.Add(time.Duration(wt.DurationSec) * time.Second),
+	p, err := r.emissionParams()
+	if err != nil {
+		return HomeEpoch{}, err
+	}
+	start := time.Unix(0, state.EpochStartUnixNano).UTC()
+	return HomeEpoch{
+		Number: state.CurrentEpoch, StartTime: start, DurationSeconds: p.EpochDurationSeconds,
+		EndsAt: start.Add(time.Duration(p.EpochDurationSeconds) * time.Second),
 	}, nil
 }
 

@@ -50,7 +50,7 @@ func TestHome_oneAnswerHoldsWhatThePageShows(t *testing.T) {
 	require.Len(t, blocks, 7)
 	require.Equal(t, 7.0, blocks[0].(map[string]any)["height"], "newest first, from the cursor")
 	require.Len(t, body["hours"], HourlyWindow)
-	require.Equal(t, 3.0, body["epoch"].(map[string]any)["number"], "two epochs closed, the third is in progress")
+	require.Equal(t, 4.0, body["epoch"].(map[string]any)["number"], "three epochs closed by the tip, the fourth is in progress")
 	require.Equal(t, float64(epochBlocks), body["epoch"].(map[string]any)["duration_seconds"])
 	require.Equal(t, "7", body["base_fee"])
 	require.Equal(t, 9.0, body["supply_height"])
@@ -174,7 +174,7 @@ func TestHome_anEmptyIndexIsAnEmptyHomeNotAnError(t *testing.T) {
 	require.Empty(t, body["blocks"])
 	require.NotNil(t, body["blocks"])
 	require.NotNil(t, body["txs"])
-	require.NotContains(t, body, "epoch", "no epoch before the aggregates begin")
+	require.Equal(t, 1.0, body["epoch"].(map[string]any)["number"], "the epoch is the chain's, so an index with nothing in it still knows it")
 	require.Equal(t, "", body["examples"].(map[string]any)["latest_tx"])
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/stretchr/testify/require"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -204,4 +205,41 @@ func TestKinds_aTransactionIsListedOncePerKind(t *testing.T) {
 		kindsOf([]string{"/cosmos.bank.v1beta1.MsgSend", "/cosmos.staking.v1beta1.MsgDelegate"}, true))
 	require.Empty(t, kindsOf([]string{"/orama.cnft.v1.MsgCreateTree"}, false))
 	require.Empty(t, kindsOf(nil, false))
+}
+
+func TestBlocks_aHoleInTheIndexIsAnErrorNotAShortPage(t *testing.T) {
+	chain, _ := econChain(t)
+	for h := 1; h <= 5; h++ {
+		chain.addBlock(votes(chain.valset, true, true, true), nil)
+	}
+	store, _ := follow(t, chain, t.TempDir(), 1)
+	defer store.Close()
+	require.NoError(t, store.db.Delete(blockKey(3), pebble.Sync))
+
+	_, err := store.Blocks(1, 5)
+	require.ErrorContains(t, err, "but not block 3")
+	newest, err := store.Blocks(1, 2)
+	require.NoError(t, err, "a page that does not reach the hole is fine")
+	require.Len(t, newest, 2)
+	_, err = store.Blocks(2, 2)
+	require.ErrorContains(t, err, "but not block 3")
+}
+
+func TestBlocks_pagesCoverEveryBlockOnceAndStopAtTheStart(t *testing.T) {
+	chain, _ := econChain(t)
+	for h := 1; h <= 7; h++ {
+		chain.addBlock(votes(chain.valset, true, true, true), nil)
+	}
+	store, _ := follow(t, chain, t.TempDir(), 3)
+	defer store.Close()
+
+	var heights []int64
+	for page := 1; page <= 4; page++ {
+		blocks, err := store.Blocks(page, 2)
+		require.NoError(t, err)
+		for _, b := range blocks {
+			heights = append(heights, b.Height)
+		}
+	}
+	require.Equal(t, []int64{7, 6, 5, 4, 3}, heights, "from the cursor down to the index's start height, each once")
 }
