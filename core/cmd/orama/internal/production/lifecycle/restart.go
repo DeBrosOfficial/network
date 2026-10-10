@@ -1,11 +1,15 @@
 package lifecycle
 
 import (
+	"context"
 	"fmt"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
 )
 
@@ -33,7 +37,17 @@ func HandleRestartWithFlags(force bool) error {
 	}
 
 	fmt.Printf("Restarting all Orama production services...\n")
-	return restartWithAutoUpdatePaused(systemdTimerUnits, restartServices, func() error { return waitNodeServing("restarted") })
+	// An interrupt, a terminate or a hangup (an ssh session that dropped) must not end the process
+	// with the auto-update timer stopped: restartWithAutoUpdatePaused finishes the restart and
+	// settles the timer. The signals are handled until the first one; a second ends the process.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer stop()
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	return restartWithAutoUpdatePaused(ctx, systemdTimerUnits, restartServices,
+		func(ctx context.Context) error { return waitNodeServing(ctx, "restarted") })
 }
 
 // restartServices stops every production service in order and starts them again.

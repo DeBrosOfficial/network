@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"time"
@@ -105,7 +106,7 @@ func HandleStart() error {
 	// cannot tell a node that came up in two seconds from one that never came
 	// up, and "✅ All services started" printed either way.
 	fmt.Printf("  ⏳ Waiting for the node to come up...\n")
-	if err := waitNodeServing("started"); err != nil {
+	if err := waitNodeServing(context.Background(), "started"); err != nil {
 		return err
 	}
 

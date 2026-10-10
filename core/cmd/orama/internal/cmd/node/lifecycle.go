@@ -30,9 +30,14 @@ var restartCmd = &cobra.Command{
 	Short: "Restart all production services (requires sudo)",
 	Long: `Restart all Orama services. Stops in dependency order then restarts.
 Includes explicit namespace service restart.
-The auto-update timer is stopped for the restart and started again once the
-node is serving, so the update agent never runs against a node that is down; a
-timer that was stopped stays stopped.
+The auto-update timer, and a run of the update agent already in progress, are
+stopped for the restart, and the timer is started again once the node is serving,
+so the update agent never runs against a node that is down. When the restart
+fails or the node does not come to serve, the timer stays stopped (starting it
+would fire the agent at once against a node that is down) and the output names
+the command that starts it. An interrupt, a terminate or a hangup finishes the
+restart, then starts the timer if the node serves; a timer that was stopped stays
+stopped.
 Use --force to bypass quorum safety check.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		force, _ := cmd.Flags().GetBool("force")
