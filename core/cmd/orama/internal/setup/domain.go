@@ -63,6 +63,19 @@ func (c clusterDomain) Records(ctx context.Context, via Machine, domain string) 
 	return dnsdelegation.Records(d), nil
 }
 
+// NameserverIPs are the addresses in the cluster's delegation of domain.
+func (c clusterDomain) NameserverIPs(ctx context.Context, via Machine, domain string) ([]string, error) {
+	d, err := c.delegationFor(ctx, via, domain)
+	if err != nil {
+		return nil, err
+	}
+	ips := make([]string, len(d.Nameservers))
+	for i, ns := range d.Nameservers {
+		ips[i] = ns.IP
+	}
+	return ips, nil
+}
+
 // Wait polls until the records resolve and the certificate is the cluster's.
 func (c clusterDomain) Wait(ctx context.Context, via Machine, domain string, poll, deadline time.Duration) error {
 	var why error

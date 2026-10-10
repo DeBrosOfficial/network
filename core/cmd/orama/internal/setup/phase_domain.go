@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"slices"
 )
 
 // domainBeforeJoin holds the first join of a run on a cluster of its own domain
@@ -32,6 +33,51 @@ func (r *runner) domainBeforeJoin(ctx context.Context, n *nodeRun) error {
 	r.domainReady = true
 	r.emit("", StepDNS, StateDone, r.opts.Domain)
 	return nil
+}
+
+// nameserverSlots is how many nameserver slots a cluster has
+// (pkg/node/dns_nameservers.go maxNameserverSlots): a cluster of more machines
+// has that many nameservers and no more.
+const nameserverSlots = 13
+
+// announceAllNameservers prints the records once every machine of the run has its
+// nameserver slot. A node claims its slot a moment after it joins, so the records
+// read as the last machine came in can lack it: the stagenet create run printed
+// four nameservers of five, and an operator who created only those would have
+// waited for a delegation that could never match. The wait is bounded; past it
+// the records the cluster has are printed, and the final wait prints them again.
+func (r *runner) announceAllNameservers(ctx context.Context) {
+	if r.opts.Domain == "" || r.d.Domain == nil || r.via == nil {
+		return
+	}
+	want := make([]string, 0, len(r.runs))
+	for _, n := range r.runs {
+		want = append(want, n.plan.IP)
+	}
+	err := pollUntil(ctx, r.d.Timing.SlotPoll, r.d.Timing.SlotDeadline, "every machine's nameserver slot", func(ctx context.Context) (bool, error) {
+		have, err := r.d.Domain.NameserverIPs(ctx, r.via, r.opts.Domain)
+		if err != nil {
+			return false, nil
+		}
+		return allNameservers(want, have), nil
+	})
+	if err != nil {
+		r.d.Report.Linef("  not every machine has its nameserver slot yet (%v); these are the records the cluster has, and the records it needs are printed again if DNS is not ready at the end", err)
+	}
+	r.announceDomain(ctx)
+}
+
+// allNameservers says have holds every address of want, or the cluster's slots are all taken.
+func allNameservers(want, have []string) bool {
+	if len(have) >= nameserverSlots {
+		return true
+	}
+	for _, ip := range want {
+		if !slices.Contains(have, ip) {
+			return false
+		}
+	}
+	return true
 }
 
 // announceDomain prints the NS and glue records a private cluster's domain needs

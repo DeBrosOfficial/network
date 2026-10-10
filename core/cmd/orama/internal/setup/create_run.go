@@ -38,7 +38,7 @@ func (r *runner) runCreate(ctx context.Context) (*Result, error) {
 	if err := r.clusterPhase(ctx); err != nil {
 		return nil, err
 	}
-	r.announceDomain(ctx)
+	r.announceAllNameservers(ctx)
 	for _, phase := range []func(context.Context) error{
 		r.chainInitPhase, r.genesisPhase, r.chainStartPhase, r.restartPhase, r.epochPhase, r.onchainPhase,
 	} {

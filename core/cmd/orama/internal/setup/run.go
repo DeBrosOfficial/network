@@ -116,7 +116,7 @@ func (r *runner) run(ctx context.Context) (*Result, error) {
 	if err := r.clusterPhase(ctx); err != nil {
 		return nil, err
 	}
-	r.announceDomain(ctx)
+	r.announceAllNameservers(ctx)
 	if r.hasFull() {
 		for _, phase := range []func(context.Context) error{r.globalPhase, r.restartPhase, r.onchainPhase} {
 			if err := phase(ctx); err != nil {

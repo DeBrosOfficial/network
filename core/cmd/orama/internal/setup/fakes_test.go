@@ -544,6 +544,8 @@ func (r *fakeRecorder) ActiveFor(string) string         { return r.active }
 type fakeDomain struct {
 	w       *world
 	waitErr error
+	// slots answers NameserverIPs; nil answers a cluster whose slots are all taken.
+	slots func() []string
 }
 
 func (f fakeDomain) Records(_ context.Context, via Machine, _ string) ([]string, error) {
@@ -553,6 +555,17 @@ func (f fakeDomain) Records(_ context.Context, via Machine, _ string) ([]string,
 func (f fakeDomain) Wait(_ context.Context, via Machine, _ string, _, _ time.Duration) error {
 	f.w.add("domain wait via %s", via.Host())
 	return f.waitErr
+}
+func (f fakeDomain) NameserverIPs(context.Context, Machine, string) ([]string, error) {
+	f.w.add("domain slots")
+	if f.slots != nil {
+		return f.slots(), nil
+	}
+	full := make([]string, nameserverSlots)
+	for i := range full {
+		full[i] = fmt.Sprintf("198.51.100.%d", i+1)
+	}
+	return full, nil
 }
 
 // bufReporter collects events and lines.
@@ -608,7 +621,7 @@ func newHarness() *harness {
 	h.deps = Deps{
 		Networks: h.networks, Releases: fakeReleases{w: w}, Trust: fakeTrust{w}, Wallet: fakeWallet{}, Enroll: h.enroll, Chain: h.chain,
 		Names: fakeNames{w: w}, ASN: func(context.Context, string) (uint32, error) { return 24940, nil }, Record: h.rec, Report: h.report,
-		Timing: Timing{SyncPoll: time.Millisecond, SyncDeadline: time.Second, RestartBudget: time.Second, ReadyBudget: time.Second, DNSPoll: time.Millisecond, DNSDeadline: time.Second, BalancePoll: time.Millisecond, BalanceDeadline: 50 * time.Millisecond},
+		Timing: Timing{SyncPoll: time.Millisecond, SyncDeadline: time.Second, RestartBudget: time.Second, ReadyBudget: time.Second, DNSPoll: time.Millisecond, DNSDeadline: time.Second, SlotPoll: time.Millisecond, SlotDeadline: 50 * time.Millisecond, BalancePoll: time.Millisecond, BalanceDeadline: 50 * time.Millisecond},
 	}
 	return h
 }

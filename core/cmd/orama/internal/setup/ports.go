@@ -321,4 +321,7 @@ type DomainWaiter interface {
 	// Wait polls until the parent zone returns the records and the cluster's
 	// certificate for the domain is issued, or the deadline passes.
 	Wait(ctx context.Context, via Machine, domain string, poll, deadline time.Duration) error
+	// NameserverIPs are the addresses of the nameservers the cluster has claimed
+	// a slot for and published glue of, read through via.
+	NameserverIPs(ctx context.Context, via Machine, domain string) ([]string, error)
 }

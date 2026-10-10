@@ -78,3 +78,59 @@ func TestRun_noDomainNeverWaitsBeforeJoins(t *testing.T) {
 		t.Errorf("a run without --domain touches no domain:\n%s", strings.Join(h.w.entries(), "\n"))
 	}
 }
+
+// The stagenet chain-8 create printed the records when four of its five machines had their
+// nameserver slots; the fifth claimed its own a moment later. The final records wait for every
+// machine of the run.
+func TestRun_finalRecordsWaitForEveryMachinesNameserverSlot(t *testing.T) {
+	h := newHarness()
+	calls := 0
+	h.deps.Domain = fakeDomain{w: h.w, slots: func() []string {
+		calls++
+		if calls < 3 {
+			return []string{ip1, ip2}
+		}
+		return []string{ip1, ip2, ip3}
+	}}
+	opts := h.opts(ip1, ip2, ip3)
+	opts.Domain = "cluster.example.org"
+	opts.ClusterOnly, opts.StorageGB = true, 0
+	mustRun(t, h, opts)
+	if calls < 3 {
+		t.Fatalf("the slots were read %d times; the run printed the records before the third machine had its slot", calls)
+	}
+	if strings.Contains(h.report.text(), "not every machine has its nameserver slot") {
+		t.Errorf("the run gave up waiting although every slot came:\n%s", h.report.text())
+	}
+}
+
+func TestRun_finalRecordsArePrintedWhenTheSlotsNeverCome(t *testing.T) {
+	h := newHarness()
+	h.deps.Domain = fakeDomain{w: h.w, slots: func() []string { return []string{ip1} }}
+	opts := h.opts(ip1, ip2)
+	opts.Domain = "cluster.example.org"
+	opts.ClusterOnly, opts.StorageGB = true, 0
+	mustRun(t, h, opts)
+	if !strings.Contains(h.report.text(), "not every machine has its nameserver slot yet") {
+		t.Errorf("a run whose slots never came must say so:\n%s", h.report.text())
+	}
+	if !strings.Contains(h.report.text(), "Create these records") {
+		t.Error("the records the cluster has are still printed")
+	}
+}
+
+func TestAllNameservers(t *testing.T) {
+	for _, tc := range []struct {
+		want, have []string
+		ok         bool
+	}{
+		{[]string{"a", "b"}, []string{"b", "a"}, true},
+		{[]string{"a", "b"}, []string{"a"}, false},
+		{nil, nil, true},
+		{[]string{"z"}, make([]string, nameserverSlots), true},
+	} {
+		if got := allNameservers(tc.want, tc.have); got != tc.ok {
+			t.Errorf("allNameservers(%v, %d have) = %v, want %v", tc.want, len(tc.have), got, tc.ok)
+		}
+	}
+}
