@@ -746,17 +746,30 @@ func (ps *ProductionSetup) enableNode() error {
 	return nil
 }
 
-// enableAutoUpdate enables and starts the auto-update timer. The agent it runs
-// does nothing until the cluster stores a release repository and the node has
-// adopted a release root, so enabling it changes no node that has not opted in.
+// enableAutoUpdate enables the auto-update timer for the next boot. It is not
+// started here: orama-node is not running yet, and a timer started on a host
+// whose boot is long past is due at once (OnBootSec), so the agent's first run
+// read the cluster's settings from an rqlite that was not up and failed with
+// "connection refused" (stagenet create, 2026-10-11). StartAutoUpdate starts it
+// once the node serves.
 func (ps *ProductionSetup) enableAutoUpdate() error {
 	if err := ps.serviceController.EnableService(systemd.AutoUpdateTimerName); err != nil {
 		return err
 	}
+	ps.logf("  ✓ Service enabled: %s", systemd.AutoUpdateTimerName)
+	return nil
+}
+
+// StartAutoUpdate (re)starts the auto-update timer, for a node that serves:
+// install calls it after Phase8Verify, an upgrade after the node rejoined. A
+// restart, not a start, so an upgrade's new timer unit takes effect. The agent
+// does nothing until the cluster stores a release repository and the node has
+// adopted a release root, so starting it changes no node that has not opted in.
+func (ps *ProductionSetup) StartAutoUpdate() error {
 	if err := ps.serviceController.RestartService(systemd.AutoUpdateTimerName); err != nil {
 		return err
 	}
-	ps.logf("  ✓ Service enabled: %s", systemd.AutoUpdateTimerName)
+	ps.logf("  ✓ Started %s", systemd.AutoUpdateTimerName)
 	return nil
 }
 

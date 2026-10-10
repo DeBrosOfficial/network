@@ -80,6 +80,7 @@ func (r *recorder) orchestrator(flags *Flags) *Orchestrator {
 		restart:          r.step("restart"),
 		retireLegacy:     r.step("retire-legacy"),
 		clearMaintMode:   r.step("clear-maintenance"),
+		autoUpdate:       r.step("autoupdate"),
 	}}
 }
 
@@ -110,7 +111,7 @@ func TestExecute_order(t *testing.T) {
 		"record-raft-id", "hand-over",
 		"stop", "ports-free", "install-binaries", "reexec",
 		"phase3", "phase4", "phase2c", "tor-ensure", "privhelper", "remove-keys", "templates", "phase5", "firewall",
-		"restart", "retire-legacy", "clear-maintenance",
+		"restart", "retire-legacy", "clear-maintenance", "autoupdate",
 	}
 	if !reflect.DeepEqual(r.calls, want) {
 		t.Errorf("order:\n got  %v\n want %v", r.calls, want)

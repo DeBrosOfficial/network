@@ -342,6 +342,9 @@ func (o *Orchestrator) executeGenesisFlow() error {
 	if err := o.setup.SeedUpdatePolicy(context.Background(), o.flags.ReleaseRepo, o.flags.UpdateChannel); err != nil {
 		return fmt.Errorf("store the cluster's update settings: %w", err)
 	}
+	if err := o.setup.StartAutoUpdate(); err != nil {
+		return fmt.Errorf("start the auto-update timer: %w", err)
+	}
 
 	o.setup.LogSetupComplete(o.setup.NodePeerID)
 	fmt.Printf("✅ Production installation complete!\n\n")
@@ -475,6 +478,9 @@ func (o *Orchestrator) executeJoinFlow(join *joinedCluster) error {
 
 	if err := o.setup.Phase8Verify(context.Background()); err != nil {
 		return err
+	}
+	if err := o.setup.StartAutoUpdate(); err != nil {
+		return fmt.Errorf("start the auto-update timer: %w", err)
 	}
 
 	o.setup.LogSetupComplete(o.setup.NodePeerID)

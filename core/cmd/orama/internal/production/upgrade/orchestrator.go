@@ -61,6 +61,7 @@ type upgradeOps struct {
 	restart        func() error
 	retireLegacy   func() error
 	clearMaintMode func() error
+	autoUpdate     func() error
 }
 
 // NewOrchestrator creates a new upgrade orchestrator
@@ -125,6 +126,7 @@ func (o *Orchestrator) realOps() upgradeOps {
 		restart:        o.restartServices,
 		retireLegacy:   retireLegacyDeploymentUnits,
 		clearMaintMode: lifecycle.ClearMaintenanceFlag,
+		autoUpdate:     s.StartAutoUpdate,
 	}
 }
 
@@ -250,6 +252,8 @@ func (o *Orchestrator) restartSteps() []upgradeStep {
 		{name: "the node did not come back", run: o.ops.restart},
 		{name: "retiring 0.122.x deployment units failed", banner: "\n🧹 Retiring pre-template deployment units...\n", run: o.ops.retireLegacy},
 		{name: "clearing the maintenance flag failed", run: o.ops.clearMaintMode},
+		// Phase 5 only enables the timer; it starts against a node that serves.
+		{name: "starting the auto-update timer failed", run: o.ops.autoUpdate},
 	}
 }
 
