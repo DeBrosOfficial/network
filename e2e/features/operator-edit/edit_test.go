@@ -17,6 +17,8 @@ const (
 	unitGlob       = "/etc/systemd/system/orama-global-*.service"
 	ipfsUnit       = "/etc/systemd/system/orama-global-ipfs.service"
 	relayUnit      = "/etc/systemd/system/orama-global-tor-relay.service"
+	indexerUnit    = "/etc/systemd/system/orama-global-indexer.service"
+	indexerHome    = "/var/lib/orama-global/indexer"
 	ipfsConfig     = "/var/lib/orama-global/ipfs/config"
 	relayTorrc     = "/var/lib/orama-global/tor-relay.torrc"
 	torNetworkFile = "/var/lib/orama-global/tor-network.json"
@@ -213,6 +215,36 @@ func TestRefresh_aSecondRefreshReplacesNothingAndRestartsNothing(t *testing.T) {
 		if again.Exit != infra.ExitOK || !strings.Contains(again.Stdout, "no running service needs a restart") || strings.Contains(again.Stdout, "replaced") {
 			t.Errorf("%s: a second refresh exit %d, want a no-op:\n%s", n.Name, again.Exit, f.Redact(again.Stdout+again.Stderr))
 		}
+	}
+}
+
+// TestRefresh_aCurrentIndexIsKeptAndTheIndexerStaysUp: on a node with the chain indexer, the
+// refresh checks the layout of its index while it is stopped, and an index of the current layout
+// is left where it is: no index.v<layout>-<time> beside it, and the indexer serving afterwards.
+func TestRefresh_aCurrentIndexIsKeptAndTheIndexerStaysUp(t *testing.T) {
+	f := harness.Fleet(t)
+	ran := false
+	for _, n := range f.State.Nodes {
+		if !has(t, f, n, "test -e "+indexerUnit) {
+			continue
+		}
+		ran = true
+		if out := infra.OnNode(t, f, n, "maint", "global", "refresh"); out.Exit != infra.ExitOK {
+			t.Errorf("%s: refresh exit %d:\n%s", n.Name, out.Exit, f.Redact(out.Stdout+out.Stderr))
+			continue
+		}
+		if !has(t, f, n, "test -d "+indexerHome+"/index") {
+			t.Errorf("%s: the refresh left no index in %s", n.Name, indexerHome)
+		}
+		if has(t, f, n, "ls -d "+indexerHome+"/index.v* >/dev/null 2>&1") {
+			t.Errorf("%s: the refresh moved an index of the current layout aside", n.Name)
+		}
+		if state := strings.TrimSpace(f.Exec(t, n, "systemctl is-active orama-global-indexer.service").Stdout); state != "active" {
+			t.Errorf("%s: the indexer is %q after the refresh", n.Name, state)
+		}
+	}
+	if !ran {
+		harness.SkipNotApplicable(t, "no node of the run has the chain indexer (orama-global-indexer)")
 	}
 }
 

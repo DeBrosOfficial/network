@@ -139,6 +139,18 @@ Each node's upgrade changes these together, so nothing on the node talks across 
 - **orama-privhelper** serves only `orama-node` and the cluster gateway, by unit. A tenant gateway's request is refused.
 - **Mixed window:** a node on this release refuses an older node's unsigned `/v1/network/status` (IPFS Cluster peer discovery on the old node then finds nothing until it is upgraded; nothing is removed), and answers an upgraded node's signed one. `/v1/health` and `/v1/status` no longer carry namespaces or peers; an operator reads `/v1/operator/health`.
 
+### The chain indexer starts a new index when its layout changed (global nodes)
+
+A chain indexer's index has a layout version, and the indexer refuses an index written in another one: its epoch, supply and validator aggregates are computed as blocks are ingested, so an index that did not compute them cannot be completed afterwards. Layout version 3 added them, so an index written by an earlier release (version 2, or one from before versions) cannot be opened by this release's indexer, which would otherwise exit on every start and be restarted by systemd.
+
+On a node with the indexer installed, the upgrade (`orama maint global refresh`, which `orama upgrade` runs after the node's cluster services) handles it while the indexer is stopped:
+
+1. It stops the indexer, then runs `orama-global indexer migrate --home /var/lib/orama-global/indexer`.
+2. An index of an older layout is renamed to `/var/lib/orama-global/indexer/index.v<layout>-<UTC time>`, for example `index.v2-20261011T013005Z`, and the command prints that it did. Nothing is deleted. An index of the current layout is left where it is, and so is the absence of one. An index of a **newer** layout (the node was rolled back) is an error, and the indexer stays stopped.
+3. It starts the indexer. With no index at `/var/lib/orama-global/indexer/index` it begins a new one and indexes the chain again from block 1; the routes under `/v1/chain/index/` answer with what it has indexed so far while it catches up. The node keeps only its last 100 chain states, so the new index's epochs, supply and validators begin at the first height the node still has state for, and the earlier epochs are not in it ([Epochs the index could not read](/docs/blockchain/reading-the-chain#epochs-the-index-could-not-read)). Blocks, transactions and accounts are complete from block 1.
+
+A node whose indexer is already failing on an old index (an earlier upgrade did not move it) is put right by running the upgrade again: the refresh stops the failing unit, moves the index aside and starts it. An indexer stopped on purpose has its index moved aside and stays stopped. The moved-aside index is not read again; remove it (`rm -r`) when you no longer need it, since it can be as large as the index was.
+
 ## Mixed-version windows and cutovers
 
 **Crossing migration 069 (pending-cleanup claim).** Migration 069 gives

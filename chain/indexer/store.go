@@ -48,7 +48,8 @@ const (
 // is refused rather than served with fields it never recorded: its aggregates
 // (epochs, supply, validators, daily and weekly statistics) are computed as blocks
 // are ingested, so an index that did not compute them cannot be completed later.
-// Version 3 added them.
+// Version 3 added them. An index of an older version is not converted: MoveAsideStale
+// moves it aside, which the upgrade does, and the indexer starts a new one.
 const schemaVersion uint64 = 3
 
 // Store is the on-disk index. Reads are safe while the follower writes.
@@ -81,7 +82,7 @@ func (s *Store) checkVersion() error {
 	}
 	if ok {
 		if have != schemaVersion {
-			return fmt.Errorf("index has layout version %d, this indexer writes %d; index again into a new --home", have, schemaVersion)
+			return fmt.Errorf("index has layout version %d, this indexer writes %d; index again into a new --home, or move the index aside with 'orama-global indexer migrate' (orama upgrade does) and this indexer starts a new one", have, schemaVersion)
 		}
 		return nil
 	}
@@ -89,7 +90,7 @@ func (s *Store) checkVersion() error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("index was written before layout version %d; index again into a new --home", schemaVersion)
+		return fmt.Errorf("index was written before layout version %d; index again into a new --home, or move the index aside with 'orama-global indexer migrate'", schemaVersion)
 	}
 	if err := s.db.Set([]byte(keyVersion), be64(schemaVersion), pebble.Sync); err != nil {
 		return fmt.Errorf("failed to record index layout version: %w", err)

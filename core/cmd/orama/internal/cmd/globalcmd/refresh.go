@@ -53,10 +53,18 @@ keeps the running oramad and says so. When the plan's info names a checksum for
 this platform's binary, the release's oramad has to be that one or it is not
 staged.
 
+The chain indexer refuses an index written in an older layout than the new
+orama-global's. So when the indexer is installed, the refresh stops it, runs
+'orama-global indexer migrate' (which renames an old index to
+<state>/indexer/index.v<layout>-<time> and deletes nothing), and starts it again;
+the indexer then builds a new index from the chain. An index of the current layout
+is left as it is. An indexer that is already crash-looping on an old index is put
+right the same way, and one stopped on purpose stays stopped.
+
 A service is restarted when its running process executes a file that has been
 replaced (/proc/<pid>/exe is "(deleted)"), not because of what this run replaced:
 a refresh that was interrupted is finished by running it again. A service that is
-not running is not started by it.`,
+not running is not started by it, except an indexer that was failing on an old index.`,
 	Args: cobra.NoArgs,
 	RunE: runRefresh,
 }
@@ -84,10 +92,8 @@ func runRefresh(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return clierr.Failure("%v", err)
 	}
-	if len(res.Restart) == 0 {
-		fmt.Fprintln(out, "  global binaries: no running service needs a restart")
-	} else if err := life.Restart(cmd.Context(), res.Restart); err != nil {
-		return clierr.Failure("restart the services that run a replaced binary: %v", err)
+	if err := restartRefreshed(cmd.Context(), out, life, host, installed, res.Restart); err != nil {
+		return err
 	}
 	if res.Chain == nil {
 		return nil

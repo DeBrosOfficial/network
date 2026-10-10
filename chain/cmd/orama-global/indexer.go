@@ -33,13 +33,17 @@ func indexerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "indexer",
 		Short: "Index blocks, transactions, accounts and cNFTs, and serve them read-only on loopback",
-		Long: `indexer follows oramad over its loopback RPC from --start-height and keeps a
+		Long: `indexer follows oramad over its loopback RPC and keeps a
 Pebble index in <home>/index: blocks, transactions with their events, an
 address → transaction index from event attributes, and x/cnft assets rebuilt
 from x/cnft and x/market messages. The last indexed height is stored with each
 block, so a restart resumes after it. If the next block is pruned on the node,
 the indexer stops with an error instead of skipping it. An index keeps the
 start height it was created with; another --start-height needs a new --home.
+--start-height 0, the default, is the start height the index already has, or, for
+a new index, the earliest block the node still serves. An index written in an
+older layout than this indexer's is refused: 'indexer migrate' moves it aside so a
+new one starts.
 The read API (GET /index/v1/...) listens on --listen, which must be loopback, or on a co-located machine the namespace address 198.18.0.2.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runIndexer(cmd.Context(), rpc, home, listen, start, interval)
@@ -48,8 +52,9 @@ The read API (GET /index/v1/...) listens on --listen, which must be loopback, or
 	cmd.Flags().StringVar(&rpc, "rpc", defaultRPC, "oramad CometBFT RPC")
 	cmd.Flags().StringVar(&home, "home", ".", "Indexer state directory")
 	cmd.Flags().StringVar(&listen, "listen", defaultIndexerListen, "Loopback address (or, co-located, the namespace address) for the read API")
-	cmd.Flags().Int64Var(&start, "start-height", 1, "First block to index")
+	cmd.Flags().Int64Var(&start, "start-height", 0, "First block to index; 0 is the index's own start, or for a new index the node's earliest block")
 	cmd.Flags().DurationVar(&interval, "interval", indexerInterval, "Time between passes once caught up")
+	cmd.AddCommand(indexerMigrateCmd())
 	return cmd
 }
 
@@ -73,6 +78,9 @@ func runIndexer(ctx context.Context, rpc, home, listen string, start int64, inte
 			slog.Error("failed to close the index", "err", err)
 		}
 	}()
+	if start, err = indexer.ResolveStart(ctx, client, store, start); err != nil {
+		return err
+	}
 	follower, err := indexer.NewFollower(client, store, start)
 	if err != nil {
 		return err

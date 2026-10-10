@@ -28,7 +28,7 @@ func TestNamespaceAddr_isTheCoreConstant(t *testing.T) {
 func TestIndexerCmd_defaultsAndRegistration(t *testing.T) {
 	cmd := indexerCmd()
 	require.Equal(t, defaultIndexerListen, cmd.Flag("listen").DefValue)
-	require.Equal(t, "1", cmd.Flag("start-height").DefValue)
+	require.Equal(t, "0", cmd.Flag("start-height").DefValue)
 	require.Equal(t, defaultRPC, cmd.Flag("rpc").DefValue)
 	found, _, err := rootCmd().Find([]string{"indexer"})
 	require.NoError(t, err)
