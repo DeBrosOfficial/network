@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router";
 import { useQuery } from "../data/use-query";
 import type { EpochRow } from "../model/epochs";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { formatInt } from "../model/units";
 import { Badge } from "../ui/badge";
 import { IndexQuery } from "../ui/index-query";
@@ -26,6 +26,7 @@ function Loading() {
 }
 
 function EpochNav({ epoch }: { epoch: number }) {
+  const explorerPaths = useExplorerPaths();
   return (
     <nav aria-label="Neighbouring epochs" className="flex items-center gap-2">
       {epoch > 1 && (
@@ -53,6 +54,7 @@ function EpochBody({ row }: { row: EpochRow }) {
 }
 
 function EpochDetail({ epoch }: { epoch: number }) {
+  const explorerPaths = useExplorerPaths();
   useDocumentTitle(`Epoch ${epoch}`);
   const { state, refetch } = useQuery((s) => s.getEpoch(epoch), [epoch]);
   return (

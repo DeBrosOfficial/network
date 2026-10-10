@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { EpochRow } from "../../model/epochs";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import { formatInt } from "../../model/units";
 import { Amount } from "../../ui/amount";
 import { Badge } from "../../ui/badge";
@@ -12,6 +12,7 @@ const TD = "px-3 py-2";
 
 /** Closed epochs, one row each, newest first. */
 export function EpochTable({ rows }: { rows: readonly EpochRow[] }) {
+  const explorerPaths = useExplorerPaths();
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-left text-sm">

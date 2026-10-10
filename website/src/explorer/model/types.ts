@@ -280,6 +280,8 @@ export interface ValidatorSet {
 export interface Head {
   height: number;
   time: string;
+  /** The chain id the gateway reports. A reset gives the same network a new one, and a lower height. */
+  chainId: string;
 }
 
 /**

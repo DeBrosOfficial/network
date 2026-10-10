@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import type { Validator } from "../../model/types";
 import { Badge } from "../../ui/badge";
 import { Card } from "../../ui/card";
@@ -12,6 +12,7 @@ const HEAD_CELL = "pb-2 pr-3 font-medium";
 const CELL = "py-3 pr-3 align-middle";
 
 function Row({ v, rank }: { v: Validator; rank: number }) {
+  const paths = useExplorerPaths();
   return (
     <tr className="relative border-t border-border/60 first:border-t-0 hover:bg-surface-2">
       <td className={cn(CELL, "pl-2 font-mono text-muted")}>{rank}</td>
@@ -19,7 +20,7 @@ function Row({ v, rank }: { v: Validator; rank: number }) {
         <span className="flex min-w-0 items-center gap-2">
           <Identicon seed={v.ref.operator} size={22} />
           <Link
-            to={explorerPaths.wallet(v.ref.operator)}
+            to={paths.wallet(v.ref.operator)}
             className="truncate font-medium after:absolute after:inset-0"
           >
             {v.ref.moniker}

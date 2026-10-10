@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { amountOf } from "../../model/describe";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import type { Fee, TxMessage } from "../../model/types";
 import { parseNorama } from "../../model/units";
 import { cn } from "../../../lib/utils";
@@ -20,10 +20,11 @@ function feeTip(tip: string): string {
 }
 
 function FlowNode({ party }: { party: FlowParty }) {
+  const paths = useExplorerPaths();
   const { wallet, role } = party;
   return (
     <Link
-      to={explorerPaths.wallet(wallet.address)}
+      to={paths.wallet(wallet.address)}
       className={cn("block rounded-xl border border-border bg-surface-2 p-3.5 transition-colors hover:border-fg/30")}
     >
       <div className="text-[11px] uppercase tracking-[0.09em] text-muted">{role}</div>

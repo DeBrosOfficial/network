@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useQuery } from "../data/use-query";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { Page } from "../ui/page";
 import { Skeleton } from "../ui/query-states";
 import { useDocumentTitle } from "../ui/use-document-title";
@@ -10,6 +10,7 @@ import { ScheduleCard } from "./emission/schedule-card";
 import { MintedAgainstCeilingCard, SplitCard } from "./emission/split-card";
 
 export function EmissionPage() {
+  const explorerPaths = useExplorerPaths();
   useDocumentTitle("Emission");
   const { state, refetch } = useQuery((s) => s.getEpochClock(), []);
   const epoch = state.status === "ready" ? state.data.epoch : null;

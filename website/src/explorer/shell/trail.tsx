@@ -2,8 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { ChevronRight } from "lucide-react";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { crumbLabel, shareUrl } from "../model/trail";
+import { networkQuery } from "../network/selection";
 import { CopyChip } from "../ui/copy";
 import { cn } from "../../lib/utils";
 import { EMPTY_TRAIL, initialTrailState, visitPage } from "./trail-state";
@@ -28,7 +29,10 @@ export function TrailProvider({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   const clear = useCallback(() => setState(EMPTY_TRAIL), []);
-  const shareLink = useCallback(() => shareUrl(window.location.origin, pathname, trail), [pathname, trail]);
+  const shareLink = useCallback(
+    () => shareUrl(window.location.origin, pathname, trail, networkQuery(search)),
+    [pathname, search, trail],
+  );
   const value = useMemo(() => ({ trail, shared, clear, shareLink }), [trail, shared, clear, shareLink]);
   return <TrailContext.Provider value={value}>{children}</TrailContext.Provider>;
 }
@@ -41,6 +45,7 @@ function useTrail(): TrailContextValue {
 
 /** The investigation trail: every page followed since Home, one click apart. */
 export function TrailBar() {
+  const paths = useExplorerPaths();
   const { trail, shared, clear, shareLink } = useTrail();
   const { pathname } = useLocation();
   if (trail.length === 0) return null;
@@ -48,11 +53,11 @@ export function TrailBar() {
     <nav aria-label="Investigation trail" className="border-b border-border bg-surface/80">
       <div className="mx-auto flex max-w-[1140px] items-center gap-1.5 overflow-x-auto px-4 py-2 text-[13px] [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
         <span className="mr-1 shrink-0 font-semibold text-signal">{shared ? "Shared trail" : "Trail"}</span>
-        <Crumb to={explorerPaths.home} label="Home" />
+        <Crumb to={paths.home} label="Home" />
         {trail.map((p) => (
           <span key={p} className="flex shrink-0 items-center gap-1.5">
             <ChevronRight size={12} className="text-muted/60" aria-hidden="true" />
-            <Crumb to={p} label={crumbLabel(p)} current={p === pathname} />
+            <Crumb to={paths.keep(p)} label={crumbLabel(p)} current={p === pathname} />
           </span>
         ))}
         <span className="ml-auto flex shrink-0 items-center gap-2 pl-4">

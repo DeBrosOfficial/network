@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useLiveQuery } from "../../data/use-query";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import type { BlockSummary } from "../../model/types";
 import { Card } from "../../ui/card";
 import { Help } from "../../ui/help";
@@ -23,12 +23,13 @@ const SQUARE = "grid h-[38px] w-[38px] place-items-center rounded-lg border bord
 const NEWEST = "outline outline-1 outline-gain";
 
 function BlockSquares({ blocks }: { blocks: BlockSummary[] }) {
+  const paths = useExplorerPaths();
   return (
     <ul className="flex flex-wrap gap-[5px]">
       {blocks.map((b, i) => (
         <li key={b.height}>
           <Link
-            to={explorerPaths.block(b.height)}
+            to={paths.block(b.height)}
             aria-label={blockLabel(b)}
             title={blockLabel(b)}
             className={cn(SQUARE, SHADE_CLASS[blockShade(b.txCount)], i === 0 ? NEWEST : "")}

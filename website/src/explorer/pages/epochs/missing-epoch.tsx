@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useQuery } from "../../data/use-query";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import { formatInt } from "../../model/units";
 import { Card } from "../../ui/card";
 import { Skeleton } from "../../ui/query-states";
@@ -17,6 +17,7 @@ const ADVICE: Record<MissingEpoch, (epoch: number) => string> = {
 
 /** For an epoch the index has no row for: say which of the three reasons it is, from the chain's current epoch. */
 export function MissingEpochBox({ epoch }: { epoch: number }) {
+  const explorerPaths = useExplorerPaths();
   const { state } = useQuery((s) => s.getEpochClock(), []);
   const why = state.status === "ready" ? whyMissing(epoch, state.data) : null;
   return (

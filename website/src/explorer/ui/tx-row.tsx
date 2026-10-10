@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { amountOf, describeMessage } from "../model/describe";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import type { TxSummary } from "../model/types";
 import { cn } from "../../lib/utils";
 import { Amount } from "./amount";
@@ -16,6 +16,7 @@ import { TxIcon } from "./tx-icon";
  * with several messages is described by its first; the badge says there are more.
  */
 export function TxRow({ tx }: { tx: TxSummary }) {
+  const paths = useExplorerPaths();
   const message = tx.messages[0];
   if (!message) return null;
   const failed = !tx.status.ok;
@@ -23,7 +24,7 @@ export function TxRow({ tx }: { tx: TxSummary }) {
   const more = moreMessagesBadge(tx.messages.length);
   return (
     <div className="group relative -mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-surface-2 transition-colors">
-      <Link to={explorerPaths.tx(tx.hash)} aria-label={txLinkName(describeMessage(message, failed), tx.hash)} className="absolute inset-0 rounded-lg" />
+      <Link to={paths.tx(tx.hash)} aria-label={txLinkName(describeMessage(message, failed), tx.hash)} className="absolute inset-0 rounded-lg" />
       <TxIcon message={message} failed={failed} />
       <div className="pointer-events-none min-w-0 flex-1 text-sm">
         <Sentence message={message} failed={failed} />

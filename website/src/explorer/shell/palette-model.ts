@@ -1,5 +1,6 @@
 import type { Hit } from "../model/search";
 import { explorerPaths } from "../model/routes";
+import type { ExplorerPaths } from "../model/routes";
 import type { ExampleTargets, WalletRef } from "../model/types";
 import { shortAddress, shortHash } from "../model/units";
 
@@ -40,42 +41,42 @@ export function labelQueryOf(trimmed: string): string {
   return trimmed.slice(0, MAX_LABEL_QUERY_LENGTH);
 }
 
-export function hitRow(hit: Hit): PaletteRow | null {
+export function hitRow(hit: Hit, paths: ExplorerPaths = explorerPaths): PaletteRow | null {
   switch (hit.kind) {
     case "wallet":
-      return { key: "wallet", icon: "wallet", text: "Open wallet", code: shortAddress(hit.address), hint: "Wallet", to: explorerPaths.wallet(hit.address) };
+      return { key: "wallet", icon: "wallet", text: "Open wallet", code: shortAddress(hit.address), hint: "Wallet", to: paths.wallet(hit.address) };
     case "tx":
-      return { key: "tx", icon: "tx", text: "Open transaction", code: shortHash(hit.hash), hint: "Transaction", to: explorerPaths.tx(hit.hash) };
+      return { key: "tx", icon: "tx", text: "Open transaction", code: shortHash(hit.hash), hint: "Transaction", to: paths.tx(hit.hash) };
     case "block":
-      return { key: "block", icon: "block", text: "Open block", code: hit.height.toLocaleString("en-US"), hint: "Block", to: explorerPaths.block(hit.height) };
+      return { key: "block", icon: "block", text: "Open block", code: hit.height.toLocaleString("en-US"), hint: "Block", to: paths.block(hit.height) };
     case "shielded-address":
       return null;
   }
 }
 
 /** A name is never shown alone: the short address beside it is the defence against look-alike names. */
-export function labelRows(labels: readonly WalletRef[]): PaletteRow[] {
+export function labelRows(labels: readonly WalletRef[], paths: ExplorerPaths = explorerPaths): PaletteRow[] {
   return labels.map((w) => ({
     key: `label-${w.address}`,
     icon: "named",
     text: w.label ?? "Wallet",
     code: shortAddress(w.address),
     hint: "Named wallet",
-    to: explorerPaths.wallet(w.address),
+    to: paths.wallet(w.address),
     seed: w.address,
   }));
 }
 
 /** Shortcuts shown before anything is typed. An example the source has none of is left out. */
-export function quickRows(examples: ExampleTargets | null): PaletteRow[] {
+export function quickRows(examples: ExampleTargets | null, paths: ExplorerPaths = explorerPaths): PaletteRow[] {
   const rows: PaletteRow[] = [];
   if (examples?.latestTxHash) {
-    rows.push({ key: "ex-tx", icon: "hash", text: "The latest transfer", hint: "Transaction", to: explorerPaths.tx(examples.latestTxHash) });
+    rows.push({ key: "ex-tx", icon: "hash", text: "The latest transfer", hint: "Transaction", to: paths.tx(examples.latestTxHash) });
   }
   if (examples?.busyWalletAddress) {
-    rows.push({ key: "ex-wallet", icon: "wallet", text: "A busy wallet", hint: "Wallet", to: explorerPaths.wallet(examples.busyWalletAddress) });
+    rows.push({ key: "ex-wallet", icon: "wallet", text: "A busy wallet", hint: "Wallet", to: paths.wallet(examples.busyWalletAddress) });
   }
-  rows.push({ key: "validators", icon: "validators", text: "Who runs the chain", hint: "Validators", to: explorerPaths.validators });
+  rows.push({ key: "validators", icon: "validators", text: "Who runs the chain", hint: "Validators", to: paths.validators });
   return rows;
 }
 
@@ -85,14 +86,16 @@ export interface RowInputs {
   /** Name matches for exactly the current query; empty while they are pending or unwanted. */
   labels: readonly WalletRef[];
   examples: ExampleTargets | null;
+  /** The URL builders of the network being read; the default network's when absent. */
+  paths?: ExplorerPaths;
 }
 
-export function buildRows({ trimmed, hit, labels, examples }: RowInputs): PaletteRow[] {
+export function buildRows({ trimmed, hit, labels, examples, paths = explorerPaths }: RowInputs): PaletteRow[] {
   const rows: PaletteRow[] = [];
-  const exact = hit ? hitRow(hit) : null;
+  const exact = hit ? hitRow(hit, paths) : null;
   if (exact) rows.push(exact);
-  rows.push(...labelRows(labels));
-  if (trimmed === "") rows.push(...quickRows(examples));
+  rows.push(...labelRows(labels, paths));
+  if (trimmed === "") rows.push(...quickRows(examples, paths));
   return rows;
 }
 

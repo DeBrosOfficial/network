@@ -197,8 +197,15 @@ export default defineConfig({
     manifest: true,
   },
   server: {
-    // The whitepaper's source lives in the repo-root docs/ tree.
-    fs: { allow: [import.meta.dirname, path.resolve(import.meta.dirname, "../docs/whitepaper")] },
+    // The whitepaper's source lives in the repo-root docs/ tree, and the explorer's network
+    // switcher is built from the manifests in the repo-root networks/ directory.
+    fs: {
+      allow: [
+        import.meta.dirname,
+        path.resolve(import.meta.dirname, "../docs/whitepaper"),
+        path.resolve(import.meta.dirname, "../networks"),
+      ],
+    },
   },
   resolve: {
     // ...and a file out there has no node_modules of its own: resolve the

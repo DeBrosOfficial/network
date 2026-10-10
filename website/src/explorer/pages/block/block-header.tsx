@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import { formatInt, shortHash } from "../../model/units";
 import { cn } from "../../../lib/utils";
 import { CopyChip } from "../../ui/copy";
@@ -10,6 +10,7 @@ const STEP = "inline-flex items-center gap-1 rounded-lg border border-border bg-
 const ICON_SIZE = 16;
 
 function Step({ to, label, children }: { to: number | null; label: string; children: React.ReactNode }) {
+  const paths = useExplorerPaths();
   if (to === null) {
     return (
       <button type="button" disabled aria-label={label} className={cn(STEP, "cursor-not-allowed opacity-40")}>
@@ -18,7 +19,7 @@ function Step({ to, label, children }: { to: number | null; label: string; child
     );
   }
   return (
-    <Link to={explorerPaths.block(to)} aria-label={label} className={cn(STEP, "hover:border-fg/30")}>
+    <Link to={paths.block(to)} aria-label={label} className={cn(STEP, "hover:border-fg/30")}>
       {children}
     </Link>
   );

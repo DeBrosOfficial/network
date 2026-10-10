@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useQuery } from "../data/use-query";
 import { amountOf } from "../model/describe";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import type { TxDetail } from "../model/types";
 import { Amount } from "../ui/amount";
 import { Badge } from "../ui/badge";
@@ -73,6 +73,7 @@ function PeekBody({ hash }: { hash: string }) {
 }
 
 function PeekTx({ tx }: { tx: TxDetail }) {
+  const paths = useExplorerPaths();
   const message = tx.messages[0];
   const amount = message ? amountOf(message) : null;
   const moreNote = moreActionsNote(tx.messages.length);
@@ -96,7 +97,7 @@ function PeekTx({ tx }: { tx: TxDetail }) {
       {moreNote && <p className="text-xs text-muted">{moreNote}</p>}
       <div className="grid gap-2">
         <Link
-          to={explorerPaths.tx(tx.hash)}
+          to={paths.tx(tx.hash)}
           className="rounded-lg bg-fg px-3 py-2 text-center text-sm font-semibold text-bg hover:bg-fg/90"
         >
           Open full transaction →

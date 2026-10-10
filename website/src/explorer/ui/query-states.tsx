@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { QueryState } from "../data/use-query";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { cn } from "../../lib/utils";
 import { Card } from "./card";
 
@@ -49,12 +49,13 @@ export interface NotFoundProps {
 
 /** For a lookup that resolved to nothing: say what was missing and how to get back. */
 export function NotFoundBox({ title, hint }: NotFoundProps) {
+  const paths = useExplorerPaths();
   return (
     <Card>
       <div className="space-y-3 py-6 text-center">
         <h1 className="font-display text-2xl font-semibold">{title}</h1>
         <p className="mx-auto max-w-prose text-sm text-muted">{hint}</p>
-        <Link to={explorerPaths.home} className="inline-block rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm hover:border-fg/30">
+        <Link to={paths.home} className="inline-block rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm hover:border-fg/30">
           Back to the explorer
         </Link>
       </div>

@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useLiveQuery } from "../data/use-query";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { Card } from "../ui/card";
 import { Page } from "../ui/page";
 import { useDocumentTitle } from "../ui/use-document-title";
@@ -16,11 +16,12 @@ const VALIDATORS_TEXT =
   "Validators sign every block. See who they are, how much voting power each holds, and how that power shifts to the community over time.";
 
 function ValidatorsCard() {
+  const paths = useExplorerPaths();
   return (
     <Card title="Who runs the chain">
       <p className="text-sm">{VALIDATORS_TEXT}</p>
       <Link
-        to={explorerPaths.validators}
+        to={paths.validators}
         className={cn("mt-3 inline-block rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm hover:border-fg/30")}
       >
         See the validators →

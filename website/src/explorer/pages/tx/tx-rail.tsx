@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { ArrowLeft, ArrowRight, LayoutGrid } from "lucide-react";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import type { TxDetail, TxMessage, WalletRef } from "../../model/types";
 import { shortAddress } from "../../model/units";
 import { cn } from "../../../lib/utils";
@@ -22,9 +22,10 @@ function otherInBlockText(n: number): string {
 }
 
 function WalletRow({ wallet }: { wallet: WalletRef }) {
+  const paths = useExplorerPaths();
   const name = wallet.label ?? shortAddress(wallet.address);
   return (
-    <Link to={explorerPaths.wallet(wallet.address)} className={cn(ROW, "text-sm")}>
+    <Link to={paths.wallet(wallet.address)} className={cn(ROW, "text-sm")}>
       <Identicon seed={wallet.address} size={ROW_IDENTICON_SIZE} />
       <span className="min-w-0 break-words">Everything {name} has done</span>
       {ARROW}
@@ -34,11 +35,12 @@ function WalletRow({ wallet }: { wallet: WalletRef }) {
 
 /** A row that opens a transaction; the names inside its subtitle stay separate links. */
 function PreviousTxRow({ previous }: { previous: NonNullable<TxDetail["context"]["previousFromSigner"]> }) {
+  const paths = useExplorerPaths();
   const message = firstMessage(previous.messages);
   return (
     <div className={cn(ROW, "relative text-sm")}>
       <Link
-        to={explorerPaths.tx(previous.hash)}
+        to={paths.tx(previous.hash)}
         aria-label="Open the previous transaction from this sender"
         className={cn("absolute inset-0")}
       />
@@ -62,6 +64,7 @@ function receiverOf(message: TxMessage | null): WalletRef | null {
 
 /** "Keep investigating": the next places a reader is likely to want to go. */
 export function InvestigateCard({ tx }: { tx: TxDetail }) {
+  const paths = useExplorerPaths();
   const receiver = receiverOf(firstMessage(tx.messages));
   const { previousFromSigner, otherInBlock } = tx.context;
   return (
@@ -70,7 +73,7 @@ export function InvestigateCard({ tx }: { tx: TxDetail }) {
       {receiver && receiver.address !== tx.signer?.address && <WalletRow wallet={receiver} />}
       {previousFromSigner && <PreviousTxRow previous={previousFromSigner} />}
       {otherInBlock > 0 && (
-        <Link to={explorerPaths.block(tx.height)} className={cn(ROW, "text-sm")}>
+        <Link to={paths.block(tx.height)} className={cn(ROW, "text-sm")}>
           <span className={ICON_BOX} aria-hidden="true"><LayoutGrid size={SMALL_ICON_SIZE} /></span>
           <span>{otherInBlockText(otherInBlock)}</span>
           {ARROW}

@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import { blockKeyTarget } from "./block-nav";
 import type { BlockNeighbours } from "./block-nav";
 
 /** ← and → open the previous and next block, unless the reader is typing or using a shortcut. */
 export function useBlockKeys(nav: BlockNeighbours): void {
+  const paths = useExplorerPaths();
   const navigate = useNavigate();
   const { prev, next } = nav;
   useEffect(() => {
@@ -23,9 +24,9 @@ export function useBlockKeys(nav: BlockNeighbours): void {
       );
       if (height === null) return;
       e.preventDefault();
-      navigate(explorerPaths.block(height));
+      navigate(paths.block(height));
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [prev, next, navigate]);
+  }, [prev, next, navigate, paths]);
 }

@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Search } from "lucide-react";
 import { useQuery } from "../../data/use-query";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import type { ExampleTargets } from "../../model/types";
 import { usePalette } from "../../shell/palette";
 import { Skeleton } from "../../ui/query-states";
@@ -22,6 +22,7 @@ function ExampleChip({ to, children }: { to: string; children: string }) {
 
 /** An example the source could not find is left out, not shown as a dead chip. */
 function TryRow() {
+  const paths = useExplorerPaths();
   const { state } = useQuery((s) => s.getExamples(), []);
   const examples: ExampleTargets | null = state.status === "ready" ? state.data : null;
   return (
@@ -34,11 +35,11 @@ function TryRow() {
         </>
       ) : (
         <>
-          {examples?.latestTxHash ? <ExampleChip to={explorerPaths.tx(examples.latestTxHash)}>the latest transaction</ExampleChip> : null}
-          {examples?.busyWalletAddress ? <ExampleChip to={explorerPaths.wallet(examples.busyWalletAddress)}>a busy wallet</ExampleChip> : null}
+          {examples?.latestTxHash ? <ExampleChip to={paths.tx(examples.latestTxHash)}>the latest transaction</ExampleChip> : null}
+          {examples?.busyWalletAddress ? <ExampleChip to={paths.wallet(examples.busyWalletAddress)}>a busy wallet</ExampleChip> : null}
         </>
       )}
-      <ExampleChip to={explorerPaths.validators}>who runs the chain</ExampleChip>
+      <ExampleChip to={paths.validators}>who runs the chain</ExampleChip>
     </div>
   );
 }

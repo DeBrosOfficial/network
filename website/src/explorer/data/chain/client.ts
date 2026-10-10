@@ -36,11 +36,12 @@ export class ChainIndexUnavailable extends ChainReadError {
 const CHAIN_PATH = "/v1/chain";
 
 /**
- * The network the explorer reads: its gateway's origin (stagenet's; the page has
- * no network picker yet, and createChainSource takes another base). The page is served from orama.network, which has no chain behind it,
- * so the browser calls the network's own gateway across origins; that gateway
- * answers the explorer's origin on the chain's read routes
- * (core/pkg/gateway/cors_explorer.go).
+ * The gateway of the registry's default network (stagenet), which a source reads
+ * when it is given no other base; the explorer's network switcher names the
+ * gateway of the network a URL selects (src/explorer/network). The page is served
+ * from orama.network, which has no chain behind it, so the browser calls the
+ * network's own gateway across origins; that gateway answers the explorer's
+ * origin on the chain's read routes (core/pkg/gateway/cors_explorer.go).
  */
 export const DEFAULT_GATEWAY_ORIGIN = "https://stagenet.orama.network";
 

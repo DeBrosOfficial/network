@@ -4,7 +4,7 @@ import { useHead } from "../../data/provider";
 import { useQuery } from "../../data/use-query";
 import type { QueryState } from "../../data/use-query";
 import type { EpochClock } from "../../model/epochs";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import { epochCountdown, formatSpan } from "../../model/schedule";
 import { formatInt, formatPct } from "../../model/units";
 import { Card } from "../../ui/card";
@@ -75,6 +75,7 @@ function ClockBody({ clock, refetch }: { clock: EpochClock; refetch: () => void 
 
 /** The card around an epoch-clock query the page already runs. */
 export function ClockPanel({ state, refetch, showLink = true }: { state: QueryState<EpochClock>; refetch: () => void; showLink?: boolean }) {
+  const explorerPaths = useExplorerPaths();
   return (
     <Card
       title="Current epoch"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "../data/use-query";
+import { useExplorerPaths } from "../network/active";
 import type { WalletRef } from "../model/types";
 import { classify } from "../model/search";
 import type { Hit } from "../model/search";
@@ -30,6 +31,7 @@ export interface PaletteSearch {
 
 /** What the palette shows for `query`: an exact hit, name matches (debounced) or shortcuts. */
 export function usePaletteSearch(query: string): PaletteSearch {
+  const paths = useExplorerPaths();
   const trimmed = query.trim();
   const hit = useMemo(() => classify(trimmed), [trimmed]);
   const wanted = shouldSearchLabels(trimmed, hit) ? labelQueryOf(trimmed) : null;
@@ -41,8 +43,8 @@ export function usePaletteSearch(query: string): PaletteSearch {
   const labelList = current && labels.state.status === "ready" ? labels.state.data : NO_LABELS;
   const exampleData = examples.state.status === "ready" ? examples.state.data : null;
   const rows = useMemo(
-    () => buildRows({ trimmed, hit, labels: labelList, examples: exampleData }),
-    [trimmed, hit, labelList, exampleData],
+    () => buildRows({ trimmed, hit, labels: labelList, examples: exampleData, paths }),
+    [trimmed, hit, labelList, exampleData, paths],
   );
   const pending = wanted !== null && (!current || labels.state.status === "loading");
   const error = current && labels.state.status === "error" ? labels.state.error : null;

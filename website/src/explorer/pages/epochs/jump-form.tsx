@@ -1,11 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { explorerPaths } from "../../model/routes";
+import { useExplorerPaths } from "../../network/active";
 import { parseEpochParam } from "./logic";
 
 /** "Go to epoch": opens an epoch's page by number. */
 export function JumpForm() {
+  const explorerPaths = useExplorerPaths();
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const epoch = parseEpochParam(text.trim());

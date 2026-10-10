@@ -1,30 +1,34 @@
-import { Link, NavLink } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 import { Search } from "lucide-react";
 import { useHead, useHeadError } from "../data/provider";
-import { explorerPaths } from "../model/routes";
+import { parseExplorerPath } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { formatInt } from "../model/units";
 import { cn } from "../../lib/utils";
 import oramaIcon from "../../assets/orama-icon.png";
 import { usePalette } from "./palette";
 
-const NAV = [
-  { label: "Explore", to: explorerPaths.home, end: true },
-  { label: "Validators", to: explorerPaths.validators, end: false },
-  { label: "Epochs", to: explorerPaths.epochs, end: false },
-  { label: "Emission", to: explorerPaths.emission, end: false },
-  { label: "Supply", to: explorerPaths.economics, end: false },
-] as const;
-
 function NavLinks({ className }: { className?: string }) {
+  const paths = useExplorerPaths();
+  const { pathname } = useLocation();
+  // A validator's own page is part of the Validators section.
+  const inValidators = parseExplorerPath(pathname).kind === "validator";
+  const nav = [
+    { label: "Explore", to: paths.home, end: true, current: false },
+    { label: "Validators", to: paths.validators, end: false, current: inValidators },
+    { label: "Epochs", to: paths.epochs, end: false, current: false },
+    { label: "Emission", to: paths.emission, end: false, current: false },
+    { label: "Supply", to: paths.economics, end: false, current: false },
+  ];
   return (
     <div className={cn("flex items-center gap-1", className)}>
-      {NAV.map((n) => (
+      {nav.map((n) => (
         <NavLink
           key={n.to}
           to={n.to}
           end={n.end}
           className={({ isActive }) =>
-            cn("rounded-full px-3 py-1.5 text-[13px] transition-colors", isActive ? "bg-white/[0.07] text-fg" : "text-muted hover:text-fg")
+            cn("rounded-full px-3 py-1.5 text-[13px] transition-colors", isActive || n.current ? "bg-white/[0.07] text-fg" : "text-muted hover:text-fg")
           }
         >
           {n.label}

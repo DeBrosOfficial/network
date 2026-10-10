@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addr, chainFixture, FakeGateway, HEAD, HEAD_TIME, hashOf, indexTx, rpc, valoper } from "./fake-gateway";
+import { addr, CHAIN_ID, chainFixture, FakeGateway, HEAD, HEAD_TIME, hashOf, indexTx, rpc, valoper } from "./fake-gateway";
 import { createChainSource } from "./source";
 import { addressQuery } from "./wallet";
 
@@ -20,7 +20,7 @@ afterEach(() => {
 describe("head and network", () => {
   it("TestGetHead_reads_the_latest_finished_block", async () => {
     const { source } = await setup();
-    expect(await source.getHead()).toEqual({ height: HEAD, time: HEAD_TIME.replace("Z", ".000Z") });
+    expect(await source.getHead()).toEqual({ height: HEAD, time: HEAD_TIME.replace("Z", ".000Z"), chainId: CHAIN_ID });
   });
 
   it("TestGetNetwork_is_computed_from_the_chain_and_the_indexer", async () => {
@@ -86,6 +86,25 @@ describe("subscribeHead", () => {
     gw.failing.clear();
     await vi.advanceTimersByTimeAsync(9000);
     expect(heads).toEqual([HEAD + 1]);
+  });
+});
+
+describe("subscribeHead across a reset", () => {
+  it("TestSubscribeHead_a_new_chain_id_is_announced_although_its_height_is_lower", async () => {
+    vi.useFakeTimers();
+    const { gw, source } = await setup();
+    const heads: { height: number; chainId: string }[] = [];
+    const stop = source.subscribeHead((h) => heads.push({ height: h.height, chainId: h.chainId }), () => undefined);
+    await vi.advanceTimersByTimeAsync(0);
+
+    gw.on("status", rpc({ node_info: { network: "orama-test-2" }, sync_info: { latest_block_height: "3", latest_block_time: HEAD_TIME, catching_up: false } }));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(heads).toEqual([{ height: 3, chainId: "orama-test-2" }]);
+
+    gw.on("status", rpc({ node_info: { network: "orama-test-2" }, sync_info: { latest_block_height: "2", latest_block_time: HEAD_TIME, catching_up: false } }));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(heads).toHaveLength(1);
+    stop();
   });
 });
 

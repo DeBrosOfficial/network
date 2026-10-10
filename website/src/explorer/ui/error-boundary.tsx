@@ -1,8 +1,18 @@
 import { Component } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { explorerPaths } from "../model/routes";
+import { useExplorerPaths } from "../network/active";
 import { Card } from "./card";
+
+/** A class cannot read the network from context, so the way back is its own small component. */
+function BackLink() {
+  const paths = useExplorerPaths();
+  return (
+    <Link to={paths.home} reloadDocument className="inline-block rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm hover:border-fg/30">
+      Back to the explorer
+    </Link>
+  );
+}
 
 interface State {
   failed: boolean;
@@ -31,9 +41,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
               Some of the data for it was not in the shape the explorer expects. Nothing was changed. Go back to the
               start and try again.
             </p>
-            <Link to={explorerPaths.home} reloadDocument className="inline-block rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm hover:border-fg/30">
-              Back to the explorer
-            </Link>
+            <BackLink />
           </div>
         </Card>
       </div>

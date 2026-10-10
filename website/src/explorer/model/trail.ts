@@ -1,4 +1,4 @@
-import { EXPLORER_BASE, explorerPaths } from "./routes";
+import { parseExplorerPath } from "./routes";
 import { shortAddress, shortHash } from "./units";
 
 /** Long enough to follow a real investigation, short enough to stay readable. */
@@ -13,7 +13,7 @@ const SHARE_SEPARATOR = "|";
  * (dropping what came after); visiting a new page appends. Home clears it.
  */
 export function nextTrail(trail: readonly string[], path: string): string[] {
-  if (path === explorerPaths.home) return [];
+  if (parseExplorerPath(path).kind === "home") return [];
   const seen = trail.indexOf(path);
   if (seen >= 0) return trail.slice(0, seen + 1);
   const next = [...trail, path];
@@ -22,14 +22,16 @@ export function nextTrail(trail: readonly string[], path: string): string[] {
 
 /** A short crumb label derived from the path alone. */
 export function crumbLabel(path: string): string {
-  const [, , kind, id] = path.split("/");
+  const { kind, id } = parseExplorerPath(path);
   switch (kind) {
     case "tx":
-      return `Tx ${shortHash(id ?? "")}`;
+      return `Tx ${shortHash(id)}`;
     case "wallet":
-      return `Wallet ${shortAddress(id ?? "")}`;
+      return `Wallet ${shortAddress(id)}`;
+    case "validator":
+      return `Validator ${shortAddress(id)}`;
     case "block":
-      return `Block ${id ?? ""}`;
+      return `Block ${id}`;
     case "validators":
       return "Validators";
     default:
@@ -37,18 +39,23 @@ export function crumbLabel(path: string): string {
   }
 }
 
-const KNOWN_PATH = new RegExp(`^${EXPLORER_BASE}/(validators|(tx|wallet|block)/[A-Za-z0-9]+)$`);
+const KNOWN_PATH = /^\/explorer(\/[a-z][a-z0-9-]{0,31})?\/(validators|(tx|wallet|block|validator)\/[A-Za-z0-9]+)$/;
 
 /** True for a path this explorer serves. Used to reject a hostile shared trail. */
 export function isTrailPath(path: string): boolean {
   return KNOWN_PATH.test(path);
 }
 
-/** A link that reopens the current page with the whole trail attached. */
-export function shareUrl(origin: string, current: string, trail: readonly string[]): string {
-  if (trail.length === 0) return `${origin}${current}`;
-  const q = new URLSearchParams({ [SHARE_PARAM]: trail.join(SHARE_SEPARATOR) });
-  return `${origin}${current}?${q.toString()}`;
+/**
+ * A link that reopens the current page with the whole trail attached. `query`
+ * is what the page needs besides the trail to open again: a custom network's
+ * gateway, and the chain id the trail was followed on.
+ */
+export function shareUrl(origin: string, current: string, trail: readonly string[], query: URLSearchParams = new URLSearchParams()): string {
+  const q = new URLSearchParams(query);
+  if (trail.length > 0) q.set(SHARE_PARAM, trail.join(SHARE_SEPARATOR));
+  const text = q.toString();
+  return text === "" ? `${origin}${current}` : `${origin}${current}?${text}`;
 }
 
 /**

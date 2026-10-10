@@ -19,6 +19,7 @@ import type {
   WalletRef,
 } from "../../model/types";
 import { toError } from "../errors";
+import { nextHead } from "../head";
 import { clampLimit } from "../source";
 import type { ExplorerDataSource } from "../source";
 import { loadBaseFee, loadEpoch, loadEpochClock, loadEpochs, loadEpochValidators, loadSupply } from "./aggregates";
@@ -42,8 +43,8 @@ const HEAD_POLL_MS = 3_000;
 const LATEST_WINDOW = 100;
 /** The previous transaction from a signer is looked for among their newest transactions. */
 const PREVIOUS_WINDOW = 100;
-/** Where the data comes from, shown in the footer. */
-const ORIGIN_LABEL = "the Orama chain";
+/** Where the data comes from, shown in the footer, when the caller names no network. */
+const DEFAULT_ORIGIN_LABEL = "the Orama chain";
 const MAX_LABEL_QUERY = 64;
 const MIN_LABEL_QUERY = 1;
 const LABEL_RANK_PREFIX = 0;
@@ -52,6 +53,8 @@ const LABEL_RANK_INFIX = 1;
 export interface ChainSourceOptions {
   fetcher?: ChainFetch;
   base?: string;
+  /** Names the network read in the footer ("stagenet at stagenet.orama.network"). */
+  label?: string;
   /** The clock, for the directory cache. */
   now?: () => number;
 }
@@ -108,7 +111,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
 
   const head = async (): Promise<Head> => {
     const h = readHead(await client.get("status"));
-    return { height: h.height, time: h.time };
+    return { height: h.height, time: h.time, chainId: h.chainId };
   };
 
   const indexTx = async (hash: string): Promise<IndexTx | null> => {
@@ -135,7 +138,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
   };
 
   return {
-    origin: { label: ORIGIN_LABEL },
+    origin: { label: options.label ?? DEFAULT_ORIGIN_LABEL },
 
     getNetwork(): Promise<NetworkSnapshot> {
       return loadNetwork(client);
@@ -225,12 +228,13 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     getHead: head,
 
     subscribeHead(listener: (head: Head) => void, onError: (error: Error) => void): () => void {
-      let last: number | null = null;
+      let last: Head | null = null;
       const poll = () =>
         head().then(
           (h) => {
-            if (last !== null && h.height > last) listener(h);
-            last = Math.max(last ?? 0, h.height);
+            // A new chain id is a reset: the height starts again, so it is announced although it is lower.
+            if (last !== null && (h.chainId !== last.chainId || h.height > last.height)) listener(h);
+            last = nextHead(last, h);
           },
           (err: unknown) => onError(toError(err)),
         );
