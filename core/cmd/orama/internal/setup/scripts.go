@@ -87,6 +87,12 @@ func StartGlobalCommand(n NodePlan) string {
 	if n.HasService(install.GlobalServiceRelay) {
 		services = append(services, "relay")
 	}
+	// The indexer follows the chain over RPC and retries until it answers, so it
+	// starts with the chain; installed and left stopped, the network's gateway
+	// answered every /v1/chain/index/ route with "chain unreachable".
+	if n.HasService(install.GlobalServiceIndexer) {
+		services = append(services, "indexer")
+	}
 	return "sudo " + orama + " global start " + strings.Join(services, " ")
 }
 

@@ -37,7 +37,7 @@ func (m *sshMachine) InstallGlobal(ctx context.Context, in GlobalInstall) (err e
 	return m.StartGlobal(ctx, in.Node)
 }
 
-// StartGlobal starts the chain, the public IPFS and the relay.
+// StartGlobal starts the chain, the public IPFS, the relay and the indexer.
 func (m *sshMachine) StartGlobal(ctx context.Context, node NodePlan) error {
 	if err := m.stream(ctx, StartGlobalCommand(node), nil); err != nil {
 		return fmt.Errorf("start the global services: %w", err)

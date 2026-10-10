@@ -274,3 +274,16 @@ func TestBuildPlan_aCreatedNetworksNodesRunTheIndexerAJoinsDoNot(t *testing.T) {
 		t.Errorf("a join installs the indexer: %v", joined.ServiceNames())
 	}
 }
+
+// A created network's nodes have the indexer installed; setup must start it with the chain (the
+// stagenet chain-8 create left it installed and stopped, and every index route was unreachable).
+func TestStartGlobalCommand_startsTheIndexerWhereItIsInstalled(t *testing.T) {
+	with := NodePlan{Services: []install.GlobalService{install.GlobalServiceChain, install.GlobalServiceIPFS, install.GlobalServiceProvider, install.GlobalServiceIndexer}}
+	if got := StartGlobalCommand(with); !strings.HasSuffix(got, " global start chain ipfs indexer") {
+		t.Errorf("with the indexer: %q", got)
+	}
+	without := NodePlan{Services: []install.GlobalService{install.GlobalServiceChain, install.GlobalServiceIPFS, install.GlobalServiceProvider}}
+	if got := StartGlobalCommand(without); strings.Contains(got, "indexer") {
+		t.Errorf("without the indexer: %q", got)
+	}
+}
