@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -144,6 +145,22 @@ func (e *QueryError) Error() string {
 // baseapp turns a gRPC NotFound status into the SDK's ErrKeyNotFound.
 func (e *QueryError) NotFound() bool {
 	return e.Codespace == sdkerrors.ErrKeyNotFound.Codespace() && e.Code == sdkerrors.ErrKeyNotFound.ABCICode()
+}
+
+// prunedStateLog is what baseapp's query context says when the node holds no state for the queried
+// height: "failed to load state at height <h>; <cause> (latest height: <l>)", with the store's
+// cause either an IAVL version that was pruned (or is in the future, which baseapp refuses first
+// with a different error) or a height below the first commit the node has (state sync).
+var prunedStateLog = regexp.MustCompile(`^failed to load state at height [0-9]+; (version mismatch on immutable IAVL tree; version does not exist\. Version has either been pruned|no commit info found)`)
+
+// StatePruned reports whether the node refused the query because it holds no state for the height
+// asked: it pruned it (the node keeps the last few states, see the pruning in its app.toml) or its
+// store begins above it. baseapp answers this with sdkerrors.ErrNotFound, a code its gRPC
+// translation never produces (a gRPC NotFound is ErrKeyNotFound, see NotFound), and a log that
+// begins with baseapp's own words, so a query that fails any other way is not mistaken for it.
+func (e *QueryError) StatePruned() bool {
+	return e.Codespace == sdkerrors.ErrNotFound.Codespace() && e.Code == sdkerrors.ErrNotFound.ABCICode() &&
+		prunedStateLog.MatchString(e.Log)
 }
 
 // Status returns the chain id and the latest block height.

@@ -63,6 +63,7 @@ type GlobalReport struct {
 	PublicIPFS *PublicIPFSReport `json:"public_ipfs,omitempty"`
 	Provider   *ProviderReport   `json:"provider,omitempty"`
 	Relay      *RelayReport      `json:"relay,omitempty"`
+	Indexer    *IndexerReport    `json:"indexer,omitempty"`
 	Error      string            `json:"error,omitempty"`
 }
 
@@ -91,6 +92,23 @@ type ProviderReport struct {
 	HeldSlots           *int   `json:"held_slots,omitempty"`
 	PendingSlots        *int   `json:"pending_slots,omitempty"`
 	Error               string `json:"error,omitempty"`
+}
+
+// IndexerReport is the chain indexer's own status (its /index/v1/status on loopback): the block it
+// has indexed and the tip of its node, and, while it cannot advance, the block it is stuck on and
+// why. StatePruned is true when the node pruned the state it needs, which no retry changes.
+type IndexerReport struct {
+	Cursor int64         `json:"cursor"`
+	Tip    int64         `json:"tip"`
+	Stuck  *IndexerStuck `json:"stuck,omitempty"`
+	Error  string        `json:"error,omitempty"`
+}
+
+// IndexerStuck is the indexer's account of a pass that keeps failing.
+type IndexerStuck struct {
+	Height      int64  `json:"height"`
+	Reason      string `json:"reason"`
+	StatePruned bool   `json:"state_pruned"`
 }
 
 // RelayReport is the status file of the host's Tor relay

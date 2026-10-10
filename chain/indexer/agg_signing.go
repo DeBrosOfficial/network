@@ -166,6 +166,11 @@ func (w *writer) openJail(cons []byte, height int64, p JailPeriod) error {
 
 // noteUnjails closes the jail period of each validator a successful transaction unjails.
 func (f *Follower) noteUnjails(ctx context.Context, w *writer, pos txPos, msgs []*codectypes.Any) error {
+	if !f.folding {
+		// The aggregates have not begun: the node pruned the state this block's unjail would be
+		// resolved from, and the jail periods begin with the aggregates.
+		return nil
+	}
 	for _, m := range msgs {
 		if m.TypeUrl != msgUnjailTypeURL {
 			continue

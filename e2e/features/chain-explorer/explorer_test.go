@@ -170,6 +170,18 @@ func requireIndexer(t *testing.T) {
 		resp := g.PinTo(n.PublicIP).MustSend(t, gw.Req{Path: chainPrefix + "/index/status"})
 		if resp.Status != http.StatusOK {
 			t.Errorf("%s (%s): /v1/chain/index/status answers HTTP %d: %.200s", n.Name, n.PublicIP, resp.Status, resp.Body)
+			continue
+		}
+		var status struct {
+			Stuck *struct {
+				Height int64  `json:"height"`
+				Reason string `json:"reason"`
+			} `json:"stuck"`
+		}
+		if err := json.Unmarshal(resp.Body, &status); err != nil {
+			t.Errorf("%s (%s): /v1/chain/index/status is not JSON: %v: %.200s", n.Name, n.PublicIP, err, resp.Body)
+		} else if status.Stuck != nil {
+			t.Errorf("%s (%s): the indexer is stuck at block %d: %s", n.Name, n.PublicIP, status.Stuck.Height, status.Stuck.Reason)
 		}
 	}
 	if t.Failed() {

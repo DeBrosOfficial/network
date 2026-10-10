@@ -16,7 +16,8 @@ type validatorRef struct {
 
 // snapshotValidators reads every staking validator at the reader's height, stores each in the
 // registry and returns them. The power of a bonded validator is x/power's LastPower, the voting
-// power CometBFT was given.
+// power CometBFT was given. It reads every validator before it stores any, so a state the node
+// has pruned part way through leaves the registry as it was.
 func (f *Follower) snapshotValidators(r chainReader, w *writer, epoch uint64) ([]validatorRef, error) {
 	vals, err := r.validators()
 	if err != nil {
@@ -28,10 +29,12 @@ func (f *Follower) snapshotValidators(r chainReader, w *writer, epoch uint64) ([
 		if err != nil {
 			return nil, err
 		}
+		refs = append(refs, ref)
+	}
+	for _, ref := range refs {
 		if err := w.putValidator(ref.cons, ref.info); err != nil {
 			return nil, err
 		}
-		refs = append(refs, ref)
 	}
 	return refs, nil
 }

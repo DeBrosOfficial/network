@@ -81,7 +81,7 @@ func TestFollower_indexesBlocksTransactionsAndAccounts(t *testing.T) {
 
 	st, err := store.Status()
 	require.NoError(t, err)
-	require.Equal(t, Status{StartHeight: 1, Cursor: 3}, st)
+	require.Equal(t, Status{StartHeight: 1, Cursor: 3, AggregatesFrom: 1}, st)
 }
 
 func TestFollower_resumesAfterRestart(t *testing.T) {

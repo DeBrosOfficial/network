@@ -34,6 +34,9 @@ type Chain interface {
 	HeightRange(ctx context.Context) (int64, int64, error)
 	Block(ctx context.Context, height int64) (*coretypes.ResultBlock, error)
 	BlockResults(ctx context.Context, height int64) (*coretypes.ResultBlockResults, error)
+	// QueryAt runs a query against the state committed at height (0 is the latest). A node that no
+	// longer keeps that state answers with an error that has a StatePruned() bool method returning
+	// true (*node.QueryError); the aggregates tell that from any other failure.
 	QueryAt(ctx context.Context, height int64, method string, req, resp gogoproto.Message) error
 	// ValidatorAddresses returns the consensus addresses of the validator set of a height, in the
 	// order of a commit's signatures.
@@ -48,6 +51,9 @@ type Follower struct {
 	codec *codec.ProtoCodec
 	// signing is the validator set the last commit was read against.
 	signing signerSet
+	// folding is whether the block being indexed is folded into the aggregates: they are running,
+	// or the node still keeps the state their baseline reads. It is set for each block.
+	folding bool
 }
 
 // NewFollower binds store to start. A store that was started from another
@@ -63,35 +69,48 @@ func NewFollower(chain Chain, store *Store, start int64) (*Follower, error) {
 }
 
 // Step indexes the committed blocks after the cursor, at most
-// MaxBlocksPerStep of them, and returns how many it indexed.
+// MaxBlocksPerStep of them, and returns how many it indexed. A pass that
+// fails leaves the cursor where it was, and the index's status says why the
+// follower is stuck; a pass that works clears it.
 func (f *Follower) Step(ctx context.Context) (int, error) {
+	n, next, err := f.step(ctx)
+	switch {
+	case err == nil:
+		f.store.clearStuck()
+	case ctx.Err() == nil:
+		f.store.markStuck(next+int64(n), err)
+	}
+	return n, err
+}
+
+// step is one pass of Step. next is the first height it set out to index.
+func (f *Follower) step(ctx context.Context) (n int, next int64, err error) {
 	st, err := f.store.Status()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	next := st.Cursor + 1
+	next = st.Cursor + 1
 	if st.Cursor == 0 {
 		next = f.start
 	}
 	earliest, latest, err := f.chain.HeightRange(ctx)
 	if err != nil {
-		return 0, err
+		return 0, next, err
 	}
 	if next > latest {
-		return 0, nil
+		return 0, next, nil
 	}
 	if next < earliest {
-		return 0, fmt.Errorf("%w: the index needs block %d and the node's earliest block is %d; point --rpc at a node that keeps block %d, or index from --start-height %d or later with a new --home",
+		return 0, next, fmt.Errorf("%w: the index needs block %d and the node's earliest block is %d; point --rpc at a node that keeps block %d, or index from --start-height %d or later with a new --home",
 			ErrPruned, next, earliest, next, earliest)
 	}
-	n := 0
 	for h := next; h <= latest && n < MaxBlocksPerStep; h++ {
 		if err := f.indexBlock(ctx, h); err != nil {
-			return n, err
+			return n, next, err
 		}
 		n++
 	}
-	return n, nil
+	return n, next, nil
 }
 
 func (f *Follower) indexBlock(ctx context.Context, height int64) error {
@@ -111,6 +130,9 @@ func (f *Follower) indexBlock(ctx context.Context, height int64) error {
 		return fmt.Errorf("block %d has %d transactions but %d results", height, len(txs), len(res.TxsResults))
 	}
 	w := f.store.newWriter()
+	if f.folding, err = f.canFold(ctx, w, height); err != nil {
+		return errors.Join(fmt.Errorf("block %d: %w", height, err), w.close())
+	}
 	block := Block{
 		Height:   height,
 		Hash:     lowerHex(blk.BlockID.Hash),

@@ -56,7 +56,7 @@ func TestAPI_servesTheIndex(t *testing.T) {
 
 	code, body := get(t, api, http.MethodGet, "/index/v1/status")
 	require.Equal(t, http.StatusOK, code)
-	require.Equal(t, map[string]any{"start_height": 1.0, "cursor": 3.0, "earliest": 1.0, "tip": 9.0}, body)
+	require.Equal(t, map[string]any{"start_height": 1.0, "cursor": 3.0, "earliest": 1.0, "tip": 9.0, "aggregates_from": 1.0}, body)
 
 	code, body = get(t, api, http.MethodGet, "/index/v1/blocks/2")
 	require.Equal(t, http.StatusOK, code)

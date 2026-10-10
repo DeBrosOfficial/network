@@ -18,6 +18,12 @@ import (
 // the epoch's blocks, not what the schedule allows. Partial is true for the first epoch an index
 // tracks when it began inside that epoch: its start is the chain's, its totals cover only the
 // blocks the index saw.
+//
+// Unavailable is true for an epoch whose figures the index could not read: it closed while the
+// indexer was behind or stopped and the node had already pruned the chain state the figures come
+// from, or it is the epoch after one of those, whose change in the chain's totals would also hold
+// the one before. Such a row has its heights and times and no figure, and UnavailableReason says
+// why. The index never puts the change over several epochs on one.
 type EpochRow struct {
 	Epoch       uint64    `json:"epoch"`
 	StartHeight int64     `json:"start_height"`
@@ -26,25 +32,28 @@ type EpochRow struct {
 	EndTime     time.Time `json:"end_time"`
 	Blocks      int64     `json:"blocks"`
 	Partial     bool      `json:"partial"`
+	Unavailable bool      `json:"unavailable"`
+	// UnavailableReason is set when Unavailable is.
+	UnavailableReason string `json:"unavailable_reason,omitempty"`
 	// MaxMintable is the schedule's ceiling for the epoch (x/emission ScheduleAt).
-	MaxMintable string `json:"max_mintable"`
+	MaxMintable string `json:"max_mintable,omitempty"`
 	// MintedValidators is the validator and delegator share, minted when the epoch closed. The
 	// chain pays it to earnings accounts without an event or query per recipient, so the split
 	// between validators and delegators is not available.
-	MintedValidators  string `json:"minted_validators"`
-	MintedService     string `json:"minted_service"`
-	MintedDevelopment string `json:"minted_development"`
-	MintedFaucet      string `json:"minted_faucet"`
-	MintedTotal       string `json:"minted_total"`
-	Burned            string `json:"burned"`
-	FeesCollected     string `json:"fees_collected"`
-	FeesBurned        string `json:"fees_burned"`
-	FeesDistributed   string `json:"fees_distributed"`
+	MintedValidators  string `json:"minted_validators,omitempty"`
+	MintedService     string `json:"minted_service,omitempty"`
+	MintedDevelopment string `json:"minted_development,omitempty"`
+	MintedFaucet      string `json:"minted_faucet,omitempty"`
+	MintedTotal       string `json:"minted_total,omitempty"`
+	Burned            string `json:"burned,omitempty"`
+	FeesCollected     string `json:"fees_collected,omitempty"`
+	FeesBurned        string `json:"fees_burned,omitempty"`
+	FeesDistributed   string `json:"fees_distributed,omitempty"`
 	// RewardsCredited is what x/power credited to earnings accounts when the epoch closed (the
 	// bank transfers from x/power to x/fees in the closing block's events), and RewardsForceBonded
 	// what it bonded into bootstrap committee members' self-delegations instead.
-	RewardsCredited    string `json:"rewards_credited"`
-	RewardsForceBonded string `json:"rewards_force_bonded"`
+	RewardsCredited    string `json:"rewards_credited,omitempty"`
+	RewardsForceBonded string `json:"rewards_force_bonded,omitempty"`
 }
 
 // SupplyPoint is the supply breakdown after an epoch's closing block. Every figure is a query at
@@ -158,6 +167,10 @@ type watch struct {
 	MinBlocks     uint64      `json:"min_blocks"`
 	Partial       bool        `json:"partial"`
 	Prev          cumulatives `json:"prev"`
+	// PrevUnknown is set when Prev is not the chain's totals at the end of the epoch before,
+	// because that epoch closed as unavailable: this epoch's change in the totals cannot be told
+	// from the change over both.
+	PrevUnknown bool `json:"prev_unknown,omitempty"`
 	// ValSetHash is the hash of the validator set that signed Height, which the next block's
 	// commit is signed by.
 	ValSetHash []byte `json:"valset_hash"`

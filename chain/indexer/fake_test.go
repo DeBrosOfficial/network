@@ -20,6 +20,7 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/DeBrosOfficial/network/chain/client/node"
 )
 
 // fakeChain is a node that serves a fixed list of blocks and answers
@@ -37,8 +38,21 @@ type fakeChain struct {
 	// valsetChanges maps a height to the set that governs it and the heights after it.
 	valsetChanges map[int64][][]byte
 	valsetCalls   int
+	// prunedBelow is the height under which the node has pruned the chain state (0 prunes none): a
+	// query at a height above 0 and below it fails the way a real node does.
+	prunedBelow int64
+	// failing makes the query with a queryKey fail with the error given.
+	failing map[string]error
 	// step is the seconds between blocks.
 	step int64
+}
+
+// prunedStateError is the answer of a node that no longer holds the state of a height.
+func prunedStateError(method string, height int64) error {
+	return &node.QueryError{
+		Method: method, Codespace: "sdk", Code: 38,
+		Log: fmt.Sprintf("failed to load state at height %d; version mismatch on immutable IAVL tree; version does not exist. Version has either been pruned, or is for a future block height (latest height: 900): not found", height),
+	}
 }
 
 type fakeBlock struct {
@@ -133,6 +147,12 @@ func queryKey(method string, height int64) string { return fmt.Sprintf("%s@%d", 
 func (f *fakeChain) QueryAt(_ context.Context, height int64, method string, req, resp gogoproto.Message) error {
 	key := queryKey(method, height)
 	f.asked = append(f.asked, key)
+	if err, ok := f.failing[key]; ok {
+		return err
+	}
+	if height > 0 && height < f.prunedBelow {
+		return prunedStateError(method, height)
+	}
 	ans, ok := f.queries[key]
 	if !ok {
 		var err error

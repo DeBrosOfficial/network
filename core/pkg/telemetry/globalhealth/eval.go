@@ -204,6 +204,15 @@ func globalIssues(n Node) []Issue {
 				*g.Provider.DiskBytes, *g.Provider.StorageMaxBytes))
 		}
 	}
+	if addUnit(constants.GlobalIndexerUnit, "global.indexer.down", "chain indexer") == "active" {
+		switch ix := g.Indexer; {
+		case ix == nil || ix.Error != "":
+			add(Warning, "global.indexer.api", blank(indexerError(ix), "chain indexer status did not answer"))
+		case ix.Stuck != nil:
+			add(Warning, "global.indexer.stuck", fmt.Sprintf("chain indexer is stuck at block %d (%d of %d indexed): %s",
+				ix.Stuck.Height, ix.Cursor, ix.Tip, ix.Stuck.Reason))
+		}
+	}
 	// A host runs a relay or a directory authority; each is in the consensus
 	// and reports whether the consensus it holds lists it.
 	for _, role := range []struct{ unit, code, label string }{
@@ -217,6 +226,13 @@ func globalIssues(n Node) []Issue {
 		}
 	}
 	return out
+}
+
+func indexerError(ix *report.IndexerReport) string {
+	if ix == nil {
+		return ""
+	}
+	return ix.Error
 }
 
 func unitState(g *report.GlobalReport, name string) (string, bool) {

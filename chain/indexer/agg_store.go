@@ -49,6 +49,11 @@ func (w *writer) watch() (watch, bool, error) {
 
 func (w *writer) putWatch(wt watch) error { return w.setJSON([]byte(keyWatch), wt) }
 
+// setAggregatesFrom records the height the aggregates begin at.
+func (w *writer) setAggregatesFrom(height int64) error {
+	return w.set([]byte(keyAggFrom), be64(uint64(height)))
+}
+
 // counters returns a validator's tallies in the epoch in progress.
 func (w *writer) counters(epoch uint64, cons []byte) (counters, error) {
 	c := counters{Burned: cosmath.ZeroInt()}

@@ -109,9 +109,14 @@ func (a *API) serveStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "chain unreachable")
 		return
 	}
-	writeJSON(w, map[string]int64{
+	out := map[string]any{
 		"start_height": st.StartHeight, "cursor": st.Cursor, "earliest": earliest, "tip": tip,
-	})
+		"aggregates_from": st.AggregatesFrom,
+	}
+	if st.Stuck != nil {
+		out["stuck"] = st.Stuck
+	}
+	writeJSON(w, out)
 }
 
 func (a *API) serveBlock(w http.ResponseWriter, r *http.Request, raw string) {

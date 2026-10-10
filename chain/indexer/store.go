@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/cockroachdb/pebble"
 )
@@ -31,6 +32,7 @@ const (
 	pfxWeek    = "s/w/" // Monday-based week number → week statistics
 
 	keyWatch   = "e/w"  // the aggregator's position
+	keyAggFrom = "e/b"  // the height the aggregates begin at
 	pfxEpoch   = "e/r/" // epoch → EpochRow
 	pfxSupply  = "e/s/" // epoch → SupplyPoint
 	pfxValEp   = "e/h/" // consensus address, epoch → ValidatorEpoch
@@ -52,6 +54,9 @@ const schemaVersion uint64 = 3
 // Store is the on-disk index. Reads are safe while the follower writes.
 type Store struct {
 	db *pebble.DB
+
+	mu    sync.Mutex
+	stuck *Stuck
 }
 
 // Open opens or creates the index in dir.
@@ -100,8 +105,9 @@ func (s *Store) Close() error {
 	return nil
 }
 
-// Status reads the start height and the last indexed height. Both are zero
-// on an index that has never been bound to a start height.
+// Status reads the start height, the last indexed height, the height the aggregates begin at and
+// whether the follower is stuck. The heights are zero on an index that has never been bound to a
+// start height, and AggregatesFrom is zero until the aggregates have begun.
 func (s *Store) Status() (Status, error) {
 	start, _, err := getUint(s.db, []byte(keyStart))
 	if err != nil {
@@ -111,7 +117,11 @@ func (s *Store) Status() (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
-	return Status{StartHeight: int64(start), Cursor: int64(cursor)}, nil
+	from, _, err := getUint(s.db, []byte(keyAggFrom))
+	if err != nil {
+		return Status{}, err
+	}
+	return Status{StartHeight: int64(start), Cursor: int64(cursor), AggregatesFrom: int64(from), Stuck: s.currentStuck()}, nil
 }
 
 // bindStart records the start height of a new index. An index that already

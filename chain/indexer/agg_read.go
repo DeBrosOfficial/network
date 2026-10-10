@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -179,20 +180,17 @@ type ValidatorSummary struct {
 	LastEpoch *ValidatorEpoch `json:"last_epoch,omitempty"`
 }
 
-// Validators returns one page of the validators of the newest closed epoch, highest voting power
-// first. It is empty before any epoch has closed.
+// Validators returns one page of the validators of the newest closed epoch that has validator rows,
+// highest voting power first. It is empty before any epoch has closed. An epoch closed as
+// unavailable has none, so the page is then the epoch before it; each row names its epoch.
 func (s *Store) Validators(page, limit int) ([]ValidatorSummary, error) {
 	snap := s.db.NewSnapshot()
 	defer snap.Close()
-	newest, err := scan(snap, []byte(pfxEpoch), true, 1, 1)
+	newest, err := scan(snap, []byte(pfxPowerIx), true, 1, 1)
 	if err != nil || len(newest) == 0 {
 		return []ValidatorSummary{}, err
 	}
-	var latest EpochRow
-	if err := json.Unmarshal(newest[0].value, &latest); err != nil {
-		return nil, fmt.Errorf("failed to decode an epoch row: %w", err)
-	}
-	rows, err := epochValidators(snap, latest.Epoch, page, limit)
+	rows, err := epochValidators(snap, binary.BigEndian.Uint64(newest[0].suffix[:8]), page, limit)
 	if err != nil {
 		return nil, err
 	}

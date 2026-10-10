@@ -38,4 +38,6 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/epochs, /epochs/{epoch}, /epochs/{epoch}/validators and /supply answer the closed emission epochs, an epoch's validators and one supply point per epoch, newest first, and an unknown epoch is a 404"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/validators, /validators/{operator} and its /epochs, /slashes and /jails answer a validator's power, uptime, slashes and jail periods"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: every aggregate list takes page 1 to 1000 and limit 1 to 100 and refuses a value outside them, an unknown parameter and a repeated one"
+    - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/status carries aggregates_from, and stuck while the follower cannot advance; the fleet's indexers are not stuck"
+    - "website/src/docs/blockchain/reading-the-chain.mdx#epochs-the-index-could-not-read: an epoch row is either exact or unavailable with a reason and no figure"
     - "website/src/docs/blockchain/reading-the-chain.mdx#the-explorer: each gateway answers the explorer's origin, https://orama.network, on a GET (and its preflight) under /v1/chain/ and refuses it on every other route"

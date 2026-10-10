@@ -121,8 +121,13 @@ type Asset struct {
 	UpdatedTx     string `json:"updated_tx"`
 }
 
-// Status is the follower's position.
+// Status is the follower's position. The epoch, supply and validator aggregates begin at
+// AggregatesFrom: the index's first block, or, if the node had pruned the chain state of the
+// blocks before, the first block whose state it still kept. Stuck is set while the last pass
+// failed.
 type Status struct {
-	StartHeight int64 `json:"start_height"`
-	Cursor      int64 `json:"cursor"`
+	StartHeight    int64  `json:"start_height"`
+	Cursor         int64  `json:"cursor"`
+	AggregatesFrom int64  `json:"aggregates_from"`
+	Stuck          *Stuck `json:"stuck,omitempty"`
 }

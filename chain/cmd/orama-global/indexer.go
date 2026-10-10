@@ -99,7 +99,8 @@ func runIndexer(ctx context.Context, rpc, home, listen string, start int64, inte
 
 // follow runs the follower until ctx ends, the API stops, or the index can
 // no longer advance without a gap. Other errors (oramad restarting, a
-// timeout) are logged and the next pass retries from the same cursor.
+// timeout) are retried from the same cursor on the next pass; Step logs each
+// and the index's status route shows the follower as stuck while they last.
 func follow(ctx context.Context, f *indexer.Follower, interval time.Duration, served <-chan error) error {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
@@ -107,9 +108,6 @@ func follow(ctx context.Context, f *indexer.Follower, interval time.Duration, se
 		n, err := f.Step(ctx)
 		if errors.Is(err, indexer.ErrPruned) {
 			return err
-		}
-		if err != nil && ctx.Err() == nil {
-			slog.Error("indexer pass failed", "err", err)
 		}
 		if n == indexer.MaxBlocksPerStep {
 			slog.Info("indexed blocks, still behind the tip", "count", n)

@@ -49,6 +49,9 @@ func globalLine(t view.Theme, g *report.GlobalReport) string {
 	if state, ok := unitState(g, constants.GlobalProviderUnit); ok {
 		parts = append(parts, "provider "+unitLabel(t, state)+providerFacts(g.Provider))
 	}
+	if state, ok := unitState(g, constants.GlobalIndexerUnit); ok {
+		parts = append(parts, "indexer "+unitLabel(t, state)+indexerFacts(t, g.Indexer))
+	}
 	if state, ok := unitState(g, constants.GlobalTorRelayUnit); ok {
 		parts = append(parts, "relay "+unitLabel(t, state)+relayFacts(t, g.Relay))
 	}
@@ -102,6 +105,17 @@ func providerFacts(p *report.ProviderReport) string {
 		return ""
 	}
 	return " (" + strings.Join(facts, ", ") + ")"
+}
+
+func indexerFacts(t view.Theme, ix *report.IndexerReport) string {
+	switch {
+	case ix == nil || ix.Error != "":
+		return ""
+	case ix.Stuck != nil:
+		return fmt.Sprintf(" (%s)", t.Crit.Render(fmt.Sprintf("STUCK at block %d: %s", ix.Stuck.Height, ix.Stuck.Reason)))
+	default:
+		return fmt.Sprintf(" (block %d of %d)", ix.Cursor, ix.Tip)
+	}
 }
 
 func relayFacts(t view.Theme, r *report.RelayReport) string {

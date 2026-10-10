@@ -88,7 +88,7 @@ type chainReader struct {
 
 func (r chainReader) ask(method string, req, resp gogoproto.Message) error {
 	if err := r.chain.QueryAt(r.ctx, r.height, method, req, resp); err != nil {
-		return fmt.Errorf("query %s at height %d (the node must keep state for every height the index covers): %w", method, r.height, err)
+		return fmt.Errorf("query %s at height %d: %w", method, r.height, err)
 	}
 	return nil
 }

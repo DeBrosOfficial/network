@@ -127,6 +127,18 @@ It also keeps aggregates for the explorer, computed once as each block is indexe
 
 Every list is paged like the others (`page` up to 1000, `limit` up to 100, newest first). The first epoch an index tracks is marked `partial` when the index began inside it. The chain does not expose the reward each validator was paid, the split of the validator share between validators and delegators, or the split of service mints between storage and relay, so the index does not show them.
 
+### Epochs the index could not read
+
+The chain's nodes keep only their last 100 states (they prune every 10 blocks), and the aggregates are read from state. An indexer that starts on a chain older than that, or is stopped or behind while an epoch closes, finds the state gone. It never fills in a number it could not read:
+
+- **An epoch row with `"unavailable": true`** closed while the node no longer kept its state. It has its first and last block and time, an `unavailable_reason`, and none of the figures (`minted_total`, `burned` and the rest are absent, not zero). It has no supply point, and `/epochs/{n}/validators` is an empty list for it.
+- **The epoch after one is unavailable too, when it is the next close the node still has state for.** Its change in the chain's totals would also contain the unavailable epoch before it, so the index does not show it; its supply point and its validators are exact, because they are the state of that height. The epochs after it are exact again.
+- **`/validators` answers the newest epoch that has validators**, and each row names its `epoch`, so an unavailable epoch at the tip does not empty the page.
+- **`/status` has `aggregates_from`**, the first block the aggregates cover. It is the index's first block unless the node had pruned the state of the blocks before it, in which case the earlier blocks, transactions and accounts are indexed and the epochs that closed before `aggregates_from` are not in the list.
+- **`/status` has `stuck` while the indexer cannot go on**: the block it cannot index (`height`), the error (`reason`), whether it is a state the node pruned (`state_pruned`), when it began and how many passes failed. It is absent when the indexer works. An operator reads it on the node with `curl http://127.0.0.1:31015/index/v1/status`, or through a gateway at `/v1/chain/index/status`.
+
+To have every epoch with figures, run the indexer from the start of the chain against a node that keeps all state (a node whose `pruning` is `nothing`), or leave the indexer running: it keeps up with the chain and loses nothing.
+
 ## The explorer
 
 The site has an explorer page at `/explorer` (Home, Block, Transaction, Wallet, Validators, Validator, Epochs, Epoch, Emission and Supply views). It reads the chain only through the gateway routes above, and has no demo data: when the proxy or the indexer is down a page shows an error box and nothing else. The transaction, block, wallet and epoch pages need the chain indexer on the node the gateway reads. A node that runs none answers the index routes `503` with "this node runs no chain indexer", and the explorer then says so in plain words instead of showing an error box; the current epoch and the emission schedule come from chain queries and still load.

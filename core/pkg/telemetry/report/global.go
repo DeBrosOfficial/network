@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,7 @@ var (
 	dirauthMonitorPath  = filepath.Join(constants.GlobalTorDirauthHome, constants.GlobalMonitorFile)
 	globalSystemctl     = chainSystemctl
 	globalIPFSPost      = postBearer
+	globalIndexerGet    = getLocal
 )
 
 // globalIPFSAPI is the public Kubo RPC as this machine's host reaches it: loopback, or on a
@@ -44,7 +46,7 @@ func collectGlobal() *GlobalReport {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	units := []string{constants.GlobalIPFSUnit, constants.GlobalProviderUnit, constants.GlobalTorRelayUnit, constants.GlobalTorDirauthUnit}
+	units := []string{constants.GlobalIPFSUnit, constants.GlobalProviderUnit, constants.GlobalIndexerUnit, constants.GlobalTorRelayUnit, constants.GlobalTorDirauthUnit}
 	var g GlobalReport
 	installed := 0
 	for _, name := range units {
@@ -67,6 +69,9 @@ func collectGlobal() *GlobalReport {
 	}
 	if _, ok := globalUnitState(&g, constants.GlobalProviderUnit); ok {
 		g.Provider = readProviderMonitor()
+	}
+	if state, ok := globalUnitState(&g, constants.GlobalIndexerUnit); ok && state == "active" {
+		g.Indexer = readIndexerStatus(ctx)
 	}
 	// A host runs a relay or a directory authority, never both; each writes its
 	// own home's monitor.json.
@@ -141,6 +146,47 @@ func readToken(path string) (string, error) {
 		return "", fmt.Errorf("public Kubo API token is empty")
 	}
 	return token, nil
+}
+
+// globalIndexerAPI is the chain indexer's read API as this machine's host reaches it: loopback, or
+// on a co-located machine the namespace address.
+func globalIndexerAPI() string {
+	if colocatedGlobal() {
+		return constants.ColocatedGlobalIndexerURL()
+	}
+	return constants.LocalGlobalIndexerURL()
+}
+
+// readIndexerStatus asks the indexer for its status. The answer is read from a loopback port any
+// local process could hold, so only the fields the report shows are kept and the reason is cut and
+// stripped of anything unprintable like every other error text in the report.
+func readIndexerStatus(ctx context.Context) *IndexerReport {
+	r := &IndexerReport{}
+	body, err := globalIndexerGet(ctx, globalIndexerAPI()+"/index/v1/status")
+	if err != nil {
+		r.Error = shortChainError(err)
+		return r
+	}
+	var st struct {
+		Cursor int64 `json:"cursor"`
+		Tip    int64 `json:"tip"`
+		Stuck  *struct {
+			Height      int64  `json:"height"`
+			Reason      string `json:"reason"`
+			StatePruned bool   `json:"state_pruned"`
+		} `json:"stuck"`
+	}
+	if err := json.Unmarshal(body, &st); err != nil {
+		r.Error = "chain indexer status is not JSON"
+		return r
+	}
+	r.Cursor, r.Tip = st.Cursor, st.Tip
+	if st.Stuck != nil {
+		r.Stuck = &IndexerStuck{
+			Height: st.Stuck.Height, Reason: shortChainError(errors.New(st.Stuck.Reason)), StatePruned: st.Stuck.StatePruned,
+		}
+	}
+	return r
 }
 
 func readProviderMonitor() *ProviderReport {
@@ -276,6 +322,29 @@ func readCapped(path string, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("%s is over %d bytes", filepath.Base(path), limit)
 	}
 	return data, nil
+}
+
+// getLocal GETs a loopback service and returns the body of a 200 answer.
+func getLocal(ctx context.Context, url string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, localHTTPTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := readLocalBody(resp.Body, url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d from the chain indexer", resp.StatusCode)
+	}
+	return body, nil
 }
 
 // postBearer POSTs an empty body. The token is a header and is never put in an error.

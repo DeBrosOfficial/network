@@ -70,6 +70,10 @@ func TestExplorerAggregates_epochsSupplyAndValidators(t *testing.T) {
 			StartHeight int64  `json:"start_height"`
 			EndHeight   int64  `json:"end_height"`
 			MintedTotal string `json:"minted_total"`
+			// Unavailable marks an epoch whose figures the index could not read because the node
+			// had pruned the state they come from: it has no figure and says why.
+			Unavailable       bool   `json:"unavailable"`
+			UnavailableReason string `json:"unavailable_reason"`
 		} `json:"epochs"`
 	}
 	decode(t, read(t, "/index/epochs", url.Values{"limit": {fmt.Sprint(indexListLimit)}}), &epochs)
@@ -77,12 +81,17 @@ func TestExplorerAggregates_epochsSupplyAndValidators(t *testing.T) {
 		t.Fatalf("%d epochs, asked for at most %d", len(epochs.Epochs), indexListLimit)
 	}
 	for i, e := range epochs.Epochs {
-		if e.EndHeight < e.StartHeight || e.MintedTotal == "" || (i > 0 && e.Epoch >= epochs.Epochs[i-1].Epoch) {
+		exact := !e.Unavailable && e.MintedTotal != ""
+		known := e.Unavailable && e.MintedTotal == "" && e.UnavailableReason != ""
+		if e.EndHeight < e.StartHeight || !(exact || known) || (i > 0 && e.Epoch >= epochs.Epochs[i-1].Epoch) {
 			t.Errorf("epoch row %+v is inconsistent or out of order", e)
 		}
 	}
-	if len(epochs.Epochs) > 0 {
-		checkClosedEpoch(t, epochs.Epochs[0].Epoch)
+	for _, e := range epochs.Epochs {
+		if !e.Unavailable {
+			checkClosedEpoch(t, e.Epoch)
+			break
+		}
 	}
 
 	if resp := read(t, fmt.Sprintf("/index/epochs/%d", unknownEpoch), nil); resp.Status != http.StatusNotFound {

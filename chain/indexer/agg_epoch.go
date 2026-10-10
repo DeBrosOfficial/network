@@ -36,6 +36,9 @@ type blockFacts struct {
 // for a block where the rule holds. The query confirms the close and fails loudly if the chain
 // disagrees, so a changed rule cannot silently skew the epochs.
 func (f *Follower) aggregate(ctx context.Context, w *writer, b blockFacts) error {
+	if !f.folding {
+		return nil
+	}
 	r := chainReader{ctx: ctx, chain: f.chain, height: b.height}
 	wt, ok, err := w.watch()
 	if err != nil {
@@ -66,7 +69,13 @@ func (f *Follower) aggregate(ctx context.Context, w *writer, b blockFacts) error
 // deltas are taken from, and the validators. The epoch's start height is exact: x/emission counts
 // the blocks since the epoch began, so the epoch began that many blocks back. The epoch is partial
 // unless that block closed the previous one: then the state it is read from is the epoch's start.
+// The block is the index's first, or, when the node had pruned the state of the blocks before it,
+// the first whose state it still keeps (agg_pruned.go): the aggregates begin there, and the status
+// says so.
 func (f *Follower) baseline(r chainReader, w *writer, b blockFacts) (watch, error) {
+	if err := w.setAggregatesFrom(b.height); err != nil {
+		return watch{}, err
+	}
 	state, err := r.emissionState()
 	if err != nil {
 		return watch{}, err
@@ -106,11 +115,22 @@ func (wt watch) due(b blockFacts) bool {
 	return elapsed >= time.Duration(wt.DurationSec)*time.Second && blocks >= 0 && uint64(blocks) >= wt.MinBlocks
 }
 
-// advance closes the epoch if block b closed it.
+// advance closes the epoch if block b closed it. When the node no longer keeps the state of b, the
+// epoch is closed as unavailable (closeUnreadable) and the index goes on.
 func (f *Follower) advance(r chainReader, w *writer, wt watch, b blockFacts) (watch, error) {
 	if !wt.due(b) {
 		return wt, nil
 	}
+	next, err := f.closeFromState(r, w, wt, b)
+	if isStatePruned(err) {
+		return f.closeUnreadable(w, wt, b)
+	}
+	return next, err
+}
+
+// closeFromState confirms against the chain that block b closed the epoch and reads the epoch's
+// figures from its state.
+func (f *Follower) closeFromState(r chainReader, w *writer, wt watch, b blockFacts) (watch, error) {
 	state, err := r.emissionState()
 	if err != nil {
 		return watch{}, err
@@ -129,6 +149,12 @@ func (f *Follower) advance(r chainReader, w *writer, wt watch, b blockFacts) (wa
 // closeEpoch stores the closed epoch's row, supply point and validator rows, and returns the watch
 // of the epoch that follows. Every figure is the chain's: the cumulative counters and balances at
 // the closing height, the closing block's events, and the tallies the follower kept block by block.
+// It reads all it needs from the chain before it writes anything but the validator registry, so a
+// state the node has pruned part way through leaves nothing of the epoch behind.
+//
+// An epoch that follows one closed as unavailable (wt.PrevUnknown) has the supply and validators
+// of its closing height, which are exact, but its change in the chain's totals is the change since
+// the epoch before it too, so its row is unavailable as well. The totals read here start the next.
 func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, state emissiontypes.EpochState) (watch, error) {
 	cur, err := r.cumulatives(state)
 	if err != nil {
@@ -142,21 +168,25 @@ func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, 
 	if err != nil {
 		return watch{}, err
 	}
-	if err := w.setJSON(epochKey(wt.Epoch), newEpochRow(wt, b, cur, schedule, credited, bonded)); err != nil {
-		return watch{}, err
-	}
 	point, err := supplyPoint(r, wt.Epoch, b, state, cur)
 	if err != nil {
 		return watch{}, err
 	}
-	if err := w.setJSON(supplyKey(wt.Epoch), point); err != nil {
+	p, err := r.emissionParams()
+	if err != nil {
 		return watch{}, err
 	}
 	if err := f.closeValidators(r, w, wt.Epoch); err != nil {
 		return watch{}, err
 	}
-	p, err := r.emissionParams()
-	if err != nil {
+	row := newEpochRow(wt, b, cur, schedule, credited, bonded)
+	if wt.PrevUnknown {
+		row = unavailableRow(wt, b, reasonPrevUnread)
+	}
+	if err := w.setJSON(epochKey(wt.Epoch), row); err != nil {
+		return watch{}, err
+	}
+	if err := w.setJSON(supplyKey(wt.Epoch), point); err != nil {
 		return watch{}, err
 	}
 	return watch{
@@ -165,10 +195,13 @@ func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, 
 	}, nil
 }
 
+// epochStart is the time the epoch in progress began, as the chain recorded it.
+func epochStart(wt watch) time.Time { return time.Unix(0, wt.StartUnixNano).UTC() }
+
 func newEpochRow(wt watch, b blockFacts, cur cumulatives, schedule, credited, bonded math.Int) EpochRow {
 	d := cur.since(wt.Prev)
 	return EpochRow{
-		Epoch: wt.Epoch, StartHeight: wt.StartHeight, StartTime: time.Unix(0, wt.StartUnixNano).UTC(),
+		Epoch: wt.Epoch, StartHeight: wt.StartHeight, StartTime: epochStart(wt),
 		EndHeight: b.height, EndTime: b.time.UTC(), Blocks: b.height - wt.StartHeight + 1, Partial: wt.Partial,
 		MaxMintable:      schedule.String(),
 		MintedValidators: d.Minted.String(), MintedService: d.Service.String(),
