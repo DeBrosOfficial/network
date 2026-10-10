@@ -183,8 +183,18 @@ func noRelayNote(o Options, network *netregistry.Manifest) string {
 // that go with them. The chain is on every node; the public IPFS and its
 // provider are the storage role; the relay is installed when relay is set, and
 // is an exit only on request.
+//
+// The cluster a creation makes is the network's own: its gateway is the
+// network's public face, read by the explorer and by the SDK's history routes
+// (/v1/chain/index/), and a visitor reaches any of its nodes through DNS, so
+// every node of it runs the chain indexer. An operator's private cluster serves
+// its own users, and indexing the whole chain on each of its nodes would cost
+// disk for no reader, so a join installs none.
 func globalServices(o Options, relay bool) ([]install.GlobalService, []int) {
 	services := []install.GlobalService{install.GlobalServiceChain, install.GlobalServiceIPFS, install.GlobalServiceProvider}
+	if o.Create != nil {
+		services = append(services, install.GlobalServiceIndexer)
+	}
 	roles := []int{clusterreg.RoleStorage}
 	if relay {
 		services = append(services, install.GlobalServiceRelay)

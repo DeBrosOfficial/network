@@ -246,3 +246,31 @@ func TestBuildPlan_summaryWarnsWhenItAddsToACluster(t *testing.T) {
 		t.Errorf("a new cluster is not an addition:\n%s", text)
 	}
 }
+
+// The live stagenet create run: the explorer read /v1/chain/index/epochs through the network's
+// gateway and every node answered "this node runs no chain indexer". The cluster a creation makes
+// is the network's public face, so each of its nodes runs the indexer; a join's private cluster
+// does not.
+func TestBuildPlan_aCreatedNetworksNodesRunTheIndexerAJoinsDoNot(t *testing.T) {
+	o := createOptions(nIPs(3)...)
+	if err := o.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	m, err := o.Create.manifest(strings.Repeat("a", 64), 3, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := BuildCreatePlan(o, m, "stagenet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range created.Nodes {
+		if !n.HasService(install.GlobalServiceIndexer) {
+			t.Errorf("created network node %s: services %v, want the indexer", n.IP, n.ServiceNames())
+		}
+	}
+	joined := planFor(t, Options{IPs: []string{ip1}, Name: "alice"}).Nodes[0]
+	if joined.HasService(install.GlobalServiceIndexer) {
+		t.Errorf("a join installs the indexer: %v", joined.ServiceNames())
+	}
+}
