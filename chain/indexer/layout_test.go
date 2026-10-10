@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +37,7 @@ func TestMoveAsideStale_anOldIndexIsMovedAsideAndAFreshOneStarts(t *testing.T) {
 
 	res, err := MoveAsideStale(dir, movedAt)
 	require.NoError(t, err)
-	want := dir + ".v2-20261011T013005Z"
+	want := fmt.Sprintf("%s.v%d-20261011T013005Z", dir, schemaVersion-1)
 	require.Equal(t, MoveResult{Present: true, Version: schemaVersion - 1, Current: schemaVersion, MovedTo: want}, res)
 	_, err = os.Stat(dir)
 	require.ErrorIs(t, err, os.ErrNotExist, "nothing is left where the indexer looks")
@@ -112,7 +113,7 @@ func TestMoveAsideStale_aNewerIndexIsAnErrorAndStaysWhereItIs(t *testing.T) {
 	indexOfLayout(t, dir, schemaVersion+1)
 
 	_, err := MoveAsideStale(dir, movedAt)
-	require.ErrorContains(t, err, "newer than the 3 this indexer writes")
+	require.ErrorContains(t, err, fmt.Sprintf("newer than the %d this indexer writes", schemaVersion))
 	_, err = os.Stat(dir)
 	require.NoError(t, err)
 }
@@ -133,7 +134,7 @@ func TestMoveAsideStale_aRunningIndexerIsNotMovedUnderItself(t *testing.T) {
 func TestMoveAsideStale_aTakenNameIsNotOverwritten(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "index")
 	indexOfLayout(t, dir, schemaVersion-1)
-	taken := dir + ".v2-20261011T013005Z"
+	taken := fmt.Sprintf("%s.v%d-20261011T013005Z", dir, schemaVersion-1)
 	require.NoError(t, os.Mkdir(taken, 0o755))
 
 	_, err := MoveAsideStale(dir, movedAt)
@@ -155,4 +156,25 @@ func TestMoveAsideStale_theSecondRunFindsTheFreshIndexCurrent(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, res.MovedTo, "the upgrade is safe to run again")
 	require.True(t, res.Present)
+}
+
+// Layout 3 is the one before the per-epoch rewards: an index of it has epochs that never recorded
+// who was paid, and cannot be completed, so the upgrade moves it aside and a new one starts.
+func TestMoveAsideStale_theLayoutBeforeRewardsIsMovedAside(t *testing.T) {
+	const beforeRewards = 3
+	require.Greater(t, schemaVersion, uint64(beforeRewards))
+	dir := filepath.Join(t.TempDir(), "index")
+	indexOfLayout(t, dir, beforeRewards)
+
+	res, err := MoveAsideStale(dir, movedAt)
+	require.NoError(t, err)
+	require.True(t, res.Present)
+	require.Equal(t, uint64(beforeRewards), res.Version)
+	require.Equal(t, dir+".v3-20261011T013005Z", res.MovedTo)
+
+	fresh, err := Open(dir)
+	require.NoError(t, err)
+	defer fresh.Close()
+	_, err = os.Stat(res.MovedTo)
+	require.NoError(t, err, "the old index is kept")
 }

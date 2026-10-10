@@ -121,16 +121,23 @@ func (f *Follower) advance(r chainReader, w *writer, wt watch, b blockFacts) (wa
 	if !wt.due(b) {
 		return wt, nil
 	}
-	next, err := f.closeFromState(r, w, wt, b)
-	if isStatePruned(err) {
-		return f.closeUnreadable(w, wt, b)
+	rw, err := readRewards(wt.Epoch, b.events)
+	if err != nil {
+		return watch{}, err
 	}
-	return next, err
+	next, err := f.closeFromState(r, w, wt, b, rw)
+	if isStatePruned(err) {
+		next, err = f.closeUnreadable(w, wt, b, rw)
+	}
+	if err != nil {
+		return watch{}, err
+	}
+	return next, w.putRewards(wt.Epoch, rw)
 }
 
 // closeFromState confirms against the chain that block b closed the epoch and reads the epoch's
 // figures from its state.
-func (f *Follower) closeFromState(r chainReader, w *writer, wt watch, b blockFacts) (watch, error) {
+func (f *Follower) closeFromState(r chainReader, w *writer, wt watch, b blockFacts, rw epochRewards) (watch, error) {
 	state, err := r.emissionState()
 	if err != nil {
 		return watch{}, err
@@ -143,7 +150,7 @@ func (f *Follower) closeFromState(r chainReader, w *writer, wt watch, b blockFac
 		return watch{}, fmt.Errorf("the chain is at epoch %d (started at %d) after block %d (time %d) while the index followed epoch %d: an epoch boundary was missed",
 			state.CurrentEpoch, state.EpochStartUnixNano, b.height, b.time.UnixNano(), wt.Epoch)
 	}
-	return f.closeEpoch(r, w, wt, b, state)
+	return f.closeEpoch(r, w, wt, b, state, rw)
 }
 
 // closeEpoch stores the closed epoch's row, supply point and validator rows, and returns the watch
@@ -155,16 +162,12 @@ func (f *Follower) closeFromState(r chainReader, w *writer, wt watch, b blockFac
 // An epoch that follows one closed as unavailable (wt.PrevUnknown) has the supply and validators
 // of its closing height, which are exact, but its change in the chain's totals is the change since
 // the epoch before it too, so its row is unavailable as well. The totals read here start the next.
-func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, state emissiontypes.EpochState) (watch, error) {
+func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, state emissiontypes.EpochState, rw epochRewards) (watch, error) {
 	cur, err := r.cumulatives(state)
 	if err != nil {
 		return watch{}, err
 	}
 	schedule, err := r.maxMintable(wt.Epoch)
-	if err != nil {
-		return watch{}, err
-	}
-	credited, bonded, err := rewardFlows(b.events)
 	if err != nil {
 		return watch{}, err
 	}
@@ -179,9 +182,12 @@ func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, 
 	if err := f.closeValidators(r, w, wt.Epoch); err != nil {
 		return watch{}, err
 	}
-	row := newEpochRow(wt, b, cur, schedule, credited, bonded)
+	row := newEpochRow(wt, b, cur, schedule, rw)
 	if wt.PrevUnknown {
 		row = unavailableRow(wt, b, reasonPrevUnread)
+	}
+	if err := rw.apply(&row); err != nil {
+		return watch{}, err
 	}
 	if err := w.setJSON(epochKey(wt.Epoch), row); err != nil {
 		return watch{}, err
@@ -198,7 +204,7 @@ func (f *Follower) closeEpoch(r chainReader, w *writer, wt watch, b blockFacts, 
 // epochStart is the time the epoch in progress began, as the chain recorded it.
 func epochStart(wt watch) time.Time { return time.Unix(0, wt.StartUnixNano).UTC() }
 
-func newEpochRow(wt watch, b blockFacts, cur cumulatives, schedule, credited, bonded math.Int) EpochRow {
+func newEpochRow(wt watch, b blockFacts, cur cumulatives, schedule math.Int, rw epochRewards) EpochRow {
 	d := cur.since(wt.Prev)
 	return EpochRow{
 		Epoch: wt.Epoch, StartHeight: wt.StartHeight, StartTime: epochStart(wt),
@@ -209,7 +215,7 @@ func newEpochRow(wt watch, b blockFacts, cur cumulatives, schedule, credited, bo
 		MintedTotal: d.Minted.Add(d.Service).Add(d.Development).Add(d.Faucet).String(),
 		Burned:      d.Burned.String(), FeesCollected: d.FeesCollected.String(),
 		FeesBurned: d.FeesBurned.String(), FeesDistributed: d.FeesDistributed.String(),
-		RewardsCredited: credited.String(), RewardsForceBonded: bonded.String(),
+		RewardsCredited: rw.credited.String(), RewardsForceBonded: rw.bonded.String(),
 	}
 }
 

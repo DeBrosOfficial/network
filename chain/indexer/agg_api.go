@@ -19,6 +19,10 @@ func (a *API) serveAggregates(w http.ResponseWriter, r *http.Request, segs []str
 		a.serveEpoch(w, r, segs[1])
 	case len(segs) == 3 && segs[0] == "epochs" && segs[2] == "validators":
 		a.serveEpochValidators(w, r, segs[1])
+	case len(segs) == 3 && segs[0] == "epochs" && segs[2] == "rewards":
+		a.serveEpochRewards(w, r, segs[1])
+	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "rewards":
+		a.serveAccountRewards(w, r, segs[1])
 	case len(segs) == 1 && segs[0] == "supply":
 		a.serveSupply(w, r)
 	case len(segs) == 1 && segs[0] == "validators":
@@ -110,7 +114,7 @@ func (a *API) serveValidator(w http.ResponseWriter, r *http.Request, operator st
 	answer(w, v, found, err)
 }
 
-// serveValidatorList answers a validator's epochs, slashes or jail periods, a page at a time.
+// serveValidatorList answers a validator's epochs, slashes, jail periods or rewards, a page at a time.
 func (a *API) serveValidatorList(w http.ResponseWriter, r *http.Request, operator, kind string) bool {
 	var list func(string, int, int) (any, bool, error)
 	switch kind {
@@ -120,6 +124,8 @@ func (a *API) serveValidatorList(w http.ResponseWriter, r *http.Request, operato
 		list = func(op string, p, l int) (any, bool, error) { return a.store.ValidatorSlashes(op, p, l) }
 	case "jails":
 		list = func(op string, p, l int) (any, bool, error) { return a.store.ValidatorJails(op, p, l) }
+	case "rewards":
+		list = func(op string, p, l int) (any, bool, error) { return a.store.ValidatorRewards(op, p, l) }
 	default:
 		return false
 	}

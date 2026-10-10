@@ -57,8 +57,11 @@ func (f *Follower) canFold(ctx context.Context, w *writer, height int64) (bool, 
 //
 // The chain's rule that closed the epoch is the one the watch holds. The next close whose state is
 // readable checks it against the chain, as for every epoch, and stops the index if it was wrong.
-func (f *Follower) closeUnreadable(w *writer, wt watch, b blockFacts) (watch, error) {
+func (f *Follower) closeUnreadable(w *writer, wt watch, b blockFacts, rw epochRewards) (watch, error) {
 	row := unavailableRow(wt, b, fmt.Sprintf(reasonStatePruned, b.height))
+	if err := rw.apply(&row); err != nil {
+		return watch{}, err
+	}
 	if err := w.setJSON(epochKey(wt.Epoch), row); err != nil {
 		return watch{}, err
 	}
@@ -74,7 +77,7 @@ func (f *Follower) closeUnreadable(w *writer, wt watch, b blockFacts) (watch, er
 }
 
 // unavailableRow is the row of an epoch whose figures are not known: where it began and ended, and
-// why. Every figure is left out.
+// why. Every figure read from state is left out.
 func unavailableRow(wt watch, b blockFacts, reason string) EpochRow {
 	return EpochRow{
 		Epoch: wt.Epoch, StartHeight: wt.StartHeight, StartTime: epochStart(wt),

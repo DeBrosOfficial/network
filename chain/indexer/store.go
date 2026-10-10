@@ -31,26 +31,30 @@ const (
 	pfxDay     = "s/d/" // unix day → day statistics
 	pfxWeek    = "s/w/" // Monday-based week number → week statistics
 
-	keyWatch   = "e/w"  // the aggregator's position
-	keyAggFrom = "e/b"  // the height the aggregates begin at
-	pfxEpoch   = "e/r/" // epoch → EpochRow
-	pfxSupply  = "e/s/" // epoch → SupplyPoint
-	pfxValEp   = "e/h/" // consensus address, epoch → ValidatorEpoch
-	pfxPowerIx = "e/p/" // epoch, inverted power, consensus address → empty
-	pfxCounter = "e/c/" // epoch, consensus address → counters of the epoch in progress
-	pfxSlash   = "e/x/" // consensus address, height, event index → Slash
-	pfxJail    = "e/j/" // consensus address, height → JailPeriod
-	pfxRegVal  = "g/v/" // consensus address → ValidatorInfo
-	pfxRegOp   = "g/o/" // operator address → consensus address
+	keyWatch       = "e/w"  // the aggregator's position
+	keyAggFrom     = "e/b"  // the height the aggregates begin at
+	pfxEpoch       = "e/r/" // epoch → EpochRow
+	pfxSupply      = "e/s/" // epoch → SupplyPoint
+	pfxValEp       = "e/h/" // consensus address, epoch → ValidatorEpoch
+	pfxPowerIx     = "e/p/" // epoch, inverted power, consensus address → empty
+	pfxCounter     = "e/c/" // epoch, consensus address → counters of the epoch in progress
+	pfxSlash       = "e/x/" // consensus address, height, event index → Slash
+	pfxJail        = "e/j/" // consensus address, height → JailPeriod
+	pfxRewardEpoch = "e/d/" // epoch, operator → ValidatorReward
+	pfxRewardVal   = "e/f/" // operator "/" epoch → ValidatorReward
+	pfxRewardAcct  = "e/q/" // account "/" epoch, validator → AccountReward
+	keyRewardsFrom = "e/y"  // the first epoch whose payout is recorded
+	pfxRegVal      = "g/v/" // consensus address → ValidatorInfo
+	pfxRegOp       = "g/o/" // operator address → consensus address
 )
 
 // schemaVersion is the layout of an index. An index written by another version
 // is refused rather than served with fields it never recorded: its aggregates
 // (epochs, supply, validators, daily and weekly statistics) are computed as blocks
 // are ingested, so an index that did not compute them cannot be completed later.
-// Version 3 added them. An index of an older version is not converted: MoveAsideStale
+// Version 3 added them; version 4 added what each epoch paid each validator and delegator. An index of an older version is not converted: MoveAsideStale
 // moves it aside, which the upgrade does, and the indexer starts a new one.
-const schemaVersion uint64 = 3
+const schemaVersion uint64 = 4
 
 // Store is the on-disk index. Reads are safe while the follower writes.
 type Store struct {

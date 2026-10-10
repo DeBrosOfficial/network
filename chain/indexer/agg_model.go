@@ -54,6 +54,18 @@ type EpochRow struct {
 	// what it bonded into bootstrap committee members' self-delegations instead.
 	RewardsCredited    string `json:"rewards_credited,omitempty"`
 	RewardsForceBonded string `json:"rewards_force_bonded,omitempty"`
+	// RewardsRecorded is true when the epoch's payout is known validator by validator: x/power
+	// reported it in events (power_validator_reward) in the closing block, or paid nothing. An epoch
+	// that closed before the chain reported it is not recorded, and the three figures below are
+	// absent. Unlike the figures above they come from events, not state, so an epoch that closed as
+	// unavailable still has them.
+	RewardsRecorded bool `json:"rewards_recorded"`
+	// RewardsCommission, RewardsOperatorShare and RewardsDelegators split what the validators were
+	// paid: the commission, the operators' whole share (commission included) and the delegators'.
+	// RewardsOperatorShare plus RewardsDelegators is what the validators were paid.
+	RewardsCommission    string `json:"rewards_commission,omitempty"`
+	RewardsOperatorShare string `json:"rewards_operator_share,omitempty"`
+	RewardsDelegators    string `json:"rewards_delegators,omitempty"`
 }
 
 // SupplyPoint is the supply breakdown after an epoch's closing block. Every figure is a query at
