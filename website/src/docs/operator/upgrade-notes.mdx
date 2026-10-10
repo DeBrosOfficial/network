@@ -141,7 +141,7 @@ Each node's upgrade changes these together, so nothing on the node talks across 
 
 ### The chain indexer starts a new index when its layout changed (global nodes)
 
-A chain indexer's index has a layout version, and the indexer refuses an index written in another one: its epoch, supply and validator aggregates are computed as blocks are ingested, so an index that did not compute them cannot be completed afterwards. Layout version 3 added them, so an index written by an earlier release (version 2, or one from before versions) cannot be opened by this release's indexer, which would otherwise exit on every start and be restarted by systemd.
+A chain indexer's index has a layout version, and the indexer refuses an index written in another one: its epoch, supply and validator aggregates are computed as blocks are ingested, so an index that did not compute them cannot be completed afterwards. Layout version 3 added them and layout version 4 added what each epoch paid each validator and delegator, so an index written by an earlier release (version 3, version 2, or one from before versions) cannot be opened by this release's indexer, which would otherwise exit on every start and be restarted by systemd.
 
 On a node with the indexer installed, the upgrade (`orama maint global refresh`, which `orama upgrade` runs after the node's cluster services) handles it while the indexer is stopped:
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,6 +28,14 @@ func indexWithLayout(t *testing.T, home string, version uint64) string {
 	require.NoError(t, db.Set([]byte("m/version"), binary.BigEndian.AppendUint64(nil, version), pebble.Sync))
 	require.NoError(t, db.Close())
 	return dir
+}
+
+// currentLayout is the layout version this indexer writes, as MoveAsideStale reports it.
+func currentLayout(t *testing.T) uint64 {
+	t.Helper()
+	res, err := indexer.MoveAsideStale(t.TempDir(), time.Now())
+	require.NoError(t, err)
+	return res.Current
 }
 
 func TestRunIndexerMigrate_movesAnOldIndexAsideAndSaysSo(t *testing.T) {
@@ -61,7 +70,7 @@ func TestRunIndexerMigrate_keepsACurrentIndexAndToleratesNone(t *testing.T) {
 	require.NoError(t, store.Close())
 	out.Reset()
 	require.NoError(t, runIndexerMigrate(&out, home, time.Now()))
-	require.Contains(t, out.String(), "current layout version 3; kept")
+	require.Contains(t, out.String(), fmt.Sprintf("current layout version %d; kept", currentLayout(t)))
 	entries, err := os.ReadDir(home)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
@@ -69,8 +78,9 @@ func TestRunIndexerMigrate_keepsACurrentIndexAndToleratesNone(t *testing.T) {
 
 func TestRunIndexerMigrate_aNewerIndexIsAnError(t *testing.T) {
 	home := t.TempDir()
-	indexWithLayout(t, home, 4)
-	require.ErrorContains(t, runIndexerMigrate(&bytes.Buffer{}, home, time.Now()), "newer than the 3")
+	current := currentLayout(t)
+	indexWithLayout(t, home, current+1)
+	require.ErrorContains(t, runIndexerMigrate(&bytes.Buffer{}, home, time.Now()), fmt.Sprintf("newer than the %d", current))
 }
 
 func TestIndexerCmd_migrateIsASubcommand(t *testing.T) {

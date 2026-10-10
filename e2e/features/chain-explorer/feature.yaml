@@ -4,7 +4,9 @@
 # balances, delegations and unbonding through the cosmos-sdk Query methods of
 # /v1/chain/query/, and
 # the indexer routes added for it (the newest transactions, hourly statistics,
-# an account's summary) and the aggregates the indexer keeps for the explorer's
+# an account's summary), the home snapshot, the paged and filtered block and
+# transaction lists, the cache headers (scale_test.go), what each epoch paid each
+# validator and delegator, the head stream and the aggregates the indexer keeps for the explorer's
 # epoch, supply and validator pages (the epochs, the supply per epoch, each
 # validator's epochs, slashes and jail periods, and the hourly, daily and weekly
 # series), checked for their order, their bounds and their refusals. The REST routes are checked against the run's own
@@ -40,4 +42,9 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: every aggregate list takes page 1 to 1000 and limit 1 to 100 and refuses a value outside them, an unknown parameter and a repeated one"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/status carries aggregates_from, and stuck while the follower cannot advance; the fleet's indexers are not stuck"
     - "website/src/docs/blockchain/reading-the-chain.mdx#epochs-the-index-could-not-read: an epoch row is either exact or unavailable with a reason and no figure"
+    - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: GET /index/v1/home answers the explorer's home page in one read: the status with the lag, the newest blocks and transactions, 48 hourly buckets, the epoch in progress, the supply and the base fee at the tip"
+    - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/blocks lists blocks newest first without their transaction hashes, and /index/v1/txs and /accounts/{address}/txs take page, limit and filter (all, failed, transfers, staking, storage), refusing any other value"
+    - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: a successful index answer is Cache-Control public, max-age=2 when it depends on the head and max-age=600 for a block, a transaction by hash or a closed epoch, and every error is no-store"
+    - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/epochs/{n}/rewards, /validators/{operator}/rewards and /accounts/{address}/rewards say what an epoch paid each validator and what an account was credited; the validators' amounts add up to what x/power credited and force-bonded, and an epoch from before the chain emitted the events is not recorded"
+    - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-explorer: GET /v1/chain/head/stream is the chain's head as server-sent events, opening with the current head, needing no indexer, with no cache and no query"
     - "website/src/docs/blockchain/reading-the-chain.mdx#the-explorer: each gateway answers the explorer's origin, https://orama.network, on a GET (and its preflight) under /v1/chain/ and refuses it on every other route"
