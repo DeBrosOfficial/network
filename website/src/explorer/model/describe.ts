@@ -1,16 +1,22 @@
-import type { TxMessage, TxMessageType, ValidatorRef, WalletRef } from "./types";
+import type { MessageCategory, SentencePart, TxMessage, ValidatorRef, WalletRef } from "./types";
 
-/** The short tag shown beside a transaction. */
-export const MESSAGE_TAGS: Record<TxMessageType, string> = {
+export type { SentencePart } from "./types";
+
+const MESSAGE_TAGS = {
   send: "Transfer",
   delegate: "Stake",
   undelegate: "Unstake",
   claim_rewards: "Rewards",
   storage_deal: "Storage",
   unknown: "Other",
-};
+} as const;
 
-export type Category = "transfers" | "staking" | "storage" | "other";
+/** The short tag shown beside a transaction. */
+export function tagOf(message: TxMessage): string {
+  return message.type === "action" ? message.tag : MESSAGE_TAGS[message.type];
+}
+
+export type Category = MessageCategory;
 
 export function categoryOf(message: TxMessage): Category {
   switch (message.type) {
@@ -22,22 +28,22 @@ export function categoryOf(message: TxMessage): Category {
       return "staking";
     case "storage_deal":
       return "storage";
+    case "action":
+      return message.category;
     case "unknown":
       return "other";
   }
+}
+
+/** True when the wallet signed an action or is one of the accounts its sentence names. */
+export function actionInvolves(m: Extract<TxMessage, { type: "action" }>, address: string): boolean {
+  return m.actor?.address === address || m.done.some((p) => p.kind === "wallet" && p.ref.address === address);
 }
 
 /** The amount a message moves, or null when it moves none the explorer can read. */
 export function amountOf(message: TxMessage): string | null {
   return message.type === "unknown" ? null : message.amount;
 }
-
-/** Everything a sentence renderer needs: the pieces, in reading order. */
-export type SentencePart =
-  | { kind: "text"; text: string }
-  | { kind: "wallet"; ref: WalletRef }
-  | { kind: "validator"; ref: ValidatorRef }
-  | { kind: "amount"; norama: string };
 
 const t = (text: string): SentencePart => ({ kind: "text", text });
 const w = (ref: WalletRef): SentencePart => ({ kind: "wallet", ref });
@@ -63,6 +69,8 @@ export function describeMessage(m: TxMessage, failed = false): SentencePart[] {
         t(` with ${m.replicas} ${m.replicas === 1 ? "copy" : "copies"} for `),
         a(m.amount),
       ];
+    case "action":
+      return failed ? m.tried : m.done;
     case "unknown":
       return [...(m.signer ? [w(m.signer)] : [t("A signer-less transaction")]), t(` sent a ${m.typeUrl.replace(/^\//, "")} message`)];
   }

@@ -33,6 +33,24 @@ export type TxStatus = { ok: true } | { ok: false; reason: string };
 
 export type StorageVisibility = "private" | "public";
 
+/** One piece of a sentence, in reading order, so the UI can link the names. */
+export type SentencePart =
+  | { kind: "text"; text: string }
+  | { kind: "wallet"; ref: WalletRef }
+  | { kind: "validator"; ref: ValidatorRef }
+  | { kind: "amount"; norama: string };
+
+/** The activity filter a message counts under. */
+export type MessageCategory = "transfers" | "staking" | "storage" | "other";
+
+/** One structured fact a message states. The value is chain-written text, already cleaned and bounded. */
+export interface MessageField {
+  label: string;
+  value: string;
+  /** "norama" values are integers shown as ORAMA; "address" values are shown in monospace. */
+  kind: "text" | "norama" | "address";
+}
+
 export type TxMessage =
   | { type: "send"; from: WalletRef; to: WalletRef; amount: Norama }
   | { type: "delegate"; delegator: WalletRef; validator: ValidatorRef; amount: Norama }
@@ -47,6 +65,26 @@ export type TxMessage =
       amount: Norama;
       replicas: number;
       visibility: StorageVisibility;
+    }
+  /**
+   * Any other first-party message: its sentence and facts come from the
+   * message alone. `done` reads when the transaction succeeded, `tried` when
+   * the chain refused it; neither says more than the message does.
+   */
+  | {
+      type: "action";
+      typeUrl: string;
+      /** The module that owns the message: "Nodes", "Storage". */
+      module: string;
+      /** The short name of the action: "Register node". */
+      tag: string;
+      category: MessageCategory;
+      actor: WalletRef | null;
+      done: SentencePart[];
+      tried: SentencePart[];
+      /** The ORAMA the message states, when it states one. */
+      amount: Norama | null;
+      fields: MessageField[];
     }
   /** Any message the explorer has no decoder for. Never a blank row. */
   | { type: "unknown"; typeUrl: string; signer: WalletRef | null };

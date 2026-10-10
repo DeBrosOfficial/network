@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { activityToCsv, csvFilename, CSV_HEADER } from "./csv";
 import type { ActivityItem } from "../../model/types";
+import { ALICE as OPERATOR, decode } from "../../data/chain/decoders/fixtures";
 import { ALICE, BOB, sendItem } from "./fixtures";
 
 const lines = (csv: string) => csv.split("\r\n");
@@ -71,6 +72,11 @@ describe("activityToCsv", () => {
   it("TestActivityToCsv_type_column_is_defused_too", () => {
     const item = sendItem({ message: { type: "=x" as never, from: ALICE, to: BOB, amount: "1" } });
     expect(lines(activityToCsv([item]))[1]).toContain(",'=x,");
+  });
+
+  it("TestActivityToCsv_an_action_row_carries_its_type_url", () => {
+    const message = decode("/orama.nodes.v1.MsgRetireNode", { operator: OPERATOR, node_id: "n1" });
+    expect(lines(activityToCsv([sendItem({ message, counterparty: null, amount: "0" })]))[1]).toContain(",/orama.nodes.v1.MsgRetireNode,");
   });
 
   it("TestActivityToCsv_has_no_comment_row", () => {

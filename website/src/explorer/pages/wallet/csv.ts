@@ -33,7 +33,7 @@ function rowFor(item: ActivityItem): string {
   return [
     textCell(item.time),
     textCell(item.direction),
-    textCell(item.message.type),
+    textCell(item.message.type === "action" ? item.message.typeUrl : item.message.type),
     textCell(who),
     amountCell(item.amount),
     textCell(statusText(item)),

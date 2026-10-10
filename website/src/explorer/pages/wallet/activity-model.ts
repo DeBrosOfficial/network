@@ -61,6 +61,8 @@ function messageLabel(item: ActivityItem): SentencePart[] {
       return [t(failed ? "Tried to claim rewards from " : "Reward from "), { kind: "validator", ref: m.validator }];
     case "storage_deal":
       return storageLabel(m, item);
+    case "action":
+      return [t(failed ? `Failed: ${m.tag.toLowerCase()}` : m.tag)];
     case "unknown":
       return [t(`${failed ? "Failed " : "Sent "}${m.typeUrl.replace(/^\//, "")} message`)];
   }

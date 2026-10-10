@@ -68,9 +68,24 @@ describe("mapMessage", () => {
     expect(m).toEqual({ type: "send", from: { address: ALICE, label: "Alice" }, to: { address: BOB }, amount: "5" });
   });
 
-  it("TestMapMessage_a_send_of_another_token_is_unknown_not_a_norama_amount", () => {
+  it("TestMapMessage_a_send_of_another_token_names_its_coin_and_is_not_a_norama_amount", () => {
     const body = { "@type": "/cosmos.bank.v1beta1.MsgSend", from_address: ALICE, to_address: BOB, amount: [{ denom: "factory/x/gold", amount: "5" }] };
-    expect(mapMessage(body, { address: ALICE }, ctx)).toEqual({ type: "unknown", typeUrl: "/cosmos.bank.v1beta1.MsgSend", signer: { address: ALICE } });
+    const m = mapMessage(body, { address: ALICE }, ctx);
+    expect(m.type).toBe("action");
+    expect(m.type === "action" && m.amount).toBeNull();
+    expect(JSON.stringify(m.type === "action" && m.done)).toContain("5 factory/x/gold");
+  });
+
+  it("TestMapMessage_a_send_mixing_norama_with_another_token_is_not_a_norama_only_send", () => {
+    const body = {
+      "@type": "/cosmos.bank.v1beta1.MsgSend",
+      from_address: ALICE,
+      to_address: BOB,
+      amount: [{ denom: "factory/x/gold", amount: "5" }, { denom: "norama", amount: "7" }],
+    };
+    const m = mapMessage(body, { address: ALICE }, ctx);
+    expect(m.type).toBe("action");
+    expect(m.type === "action" && m.amount).toBe("7");
   });
 
   it("TestMapMessage_delegate_names_the_validators_operator_account", () => {
@@ -103,9 +118,15 @@ describe("mapMessage", () => {
     });
   });
 
-  it("TestMapMessage_a_type_without_a_sentence_keeps_its_type_url", () => {
-    const m = mapMessage({ "@type": "/orama.nodes.v1.MsgRegisterNode" }, null, ctx);
-    expect(m).toEqual({ type: "unknown", typeUrl: "/orama.nodes.v1.MsgRegisterNode", signer: null });
+  it("TestMapMessage_a_type_without_a_decoder_keeps_its_type_url", () => {
+    const m = mapMessage({ "@type": "/thirdparty.v1.MsgDoThing" }, null, ctx);
+    expect(m).toEqual({ type: "unknown", typeUrl: "/thirdparty.v1.MsgDoThing", signer: null });
+  });
+
+  it("TestMapMessage_a_type_name_that_is_an_object_property_is_not_a_decoder", () => {
+    for (const name of ["constructor", "__proto__", "toString"]) {
+      expect(mapMessage({ "@type": name }, null, ctx).type).toBe("unknown");
+    }
   });
 
   it("TestMapMessage_a_known_type_with_a_broken_field_rejects_the_read", () => {
@@ -137,7 +158,8 @@ describe("feeOf and summaryOf", () => {
   it("TestSummaryOf_a_signer_less_transaction_has_no_signer", () => {
     const s = summaryOf(readIndexTx(raw({ signer: "", body: [{ "@type": "/orama.shielded.v1.MsgShieldedTransfer" }] })), ctx);
     expect(s.signer).toBeNull();
-    expect(s.messages).toEqual([{ type: "unknown", typeUrl: "/orama.shielded.v1.MsgShieldedTransfer", signer: null }]);
+    expect(s.messages).toHaveLength(1);
+    expect(s.messages[0]).toMatchObject({ type: "action", actor: null, module: "Shielded" });
   });
 });
 

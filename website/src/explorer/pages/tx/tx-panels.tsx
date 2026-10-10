@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { MESSAGE_TAGS, amountOf } from "../../model/describe";
+import { amountOf, tagOf } from "../../model/describe";
 import type { TxDetail } from "../../model/types";
 import { formatInt, parseNorama } from "../../model/units";
 import { Amount } from "../../ui/amount";
 import { CopyChip } from "../../ui/copy";
 import { Sentence } from "../../ui/sentence";
+import { MessageFields } from "./message-fields";
 import { firstMessage, messageTypesText } from "./tx-messages";
 import { messageTypeUrls } from "./tx-technical";
 
@@ -33,7 +34,8 @@ function ActionList({ tx }: { tx: TxDetail }) {
       {tx.messages.map((m, i) => (
         <li key={`${m.type}-${i}`}>
           <Sentence message={m} failed={!tx.status.ok} />
-          <span className="ml-2 text-xs text-muted">{MESSAGE_TAGS[m.type]}</span>
+          <span className="ml-2 text-xs text-muted">{tagOf(m)}</span>
+          <MessageFields message={m} />
         </li>
       ))}
     </ol>

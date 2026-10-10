@@ -1,4 +1,4 @@
-import { MESSAGE_TAGS } from "../../model/describe";
+import { tagOf } from "../../model/describe";
 import type { TxMessage } from "../../model/types";
 
 /** The transaction's headline message: the sentence, flow and amount describe this one. */
@@ -20,5 +20,5 @@ export function moreActionsText(messages: readonly TxMessage[]): string {
 
 /** The message types in order, each named once: "Transfer, Stake". Empty for no messages. */
 export function messageTypesText(messages: readonly TxMessage[]): string {
-  return [...new Set(messages.map((m) => MESSAGE_TAGS[m.type]))].join(", ");
+  return [...new Set(messages.map((m) => tagOf(m)))].join(", ");
 }

@@ -41,6 +41,8 @@ export function flowOf(message: TxMessage): Flow {
         from: { role: "From (owner)", wallet: message.owner },
         to: message.provider ? { role: "To (provider)", wallet: message.provider } : null,
       };
+    case "action":
+      return { from: message.actor ? { role: "Signer", wallet: message.actor } : null, to: null };
     case "unknown":
       return { from: message.signer ? { role: "Signer", wallet: message.signer } : null, to: null };
   }

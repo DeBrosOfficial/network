@@ -1,4 +1,4 @@
-import { categoryOf } from "../../model/describe";
+import { actionInvolves, categoryOf } from "../../model/describe";
 import type {
   ActivityDirection,
   ActivityItem,
@@ -108,6 +108,8 @@ function involves(m: TxMessage, address: string): boolean {
       return m.delegator.address === address;
     case "storage_deal":
       return m.owner.address === address;
+    case "action":
+      return actionInvolves(m, address);
     case "unknown":
       return m.signer?.address === address;
   }
@@ -132,6 +134,8 @@ function sideOf(m: TxMessage, address: string): Side {
     case "undelegate":
     case "claim_rewards":
       return { direction: "in", amount: m.amount, counterparty: null };
+    case "action":
+      return { direction: m.actor?.address === address ? "out" : "in", amount: "0", counterparty: null };
     case "unknown":
       return { direction: m.signer?.address === address ? "out" : "in", amount: "0", counterparty: null };
   }

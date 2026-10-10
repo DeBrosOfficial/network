@@ -1,8 +1,21 @@
-import { ArrowDownLeft, ArrowUpRight, Gift, HardDrive, Layers, MoreHorizontal, X } from "lucide-react";
-import type { ActivityDirection, TxMessage } from "../model/types";
+import { ArrowDownLeft, ArrowUpRight, Gift, HardDrive, Layers, MoreHorizontal, X, Zap } from "lucide-react";
+import type { ActivityDirection, MessageCategory, TxMessage } from "../model/types";
 import { cn } from "../../lib/utils";
 
 const ICON_SIZE = 16;
+
+function actionIcon(category: MessageCategory) {
+  switch (category) {
+    case "transfers":
+      return <ArrowUpRight size={ICON_SIZE} />;
+    case "staking":
+      return <Layers size={ICON_SIZE} />;
+    case "storage":
+      return <HardDrive size={ICON_SIZE} />;
+    case "other":
+      return <Zap size={ICON_SIZE} />;
+  }
+}
 
 function iconFor(message: TxMessage, direction: ActivityDirection | null) {
   switch (message.type) {
@@ -15,6 +28,8 @@ function iconFor(message: TxMessage, direction: ActivityDirection | null) {
       return <Gift size={ICON_SIZE} />;
     case "storage_deal":
       return <HardDrive size={ICON_SIZE} />;
+    case "action":
+      return actionIcon(message.category);
     case "unknown":
       return <MoreHorizontal size={ICON_SIZE} />;
   }

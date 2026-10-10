@@ -1,24 +1,21 @@
-import { bech32Rehrp } from "../../model/bech32";
 import type {
   BalanceChange,
   Fee,
   Norama,
-  StorageVisibility,
   TxDetail,
   TxEvent,
   TxMessage,
   TxStatus,
   TxSummary,
-  ValidatorRef,
   WalletRef,
 } from "../../model/types";
-import { ChainReadError } from "./client";
 import { clean } from "./text";
-import { account, arr, digits, hash64, iso, optArr, optStr, optUint, rec, str, uint } from "./wire";
+import { decoderFor, walletRef } from "./decoders";
+import type { Context } from "./decoders";
+import { account, arr, hash64, iso, optArr, optStr, optUint, rec, str, uint } from "./wire";
 import type { Rec } from "./wire";
 
 const NORAMA = "norama";
-const ACCOUNT_HRP = "orama";
 const MAX_REASON = 200;
 const MAX_MEMO = 256;
 const MAX_TYPE_URL = 200;
@@ -26,14 +23,6 @@ const MAX_EVENT_TYPE = 64;
 const MAX_ATTRIBUTE = 512;
 const MAX_EVENTS = 200;
 const MAX_ATTRIBUTES = 64;
-
-const TYPE_SEND = "/cosmos.bank.v1beta1.MsgSend";
-const TYPE_DELEGATE = "/cosmos.staking.v1beta1.MsgDelegate";
-const TYPE_UNDELEGATE = "/cosmos.staking.v1beta1.MsgUndelegate";
-const TYPE_CREATE_DEAL = "/orama.storage.v1.MsgCreateDeal";
-
-const DEAL_CLASS_PRIVATE = "DEAL_CLASS_PRIVATE";
-const DEAL_CLASS_PUBLIC_PIN = "DEAL_CLASS_PUBLIC_PIN";
 
 /** A transaction as the indexer serves it (chain/indexer Tx), checked. */
 export interface IndexTx {
@@ -86,111 +75,19 @@ export function readIndexTx(raw: unknown): IndexTx {
   };
 }
 
-/** Maps a validator operator address (oramavaloper...) to the validator's reference, or to a bare one. */
-export type ValidatorLookup = (operator: string) => ValidatorRef;
-/** The label a wallet carries, if the chain's validator directory names it. */
-export type LabelLookup = (address: string) => string | undefined;
-
-export interface Context {
-  label: LabelLookup;
-  validator: ValidatorLookup;
-}
-
-export function walletRef(address: string, ctx: Context): WalletRef {
-  const label = ctx.label(address);
-  return label === undefined ? { address } : { address, label };
-}
-
-function noramaAmountOf(coin: unknown, what: string): Norama | null {
-  const c = rec(coin, what);
-  return c.denom === NORAMA ? digits(c.amount, what) : null;
-}
-
-function sumNorama(coins: unknown, what: string): Norama | null {
-  let total = 0n;
-  let any = false;
-  for (const coin of arr(coins, what)) {
-    const amount = noramaAmountOf(coin, what);
-    if (amount === null) continue;
-    total += BigInt(amount);
-    any = true;
-  }
-  return any ? total.toString() : null;
-}
-
-function operatorAccount(valoper: string): string {
-  const converted = bech32Rehrp(str(valoper, "validator address", 120), ACCOUNT_HRP);
-  if (converted === null) throw new ChainReadError("The chain sent a malformed validator address.");
-  return converted;
-}
-
-function mapSend(m: Rec, ctx: Context): TxMessage | null {
-  const amount = sumNorama(m.amount, "send amount");
-  if (amount === null) return null;
-  return {
-    type: "send",
-    from: walletRef(account(m.from_address, "sender"), ctx),
-    to: walletRef(account(m.to_address, "receiver"), ctx),
-    amount,
-  };
-}
-
-function mapStake(kind: "delegate" | "undelegate", m: Rec, ctx: Context): TxMessage | null {
-  const amount = noramaAmountOf(m.amount, "stake amount");
-  if (amount === null) return null;
-  return {
-    type: kind,
-    delegator: walletRef(account(m.delegator_address, "delegator"), ctx),
-    validator: ctx.validator(operatorAccount(str(m.validator_address, "validator address", 120))),
-    amount,
-  };
-}
-
-function visibilityOf(deal: string): StorageVisibility | null {
-  if (deal.includes(DEAL_CLASS_PRIVATE)) return "private";
-  if (deal.includes(DEAL_CLASS_PUBLIC_PIN)) return "public";
-  return null;
-}
-
-function mapDeal(m: Rec, ctx: Context): TxMessage | null {
-  const visibility = visibilityOf(str(m.class, "deal class", 64));
-  if (visibility === null) return null;
-  const payer = optStr(m.granter, "deal granter", 120) || str(m.signer, "deal signer", 120);
-  const replicas = uint(m.replicas, "deal replicas");
-  const price = BigInt(digits(m.price_per_epoch, "deal price"));
-  const epochs = BigInt(digits(m.duration_epochs, "deal duration"));
-  return {
-    type: "storage_deal",
-    owner: walletRef(account(payer, "deal payer"), ctx),
-    provider: null,
-    amount: (price * BigInt(replicas) * epochs).toString(),
-    replicas,
-    visibility,
-  };
-}
+export { walletRef };
+export type { Context };
 
 /**
- * One message of a transaction body as the explorer's vocabulary. A type the
- * explorer has no sentence for (or a transfer of a token other than ORAMA) is
- * an "unknown" message carrying its type URL, never a blank row.
+ * One message of a transaction body as the explorer's vocabulary. A type with
+ * a decoder (every message the chain registers) becomes a sentence and its
+ * facts; any other type, such as a third-party contract's, is an "unknown"
+ * message carrying its type URL, never a blank row.
  */
 export function mapMessage(m: Rec, signer: WalletRef | null, ctx: Context): TxMessage {
   const typeUrl = clean(str(m["@type"], "message type", MAX_TYPE_URL), MAX_TYPE_URL);
-  let mapped: TxMessage | null = null;
-  switch (m["@type"]) {
-    case TYPE_SEND:
-      mapped = mapSend(m, ctx);
-      break;
-    case TYPE_DELEGATE:
-      mapped = mapStake("delegate", m, ctx);
-      break;
-    case TYPE_UNDELEGATE:
-      mapped = mapStake("undelegate", m, ctx);
-      break;
-    case TYPE_CREATE_DEAL:
-      mapped = mapDeal(m, ctx);
-      break;
-  }
+  const decode = decoderFor(typeof m["@type"] === "string" ? m["@type"] : "");
+  const mapped = decode ? decode(m, { ...ctx, signer }) : null;
   return mapped ?? { type: "unknown", typeUrl, signer };
 }
 
