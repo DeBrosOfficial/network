@@ -49,6 +49,10 @@ function epochRow(epoch: number, burned: string, partial = false): EpochRow {
     feesDistributed: "0",
     rewardsCredited: "0",
     rewardsForceBonded: "0",
+    rewardsRecorded: false,
+    rewardsCommission: null,
+    rewardsOperatorShare: null,
+    rewardsDelegators: null,
   };
 }
 

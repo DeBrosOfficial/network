@@ -175,22 +175,27 @@ function parseCursor(cursor: string | null): { page: number; skip: number } {
   return { page: Number(m[1]), skip: Number(m[2]) };
 }
 
-async function accountTxs(client: ChainClient, address: string, page: number, limit: number): Promise<IndexTx[]> {
-  const path = withQuery(chainPath("index", "accounts", address, "txs"), { page, limit });
+/** The filters the index narrows an account's list by; the others (direction, counterparty) are read off each row here. */
+const INDEX_FILTERS: ReadonlySet<string> = new Set(["staking", "storage", "failed"]);
+
+async function accountTxs(client: ChainClient, address: string, page: number, limit: number, filter: string): Promise<IndexTx[]> {
+  const path = withQuery(chainPath("index", "accounts", address, "txs"), { page, limit, filter: INDEX_FILTERS.has(filter) ? filter : undefined });
   return arr(rec(await client.get(path), "account transactions").txs, "account transactions").map(readIndexTx);
 }
 
 /**
  * A wallet's activity newest first, `query.limit` rows at a time. The indexer
- * is read a page of 100 at a time and filtered here, so a narrow filter can
- * read several pages for one answer; the cursor is "page:position".
+ * is read a page of 100 at a time. Staking, storage and failed are lists of
+ * its own, so those filters read only the rows that can match; the others
+ * (received, sent, one counterparty) are decided here, row by row, so they can
+ * read several pages for one answer. The cursor is "page:position".
  */
 export async function loadActivity(client: ChainClient, ctx: Context, address: string, query: ActivityQuery): Promise<Page<ActivityItem>> {
   const wanted = query.limit;
   const items: ActivityItem[] = [];
   let { page, skip } = parseCursor(query.cursor);
   for (let scanned = 0; scanned < MAX_SCAN_PAGES; scanned++) {
-    const txs = await accountTxs(client, address, page, INDEX_PAGE_SIZE);
+    const txs = await accountTxs(client, address, page, INDEX_PAGE_SIZE, query.filter);
     for (let i = skip; i < txs.length; i++) {
       const tx = txs[i];
       if (tx === undefined) continue;
@@ -214,7 +219,7 @@ function positionAfter(page: number, index: number, length: number): string | nu
 
 /** The wallets this one sent to or received from most, by volume, from its newest transactions. */
 export async function loadCounterparties(client: ChainClient, ctx: Context, address: string, limit: number): Promise<Counterparty[]> {
-  const txs = await accountTxs(client, address, 1, COUNTERPARTY_WINDOW);
+  const txs = await accountTxs(client, address, 1, COUNTERPARTY_WINDOW, "all");
   const byWallet = new Map<string, { ref: WalletRef; txCount: number; net: bigint; volume: bigint }>();
   for (const tx of txs) {
     const item = itemFor(tx, ctx, address);

@@ -1,4 +1,5 @@
 import type { EpochClock, EpochListQuery, EpochRow, EpochValidator, IndexPage, SupplyPoint } from "../model/epochs";
+import type { AccountRewards, Earnings, EpochRewards, RewardListQuery, ValidatorRewardHistory } from "../model/rewards";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -8,6 +9,7 @@ import type {
   Counterparty,
   ExampleTargets,
   Head,
+  IndexStatus,
   NetworkSnapshot,
   OperatorGroups,
   Page,
@@ -58,6 +60,8 @@ export interface ExplorerDataSource {
 
   /** Chain-wide numbers as of the head. Rejects with an Error if they cannot be read. */
   getNetwork(): Promise<NetworkSnapshot>;
+  /** Where the chain indexer stands against the chain's tip. Rejects when the node runs no indexer. */
+  getIndexStatus(): Promise<IndexStatus>;
   /**
    * Suggested pages to open from the home page. A field is null when nothing
    * suitable exists (no transfer yet, no wallet yet); it is never invented.
@@ -115,6 +119,17 @@ export interface ExplorerDataSource {
   getEpoch(epoch: number): Promise<EpochRow | null>;
   /** The validators of a closed epoch, highest voting power first; null when the epoch is not closed in the index. */
   getEpochValidators(epoch: number, query: EpochListQuery): Promise<IndexPage<EpochValidator> | null>;
+  /**
+   * What a closed epoch paid each validator, as the chain reported it; `recorded` is false for an
+   * epoch that closed before it did. Null when the epoch is not closed in the index.
+   */
+  getEpochRewards(epoch: number, query: RewardListQuery): Promise<EpochRewards | null>;
+  /** A validator's closed epochs, newest first, each with what it was paid or "not recorded"; null when the index has not seen the validator. */
+  getValidatorRewards(address: string, query: RewardListQuery): Promise<ValidatorRewardHistory | null>;
+  /** What an account was credited by x/power as a delegator or as an operator, newest epoch first. */
+  getAccountRewards(address: string, query: RewardListQuery): Promise<AccountRewards>;
+  /** The balance of an account's earnings, read from the chain (x/fees), not from the index. */
+  getEarnings(address: string): Promise<Earnings>;
   /** The supply breakdown after each of the newest `limit` closed epochs (at most 100), newest first. */
   getSupplyHistory(limit: number): Promise<SupplyPoint[]>;
   /** The base fee now, in norama per gas. The chain keeps no history of it, and neither does the index. */

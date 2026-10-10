@@ -36,6 +36,10 @@ function row(epoch: number, over: Partial<EpochRow> = {}): EpochRow {
     feesDistributed: "1500000000",
     rewardsCredited: (8_900n * ORAMA).toString(),
     rewardsForceBonded: (8n * ORAMA).toString(),
+    rewardsRecorded: false,
+    rewardsCommission: null,
+    rewardsOperatorShare: null,
+    rewardsDelegators: null,
     ...over,
   };
 }

@@ -17,6 +17,7 @@ function network(over: Partial<NetworkSnapshot> = {}): NetworkSnapshot {
     transactionsSeries: [1, 2, 3],
     failed24h: 17,
     burned24h: "312000000000",
+    index: { startHeight: 1, cursor: 1284410, tip: 1284410, lag: 0, aggregatesFrom: 1, stuck: null },
     ...over,
   };
 }

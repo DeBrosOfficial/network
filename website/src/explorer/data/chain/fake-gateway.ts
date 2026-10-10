@@ -1,6 +1,7 @@
 import { bech32Encode } from "../../model/bech32";
 import { withQuery } from "./client";
 import { consensusAddress } from "./directory";
+import type { EventSourceFactory, EventSourceLike } from "./head-feed";
 
 /** A stand-in for the gateway's /v1/chain/ proxy, for tests: it answers by path and counts what was asked. */
 
@@ -139,5 +140,100 @@ export async function chainFixture(): Promise<FakeGateway> {
   }));
   const hours = Array.from({ length: 48 }, (_, i) => ({ hour: new Date(Date.UTC(2026, 9, 6, 12 + i)).toISOString(), txs: i < 24 ? 10 : 15, failed: i < 24 ? 0 : 1, burned: i < 24 ? "0" : "200" }));
   gw.on("index/stats", { start_height: 1, hours });
+  gw.on("index/home", homeJson({ hours }));
   return gw;
+}
+
+/** The indexer's home snapshot at HEAD (chain/indexer/home.go): 24 blocks two seconds apart, three transactions, two of three validators signing. */
+export function homeJson(over: Record<string, unknown> = {}) {
+  return {
+    status: { start_height: 1, cursor: HEAD, earliest: 1, tip: HEAD, lag: 0, aggregates_from: 1 },
+    blocks: Array.from({ length: 24 }, (_, i) => ({
+      height: HEAD - i,
+      hash: "cd".repeat(32),
+      time: new Date(Date.parse(HEAD_TIME) - i * 2000).toISOString(),
+      proposer: "ab".repeat(20),
+      tx_count: i % 3,
+      gas_used: 0,
+      burned: "0",
+      commit_signed: 2,
+      commit_size: 3,
+    })),
+    txs: [indexTx(1), indexTx(2), indexTx(3)],
+    hours: [],
+    epoch: { number: 12, start_time: "2026-10-08T06:00:00Z", duration_seconds: 86400, ends_at: "2026-10-09T06:00:00Z" },
+    supply: "41000000000000000",
+    base_fee: "1000",
+    supply_height: HEAD,
+    examples: { latest_tx: hashOf(1), busy_account: addr(1) },
+    ...over,
+  };
+}
+
+/**
+ * A stand-in for the browser's EventSource on the gateway's head stream. A stream opens, as the
+ * gateway's does, with the current head; `push` sends another and `drop` is a lost connection.
+ */
+export class FakeStream {
+  readonly opened: string[] = [];
+  closed = 0;
+  private sources: FakeEventSource[] = [];
+
+  constructor(private current: { height: number; time: string; chainId: string } = { height: HEAD, time: HEAD_TIME, chainId: CHAIN_ID }) {}
+
+  readonly factory: EventSourceFactory = (url) => {
+    this.opened.push(url);
+    const source = new FakeEventSource(() => {
+      this.closed++;
+    });
+    this.sources.push(source);
+    queueMicrotask(() => source.emit("head", this.headData(this.current)));
+    return source;
+  };
+
+  private headData(h: { height: number; time: string; chainId: string }): string {
+    return JSON.stringify({ height: h.height, time: h.time, chain_id: h.chainId });
+  }
+
+  push(height: number, chainId: string = this.current.chainId): void {
+    this.current = { height, time: HEAD_TIME, chainId };
+    for (const s of this.sources) s.emit("head", this.headData(this.current));
+  }
+
+  /** Sends an event as the gateway wrote it, whatever it holds. */
+  emitRaw(type: string, data: string): void {
+    for (const s of this.sources) s.emit(type, data);
+  }
+
+  unavailable(): void {
+    for (const s of this.sources) s.emit("unavailable", JSON.stringify({ message: "the chain could not be read" }));
+  }
+
+  drop(): void {
+    for (const s of this.sources) s.onerror?.(new Event("error"));
+  }
+
+  get open(): number {
+    return this.opened.length - this.closed;
+  }
+}
+
+class FakeEventSource implements EventSourceLike {
+  onerror: ((event: Event) => unknown) | null = null;
+  private listeners = new Map<string, ((event: { data?: unknown }) => void)[]>();
+
+  constructor(private readonly onClose: () => void) {}
+
+  addEventListener(type: string, listener: (event: { data?: unknown }) => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  close(): void {
+    this.listeners.clear();
+    this.onClose();
+  }
+
+  emit(type: string, data: string): void {
+    for (const l of this.listeners.get(type) ?? []) l({ data });
+  }
 }

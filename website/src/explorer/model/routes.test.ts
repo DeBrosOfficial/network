@@ -57,3 +57,15 @@ describe("parseExplorerPath", () => {
     expect(explorerPathsFor("testnet").wallet("x/../y")).toBe("/explorer/testnet/wallet/x%2F..%2Fy");
   });
 });
+
+describe("the rewards page", () => {
+  it("TestExplorerPaths_rewards_is_a_page_of_every_network", () => {
+    expect(explorerPathsFor(null).rewards).toBe("/explorer/rewards");
+    expect(explorerPathsFor("testnet", "?x=1").rewards).toBe("/explorer/testnet/rewards?x=1");
+  });
+
+  it("TestParseExplorerPath_rewards_is_a_page_not_a_network_segment", () => {
+    expect(parseExplorerPath("/explorer/rewards")).toEqual({ network: null, kind: "rewards", id: "" });
+    expect(parseExplorerPath("/explorer/testnet/rewards")).toEqual({ network: "testnet", kind: "rewards", id: "" });
+  });
+});

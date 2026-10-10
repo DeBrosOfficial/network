@@ -32,6 +32,18 @@ export interface EpochRow {
   rewardsCredited: Norama;
   /** What x/power bonded into bootstrap committee members' self-delegations instead. */
   rewardsForceBonded: Norama;
+  /**
+   * The payout is known validator by validator (the chain reported it when the epoch closed). False
+   * for an epoch that closed before it did: the three figures below are then null, and the
+   * explorer says "not recorded", never zero.
+   */
+  rewardsRecorded: boolean;
+  /** The validators' commission on what they were paid; null unless recorded. */
+  rewardsCommission: Norama | null;
+  /** The operators' whole share, commission included; null unless recorded. */
+  rewardsOperatorShare: Norama | null;
+  /** What delegators other than the operators were credited; null unless recorded. */
+  rewardsDelegators: Norama | null;
 }
 
 /** One page of a list the indexer pages through. The indexer does not count, so `hasMore` is "this page was full". */

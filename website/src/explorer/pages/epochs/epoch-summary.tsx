@@ -8,6 +8,7 @@ import { Card } from "../../ui/card";
 import { Help } from "../../ui/help";
 import { BlockLink } from "../../ui/links";
 import { Stat } from "../../ui/stat";
+import { splitOf } from "../rewards/logic";
 import { epochSpanMs, sharePercent } from "./logic";
 
 const CELL = "px-3 py-2";
@@ -141,6 +142,39 @@ export function MintedCard({ row }: { row: EpochRow }) {
   );
 }
 
+const NOT_RECORDED_SPLIT =
+  "The chain did not report who was paid in this epoch (it closed before the chain did), so how the validator share split between commission, operators and delegators is not known and is not shown.";
+
+function PaidSplit({ row }: { row: EpochRow }) {
+  const split = splitOf(row);
+  if (split === null) return <p className="mt-3 text-[13px] text-muted">{NOT_RECORDED_SPLIT}</p>;
+  const cells: [string, string, string | null][] = [
+    ["Commission", split.commission, split.commissionPct],
+    ["Operators' own cut", split.operatorsOwn, split.operatorsOwnPct],
+    ["Delegators", split.delegators, split.delegatorsPct],
+  ];
+  return (
+    <>
+      <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+        {cells.map(([name, amount, pct]) => (
+          <div key={name}>
+            <dt className="text-muted">{name}</dt>
+            <dd className="text-lg font-semibold tabular-nums">
+              {formatNorama(amount)} ORAMA
+              {pct !== null && <span className="ml-1.5 text-sm font-normal text-muted">{pct}</span>}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-[13px] text-muted">
+        Of the {formatNorama(split.total)} ORAMA paid to validators and their delegators, as the chain reported it when the epoch closed. The operators&apos; own
+        cut is what an operator earned as a delegator of its own validator, and the flooring remainder; its commission is above. Each validator&apos;s share is
+        below.
+      </p>
+    </>
+  );
+}
+
 export function PaidCard({ row }: { row: EpochRow }) {
   return (
     <Card title="Who was paid">
@@ -156,10 +190,8 @@ export function PaidCard({ row }: { row: EpochRow }) {
           <dd className="mt-0.5 text-[13px] text-muted">The part of a founding-committee validator's reward that is staked for it instead of credited.</dd>
         </div>
       </dl>
-      <p className="mt-3 text-[13px] text-muted">
-        The chain does not say which validator or delegator received what, so the index holds only these two totals. Storage, relay and development
-        payouts are in the table above.
-      </p>
+      <PaidSplit row={row} />
+      <p className="mt-3 text-[13px] text-muted">Storage, relay and development payouts are in the table above.</p>
     </Card>
   );
 }

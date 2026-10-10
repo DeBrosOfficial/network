@@ -38,6 +38,17 @@ function pagedPath(path: string, query: EpochListQuery): { path: string; page: n
   return { path: withQuery(path, { page, limit }), page, limit };
 }
 
+/** The split of an epoch's payout; all three are present when the epoch's payout is recorded and absent when it is not. */
+function readRewardTotals(r: Record<string, unknown>): Pick<EpochRow, "rewardsRecorded" | "rewardsCommission" | "rewardsOperatorShare" | "rewardsDelegators"> {
+  const recorded = r.rewards_recorded === undefined ? false : bool(r.rewards_recorded, "rewards recorded flag");
+  if (!recorded) return { rewardsRecorded: false, rewardsCommission: null, rewardsOperatorShare: null, rewardsDelegators: null };
+  const operatorShare = digits(r.rewards_operator_share, "operators' reward share");
+  const delegators = digits(r.rewards_delegators, "delegators' reward share");
+  const commission = digits(r.rewards_commission, "reward commission");
+  if (BigInt(commission) > BigInt(operatorShare)) throw new ChainReadError("The chain sent a commission above the operators' share.");
+  return { rewardsRecorded: true, rewardsCommission: commission, rewardsOperatorShare: operatorShare, rewardsDelegators: delegators };
+}
+
 export function readEpochRow(raw: unknown): EpochRow {
   const r = rec(raw, "epoch");
   const startHeight = uint(r.start_height, "epoch start height");
@@ -63,6 +74,7 @@ export function readEpochRow(raw: unknown): EpochRow {
     feesDistributed: digits(r.fees_distributed, "fees distributed"),
     rewardsCredited: digits(r.rewards_credited, "rewards credited"),
     rewardsForceBonded: digits(r.rewards_force_bonded, "rewards force-bonded"),
+    ...readRewardTotals(r),
   };
 }
 

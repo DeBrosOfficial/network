@@ -167,6 +167,31 @@ export interface Block extends BlockSummary {
   txs: TxSummary[];
 }
 
+/** Why the chain indexer cannot move forward, while it cannot (chain/indexer/stuck.go). */
+export interface IndexStuck {
+  /** The block it cannot index. */
+  height: number;
+  reason: string;
+  /** The node no longer keeps the state of a height the block needs, which no retry changes. */
+  statePruned: boolean;
+  failures: number;
+}
+
+/**
+ * Where the chain indexer stands against the chain: the last block it indexed (cursor) and the
+ * chain's tip. `lag` is the tip less the cursor, 0 when it has caught up. The history on the pages
+ * that read the index (transaction lists, epochs, rewards) is as of the cursor.
+ */
+export interface IndexStatus {
+  startHeight: number;
+  cursor: number;
+  tip: number;
+  lag: number;
+  /** The first block the epoch, supply and validator aggregates cover; 0 until they have begun. */
+  aggregatesFrom: number;
+  stuck: IndexStuck | null;
+}
+
 export interface EpochInfo {
   number: number;
   /** 0 to 1. */
@@ -184,6 +209,8 @@ export interface NetworkSnapshot {
   supply: Norama;
   /** Norama per gas unit. */
   baseFee: number;
+  /** Where the chain indexer stands, as of the same read: the history on the page is as of its cursor. */
+  index: IndexStatus;
   transactions24h: number;
   /** Percent change against the 24 hours before, null when there is no baseline. */
   transactionsChangePct: number | null;

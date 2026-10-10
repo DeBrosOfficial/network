@@ -10,6 +10,7 @@ import { useDocumentTitle } from "../ui/use-document-title";
 import { walletParam } from "./wallet/wallet-param";
 import { ValidatorHeader } from "./validator/validator-header";
 import { ValidatorHistoryView } from "./validator/validator-history";
+import { ValidatorRewardsCard } from "./rewards/validator-rewards";
 import { ValidatorOperator } from "./validator/validator-operator";
 import { ValidatorStats } from "./validator/validator-stats";
 
@@ -22,8 +23,8 @@ function NotExposed() {
   return (
     <Card title="Not shown">
       <p className="max-w-[75ch] text-sm text-muted">
-        The chain does not expose how many delegators a validator has, or what a validator was paid in rewards (the chain indexer records the
-        epoch&apos;s minted validator share as a whole, not per validator), so neither is shown.
+        The chain does not expose how many delegators a validator has, so that is not shown. What a validator was paid is shown for the epochs
+        in which the chain reported it; an earlier epoch is marked not recorded.
       </p>
     </Card>
   );
@@ -37,6 +38,7 @@ function ValidatorView({ detail }: { detail: ValidatorDetail }) {
       <ValidatorHeader detail={detail} />
       <ValidatorStats detail={detail} />
       <ValidatorHistoryView state={history.state} onRetry={history.refetch} />
+      <ValidatorRewardsCard address={address} />
       <ValidatorOperator detail={detail} />
       <NotExposed />
     </>

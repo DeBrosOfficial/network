@@ -1,21 +1,11 @@
-import type { Head, NetworkSnapshot } from "../../model/types";
-import { ChainReadError, chainPath } from "./client";
-import type { ChainClient } from "./client";
-import { arr, bool, digits, iso, optArr, optDigits, rec, rpcResult, str, uint } from "./wire";
+import type { Head } from "../../model/types";
+import { arr, bool, digits, iso, optArr, rec, rpcResult, str, uint } from "./wire";
 
 const HOURS_PER_DAY = 24;
-const BLOCK_TIME_SAMPLE = 20;
 const BLOCK_ID_FLAG_COMMIT = 2;
 const PERCENT = 100;
-const NANOS_PER_MILLI = 1_000_000n;
 const SECOND_MS = 1000;
 const TENTH = 10;
-
-const SUPPLY = chainPath("supply", "norama");
-const BASE_FEE = "query/orama.fees.v1.Query/BaseFee";
-const CURRENT_EPOCH = "query/orama.emission.v1.Query/CurrentEpoch";
-const EMISSION_PARAMS = "query/orama.emission.v1.Query/Params";
-const STATS = chainPath("index", "stats");
 
 export function readHead(raw: unknown): Head & { chainId: string; catchingUp: boolean } {
   const result = rpcResult(raw, "chain status");
@@ -51,18 +41,14 @@ export function blockTimeSeconds(times: readonly string[]): number {
   return Math.round((span / SECOND_MS / (sorted.length - 1)) * TENTH) / TENTH;
 }
 
-function recentBlockTimes(raw: unknown): string[] {
-  const metas = arr(rpcResult(raw, "recent blocks").block_metas, "recent blocks");
-  return metas.map((m) => iso(rec(rec(m, "block").header, "block header").time, "block time"));
-}
-
-interface Hourly {
+export interface Hourly {
   txs: number;
   failed: number;
   burned: bigint;
 }
 
-function readHours(raw: unknown): Hourly[] {
+/** The hourly counts of the indexer's statistics, oldest first. */
+export function readHours(raw: unknown): Hourly[] {
   return arr(rec(raw, "statistics").hours, "statistics").map((h) => {
     const hour = rec(h, "hourly statistic");
     return { txs: uint(hour.txs, "hourly count"), failed: uint(hour.failed, "hourly failures"), burned: BigInt(digits(hour.burned, "hourly burn")) };
@@ -84,46 +70,5 @@ export function transactionTotals(hours: readonly Hourly[]) {
     transactionsSeries: last.map((h) => h.txs),
     failed24h: sum(last, (h) => h.failed),
     burned24h: last.reduce((n, h) => n + h.burned, 0n).toString(),
-  };
-}
-
-function epochOf(stateRaw: unknown, paramsRaw: unknown, headTime: string): NetworkSnapshot["epoch"] {
-  const state = rec(rec(stateRaw, "epoch").epoch_state, "epoch");
-  const params = rec(rec(paramsRaw, "emission parameters").params, "emission parameters");
-  const durationMs = Number(digits(params.epoch_duration_seconds, "epoch length")) * SECOND_MS;
-  const startMs = Number(BigInt(optDigits(state.epoch_start_unix_nano, "epoch start")) / NANOS_PER_MILLI);
-  if (!Number.isSafeInteger(startMs) || !Number.isSafeInteger(durationMs) || durationMs <= 0) {
-    throw new ChainReadError("The chain sent a malformed epoch.");
-  }
-  const progress = Math.min(1, Math.max(0, (Date.parse(headTime) - startMs) / durationMs));
-  return { number: uint(state.current_epoch, "epoch number"), progress, endsAt: new Date(startMs + durationMs).toISOString() };
-}
-
-/** Reads the network-wide numbers of the home page. */
-export async function loadNetwork(client: ChainClient): Promise<NetworkSnapshot> {
-  const head = readHead(await client.get("status"));
-  const first = Math.max(1, head.height - BLOCK_TIME_SAMPLE + 1);
-  const [supply, baseFee, stateRaw, paramsRaw, blocksRaw, headBlock, statsRaw] = await Promise.all([
-    client.get(SUPPLY),
-    client.get(BASE_FEE),
-    client.get(CURRENT_EPOCH),
-    client.get(EMISSION_PARAMS),
-    client.get(`blocks?min_height=${first}&max_height=${head.height}`),
-    client.get(`block?height=${head.height}`),
-    client.get(STATS),
-  ]);
-  const base = Number(digits(rec(baseFee, "base fee").base_fee, "base fee"));
-  if (!Number.isSafeInteger(base)) throw new ChainReadError("The chain sent a malformed base fee.");
-  const tally = commitTally(rec(rpcResult(headBlock, "block").block, "block"));
-  return {
-    chainId: head.chainId,
-    height: head.height,
-    blockTimeSeconds: blockTimeSeconds(recentBlockTimes(blocksRaw)),
-    validatorsSigning: tally.signed,
-    validatorsTotal: tally.total,
-    epoch: epochOf(stateRaw, paramsRaw, head.time),
-    supply: digits(rec(rec(supply, "supply").amount, "supply").amount, "supply"),
-    baseFee: base,
-    ...transactionTotals(readHours(statsRaw)),
   };
 }

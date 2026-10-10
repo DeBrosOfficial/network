@@ -1,14 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addr, CHAIN_ID, chainFixture, FakeGateway, HEAD, HEAD_TIME, hashOf, indexTx, rpc, stakingValidator } from "./fake-gateway";
+import { addr, CHAIN_ID, chainFixture, FakeGateway, FakeStream, HEAD, HEAD_TIME, hashOf, homeJson, indexTx, rpc, stakingValidator, valoper } from "./fake-gateway";
 import { createChainSource } from "./source";
 import { addressQuery } from "./wallet";
 
 async function setup() {
   const gw = await chainFixture();
-  return { gw, source: createChainSource({ fetcher: gw.fetch }) };
+  const stream = new FakeStream();
+  return { gw, stream, source: createChainSource({ fetcher: gw.fetch, eventSource: stream.factory }) };
 }
 
-/** Lets the promise chains a timer tick started finish. */
+/** Lets the promise chains an event started finish. */
 async function flush() {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 }
@@ -18,14 +19,17 @@ afterEach(() => {
 });
 
 describe("head and network", () => {
-  it("TestGetHead_reads_the_latest_finished_block", async () => {
-    const { source } = await setup();
+  it("TestGetHead_is_the_head_the_stream_opens_with", async () => {
+    const { source, stream } = await setup();
     expect(await source.getHead()).toEqual({ height: HEAD, time: HEAD_TIME.replace("Z", ".000Z"), chainId: CHAIN_ID });
+    expect(stream.opened).toEqual(["https://stagenet.orama.network/v1/chain/head/stream"]);
+    expect(stream.open).toBe(0);
   });
 
-  it("TestGetNetwork_is_computed_from_the_chain_and_the_indexer", async () => {
-    const { source } = await setup();
+  it("TestGetNetwork_is_one_read_of_the_home_snapshot_and_the_head", async () => {
+    const { gw, source } = await setup();
     const n = await source.getNetwork();
+    expect(gw.asked).toEqual(["index/home"]);
     expect(n).toMatchObject({
       chainId: "orama-test-1",
       height: HEAD,
@@ -37,6 +41,7 @@ describe("head and network", () => {
       failed24h: 24,
       burned24h: "4800",
       blockTimeSeconds: 2,
+      index: { cursor: HEAD, tip: HEAD, lag: 0, stuck: null },
     });
     expect(n.transactionsChangePct).toBe(50);
     expect(n.transactionsSeries).toHaveLength(24);
@@ -45,64 +50,122 @@ describe("head and network", () => {
     expect(n.epoch.endsAt).toBe("2026-10-09T06:00:00.000Z");
   });
 
+  it("TestGetNetwork_the_tiles_feed_blocks_and_examples_share_one_read", async () => {
+    const { gw, source } = await setup();
+    await Promise.all([source.getNetwork(), source.getRecentBlocks(24), source.getLatestActivity("all", 12), source.getExamples()]);
+    expect(gw.asked.filter((p) => p === "index/home")).toHaveLength(1);
+  });
+
   it("TestGetNetwork_a_fresh_index_has_no_baseline_to_compare_with", async () => {
     const { gw, source } = await setup();
-    gw.on("index/stats", { start_height: 1, hours: [{ hour: "2026-10-08T12:00:00Z", txs: 4, failed: 0, burned: "9" }] });
+    gw.on("index/home", homeJson({ hours: [{ hour: "2026-10-08T12:00:00Z", txs: 4, failed: 0, burned: "9" }] }));
     const n = await source.getNetwork();
     expect(n.transactionsChangePct).toBeNull();
     expect(n.transactions24h).toBe(4);
   });
 
+  it("TestGetNetwork_an_index_that_is_behind_says_so", async () => {
+    const { gw, source } = await setup();
+    gw.on("index/home", homeJson({ status: { start_height: 1, cursor: HEAD - 40, earliest: 1, tip: HEAD, lag: 40, aggregates_from: 1, stuck: { height: HEAD - 39, reason: "state pruned", state_pruned: true, since: "2026-10-08T11:00:00Z", failures: 3 } } }));
+    const n = await source.getNetwork();
+    expect(n.index).toEqual({ startHeight: 1, cursor: HEAD - 40, tip: HEAD, lag: 40, aggregatesFrom: 1, stuck: { height: HEAD - 39, reason: "state pruned", statePruned: true, failures: 3 } });
+  });
+
   it("TestGetNetwork_a_node_failure_is_a_readable_error_without_the_nodes_words", async () => {
     const { gw, source } = await setup();
-    gw.failing.add("supply/norama");
+    gw.failing.add("index/home");
     await expect(source.getNetwork()).rejects.toThrow("The chain could not be read (HTTP 500).");
     await expect(source.getNetwork()).rejects.not.toThrow(/oramad/);
+  });
+
+  it("TestGetNetwork_a_malformed_home_is_refused_by_field", async () => {
+    const { gw, source } = await setup();
+    gw.on("index/home", homeJson({ supply: "lots" }));
+    await expect(source.getNetwork()).rejects.toThrow("The chain sent a malformed supply.");
+  });
+
+  it("TestGetIndexStatus_reads_the_light_status_route", async () => {
+    const { gw, source } = await setup();
+    gw.on("index/status", { start_height: 1, cursor: HEAD - 2, earliest: 1, tip: HEAD, aggregates_from: 1 });
+    expect(await source.getIndexStatus()).toEqual({ startHeight: 1, cursor: HEAD - 2, tip: HEAD, lag: 2, aggregatesFrom: 1, stuck: null });
   });
 });
 
 describe("subscribeHead", () => {
   it("TestSubscribeHead_calls_the_listener_only_when_the_head_moves_and_reports_failures", async () => {
-    vi.useFakeTimers();
-    const { gw, source } = await setup();
+    const { source, stream } = await setup();
     const heads: number[] = [];
     const errors: string[] = [];
     const stop = source.subscribeHead((h) => heads.push(h.height), (e) => errors.push(e.message));
-    await vi.advanceTimersByTimeAsync(0);
+    await flush();
     expect(heads).toEqual([]);
 
-    gw.on("status", rpc({ node_info: { network: "x" }, sync_info: { latest_block_height: String(HEAD + 1), latest_block_time: HEAD_TIME, catching_up: false } }));
-    await vi.advanceTimersByTimeAsync(3000);
+    stream.push(HEAD + 1);
     expect(heads).toEqual([HEAD + 1]);
 
-    await vi.advanceTimersByTimeAsync(3000);
+    stream.push(HEAD + 1);
+    stream.push(HEAD);
     expect(heads).toEqual([HEAD + 1]);
 
-    gw.failing.add("status");
-    await vi.advanceTimersByTimeAsync(3000);
-    await flush();
-    expect(errors).toEqual(["The chain could not be read (HTTP 500)."]);
+    stream.unavailable();
+    stream.drop();
+    expect(errors).toEqual(["The chain could not be reached.", "The live connection to the chain was lost; it reconnects by itself."]);
+
     stop();
-    gw.failing.clear();
-    await vi.advanceTimersByTimeAsync(9000);
+    expect(stream.open).toBe(0);
+    stream.push(HEAD + 2);
     expect(heads).toEqual([HEAD + 1]);
+  });
+
+  it("TestSubscribeHead_readers_share_one_stream", async () => {
+    const { source, stream } = await setup();
+    const a: number[] = [];
+    const b: number[] = [];
+    const stopA = source.subscribeHead((h) => a.push(h.height), () => undefined);
+    const stopB = source.subscribeHead((h) => b.push(h.height), () => undefined);
+    await source.getHead();
+    expect(stream.opened).toHaveLength(1);
+    stream.push(HEAD + 1);
+    expect([a, b]).toEqual([[HEAD + 1], [HEAD + 1]]);
+    stopA();
+    expect(stream.open).toBe(1);
+    stopB();
+    expect(stream.open).toBe(0);
+  });
+
+  it("TestSubscribeHead_a_browser_with_no_event_source_says_so_and_does_not_poll", async () => {
+    const gw = await chainFixture();
+    const source = createChainSource({ fetcher: gw.fetch, eventSource: null });
+    await expect(source.getHead()).rejects.toThrow("This browser cannot follow the chain live.");
+    const errors: string[] = [];
+    source.subscribeHead(() => undefined, (e) => errors.push(e.message));
+    expect(errors).toEqual(["This browser cannot follow the chain live."]);
+    expect(gw.asked).not.toContain("status");
+  });
+
+  it("TestSubscribeHead_a_malformed_head_event_is_an_error_not_a_head", async () => {
+    const { source, stream } = await setup();
+    const heads: number[] = [];
+    const errors: string[] = [];
+    source.subscribeHead((h) => heads.push(h.height), (e) => errors.push(e.message));
+    await source.getHead();
+    stream.emitRaw("head", '{"height":"x"}');
+    expect(heads).toEqual([]);
+    expect(errors).toEqual(["The chain sent a malformed block height."]);
   });
 });
 
 describe("subscribeHead across a reset", () => {
   it("TestSubscribeHead_a_new_chain_id_is_announced_although_its_height_is_lower", async () => {
-    vi.useFakeTimers();
-    const { gw, source } = await setup();
+    const { source, stream } = await setup();
     const heads: { height: number; chainId: string }[] = [];
     const stop = source.subscribeHead((h) => heads.push({ height: h.height, chainId: h.chainId }), () => undefined);
-    await vi.advanceTimersByTimeAsync(0);
+    await flush();
 
-    gw.on("status", rpc({ node_info: { network: "orama-test-2" }, sync_info: { latest_block_height: "3", latest_block_time: HEAD_TIME, catching_up: false } }));
-    await vi.advanceTimersByTimeAsync(3000);
+    stream.push(3, "orama-test-2");
     expect(heads).toEqual([{ height: 3, chainId: "orama-test-2" }]);
 
-    gw.on("status", rpc({ node_info: { network: "orama-test-2" }, sync_info: { latest_block_height: "2", latest_block_time: HEAD_TIME, catching_up: false } }));
-    await vi.advanceTimersByTimeAsync(3000);
+    stream.push(2, "orama-test-2");
     expect(heads).toHaveLength(1);
     stop();
   });
@@ -177,16 +240,28 @@ describe("blocks", () => {
     await expect(source.getBlock(HEAD - 5)).rejects.toThrow(/not on the chain/);
   });
 
-  it("TestGetRecentBlocks_newest_first_and_across_calls", async () => {
+  it("TestGetRecentBlocks_the_newest_few_come_from_the_home_snapshot", async () => {
     const { gw, source } = await setup();
-    gw.on(`blocks?min_height=${HEAD - 24}&max_height=${HEAD - 20}`, rpc({
-      block_metas: Array.from({ length: 5 }, (_, i) => ({ block_id: { hash: "CD".repeat(32) }, header: { height: String(HEAD - 20 - i), time: HEAD_TIME, proposer_address: "00".repeat(20) }, num_txs: "0" })),
-    }));
-    const blocks = await source.getRecentBlocks(25);
-    expect(blocks).toHaveLength(25);
-    expect(blocks[0]?.height).toBe(HEAD);
+    const blocks = await source.getRecentBlocks(24);
+    expect(blocks).toHaveLength(24);
+    expect(blocks[0]).toMatchObject({ height: HEAD, txCount: 0, proposer: null });
     expect(blocks.map((b) => b.height)).toEqual([...blocks.map((b) => b.height)].sort((a, b) => b - a));
+    expect(gw.asked).toEqual(["index/home"]);
     expect(await source.getRecentBlocks(0)).toEqual([]);
+    expect(await source.getRecentBlocks(3)).toHaveLength(3);
+  });
+
+  it("TestGetRecentBlocks_more_than_the_snapshot_pages_through_the_block_list", async () => {
+    const { gw, source } = await setup();
+    const page = (from: number, count: number) => ({
+      blocks: Array.from({ length: count }, (_, i) => ({ height: from - i, hash: "cd".repeat(32), time: HEAD_TIME, proposer: "ab".repeat(20), tx_count: 0, gas_used: 0, burned: "0", commit_signed: 0, commit_size: 0 })),
+    });
+    gw.on("index/blocks?page=1&limit=100", page(1000, 100));
+    gw.on("index/blocks?page=2&limit=100", page(900, 20));
+    const blocks = await source.getRecentBlocks(150);
+    expect(blocks).toHaveLength(120);
+    expect(blocks[119]?.height).toBe(900 - 19);
+    expect(gw.asked).toEqual(["index/blocks?page=1&limit=100", "index/blocks?page=2&limit=100"]);
   });
 });
 
@@ -221,26 +296,41 @@ describe("transactions", () => {
     expect(JSON.parse(detail?.rawJson ?? "{}").body.messages[0]["@type"]).toBe("/cosmos.bank.v1beta1.MsgSend");
   });
 
-  it("TestGetLatestActivity_filters_and_clamps", async () => {
+  it("TestGetLatestActivity_the_newest_few_come_from_the_home_snapshot", async () => {
     const { gw, source } = await setup();
-    const failed = indexTx(2, { code: 5, log: "insufficient funds" });
-    gw.on("index/txs?limit=100", { txs: [indexTx(1), failed, indexTx(3)] });
-    gw.on("index/txs?limit=2", { txs: [indexTx(1), failed] });
-    expect((await source.getLatestActivity("failed", 10)).map((t) => t.hash)).toEqual([hashOf(2).toUpperCase()]);
-    expect((await source.getLatestActivity("transfers", 2)).map((t) => t.hash)).toEqual([hashOf(1).toUpperCase(), hashOf(2).toUpperCase()]);
+    expect((await source.getLatestActivity("all", 2)).map((t) => t.hash)).toEqual([hashOf(1).toUpperCase(), hashOf(2).toUpperCase()]);
     expect(await source.getLatestActivity("all", 0)).toEqual([]);
-    expect(await source.getLatestActivity("staking", 10)).toEqual([]);
+    expect(gw.asked.filter((p) => p.startsWith("index/txs"))).toEqual([]);
   });
 
-  it("TestGetExamples_picks_the_latest_transaction_and_the_busiest_signer", async () => {
+  it("TestGetLatestActivity_a_filter_is_the_indexers_own_list", async () => {
     const { gw, source } = await setup();
-    gw.on("index/txs?limit=100", { txs: [indexTx(1, { signer: addr(2) }), indexTx(2), indexTx(3), indexTx(4, { signer: "" })] });
+    const failed = indexTx(2, { code: 5, log: "insufficient funds" });
+    gw.on("index/txs?filter=failed&limit=10", { txs: [failed] });
+    gw.on("index/txs?filter=staking&limit=10", { txs: [] });
+    gw.on("index/txs?limit=100", { txs: [indexTx(1), failed] });
+    const rows = await source.getLatestActivity("failed", 10);
+    expect(rows.map((t) => t.hash)).toEqual([hashOf(2).toUpperCase()]);
+    expect(rows[0]?.status).toEqual({ ok: false, reason: "insufficient funds" });
+    expect(await source.getLatestActivity("staking", 10)).toEqual([]);
+    expect((await source.getLatestActivity("all", 500)).map((t) => t.hash)).toEqual([hashOf(1).toUpperCase(), hashOf(2).toUpperCase()]);
+    expect(gw.asked).toContain("index/txs?limit=100");
+  });
+
+  it("TestGetLatestActivity_a_list_the_index_cannot_give_is_an_error", async () => {
+    const { gw, source } = await setup();
+    gw.failing.add("index/txs?filter=transfers&limit=5");
+    await expect(source.getLatestActivity("transfers", 5)).rejects.toThrow("The chain could not be read (HTTP 500).");
+  });
+
+  it("TestGetExamples_come_from_the_home_snapshot", async () => {
+    const { source } = await setup();
     expect(await source.getExamples()).toEqual({ latestTxHash: hashOf(1).toUpperCase(), busyWalletAddress: addr(1) });
   });
 
   it("TestGetExamples_an_empty_chain_has_none", async () => {
     const { gw, source } = await setup();
-    gw.on("index/txs?limit=100", { txs: [] });
+    gw.on("index/home", homeJson({ txs: [], examples: { latest_tx: "", busy_account: "" } }));
     expect(await source.getExamples()).toEqual({ latestTxHash: null, busyWalletAddress: null });
   });
 });
@@ -300,6 +390,29 @@ describe("wallets", () => {
     const withBob = await source.getWalletActivity(a, { filter: "all", counterparty: addr(2), cursor: null, limit: 5 });
     expect(withBob.items).toHaveLength(4);
     expect(withBob.items.every((i) => i.counterparty?.address === addr(2))).toBe(true);
+  });
+
+  it("TestGetWalletActivity_staking_and_failed_are_the_indexers_own_lists", async () => {
+    const { gw, source } = await setup();
+    const a = addr(1);
+    const stake = indexTx(5, {
+      messages: ["/cosmos.staking.v1beta1.MsgDelegate"],
+      body: [{ "@type": "/cosmos.staking.v1beta1.MsgDelegate", delegator_address: a, validator_address: valoper(7), amount: { denom: "norama", amount: "9" } }],
+    });
+    gw.on(`index/accounts/${a}/txs?page=1&limit=100&filter=staking`, { txs: [stake] });
+    gw.on(`index/accounts/${a}/txs?page=1&limit=100&filter=failed`, { txs: [] });
+    const staking = await source.getWalletActivity(a, { filter: "staking", counterparty: null, cursor: null, limit: 5 });
+    expect(staking.items.map((i) => [i.hash, i.direction, i.amount])).toEqual([[hashOf(5).toUpperCase(), "out", "-9"]]);
+    expect((await source.getWalletActivity(a, { filter: "failed", counterparty: null, cursor: null, limit: 5 })).items).toEqual([]);
+    expect(gw.asked.filter((p) => p.includes("/txs"))).toEqual([`index/accounts/${a}/txs?page=1&limit=100&filter=staking`, `index/accounts/${a}/txs?page=1&limit=100&filter=failed`]);
+  });
+
+  it("TestGetWalletActivity_received_and_sent_are_decided_here_from_the_whole_list", async () => {
+    const { gw, source } = await setup();
+    const a = addr(1);
+    gw.on(`index/accounts/${a}/txs?page=1&limit=100`, { txs: [indexTx(1)] });
+    await source.getWalletActivity(a, { filter: "out", counterparty: null, cursor: null, limit: 5 });
+    expect(gw.asked.filter((p) => p.includes("/txs"))).toEqual([`index/accounts/${a}/txs?page=1&limit=100`]);
   });
 
   it("TestGetWalletActivity_a_cursor_this_source_never_issued_is_refused", async () => {

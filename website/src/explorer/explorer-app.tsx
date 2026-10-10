@@ -23,6 +23,7 @@ import { EmissionPage } from "./pages/emission";
 import { EpochPage } from "./pages/epoch";
 import { EpochsPage } from "./pages/epochs";
 import { HomePage } from "./pages/home";
+import { RewardsPage } from "./pages/rewards";
 import { TxPage } from "./pages/tx";
 import { ValidatorPage } from "./pages/validator";
 import { ValidatorsPage } from "./pages/validators";
@@ -49,6 +50,7 @@ function Pages({ routePath }: { routePath: string }) {
         <Route path="epoch/:epoch" element={<EpochPage />} />
         <Route path="emission" element={<EmissionPage />} />
         <Route path="economics" element={<EconomicsPage />} />
+        <Route path="rewards" element={<RewardsPage />} />
         <Route path="validator/:address" element={<ValidatorPage />} />
         <Route
           path="*"

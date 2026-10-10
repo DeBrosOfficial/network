@@ -105,7 +105,9 @@ export function createClient(fetcher: ChainFetch = (input, init) => fetch(input,
         response = await fetcher(`${base}/${path}`, {
           method: "GET",
           headers: { Accept: "application/json" },
-          cache: "no-store",
+          // The browser's own cache, which follows the Cache-Control the gateway answers with: no-store for
+          // the live reads, and a few seconds (a block) or ten minutes (a closed epoch) for the index.
+          cache: "default",
           credentials: "omit",
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });

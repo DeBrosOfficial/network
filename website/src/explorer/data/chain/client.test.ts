@@ -42,6 +42,17 @@ describe("chainBase", () => {
 describe("createClient", () => {
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
+  it("TestCreateClient_leaves_caching_to_the_gateways_cache_control", async () => {
+    let seen: RequestInit | undefined;
+    const client = createClient(async (_url, init) => {
+      seen = init;
+      return json({ ok: true });
+    });
+    await client.get("index/epochs/3");
+    expect(seen?.cache).toBe("default");
+    expect(seen?.credentials).toBe("omit");
+  });
+
   it("TestCreateClient_reads_from_the_gateway_origin_without_credentials", async () => {
     const seen: { url: string; init?: RequestInit }[] = [];
     const client = createClient(async (url, init) => {

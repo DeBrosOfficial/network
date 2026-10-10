@@ -9,6 +9,7 @@ import { Page } from "../ui/page";
 import { NotFoundBox, Skeleton } from "../ui/query-states";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { EpochFacts, FeesCard, MintedCard, PaidCard } from "./epochs/epoch-summary";
+import { EpochRewardsCard } from "./rewards/epoch-rewards";
 import { EpochValidators } from "./epochs/epoch-validators";
 import { parseEpochParam } from "./epochs/logic";
 import { MissingEpochBox } from "./epochs/missing-epoch";
@@ -47,6 +48,7 @@ function EpochBody({ row }: { row: EpochRow }) {
       <EpochFacts row={row} />
       <MintedCard row={row} />
       <PaidCard row={row} />
+      <EpochRewardsCard epoch={row.epoch} />
       <FeesCard row={row} />
       <EpochValidators epoch={row.epoch} />
     </>

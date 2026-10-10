@@ -17,6 +17,7 @@ function NavLinks({ className }: { className?: string }) {
     { label: "Explore", to: paths.home, end: true, current: false },
     { label: "Validators", to: paths.validators, end: false, current: inValidators },
     { label: "Epochs", to: paths.epochs, end: false, current: false },
+    { label: "Rewards", to: paths.rewards, end: false, current: false },
     { label: "Emission", to: paths.emission, end: false, current: false },
     { label: "Supply", to: paths.economics, end: false, current: false },
   ];

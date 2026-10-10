@@ -10,6 +10,7 @@ import { ActivityCard } from "./wallet/activity-card";
 import { BalanceCard } from "./wallet/balance-card";
 import { COUNTERPARTY_LIMIT } from "./wallet/constants";
 import { CounterpartiesCard } from "./wallet/counterparties-card";
+import { AccountRewardsCard, EarningsCard } from "./rewards/account-rewards";
 import { Insight } from "./wallet/insight";
 import { MoneyMapCard } from "./wallet/money-map-card";
 import { useWalletActivity } from "./wallet/use-wallet-activity";
@@ -44,6 +45,7 @@ function WalletView({ profile }: { profile: WalletProfile }) {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="space-y-4">
           <BalanceCard balance={profile.balance} />
+          <EarningsCard address={address} />
           <ActivityCard
             activity={activity}
             filter={filter}
@@ -54,6 +56,7 @@ function WalletView({ profile }: { profile: WalletProfile }) {
           />
         </div>
         <div className="space-y-4">
+          <AccountRewardsCard address={address} />
           <CounterpartiesCard state={counterparties.state} onRetry={counterparties.refetch} selected={counterparty} onToggle={toggle} />
           <MoneyMapCard state={counterparties.state} onRetry={counterparties.refetch} />
         </div>

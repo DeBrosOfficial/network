@@ -8,6 +8,7 @@ import { ActivityFeed } from "./home/activity-feed";
 import { BlocksPanel } from "./home/blocks-panel";
 import { Hero } from "./home/hero";
 import { HealthPill } from "./home/health-pill";
+import { IndexLagLine } from "../ui/index-lag";
 import { StatTilesSection } from "./home/stats";
 import { cn } from "../../lib/utils";
 
@@ -39,6 +40,7 @@ export function HomePage() {
       <section>
         <Hero />
         <HealthPill state={state} />
+        {state.status === "ready" && <IndexLagLine index={state.data.index} className="mt-2 text-center" />}
       </section>
       <StatTilesSection state={state} onRetry={refetch} />
       <div className="grid gap-3.5 lg:grid-cols-[1.55fr_1fr]">
