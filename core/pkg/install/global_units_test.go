@@ -62,7 +62,8 @@ func TestGlobalUnits_usersPortsAndNoClusterSecret(t *testing.T) {
 		"tcp://0.0.0.0:31000",
 		"tcp://127.0.0.1:31001",
 		"127.0.0.1:31002",
-		"tcp://127.0.0.1:31003",
+		// bugboard 2939: the REST API is off in a fresh app.toml; the unit turns it on and names its address.
+		"--api.enable=true --api.address tcp://127.0.0.1:31003",
 		"127.0.0.1:31004",
 	} {
 		if !strings.Contains(chain, want) {

@@ -12,7 +12,9 @@
 # validator set holds the run's validators bonded) and every refusal (a
 # malformed address, a caller query, another method) is checked for its status.
 # The run chain deploy installs the indexer beside every node, so the index tests run in every
-# fleet run.
+# fleet run. The page is served from orama.network, not from the network, so its reads are
+# cross-origin: the gateway answers that one origin on a GET (and its preflight) under /v1/chain/
+# and no other route or origin (cors_test.go).
 id: chain-explorer
 title: Explorer reads through the gateway - balances, validators, index
 area: chain
@@ -36,3 +38,4 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/epochs, /epochs/{epoch}, /epochs/{epoch}/validators and /supply answer the closed emission epochs, an epoch's validators and one supply point per epoch, newest first, and an unknown epoch is a 404"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/validators, /validators/{operator} and its /epochs, /slashes and /jails answer a validator's power, uptime, slashes and jail periods"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: every aggregate list takes page 1 to 1000 and limit 1 to 100 and refuses a value outside them, an unknown parameter and a repeated one"
+    - "website/src/docs/blockchain/reading-the-chain.mdx#the-explorer: each gateway answers the explorer's origin, https://orama.network, on a GET (and its preflight) under /v1/chain/ and refuses it on every other route"

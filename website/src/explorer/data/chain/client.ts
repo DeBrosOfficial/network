@@ -1,6 +1,3 @@
-/** The gateway's read-only chain proxy (docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md, "The gateway's chain proxy"). */
-export const CHAIN_BASE = "/v1/chain";
-
 /** How long one read may take before the reader is told the chain could not be reached. */
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -21,6 +18,42 @@ export class ChainNotFound extends ChainReadError {
     this.name = "ChainNotFound";
   }
 }
+
+/** The gateway's read-only chain proxy (docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md, "The gateway's chain proxy"). */
+const CHAIN_PATH = "/v1/chain";
+
+/**
+ * The network the explorer reads: its gateway's origin (stagenet's; the page has
+ * no network picker yet, and createChainSource takes another base). The page is served from orama.network, which has no chain behind it,
+ * so the browser calls the network's own gateway across origins; that gateway
+ * answers the explorer's origin on the chain's read routes
+ * (core/pkg/gateway/cors_explorer.go).
+ */
+export const DEFAULT_GATEWAY_ORIGIN = "https://stagenet.orama.network";
+
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+/**
+ * The chain proxy's base URL on a network's gateway. The origin must be exactly
+ * an origin (no path, query or trailing slash) and https, or http for a gateway
+ * on this machine: a reader's balance and address lookups never travel in clear.
+ */
+export function chainBase(gatewayOrigin: string): string {
+  let url: URL;
+  try {
+    url = new URL(gatewayOrigin);
+  } catch {
+    throw new ChainReadError(`"${gatewayOrigin}" is not a gateway address.`);
+  }
+  const local = url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname);
+  if ((url.protocol !== "https:" && !local) || url.origin !== gatewayOrigin) {
+    throw new ChainReadError(`"${gatewayOrigin}" is not an https gateway origin such as https://stagenet.orama.network.`);
+  }
+  return `${url.origin}${CHAIN_PATH}`;
+}
+
+/** The chain proxy of the default network. */
+export const CHAIN_BASE = chainBase(DEFAULT_GATEWAY_ORIGIN);
 
 export type ChainFetch = (input: string, init?: RequestInit) => Promise<Response>;
 

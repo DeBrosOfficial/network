@@ -47,7 +47,7 @@ The request passes these layers, outermost first (`core/pkg/gateway/middleware.g
 4. **Logging.** Status, bytes and phase timings are recorded; a row is queued for `request_logs`.
 5. **Security headers.** `nosniff`, frame denial, HSTS, and `Cache-Control: no-store` on the `/v1/` response.
 6. **Rate limit.** The general bucket is charged to the client network (an IPv6 client by its /64).
-7. **CORS.** The origin is echoed only for the base domain, its subdomains and localhost.
+7. **CORS.** The origin is echoed only for the base domain, its subdomains and localhost, and for the public explorer's origin on a read of `/v1/chain/`.
 8. **Readiness gate.** A gateway whose schema is behind its binary answers 503 to everything except a short passthrough list.
 9. **Host routing.** The host is `ns-acme.example.network`. The route is not pinned to the main gateway, so the request is handed to the namespace proxy instead of continuing down the stack.
 

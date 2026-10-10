@@ -48,7 +48,7 @@ export class FakeGateway {
   }
 
   readonly fetch = async (input: string): Promise<Response> => {
-    const path = input.replace(/^\/v1\/chain\//, "");
+    const path = input.replace(/^(https?:\/\/[^/]+)?\/v1\/chain\//, "");
     this.asked.push(path);
     if (this.failing.has(path)) return new Response("open /var/lib/oramad: corrupted", { status: 500 });
     const route = this.routes.get(path);

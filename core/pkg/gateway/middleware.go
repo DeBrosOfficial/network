@@ -1407,12 +1407,12 @@ func principalIdentifierCandidates(ownerType, ownerID, hashed string) []string {
 }
 
 // corsMiddleware applies CORS headers. Allows requests from the configured base
-// domain and its subdomains. Falls back to permissive "*" only if no base domain
-// is configured.
+// domain and its subdomains, and the public explorer's origin on the chain's
+// read routes (cors_explorer.go). Any other origin is answered with the base
+// domain, which a browser then refuses.
 func (g *Gateway) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		allowedOrigin := g.getAllowedOrigin(origin)
+		allowedOrigin := g.allowedOriginFor(r)
 		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")

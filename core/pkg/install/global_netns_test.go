@@ -465,7 +465,10 @@ func TestInstallGlobal_colocatedMovesTheChainListenersToTheNamespaceAddress(t *t
 		return string(body)
 	}
 	chain := read(constants.ChainServiceUnit)
-	for _, want := range []string{"--rpc.laddr tcp://198.18.0.2:31001", "--api.address tcp://198.18.0.2:31003", "--grpc.address 127.0.0.1:31002"} {
+	// The REST API stays enabled (bugboard 2939) and listens where the gateway's chain proxy reads it on a
+	// co-located machine (handlers/chainread configFor).
+	apiFlags := "--api.enable=true --api.address tcp://" + strings.TrimPrefix(constants.ColocatedChainAPIURL(), "http://")
+	for _, want := range []string{"--rpc.laddr tcp://198.18.0.2:31001", apiFlags, "--grpc.address 127.0.0.1:31002"} {
 		if !strings.Contains(chain, want) {
 			t.Errorf("chain unit lacks %q:\n%s", want, chain)
 		}
