@@ -1,4 +1,5 @@
 import { categoryOf } from "../../model/describe";
+import type { EpochListQuery } from "../../model/epochs";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -20,6 +21,7 @@ import type {
 import { toError } from "../errors";
 import { clampLimit } from "../source";
 import type { ExplorerDataSource } from "../source";
+import { loadBaseFee, loadEpoch, loadEpochClock, loadEpochs, loadEpochValidators, loadSupply } from "./aggregates";
 import { BLOCKS_PER_CALL, loadBlock, loadRecentBlocks } from "./blocks";
 import { ChainNotFound, chainPath, createClient, withQuery } from "./client";
 import type { ChainClient, ChainFetch } from "./client";
@@ -201,6 +203,13 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     async getValidators(): Promise<ValidatorSet> {
       return loadValidatorSet(client, await directory());
     },
+
+    getEpochClock: () => loadEpochClock(client),
+    getEpochs: (query: EpochListQuery) => loadEpochs(client, query),
+    getEpoch: (epoch: number) => loadEpoch(client, epoch),
+    getEpochValidators: (epoch: number, query: EpochListQuery) => loadEpochValidators(client, directory, epoch, query),
+    getSupplyHistory: (limit: number) => loadSupply(client, limit),
+    getBaseFee: () => loadBaseFee(client),
 
     async searchLabels(query: string, limit: number): Promise<WalletRef[]> {
       const wanted = clampLimit(limit);

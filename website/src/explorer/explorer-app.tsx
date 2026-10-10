@@ -11,6 +11,9 @@ import { ErrorBoundary } from "./ui/error-boundary";
 import { NotFoundBox } from "./ui/query-states";
 import { Page } from "./ui/page";
 import { BlockPage } from "./pages/block";
+import { EmissionPage } from "./pages/emission";
+import { EpochPage } from "./pages/epoch";
+import { EpochsPage } from "./pages/epochs";
 import { HomePage } from "./pages/home";
 import { TxPage } from "./pages/tx";
 import { ValidatorsPage } from "./pages/validators";
@@ -36,6 +39,9 @@ export function ExplorerApp({ source }: ExplorerAppProps) {
                 <Route path="wallet/:address" element={<WalletPage />} />
                 <Route path="block/:height" element={<BlockPage />} />
                 <Route path="validators" element={<ValidatorsPage />} />
+                <Route path="epochs" element={<EpochsPage />} />
+                <Route path="epoch/:epoch" element={<EpochPage />} />
+                <Route path="emission" element={<EmissionPage />} />
                 <Route
                   path="*"
                   element={

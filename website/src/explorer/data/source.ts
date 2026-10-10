@@ -1,3 +1,4 @@
+import type { EpochClock, EpochListQuery, EpochRow, EpochValidator, IndexPage, SupplyPoint } from "../model/epochs";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -86,6 +87,22 @@ export interface ExplorerDataSource {
 
   /** Every validator, in no particular order; the UI ranks them. */
   getValidators(): Promise<ValidatorSet>;
+
+  /** The epoch in progress and what closes it. Needs the chain only, not the index. */
+  getEpochClock(): Promise<EpochClock>;
+  /**
+   * Closed emission epochs, newest first, a page at a time (page 1 to 1000, limit 1 to 100; both
+   * are clamped). Rejects if the index cannot be read.
+   */
+  getEpochs(query: EpochListQuery): Promise<IndexPage<EpochRow>>;
+  /** null for an epoch the index does not hold: one still open, one not reached, or one before the index began. */
+  getEpoch(epoch: number): Promise<EpochRow | null>;
+  /** The validators of a closed epoch, highest voting power first; null when the epoch is not closed in the index. */
+  getEpochValidators(epoch: number, query: EpochListQuery): Promise<IndexPage<EpochValidator> | null>;
+  /** The supply breakdown after each of the newest `limit` closed epochs (at most 100), newest first. */
+  getSupplyHistory(limit: number): Promise<SupplyPoint[]>;
+  /** The base fee now, in norama per gas. The chain keeps no history of it, and neither does the index. */
+  getBaseFee(): Promise<number>;
 
   /** Wallets and validators whose label contains the query, best match first. */
   searchLabels(query: string, limit: number): Promise<WalletRef[]>;

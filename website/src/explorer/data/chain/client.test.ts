@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ChainNotFound, ChainReadError, CHAIN_BASE, DEFAULT_GATEWAY_ORIGIN, chainBase, createClient } from "./client";
+import { ChainIndexUnavailable, ChainNotFound, ChainReadError, CHAIN_BASE, DEFAULT_GATEWAY_ORIGIN, chainBase, createClient } from "./client";
 
 describe("chainBase", () => {
   it("TestChainBase_puts_the_chain_proxy_on_the_gateways_origin", () => {
@@ -71,6 +71,19 @@ describe("createClient", () => {
     await expect(notFound.get("index/txs/ab")).rejects.toBeInstanceOf(ChainNotFound);
     const limited = createClient(async () => new Response("rate limit exceeded", { status: 429 }));
     await expect(limited.get("status")).rejects.toThrow("HTTP 429");
+  });
+
+  it("TestCreateClient_a_503_from_a_node_with_no_indexer_is_told_apart_from_any_other_503", async () => {
+    const noIndexer = createClient(
+      async () => new Response("this node runs no chain indexer; install it with orama global install --services chain,indexer\n", { status: 503 }),
+    );
+    await expect(noIndexer.get("index/epochs")).rejects.toBeInstanceOf(ChainIndexUnavailable);
+    await expect(noIndexer.get("index/epochs")).rejects.not.toThrow(/orama global install/);
+    const busy = createClient(async () => new Response("too many chain queries in flight", { status: 503 }));
+    const error = await busy.get("query/orama.fees.v1.Query/BaseFee").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ChainReadError);
+    expect(error).not.toBeInstanceOf(ChainIndexUnavailable);
+    expect((error as Error).message).toContain("HTTP 503");
   });
 
   it("TestCreateClient_a_blocked_or_unreachable_gateway_says_so_without_the_cause", async () => {

@@ -2,6 +2,11 @@
 const REQUEST_TIMEOUT_MS = 15_000;
 
 const HTTP_NOT_FOUND = 404;
+const HTTP_UNAVAILABLE = 503;
+/** The gateway's words for an index route on a node with no indexer (core/pkg/gateway/handlers/chainread/index.go, msgNoIndexer). */
+const NO_INDEXER_MARKER = "runs no chain indexer";
+/** A 503 body is read only this far to tell the no-indexer answer from any other. */
+const NO_INDEXER_BODY_MAX = 512;
 
 /** A read that failed. The message is written for the reader: it never carries what the node said. */
 export class ChainReadError extends Error {
@@ -16,6 +21,14 @@ export class ChainNotFound extends ChainReadError {
   constructor() {
     super("That is not on the chain.");
     this.name = "ChainNotFound";
+  }
+}
+
+/** The gateway answered 503 because the node it reached runs no chain indexer, so none of the index routes (blocks, epochs, supply) can be read from it. */
+export class ChainIndexUnavailable extends ChainReadError {
+  constructor() {
+    super("This node runs no chain indexer, so it cannot serve this page. Another node of the network may; try again later.");
+    this.name = "ChainIndexUnavailable";
   }
 }
 
@@ -75,6 +88,14 @@ export function withQuery(path: string, query: Record<string, string | number | 
   return pairs.length === 0 ? path : `${path}?${pairs.join("&")}`;
 }
 
+async function saysNoIndexer(response: Response): Promise<boolean> {
+  try {
+    return (await response.text()).slice(0, NO_INDEXER_BODY_MAX).includes(NO_INDEXER_MARKER);
+  } catch {
+    return false;
+  }
+}
+
 export function createClient(fetcher: ChainFetch = (input, init) => fetch(input, init), base: string = CHAIN_BASE): ChainClient {
   return {
     async get(path: string): Promise<unknown> {
@@ -91,6 +112,7 @@ export function createClient(fetcher: ChainFetch = (input, init) => fetch(input,
         throw new ChainReadError("The chain could not be reached.");
       }
       if (response.status === HTTP_NOT_FOUND) throw new ChainNotFound();
+      if (response.status === HTTP_UNAVAILABLE && (await saysNoIndexer(response))) throw new ChainIndexUnavailable();
       if (!response.ok) throw new ChainReadError(`The chain could not be read (HTTP ${response.status}).`);
       try {
         return await response.json();
