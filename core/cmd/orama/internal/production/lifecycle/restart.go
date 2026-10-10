@@ -33,7 +33,11 @@ func HandleRestartWithFlags(force bool) error {
 	}
 
 	fmt.Printf("Restarting all Orama production services...\n")
+	return restartWithAutoUpdatePaused(systemdTimerUnits, restartServices, func() error { return waitNodeServing("restarted") })
+}
 
+// restartServices stops every production service in order and starts them again.
+func restartServices() error {
 	services := utils.GetProductionServices()
 	if len(services) == 0 {
 		fmt.Printf("  No Orama services found\n")

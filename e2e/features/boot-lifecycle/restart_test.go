@@ -60,6 +60,14 @@ func TestNodeRestart_oneNodeReconverges(t *testing.T) {
 		t.Fatalf("orama node restart on %s: exit %d\n%s", n.Name, out.Exit, f.Redact(out.Stdout+out.Stderr))
 	}
 	infra.WaitConverged(t, len(f.State.Nodes), infra.ConvergeBudget, n.Name+" after orama node restart")
+	// The restart stops the auto-update timer while the node is down and starts it
+	// again once the node serves; the agent never ran against the half-stopped node.
+	if out := f.Exec(t, n, "systemctl is-active orama-autoupdate.timer"); strings.TrimSpace(out.Stdout) != "active" {
+		t.Errorf("orama-autoupdate.timer on %s after the restart: %q, want active", n.Name, strings.TrimSpace(out.Stdout))
+	}
+	if out := f.Exec(t, n, "systemctl is-failed orama-autoupdate.service"); strings.TrimSpace(out.Stdout) == "failed" {
+		t.Errorf("orama-autoupdate.service on %s failed during the restart:\n%s", n.Name, f.Redact(out.Stdout))
+	}
 }
 
 // TestColdStart_servesBeforeQuorum: every node's services stop (forced: the

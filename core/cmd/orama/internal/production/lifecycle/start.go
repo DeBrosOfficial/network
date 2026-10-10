@@ -1,16 +1,12 @@
 package lifecycle
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
 	"time"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/nodehealth"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
 )
 
 // HandleStart starts all production services
@@ -109,15 +105,8 @@ func HandleStart() error {
 	// cannot tell a node that came up in two seconds from one that never came
 	// up, and "✅ All services started" printed either way.
 	fmt.Printf("  ⏳ Waiting for the node to come up...\n")
-	indexRQLite, err := rqlite.LocalNodeEndpoint()
-	if err != nil {
-		return clierr.Failure("Services were started but the index RQLite cannot be addressed: %v", err)
-	}
-	if err := nodehealth.WaitReady(context.Background(), nodehealth.Target{
-		RQLite:      indexRQLite,
-		GatewayBase: fmt.Sprintf("http://localhost:%d", constants.GatewayAPIPort),
-	}, nodehealth.Options{Budget: startReadyBudget}); err != nil {
-		return clierr.Failure("Services were started but the node is not serving: %v", err)
+	if err := waitNodeServing("started"); err != nil {
+		return err
 	}
 
 	fmt.Printf("\n✅ All services started and the node is serving\n")

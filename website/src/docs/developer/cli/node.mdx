@@ -663,6 +663,9 @@ orama node restart [flags]
 ```text
 Restart all Orama services. Stops in dependency order then restarts.
 Includes explicit namespace service restart.
+The auto-update timer is stopped for the restart and started again once the
+node is serving, so the update agent never runs against a node that is down; a
+timer that was stopped stays stopped.
 Use --force to bypass quorum safety check.
 ```
 
