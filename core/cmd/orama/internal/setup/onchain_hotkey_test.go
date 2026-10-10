@@ -30,6 +30,44 @@ func TestRun_fundsTheHotKeyOfANewNodeFromTheBankAfterItsProviderStarts(t *testin
 	}
 }
 
+// hotKeyEvents are the events of the hot key step of the machine at ip, in order.
+func hotKeyEvents(h *harness, ip string) []Event {
+	h.report.mu.Lock()
+	defer h.report.mu.Unlock()
+	var out []Event
+	for _, e := range h.report.events {
+		if e.Node == ip && e.Step == StepHotKey {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func TestRun_reportsTheFundingOfEachNodesHotKeyAsRunningThenDoneWithTheAmount(t *testing.T) {
+	h := newHarness()
+	mustRun(t, h, h.opts(ip1, ip2))
+	for _, ip := range []string{ip1, ip2} {
+		events := hotKeyEvents(h, ip)
+		if len(events) != 2 || events[0].State != StateRunning || events[1].State != StateDone {
+			t.Fatalf("%s: events %+v, want running then done", ip, events)
+		}
+		if !strings.Contains(events[0].Detail, hotKeyOf(ip)) || !strings.Contains(events[1].Detail, "2 ORAMA") {
+			t.Errorf("%s: the details %q and %q name neither the hot key nor the amount", ip, events[0].Detail, events[1].Detail)
+		}
+	}
+}
+
+func TestTextReporter_printsTheHotKeyFundingOfANode(t *testing.T) {
+	var out strings.Builder
+	r := &TextReporter{Out: &out}
+	r.Emit(Event{Node: ip1, Step: StepHotKey, State: StateRunning, Detail: "funding the hot key of node alice with 2 ORAMA"})
+	r.Emit(Event{Node: ip1, Step: StepHotKey, State: StateDone, Detail: "2 ORAMA to the hot key of node alice"})
+	want := "[" + ip1 + "] hotkey running: funding the hot key of node alice with 2 ORAMA\n[" + ip1 + "] hotkey done: 2 ORAMA to the hot key of node alice\n"
+	if out.String() != want {
+		t.Errorf("printed %q, want %q", out.String(), want)
+	}
+}
+
 func TestRun_fundsEveryFullNodesHotKey(t *testing.T) {
 	h := newHarness()
 	mustRun(t, h, h.opts(ip1, ip2, ip3))
@@ -47,8 +85,8 @@ func TestRun_aHotKeyThatAlreadyHoldsTheFundingIsNotFundedAgain(t *testing.T) {
 	if h.w.index("tx fund-hot-key") >= 0 {
 		t.Errorf("a covered hot key was funded:\n%s", strings.Join(h.w.entries(), "\n"))
 	}
-	if !h.report.has(ip1, StepOnchain, StateSkipped) {
-		t.Error("the skipped funding is reported")
+	if !h.report.has(ip1, StepHotKey, StateSkipped) || h.report.has(ip1, StepHotKey, StateRunning) {
+		t.Error("the skipped funding is reported, and a hot key that needs nothing is not reported as being funded")
 	}
 }
 
@@ -80,6 +118,9 @@ func TestRun_aFailedHotKeyFundingNamesTheNodeAndTheHotKey(t *testing.T) {
 	}
 	if h.w.index("claim alice") >= 0 {
 		t.Error("nothing follows a node whose hot key could not be funded")
+	}
+	if !h.report.has(ip1, StepHotKey, StateFailed) || h.report.has(ip1, StepHotKey, StateDone) {
+		t.Error("the failed funding is reported on the hot key step, and not as done")
 	}
 }
 

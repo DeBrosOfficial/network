@@ -212,20 +212,24 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 // balance already covers hotKeyFundingPerNode is left alone; one that holds part of it is given the
 // difference, so a run that stopped half way resumes and a run repeated does not pay twice.
 func (r *runner) fundHotKey(ctx context.Context, sess ChainSession, n *nodeRun, hotKey string) error {
-	id := n.plan.Name
+	id, ip := n.plan.Name, n.plan.IP
 	have, err := sess.FeeBalance(ctx, hotKey)
 	if err != nil {
+		r.emit(ip, StepHotKey, StateFailed, err.Error())
 		return fmt.Errorf("read the fee balance of the hot key %s of node %q: %w", hotKey, id, err)
 	}
 	want := big.NewInt(hotKeyFundingPerNode)
 	if have.Cmp(want) >= 0 {
-		r.emit(n.plan.IP, StepOnchain, StateSkipped, "the hot key of node "+id+" holds "+Orama(have)+" ORAMA of fee balance")
+		r.emit(ip, StepHotKey, StateSkipped, "the hot key of node "+id+" already holds "+Orama(have)+" ORAMA of fee balance")
 		return nil
 	}
 	delta := new(big.Int).Sub(want, have)
+	r.emit(ip, StepHotKey, StateRunning, "funding the hot key "+hotKey+" of node "+id+" with "+Orama(delta)+" ORAMA from the operator's bank balance")
 	if _, err := sess.FundHotKey(ctx, clusterreg.HotKeyFunding{NodeID: id, Amount: delta.String(), FromBank: true}); err != nil {
+		r.emit(ip, StepHotKey, StateFailed, err.Error())
 		return fmt.Errorf("fund the hot key %s of node %q with %s ORAMA from the operator's bank balance: %w", hotKey, id, Orama(delta), err)
 	}
+	r.emit(ip, StepHotKey, StateDone, Orama(delta)+" ORAMA to the hot key of node "+id)
 	return nil
 }
 
