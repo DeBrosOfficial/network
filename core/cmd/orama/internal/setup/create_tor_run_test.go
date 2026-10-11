@@ -260,16 +260,35 @@ func TestRunCreate_tor_exitRelaysAreExitsAndAuthoritiesNeverAre(t *testing.T) {
 	}
 }
 
-func TestRunCreate_tor_sharedSubnetsOnlyWhenTheMachinesAreInFewerThanThree(t *testing.T) {
-	h := newCreateHarness(t)
-	h.mustCreate(t, h.torOpts(3, torIPs...))
-	if _, _, n := publishedTor(t, h); !n.AllowSharedSubnets {
-		t.Error("the machines are in two /16 networks, and a circuit of three hops needs the shared-subnet allowance")
+// Circuits are built over the relays: the authorities' /16 networks do not count, unless
+// there are no relays and the authorities are all there is.
+func TestRunCreate_tor_sharedSubnetsOnlyWhenTheRelaysAreInFewerThanThree(t *testing.T) {
+	cases := []struct {
+		name   string
+		ips    []string
+		shared bool
+	}{
+		{"two relays in one /16", torIPs, true},
+		// Three authorities in three /16 networks do not help: the two relays are in two.
+		{"authorities spread, relays in two", []string{"57.129.166.16", "161.97.184.199", "141.94.12.3", "51.75.64.8", "51.75.65.9"}, true},
+		{"three relays in three /16 networks", []string{"57.129.166.16", "57.129.166.17", "161.97.184.199", "141.94.12.3", "51.75.64.8", "146.59.1.1"}, false},
+		{"no relay, the authorities in three /16 networks", []string{"57.129.166.16", "161.97.184.199", "141.94.12.3"}, false},
+		{"no relay, the authorities in two", []string{"57.129.166.16", "57.129.166.17", "161.97.184.199"}, true},
 	}
-	spread := newCreateHarness(t)
-	spread.mustCreate(t, spread.torOpts(3, "57.129.166.16", "161.97.184.199", "141.94.12.3", "51.75.64.8"))
-	if _, _, n := publishedTor(t, spread); n.AllowSharedSubnets {
-		t.Error("four /16 networks need no allowance, which weakens path selection")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := newCreateHarness(t)
+			res := h.mustCreate(t, h.torOpts(3, c.ips...))
+			if said := strings.Contains(strings.Join(res.Created.NextSteps(), "\n"), "allow_shared_subnets"); said != c.shared {
+				t.Errorf("the next steps tell the maintainer of the allowance: %v, want %v", said, c.shared)
+			}
+			if _, _, n := publishedTor(t, h); n.AllowSharedSubnets != c.shared {
+				t.Errorf("allow_shared_subnets = %v, want %v", n.AllowSharedSubnets, c.shared)
+			}
+			if said := strings.Contains(h.report.text(), "allow_shared_subnets"); said != c.shared {
+				t.Errorf("the operator was told of the allowance: %v, want %v", said, c.shared)
+			}
+		})
 	}
 }
 

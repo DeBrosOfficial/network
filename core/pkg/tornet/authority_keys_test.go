@@ -14,6 +14,8 @@ func keysRequest(t *testing.T) AuthorityKeysRequest {
 	return AuthorityKeysRequest{
 		Spec: AuthoritySpec{Nickname: "OramaAuth01", Address: "57.129.166.16", ORPort: 31020, DirPort: 31021},
 		Dir:  filepath.Join(t.TempDir(), "authority"),
+		// The keys are made by whoever runs the test; the command's caller is root.
+		Owner: os.Geteuid(),
 	}
 }
 
@@ -241,5 +243,74 @@ func TestParseAuthorityKeys(t *testing.T) {
 		if _, err := ParseAuthorityKeys([]byte(body)); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
+	}
+}
+
+// A secret that is read back must be what the command left: a regular file of the owner's,
+// closed to group and others, and the identity key must have its passphrase beside it.
+func TestEnsureAuthorityKeys_readBackRefusesASecretThatIsNotWhatWasLeft(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(t *testing.T, req *AuthorityKeysRequest, offline string)
+		want   string
+	}{
+		{"an identity key a group can read", func(t *testing.T, _ *AuthorityKeysRequest, offline string) {
+			chmod(t, filepath.Join(offline, KeyAuthorityIdentity), 0o440)
+		}, "lets others in"},
+		{"a passphrase the world can read", func(t *testing.T, _ *AuthorityKeysRequest, offline string) {
+			chmod(t, filepath.Join(offline, AuthorityPassphraseFile), 0o444)
+		}, "lets others in"},
+		{"no passphrase", func(t *testing.T, _ *AuthorityKeysRequest, offline string) {
+			if err := os.Remove(filepath.Join(offline, AuthorityPassphraseFile)); err != nil {
+				t.Fatal(err)
+			}
+		}, "passphrase is missing"},
+		{"an identity key that is a link", func(t *testing.T, _ *AuthorityKeysRequest, offline string) {
+			path := filepath.Join(offline, KeyAuthorityIdentity)
+			real := filepath.Join(offline, "real")
+			if err := os.Rename(path, real); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(real, path); err != nil {
+				t.Fatal(err)
+			}
+		}, "not a regular file"},
+		{"a passphrase that is a directory", func(t *testing.T, _ *AuthorityKeysRequest, offline string) {
+			path := filepath.Join(offline, AuthorityPassphraseFile)
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}, "not a regular file"},
+		{"a secret of another account", func(_ *testing.T, req *AuthorityKeysRequest, _ string) {
+			req.Owner = os.Geteuid() + 1
+		}, "belongs to uid"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := &fakeTor{t: t}
+			req := keysRequest(t)
+			if _, err := EnsureAuthorityKeys(context.Background(), f.run, req); err != nil {
+				t.Fatal(err)
+			}
+			c.mutate(t, &req, filepath.Join(req.Dir, "offline", "OramaAuth01"))
+			calls := len(f.calls)
+			_, err := EnsureAuthorityKeys(context.Background(), f.run, req)
+			if err == nil || !strings.Contains(err.Error(), c.want) || !strings.Contains(err.Error(), filepath.Join(req.Dir, "offline", "OramaAuth01")) && c.want != "belongs to uid" {
+				t.Fatalf("err = %v, want %q with the path", err, c.want)
+			}
+			if len(f.calls) != calls {
+				t.Errorf("keys were made over a set that was refused: %v", f.calls[calls:])
+			}
+		})
+	}
+}
+
+func chmod(t *testing.T, path string, mode os.FileMode) {
+	t.Helper()
+	if err := os.Chmod(path, mode); err != nil {
+		t.Fatal(err)
 	}
 }

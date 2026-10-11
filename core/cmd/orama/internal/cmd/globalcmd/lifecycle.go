@@ -62,7 +62,9 @@ var restartCmd = &cobra.Command{
 named). Restarting the chain restarts every installed service, chain first.
 
 A directory authority is restarted one at a time, at least 30 minutes apart:
-see "orama global stop". --force overrides the check.`,
+see "orama global stop". --force overrides the check. The refusal for an authority
+that was started too recently exits with code 9 and changes nothing, so a script that
+rolls authorities can wait and ask again on that code alone.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runLifecycle(cmd, args, "restarting the global services", func(l globalnode.Lifecycle, s []install.GlobalService) error {
 			l.ForceAuthorityRoll = forceAuthorityRoll

@@ -113,7 +113,7 @@ func (p *Plan) applyTor(o Options) {
 // torNote tells the operator what the Tor step does and how long it takes.
 func torNote(p *Plan, authorities int, exit bool) string {
 	relays := len(p.Nodes) - authorities
-	what := fmt.Sprintf("%d machines run directory authorities of the network's own Tor network, made on those machines (their identity keys never leave them)", authorities)
+	what := fmt.Sprintf("%d machines run directory authorities of the network's own Tor network, made on those machines (each identity key stays on its machine, encrypted, with its passphrase beside it on the same machine: a test network's arrangement, which a production Tor network does not use)", authorities)
 	if relays > 0 {
 		kind := "relays"
 		if exit {

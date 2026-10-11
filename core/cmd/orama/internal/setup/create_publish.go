@@ -25,6 +25,9 @@ type CreatedNetwork struct {
 	// the seeds are the cluster's own nameservers, which the cluster publishes itself
 	// once the domain is delegated to it.
 	Domain string
+	// TorSharedSubnets says the Tor network file allows a circuit to use two relays of one
+	// /16 (allow_shared_subnets), which weakens path selection.
+	TorSharedSubnets bool
 }
 
 // ManifestURL is where the website serves the manifest once the network is
@@ -81,6 +84,9 @@ func (c *CreatedNetwork) NextSteps() []string {
 	steps = append(steps,
 		fmt.Sprintf("  2. In the repository: copy %s to networks/%s/%s, run `make -C core sync-networks`, and commit networks/ and core/pkg/netregistry/embedded/.", filepath.Clean(c.Dir), m.Name, c.replaces()),
 		"     The next CLI release then knows the network by name.")
+	if c.TorSharedSubnets {
+		steps = append(steps, "     The Tor network file allows a circuit to use two relays of one /16 network (allow_shared_subnets), because its relays are in fewer than three: that weakens path selection. `orama network add` shows it to whoever joins.")
+	}
 	if m.TorNetworkSHA256 != "" {
 		steps = append(steps,
 			"     The directory holds the network's own Tor network, tor-network.json, and the manifest pins it (sha256 "+m.TorNetworkSHA256+"): the relays of every machine that joins install it.",

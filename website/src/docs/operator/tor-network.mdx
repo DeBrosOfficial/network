@@ -291,7 +291,10 @@ failed. A restarted onion service built its descriptors from the older consensus
 still held (below). `orama global stop dirauth` and `restart dirauth` therefore refuse
 while another authority of the network file published its descriptor (which it does
 when it starts) less than 30 minutes ago, or is not in the consensus, or when this
-authority holds no valid full consensus to judge by; `--force` overrides it. Verify
+authority holds no valid full consensus to judge by; `--force` overrides it. The refusal for
+a recently started authority exits with code 9 (`clierr.CodeNotYet`: refused, nothing changed,
+passes in time), which is what a caller that rolls authorities waits on; the other refusals are
+ordinary failures. Verify
 `orama global tor info` between restarts as before, and wait out the 30 minutes.
 
 **Archive.** Every voting period is copied to
@@ -687,15 +690,18 @@ above, run through SSH, with these differences:
 - **Two network files.** The authorities are installed with `bootstrap: true`, and the file the manifest pins
   (`tor_network_sha256`, and `networks/<name>/tor-network.json`) is the same file with `bootstrap: false`, so
   a machine that joins later never assumes reachability. Voting interval 30 minutes, vote and distribution delay
-  300 s, `hsdir_min_uptime_hours` 1, `allow_exit` with `--exit`, and `allow_shared_subnets` when the machines are
-  in fewer than three /16 networks.
+  300 s, `hsdir_min_uptime_hours` 1, `allow_exit` with `--exit`, and `allow_shared_subnets` when the relays (the
+  authorities, when there are no relays) are in fewer than three /16 networks. That flag weakens path selection (a circuit may then
+  use two relays of one /16): setup says so while it runs, in the next steps it prints, and `orama network add` shows
+  it to anyone asked to trust the network. A file is pinned only after setup has read what each machine runs; a
+  machine that runs another network file stops the run and the pin stays as it was.
 - **The authorities start together and leave the bootstrap mode one at a time.** All authorities are started within
   seconds of each other; the first consensus is read from each machine's own `orama global tor info` (valid,
-  signed by a majority of the authorities, listing the machine), not timed. Each authority is then installed with
+  signed by a majority of the authorities, listing the machine with the Running flag), not timed. Each authority is then installed with
   the final file and restarted with `orama global restart dirauth`. The machine refuses that restart
   while another authority has started less than 30 minutes ago ([Directory authorities](#directory-authorities)),
-  with a message that begins "not now, or the network is left without a consensus"; setup asks again every
-  minute on that refusal and on no other, and waits, after each restart, for a consensus made after it that lists
+  with exit code 9 (`clierr.CodeNotYet`) and a message that begins "not now, or the network is left without a
+  consensus"; setup asks again every minute on that exit code and on nothing else, and waits, after each restart, for a consensus made after it that lists
   the authority, since the rule judges the others by the consensus the machine holds. The relays are installed with the final file
   and restarted together afterwards. The whole step takes two and a half hours or so on three authorities.
 - **It resumes.** The state of each machine decides: keys that exist are read back; a role installed with either

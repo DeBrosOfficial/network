@@ -33,6 +33,8 @@ func (x *torRun) ip() string { return x.run.plan.IP }
 type torFiles struct {
 	first, final       []byte
 	firstSHA, finalSHA string
+	// sharedSubnets: the file allows a circuit two relays of one /16 (allow_shared_subnets).
+	sharedSubnets bool
 }
 
 // torRuns are the machines that run a Tor role, authorities first, and checks each
@@ -91,6 +93,7 @@ func (r *runner) torPhase(ctx context.Context) error {
 	if err := r.publishWith(r.genesis, files.final); err != nil {
 		return err
 	}
+	r.res.Created.TorSharedSubnets = files.sharedSubnets
 	if err := r.torInstallAll(ctx, runs, files); err != nil {
 		return err
 	}
@@ -176,6 +179,23 @@ func checkAuthorityKeys(keys tornet.AuthorityKeys, want AuthorityKeysInput, now 
 	return nil
 }
 
+// circuitHops are the addresses of the machines circuits are built over: the relays. The
+// authorities run the network but are not counted for path selection; a network with no
+// relay machine is built over its authorities, which are then the only relays there are.
+func circuitHops(runs []*torRun) []string {
+	var relays, all []string
+	for _, x := range runs {
+		all = append(all, x.ip())
+		if x.role == TorRelay {
+			relays = append(relays, x.ip())
+		}
+	}
+	if len(relays) == 0 {
+		return all
+	}
+	return relays
+}
+
 // torNetworkFiles builds the network file from the authorities' identities, and
 // shows the operator the identities to read against the machines' own output.
 func (r *runner) torNetworkFiles(runs []*torRun) (torFiles, error) {
@@ -185,7 +205,7 @@ func (r *runner) torNetworkFiles(runs []*torRun) (torFiles, error) {
 	}
 	n := tornet.Network{
 		Name: r.net.Manifest.Name, Private: true, Bootstrap: true, AllowExit: r.opts.Exit,
-		AllowSharedSubnets:    distinctSubnets(r.opts.IPs) < minDistinctSubnets,
+		AllowSharedSubnets:    distinctSubnets(circuitHops(runs)) < minDistinctSubnets,
 		HSDirMinUptimeHours:   torHSDirMinUptimeHours,
 		VotingIntervalMinutes: torVotingIntervalMinutes, VoteDelaySeconds: torDelaySeconds, DistDelaySeconds: torDelaySeconds,
 		Authorities: auths,
@@ -200,12 +220,13 @@ func (r *runner) torNetworkFiles(runs []*torRun) (torFiles, error) {
 		return torFiles{}, fmt.Errorf("build the Tor network file: %w", err)
 	}
 	if n.AllowSharedSubnets {
-		r.d.Report.Linef("the machines are in fewer than %d /16 networks, so the Tor network allows a circuit to use two relays of one /16 (allow_shared_subnets): it weakens path selection, and cannot be built otherwise", minDistinctSubnets)
+		r.d.Report.Linef("the machines circuits are built over (the relays; the authorities when there are none) are in fewer than %d /16 networks, so the Tor network allows a circuit to use "+
+			"two relays of one /16 (allow_shared_subnets): it weakens path selection, and no circuit can be built otherwise. The published tor-network.json says so, and so does `orama network add`", minDistinctSubnets)
 	}
 	for _, line := range strings.Split(torSeatLines(auths), "\n") {
 		r.d.Report.Linef("  Tor authority %s", line)
 	}
-	return torFiles{first: first, final: final, firstSHA: netregistry.Digest(first), finalSHA: netregistry.Digest(final)}, nil
+	return torFiles{first: first, final: final, firstSHA: netregistry.Digest(first), finalSHA: netregistry.Digest(final), sharedSubnets: n.AllowSharedSubnets}, nil
 }
 
 // torReadStates reads what each machine has of its role.

@@ -16,6 +16,7 @@ import (
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/DeBrosOfficial/network/pkg/tornet"
 	"github.com/DeBrosOfficial/network/pkg/tornet/tornettest"
 )
 
@@ -315,6 +316,36 @@ func TestNetworkAddManifest_aPinnedTorNetworkIsShownAndStored(t *testing.T) {
 	}
 	if got, err := os.ReadFile(filepath.Join(dir, "custom", "tor-network.json")); err != nil || string(got) != string(torFile) {
 		t.Errorf("stored Tor network = %q, %v", got, err)
+	}
+}
+
+// A Tor network that allows two relays of one /16 in a circuit weakens path selection: whoever
+// is asked to trust the network is told, beside the digest they confirm.
+func TestNetworkAddManifest_aTorNetworkThatAllowsSharedSubnetsSaysSo(t *testing.T) {
+	useNetworkFixtures(t, &EnvironmentConfig{}, "stagenet")
+	tor, err := tornet.ParseNetwork(tornettest.NetworkFile(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, shared := range []bool{true, false} {
+		tor.AllowSharedSubnets = shared
+		torFile, err := tor.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		url, client := manifestServer(t, func(files map[string][]byte) {
+			m := networkManifest("custom", "orama-custom-1")
+			m.TorNetworkSHA256 = netregistry.Digest(torFile)
+			files["manifest.json"] = manifestJSON(t, m)
+			files["tor-network.json"] = torFile
+		})
+		p, out := capture(t)
+		if err := NetworkAddManifest(context.Background(), p, client, strings.NewReader("yes\n"), url, true); err != nil {
+			t.Fatal(err)
+		}
+		if said := strings.Contains(out.String(), "allow_shared_subnets"); said != shared {
+			t.Errorf("shared subnets %v: the output says so: %v\n%s", shared, said, out)
+		}
 	}
 }
 

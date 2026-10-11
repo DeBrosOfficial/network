@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -25,6 +26,8 @@ const (
 	// the ceremony's 16-character floor, and the key it protects is a legacy PEM
 	// that a stolen copy attacks offline.
 	authorityPassphraseBytes = 32
+	// secretFileOthers is every permission bit group and others must not have on a secret.
+	secretFileOthers = 0o077
 )
 
 // AuthorityKeys is one authority's keys as they stand on the machine that makes
@@ -51,6 +54,9 @@ type AuthorityKeysRequest struct {
 	// names "tor" and "tor-gencert" on PATH.
 	TorBinary     string
 	GencertBinary string
+	// Owner is the uid that must own the identity key and its passphrase when they are read
+	// back: root, 0, for the command; a test sets its own.
+	Owner int
 	// Random is the source of the passphrase; nil means crypto/rand.
 	Random io.Reader
 }
@@ -98,7 +104,7 @@ func EnsureAuthorityKeys(ctx context.Context, run Runner, req AuthorityKeysReque
 	}
 	switch state {
 	case keysComplete:
-		return readAuthorityKeys(req.Spec, deploy, offline)
+		return req.readBack(deploy, offline)
 	case keysPartial:
 		return AuthorityKeys{}, fmt.Errorf("%s or %s holds part of the keys of authority %s: remove both if the authority was never installed, or finish by hand; keys are never made over keys", deploy, offline, req.Spec.Nickname)
 	}
@@ -179,8 +185,14 @@ func (r AuthorityKeysRequest) passphrase() (string, error) {
 // readAuthorityKeys reads back the identity of keys an earlier call made and
 // checks it is the authority spec describes: the same checks the installer makes
 // of the bundle, plus the identity key still being encrypted.
-func readAuthorityKeys(spec AuthoritySpec, deploy, offline string) (AuthorityKeys, error) {
+func (r AuthorityKeysRequest) readBack(deploy, offline string) (AuthorityKeys, error) {
+	spec := r.Spec
 	keys := filepath.Join(deploy, ceremonyKeysDir)
+	for _, secret := range []string{KeyAuthorityIdentity, AuthorityPassphraseFile} {
+		if err := checkSecretFile(filepath.Join(offline, secret), r.Owner); err != nil {
+			return AuthorityKeys{}, err
+		}
+	}
 	identity, err := os.ReadFile(filepath.Join(offline, KeyAuthorityIdentity))
 	if err != nil {
 		return AuthorityKeys{}, fmt.Errorf("read the authority identity key: %w", err)
@@ -210,6 +222,27 @@ func readAuthorityKeys(spec AuthoritySpec, deploy, offline string) (AuthorityKey
 	}
 	a := Authority{Nickname: spec.Nickname, Address: spec.Address, ORPort: spec.ORPort, DirPort: spec.DirPort, V3Ident: v3, Fingerprint: fingerprint, Ed25519ID: ed}
 	return AuthorityKeys{Authority: a, Expires: expires, Bundle: deploy}, nil
+}
+
+// checkSecretFile refuses a secret that is not what the command left: it must exist, be a
+// regular file (a link could point root's reader or the install at another file), belong
+// to owner, and be closed to group and others. Reading it back is only safe then.
+func checkSecretFile(path string, owner int) error {
+	st, err := os.Lstat(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("%s is missing: the keys were made here, and an authority identity key without its passphrase (or the reverse) cannot be used", path)
+	case err != nil:
+		return fmt.Errorf("look at %s: %w", path, err)
+	case !st.Mode().IsRegular():
+		return fmt.Errorf("%s is not a regular file (%s): a secret is never read through a link or a device", path, st.Mode().Type())
+	case st.Mode().Perm()&secretFileOthers != 0:
+		return fmt.Errorf("%s has mode %o, which lets others in: it was made 0%o", path, st.Mode().Perm(), CeremonyOfflineKeyMode)
+	}
+	if sys, ok := st.Sys().(*syscall.Stat_t); ok && int(sys.Uid) != owner {
+		return fmt.Errorf("%s belongs to uid %d, want %d", path, sys.Uid, owner)
+	}
+	return nil
 }
 
 // ParseAuthorityKeys reads the document `orama maint global tor authority-keys`

@@ -185,7 +185,8 @@ func TestBuildCreatePlan_theFirstMachinesAreAuthoritiesTheOthersRelays(t *testin
 		}
 	}
 	summary := strings.Join(p.Summary(), "\n")
-	for _, want := range []string{"Tor directory authority", "EXIT relay", "3 machines run directory authorities", "the other 2 run EXIT relays", "two hours or more", "30m0s apart"} {
+	for _, want := range []string{"Tor directory authority", "EXIT relay", "3 machines run directory authorities", "the other 2 run EXIT relays", "two hours or more", "30m0s apart",
+		"with its passphrase beside it on the same machine", "a test network's arrangement"} {
 		if !strings.Contains(summary, want) {
 			t.Errorf("the plan the operator confirms lacks %q:\n%s", want, summary)
 		}

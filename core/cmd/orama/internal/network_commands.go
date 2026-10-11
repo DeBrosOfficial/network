@@ -16,6 +16,7 @@ import (
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
 	"github.com/DeBrosOfficial/network/pkg/config"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/DeBrosOfficial/network/pkg/tornet"
 )
 
 // A network is a name the CLI knows. It can be a network of the registry (a
@@ -387,6 +388,9 @@ func NetworkAddManifest(ctx context.Context, p *printer.Printer, client *http.Cl
 	p.Printf("Release repo:  %s (channel %s)\n", m.ReleaseRepo, m.Channel)
 	if m.TorNetworkSHA256 != "" {
 		p.Printf("Tor network:   sha256 %s (the relays of this network join it)\n", m.TorNetworkSHA256)
+		if tor, err := tornet.ParseNetwork(n.TorNetwork); err == nil && tor.AllowSharedSubnets {
+			p.Printf("               its circuits may use two relays of one /16 network (allow_shared_subnets), which weakens path selection\n")
+		}
 	}
 	p.Printf("Source:        %s\n", rawURL)
 	if replaced := replacedBy(store, m.Name); replaced != "" {
