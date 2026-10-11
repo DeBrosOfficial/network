@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	"strings"
 
 	"cosmossdk.io/math"
 
@@ -12,9 +11,10 @@ import (
 	"github.com/DeBrosOfficial/network/chain/x/emission/types"
 )
 
-// nonProductionChainIDMarkers are the chain-id substrings the bootstrap-stake premine gate
-// accepts (Keeper.checkPremineGate). A mainnet chain-id ("orama-1") contains none of these.
-var nonProductionChainIDMarkers = []string{"-stagenet-", "-devnet-", "-localnet-"}
+// testChainIDForm names, in error messages, the chain ids the bootstrap-stake and faucet gates
+// accept: exactly params.ClassOfChainID's localnet, devnet and stagenet ids. A mainnet chain-id
+// ("orama-1") is none of them, and neither is an id that only contains a class word.
+const testChainIDForm = "orama-(localnet|devnet|stagenet)-<name>"
 
 // InitGenesis sets x/emission's state from a GenesisState. It must run after x/bank's InitGenesis
 // so that, on a true fresh genesis, it can observe whatever norama supply genesis accounts
@@ -116,10 +116,10 @@ func (k Keeper) checkPremineGate(ctx sdk.Context, p types.Params, genesisSupply 
 // this runs even at zero supply: otherwise a production chain-id could start with devnet-short
 // epochs and emit the whole schedule in hours.
 func checkBootstrapChainID(ctx sdk.Context, p types.Params) error {
-	if p.AllowBootstrapStake && !isNonProductionChainID(ctx.ChainID()) {
+	if p.AllowBootstrapStake && !params.IsNonProductionChainID(ctx.ChainID()) {
 		return fmt.Errorf(
-			"allow_bootstrap_stake requires a chain-id containing one of %v, got %q",
-			nonProductionChainIDMarkers, ctx.ChainID(),
+			"allow_bootstrap_stake requires a chain-id of the form %s, got %q",
+			testChainIDForm, ctx.ChainID(),
 		)
 	}
 	return nil
@@ -129,23 +129,13 @@ func checkBootstrapChainID(ctx sdk.Context, p types.Params) error {
 // re-imported genesis: the faucet mints norama for anyone who asks, so a production chain must
 // never be able to switch it on.
 func checkFaucetChainID(ctx sdk.Context, p types.Params) error {
-	if p.FaucetEnabled && !isNonProductionChainID(ctx.ChainID()) {
+	if p.FaucetEnabled && !params.IsNonProductionChainID(ctx.ChainID()) {
 		return fmt.Errorf(
-			"faucet_enabled requires a chain-id containing one of %v, got %q",
-			nonProductionChainIDMarkers, ctx.ChainID(),
+			"faucet_enabled requires a chain-id of the form %s, got %q",
+			testChainIDForm, ctx.ChainID(),
 		)
 	}
 	return nil
-}
-
-// isNonProductionChainID reports whether chainID contains one of nonProductionChainIDMarkers.
-func isNonProductionChainID(chainID string) bool {
-	for _, marker := range nonProductionChainIDMarkers {
-		if strings.Contains(chainID, marker) {
-			return true
-		}
-	}
-	return false
 }
 
 // ExportGenesis reads x/emission's current state back into a GenesisState.

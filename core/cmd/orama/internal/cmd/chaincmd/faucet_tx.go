@@ -62,8 +62,8 @@ func requireTestNetwork(chainID string) error {
 	if chainfaucet.IsTestNetwork(chainID) {
 		return nil
 	}
-	return clierr.Usage("chain %q is not a test network: the faucet exists only on a chain whose id contains one of %s",
-		chainID, strings.Join(netclass.NonProductionMarkers, ", "))
+	return clierr.Usage("chain %q is not a test network: the faucet exists only on a chain whose id is of the form %s",
+		chainID, netclass.TestChainIDForm)
 }
 
 // unsignedFaucetTx is the proto-JSON of a cosmos.tx.v1beta1.Tx carrying one MsgFaucet and no

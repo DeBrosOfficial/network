@@ -98,8 +98,7 @@ orama chain faucet <recipient> [flags]
 ```text
 Send test ORAMA to an account from the chain's faucet (MsgFaucet).
 
-The faucet exists only on a test network: a chain whose id contains -stagenet-,
--devnet- or -localnet- and whose genesis turned it on (faucet_enabled). This
+The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
 command reads the chain id from the node first and refuses any other chain
 before it signs anything. The chain refuses a drip over its maximum and a second
 drip to the same recipient inside its cooldown (24 hours by default).

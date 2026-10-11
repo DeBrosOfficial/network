@@ -65,7 +65,7 @@ func (m msgServer) Faucet(goCtx context.Context, msg *types.MsgFaucet) (*types.M
 // faucetParams loads Params and applies the gates that need no per-recipient state: the chain-id
 // (checked again here, not only at genesis, as defence in depth), faucet_enabled and the drip size.
 func (k Keeper) faucetParams(ctx sdk.Context, amount math.Int) (types.Params, error) {
-	if !isNonProductionChainID(ctx.ChainID()) {
+	if !params.IsNonProductionChainID(ctx.ChainID()) {
 		return types.Params{}, errors.Wrapf(types.ErrFaucetProduction, "chain-id %q", ctx.ChainID())
 	}
 	p, err := k.Params.Get(ctx)

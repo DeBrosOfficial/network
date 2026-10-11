@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
@@ -15,6 +14,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
+	"github.com/DeBrosOfficial/network/chain/app/params"
 	"github.com/DeBrosOfficial/network/chain/client/node"
 	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/apphash"
 	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
@@ -77,16 +77,15 @@ func Dial(ctx context.Context, addrs []string, feeMultiple int64, gasAdjust uint
 	return c, nil
 }
 
-// localnetMarker is what a localnet's chain id contains (scripts/localnet/localnet.sh). The load
-// generator signs with keys anyone can derive from a public seed, so it refuses any other chain.
-const localnetMarker = "-localnet-"
+// The load generator signs with keys anyone can derive from a public seed, so it refuses any chain
+// whose id is not exactly a localnet id (scripts/localnet/localnet.sh, params.ClassOfChainID).
 
 // ErrNotLocalnet is returned when a node is on a chain that is not a localnet.
 var ErrNotLocalnet = errors.New("oramad-bench only runs against a localnet")
 
 func requireLocalnet(chainID string) error {
-	if !strings.Contains(chainID, localnetMarker) {
-		return fmt.Errorf("%w: chain id %q does not contain %q; the bench accounts' keys are derived from a public seed and must never sign for a real network", ErrNotLocalnet, chainID, localnetMarker)
+	if params.ClassOfChainID(chainID) != params.ChainLocalnet {
+		return fmt.Errorf("%w: chain id %q is not of the form orama-localnet-<name>; the bench accounts' keys are derived from a public seed and must never sign for a real network", ErrNotLocalnet, chainID)
 	}
 	return nil
 }

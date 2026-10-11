@@ -18,6 +18,8 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+
+	"github.com/DeBrosOfficial/network/chain/app/params"
 )
 
 var (
@@ -72,7 +74,7 @@ type commonFlags struct {
 }
 
 func (c *commonFlags) register(fs *flag.FlagSet) {
-	fs.StringVar(&c.chainID, "chain-id", os.Getenv("CHAIN_ID"), "chain id (must contain -stagenet- or -devnet-)")
+	fs.StringVar(&c.chainID, "chain-id", os.Getenv("CHAIN_ID"), "chain id (orama-stagenet-<name> or orama-devnet-<name>)")
 	fs.StringVar(&c.nodes, "nodes", "", "nodes as name=alias=ip,... [required]")
 }
 
@@ -81,8 +83,8 @@ func (c commonFlags) validate() ([]nodeRef, error) {
 	if !chainIDRE.MatchString(c.chainID) {
 		return nil, fmt.Errorf("invalid --chain-id %q", c.chainID)
 	}
-	if !strings.Contains(c.chainID, "-stagenet-") && !strings.Contains(c.chainID, "-devnet-") {
-		return nil, fmt.Errorf("refusing to run: the chain id must contain -stagenet- or -devnet-, got %q", c.chainID)
+	if class := params.ClassOfChainID(c.chainID); class != params.ChainStagenet && class != params.ChainDevnet {
+		return nil, fmt.Errorf("refusing to run: the chain id must be orama-stagenet-<name> or orama-devnet-<name>, got %q", c.chainID)
 	}
 	return parseNodes(c.nodes)
 }

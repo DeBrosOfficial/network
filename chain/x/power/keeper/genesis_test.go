@@ -55,6 +55,19 @@ func TestInitGenesis_committeeSizeGate_rejectsUndersizedProductionCommittee(t *t
 	require.Error(t, err)
 }
 
+func TestInitGenesis_committeeSizeGate_chainIDThatOnlyContainsATestMarkerIsProduction(t *testing.T) {
+	for _, chainID := range []string{"orama-1-devnet-x", "orama-1-stagenet-x", "mainnet-localnet-1", "orama-devnet-"} {
+		f := newTestFixture(t)
+		f.Ctx = f.Ctx.WithChainID(chainID)
+
+		gs := types.DefaultGenesisState()
+		gs.Params.MinCommitteeSize = 1
+		gs.BootstrapCommittee = threeMemberCommittee(t)
+		_, err := f.Keeper.InitGenesis(f.Ctx, *gs, f.Emission)
+		require.ErrorContains(t, err, "production chain-id", chainID)
+	}
+}
+
 func TestInitGenesis_equalPowerForEachCommitteeMember(t *testing.T) {
 	f := newTestFixture(t)
 	f.Ctx = f.Ctx.WithChainID("orama-devnet-1")

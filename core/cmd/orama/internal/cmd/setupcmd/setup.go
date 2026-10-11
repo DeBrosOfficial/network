@@ -60,7 +60,7 @@ machine's chain keys, builds the genesis on the first machine from all the keys,
 the others, starts the chains one after the other, waits for blocks, and then registers your
 operator and the nodes as it does for a join. It writes networks/<name>/ (manifest, genesis,
 release root) to --publish-dir and prints what to do to publish it. --chain-id is the chain's
-id: a test network's carries -stagenet-, -devnet- or -localnet-; any other is a production id, which
+id: a test network's is of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
 setup refuses: it creates test networks only, because it keeps each seat's key in an unencrypted test keyring
 (a production network needs seat accounts held by the RootWallet, which is not built). --release-root is the release-root.json the network's
 releases are verified against. A network that was announced in the registry before it was created (orama maint network announce)

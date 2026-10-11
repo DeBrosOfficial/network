@@ -190,7 +190,7 @@ func (s *Service) drip(j *job) (*Dripped, error) {
 		return nil, fmt.Errorf("read the chain id: %w", err)
 	}
 	if !IsTestNetwork(chainID) {
-		return nil, refuse(KindDisabled, "the faucet runs only on a test network (a chain id with one of %v), and this chain is not one", netclass.NonProductionMarkers)
+		return nil, refuse(KindDisabled, "the faucet runs only on a test network (a chain id of the form %s), and this chain is not one", netclass.TestChainIDForm)
 	}
 	client, err := onchain.New(s.chain, s.key, chainID)
 	if err != nil {

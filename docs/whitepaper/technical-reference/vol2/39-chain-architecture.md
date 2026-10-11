@@ -35,7 +35,7 @@ Fifth, there is no admin. The authority address of every stock module is the has
 
 **Authority.** The address that may sign a module's parameter-change message. For every stock module it is `UnreachableAuthority()`, the address of the module name `orama/no-authority`.
 
-**Chain-id class.** A chain-id containing `-localnet-`, `-devnet-` or `-stagenet-` is a test network; anything else is production. Several checks (the faucet, the short epochs, the small committee, the locked parameters) read this and nothing else.
+**Chain-id class.** A chain-id is a test network only when it matches one anchored pattern, `^orama-(?:[a-z][a-z0-9]*-)?(localnet|devnet|stagenet)-[a-z0-9]+(?:-[a-z0-9]+)*$` (`chain/app/params/chainid.go:ClassOfChainID`): `orama-stagenet-10`, `orama-devnet-e2e-run7`, `orama-pubnet-stagenet-1`. Anything else is production, including an id that only contains a class word such as `orama-1-stagenet-x`. Several checks (the faucet, the bootstrap stake, the short epochs, the small committee, the locked parameters, the optional shielded verifier) call that one function and read nothing else; the CLI keeps a copy of the pattern in `core/pkg/netclass`, and a test fails when the two differ.
 
 **Bootstrap committee.** The genesis list of validators in `x/power`. Each has an equal bootstrap share B_i of 1/n and needs no stake. A seat counts only while its staking record is bonded, not jailed and not tombstoned.
 

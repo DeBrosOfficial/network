@@ -105,7 +105,7 @@ orama chain query --list
 
 Three read paths exist and each command uses one: `--gateway` (default: the active environment's gateway), `--node` (a node's Cosmos REST API, for accounts, bank balances and staking validators) and `--rpc` (a node's CometBFT RPC, which also reaches the Orama modules, which answer gRPC only, through `abci_query`). `orama chain balance` still reads through `--node`'s REST API; the gateway's wallet queries serve the same balance to a wallet that has no node.
 
-`orama chain faucet <recipient>` funds an account on a test network. It signs on a node over SSH with that node's test operator key and refuses any chain id that does not contain `-stagenet-`, `-devnet-` or `-localnet-`. Full flags: [`orama chain`](/docs/developer/cli/chain).
+`orama chain faucet <recipient>` funds an account on a test network. It signs on a node over SSH with that node's test operator key and refuses any chain id that is not exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>`. Full flags: [`orama chain`](/docs/developer/cli/chain).
 
 Someone with no node of the network is funded through a gateway instead: `POST /v1/chain/faucet` on a gateway that was given a faucet key.
 
