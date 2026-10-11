@@ -203,6 +203,11 @@ func runFlags(ctx context.Context, cmd *cobra.Command, opts setup.Options, tty b
 	// escape sequences the filter would strip.
 	restore()
 	if err != nil {
+		// A creation whose Tor network did not finish still created and published the
+		// network: what makes it joinable is printed before the error.
+		if res != nil && res.Created != nil {
+			printCreated(out, res)
+		}
 		return err
 	}
 	printSummary(out, res)
@@ -251,11 +256,17 @@ func printSummary(out io.Writer, res *setup.Result) {
 		fmt.Fprintf(out, "Operator account: %s\n", res.Operator)
 	}
 	fmt.Fprintf(out, "See how it is doing with: orama status --env %s\n", res.Env)
-	if res.Created != nil {
-		fmt.Fprintln(out)
-		for _, line := range res.Created.NextSteps() {
-			fmt.Fprintln(out, line)
-		}
+	printCreated(out, res)
+}
+
+// printCreated prints what makes a created network joinable, when the run created one.
+func printCreated(out io.Writer, res *setup.Result) {
+	if res.Created == nil {
+		return
+	}
+	fmt.Fprintln(out)
+	for _, line := range res.Created.NextSteps() {
+		fmt.Fprintln(out, line)
 	}
 }
 

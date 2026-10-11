@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
 	"github.com/DeBrosOfficial/network/pkg/tornet"
 )
@@ -47,6 +48,10 @@ type torSim struct {
 	failStart   map[string]error
 	// neverListed makes the consensus leave out the machine at that address.
 	neverListed map[string]bool
+	// lag makes the machine fetch consensuses that long after they are made.
+	lag map[string]time.Duration
+	// notRunning makes the consensus list the machine without the Running flag.
+	notRunning map[string]bool
 }
 
 type simRestart struct {
@@ -69,7 +74,7 @@ type simTor struct {
 
 func newTorSim() *torSim {
 	return &torSim{now: time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC), machines: map[string]*simTor{},
-		failRestart: map[string]error{}, failInstall: map[string]error{}, failStart: map[string]error{}, neverListed: map[string]bool{}}
+		failRestart: map[string]error{}, failInstall: map[string]error{}, failStart: map[string]error{}, neverListed: map[string]bool{}, notRunning: map[string]bool{}, lag: map[string]time.Duration{}}
 }
 
 // machine is the simulated state of the machine at ip.
@@ -89,8 +94,8 @@ func (s *torSim) tick() { s.now = s.now.Add(simTick) }
 // can hold, and the number of authorities that signed it. The authorities that
 // signed it are counted at the boundary, but a machine started or restarted later
 // still counts as running then only if it had been.
-func (s *torSim) latestConsensus(m *simTor) (time.Time, int, bool) {
-	for b := s.now.Truncate(simBoundary); b.After(s.now.Add(-4 * simBoundary)); b = b.Add(-simBoundary) {
+func (s *torSim) latestConsensus(m *simTor, at time.Time) (time.Time, int, bool) {
+	for b := at.Truncate(simBoundary); b.After(at.Add(-4 * simBoundary)); b = b.Add(-simBoundary) {
 		signed := s.runningAuthoritiesAtBoundary(b)
 		if signed < s.authorities/2+1 {
 			continue
@@ -130,14 +135,33 @@ func (s *torSim) info(ip string, m *simTor) *tornet.NodeInfo {
 		return nil
 	}
 	info := &tornet.NodeInfo{Home: torHomeOf(m.role), Nickname: fmt.Sprintf("Nick%d", m.idx), Fingerprint: fmt.Sprintf("%040X", 0xC0+m.idx)}
-	if b, signed, ok := s.latestConsensus(m); ok {
-		info.Consensus = &tornet.ConsensusInfo{
+	if b, signed, ok := s.latestConsensus(m, s.now.Add(-s.lag[ip])); ok {
+		flags := []string{"Fast", "Running", "Valid"}
+		if s.notRunning[ip] {
+			flags = []string{"Fast", "Valid"}
+		}
+		info.Consensus = &tornet.ConsensusInfo{ListedFlags: flags,
 			Flavor: "ns", ValidAfter: b, FreshUntil: b.Add(simBoundary), ValidUntil: b.Add(3 * simBoundary),
 			Fresh: s.now.Before(b.Add(simBoundary)), Valid: s.now.Before(b.Add(3 * simBoundary)), Signatures: signed,
 			Listed: !s.neverListed[ip] && b.After(m.firstStart),
 		}
 	}
 	return info
+}
+
+// exitCoded is a failed command's exit status as the SSH session reports it
+// (*exec.ExitError has the same ExitCode method).
+type exitCoded struct {
+	code int
+	msg  string
+}
+
+func (e exitCoded) Error() string { return fmt.Sprintf("exit status %d: %s", e.code, e.msg) }
+func (e exitCoded) ExitCode() int { return e.code }
+
+// notYetError is the refusal of `orama global restart dirauth`, as a machine's session returns it.
+func notYetError(ip, msg string) error {
+	return fmt.Errorf("restart the dirauth: run on %s: %w", ip, exitCoded{code: clierr.CodeNotYet, msg: msg})
 }
 
 // fakeAuthority is the identity the simulated machine at index idx makes for nickname.
@@ -158,7 +182,7 @@ func (s *seatFake) AuthorityKeys(_ context.Context, in AuthorityKeysInput) (torn
 	created := m.keys == nil
 	if created {
 		m.keys = &tornet.AuthorityKeys{
-			Authority: fakeAuthority(m.idx, in), Expires: time.Date(2027, 10, 11, 0, 0, 0, 0, time.UTC),
+			Authority: fakeAuthority(m.idx, in), Expires: time.Now().Add(365 * 24 * time.Hour),
 			Bundle: "/var/lib/orama-tor-authority/deploy/" + in.Nickname,
 		}
 	}
@@ -229,7 +253,7 @@ func (s *seatFake) RestartTor(_ context.Context, role TorRole) error {
 		}
 		if len(recent) > 0 {
 			s.w.add("tor-refused %s %s", s.ip, strings.Join(recent, ","))
-			return fmt.Errorf("run on %s: exit status 1: Error: %s (an authority casts no Running vote for 30m0s after it starts): %s", s.ip, tornet.AuthorityRollRefusal, strings.Join(recent, "; "))
+			return notYetError(s.ip, fmt.Sprintf("%s (an authority casts no Running vote for 30m0s after it starts): %s", tornet.AuthorityRollRefusal, strings.Join(recent, "; ")))
 		}
 	}
 	m.startedAt, m.restartPending = t.now, false

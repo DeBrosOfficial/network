@@ -371,6 +371,24 @@ func TestPrintSummary_aCreationSaysHowToPublish(t *testing.T) {
 	}
 }
 
+// A creation whose Tor network did not finish still created and published the network, so
+// what makes it joinable is printed (runFlags calls printCreated before it returns the error).
+func TestPrintCreated_isWhatAFailedTorStepStillPrints(t *testing.T) {
+	var out bytes.Buffer
+	printCreated(&out, &setup.Result{})
+	if out.Len() != 0 {
+		t.Errorf("a join printed %q", out.String())
+	}
+	created := &setup.CreatedNetwork{
+		Manifest: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-7", Seeds: []string{"ns1.stagenet.orama.network"}},
+		Dir:      "networks/stagenet", Machines: []string{"203.0.113.10"},
+	}
+	printCreated(&out, &setup.Result{Created: created})
+	if !strings.Contains(out.String(), "make -C core sync-networks") {
+		t.Errorf("the next steps are missing:\n%s", out.String())
+	}
+}
+
 func TestChoicesFrom_marksAnAnnouncedNetwork(t *testing.T) {
 	root := []byte("root-newnet")
 	m := netregistry.Manifest{Name: "newnet", ChainID: "orama-newnet-stagenet-1", Channel: "nightly", MinVersion: "0.3.0",

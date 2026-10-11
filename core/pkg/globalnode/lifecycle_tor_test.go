@@ -3,11 +3,13 @@ package globalnode
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/DeBrosOfficial/network/pkg/tornet"
 )
 
 const (
@@ -101,6 +103,16 @@ func TestLifecycle_aDirectoryAuthorityIsNotStoppedWhileAnotherIsLearning(t *test
 		if len(f.calls) != 0 || f.states[dirauthUnit] != "active" {
 			t.Errorf("%s touched the authority: calls %v, state %q", name, f.calls, f.states[dirauthUnit])
 		}
+	}
+}
+
+// The refusal a rolling caller waits out keeps its identity through Stop and Restart.
+func TestLifecycle_theRefusalToRollAnAuthorityIsStillTheSentinel(t *testing.T) {
+	l, f := newLifecycle(t, install.GlobalServiceDirauth)
+	f.states[dirauthUnit] = "active"
+	l.CheckAuthorityRoll = func() error { return fmt.Errorf("%w (details)", tornet.ErrAuthorityRoll) }
+	if err := l.Restart(context.Background(), []install.GlobalService{install.GlobalServiceDirauth}); !errors.Is(err, tornet.ErrAuthorityRoll) {
+		t.Fatalf("err = %v, want it to wrap tornet.ErrAuthorityRoll", err)
 	}
 }
 

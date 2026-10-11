@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/pkg/tornet"
@@ -32,6 +33,9 @@ const (
 	// minDistinctSubnets is how many /16 networks a circuit needs: Tor avoids two relays of
 	// one /16 in a circuit, and a network with fewer cannot build one.
 	minDistinctSubnets = 3
+	// torMinCertValidity is the least a new authority's signing certificate must have left: it
+	// is made for 12 months, and one that expires within a month is not one a network starts with.
+	torMinCertValidity = 30 * 24 * time.Hour
 )
 
 // prepareTor settles how many machines run a directory authority and refuses what
@@ -59,6 +63,9 @@ func (o *Options) prepareTor() error {
 		return clierr.Usage("--tor-authorities %d: a Tor network needs at least %d directory authorities, because fewer cannot lose one and still hold a majority; pass 0 to run no Tor network", n, tornet.MinAuthorities)
 	case n > machines:
 		return clierr.Usage("--tor-authorities %d needs %d machines, one for each authority, and this run has %d", n, n, machines)
+	case o.Exit && n == machines && !c.TorAuthoritiesSet:
+		return clierr.Usage("with %d machines all are directory authorities by default, and an authority is never an exit: --exit needs a machine that is not one. "+
+			"Pass --tor-authorities 0 (and --tor-network, for the relays' Tor network), or add a machine", machines)
 	case o.Exit && n == machines:
 		return clierr.Usage("--exit makes a relay an exit, and --tor-authorities %d makes all %d machines authorities (an authority is never an exit, and a machine is a relay or an authority, not both): add machines for the relays, give the relays another network with --tor-network, or leave --exit out", n, machines)
 	case !tornet.ValidNetworkName(c.Name):

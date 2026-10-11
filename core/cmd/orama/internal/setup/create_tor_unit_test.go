@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"slices"
 	"strings"
 	"testing"
@@ -89,6 +90,11 @@ func TestPrepareTor_refusalsSayWhy(t *testing.T) {
 			o.Exit = true
 			return o
 		}, "add machines for the relays"},
+		{"an exit asked for and nothing else: the default makes every machine an authority", func() Options {
+			o := torCreateOptions(0, false, torIPs[:3]...)
+			o.Exit = true
+			return o
+		}, "with 3 machines all are directory authorities by default, and an authority is never an exit: --exit needs a machine that is not one"},
 		{"machines in a reserved range", func() Options { return torCreateOptions(3, true, nIPs(3)...) }, "cannot be in a Tor network"},
 		{"the default on machines in a reserved range", func() Options { return torCreateOptions(0, false, nIPs(3)...) }, "--tor-authorities 0"},
 	}
@@ -206,7 +212,7 @@ func TestTorReady(t *testing.T) {
 	ready := func() TorState {
 		return TorState{Installed: true, Active: true, Now: now, Info: &tornet.NodeInfo{
 			Fingerprint: strings.Repeat("A", 40),
-			Consensus:   &tornet.ConsensusInfo{Valid: true, Signatures: 2, Listed: true, ValidAfter: now.Add(-10 * time.Minute)},
+			Consensus:   &tornet.ConsensusInfo{Valid: true, Signatures: 2, Listed: true, ListedFlags: []string{"Fast", "Running", "Valid"}, ValidAfter: now.Add(-10 * time.Minute)},
 		}}
 	}
 	cases := []struct {
@@ -224,6 +230,8 @@ func TestTorReady(t *testing.T) {
 		{"an expired consensus", func(s *TorState) { s.Info.Consensus.Valid = false }, time.Time{}, "no longer valid"},
 		{"one signature of three authorities", func(s *TorState) { s.Info.Consensus.Signatures = 1 }, time.Time{}, "a majority (2) is needed"},
 		{"not listed", func(s *TorState) { s.Info.Consensus.Listed = false }, time.Time{}, "does not list it"},
+		{"listed without the Running flag", func(s *TorState) { s.Info.Consensus.ListedFlags = []string{"Fast", "Valid"} }, time.Time{}, "without the Running flag"},
+		{"listed with no flags", func(s *TorState) { s.Info.Consensus.ListedFlags = nil }, time.Time{}, "without the Running flag"},
 		{"the consensus from before a restart", func(*TorState) {}, now.Add(-5 * time.Minute), "from before its restart"},
 		{"a consensus made after the restart", func(*TorState) {}, now.Add(-15 * time.Minute), ""},
 		{"a consensus made at the moment of the restart", func(*TorState) {}, now.Add(-10 * time.Minute), "from before its restart"},
@@ -268,7 +276,34 @@ func torRestartRunner() *runner {
 }
 
 func refusal() error {
-	return fmt.Errorf("run on 1.2.3.4: exit status 1: Error: %s (an authority casts no Running vote for 30m0s): 57.129.166.16 published its descriptor 4m0s ago", tornet.AuthorityRollRefusal)
+	return notYetError("1.2.3.4", fmt.Sprintf("%s (an authority casts no Running vote for 30m0s): 57.129.166.16 published its descriptor 4m0s ago", tornet.AuthorityRollRefusal))
+}
+
+// The code the run matches is the one a real failed command carries: an *exec.ExitError
+// that the SSH session wraps as sshShell.Run does, with the command's own exit status.
+func TestRestartNotYet_isTheExitCodeOfTheRefusalAndNothingElse(t *testing.T) {
+	run := func(code int) error {
+		err := exec.Command("sh", "-c", fmt.Sprintf("echo %q >&2; exit %d", tornet.AuthorityRollRefusal, code)).Run()
+		return fmt.Errorf("restart the dirauth: run on 1.2.3.4: %w: %s", err, tornet.AuthorityRollRefusal)
+	}
+	if !restartNotYet(run(clierr.CodeNotYet)) {
+		t.Error("the exit code of the roll refusal was not recognised")
+	}
+	if restartNotYet(run(clierr.CodeFailure)) {
+		t.Error("a failure whose output quotes the refusal text was taken for it")
+	}
+	if restartNotYet(errors.New(tornet.AuthorityRollRefusal)) || restartNotYet(nil) {
+		t.Error("an error without an exit status was taken for the refusal")
+	}
+}
+
+func TestTorRestart_aFailureThatQuotesTheRefusalTextIsNotWaitedFor(t *testing.T) {
+	r := torRestartRunner()
+	host := &refusingHost{answers: []error{fmt.Errorf("restart the dirauth: run on 1.2.3.4: %w: %s", exitCoded{code: clierr.CodeFailure, msg: "unit failed"}, tornet.AuthorityRollRefusal)}}
+	x := &torRun{run: &nodeRun{plan: NodePlan{IP: "1.2.3.4"}}, host: host, role: TorDirauth}
+	if err := r.torRestart(context.Background(), x); err == nil || host.calls != 1 {
+		t.Fatalf("err = %v after %d attempts: only the exit code of the refusal is waited out", err, host.calls)
+	}
 }
 
 func TestTorRestart_anAuthorityWaitsOutTheMachinesRefusalAndNothingElse(t *testing.T) {
@@ -413,6 +448,38 @@ func TestParseAuthorityKeys_theDocumentIsTheLastLine(t *testing.T) {
 	for name, bad := range map[string]string{"nothing": "", "noise only": "installed\n", "a document with a hole": `{"created":true}`} {
 		if _, err := ParseAuthorityKeys(bad); err == nil {
 			t.Errorf("%s was accepted", name)
+		}
+	}
+}
+
+func TestCheckAuthorityKeys(t *testing.T) {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	want := AuthorityKeysInput{Nickname: "OramaAuth01", Address: "57.129.166.16"}
+	good := func() tornet.AuthorityKeys {
+		k := tornet.AuthorityKeys{Authority: fakeAuthority(0, want), Expires: now.Add(365 * 24 * time.Hour), Bundle: "/var/lib/orama-tor-authority/deploy/OramaAuth01"}
+		return k
+	}
+	if err := checkAuthorityKeys(good(), want, now); err != nil {
+		t.Fatalf("good keys refused: %v", err)
+	}
+	cases := map[string]struct {
+		mutate func(*tornet.AuthorityKeys)
+		want   string
+	}{
+		"another nickname":       {func(k *tornet.AuthorityKeys) { k.Authority.Nickname = "OramaAuth02" }, "not OramaAuth01"},
+		"another address":        {func(k *tornet.AuthorityKeys) { k.Authority.Address = "57.129.166.99" }, "not OramaAuth01 at 57.129.166.16"},
+		"another OR port":        {func(k *tornet.AuthorityKeys) { k.Authority.ORPort = 9001 }, "global firewall opens 31020/31021"},
+		"another dir port":       {func(k *tornet.AuthorityKeys) { k.Authority.DirPort = 80 }, "global firewall opens 31020/31021"},
+		"a bundle elsewhere":     {func(k *tornet.AuthorityKeys) { k.Bundle = "/tmp/evil/OramaAuth01" }, "makes it at"},
+		"a bundle by traversal":  {func(k *tornet.AuthorityKeys) { k.Bundle = "/var/lib/orama-tor-authority/deploy/../../../etc" }, "makes it at"},
+		"a certificate that ran": {func(k *tornet.AuthorityKeys) { k.Expires = now.Add(-time.Hour) }, "expires on"},
+		"a certificate about to": {func(k *tornet.AuthorityKeys) { k.Expires = now.Add(torMinCertValidity - time.Hour) }, "less than"},
+	}
+	for name, c := range cases {
+		k := good()
+		c.mutate(&k)
+		if err := checkAuthorityKeys(k, want, now); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: err = %v, want %q", name, err, c.want)
 		}
 	}
 }

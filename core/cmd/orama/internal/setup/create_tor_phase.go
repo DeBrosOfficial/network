@@ -3,9 +3,11 @@ package setup
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
 	"github.com/DeBrosOfficial/network/pkg/tornet"
 )
@@ -77,10 +79,16 @@ func (r *runner) torPhase(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := r.publishWith(r.genesis, files.final); err != nil {
+	// What the machines run is read, and a machine that runs a file this run did not make
+	// is refused, before the manifest pins this run's file: a pin of a file no machine
+	// runs would mislead every joiner.
+	if err := r.torReadStates(ctx, runs); err != nil {
 		return err
 	}
-	if err := r.torReadStates(ctx, runs); err != nil {
+	if err := r.torRefuseForeign(runs, files); err != nil {
+		return err
+	}
+	if err := r.publishWith(r.genesis, files.final); err != nil {
 		return err
 	}
 	if err := r.torInstallAll(ctx, runs, files); err != nil {
@@ -132,8 +140,8 @@ func (r *runner) torMakeKeys(ctx context.Context, runs []*torRun) error {
 			r.emit(ip, StepTor, StateFailed, err.Error())
 			return fmt.Errorf("machine %s: make the directory authority's keys: %w", ip, err)
 		}
-		if keys.Authority.Nickname != want.Nickname || keys.Authority.Address != want.Address {
-			err := fmt.Errorf("machine %s answered with the authority %s at %s, not %s at %s", ip, keys.Authority.Nickname, keys.Authority.Address, want.Nickname, want.Address)
+		if err := checkAuthorityKeys(keys, want, time.Now()); err != nil {
+			err = fmt.Errorf("machine %s: %w", ip, err)
 			r.emit(ip, StepTor, StateFailed, err.Error())
 			return err
 		}
@@ -145,6 +153,27 @@ func (r *runner) torMakeKeys(ctx context.Context, runs []*torRun) error {
 		}
 		return nil
 	})
+}
+
+// checkAuthorityKeys checks what a machine says about its authority's keys, which goes into
+// a network file every node trusts and into an install command: it is the authority that was
+// asked for, on the ports the global firewall opens, with its bundle where the command puts
+// it, and a certificate that does not expire within torMinCertValidity.
+func checkAuthorityKeys(keys tornet.AuthorityKeys, want AuthorityKeysInput, now time.Time) error {
+	a := keys.Authority
+	wantBundle := filepath.Join(constants.GlobalTorAuthorityKeysDir, tornet.CeremonyDeployDir, want.Nickname)
+	switch {
+	case a.Nickname != want.Nickname || a.Address != want.Address:
+		return fmt.Errorf("answered with the authority %s at %s, not %s at %s", a.Nickname, a.Address, want.Nickname, want.Address)
+	case a.ORPort != constants.GlobalTorORPort || a.DirPort != constants.GlobalTorDirPort:
+		return fmt.Errorf("authority %s is on ports %d/%d, but the global firewall opens %d/%d", a.Nickname, a.ORPort, a.DirPort, constants.GlobalTorORPort, constants.GlobalTorDirPort)
+	case keys.Bundle != wantBundle:
+		return fmt.Errorf("authority %s says its key bundle is %q, but the command makes it at %q", a.Nickname, keys.Bundle, wantBundle)
+	case keys.Expires.Before(now.Add(torMinCertValidity)):
+		return fmt.Errorf("the signing certificate of authority %s expires on %s, less than %s from now: the machine's keys are not ones to start a network with",
+			a.Nickname, keys.Expires.Format(time.DateOnly), torMinCertValidity)
+	}
+	return nil
 }
 
 // torNetworkFiles builds the network file from the authorities' identities, and
@@ -192,23 +221,31 @@ func (r *runner) torReadStates(ctx context.Context, runs []*torRun) error {
 	})
 }
 
-// torInstallAll installs the roles that are not installed, with the bootstrap file. A
-// machine that has either of this run's two files is left as it is; one that has
-// another is refused, because it is not what this run made.
-func (r *runner) torInstallAll(ctx context.Context, runs []*torRun, files torFiles) error {
-	var todo []*torRun
+// torRefuseForeign refuses a machine whose installed role runs a network file other than
+// this run's two, because it is not what this run made. Nothing has been changed yet.
+func (r *runner) torRefuseForeign(runs []*torRun, files torFiles) error {
 	for _, x := range runs {
-		switch {
-		case !x.state.Installed:
-			todo = append(todo, x)
-		case x.state.NetworkSHA256 == files.firstSHA || x.state.NetworkSHA256 == files.finalSHA:
-			r.emit(x.ip(), StepTor, StateSkipped, fmt.Sprintf("the %s is installed", x.role))
-		default:
+		if x.state.Installed && x.state.NetworkSHA256 != files.firstSHA && x.state.NetworkSHA256 != files.finalSHA {
 			err := fmt.Errorf("machine %s runs a Tor network file (sha256 %q) that this run did not make (sha256 %s, or %s once the bootstrap mode is left): "+
-				"the machine was set up for another network or with other flags; this run does not change it", x.ip(), x.state.NetworkSHA256, files.firstSHA, files.finalSHA)
+				"the machine was set up for another network or with other flags; this run does not change it and has pinned nothing", x.ip(), x.state.NetworkSHA256, files.firstSHA, files.finalSHA)
 			r.emit(x.ip(), StepTor, StateFailed, err.Error())
 			return err
 		}
+	}
+	return nil
+}
+
+// torInstallAll installs the roles that are not installed, with the bootstrap file. A
+// machine that already has the role (with either of this run's files, torRefuseForeign)
+// is left as it is.
+func (r *runner) torInstallAll(ctx context.Context, runs []*torRun, files torFiles) error {
+	var todo []*torRun
+	for _, x := range runs {
+		if x.state.Installed {
+			r.emit(x.ip(), StepTor, StateSkipped, fmt.Sprintf("the %s is installed", x.role))
+			continue
+		}
+		todo = append(todo, x)
 	}
 	return r.torEach(ctx, todo, func(ctx context.Context, x *torRun) error {
 		if err := r.torInstall(ctx, x, files.first); err != nil {

@@ -45,7 +45,7 @@ func (r *runner) runCreate(ctx context.Context) (*Result, error) {
 	}
 	r.announceAllNameservers(ctx)
 	for _, phase := range []func(context.Context) error{
-		r.chainInitPhase, r.genesisPhase, r.chainStartPhase, r.restartPhase, r.epochPhase, r.onchainPhase, r.torPhase,
+		r.chainInitPhase, r.genesisPhase, r.chainStartPhase, r.restartPhase, r.epochPhase, r.onchainPhase,
 	} {
 		if err := phase(ctx); err != nil {
 			return nil, err
@@ -54,7 +54,17 @@ func (r *runner) runCreate(ctx context.Context) (*Result, error) {
 	if err := r.waitDomain(ctx); err != nil {
 		return nil, err
 	}
-	return r.res, r.recordOperator()
+	if err := r.recordOperator(); err != nil {
+		return nil, err
+	}
+	// The Tor network comes after everything the network is usable without, and a failure
+	// in it still returns the result: the network is created and published, and the caller
+	// prints what makes it joinable beside the error.
+	if err := r.torPhase(ctx); err != nil {
+		return r.res, fmt.Errorf("the network is created and its description is written, but its Tor network is not finished: %w\n"+
+			"  run the same command again to finish it: it resumes where it stopped", err)
+	}
+	return r.res, nil
 }
 
 // createPreflight checks everything that needs no machine: the wallet, the

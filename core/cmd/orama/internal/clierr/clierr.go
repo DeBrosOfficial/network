@@ -46,6 +46,11 @@ const (
 	// The node is as it was, and a caller that installs for an operator (the
 	// auto-update agent) does not blame the release for it.
 	CodePreflight = 8
+	// CodeNotYet means the command refused because the thing it acts on is not ready
+	// for it yet, changed nothing, and succeeds unchanged once it is: `orama global
+	// restart dirauth` while another authority has started less than 30 minutes ago.
+	// A caller that rolls machines waits and asks again on this code and on no other.
+	CodeNotYet = 9
 )
 
 // Error is a failure that carries an exit code.
@@ -99,6 +104,9 @@ func Aborted(format string, args ...any) error { return withCode(CodeAborted, fo
 
 // Preflight reports that a check made before anything changed refused.
 func Preflight(err error) error { return Wrap(CodePreflight, err) }
+
+// NotYet reports a refusal that changed nothing and will pass in time.
+func NotYet(err error) error { return Wrap(CodeNotYet, err) }
 
 // Failure reports an error with no more specific classification.
 func Failure(format string, args ...any) error { return withCode(CodeFailure, format, args...) }

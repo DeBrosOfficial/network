@@ -3,6 +3,7 @@ package globalnode
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,19 @@ func TestCheckAuthorityRoll_refusesWhileAnotherAuthorityIsLearning(t *testing.T)
 	err := checkAuthorityRoll(rollNetwork(), home, rollNow)
 	if err == nil || !strings.Contains(err.Error(), "AuthB") || strings.Contains(err.Error(), "AuthC") || !strings.Contains(err.Error(), "30m0s") {
 		t.Fatalf("err = %v, want it to name AuthB only and the 30 minute window", err)
+	}
+}
+
+// The refusal a caller that rolls authorities waits out is this error, through the wrapping
+// Stop and Restart add; the other ways the check can fail ("cannot tell ...") are not it.
+func TestCheckAuthorityRoll_theRefusalIsTheSentinelAndNothingElseIs(t *testing.T) {
+	refusal := checkAuthorityRoll(rollNetwork(), rollHome(t, "2026-10-10 02:26:49", longAgo, true), rollNow)
+	if !errors.Is(refusal, tornet.ErrAuthorityRoll) || !strings.HasPrefix(refusal.Error(), tornet.AuthorityRollRefusal) {
+		t.Fatalf("the refusal = %v, want it to be tornet.ErrAuthorityRoll and begin %q", refusal, tornet.AuthorityRollRefusal)
+	}
+	cannotTell := checkAuthorityRoll(rollNetwork(), t.TempDir(), rollNow)
+	if cannotTell == nil || errors.Is(cannotTell, tornet.ErrAuthorityRoll) {
+		t.Errorf("a check that could not judge is not the refusal: %v", cannotTell)
 	}
 }
 

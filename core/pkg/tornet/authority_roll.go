@@ -1,6 +1,7 @@
 package tornet
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -26,6 +27,11 @@ const AuthorityLearnWindow = 30 * time.Minute
 // AuthorityLearnWindow. A caller that rolls authorities waits and tries again on
 // this refusal and on no other.
 const AuthorityRollRefusal = "not now, or the network is left without a consensus"
+
+// ErrAuthorityRoll is the error behind that refusal. It wraps into the refusal's message,
+// and `orama global stop` and `restart` turn it into the exit code clierr.CodeNotYet,
+// which is what a caller that rolls authorities matches.
+var ErrAuthorityRoll = errors.New(AuthorityRollRefusal)
 
 // RecentlyStartedAuthorities lists, one sentence each, the authorities of n
 // other than self (a relay fingerprint) that cannot be counted on to vote

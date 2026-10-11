@@ -2,11 +2,14 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/pkg/tornet"
 )
 
@@ -16,6 +19,9 @@ const (
 	torReportEvery = 10
 	// refusalDetailMax bounds the part of a machine's refusal that is repeated to the operator.
 	refusalDetailMax = 400
+	// torRunningFlag is the consensus flag of a relay the authorities found up: a relay
+	// that is listed without it is not used.
+	torRunningFlag = "Running"
 )
 
 // torReady says whether the machine's role is part of a Tor network that works: its
@@ -47,6 +53,8 @@ func torReady(st TorState, authorities int, after time.Time) (bool, string) {
 		return false, fmt.Sprintf("it still holds the consensus valid after %s, from before its restart at %s", c.ValidAfter.Format(time.RFC3339), after.Format(time.RFC3339))
 	case !c.Listed:
 		return false, "the consensus does not list it"
+	case !slices.Contains(c.ListedFlags, torRunningFlag):
+		return false, fmt.Sprintf("the consensus lists it without the %s flag (its flags: %s), so no client would use it", torRunningFlag, strings.Join(c.ListedFlags, " "))
 	}
 	return true, ""
 }
@@ -130,25 +138,26 @@ func (r *runner) torLeaveBootstrap(ctx context.Context, runs []*torRun, files to
 	}
 	r.d.Report.Linef("leaving the bootstrap mode: %d authority(ies), one at a time, then %d relay(s) together. An authority cannot be restarted until the others have run for %s, "+
 		"so the authorities take about that long each after the first.", len(auths), len(relays), tornet.AuthorityLearnWindow)
+	// restartedAt is the latest restart of any machine, authorities included: the last wait asks every
+	// machine for a consensus made after it, also when there are no relays.
+	var restartedAt time.Time
 	for _, x := range auths {
 		at, err := r.torSwitch(ctx, x, files)
 		if err != nil {
 			return err
 		}
+		restartedAt = latest(restartedAt, at)
 		if err := r.torWaitReady(ctx, []*torRun{x}, at, "the consensus that lists "+x.ip()+" again"); err != nil {
 			r.emit(x.ip(), StepTor, StateFailed, err.Error())
 			return fmt.Errorf("machine %s: %w", x.ip(), err)
 		}
 	}
 	var mu sync.Mutex
-	var restartedAt time.Time
 	err := r.torEach(ctx, relays, func(ctx context.Context, x *torRun) error {
 		at, err := r.torSwitch(ctx, x, files)
 		mu.Lock()
 		defer mu.Unlock()
-		if at.After(restartedAt) {
-			restartedAt = at
-		}
+		restartedAt = latest(restartedAt, at)
 		return err
 	})
 	if err != nil {
@@ -161,6 +170,14 @@ func (r *runner) torLeaveBootstrap(ctx context.Context, runs []*torRun, files to
 		r.emit(x.ip(), StepTor, StateDone, fmt.Sprintf("the %s runs without the bootstrap mode and is listed", x.role))
 	}
 	return nil
+}
+
+// latest is the later of two times.
+func latest(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 // torSwitch installs the final network file on x if it has not got it and restarts x.
@@ -198,7 +215,7 @@ func (r *runner) torRestart(ctx context.Context, x *torRun) error {
 		switch {
 		case err == nil:
 			return true, nil
-		case x.role == TorDirauth && strings.Contains(err.Error(), tornet.AuthorityRollRefusal):
+		case x.role == TorDirauth && restartNotYet(err):
 			if polls%torReportEvery == 0 {
 				r.d.Report.Linef("  waiting to restart the authority on %s: the machine refuses while another authority has started less than %s ago: %s", ip, tornet.AuthorityLearnWindow, refusalDetail(err))
 			}
@@ -212,6 +229,16 @@ func (r *runner) torRestart(ctx context.Context, x *torRun) error {
 		return fmt.Errorf("machine %s: restart the Tor %s: %w", ip, x.role, err)
 	}
 	return nil
+}
+
+// restartNotYet says the machine refused the restart of its authority with the exit code
+// of the roll refusal (clierr.CodeNotYet: `orama global restart dirauth` while another
+// authority has started less than tornet.AuthorityLearnWindow ago, which changes nothing).
+// The code is the command's own, carried by the *exec.ExitError the SSH session returns;
+// no text is matched, so a log line that quotes the refusal is not mistaken for it.
+func restartNotYet(err error) bool {
+	var coded interface{ ExitCode() int }
+	return errors.As(err, &coded) && coded.ExitCode() == clierr.CodeNotYet
 }
 
 // refusalDetail is what a machine's refusal says after its fixed opening, on one line.

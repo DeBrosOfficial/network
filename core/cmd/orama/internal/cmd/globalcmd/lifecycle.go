@@ -1,9 +1,12 @@
 package globalcmd
 
 import (
+	"errors"
+
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/pkg/globalnode"
 	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/DeBrosOfficial/network/pkg/tornet"
 	"github.com/spf13/cobra"
 )
 
@@ -83,9 +86,18 @@ func runLifecycle(cmd *cobra.Command, args []string, what string, act func(globa
 		return err
 	}
 	if err := act(globalnode.DefaultLifecycle(cmd.OutOrStdout()), services); err != nil {
-		return clierr.Failure("%v", err)
+		return lifecycleError(err)
 	}
 	return nil
+}
+
+// lifecycleError is the CLI error of a failed stop, start or restart: the refusal to take
+// a directory authority down too soon is clierr.CodeNotYet, anything else a failure.
+func lifecycleError(err error) error {
+	if errors.Is(err, tornet.ErrAuthorityRoll) {
+		return clierr.NotYet(err)
+	}
+	return clierr.Failure("%v", err)
 }
 
 // parseServiceArgs names services by their install names.

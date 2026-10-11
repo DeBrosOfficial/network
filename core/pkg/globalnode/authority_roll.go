@@ -47,8 +47,8 @@ func checkAuthorityRoll(n tornet.Network, home string, now time.Time) error {
 		return fmt.Errorf("cannot tell whether the other authorities are voting: the %s consensus has no publication times", c.Flavor)
 	}
 	if recent := tornet.RecentlyStartedAuthorities(n, *c, info.Fingerprint, now); len(recent) > 0 {
-		return fmt.Errorf("%s (an authority casts no Running vote for %s after it starts, and a consensus needs two of the three): %s",
-			tornet.AuthorityRollRefusal, tornet.AuthorityLearnWindow, strings.Join(recent, "; "))
+		return fmt.Errorf("%w (an authority casts no Running vote for %s after it starts, and a consensus needs two of the three): %s",
+			tornet.ErrAuthorityRoll, tornet.AuthorityLearnWindow, strings.Join(recent, "; "))
 	}
 	return nil
 }

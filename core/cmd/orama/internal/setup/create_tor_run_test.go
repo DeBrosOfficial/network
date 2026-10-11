@@ -392,6 +392,37 @@ func TestRunCreate_tor_aMachineWithAnotherNetworkFileIsRefusedBeforeAnythingIsIn
 	if n := countPrefix(torLog(h.w, 0), "tor-install "); n != 0 {
 		t.Errorf("%d installs happened before the refusal", n)
 	}
+	// Nothing was pinned: the manifest and the published directory say nothing of a Tor
+	// network no machine runs.
+	if _, err := os.Stat(filepath.Join(h.publishDir, "stagenet", netregistry.TorNetworkFile)); err == nil {
+		t.Error("a tor-network.json was published although a machine refused it")
+	}
+	raw, err := os.ReadFile(filepath.Join(h.publishDir, "stagenet", netregistry.ManifestFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m, err := netregistry.ParseManifest(raw); err != nil || m.TorNetworkSHA256 != "" {
+		t.Errorf("the manifest pins %q: %v", m.TorNetworkSHA256, err)
+	}
+}
+
+// A run again with other flags (--exit changes the network file) finds machines that run
+// the first run's file, is refused, and leaves the manifest pinning that file.
+func TestRunCreate_tor_aRunWithOtherFlagsKeepsThePinOfTheFileTheMachinesRun(t *testing.T) {
+	h := newCreateHarness(t)
+	h.mustCreate(t, h.torOpts(3, torIPs...))
+	manifest, file, _ := publishedTor(t, h)
+	genesis := h.seats.seats[torIPs[0]].genesis
+	h.finished(torIPs, genesis)
+	again := h.torOpts(3, torIPs...)
+	again.Exit = true
+	if _, err := Run(context.Background(), again, h.deps); err == nil || !strings.Contains(err.Error(), "did not make") {
+		t.Fatalf("err = %v, want the machines' file refused", err)
+	}
+	after, afterFile, _ := publishedTor(t, h)
+	if after.TorNetworkSHA256 != manifest.TorNetworkSHA256 || string(afterFile) != string(file) {
+		t.Errorf("the pin moved to a file no machine runs: %s -> %s", manifest.TorNetworkSHA256, after.TorNetworkSHA256)
+	}
 }
 
 func TestRunCreate_tor_failuresStopTheRunWhereTheyHappen(t *testing.T) {
@@ -434,6 +465,56 @@ func TestRunCreate_tor_aConsensusThatNeverListsAMachineEndsTheWaitAndNamesIt(t *
 	}
 }
 
+// The Tor network takes hours and nothing else waits for it: the domain wait and the record
+// of the operator come before it, so a failure in it leaves them done and still returns the
+// result the caller prints the next steps from.
+func TestRunCreate_tor_comesAfterTheDomainAndTheRecordAndAFailureStillReturnsWhatWasCreated(t *testing.T) {
+	h := newCreateHarness(t)
+	h.deps.Domain = fakeDomain{w: h.w}
+	h.seats.tor.failStart[torIPs[1]] = errBoom
+	opts := h.torOpts(3, torIPs...)
+	opts.Domain = "stagenet.orama.network"
+	res, err := Run(context.Background(), opts, h.deps)
+	if !errors.Is(err, errBoom) || !strings.Contains(err.Error(), "its Tor network is not finished") {
+		t.Fatalf("err = %v, want the Tor failure saying the network itself is created", err)
+	}
+	if res == nil || res.Created == nil || len(res.Created.NextSteps()) == 0 {
+		t.Fatalf("result = %+v: a Tor failure must still return what was created", res)
+	}
+	keys := h.w.index("tor-keys ")
+	for _, before := range []string{"domain wait", "record operator "} {
+		if i := h.w.index(before); i < 0 || i > keys {
+			t.Errorf("%q at %d, the Tor step at %d:\n%s", before, i, keys, strings.Join(h.w.entries(), "\n"))
+		}
+	}
+}
+
+// With only authorities (no relay restarts), the last wait still asks every machine for a
+// consensus made after the last restart: an authority that lags holds an older one.
+func TestRunCreate_tor_theLastWaitHoldsEveryMachineToTheLatestAuthorityRestartWhenThereAreNoRelays(t *testing.T) {
+	h := newCreateHarness(t)
+	h.seats.tor.lag[torIPs[0]] = 45 * time.Minute
+	h.mustCreate(t, h.torOpts(3, torIPs[:3]...))
+	text := h.report.text()
+	i := strings.Index(text, "still waiting for every machine to be listed in a consensus of the final Tor network file")
+	if i < 0 || !strings.Contains(text[i:], torIPs[0]+" (dirauth): it still holds the consensus valid after") {
+		t.Errorf("the last wait did not hold the lagging authority to a consensus made after the last restart:\n%s", text)
+	}
+}
+
+func TestRunCreate_tor_aRelayListedWithoutRunningIsNotUsableAndEndsTheWait(t *testing.T) {
+	h := newCreateHarness(t)
+	h.deps.Timing.TorConsensusDeadline = 300 * time.Millisecond
+	h.seats.tor.notRunning[torIPs[3]] = true
+	_, err := Run(context.Background(), h.torOpts(3, torIPs...), h.deps)
+	if err == nil || !strings.Contains(err.Error(), torIPs[3]+" (relay): the consensus lists it without the Running flag") {
+		t.Fatalf("err = %v, want the relay that is listed without Running named", err)
+	}
+	if n := countPrefix(torLog(h.w, 0), "tor-restart "); n != 0 {
+		t.Errorf("the bootstrap mode was left with a relay no client would use: %d restarts", n)
+	}
+}
+
 func TestRunCreate_tor_aMachineThatAnswersForAnotherAuthorityIsRefused(t *testing.T) {
 	h := newCreateHarness(t)
 	h.deps.Enroll = enrollerFunc(func(ctx context.Context, req MachineRequest) (Machine, error) {
@@ -450,6 +531,33 @@ func TestRunCreate_tor_aMachineThatAnswersForAnotherAuthorityIsRefused(t *testin
 	if n := countPrefix(torLog(h.w, 0), "tor-install "); n != 0 {
 		t.Errorf("%d installs after a machine lied about its identity", n)
 	}
+}
+
+func TestRunCreate_tor_keysWhoseBundleIsElsewhereAreRefusedBeforeAnythingIsInstalled(t *testing.T) {
+	h := newCreateHarness(t)
+	h.deps.Enroll = enrollerFunc(func(ctx context.Context, req MachineRequest) (Machine, error) {
+		m, err := h.seats.Enroll(ctx, req)
+		if err == nil {
+			m = elsewhere{m.(*seatFake)}
+		}
+		return m, err
+	})
+	_, err := Run(context.Background(), h.torOpts(3, torIPs...), h.deps)
+	if err == nil || !strings.Contains(err.Error(), "makes it at") {
+		t.Fatalf("err = %v", err)
+	}
+	if n := countPrefix(torLog(h.w, 0), "tor-install "); n != 0 {
+		t.Errorf("%d installs after a machine named a bundle it was not asked to make", n)
+	}
+}
+
+// elsewhere is a seat whose authority keys say the bundle is outside the keys home.
+type elsewhere struct{ *seatFake }
+
+func (e elsewhere) AuthorityKeys(ctx context.Context, in AuthorityKeysInput) (tornet.AuthorityKeys, error) {
+	keys, err := e.seatFake.AuthorityKeys(ctx, in)
+	keys.Bundle = "/tmp/planted/" + in.Nickname
+	return keys, err
 }
 
 // liar is a seat whose authority keys are for another authority.
