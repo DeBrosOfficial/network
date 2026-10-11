@@ -44,8 +44,8 @@ func (c *common) registerWork(fs *flag.FlagSet) {
 	fs.StringVar(&c.work, "work", "", "directory for the files the command makes (default: a temporary one, removed afterwards)")
 }
 
-func (c common) oramadBin(logf func(string, ...any)) measure.Oramad {
-	return measure.Oramad{Bin: c.oramad, Log: logf}
+func (c common) oramadBin() measure.Oramad {
+	return measure.Oramad{Bin: c.oramad}
 }
 
 func (c common) needHome() error {
@@ -77,7 +77,7 @@ func cmdPrepare(ctx context.Context, args []string, logf func(string, ...any)) (
 	if err := c.needHome(); err != nil {
 		return nil, err
 	}
-	if err := measure.Prepare(ctx, c.oramadBin(logf), c.home, *chainID, *timeoutCommit); err != nil {
+	if err := measure.Prepare(ctx, c.oramadBin(), c.home, *chainID, *timeoutCommit); err != nil {
 		return nil, err
 	}
 	return map[string]string{"home": c.home, "chain_id": *chainID}, nil
@@ -156,7 +156,7 @@ func cmdBoot(ctx context.Context, args []string, logf func(string, ...any)) (any
 	if err := c.needHome(); err != nil {
 		return nil, err
 	}
-	o := c.oramadBin(logf)
+	o := c.oramadBin()
 	if err := o.CheckBinary(); err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func cmdSnapshot(ctx context.Context, args []string, logf func(string, ...any)) 
 		return nil, err
 	}
 	defer cleanup()
-	return measure.Snapshot(ctx, c.oramadBin(logf), c.home, work)
+	return measure.Snapshot(ctx, c.oramadBin(), c.home, work)
 }
 
 func cmdExport(ctx context.Context, args []string, logf func(string, ...any)) (any, error) {
@@ -199,7 +199,7 @@ func cmdExport(ctx context.Context, args []string, logf func(string, ...any)) (a
 		return nil, err
 	}
 	defer cleanup()
-	return measure.Export(ctx, c.oramadBin(logf), c.home, work, *keep)
+	return measure.Export(ctx, c.oramadBin(), c.home, work, *keep)
 }
 
 func cmdIndexer(ctx context.Context, args []string, logf func(string, ...any)) (any, error) {
@@ -216,7 +216,7 @@ func cmdIndexer(ctx context.Context, args []string, logf func(string, ...any)) (
 	if *blocks < 1 {
 		return nil, errors.New("--blocks must be at least 1")
 	}
-	return measure.Indexer(ctx, c.oramadBin(logf), c.home, *blocks, c.rpcPort, c.p2pPort)
+	return measure.Indexer(ctx, c.oramadBin(), c.home, *blocks, c.rpcPort, c.p2pPort)
 }
 
 func cmdPrune(ctx context.Context, args []string, logf func(string, ...any)) (any, error) {

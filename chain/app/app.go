@@ -260,6 +260,7 @@ type OramaApp struct {
 	uploadSunset     wasmpolicyante.UploadSunsetDecorator
 	// wasmKeeper is the wasmd keeper when libwasmvm is linked, nil otherwise.
 	// The concrete type stays in the cgo file so app.go does not import wasmd.
+	//lint:ignore U1000 read and written by wasm_vm.go; the nowasm build never touches it
 	wasmKeeper any
 
 	ModuleManager      *module.Manager

@@ -33,6 +33,7 @@ func (app *OramaApp) installWasm(keys map[string]*storetypes.KVStoreKey, appOpts
 		panic(err)
 	}
 	app.mountWasmPolicy(keys)
+	//lint:ignore SA1019 module.NewManager accepts only the legacy module.AppModule; the modules are wired through it
 	app.wasmModules = []module.AppModule{policyModule(app.WasmPolicyKeeper)}
 	app.wasmGenesisOrder = []string{types.ModuleName}
 }
