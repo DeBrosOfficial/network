@@ -10,7 +10,8 @@
 # refusals and sealed values, the wildcard exported for TURN, TLS versions,
 # ALPN and SNI, plain HTTP
 # on :80, CoreDNS's account and empty /opt/orama, the delegation the CLI
-# prints, the TLS check and the custom-domain refusal. Serve-stale, the
+# prints, `orama node tls status` on every node (the held certificates, their
+# issuer and expiry, the CA), the TLS check and the custom-domain refusal. Serve-stale, the
 # Caddy-down withdrawal and the aux-units-down non-withdrawal are in
 # dns-tls-chaos, which runs alone.
 id: dns-tls
@@ -27,6 +28,8 @@ covers:
   cli:
     - orama node dns
     - orama node dns delegation
+    - orama node tls
+    - orama node tls status
   routes:
     - /v1/internal/acme/present
     - /v1/internal/acme/cleanup
@@ -36,6 +39,8 @@ covers:
     - orama-namespace-caddy@.service
     - orama-namespace-coredns@.service
   claims:
+    - "website/src/docs/operator/tls-certificates.mdx#reading-a-nodes-certificate-status: orama node tls status --json lists the base domain and its wildcard on every node, each held with its issuer and expiry, and names the CA the node issues from"
+    - "website/src/docs/operator/tls-certificates.mdx#reading-a-nodes-certificate-status: orama node tls status reads the journal of Caddy and is refused to anyone but root"
     - "website/src/docs/operator/nameserver.mdx#nameserver-slots: every glued slot is published as NS; the SOA names the lowest glued slot"
     - "website/src/docs/operator/nameserver.mdx#nameserver-slots: a negative answer carries the zone's own SOA in its authority section"
     - "website/src/docs/operator/nameserver.mdx#nameserver-slots: a name that exists (it owns a record of another type, or a wildcard covers it) without a record of the type asked is NOERROR with the SOA (NODATA), never NXDOMAIN"

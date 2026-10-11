@@ -27,6 +27,7 @@ type clusterDomain struct {
 	// Test seams.
 	check    func(ctx context.Context, d dnsdelegation.Delegation) ([]dnsdelegation.Finding, error)
 	dialCert func(ctx context.Context, domain string) (*tls.ConnectionState, error)
+	clock    func() time.Time
 }
 
 func newClusterDomain() clusterDomain {
@@ -77,14 +78,25 @@ func (c clusterDomain) NameserverIPs(ctx context.Context, via Machine, domain st
 }
 
 // Wait polls until the records resolve and the certificate is the cluster's.
+// It ends early, with the CA's reason, when the CA refused to issue and will not
+// accept the order again before the wait would end: polling to the deadline
+// cannot change that.
 func (c clusterDomain) Wait(ctx context.Context, via Machine, domain string, poll, deadline time.Duration) error {
 	var why error
+	until := c.now().Add(deadline)
 	err := pollUntil(ctx, poll, deadline, domain+" to be delegated and to serve a certificate", func(ctx context.Context) (bool, error) {
 		done, reason := c.ready(ctx, via, domain)
 		why = reason
+		var refused *issuanceRefused
+		if errors.As(reason, &refused) && refused.Err.RateLimited() && refused.Err.RetryAfter.After(until) {
+			return false, reason
+		}
 		return done, nil
 	})
 	if err != nil {
+		if errors.Is(err, why) {
+			return err
+		}
 		return errors.Join(err, why)
 	}
 	return nil
@@ -112,10 +124,10 @@ func (c clusterDomain) ready(ctx context.Context, via Machine, domain string) (b
 	}
 	state, err := c.dialCert(ctx, domain)
 	if err != nil {
-		return false, fmt.Errorf("the cluster's certificate: %w", err)
+		return false, c.whyNoCertificate(ctx, via, domain, fmt.Errorf("the cluster's certificate: %w", err))
 	}
 	if !certServes(state, domain, time.Now()) {
-		return false, fmt.Errorf("the cluster does not serve an issued certificate for %s yet", domain)
+		return false, c.whyNoCertificate(ctx, via, domain, fmt.Errorf("the cluster does not serve an issued certificate for %s yet", domain))
 	}
 	return true, nil
 }

@@ -28,6 +28,10 @@ func (r *runner) domainBeforeJoin(ctx context.Context, n *nodeRun) error {
 		// The records printed before the wait may not have been readable yet;
 		// print them again so the error's "the records above" names them.
 		r.announceDomain(ctx)
+		if errors.As(err, new(*issuanceRefused)) {
+			return fmt.Errorf("%s has no certificate: %w\n  %s cannot join before it has one: an invite pins the certificate the cluster serves for %s; run `%s` once it can be issued, which resumes at this step",
+				r.opts.Domain, err, n.plan.IP, r.opts.Domain, r.resumeCommand())
+		}
 		return fmt.Errorf("%s is not delegated yet: %w\n  %s cannot join before it is: an invite pins the certificate the cluster serves for %s, which it is issued once the domain is delegated to it; create the records above, then run `%s`, which resumes at this step",
 			r.opts.Domain, err, n.plan.IP, r.opts.Domain, r.resumeCommand())
 	}
@@ -117,6 +121,10 @@ func (r *runner) waitDomain(ctx context.Context) error {
 	if err != nil {
 		r.emit("", StepDNS, StateFailed, err.Error())
 		r.announceDomain(ctx)
+		if errors.As(err, new(*issuanceRefused)) {
+			return fmt.Errorf("%s has no certificate: %w\n  everything else is installed; run `%s` once it can be issued, which resumes at this step",
+				r.opts.Domain, err, r.resumeCommand())
+		}
 		return fmt.Errorf("%s is not delegated yet: %w\n  everything else is installed; create the records above, then run `%s`, which resumes at this step",
 			r.opts.Domain, err, r.resumeCommand())
 	}

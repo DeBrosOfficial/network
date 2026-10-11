@@ -12,6 +12,7 @@ import (
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/lifecycle"
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
 	"github.com/DeBrosOfficial/network/pkg/clusterreg"
 	"github.com/DeBrosOfficial/network/pkg/globalbind"
 	"github.com/DeBrosOfficial/network/pkg/install"
@@ -112,9 +113,12 @@ type fakeMachine struct {
 	state         ChainState
 	stateErr      error
 	waitErr       error
-	installed     ClusterInstall
-	globalIn      GlobalInstall
-	identityErr   error
+	// tlsStatus and tlsStatusErr are what the node answers to `orama node tls status`.
+	tlsStatus    *tlsstatus.Report
+	tlsStatusErr error
+	installed    ClusterInstall
+	globalIn     GlobalInstall
+	identityErr  error
 	// tamperIdentity, when set, changes what the node reports about its keys.
 	tamperIdentity func(*NodeIdentity)
 	// release says how the machine behaves when it fetches the release itself.
@@ -203,6 +207,16 @@ func (m *fakeMachine) StartServices(_ context.Context, id string) error {
 func (m *fakeMachine) Nameservers(context.Context) ([]dnsdelegation.Delegation, error) {
 	m.w.add("nameservers on %s", m.ip)
 	return []dnsdelegation.Delegation{{Domain: "cluster.example.org", Nameservers: []dnsdelegation.Nameserver{{Hostname: "ns1", IP: m.ip}}}}, nil
+}
+func (m *fakeMachine) CertificateStatus(context.Context) (*tlsstatus.Report, error) {
+	m.w.add("tls status on %s", m.ip)
+	if m.tlsStatusErr != nil {
+		return nil, m.tlsStatusErr
+	}
+	if m.tlsStatus != nil {
+		return m.tlsStatus, nil
+	}
+	return &tlsstatus.Report{}, nil
 }
 func (m *fakeMachine) OpenChain(context.Context) (string, func(), error) {
 	return "http://127.0.0.1:1", func() {}, nil

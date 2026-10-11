@@ -4,7 +4,7 @@
 >
 > - **What:** every node terminates public TLS in its own Caddy (`orama-namespace-caddy@index`), built by `orama maint build` with two Orama modules from `caddy/`. `dns.providers.orama` answers ACME DNS-01 challenges by asking the local index gateway to publish a TXT record in the cluster's own DNS. `caddy.storage.orama` keeps Caddy's certificates, ACME account and locks in the cluster registry through the same gateway, sealed, so the cluster obtains each certificate once and every node serves it. The install step renders the Caddyfile and the two key files; the cluster gateway exports the `*.<base>` pair to disk for the shared TURN server.
 > - **Key numbers:** Caddy 2.11.4, HTTP/1.1 only, no UDP 443; gateway upstream `localhost:10104`; store route `/v1/internal/tls-store`, ACME routes `/v1/internal/acme/present` and `/cleanup`; stamp skew 60 s; value cap 256 KiB sealed, key cap 1024 bytes, body cap 1 MiB, lease cap 2 h; lock lease 60 s renewed every 20 s, polled every 2 s; Caddy waits 2 min for the store; wildcard export every 1 min; TURN reloader polls every 60 s; ACME CA defaults to Let's Encrypt production.
-> - **Code:** `caddy/` (own Go module), `core/pkg/tlsstore/`, `core/pkg/install/installers/caddy.go`, `core/pkg/gateway/tls_store_handler.go`, `core/pkg/gateway/tls_export.go`, `core/pkg/gateway/acme_auth.go`, `core/pkg/tlsutil/`, `core/pkg/certutil/`.
+> - **Code:** `caddy/` (own Go module), `core/pkg/tlsstore/`, `core/pkg/install/installers/caddy.go`, `core/pkg/gateway/tls_store_handler.go`, `core/pkg/gateway/tls_export.go`, `core/pkg/gateway/acme_auth.go`, `core/pkg/tlsutil/`, `core/pkg/certutil/`, `core/cmd/orama/internal/production/tlsstatus/`.
 > - **Depends on:** [DNS and nameservers](24-dns-and-nameservers.md) for the TXT records the CA reads, [inter-node trust](15-inter-node-trust.md) for the coordination stamp, [secrets and keys](16-secrets-and-keys.md) for the cluster secret the keys derive from, [cluster state](07-cluster-state.md) for the registry that holds the store, and [install and upgrade](30-install-and-upgrade.md) for the installer that writes everything.
 
 ![TLS and certificates: Caddy, its two modules, the gateway and the registry](../diagrams/ch25-overview.svg)
@@ -209,6 +209,17 @@ Only after the import does `tlsStoreReady` flip and the store start answering Ca
 
 `Storage.Provision` reads the master key (`readHexKey`: hex, non-empty), derives the MAC and seal keys (`storeKeys`), refuses an empty endpoint or key file, and then calls `waitForStore`. Caddy starts managing its certificates right after provisioning, and a name whose certificate could not be read at that moment is left unmanaged, logged and never retried, so the node would serve no TLS for it until Caddy restarted. So provisioning blocks: it sends a `stat certificates` every 2 s, up to 2 min (`storeWait`), and treats an answer without an `exists` field as "not the cluster's store". A 404 (`errRefused`) ends the wait at once, since waiting does not change a wrong key. If the store does not open in 2 min, `Provision` fails, Caddy exits, and `Restart=always` starts it again 5 s later. A Caddy that is already running keeps serving the certificates it loaded through a gateway outage.
 
+### Reading why a node has no certificate
+
+A client of a node that holds no certificate sees one thing, `tls: internal error`, whatever the cause: a name not delegated yet, the gateway not up, or the CA refusing the order. The CA's answer is in one place only, Caddy's own JSON log, in the journal of `orama-namespace-caddy@index` (loggers `tls.obtain` and `tls.renew`). `orama node tls status` (`core/cmd/orama/internal/production/tlsstatus`) reads it, as root, together with what Caddy serves:
+
+1. `parseCaddyfile` reads `/etc/caddy/Caddyfile` for the names Caddy manages (the HTTPS sites: the `http://` sites and `:80` have none), the global `acme_ca` and `https_port`.
+2. For each name `Collect` makes a TLS handshake with `127.0.0.1:<https_port>` (for the wildcard, with a name under it) and reads the leaf: held means it names the probe, is unexpired and is not self-signed, and the issuer and `not_after` are reported. The chain is not verified, since a staging CA's never would; Caddy's admin API does not expose either fact. A handshake that fails is reported as `serve_error`.
+3. `lastObtainErrors` reads the last `privhelper.MaxJournalLines` (1000) lines, keeps per name the last error-level line of the two loggers, and drops it when a later `certificate obtained successfully` or `renewed successfully` line names the same name. The name is the line's `identifier`, or the bracketed name certmagic puts first in an error. A line is dropped when it belongs to another CA than the Caddyfile's now names (the issuer key on the line, or the endpoint URL in its error), because the journal outlives an install and a node moved from production to staging still holds production's errors. Lines that are not Caddy's JSON are skipped.
+4. `parseObtainError` reads the ACME problem out of the error text (`HTTP 429 urn:ietf:params:acme:error:rateLimited - ...`) into `status`, `type` and `message`, and a `retry after <time> UTC` in the detail into `retry_after`.
+
+`orama setup` uses the same report. When it waits for a cluster's certificate and the handshake gives none, it runs `orama node tls status --json` on the first machine over its pinned SSH session (`Machine.CertificateStatus`) and puts the CA's answer in the reason of the wait. A `rateLimited` answer whose `retry_after` is later than the wait would end stops the wait at once (`issuanceRefused`), since polling cannot change it, and the error says to create a rebuilt-often test network with `--acme-ca letsencrypt-staging`.
+
 ### Exporting the wildcard for TURN
 
 ![Exporting the wildcard pair](../diagrams/ch25-export.svg)
@@ -276,7 +287,7 @@ The CLI loads each configured environment's `ca_file` with `TrustEnvironmentCAs`
 | Index RQLite has no leader or quorum | Store calls fail with 503; no issuance or renewal; a running Caddy keeps serving the certificates it loaded | renewal errors only close to expiry; handshakes keep working |
 | Wrong or missing store key on the node | The gateway answers 404; `errRefused` ends the wait at once and Provision fails | Caddy exits with "does not accept this node's TLS store key, or is not a cluster gateway" |
 | Cluster secret differs between Caddy and gateway (key file from another cluster) | The stamp fails: 404. A value sealed by another cluster does not open: "does not open with this cluster's key" | Caddy cannot load; exporter reports the same error |
-| CA rate limit reached | Obtain fails; CertMagic retries with backoff; HTTPS for that name fails; plain HTTP still reaches the gateway through the `http://` sites | handshake errors for the name; HTTP on :80 works |
+| CA rate limit reached | Obtain fails; CertMagic retries with backoff; HTTPS for that name fails; plain HTTP still reaches the gateway through the `http://` sites | handshake errors for the name; HTTP on :80 works; `orama node tls status` shows the name as not held with the CA's `rateLimited` answer and its `retry_after`; `orama setup` stops with it |
 | DNS-01 fails: zone not delegated, CoreDNS down on all nameservers, TXT not visible | The CA marks the challenge invalid; the provider has already got 200 from `present` | order fails; `dns_records` rows in namespace `acme` may remain until `cleanup` runs |
 | Unsigned, foreign-key or replayed store call | 404, no body | the route looks absent; the gateway logs nothing for stamp failures |
 | Out-of-zone, malformed or wrong-length ACME record | 400 with the reason; nothing written | `present` refused |
@@ -417,7 +428,9 @@ Caddy itself is bounded by `MemoryMax=2G`, `TasksMax=512` and `LimitNOFILE=10485
 - `cd core && go test ./pkg/gateway/ -run 'ACME|TLSStore'` covers the gateway routes (`core/pkg/gateway/tls_store_handler_test.go`, `core/pkg/gateway/acme_handler_test.go`).
 - `cd core && go test ./pkg/tlsutil/...` covers scoped roots and the shared transport.
 
-**Fleet e2e.** The feature `e2e/features/dns-tls/` exercises the subsystem on a real fleet: `TestTLS_everyNodeServesTheClustersOneCertificate`, `TestTLS_everyNodeServesCertsForBaseAndWildcard`, `TestTLS_versionsTwelveAndThirteen`, `TestTLS_onlyHTTP11ByALPN`, `TestTLS_foreignNamesGetNoCertificate`, `TestTLSStore_refusesCallsNotFromCaddy`, `TestTLSStore_holdsTheWildcardSealed`, `TestTLSStore_exportedWildcardIsTheServedOne`, and the ACME refusal cases in `e2e/features/dns-tls/acme_refusal_test.go`. `e2e/features/dns-tls-chaos/` covers `TestEdgePromise_caddyDownLeavesTheRoundRobin`. The owner runs the fleet suite with `make e2e-fleet`.
+- `cd core && go test ./cmd/orama/internal/production/tlsstatus/` covers the status command with Caddy's real log lines (`TestLastObtainErrors_rateLimited`, `TestLastObtainErrors_anotherCAsErrorsAreNotTheCurrentCAs`, `TestCollect_everyNameHeld`), and `go test ./cmd/orama/internal/setup/ -run 'ClusterDomain|CertificateStatus'` the way setup reports it (`TestClusterDomain_waitEndsEarlyOnARateLimitBeyondTheDeadline`).
+
+**Fleet e2e.** The feature `e2e/features/dns-tls/` exercises the subsystem on a real fleet: `TestNodeTLSStatus_reportsTheHeldCertificates`, `TestTLS_everyNodeServesTheClustersOneCertificate`, `TestTLS_everyNodeServesCertsForBaseAndWildcard`, `TestTLS_versionsTwelveAndThirteen`, `TestTLS_onlyHTTP11ByALPN`, `TestTLS_foreignNamesGetNoCertificate`, `TestTLSStore_refusesCallsNotFromCaddy`, `TestTLSStore_holdsTheWildcardSealed`, `TestTLSStore_exportedWildcardIsTheServedOne`, and the ACME refusal cases in `e2e/features/dns-tls/acme_refusal_test.go`. `e2e/features/dns-tls-chaos/` covers `TestEdgePromise_caddyDownLeavesTheRoundRobin`. The owner runs the fleet suite with `make e2e-fleet`.
 
 **Read-only on a live node.**
 
@@ -436,5 +449,7 @@ openssl s_client -connect <node-ip>:443 -servername <base> -alpn h2,http/1.1 </d
 # the exported wildcard that TURN reads
 openssl x509 -in /opt/orama/.orama/data/tls/wildcard.crt -noout -subject -enddate
 ```
+
+`sudo orama node tls status` prints, per name, whether a certificate is held and, if not, what the CA last answered.
 
 The unit's logs are `orama node logs caddy` (the CLI's name for it), which also shows `waiting for the cluster's certificate store` after a restart.

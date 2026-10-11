@@ -226,6 +226,8 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama node start`](#orama-node-start) - Start all production services (requires sudo)
   - [`orama node status`](#orama-node-status) - Show the service status of the node on this machine
   - [`orama node stop`](#orama-node-stop) - Stop all production services (requires sudo)
+  - [`orama node tls`](#orama-node-tls) - This node's TLS certificates
+    - [`orama node tls status`](#orama-node-tls-status) - Show whether this node holds its certificates, and why not (requires sudo)
   - [`orama node trust`](#orama-node-trust) - Manage what this node accepts code from, besides its operator's wallet
     - [`orama node trust add-root`](#orama-node-trust-add-root) - Adopt a TUF release root on this node (requires sudo)
   - [`orama node uninstall`](#orama-node-uninstall) - Remove production services (requires sudo)
@@ -4828,7 +4830,7 @@ Operate Orama nodes, both the one on this machine and the fleet you own.
 
 Local, run on the node itself and needing root (sudo):
   uninstall, upgrade, start, stop, restart, status, logs, doctor, report, invite,
-  trust
+  trust, tls status
 
 Remote, run from your machine and reaching nodes over SSH:
   list, setup, remove, wipe, dns delegation
@@ -4837,7 +4839,7 @@ Installing a node's software, staging an archive, auto-update, recovery and
 migration are maintainer commands: see 'orama maint node'.
 ```
 
-Subcommands: `dns`, `doctor`, `invite`, `list`, `logs`, `report`, `restart`, `start`, `status`, `stop`, `trust`, `uninstall`, `upgrade`, `wipe`
+Subcommands: `dns`, `doctor`, `invite`, `list`, `logs`, `report`, `restart`, `start`, `status`, `stop`, `tls`, `trust`, `uninstall`, `upgrade`, `wipe`
 
 ## orama node dns
 
@@ -5162,6 +5164,42 @@ Use --force to bypass quorum safety check.
 | Flag | Default | Description |
 |---|---|---|
 | `--force` | `false` | Bypass quorum safety check |
+
+
+## orama node tls
+
+This node's TLS certificates
+
+```text
+orama node tls
+```
+
+Subcommands: `status`
+
+## orama node tls status
+
+Show whether this node holds its certificates, and why not (requires sudo)
+
+```text
+orama node tls status
+```
+
+```text
+Report the certificate of every name this node's Caddy manages: the base
+domain and its wildcard, and any site of its own.
+
+For each name it says whether Caddy serves an issued certificate, who issued it
+and when it expires. When it does not, it says what the certificate authority
+last answered to the order, read from Caddy's log: the ACME problem type (for
+example rateLimited), the CA's message and, when the CA gave one, the time it
+will accept a new order. A rate limit shows here and nowhere a client can see:
+the client's only symptom is "tls: internal error".
+
+Reads the journal of orama-namespace-caddy@index, so it needs root. --json
+prints the same as a document with a "names" list.
+
+See orama.network/docs/operator/tls-certificates.
+```
 
 
 ## orama node trust

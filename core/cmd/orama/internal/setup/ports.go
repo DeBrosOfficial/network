@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
 	"github.com/DeBrosOfficial/network/pkg/clusterreg"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
 	"github.com/DeBrosOfficial/network/pkg/onchain"
@@ -58,6 +59,10 @@ type Machine interface {
 	// Nameservers are the nameserver slots the cluster holds, read on this machine
 	// (it is in the cluster and its host key is pinned).
 	Nameservers(ctx context.Context) ([]dnsdelegation.Delegation, error)
+	// CertificateStatus is the certificate issuance of this machine's node: which
+	// names it holds a certificate for and, for the ones it does not, what the
+	// certificate authority last answered (`orama node tls status`).
+	CertificateStatus(ctx context.Context) (*tlsstatus.Report, error)
 	// OpenChain makes the node's chain REST API reachable from here.
 	OpenChain(ctx context.Context) (rest string, stop func(), err error)
 	// WaitNode waits until the cluster node is carrying its share of the

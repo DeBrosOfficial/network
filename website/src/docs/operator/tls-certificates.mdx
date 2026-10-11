@@ -71,9 +71,35 @@ echo | openssl s_client -connect <node-ip>:443 -servername cluster.example.com 2
 orama status dns --env mycluster    # certificate expiry for every nameserver
 ```
 
+## Reading a node's certificate status
+
+A client of a node that has no certificate sees one error, `tls: internal error`, whatever the reason. The reason is in Caddy's log on the node. `orama node tls status` reads it for you, together with what the node serves now. It needs root:
+
+```bash
+sudo orama node tls status
+sudo orama node tls status --json
+```
+
+For every name the node's Caddy manages (the base domain, its wildcard and any site of its own) it says whether an issued certificate is held, who issued it and when it expires. For a name that is not held it adds the last answer of the certificate authority, parsed from the log:
+
+```text
+Certificate authority: https://acme-v02.api.letsencrypt.org/directory
+
+NAME                  CERTIFICATE  DETAIL
+*.stagenet.example    not held     the CA refused: rate limited
+stagenet.example      not held     the CA refused: rate limited
+
+stagenet.example: the last order failed at 2026-10-11 04:26:01 UTC: the CA answered HTTP 429 rateLimited: too many certificates (5) already issued for this exact set of identifiers in the last 168h0m0s, retry after 2026-10-12 04:26:01 UTC: see https://letsencrypt.org/docs/rate-limits/#new-certificates-per-exact-set-of-identifiers
+The CA will accept a new order after 2026-10-12 04:26:01 UTC.
+```
+
+`--json` prints the same as one document: the `ca`, and a `names` list whose entries have `name`, `held`, `issuer`, `not_after`, `serve_error` (why the node's own handshake gave no certificate) and, when Caddy's log has a failed order for the name that no success followed, `last_error` with `at`, `ca`, `status` (the HTTP status), `type` (the ACME problem, for example `rateLimited`, `dns` or `unauthorized`), `message` and `retry_after` (only when the CA named a time). A failure that belongs to a CA the Caddyfile no longer names is left out, so changing the CA does not leave the old one's errors behind.
+
+**Reading a rate limit.** `type` is `rateLimited` and `status` is 429. Let's Encrypt allows five certificates for the same set of names in 168 hours, and `retry_after` is the time it says it will accept the order again, often hours away. Nothing you do on the cluster changes it. Wait until `retry_after`, or use another CA: a cluster you rebuild often should have been created with `--acme-ca letsencrypt-staging` ([When to use staging](#choosing-the-certificate-authority)). An existing cluster is moved with `orama node upgrade --acme-ca letsencrypt-staging` ([Changing a running cluster's CA](#changing-a-running-clusters-ca)), and your CLI then trusts the staging roots as [described above](#trusting-a-staging-cluster-from-your-cli).
+
 ## If a node has no certificate
 
 1. Is the delegation visible? `dig NS <base> @8.8.8.8`. No delegation means no certificate.
 2. Is Caddy running? `sudo orama node status`, and `sudo orama node logs caddy -f` for ACME errors.
 3. Is the gateway up? Caddy waits for it.
-4. Did you hit a rate limit? The Let's Encrypt error says so. Switch to staging for tests, or wait.
+4. What did the CA answer? `sudo orama node tls status` shows the last failed order of each name. A `rateLimited` answer means you hit a rate limit: switch to staging for tests, or wait for its `retry_after`.

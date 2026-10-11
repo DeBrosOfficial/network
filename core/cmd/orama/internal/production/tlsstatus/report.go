@@ -1,0 +1,170 @@
+// Package tlsstatus reports the certificate issuance of the node on this
+// machine: for each name its Caddy manages, whether a certificate is held and,
+// when it is not, why the certificate authority last refused.
+//
+// The answer is in two places, and neither is Caddy's admin API, which does not
+// expose it. What Caddy holds is read the way a client meets it, by a handshake
+// with the local listener. Why it holds nothing is in Caddy's own JSON log, in
+// the journal of its unit.
+package tlsstatus
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/DeBrosOfficial/network/pkg/privhelper"
+)
+
+const (
+	// CaddyUnit is the unit of the node's Caddy.
+	CaddyUnit = "orama-namespace-caddy@index"
+	// CaddyfilePath is the Caddyfile that unit runs.
+	CaddyfilePath = "/etc/caddy/Caddyfile"
+
+	// journalLines is how much of the journal is read: the most the privileged
+	// journal reader returns in one call.
+	journalLines = privhelper.MaxJournalLines
+	// handshakeTimeout bounds one look at a certificate.
+	handshakeTimeout = 5 * time.Second
+	// wildcardProbeLabel is a name under a wildcard that only the wildcard's
+	// certificate covers.
+	wildcardProbeLabel = "tls-status"
+)
+
+// Report is the certificate issuance of one node.
+type Report struct {
+	// Unit is the Caddy unit whose journal was read.
+	Unit string `json:"unit"`
+	// CA is the ACME directory the node's Caddyfile names.
+	CA string `json:"ca,omitempty"`
+	// Names are the names Caddy manages, in Caddyfile order.
+	Names []Name `json:"names"`
+}
+
+// Name is the certificate of one name.
+type Name struct {
+	Name string `json:"name"`
+	// Held says Caddy serves an issued, unexpired certificate for the name.
+	Held bool `json:"held"`
+	// Issuer and NotAfter describe the certificate held.
+	Issuer   string    `json:"issuer,omitempty"`
+	NotAfter time.Time `json:"not_after,omitzero"`
+	// ServeError is why the handshake gave no certificate, when it did not.
+	ServeError string `json:"serve_error,omitempty"`
+	// LastError is the last failure to obtain or renew the certificate that no
+	// success followed in the journal read.
+	LastError *ObtainError `json:"last_error,omitempty"`
+}
+
+// Deps are the node's facts, replaced in tests.
+type Deps struct {
+	// ReadFile reads the Caddyfile.
+	ReadFile func(path string) ([]byte, error)
+	// Journal returns the last lines of a unit's journal.
+	Journal func(ctx context.Context, unit string, lines int) (string, error)
+	// Handshake presents serverName to addr and returns what the server serves.
+	Handshake func(ctx context.Context, addr, serverName string) (*tls.ConnectionState, error)
+	Now       func() time.Time
+}
+
+// SystemDeps are the real ones.
+func SystemDeps() Deps {
+	return Deps{ReadFile: os.ReadFile, Journal: readJournal, Handshake: handshake, Now: time.Now}
+}
+
+// Collect reads this node's certificate issuance.
+func Collect(ctx context.Context, d Deps) (*Report, error) {
+	raw, err := d.ReadFile(CaddyfilePath)
+	if err != nil {
+		return nil, fmt.Errorf("read the Caddyfile %s (is this node installed?): %w", CaddyfilePath, err)
+	}
+	cf := parseCaddyfile(string(raw))
+	journal, err := d.Journal(ctx, CaddyUnit, journalLines)
+	if err != nil {
+		return nil, fmt.Errorf("read the journal of %s for the CA's answers: %w", CaddyUnit, err)
+	}
+	failures := lastObtainErrors(journal, cf.ACMECA)
+
+	r := &Report{Unit: CaddyUnit, CA: cf.ACMECA, Names: make([]Name, 0, len(cf.Names))}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(cf.HTTPSPort))
+	for _, name := range cf.Names {
+		n := Name{Name: name}
+		if f, ok := failures[name]; ok {
+			n.LastError = &f
+		}
+		state, err := d.Handshake(ctx, addr, probeName(name))
+		if err != nil {
+			n.ServeError = err.Error()
+		} else {
+			n.Issuer, n.NotAfter, n.Held = held(state, probeName(name), d.Now())
+		}
+		r.Names = append(r.Names, n)
+	}
+	return r, nil
+}
+
+// probeName is the name presented to Caddy to ask for the certificate of site:
+// the site itself, or for a wildcard a name under it.
+func probeName(site string) string {
+	if rest, ok := strings.CutPrefix(site, "*."); ok {
+		return wildcardProbeLabel + "." + rest
+	}
+	return site
+}
+
+// held says the connection's leaf certificate names serverName, is unexpired
+// and is not self-signed, and returns who issued it and when it expires.
+func held(state *tls.ConnectionState, serverName string, now time.Time) (issuer string, notAfter time.Time, ok bool) {
+	if state == nil || len(state.PeerCertificates) == 0 {
+		return "", time.Time{}, false
+	}
+	leaf := state.PeerCertificates[0]
+	if now.Before(leaf.NotBefore) || now.After(leaf.NotAfter) || leaf.Issuer.String() == leaf.Subject.String() {
+		return "", time.Time{}, false
+	}
+	if leaf.VerifyHostname(serverName) != nil {
+		return "", time.Time{}, false
+	}
+	return firstNonEmpty(leaf.Issuer.CommonName, leaf.Issuer.String()), leaf.NotAfter.UTC(), true
+}
+
+// handshake reads the certificate the server at addr presents for serverName.
+// The chain is not verified: a staging or private CA's never would, and the
+// question is whether the node has one issued for the name.
+func handshake(ctx context.Context, addr, serverName string) (*tls.ConnectionState, error) {
+	ctx, cancel := context.WithTimeout(ctx, handshakeTimeout)
+	defer cancel()
+	dialer := &tls.Dialer{
+		NetDialer: &net.Dialer{Timeout: handshakeTimeout},
+		Config:    &tls.Config{ServerName: serverName, InsecureSkipVerify: true}, //nolint:gosec // reads what is served, not whether it is trusted
+	}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	state := conn.(*tls.Conn).ConnectionState()
+	return &state, nil
+}
+
+// readJournal reads the last lines of unit's journal as the message alone,
+// which for Caddy is its JSON log line. It needs root, like `orama node logs`.
+func readJournal(ctx context.Context, unit string, lines int) (string, error) {
+	out, err := exec.CommandContext(ctx, "journalctl", "-u", unit, "--no-pager", "-o", "cat", "-n", strconv.Itoa(lines)).Output()
+	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			return "", fmt.Errorf("journalctl -u %s: %w: %s", unit, err, strings.TrimSpace(string(exit.Stderr)))
+		}
+		return "", fmt.Errorf("journalctl -u %s: %w", unit, err)
+	}
+	return string(out), nil
+}

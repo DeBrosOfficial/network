@@ -14,7 +14,7 @@ var Cmd = &cobra.Command{
 
 Local, run on the node itself and needing root (sudo):
   uninstall, upgrade, start, stop, restart, status, logs, doctor, report, invite,
-  trust
+  trust, tls status
 
 Remote, run from your machine and reaching nodes over SSH:
   list, setup, remove, wipe, dns delegation
@@ -50,6 +50,7 @@ func init() {
 	Cmd.AddCommand(decommissionCmd)
 	Cmd.AddCommand(wipeCmd)
 	Cmd.AddCommand(dnsCmd)
+	Cmd.AddCommand(tlsCmd)
 	Cmd.AddCommand(setupCmd)
 
 	MaintCmd.AddCommand(installCmd)
