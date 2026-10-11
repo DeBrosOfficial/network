@@ -1,7 +1,7 @@
 {
   "name": "stagenet",
-  "chain_id": "orama-stagenet-8",
-  "genesis_sha256": "a94fa92890487dd53059e01e3bfbdf63db5ce133b22c3edd8721c5f7b350717d",
+  "chain_id": "orama-stagenet-9",
+  "genesis_sha256": "21e20f94485f91972de30764e295a51ad0c4d0208eeb41fcd929161248d3f5ff",
   "seeds": [
     "ns1.stagenet.orama.network",
     "ns2.stagenet.orama.network",

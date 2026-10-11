@@ -240,29 +240,29 @@
       },
       "bootstrap_committee": [
         {
-          "operator_address": "orama12rc8ge54kyat59dmcnlvhpeemhlwjced3qygc8",
+          "operator_address": "orama15pfrva5zk3g74lq9dgdxh960wg29qfjqpumutm",
           "moniker": "founder",
-          "consensus_pubkey": "yyvRBRxTC70wBiS+dHs7vPNuqASn6lf/BsvXi6SgnWo="
+          "consensus_pubkey": "NWBdZJMEVHmjzXWiObIAahO367LXvC5/DZpzgC8mG3Q="
         },
         {
-          "operator_address": "orama1h377tetvt62txym6877grs894q3jujy5zx8q3e",
+          "operator_address": "orama1plgfgw5ncc87wxak2mg8lenuy6aakpkyju0uck",
           "moniker": "founder-2",
-          "consensus_pubkey": "iPGOKyXWdD1DcG5QePF2zDuMEOw+8pOiv7f+mbz6lOg="
+          "consensus_pubkey": "qb47YF/UOInyw4upgRr4MR4FKQmcAzo2MAWVeyJOf9E="
         },
         {
-          "operator_address": "orama1qwv8cg3secxhkhg9apzlxpx8mjtzluh0e07pea",
+          "operator_address": "orama1eyfnudzy9t7w3tw53r6352ysm89daquh0x86hg",
           "moniker": "founder-3",
-          "consensus_pubkey": "bKiEkqTY+bCcjsHCUmiwPNKx4EQZ/6bImunPjdpdNmM="
+          "consensus_pubkey": "8t3XnW+ZhKw62RkSj7mTmomjnW9l5XQg98nOTgx8odk="
         },
         {
-          "operator_address": "orama15kcl5g6ktnlczwmhhfrtfkx0m2jh29glfe3j00",
+          "operator_address": "orama1afhkj2ud9exzqmk4gjjm8m4aekla55jylmy7n4",
           "moniker": "founder-4",
-          "consensus_pubkey": "OFsEz9AlbY2qLJLuVZ9FudP4a+ITCI00XV91uJjpf+c="
+          "consensus_pubkey": "AVfvu7uS9373HABy303QJ52g4seACU930gcPr6ewoc8="
         },
         {
-          "operator_address": "orama1hgqtwey7uez208rk0k2tfpphe49ey9amxxg6qa",
+          "operator_address": "orama1dw9g7yjaplxp67xwzmmy9m9hkfkplckvkdphkz",
           "moniker": "founder-5",
-          "consensus_pubkey": "p4/40fXqsZojX/T+WrOoeiOJvuTP52jzdkDzNQkmePM="
+          "consensus_pubkey": "NGK1C1bN7JoCxbps2k0C4eTR9JaKvbMheTv79VH9hiM="
         }
       ],
       "lambda": "0.000000000000000000",
@@ -504,8 +504,8 @@
       "upload_sunset_height": 3162240
     }
   },
-  "app_version": "v0.122.80-nightly-1252-gfc93749c",
-  "chain_id": "orama-stagenet-8",
+  "app_version": "v0.122.80-nightly-1307-g11b54dc8",
+  "chain_id": "orama-stagenet-9",
   "consensus": {
     "params": {
       "abci": {
@@ -533,6 +533,6 @@
       }
     }
   },
-  "genesis_time": "2026-10-10T22:42:16.75054852Z",
+  "genesis_time": "2026-10-11T02:53:40.100813368Z",
   "initial_height": 1
 }
