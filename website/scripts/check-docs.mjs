@@ -9,6 +9,7 @@
 
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
+import GithubSlugger from "github-slugger";
 import remarkGfm from "remark-gfm";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -52,9 +53,10 @@ for (const file of files) {
     if (!slugs.has(target)) problems.push(`${name}: link to missing page /docs/${target}`);
     else if (anchor) {
       const targetText = readFileSync(join(DOCS, `${target}.mdx`), "utf-8");
-      const ids = [...targetText.replace(/```[\s\S]*?```/g, "").matchAll(/^#{2,3}\s+(.+)$/gm)].map((h) =>
-        h[1].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      );
+      // The ids rehype-slug gives the headings on the site (github-slugger, one per page so a
+      // repeated heading gets its -1, -2 suffix as it does there).
+      const slugger = new GithubSlugger();
+      const ids = [...targetText.replace(/```[\s\S]*?```/g, "").matchAll(/^#{1,6}\s+(.+)$/gm)].map((h) => slugger.slug(h[1]));
       if (!ids.includes(anchor)) problems.push(`${name}: link to missing section /docs/${target}#${anchor}`);
     }
   }
