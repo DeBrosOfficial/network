@@ -100,12 +100,29 @@ func removeWithoutConfirmationAborts(t *testing.T, f *fleet.Fleet, extra harness
 	}
 }
 
+// The sysctl drop-ins the installer writes (pkg/install IPv6DisableSysctlPath,
+// RAMHygieneSysctlPath) and the kernel files of the IPv6 settings the first one sets.
+const (
+	ipv6DropIn   = "/etc/sysctl.d/99-orama-disable-ipv6.conf"
+	ramDropIn    = "/etc/sysctl.d/99-orama-ram-hygiene.conf"
+	ipv6AllProc  = "/proc/sys/net/ipv6/conf/all/disable_ipv6"
+	ipv6DefProc  = "/proc/sys/net/ipv6/conf/default/disable_ipv6"
+	priorIPv6Key = "net.ipv6.conf.all.disable_ipv6"
+)
+
 // removeRetiresAndWipes: remove takes the node out of raft and the mesh on
 // every survivor, then wipes it: no /opt/orama, no units, no wg0, no trust
 // anchor, no orama-tagged firewall rule beyond SSH, and the operator's own
-// rule untouched (docs/whitepaper/technical-reference/appendices/d-cli-reference.md "orama node remove", "orama node wipe").
+// rule untouched, the IPv6 drop-in gone and IPv6 back at the value the install found, the
+// RAM hygiene drop-in kept (only --nuclear removes it)
+// (docs/whitepaper/technical-reference/appendices/d-cli-reference.md "orama node remove", "orama node wipe").
 func removeRetiresAndWipes(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
 	f.MustExec(t, extra.Node, "ufw allow "+operatorPort+" comment "+operatorComment)
+	priorIPv6 := strings.TrimSpace(f.MustExec(t, extra.Node, `sed -n "s/^# prior: `+priorIPv6Key+`=//p" `+ipv6DropIn+` | head -n1`).Stdout)
+	if priorIPv6 != "0" && priorIPv6 != "1" {
+		t.Fatalf("the install did not record the IPv6 value it found in %s (read %q)", ipv6DropIn, priorIPv6)
+	}
+	f.MustExec(t, extra.Node, "test -e "+ramDropIn)
 	rep := monitor.Fetch(t, harness.CLI(t), f.State.Env)
 	wg, err := infra.WGIPOf(rep, extra.PublicIP)
 	if err != nil {
@@ -137,6 +154,17 @@ func removeRetiresAndWipes(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
 	}
 	if f.Exec(t, extra.Node, "ip link show wg0").Exit == 0 {
 		t.Error("the wiped node still has wg0")
+	}
+	if f.Exec(t, extra.Node, "test -e "+ipv6DropIn).Exit == 0 {
+		t.Errorf("the wiped node still has %s: IPv6 would be off at the next boot", ipv6DropIn)
+	}
+	for _, proc := range []string{ipv6AllProc, ipv6DefProc} {
+		if got := strings.TrimSpace(f.MustExec(t, extra.Node, "cat "+proc).Stdout); got != priorIPv6 {
+			t.Errorf("%s is %q after the wipe, want %q (the value before the install)", proc, got, priorIPv6)
+		}
+	}
+	if f.Exec(t, extra.Node, "test -e "+ramDropIn).Exit != 0 {
+		t.Errorf("a plain wipe removed %s: only --nuclear does", ramDropIn)
 	}
 	if out := f.Exec(t, extra.Node, `find /etc/systemd/system -maxdepth 2 -name "orama-*"`); strings.TrimSpace(out.Stdout) != "" {
 		t.Errorf("the wiped node still has orama-named unit files or drop-in directories:\n%s", out.Stdout)

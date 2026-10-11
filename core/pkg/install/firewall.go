@@ -346,19 +346,20 @@ func runFirewall(name string, args ...string) error {
 	return nil
 }
 
-// persistIPv6Disable writes a sysctl config to disable IPv6 on boot.
+// persistIPv6Disable writes a sysctl config to disable IPv6 on boot, with the values the
+// kernel had before (the wipe puts them back).
 func (fp *FirewallProvisioner) persistIPv6Disable() error {
-	content := "# Orama Network: disable IPv6 (no ip6tables rules configured)\nnet.ipv6.conf.all.disable_ipv6 = 1\nnet.ipv6.conf.default.disable_ipv6 = 1\n"
-	cmd := exec.Command("tee", "/etc/sysctl.d/99-orama-disable-ipv6.conf")
+	content, err := withPriorValues(IPv6DisableSysctlPath, ipv6DisableDropIn(), IPv6DisableSysctls, os.ReadFile)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("tee", IPv6DisableSysctlPath)
 	cmd.Stdin = strings.NewReader(content)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to write sysctl config: %w\n%s", err, string(output))
 	}
 	return nil
 }
-
-// ramHygieneSysctlPath is the sysctl drop-in persistRAMHygiene writes.
-const ramHygieneSysctlPath = "/etc/sysctl.d/99-orama-ram-hygiene.conf"
 
 // ramHygieneSysctl keeps secret-bearing pages off the block device and stops
 // one process from reading another's memory. Ubuntu ships ptrace_scope=1;
@@ -384,6 +385,11 @@ func disableSwap(run commandRunner) error {
 // which would turn them back on at boot), restricts ptrace to descendants, and
 // stops systemd-coredump from writing crash images to disk (bugboard #233).
 func (fp *FirewallProvisioner) persistRAMHygiene() error {
+	// The prior values are read first: disabling apport can change them.
+	dropIn, err := withPriorValues(RAMHygieneSysctlPath, ramHygieneSysctl, hardening.Sysctls, os.ReadFile)
+	if err != nil {
+		return err
+	}
 	if err := disableSwap(runCommand); err != nil {
 		return err
 	}
@@ -393,13 +399,13 @@ func (fp *FirewallProvisioner) persistRAMHygiene() error {
 		return err
 	}
 
-	cmd := exec.Command("tee", ramHygieneSysctlPath)
-	cmd.Stdin = strings.NewReader(ramHygieneSysctl)
+	cmd := exec.Command("tee", RAMHygieneSysctlPath)
+	cmd.Stdin = strings.NewReader(dropIn)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to write ram-hygiene sysctl: %w\n%s", err, string(output))
 	}
-	if output, err := exec.Command("sysctl", "-p", ramHygieneSysctlPath).CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to apply %s: %w\n%s", ramHygieneSysctlPath, err, string(output))
+	if output, err := exec.Command("sysctl", "-p", RAMHygieneSysctlPath).CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to apply %s: %w\n%s", RAMHygieneSysctlPath, err, string(output))
 	}
 	if err := verifyRAMHygiene(os.ReadFile); err != nil {
 		return err

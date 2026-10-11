@@ -925,6 +925,9 @@ Remove all Orama data, services and configuration from remote nodes.
 Tor is left installed (its config and state are removed); --nuclear purges it.
 The wipe ends by listing what of Orama is still on the machine (LEFTOVER lines) and fails if
 anything is; the system accounts are removed only with --nuclear.
+Every wipe removes the IPv6 sysctl drop-in and puts IPv6 back to its value from before the install
+(enabled when the install recorded none); --nuclear also removes the RAM hygiene drop-in and puts back
+the values it recorded.
 
 Target-side only: this says nothing to the cluster. If the node is still a
 member, use 'orama remove' instead — otherwise the survivors keep

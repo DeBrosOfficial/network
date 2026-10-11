@@ -75,6 +75,8 @@ ip netns del %[19]s 2>/dev/null || true
 # the state removed below, so before it goes).
 prior_forward="$(cat %[20]s 2>/dev/null || true)"
 case "$prior_forward" in 0|1) sysctl -q -w net.ipv4.ip_forward="$prior_forward" ;; esac
+%[21]s
+%[22]s
 
 # The privileged helper: stop its socket so nothing can reach root through it
 # while the rest is torn down. Its unit files and binary go below.
@@ -205,6 +207,7 @@ if [ -n "$NUCLEAR" ]; then
     DEBIAN_FRONTEND=noninteractive apt-get purge -y %[6]s 2>/dev/null || true
     rm -f %[7]s
     systemctl unmask %[8]s 2>/dev/null || true
+%[23]s
 %[13]s
 fi
 
@@ -232,6 +235,7 @@ fi
 		strings.Join(globalPaths(), " "),
 		globalnetns.HostTable, globalnetns.HostIface, globalnetns.Name,
 		filepath.Join(constants.GlobalStateRoot, constants.GlobalNetnsPriorForwardFile),
+		restoreSysctlsFunc(), ipv6RestoreBlock(), ramHygieneRestoreBlock(),
 	)
 }
 

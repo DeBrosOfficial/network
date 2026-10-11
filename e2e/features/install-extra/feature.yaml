@@ -7,7 +7,8 @@
 # remove prints its plan, declines without a confirmation, then retires the
 # node cluster-wide and wipes it (the operator's own firewall rule survives; the
 # wipe ends with a check that fails on any orama-related leftover, /etc/orama and
-# drop-in directories included),
+# drop-in directories included; the IPv6 sysctl drop-in is gone and IPv6 is back at
+# the value the install found, while the RAM hygiene drop-in stays),
 # and a removed node is no longer a target for remove, wipe or clean.
 id: install-extra
 title: Fresh server setup, join, re-run, remove and wipe
@@ -40,4 +41,5 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-remove: --dry-run prints the quorum impact and every step, including the chain's, and changes nothing"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-remove: without --yes the removal is declined; orama node remove says it is replaced by orama remove"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-node-wipe: only rules tagged orama are removed; the operator's own rules and SSH stay"
+    - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-node-wipe: the IPv6 sysctl drop-in is removed and IPv6 is put back to the value before the install; --nuclear also removes the RAM hygiene drop-in"
     - "docs/whitepaper/technical-reference/vol1/18-cache.md#supply-chain: a joining node takes the archive signer list from the cluster"

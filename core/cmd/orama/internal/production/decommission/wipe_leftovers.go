@@ -27,7 +27,7 @@ func wipedPaths() []string {
 		"/var/lib/caddy", "/var/lib/ntfy", "/etc/ntfy", "/etc/coredns", "/etc/caddy",
 		filepath.Dir(constants.TorConfigPath), installers.TorDataDir,
 		filepath.Join(systemdUnitDir, "coredns.service"), filepath.Join(systemdUnitDir, "caddy.service"),
-		archivetrust.AnchorPath, privhelper.Path,
+		archivetrust.AnchorPath, privhelper.Path, install.IPv6DisableSysctlPath,
 	}
 }
 
@@ -44,14 +44,15 @@ func globalPaths() []string {
 	}
 }
 
-// nuclearPaths are the shared binaries and the Tor apt source that only --nuclear removes.
+// nuclearPaths are the shared binaries, the Tor apt source and the RAM hygiene sysctl drop-in
+// that only --nuclear removes.
 func nuclearPaths() []string {
 	return []string{
 		"/usr/local/bin/orama", "/usr/local/bin/orama-node", "/usr/local/bin/gateway",
 		"/usr/local/bin/identity", "/usr/local/bin/sfu", "/usr/local/bin/turn", "/usr/local/bin/orama-sni-router",
 		"/usr/local/bin/olric-server", "/usr/local/bin/ipfs", "/usr/local/bin/ipfs-cluster-service",
 		"/usr/local/bin/rqlited", "/usr/local/bin/coredns", "/usr/local/bin/ntfy", "/usr/bin/caddy",
-		installers.TorAptSourcePath, installers.TorKeyringPath,
+		installers.TorAptSourcePath, installers.TorKeyringPath, install.RAMHygieneSysctlPath,
 	}
 }
 
@@ -100,6 +101,7 @@ for path in $(find /etc/systemd/system -maxdepth 2 -name "orama-*" 2>/dev/null);
 for unit in $(systemctl list-units --all --plain --no-legend "orama-*" | while read -r name _; do echo "$name"; done); do
     left "systemd unit $unit"
 done
+for key in $sysctl_unrestored; do left "sysctl $key (could not be put back to its value from before the install)"; done
 if ip link show wg0 >/dev/null 2>&1; then left "network interface wg0"; fi
 if ip netns list 2>/dev/null | grep -qw ` + globalnetns.Name + `; then left "network namespace ` + globalnetns.Name + `"; fi
 if ip link show ` + globalnetns.HostIface + ` >/dev/null 2>&1; then left "network interface ` + globalnetns.HostIface + `"; fi

@@ -33,10 +33,10 @@ func verifyRAMHygiene(read func(string) ([]byte, error)) error {
 	for _, v := range hardening.Sysctls {
 		b, err := read(v.Path)
 		if err != nil {
-			return fmt.Errorf("failed to read %s after applying %s: %w", v.Path, ramHygieneSysctlPath, err)
+			return fmt.Errorf("failed to read %s after applying %s: %w", v.Path, RAMHygieneSysctlPath, err)
 		}
 		if got := strings.TrimSpace(string(b)); got != v.Want {
-			return fmt.Errorf("%s is %q after applying %s, want %q: another writer changed it (apport, /etc/sysctl.conf, a later sysctl.d file)", v.Path, got, ramHygieneSysctlPath, v.Want)
+			return fmt.Errorf("%s is %q after applying %s, want %q: another writer changed it (apport, /etc/sysctl.conf, a later sysctl.d file)", v.Path, got, RAMHygieneSysctlPath, v.Want)
 		}
 	}
 	return nil
