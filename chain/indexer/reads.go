@@ -32,7 +32,7 @@ func (s *Store) BlocksAfter(after Cursor, limit int) ([]BlockSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	return blocksFrom(snap, min(after.Height-1, int64(cursor)), limit)
+	return blocksFrom(snap, min(after.Height-1, int64(cursor)), cursor, limit)
 }
 
 // blockPage reads a page of blocks by height. The index holds every block from its start height to
@@ -43,16 +43,13 @@ func blockPage(db iterable, page, limit int) ([]BlockSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	return blocksFrom(db, int64(cursor)-int64(page-1)*int64(limit), limit)
+	return blocksFrom(db, int64(cursor)-int64(page-1)*int64(limit), cursor, limit)
 }
 
-// blocksFrom reads up to limit blocks, newest first, from height top down.
-func blocksFrom(db iterable, top int64, limit int) ([]BlockSummary, error) {
+// blocksFrom reads up to limit blocks, newest first, from height top down. cursor is the index's
+// cursor, which the caller has read from the same snapshot.
+func blocksFrom(db iterable, top int64, cursor uint64, limit int) ([]BlockSummary, error) {
 	start, _, err := getUint(db, []byte(keyStart))
-	if err != nil {
-		return nil, err
-	}
-	cursor, _, err := getUint(db, []byte(keyCursor))
 	if err != nil {
 		return nil, err
 	}

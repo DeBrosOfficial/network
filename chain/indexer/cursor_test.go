@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/base64"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -269,4 +270,33 @@ func TestListsAPI_deepPageNumbersAndBadCursorsAreRefused(t *testing.T) {
 	require.Equal(t, http.StatusOK, code, "the short aggregate lists keep their page bound")
 	code, _ = get(t, api, http.MethodGet, "/index/v1/epochs?cursor="+good)
 	require.Equal(t, http.StatusBadRequest, code, "only the long lists take a cursor")
+}
+
+// countingDB counts the reads of each key through a snapshot.
+type countingDB struct {
+	iterable
+	reads map[string]int
+}
+
+func (c *countingDB) Get(key []byte) ([]byte, io.Closer, error) {
+	c.reads[string(key)]++
+	return c.iterable.Get(key)
+}
+
+func TestBlockPage_readsTheCursorOnce(t *testing.T) {
+	_, store, _, _, _ := longChain(t, 5)
+	snap := store.db.NewSnapshot()
+	defer snap.Close()
+
+	db := &countingDB{iterable: snap, reads: map[string]int{}}
+	page, err := blockPage(db, 1, 3)
+	require.NoError(t, err)
+	require.Len(t, page, 3)
+	require.Equal(t, 1, db.reads[keyCursor], "blockPage reads the index cursor once and hands it to blocksFrom")
+
+	db = &countingDB{iterable: snap, reads: map[string]int{}}
+	top, err := blocksFrom(db, 3, 5, 2)
+	require.NoError(t, err)
+	require.Len(t, top, 2)
+	require.Zero(t, db.reads[keyCursor], "blocksFrom takes the cursor and does not read it")
 }
