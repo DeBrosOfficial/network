@@ -3,6 +3,8 @@ package install
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -85,7 +87,7 @@ func TestRenderChainConfig_writesTheDeploySettings(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		`pruning = "custom"`, `pruning-keep-recent = "100"`, `pruning-interval = "10"`, "min-retain-blocks = 201600",
+		`pruning = "custom"`, `pruning-keep-recent = "100"`, `pruning-interval = "10"`, "min-retain-blocks = 241920",
 		`app-db-backend = "pebbledb"`, "iavl-cache-size = 100000", `query-gas-limit = "2000000"`,
 		"snapshot-interval = 1000", "snapshot-keep-recent = 2",
 	} {
@@ -221,5 +223,28 @@ func TestInstallGlobal_chainConfigNeedsTheChainService(t *testing.T) {
 	opts.ChainConfig = &c
 	if err := InstallGlobal(opts, f.host); err == nil || !strings.Contains(err.Error(), "chain") {
 		t.Fatalf("got %v, want a refusal", err)
+	}
+}
+
+// TestChainMinRetainBlocks_isFourteenDaysOfTheChainsBlocks: the installer's
+// min-retain-blocks must equal x/archive's 14-day window, which the chain counts
+// at params.BlockIntervalSeconds. The chain module is a separate Go module, so
+// the interval is read from its source.
+func TestChainMinRetainBlocks_isFourteenDaysOfTheChainsBlocks(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "chain", "app", "params", "params.go"))
+	if err != nil {
+		t.Fatalf("read the chain's params: %v", err)
+	}
+	m := regexp.MustCompile(`(?m)^\s*BlockIntervalSeconds = (\d+)\s*$`).FindSubmatch(src)
+	if m == nil {
+		t.Fatal("chain/app/params/params.go no longer declares BlockIntervalSeconds: update chainMinRetainBlocks")
+	}
+	interval, err := strconv.Atoi(string(m[1]))
+	if err != nil || interval <= 0 {
+		t.Fatalf("BlockIntervalSeconds = %q is not a positive integer", m[1])
+	}
+	const retentionDays, secondsPerDay = 14, 24 * 60 * 60
+	if want := retentionDays * secondsPerDay / interval; chainMinRetainBlocks != want {
+		t.Errorf("chainMinRetainBlocks = %d, want %d (14 days of %d s blocks)", chainMinRetainBlocks, want, interval)
 	}
 }

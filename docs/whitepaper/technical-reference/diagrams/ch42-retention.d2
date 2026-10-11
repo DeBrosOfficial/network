@@ -1,7 +1,7 @@
 direction: right
 
 base: "BaseApp retain height\n(min-retain-blocks, evidence age,\nsnapshot interval; 0 if pruning is off)"
-win: "tip - retention_window_blocks\n(default 201,600 blocks:\n14 days at 6 s, 11.7 days at 5 s)"
+win: "tip - retention_window_blocks\n(default 241,920 blocks:\n14 days at 5 s blocks)"
 last: "last archived height\n(contiguous from height 1)"
 arch: "x/archive retain =\nmin(window floor, last archived)"
 gate: "gateRetainHeight:\n0 if either is 0 or less,\nelse min" {shape: hexagon}

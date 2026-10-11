@@ -3,7 +3,7 @@
 > **At a glance.**
 >
 > - **What:** paid, proven storage for strangers' capacity (x/storage), the registry that keeps chain history alive after validators prune (x/archive), and a separate read index for explorers and wallets.
-> - **Key numbers:** 3 to 32 replicas per deal; 1 KiB challenge leaf; 8 sampled replicas per node per epoch; slash at 2 consecutive misses, eviction at 4; payments split 90/5/5; archive ranges of 1,000 blocks, quorum of 3 operators and 3 deals; retention window 201,600 blocks (14 days).
+> - **Key numbers:** 3 to 32 replicas per deal; 1 KiB challenge leaf; 8 sampled replicas per node per epoch; slash at 2 consecutive misses, eviction at 4; payments split 90/5/5; archive ranges of 1,000 blocks, quorum of 3 operators and 3 deals; retention window 241,920 blocks (14 days).
 > - **Code:** `chain/x/storage/`, `chain/x/archive/`, `chain/indexer/`.
 
 ## Payment follows proof
@@ -46,7 +46,7 @@ The chain cannot read past block hashes, so it cannot check the truth. It checks
 
 ![The life of a range record](../technical-reference/diagrams/ch42-range-states.svg)
 
-`OramaApp.Commit` (`chain/app/retain.go`) lowers CometBFT's retain height to `min(tip - 201,600, last archived height)` (201,600 blocks is 11.7 days at the chain's 5 s blocks). The last archived height is the contiguous archived prefix from block 1. A stalled archive therefore pins the retain height however far the tip runs, and no operator setting can prune an uncovered block. The number to watch is the archiver's retain lag. `orama-global history get` loads a bundle, verifies it against the chain record and writes one block. Verification covers the file hash, each block's own hash and the Merkle root. It does not check that headers chain or that commits are signed.
+`OramaApp.Commit` (`chain/app/retain.go`) lowers CometBFT's retain height to `min(tip - 241,920, last archived height)` (241,920 blocks is 14 days at the chain's 5 s blocks). The last archived height is the contiguous archived prefix from block 1. A stalled archive therefore pins the retain height however far the tip runs, and no operator setting can prune an uncovered block. The number to watch is the archiver's retain lag. `orama-global history get` loads a bundle, verifies it against the chain record and writes one block. Verification covers the file hash, each block's own hash and the Merkle root. It does not check that headers chain or that commits are signed.
 
 ## The indexer
 

@@ -3,6 +3,7 @@ package types_test
 import (
 	"testing"
 
+	"github.com/DeBrosOfficial/network/chain/app/params"
 	"github.com/DeBrosOfficial/network/chain/x/archive"
 	"github.com/DeBrosOfficial/network/chain/x/archive/types"
 )
@@ -81,5 +82,20 @@ func TestPruneAllowed_keepsFourteenDayWindow(t *testing.T) {
 	}
 	if types.PruneAllowed(tip-1, tip, blocks, last) {
 		t.Fatal("pruning inside the 14-day window was allowed")
+	}
+}
+
+// The default retention window is named as 14 days: it must last 14 days at the chain's block
+// interval, and genesis must not accept a shorter one.
+func TestDefaultBlocksIn14Days_isFourteenDaysOfTheChainsBlocks(t *testing.T) {
+	t.Parallel()
+
+	if got, want := types.DefaultBlocksIn14Days*params.BlockIntervalSeconds, int64(14*24*60*60); got != want {
+		t.Fatalf("DefaultBlocksIn14Days lasts %d s at %d s blocks, want %d", got, params.BlockIntervalSeconds, want)
+	}
+	short := types.DefaultParams()
+	short.RetentionWindowBlocks = types.DefaultBlocksIn14Days - 1
+	if short.Validate() == nil {
+		t.Fatal("a retention window one block under 14 days validated")
 	}
 }

@@ -3,7 +3,7 @@
 > **At a glance.**
 >
 > - **What:** two services that keep the chain's history usable after validators prune it. x/archive is the on-chain registry that agrees which bundle of block hashes is the history of each fixed range of heights, requires three independent operators to attest it and three storage deals to hold it, and gates how far any validator may prune. The archiver (`orama-global archiver`) cuts the bundles, attests them, opens the paid ARCHIVE deals and uploads the bytes. The indexer (`orama-global indexer`) follows a node block by block and serves a local read index of blocks, transactions, accounts and compressed NFTs to the explorer and wallets.
-> - **Key numbers:** range 1,000 blocks (`range_blocks`); quorum 3 distinct operators and 3 live deals per range; at most 4 candidate tuples per undecided range; retention window 201,600 blocks by default (written as 14 days at 6 s; 11.7 days at the chain's 5 s blocks); bundle at most 4 GiB (`max_piece_bytes`); ARCHIVE deal 3 replicas for 3,650 epochs; indexer API on `127.0.0.1:31015`, default 20 and at most 100 rows a page, at most page 1,000; the indexer steps every 2 s and indexes at most 500 blocks per step.
+> - **Key numbers:** range 1,000 blocks (`range_blocks`); quorum 3 distinct operators and 3 live deals per range; at most 4 candidate tuples per undecided range; retention window 241,920 blocks by default (14 days at the chain's 5 s blocks); bundle at most 4 GiB (`max_piece_bytes`); ARCHIVE deal 3 replicas for 3,650 epochs; indexer API on `127.0.0.1:31015`, default 20 and at most 100 rows a page, at most page 1,000; the indexer steps every 2 s and indexes at most 500 blocks per step.
 > - **Code:** `chain/x/archive/`, `chain/archiver/`, `chain/indexer/`; the commands in `chain/cmd/orama-global/archiver.go` and `chain/cmd/orama-global/indexer.go`; the prune gate in `chain/app/retain.go`; the gateway route `core/pkg/gateway/handlers/chainread/index.go`.
 > - **Depends on:** [storage deals](41-storage-deals.md) for the ARCHIVE deal class and its payment; [global nodes](37-global-nodes.md) for the ARCHIVER role and the hot key; [chain architecture](39-chain-architecture.md) for how modules and the `Commit` hook are wired; [NFTs and the market](45-nfts-and-the-market.md) for the messages the indexer folds into assets.
 
@@ -122,7 +122,7 @@ CometBFT deletes blocks below the retain height `Commit` returns. `OramaApp.Comm
 
 ![How the retain height is composed](../diagrams/ch42-retention.svg)
 
-x/archive's own retain height is `min(tip - retention_window_blocks, last archived height)` (`types.RetainHeight`). Two properties follow from the formula and are tested: a stalled archive keeps the retain height pinned to the last archived block however far the tip runs ahead (`TestRetainHeight_stallForAYearStaysAtLastArchived`), and when the archive is caught up, blocks inside the 14-day window stay even though they are archived (`TestRetainHeight_fourteenDayWindowBindsWhenArchiveIsCaughtUp`). `PruneAllowed` states the same rule per height. The default window is 201,600 blocks, which `chain/x/archive/types/constants.go` counts as 14 days at 6 seconds; the chain's blocks come every 5 seconds ([chain architecture](39-chain-architecture.md#block-interval-and-measured-performance)), so the window lasts about 11.7 days. Genesis accepts no window under that default (so the window cannot be set shorter than 14 days of 6-second blocks) and none over 1,209,600 blocks (14 days of 1-second blocks).
+x/archive's own retain height is `min(tip - retention_window_blocks, last archived height)` (`types.RetainHeight`). Two properties follow from the formula and are tested: a stalled archive keeps the retain height pinned to the last archived block however far the tip runs ahead (`TestRetainHeight_stallForAYearStaysAtLastArchived`), and when the archive is caught up, blocks inside the 14-day window stay even though they are archived (`TestRetainHeight_fourteenDayWindowBindsWhenArchiveIsCaughtUp`). `PruneAllowed` states the same rule per height. The default window is 241,920 blocks, 14 days of the chain's 5-second blocks (`chain/x/archive/types/constants.go`, from `params.BlockIntervalSeconds`, [chain architecture](39-chain-architecture.md#block-interval-and-measured-performance)). Genesis accepts no window under that default (so the window cannot be set shorter than 14 days of the chain's blocks) and none over 1,209,600 blocks (14 days of 1-second blocks).
 
 ### Reading history back
 
@@ -301,13 +301,13 @@ The indexer keeps no keys. Its unit has no access to the chain home (`core/pkg/i
 | Candidates per undecided range | 4 default, at most 16 | `max_candidates_per_range` |
 | Bundle size | 4 GiB default, at most 1 TiB | `max_piece_bytes`, `MaxPieceBytesLimit` |
 | One block in a bundle | 64 MiB | `MaxBlockBytes` |
-| Retention window | 201,600 blocks default; between that and 1,209,600 | `RetentionWindowBlocks` |
+| Retention window | 241,920 blocks default; between that and 1,209,600 | `RetentionWindowBlocks` |
 | Indexer page | 20 default, 100 max; page 1,000 max (10 on the transaction, account transaction, block, owner's assets and account rewards lists, which also take a cursor of 16, 16, 16, 59 and 39 to 580 characters) | `DefaultLimit`, `MaxLimit`, `MaxPage`, `MaxListPage`, `CursorLen`, `AssetCursorLen`, `RewardCursorMinLen`, `RewardCursorMaxLen` |
 | Indexer blocks per step | 500 | `MaxBlocksPerStep` |
 | Hourly stats window | 48 hours | `HourlyWindow` |
 | Asset records per id | 100 | `maxAssetRecords` |
 
-**Growth.** The range table grows by about 17 records a day at the chain's 5-second blocks (14 at 6 s) and is never pruned. `LastArchivedHeight` is recomputed by walking every range each time a range becomes archived, so the cost of that step grows with the age of the chain. Genesis export carries every range.
+**Growth.** The range table grows by about 17 records a day at the chain's 5-second blocks and is never pruned. `LastArchivedHeight` is recomputed by walking every range each time a range becomes archived, so the cost of that step grows with the age of the chain. Genesis export carries every range.
 
 **Memory.** An archiver holds a whole range in memory to pack it and reads the bundle file whole to commit to it; a provider reads an upload whole. The default 4 GiB cap in x/archive is far above what a default provider accepts (256 MiB per upload, [storage deals](41-storage-deals.md)); a range whose bundle exceeds the provider's limit cannot be stored by providers at their default.
 

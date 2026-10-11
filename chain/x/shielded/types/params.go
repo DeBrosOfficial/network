@@ -5,15 +5,16 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/DeBrosOfficial/network/chain/app/params"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
 )
 
 // The genesis defaults. None of them is measured: C12a's spec text does not exist yet, and C0-4
 // measured no verify cost, so these are named placeholders until the G1 sign-off, like P2.
 const (
-	// DefaultAnchorWindowBlocks is 24 hours at 6-second blocks. It is the state cost of one
-	// 32-byte root and one height per block, pruned as the window moves.
-	DefaultAnchorWindowBlocks uint64 = 14_400
+	// DefaultAnchorWindowBlocks is 24 hours of the chain's blocks (params.BlocksPerDay). It is
+	// the state cost of one 32-byte root and one height per block, pruned as the window moves.
+	DefaultAnchorWindowBlocks uint64 = params.BlocksPerDay
 	// DefaultActionGas is the gas one action declares. Not measured (C0-4).
 	DefaultActionGas uint64 = 250_000
 	// DefaultMaxActions bounds the proof work of one bundle.

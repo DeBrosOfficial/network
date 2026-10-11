@@ -61,7 +61,7 @@ Fifth, there is no admin. The authority address of every stock module is the has
 
 The application sets `bApp.SetDisableBlockGasMeter(false)`. v0.54 disables the block gas meter by default, and without it the base fee would read zero gas used in every block and never rise (`chain/app/app.go`).
 
-Blocks come about every 5 seconds when the validators are healthy. CometBFT's own `timeout_commit` default is 1 s, but when `oramad init` creates `config.toml` the Cosmos SDK (v0.54.4, `server/util.go`, `interceptConfigs`) sets it to `5s` because the config still holds CometBFT's default, and `oramad` returns that default unchanged (`chain/cmd/oramad/cmd/commands.go:initCometBFTConfig`). The installer and the e2e deploy script edit no consensus timeout. `chain/x/wasmpolicy/types/keys.go:AssumedBlockSeconds` encodes the same 5 s ([Block interval and measured performance](#block-interval-and-measured-performance)).
+Blocks come about every 5 seconds when the validators are healthy. `oramad init` writes `timeout_commit = 5s` into `config.toml` from `chain/app/params/params.go:BlockIntervalSeconds` (`chain/cmd/oramad/cmd/commands.go:initCometBFTConfig`, tested by `TestInitCometBFTConfig_writesTheChainsBlockInterval`). The installer and the e2e deploy script edit no consensus timeout. Every block-counted time window is computed from the same constant ([Block interval and measured performance](#block-interval-and-measured-performance)).
 
 #### Build variants
 
@@ -508,7 +508,7 @@ For the archive, `oramad query archive last-archived-height` is the contiguous a
 
 | Quantity | Value | Source |
 |---|---|---|
-| block interval | 5 s `timeout_commit`, a little more per block | the SDK's value when `oramad init` writes `config.toml`; `chain/cmd/oramad/cmd/commands.go:initCometBFTConfig` does not change it |
+| block interval | 5 s `timeout_commit`, a little more per block | `chain/app/params/params.go:BlockIntervalSeconds`, written by `chain/cmd/oramad/cmd/commands.go:initCometBFTConfig` |
 | consensus block max bytes | 22,020,096 (21 MiB), the CometBFT default | `chain/spikes/inclusion_test.go` |
 | consensus block max gas | 100,000,000, patched into genesis by the scripts | `localnet.sh`, `orama setup --create-network` (`ApplyConsensusParams`) |
 | `staking.max_validators` | 100 (stock) | the Cosmos SDK default |
@@ -525,7 +525,7 @@ For the archive, `oramad query archive last-archived-height` is the contiguous a
 
 ### Block interval and measured performance
 
-The block interval is the `timeout_commit` of `config.toml`, `5s`, plus one round of votes. A parameter that is counted in blocks therefore lasts 5 s per block: `chain/x/wasmpolicy/types/keys.go:AssumedBlockSeconds` counts the upload sunset (3,162,240 blocks, 183 days) at 5 s, while `chain/x/shielded/types/params.go` writes the anchor window (14,400 blocks) as 24 hours and `chain/x/archive/types/constants.go` the retention window (201,600 blocks) as 14 days, both at 6 s. At the chain's 5 s the anchor window is 20 hours and the retention window about 11.7 days; the epoch is unaffected, because it needs 24 hours of block time and 14,400 blocks together.
+The block interval is the `timeout_commit` of `config.toml`, `5s`, plus one round of votes. A parameter that is counted in blocks therefore lasts 5 s per block, and every such parameter is computed from `BlockIntervalSeconds`: the upload sunset (`chain/x/wasmpolicy/types/keys.go`, 3,162,240 blocks, 183 days), the anchor window (`chain/x/shielded/types/params.go`, 17,280 blocks, 24 hours) and the retention window (`chain/x/archive/types/constants.go`, 241,920 blocks, 14 days); tests pin each to its length in time, and `core/pkg/install` keeps `min-retain-blocks` equal to the retention window. The epoch needs 24 hours of block time and at least 14,400 blocks together, so at 5 s blocks the clock binds.
 
 Speed is guarded by three measurements, none with a number in this book: the figures are the owner's run on the baseline machine.
 

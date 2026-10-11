@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	// wasmPolicyKeys defines AssumedBlockSeconds, the block interval the chain's
-	// upload sunset is counted in, which is the interval oramad init writes as
-	// timeout_commit (the Cosmos SDK sets 5s; oramad does not change it).
-	wasmPolicyKeys = "chain/x/wasmpolicy/types/keys.go"
+	// chainParams defines BlockIntervalSeconds, the chain's block interval:
+	// oramad init writes it as timeout_commit, and every block-counted time
+	// window is computed from it.
+	chainParams = "chain/app/params/params.go"
 	performanceDoc = "website/src/docs/contributor/performance.mdx"
 )
 
@@ -24,18 +24,18 @@ const (
 var sixSecondBlocks = regexp.MustCompile(`(?i)(\b6[ -](s|sec|seconds?)[ -]blocks?\b|\bat (a )?6[ -]?(s|sec|seconds?)\b)`)
 
 // TestBlockTime_docsStateTheIntervalTheCodeSets: the chain's blocks come every
-// AssumedBlockSeconds (5 s, timeout_commit of config.toml), and the chain and
+// BlockIntervalSeconds (5 s, timeout_commit of config.toml), and the chain and
 // performance pages say so. A line that counts blocks at 6 s (some defaults are
 // written that way in the code) must also give the 5 s the chain runs at, so no
 // page leaves a reader with two block times.
 func TestBlockTime_docsStateTheIntervalTheCodeSets(t *testing.T) {
 	t.Parallel()
-	seconds := codeConst(t, wasmPolicyKeys, "AssumedBlockSeconds")
+	seconds := codeConst(t, chainParams, "BlockIntervalSeconds")
 	want := regexp.MustCompile(`\b` + seconds + `[ -](s|second|seconds)\b`)
 	for _, doc := range []string{chainDoc, performanceDoc} {
 		text := cliconf.ReadRepoFile(t, doc)
 		if !strings.Contains(text, "timeout_commit") || !want.MatchString(text) {
-			t.Errorf("%s does not state the block interval the code sets: timeout_commit of %s s (%s)", doc, seconds, wasmPolicyKeys)
+			t.Errorf("%s does not state the block interval the code sets: timeout_commit of %s s (%s)", doc, seconds, chainParams)
 		}
 	}
 	for _, doc := range docs(t) {

@@ -27,10 +27,11 @@ const (
 	ChainSnapshotInterval = 1000
 	// ChainSnapshotKeepRecent is how many snapshots a node keeps.
 	ChainSnapshotKeepRecent = 2
-	// chainMinRetainBlocks keeps 14 days of blocks at 6 seconds (x/archive
-	// DefaultBlocksIn14Days): oramad's Commit never returns a retain height above
-	// the last archived height, so this prunes nothing while no range is archived.
-	chainMinRetainBlocks = 201600
+	// chainMinRetainBlocks keeps 14 days of the chain's 5-second blocks (x/archive
+	// DefaultBlocksIn14Days; a test keeps the two equal): oramad's Commit never
+	// returns a retain height above the last archived height, so this prunes
+	// nothing while no range is archived.
+	chainMinRetainBlocks = 241920
 	// chainIAVLCacheSize and chainQueryGasLimit are what `oramad init` writes
 	// (chain/cmd/oramad/cmd defaultIAVLCacheSize, defaultQueryGasLimit); a home
 	// whose app.toml predates them gets them here.

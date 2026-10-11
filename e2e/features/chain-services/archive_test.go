@@ -190,7 +190,7 @@ func TestArchive_onlyAnActiveArchiverAttests(t *testing.T) {
 // TestArchive_retainHeightQuery: the retain height is the lower of the last
 // archived height and tip minus the 14-day window, reported with its inputs
 // (x/archive/types/retain.go RetainHeight); params carry the window, which
-// is at least 14 days of 6-second blocks (201,600).
+// is at least 14 days of the chain's 5-second blocks (241,920).
 func TestArchive_retainHeightQuery(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
@@ -206,8 +206,8 @@ func TestArchive_retainHeightQuery(t *testing.T) {
 	if r.LastArchivedHeight.Int64() < floor {
 		want = r.LastArchivedHeight.Int64()
 	}
-	if r.RetainHeight.Int64() != want || r.RetentionWindowBlocks.Int64() < 201_600 {
-		t.Errorf("retain height %d (tip %d, last archived %d, window %d), want %d with a window of at least 201600",
+	if r.RetainHeight.Int64() != want || r.RetentionWindowBlocks.Int64() < 241_920 {
+		t.Errorf("retain height %d (tip %d, last archived %d, window %d), want %d with a window of at least 241920",
 			r.RetainHeight.Int64(), r.Tip.Int64(), r.LastArchivedHeight.Int64(), r.RetentionWindowBlocks.Int64(), want)
 	}
 	var p struct {

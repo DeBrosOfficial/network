@@ -2,9 +2,10 @@ package types
 
 import "fmt"
 
-// DefaultParams returns x/archive's genesis parameters: a 14-day window at a
-// 6-second block interval. A chain whose blocks are faster must raise
-// RetentionWindowBlocks in genesis or the window is shorter than 14 days.
+// DefaultParams returns x/archive's genesis parameters: a 14-day window at the
+// chain's block interval (params.BlockIntervalSeconds). A chain whose blocks are
+// faster must raise RetentionWindowBlocks in genesis or the window is shorter
+// than 14 days.
 func DefaultParams() Params {
 	return Params{
 		RetentionWindowBlocks: DefaultBlocksIn14Days,

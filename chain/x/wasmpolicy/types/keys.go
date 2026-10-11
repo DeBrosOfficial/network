@@ -1,6 +1,10 @@
 package types
 
-import "cosmossdk.io/collections"
+import (
+	"cosmossdk.io/collections"
+
+	"github.com/DeBrosOfficial/network/chain/app/params"
+)
 
 const (
 	// ModuleName is the Orama wasm policy module. It is not wasmd's "wasm" module:
@@ -13,15 +17,15 @@ const (
 	// BaseDenom is the bank denom a contract may not send to a user account.
 	BaseDenom = "norama"
 
-	// AssumedBlockSeconds is the block interval DefaultUploadSunsetHeight is counted in.
-	// oramad does not override CometBFT's timeout_commit; the SDK default is 5s.
-	AssumedBlockSeconds = 5
+	// AssumedBlockSeconds is the block interval DefaultUploadSunsetHeight is counted in: the
+	// chain's own, which oramad writes as timeout_commit.
+	AssumedBlockSeconds = params.BlockIntervalSeconds
 
 	// SunsetDays is P6: about six months after genesis.
 	SunsetDays = 183
 
 	// BlocksPerDay is the number of AssumedBlockSeconds blocks in a day.
-	BlocksPerDay = 24 * 60 * 60 / AssumedBlockSeconds
+	BlocksPerDay = params.BlocksPerDay
 
 	// DefaultDepositPerByte is the genesis price of one byte of contract storage, in norama:
 	// P3's about 0.07 ORAMA per KB, 0.07 * 10^9 / 1024 with integer division. It is the same

@@ -1,5 +1,7 @@
 package types
 
+import "github.com/DeBrosOfficial/network/chain/app/params"
+
 // Quorum and hash sizes from plans/open-network/track-c-chain.md C14.
 // They are not parameters: genesis cannot lower them, and there is no admin
 // message that can either.
@@ -69,20 +71,20 @@ const (
 
 const (
 	// DefaultBlockIntervalSeconds is the block interval the default retention
-	// window assumes. x/emission's floor is 14_400 blocks per day, which is
-	// one block every 6 seconds.
-	DefaultBlockIntervalSeconds int64 = 6
+	// window is counted in: the chain's own, which oramad writes as
+	// timeout_commit.
+	DefaultBlockIntervalSeconds int64 = params.BlockIntervalSeconds
 
 	// RetentionDays is the block-history window validators keep.
 	RetentionDays int64 = 14
 
-	secondsPerDay int64 = 24 * 60 * 60
+	secondsPerDay int64 = params.SecondsPerDay
 
 	// DefaultBlocksIn14Days is 14 days of blocks at DefaultBlockIntervalSeconds.
 	DefaultBlocksIn14Days int64 = RetentionDays * secondsPerDay / DefaultBlockIntervalSeconds
 
 	// MinBlocksIn14Days is the smallest genesis window. A shorter window would
-	// prune blocks younger than 14 days at the 6-second rate.
+	// prune blocks younger than 14 days at the chain's block interval.
 	MinBlocksIn14Days int64 = DefaultBlocksIn14Days
 
 	// MaxBlocksIn14Days is 14 days of 1-second blocks, the fastest interval this

@@ -128,7 +128,7 @@ var lockedRows = []lockedRow{
 	{"token", "deposit_per_byte", "68359", "P3: about 0.07 ORAMA/KiB"},
 
 	// x/archive: C14, D22.
-	{"archive", "retention_window_blocks", "201600", "plans/open-network.md D22: validators keep 14 days of blocks (6-second blocks)"},
+	{"archive", "retention_window_blocks", "241920", "plans/open-network.md D22: validators keep 14 days of blocks (5-second blocks, params.BlockIntervalSeconds)"},
 	{"archive", "max_piece_bytes", "4294967296", "track-c C14 (structure only): 4 GiB caps the bundle file an attestation commits to; " + citeG1},
 	{"archive", "max_candidates_per_range", "4", "track-c C14 (structure only): bounds the conflicting tuples one undecided range keeps, an honest one, wrong ones and a fork; " + citeG1},
 	{"archive", "range_blocks", "1000", "track-c C14 (structure only): every archived range is exactly this many blocks and starts at a multiple of it plus 1, so ranges never overlap; " + citeG1},
@@ -136,7 +136,7 @@ var lockedRows = []lockedRow{
 	// x/shielded: C12, D19, D20, P5. The plan fixes the 2% cap (P5, a constant in x/shielded/pool) and
 	// names the other parameters without numbers; C12a's spec text does not exist yet, so each is a
 	// launch default until the G1 model and the C12a spec sign one.
-	{"shielded", "anchor_window_blocks", "14400", "track-c C12a names the anchor window without a number; 24 hours of 6-second blocks (launch default)"},
+	{"shielded", "anchor_window_blocks", "17280", "track-c C12a names the anchor window without a number; 24 hours of 5-second blocks, params.BlocksPerDay (launch default)"},
 	{"shielded", "nullifier_fee", "1000000", "track-c C12: a burned per-nullifier fee with no number; 0.001 ORAMA; " + citeG1},
 	{"shielded", "action_gas", "250000", "track-c C12: the per-action verify gas is unmeasured (C0-4); " + citeG1},
 	{"shielded", "max_actions_per_bundle", "16", "track-c C12 (structure only): bounds proof work per bundle (launch default)"},

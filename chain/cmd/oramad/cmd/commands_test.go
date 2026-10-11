@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+	"time"
 
 	cmtcfg "github.com/cometbft/cometbft/config"
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 
 	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/DeBrosOfficial/network/chain/app/params"
 )
 
 // A node that serves the public chain query route must not run a query for unbounded gas: the
@@ -193,5 +195,23 @@ func TestGlobalInstall_setsTheValuesOramadInitWrites(t *testing.T) {
 		if !strings.Contains(strings.Join(strings.Fields(src), " "), strings.Join(strings.Fields(want), " ")) {
 			t.Errorf("core/pkg/install/chainconfig.go does not set %q", strings.TrimSpace(want))
 		}
+	}
+}
+
+// The block interval every module counts its time windows in is the timeout_commit oramad writes,
+// not a default of the SDK or CometBFT that could change under it.
+func TestInitCometBFTConfig_writesTheChainsBlockInterval(t *testing.T) {
+	cfg := initCometBFTConfig()
+	if want := params.BlockIntervalSeconds * time.Second; cfg.Consensus.TimeoutCommit != want {
+		t.Fatalf("timeout_commit = %s, want %s (params.BlockIntervalSeconds)", cfg.Consensus.TimeoutCommit, want)
+	}
+	path := filepath.Join(t.TempDir(), "config.toml")
+	cmtcfg.WriteConfigFile(path, cfg)
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `timeout_commit = "5s"`) {
+		t.Fatalf("the rendered config.toml does not set timeout_commit to 5s:\n%s", body)
 	}
 }

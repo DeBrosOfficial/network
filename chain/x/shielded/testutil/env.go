@@ -25,7 +25,7 @@ import (
 )
 
 // BlockInterval is the time between the blocks an Env produces.
-const BlockInterval = 6 * time.Second
+const BlockInterval = params.BlockIntervalSeconds * time.Second
 
 // Env is a keeper on a real multistore (IAVL and transient) with the fakes of this package. It
 // runs blocks the way the app does: transactions on a cache context that is written only on

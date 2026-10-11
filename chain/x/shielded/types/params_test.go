@@ -7,6 +7,7 @@ import (
 
 	"cosmossdk.io/math"
 
+	"github.com/DeBrosOfficial/network/chain/app/params"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
 )
 
@@ -46,4 +47,9 @@ func TestParamsValidate_zeroCountIsRefused(t *testing.T) {
 	p := types.DefaultParams()
 	p.MaxActionsPerBundle = 0
 	require.ErrorContains(t, p.Validate(), "max_actions_per_bundle")
+}
+
+// The anchor window is named as 24 hours: it must last 24 hours at the chain's block interval.
+func TestDefaultAnchorWindowBlocks_isTwentyFourHoursOfTheChainsBlocks(t *testing.T) {
+	require.Equal(t, uint64(24*60*60), types.DefaultAnchorWindowBlocks*params.BlockIntervalSeconds)
 }

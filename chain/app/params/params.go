@@ -10,6 +10,18 @@ const (
 	// plans/open-network/track-c-chain.md (C1 "Denom and accounts").
 	BaseDenom = "norama"
 
+	// BlockIntervalSeconds is the chain's block interval: oramad writes it as the CometBFT
+	// timeout_commit of config.toml (chain/cmd/oramad/cmd/commands.go:initCometBFTConfig). Every
+	// parameter counted in blocks that stands for a length of time (the shielded anchor window,
+	// the archive retention window, the wasm upload sunset) is computed from it.
+	BlockIntervalSeconds = 5
+
+	// SecondsPerDay is the length of a day in seconds.
+	SecondsPerDay = 24 * 60 * 60
+
+	// BlocksPerDay is the number of BlockIntervalSeconds blocks in a day.
+	BlocksPerDay = SecondsPerDay / BlockIntervalSeconds
+
 	// DisplayDenom is the human-facing unit. 1 ORAMA == NoramaPerOrama norama.
 	DisplayDenom = "ORAMA"
 

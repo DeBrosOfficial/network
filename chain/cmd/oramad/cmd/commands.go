@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	cmtcfg "github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
@@ -37,9 +38,13 @@ import (
 	wasmpolicycli "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/client/cli"
 )
 
-// initCometBFTConfig returns oramad's default CometBFT config overrides. None are needed today.
+// initCometBFTConfig returns oramad's default CometBFT config: CometBFT's defaults with
+// timeout_commit set to the chain's block interval (params.BlockIntervalSeconds), so the interval
+// the modules count their windows in is written by oramad itself, not left to the SDK's default.
 func initCometBFTConfig() *cmtcfg.Config {
-	return cmtcfg.DefaultConfig()
+	cfg := cmtcfg.DefaultConfig()
+	cfg.Consensus.TimeoutCommit = params.BlockIntervalSeconds * time.Second
+	return cfg
 }
 
 // defaultMinGasPriceNorama is a placeholder floor, not the real fee mechanism:

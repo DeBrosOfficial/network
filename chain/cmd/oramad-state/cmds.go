@@ -224,8 +224,8 @@ func cmdPrune(ctx context.Context, args []string, logf func(string, ...any)) (an
 	fs := newFlags("prune")
 	c.registerWork(fs)
 	cfg := measure.PruneConfig{}
-	fs.Int64Var(&cfg.Blocks, "blocks", 40_000, "blocks in the store (the chain's window is 201600; use more blocks than the window)")
-	fs.Int64Var(&cfg.Window, "window", 20_000, "retention window in blocks the retain height uses (the chain's is 201600)")
+	fs.Int64Var(&cfg.Blocks, "blocks", 40_000, "blocks in the store (the chain's window is 241920; use more blocks than the window)")
+	fs.Int64Var(&cfg.Window, "window", 20_000, "retention window in blocks the retain height uses (the chain's is 241920)")
 	fs.Int64Var(&cfg.LastArchived, "last-archived", 0, "height x/archive reports archived (default: the tip)")
 	fs.IntVar(&cfg.TxsPerBlock, "txs", measure.DefaultPruneTxs, "transactions per block")
 	fs.IntVar(&cfg.TxBytes, "tx-bytes", measure.DefaultPruneTxBytes, "bytes per transaction")
