@@ -13,12 +13,8 @@ import (
 // callers apart, and a process on the node can write it as well as Caddy can; the gateway believes
 // it only on a request that carries the secret (clientkey). Without the file no request is
 // proven, the public callers share the loopback address's buckets, and the gateway says so.
-func newCallerProof(cfg *Config, logger *logging.ColoredLogger) *clientkey.Prover {
-	path := cfg.CaddyProofFile
-	if path == "" {
-		path = constants.CaddyProofFile
-	}
-	return clientkey.NewProver(path, func(err error) {
+func newCallerProof(logger *logging.ColoredLogger) *clientkey.Prover {
+	return clientkey.NewProver(constants.CaddyProofFile, func(err error) {
 		logger.ComponentWarn(logging.ComponentGeneral, "Caddy cannot prove itself to this gateway", zap.Error(err))
 	})
 }

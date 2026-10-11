@@ -46,6 +46,8 @@ type Prover struct {
 	mu         sync.RWMutex
 	secret     []byte
 	lastReload time.Time
+	// reloading lets one reload read the file at a time.
+	reloading sync.Mutex
 }
 
 // NewProver reads the secret at path. A file that is missing or unusable is reported through
@@ -86,16 +88,25 @@ func (p *Prover) matches(got string) bool {
 }
 
 // reload reads the file, at most once per proofReloadInterval, and reports whether what the
-// prover holds changed.
+// prover holds changed. One reload runs at a time (reloading); the file is read outside mu, so
+// requests that only compare are never held behind the disk, and a stream of wrong values costs
+// each request a try of reloading and a look at the clock, not a wait.
 func (p *Prover) reload() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	now := p.now()
-	if !p.lastReload.IsZero() && now.Sub(p.lastReload) < proofReloadInterval {
+	if !p.reloading.TryLock() {
 		return false
 	}
-	p.lastReload = now
+	defer p.reloading.Unlock()
+	now := p.now()
+	p.mu.RLock()
+	recent := !p.lastReload.IsZero() && now.Sub(p.lastReload) < proofReloadInterval
+	p.mu.RUnlock()
+	if recent {
+		return false
+	}
 	secret, err := readProof(p.path)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.lastReload = now
 	if err != nil {
 		// The proof is gone only when the file is (a removed or emptied secret proves nothing any
 		// more); a read that failed for another reason (too many open files) keeps the last good

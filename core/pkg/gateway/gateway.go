@@ -488,7 +488,7 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 			zap.Error(err))
 	}
 
-	gw.callerProof = newCallerProof(cfg, logger)
+	gw.callerProof = newCallerProof(logger)
 
 	// Wire the JWT verifier so the persistent WS handler can apply
 	// mid-session auth refresh on the open WS (bugboard #321 control

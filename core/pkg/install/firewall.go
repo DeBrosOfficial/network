@@ -286,18 +286,11 @@ func (fp *FirewallProvisioner) Reconcile() error {
 		}
 	}
 
-	// Everything that is not an allow rule: default policies, IPv6, enable,
-	// and the conntrack bypass. All idempotent, none of them a reset. They run
-	// before any removal so a rule that cannot be removed never leaves the
-	// firewall disabled or its policies unset.
-	for _, cmd := range fp.GenerateRules() {
-		if strings.HasPrefix(cmd, "ufw allow ") {
-			continue
-		}
-		parts := strings.Fields(cmd)
-		if err := runFirewall(parts[0], parts[1:]...); err != nil {
-			return fmt.Errorf("apply %q: %w", cmd, err)
-		}
+	// Everything that is not an allow rule runs before any removal, so a rule
+	// that cannot be removed never leaves the firewall disabled or its policies unset.
+	ipv6DropIn, err := applySystemRules(fp.GenerateRules(), runFirewall, os.ReadFile)
+	if err != nil {
+		return err
 	}
 
 	for _, rule := range ownedAllowRules(rows) {
@@ -315,7 +308,7 @@ func (fp *FirewallProvisioner) Reconcile() error {
 		}
 	}
 
-	if err := fp.persistIPv6Disable(); err != nil {
+	if err := fp.persistIPv6Disable(ipv6DropIn); err != nil {
 		return fmt.Errorf("failed to persist IPv6 disable: %w", err)
 	}
 	if err := fp.persistRAMHygiene(); err != nil {
@@ -348,11 +341,31 @@ func runFirewall(name string, args ...string) error {
 
 // persistIPv6Disable writes a sysctl config to disable IPv6 on boot, with the values the
 // kernel had before (the wipe puts them back).
-func (fp *FirewallProvisioner) persistIPv6Disable() error {
-	content, err := withPriorValues(IPv6DisableSysctlPath, ipv6DisableDropIn(), IPv6DisableSysctls, os.ReadFile)
+// applySystemRules runs the rules that are not allow rules (default policies, IPv6, enable, and the
+// conntrack bypass; all idempotent, none of them a reset) and returns the IPv6 drop-in to write. The
+// drop-in records the kernel's values from before Orama, for the wipe to put back, so they are read
+// before the rules run: the rules set disable_ipv6=1 live, and a record read after them held Orama's
+// own value, so the wipe turned IPv6 off again instead of back on.
+func applySystemRules(rules []string, run func(string, ...string) error, readFile func(string) ([]byte, error)) (string, error) {
+	dropIn, err := withPriorValues(IPv6DisableSysctlPath, ipv6DisableDropIn(), IPv6DisableSysctls, readFile)
 	if err != nil {
-		return err
+		return "", err
 	}
+	for _, cmd := range rules {
+		if strings.HasPrefix(cmd, "ufw allow ") {
+			continue
+		}
+		parts := strings.Fields(cmd)
+		if err := run(parts[0], parts[1:]...); err != nil {
+			return "", fmt.Errorf("apply %q: %w", cmd, err)
+		}
+	}
+	return dropIn, nil
+}
+
+// persistIPv6Disable writes the IPv6 drop-in, content being what Reconcile built before it changed
+// any kernel value.
+func (fp *FirewallProvisioner) persistIPv6Disable(content string) error {
 	cmd := exec.Command("tee", IPv6DisableSysctlPath)
 	cmd.Stdin = strings.NewReader(content)
 	if output, err := cmd.CombinedOutput(); err != nil {

@@ -58,9 +58,6 @@ type Config struct {
 	// chain.faucet.key_file. Loaded from YAML faucet_key_file.
 	FaucetKeyFile string
 
-	// CaddyProofFile is where this gateway reads the secret its node's Caddy proves itself with
-	// (clientkey.Prover). Empty is constants.CaddyProofFile, where the installer writes it.
-	CaddyProofFile string
 
 	// DataDir is the node's orama directory (/opt/orama/.orama). The gateway
 	// only READS under it (secrets/, identity, node config) and writes the

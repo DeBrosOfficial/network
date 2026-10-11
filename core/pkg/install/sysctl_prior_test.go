@@ -135,3 +135,46 @@ func TestIPv6DisableDropIn_setsExactlyTheExportedKeys(t *testing.T) {
 		}
 	}
 }
+
+// The drop-in must record the kernel's IPv6 values from before the rules ran: the rules set
+// disable_ipv6=1 live, and a record taken after them made the wipe turn IPv6 off again.
+func TestApplySystemRules_recordsIPv6BeforeTheRulesChangeIt(t *testing.T) {
+	disabled := false
+	run := func(name string, args ...string) error {
+		if name == "sysctl" && strings.Join(args, " ") == "-w net.ipv6.conf.all.disable_ipv6=1" {
+			disabled = true
+		}
+		return nil
+	}
+	readFile := func(path string) ([]byte, error) {
+		if path == IPv6DisableSysctlPath {
+			return nil, fs.ErrNotExist
+		}
+		if disabled {
+			return []byte("1\n"), nil
+		}
+		return []byte("0\n"), nil
+	}
+	rules := []string{"ufw allow 22/tcp", "sysctl -w net.ipv6.conf.all.disable_ipv6=1", "sysctl -w net.ipv6.conf.default.disable_ipv6=1"}
+	dropIn, err := applySystemRules(rules, run, readFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !disabled {
+		t.Fatal("the IPv6 rule did not run")
+	}
+	for _, s := range IPv6DisableSysctls {
+		if want := PriorSysctlPrefix + s.Key + "=0"; !strings.Contains(dropIn, want) {
+			t.Errorf("the drop-in does not record the value from before the rules (%q):\n%s", want, dropIn)
+		}
+	}
+}
+
+func TestApplySystemRules_aRuleThatFailsIsAnError(t *testing.T) {
+	boom := errors.New("ufw refused")
+	_, err := applySystemRules([]string{"ufw default deny incoming"}, func(string, ...string) error { return boom },
+		func(string) ([]byte, error) { return nil, fs.ErrNotExist })
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want the rule's failure", err)
+	}
+}

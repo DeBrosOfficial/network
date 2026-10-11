@@ -119,8 +119,10 @@ const (
 func removeRetiresAndWipes(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
 	f.MustExec(t, extra.Node, "ufw allow "+operatorPort+" comment "+operatorComment)
 	priorIPv6 := strings.TrimSpace(f.MustExec(t, extra.Node, `sed -n "s/^# prior: `+priorIPv6Key+`=//p" `+ipv6DropIn+` | head -n1`).Stdout)
-	if priorIPv6 != "0" && priorIPv6 != "1" {
-		t.Fatalf("the install did not record the IPv6 value it found in %s (read %q)", ipv6DropIn, priorIPv6)
+	// The extra node is a fresh cloud machine, which runs with IPv6 on: the record must say so. A
+	// record of 1 is the value the install itself had just set, read too late.
+	if priorIPv6 != "0" {
+		t.Fatalf("the install recorded IPv6 as %q in %s; the fresh machine had it on (0)", priorIPv6, ipv6DropIn)
 	}
 	f.MustExec(t, extra.Node, "test -e "+ramDropIn)
 	rep := monitor.Fetch(t, harness.CLI(t), f.State.Env)
