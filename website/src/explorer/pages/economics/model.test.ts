@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EpochRow, SupplyPoint } from "../../model/epochs";
-import { composition, compositionAddsUp, epochSeries, permilleText, supplySeries, supplySpan } from "./model";
+import { composition, compositionAddsUp, epochSeries, permilleText, supplySeries, supplySlots, supplySpan } from "./model";
 
 const ORAMA = 1_000_000_000n;
 const o = (n: bigint) => (n * ORAMA).toString();
@@ -62,8 +62,32 @@ describe("series", () => {
   });
 
   it("TestEpochSeries_runs_oldest_first", () => {
-    const rows = [{ epoch: 2, burned: "7" }, { epoch: 1, burned: "5" }] as EpochRow[];
+    const rows = [{ epoch: 2, unavailable: false, burned: "7" }, { epoch: 1, unavailable: false, burned: "5" }] as EpochRow[];
     expect(epochSeries(rows, (r) => r.burned)).toEqual([5n, 7n]);
+  });
+
+  it("TestEpochSeries_an_unavailable_epoch_is_a_null_gap_never_zero", () => {
+    const rows = [
+      { epoch: 3, unavailable: false, burned: "7" },
+      { epoch: 2, unavailable: true, reason: "pruned" },
+      { epoch: 1, unavailable: false, burned: "0" },
+    ] as EpochRow[];
+    expect(epochSeries(rows, (r) => r.burned)).toEqual([0n, null, 7n]);
+  });
+
+  it("TestSupplySeries_epochs_missing_between_points_are_one_null_gap_per_run", () => {
+    const points = [point(9, { totalSupply: "90" }), point(5, { totalSupply: "50" }), point(4, { totalSupply: "40" }), point(1, { totalSupply: "10" })];
+    expect(supplySeries(points, (p) => p.totalSupply)).toEqual([10n, null, 40n, 50n, null, 90n]);
+  });
+
+  it("TestSupplySlots_names_the_epochs_a_gap_stands_for", () => {
+    const slots = supplySlots([point(5), point(2)]);
+    expect(slots).toHaveLength(3);
+    expect(slots[1]).toEqual({ gapFrom: 3, gapTo: 4 });
+  });
+
+  it("TestSupplySlots_contiguous_epochs_have_no_gap", () => {
+    expect(supplySlots([point(3), point(2), point(1)]).every((s) => "point" in s)).toBe(true);
   });
 
   it("TestSeries_no_points_is_an_empty_series", () => {

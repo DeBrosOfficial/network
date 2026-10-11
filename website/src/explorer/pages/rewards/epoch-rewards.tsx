@@ -21,7 +21,7 @@ const TD = "px-3 py-2";
 const TIP_BONDED = "Staked straight into a founding-committee validator's own stake instead of credited to its earnings; part of its own cut.";
 
 export const NOT_RECORDED_EPOCH =
-  "The chain did not report who was paid in this epoch (it closed before the chain did), so no per-validator figure is shown. The totals above are the chain's own.";
+  "The chain did not report who was paid in this epoch (it closed before the chain did), so no per-validator figure is shown.";
 export const NOTHING_PAID = "Nothing was paid to validators in this epoch.";
 
 function Table({ data }: { data: EpochRewards }) {

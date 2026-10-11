@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { ChainIndexUnavailable, ChainReadError } from "../../data/chain/client";
 import type { QueryState } from "../../data/use-query";
-import type { EpochRow, IndexPage } from "../../model/epochs";
+import type { EpochRow, IndexPage, RecordedEpochRow } from "../../model/epochs";
 import type { AccountRewards, Earnings, EpochRewards, ValidatorReward, ValidatorRewardHistory } from "../../model/rewards";
 import { AccountRewardsView, EarningsView, NO_REWARDS } from "./account-rewards";
 import { EpochRewardsView, NOT_RECORDED_EPOCH, NOTHING_PAID } from "./epoch-rewards";
@@ -18,9 +18,9 @@ const failed = <T,>(error: Error): QueryState<T> => ({ status: "error", data: nu
 const loading = <T,>(): QueryState<T> => ({ status: "loading", data: null, error: null });
 const noop = () => undefined;
 
-function epoch(n: number, over: Partial<EpochRow> = {}): EpochRow {
+function epoch(n: number, over: Partial<RecordedEpochRow> = {}): RecordedEpochRow {
   return {
-    epoch: n, startHeight: 1, endHeight: 2, startTime: "2026-10-08T00:00:00.000Z", endTime: "2026-10-09T00:00:00.000Z", blocks: 2,
+    epoch: n, unavailable: false, startHeight: 1, endHeight: 2, startTime: "2026-10-08T00:00:00.000Z", endTime: "2026-10-09T00:00:00.000Z", blocks: 2,
     partial: false, maxMintable: "0", mintedValidators: "0", mintedService: "0", mintedDevelopment: "0", mintedFaucet: "0", mintedTotal: "0",
     burned: "0", feesCollected: "0", feesBurned: "0", feesDistributed: "0", rewardsCredited: "0", rewardsForceBonded: (5n * ORAMA).toString(),
     rewardsRecorded: true, rewardsCommission: (10n * ORAMA).toString(), rewardsOperatorShare: (70n * ORAMA).toString(), rewardsDelegators: (30n * ORAMA).toString(),

@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
+import { hasFigures } from "../../model/epochs";
 import type { EpochRow, SupplyPoint } from "../../model/epochs";
 import { formatInt, formatNorama } from "../../model/units";
 import { Card } from "../../ui/card";
 import { SeriesChart } from "../../ui/series-chart";
 import type { ChartTone } from "../../ui/series-chart";
-import { epochSeries, supplySeries, supplySpan } from "./model";
+import { gapEpochs, NOT_AVAILABLE, UnavailableNote } from "../epochs/unavailable";
+import { epochSeries, supplySeries, supplySlots, supplySpan } from "./model";
 
 const BURN_FRACTION = 3;
+const SUPPLY_GAP_NOTE =
+  "A blank stretch is an epoch the index has no supply point for: it closed while the node no longer kept its state. The line stops there and starts again; nothing is drawn or filled in for it.";
 
 const whole = (v: bigint) => formatNorama(v.toString(), 0);
 const precise = (v: bigint) => formatNorama(v.toString(), BURN_FRACTION);
@@ -40,9 +44,12 @@ function SupplyTrendCard({ trend, points }: { trend: SupplyTrend; points: readon
         tone={trend.tone}
         table={{
           head: ["Epoch", "ORAMA"],
-          rows: points.map((p) => [formatInt(p.epoch), formatNorama(trend.pick(p))]),
+          rows: supplySlots(points)
+            .reverse()
+            .map((slot) => ("point" in slot ? [formatInt(slot.point.epoch), formatNorama(trend.pick(slot.point))] : [gapEpochs(slot.gapFrom, slot.gapTo), NOT_AVAILABLE])),
         }}
       />
+      {supplySlots(points).some((slot) => "gapFrom" in slot) && <p className="mt-2 text-[13px] text-muted">{SUPPLY_GAP_NOTE}</p>}
     </Card>
   );
 }
@@ -77,9 +84,14 @@ export function BurnTrend({ rows }: { rows: readonly EpochRow[] }) {
         tone="loss"
         table={{
           head: ["Epoch", "Burned (ORAMA)", "Fees burned (ORAMA)", "Partial"],
-          rows: rows.map((r) => [formatInt(r.epoch), formatNorama(r.burned), formatNorama(r.feesBurned), r.partial ? "yes" : ""]),
+          rows: rows.map((r) =>
+            hasFigures(r)
+              ? [formatInt(r.epoch), formatNorama(r.burned), formatNorama(r.feesBurned), r.partial ? "yes" : ""]
+              : [formatInt(r.epoch), NOT_AVAILABLE, NOT_AVAILABLE, r.partial ? "yes" : ""],
+          ),
         }}
       />
+      {rows.some((r) => r.unavailable) && <UnavailableNote className="text-[13px] text-muted" />}
       <p className="text-[13px] text-muted">
         Burned is the chain's own count of everything it destroyed in the epoch. The base fee is burned, so transaction volume drives it. A partial
         epoch (the index began inside it) counts only the blocks the index saw.

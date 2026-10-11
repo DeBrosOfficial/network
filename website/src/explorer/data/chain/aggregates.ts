@@ -1,5 +1,15 @@
 import { bech32Rehrp } from "../../model/bech32";
-import type { EpochClock, EpochListQuery, EpochRow, EpochValidator, IndexPage, SupplyPoint } from "../../model/epochs";
+import type {
+  EpochClock,
+  EpochListQuery,
+  EpochRow,
+  EpochSpan,
+  EpochValidator,
+  IndexPage,
+  RecordedEpochRow,
+  SupplyPoint,
+  UnavailableEpochRow,
+} from "../../model/epochs";
 import { shortAddress } from "../../model/units";
 import { ChainNotFound, ChainReadError, chainPath, withQuery } from "./client";
 import type { ChainClient } from "./client";
@@ -39,7 +49,7 @@ function pagedPath(path: string, query: EpochListQuery): { path: string; page: n
 }
 
 /** The split of an epoch's payout; all three are present when the epoch's payout is recorded and absent when it is not. */
-function readRewardTotals(r: Record<string, unknown>): Pick<EpochRow, "rewardsRecorded" | "rewardsCommission" | "rewardsOperatorShare" | "rewardsDelegators"> {
+function readRewardTotals(r: Record<string, unknown>): Pick<EpochSpan, "rewardsRecorded" | "rewardsCommission" | "rewardsOperatorShare" | "rewardsDelegators"> {
   const recorded = r.rewards_recorded === undefined ? false : bool(r.rewards_recorded, "rewards recorded flag");
   if (!recorded) return { rewardsRecorded: false, rewardsCommission: null, rewardsOperatorShare: null, rewardsDelegators: null };
   const operatorShare = digits(r.rewards_operator_share, "operators' reward share");
@@ -49,19 +59,34 @@ function readRewardTotals(r: Record<string, unknown>): Pick<EpochRow, "rewardsRe
   return { rewardsRecorded: true, rewardsCommission: commission, rewardsOperatorShare: operatorShare, rewardsDelegators: delegators };
 }
 
-export function readEpochRow(raw: unknown): EpochRow {
-  const r = rec(raw, "epoch");
-  const startHeight = uint(r.start_height, "epoch start height");
-  const endHeight = uint(r.end_height, "epoch end height");
-  if (endHeight < startHeight) throw new ChainReadError("The chain sent a malformed epoch.");
+/** The fields the indexer reads from state: an epoch it could not read has none of them, and one it could read has all. */
+const STATE_FIGURES = [
+  "max_mintable",
+  "minted_validators",
+  "minted_service",
+  "minted_development",
+  "minted_faucet",
+  "minted_total",
+  "burned",
+  "fees_collected",
+  "fees_burned",
+  "fees_distributed",
+  "rewards_credited",
+  "rewards_force_bonded",
+] as const;
+
+const MAX_REASON = 600;
+
+/** An epoch the indexer could not read has a reason and no state figure; one that carries a figure is not believed. */
+function readUnavailable(r: Record<string, unknown>, span: EpochSpan): UnavailableEpochRow {
+  if (STATE_FIGURES.some((key) => r[key] !== undefined)) throw new ChainReadError("The chain sent an unavailable epoch that carries figures.");
+  const reason = clean(str(r.unavailable_reason, "epoch unavailable reason", MAX_REASON), MAX_REASON);
+  if (reason === "") throw new ChainReadError("The chain sent an unavailable epoch without a reason.");
+  return { ...span, unavailable: true, reason };
+}
+
+function readRecordedFigures(r: Record<string, unknown>): Omit<RecordedEpochRow, keyof EpochSpan | "unavailable"> {
   return {
-    epoch: uint(r.epoch, "epoch number"),
-    startHeight,
-    endHeight,
-    startTime: iso(r.start_time, "epoch start time"),
-    endTime: iso(r.end_time, "epoch end time"),
-    blocks: uint(r.blocks, "epoch block count"),
-    partial: r.partial === undefined ? false : bool(r.partial, "epoch partial flag"),
     maxMintable: digits(r.max_mintable, "epoch ceiling"),
     mintedValidators: digits(r.minted_validators, "validator mint"),
     mintedService: digits(r.minted_service, "service mint"),
@@ -74,8 +99,28 @@ export function readEpochRow(raw: unknown): EpochRow {
     feesDistributed: digits(r.fees_distributed, "fees distributed"),
     rewardsCredited: digits(r.rewards_credited, "rewards credited"),
     rewardsForceBonded: digits(r.rewards_force_bonded, "rewards force-bonded"),
+  };
+}
+
+/** One epoch row: with its figures, or unavailable. Either every figure is present or none is. */
+export function readEpochRow(raw: unknown): EpochRow {
+  const r = rec(raw, "epoch");
+  const startHeight = uint(r.start_height, "epoch start height");
+  const endHeight = uint(r.end_height, "epoch end height");
+  if (endHeight < startHeight) throw new ChainReadError("The chain sent a malformed epoch.");
+  const span: EpochSpan = {
+    epoch: uint(r.epoch, "epoch number"),
+    startHeight,
+    endHeight,
+    startTime: iso(r.start_time, "epoch start time"),
+    endTime: iso(r.end_time, "epoch end time"),
+    blocks: uint(r.blocks, "epoch block count"),
+    partial: r.partial === undefined ? false : bool(r.partial, "epoch partial flag"),
     ...readRewardTotals(r),
   };
+  if (r.unavailable !== undefined && bool(r.unavailable, "epoch unavailable flag")) return readUnavailable(r, span);
+  if (r.unavailable_reason !== undefined) throw new ChainReadError("The chain sent an epoch with figures that also says it is unavailable.");
+  return { ...span, unavailable: false, ...readRecordedFigures(r) };
 }
 
 export function readSupplyPoint(raw: unknown): SupplyPoint {

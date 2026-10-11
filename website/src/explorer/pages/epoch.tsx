@@ -8,7 +8,8 @@ import { IndexQuery } from "../ui/index-query";
 import { Page } from "../ui/page";
 import { NotFoundBox, Skeleton } from "../ui/query-states";
 import { useDocumentTitle } from "../ui/use-document-title";
-import { EpochFacts, FeesCard, MintedCard, PaidCard } from "./epochs/epoch-summary";
+import { EpochFacts, FeesCard, MintedCard, PaidCard, PaidSplitCard } from "./epochs/epoch-summary";
+import { UnavailableBadge, UnavailableCard } from "./epochs/unavailable";
 import { EpochRewardsCard } from "./rewards/epoch-rewards";
 import { EpochValidators } from "./epochs/epoch-validators";
 import { parseEpochParam } from "./epochs/logic";
@@ -42,7 +43,18 @@ function EpochNav({ epoch }: { epoch: number }) {
   );
 }
 
-function EpochBody({ row }: { row: EpochRow }) {
+export function EpochBody({ row }: { row: EpochRow }) {
+  if (row.unavailable) {
+    return (
+      <>
+        <EpochFacts row={row} />
+        <UnavailableCard row={row} />
+        <PaidSplitCard row={row} />
+        <EpochRewardsCard epoch={row.epoch} />
+        <EpochValidators epoch={row.epoch} />
+      </>
+    );
+  }
   return (
     <>
       <EpochFacts row={row} />
@@ -76,7 +88,8 @@ function EpochDetail({ epoch }: { epoch: number }) {
               </Badge>
             )}
           </h1>
-          {state.status === "ready" && state.data?.partial && (
+          {state.status === "ready" && state.data?.unavailable && <UnavailableBadge row={state.data} className="ml-3 align-middle" />}
+          {state.status === "ready" && state.data?.partial && !state.data.unavailable && (
             <p className="mt-1 max-w-prose text-sm text-muted">
               The index started inside this epoch, so its minted, burned and fee figures cover only the blocks the index saw. Its start is the chain's.
             </p>

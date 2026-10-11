@@ -1,4 +1,5 @@
 import { bars, extent, linePoints, stepPoints } from "../model/chart";
+import type { Series } from "../model/chart";
 import { cn } from "../../lib/utils";
 
 const WIDTH = 640;
@@ -24,10 +25,10 @@ export interface SeriesChartProps {
   /** What the chart shows, in a sentence: it is the chart's accessible name. */
   label: string;
   kind: "line" | "bars";
-  /** Oldest first. Norama, so large totals keep every digit. */
-  values: readonly bigint[];
-  /** Drawn dashed over the bars, one per value: the schedule's ceiling. */
-  reference?: readonly bigint[];
+  /** Oldest first. Norama, so large totals keep every digit. A null is a gap: a slot with no figure, drawn as nothing and never as zero. */
+  values: Series;
+  /** Drawn dashed over the bars, one per value: the schedule's ceiling. A null breaks the line. */
+  reference?: Series;
   /** The top and bottom axis values. */
   format: (value: bigint) => string;
   /** What the left and right ends of the chart are, e.g. "epoch 3" and "epoch 42". */
@@ -74,11 +75,14 @@ function DataTable({ label, table }: { label: string; table: ChartTable }) {
 /** A small dependency-free chart: a polyline or bars, two axis labels, and the data as a table under it. */
 export function SeriesChart({ label, kind, values, reference, format, from, to, tone = "signal", table }: SeriesChartProps) {
   if (values.length === 0) return null;
-  if (kind === "line" && values.length < 2) {
+  const present = values.filter((v): v is bigint => v !== null);
+  if (present.length === 0 || (kind === "line" && present.length < 2)) {
     return (
       <div>
         <p className="rounded-md bg-surface-2/40 px-3 py-6 text-center text-sm text-muted">
-          Only one epoch is indexed so far, and a trend needs two. Its figure is in the table.
+          {present.length === 0
+            ? "The index has no figure for any of these epochs. They are listed in the table."
+            : "Only one epoch has a figure so far, and a trend needs two. It is in the table."}
         </p>
         <DataTable label={label} table={table} />
       </div>
@@ -87,8 +91,10 @@ export function SeriesChart({ label, kind, values, reference, format, from, to, 
   const size = { width: WIDTH, height: HEIGHT };
   const fromZero = kind === "bars";
   const range = extent(reference ? [...values, ...reference] : values, fromZero);
-  const last = values[values.length - 1]!;
-  const summary = `${label}. ${values.length} point${values.length === 1 ? "" : "s"}, from ${from} to ${to}; last ${format(last)}, lowest ${format(range.min)}, highest ${format(range.max)}.`;
+  const last = present[present.length - 1]!;
+  const gaps = values.length - present.length;
+  const gapNote = gaps === 0 ? "" : ` ${gaps} slot${gaps === 1 ? " has" : "s have"} no figure and ${gaps === 1 ? "is" : "are"} left blank.`;
+  const summary = `${label}. ${present.length} point${present.length === 1 ? "" : "s"}, from ${from} to ${to}; last ${format(last)}, lowest ${format(range.min)}, highest ${format(range.max)}.${gapNote}`;
   return (
     <figure className="m-0">
       <div className={cn("grid grid-cols-[auto_1fr] gap-x-2", TONES[tone])}>
@@ -106,31 +112,36 @@ export function SeriesChart({ label, kind, values, reference, format, from, to, 
           <line x1="0" y1="0" x2={WIDTH} y2="0" className="stroke-border" vectorEffect="non-scaling-stroke" />
           <line x1="0" y1={HEIGHT} x2={WIDTH} y2={HEIGHT} className="stroke-border" vectorEffect="non-scaling-stroke" />
           {kind === "line" ? (
-            <polyline
-              points={linePoints(values, size, range)}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={STROKE_WIDTH}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
+            linePoints(values, size, range).map((points, i) => (
+              <polyline
+                key={i}
+                points={points}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={STROKE_WIDTH}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))
           ) : (
             bars(values, size, range).map((b, i) => (
               <rect key={i} x={b.x} y={b.y} width={b.width} height={b.height} fill="currentColor" opacity="0.85" />
             ))
           )}
-          {reference && (
-            <polyline
-              points={stepPoints(reference, size, range)}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeDasharray={REFERENCE_DASH}
-              vectorEffect="non-scaling-stroke"
-              className="text-fg"
-            />
-          )}
+          {reference &&
+            stepPoints(reference, size, range).map((points, i) => (
+              <polyline
+                key={i}
+                points={points}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeDasharray={REFERENCE_DASH}
+                vectorEffect="non-scaling-stroke"
+                className="text-fg"
+              />
+            ))}
         </svg>
         <span aria-hidden="true" />
         <div className="mt-1 flex justify-between text-[11px] text-muted" aria-hidden="true">

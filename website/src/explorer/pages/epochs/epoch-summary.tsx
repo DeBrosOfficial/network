@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { EpochRow } from "../../model/epochs";
+import type { EpochRow, RecordedEpochRow } from "../../model/epochs";
 import { splitCeiling, formatSpan } from "../../model/schedule";
 import { formatDate, formatUtc } from "../../model/time";
 import { formatInt, formatNorama } from "../../model/units";
@@ -65,7 +65,7 @@ interface MintRow {
   minted: string;
 }
 
-function mintRows(row: EpochRow): MintRow[] {
+function mintRows(row: RecordedEpochRow): MintRow[] {
   const split = splitCeiling(BigInt(row.maxMintable));
   const rows: MintRow[] = [
     { name: "Validators and delegators", ceiling: split.validators, minted: row.mintedValidators },
@@ -94,7 +94,7 @@ function mintRows(row: EpochRow): MintRow[] {
   return rows;
 }
 
-export function MintedCard({ row }: { row: EpochRow }) {
+export function MintedCard({ row }: { row: RecordedEpochRow }) {
   return (
     <Card title="Minted in this epoch">
       <div className="overflow-x-auto">
@@ -175,7 +175,7 @@ function PaidSplit({ row }: { row: EpochRow }) {
   );
 }
 
-export function PaidCard({ row }: { row: EpochRow }) {
+export function PaidCard({ row }: { row: RecordedEpochRow }) {
   return (
     <Card title="Who was paid">
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -196,7 +196,20 @@ export function PaidCard({ row }: { row: EpochRow }) {
   );
 }
 
-export function FeesCard({ row }: { row: EpochRow }) {
+/**
+ * Who was paid, for an epoch whose figures are not available: the indexer leaves out the credited
+ * and bonded totals with the rest, but keeps the split of the validators' payout, which it reads
+ * from the closing block's events.
+ */
+export function PaidSplitCard({ row }: { row: EpochRow }) {
+  return (
+    <Card title="Who was paid">
+      <PaidSplit row={row} />
+    </Card>
+  );
+}
+
+export function FeesCard({ row }: { row: RecordedEpochRow }) {
   const cells: [string, string, string][] = [
     ["Fees collected", row.feesCollected, "Base fee plus tips paid by the epoch's transactions."],
     ["Fees burned", row.feesBurned, "The base-fee part, destroyed."],

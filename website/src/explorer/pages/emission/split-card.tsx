@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useQuery } from "../../data/use-query";
+import { hasFigures } from "../../model/epochs";
 import type { EpochRow, SupplyPoint } from "../../model/epochs";
 import { cumulativeCeiling, maxMintableAt, splitCeiling } from "../../model/schedule";
 import { formatCompact, formatInt, formatNorama } from "../../model/units";
@@ -11,6 +12,7 @@ import { Skeleton } from "../../ui/query-states";
 import { SeriesChart } from "../../ui/series-chart";
 import { ceilingWindow, sharePercent } from "../epochs/logic";
 import type { CeilingWindow, Tally } from "../epochs/logic";
+import { NOT_AVAILABLE } from "../epochs/unavailable";
 
 /** The newest closed epochs the page compares with the schedule. */
 const WINDOW_EPOCHS = 30;
@@ -121,8 +123,8 @@ function WindowTable({ win }: { win: CeilingWindow }) {
 
 function ceilingChart(rows: readonly EpochRow[]) {
   const oldestFirst = [...rows].reverse();
-  const minted = oldestFirst.map((r) => BigInt(r.mintedTotal));
-  const ceilings = oldestFirst.map((r) => BigInt(r.maxMintable));
+  const minted = oldestFirst.map((r) => (hasFigures(r) ? BigInt(r.mintedTotal) : null));
+  const ceilings = oldestFirst.map((r) => (hasFigures(r) ? BigInt(r.maxMintable) : null));
   return (
     <SeriesChart
       label={`ORAMA minted per epoch against the epoch's ceiling, newest ${oldestFirst.length} closed epochs`}
@@ -135,7 +137,11 @@ function ceilingChart(rows: readonly EpochRow[]) {
       tone="gain"
       table={{
         head: ["Epoch", "Minted (ORAMA)", "Ceiling (ORAMA)", "Partial"],
-        rows: rows.map((r) => [formatInt(r.epoch), formatNorama(r.mintedTotal), formatNorama(r.maxMintable), r.partial ? "yes" : ""]),
+        rows: rows.map((r) =>
+          hasFigures(r)
+            ? [formatInt(r.epoch), formatNorama(r.mintedTotal), formatNorama(r.maxMintable), r.partial ? "yes" : ""]
+            : [formatInt(r.epoch), NOT_AVAILABLE, NOT_AVAILABLE, r.partial ? "yes" : ""],
+        ),
       }}
     />
   );
@@ -153,7 +159,7 @@ function ToDate({ point }: { point: SupplyPoint | undefined }) {
   );
 }
 
-function WindowBody({ rows, latest }: { rows: readonly EpochRow[]; latest: SupplyPoint | undefined }) {
+export function WindowBody({ rows, latest }: { rows: readonly EpochRow[]; latest: SupplyPoint | undefined }) {
   if (rows.length === 0) {
     return <p className="py-4 text-center text-sm text-muted">No epoch has closed in this index yet, so there is nothing minted to compare.</p>;
   }
@@ -162,8 +168,10 @@ function WindowBody({ rows, latest }: { rows: readonly EpochRow[]; latest: Suppl
     <div className="space-y-4">
       <p className="text-[13px] text-muted">
         The newest {formatInt(rows.length)} closed epoch{rows.length === 1 ? "" : "s"}
-        {win.partialSkipped > 0 && `, leaving out ${win.partialSkipped} partial one${win.partialSkipped === 1 ? "" : "s"} (the index saw only part of it)`}.
-        The ceiling is the chain's own figure for each epoch, split 60/25/10/5.
+        {win.partialSkipped > 0 && `, leaving out ${win.partialSkipped} partial one${win.partialSkipped === 1 ? "" : "s"} (the index saw only part of it)`}
+        {win.unavailableSkipped > 0 &&
+          `, leaving out ${win.unavailableSkipped} that ${win.unavailableSkipped === 1 ? "is" : "are"} not available (the index could not read ${win.unavailableSkipped === 1 ? "its" : "their"} figures, and a missing figure is not zero)`}
+        . The ceiling is the chain's own figure for each epoch, split 60/25/10/5.
       </p>
       {win.epochs > 0 && <WindowTable win={win} />}
       {win.faucet > 0n && (

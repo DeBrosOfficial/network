@@ -35,12 +35,17 @@ describe("position", () => {
 
 describe("linePoints", () => {
   it("TestLinePoints_runs_edge_to_edge_with_larger_values_higher", () => {
-    expect(linePoints([0n, 5n, 10n], SIZE, { min: 0n, max: 10n })).toBe("0.0,50.0 50.0,25.0 100.0,0.0");
+    expect(linePoints([0n, 5n, 10n], SIZE, { min: 0n, max: 10n })).toEqual(["0.0,50.0 50.0,25.0 100.0,0.0"]);
   });
 
-  it("TestLinePoints_a_single_value_is_one_point_and_no_values_is_nothing", () => {
-    expect(linePoints([3n], SIZE, { min: 3n, max: 3n })).toBe("0.0,25.0");
-    expect(linePoints([], SIZE, { min: 0n, max: 0n })).toBe("");
+  it("TestLinePoints_a_single_value_is_a_dot_and_no_values_is_nothing", () => {
+    expect(linePoints([3n], SIZE, { min: 3n, max: 3n })).toEqual(["0.0,25.0 0.0,25.0"]);
+    expect(linePoints([], SIZE, { min: 0n, max: 0n })).toEqual([]);
+  });
+
+  it("TestLinePoints_a_gap_breaks_the_line_and_keeps_its_slot_instead_of_drawing_zero", () => {
+    const out = linePoints([0n, null, 10n, 10n], SIZE, { min: 0n, max: 10n });
+    expect(out).toEqual(["0.0,50.0 0.0,50.0", "66.7,0.0 100.0,0.0"]);
   });
 });
 
@@ -57,10 +62,27 @@ describe("bars", () => {
   it("TestBars_no_values_is_no_bars", () => {
     expect(bars([], SIZE, { min: 0n, max: 0n })).toEqual([]);
   });
+
+  it("TestBars_a_gap_slot_has_no_bar_and_the_others_keep_their_places", () => {
+    const out = bars([10n, null, 10n], SIZE, { min: 0n, max: 10n });
+    expect(out).toHaveLength(2);
+    expect(out[1]!.x).toBeGreaterThan(66);
+  });
+});
+
+describe("extent over gaps", () => {
+  it("TestExtent_ignores_gaps_and_a_series_of_only_gaps_is_empty", () => {
+    expect(extent([null, 5n, null, 9n], false)).toEqual({ min: 5n, max: 9n });
+    expect(extent([null, null], true)).toEqual({ min: 0n, max: 0n });
+  });
 });
 
 describe("stepPoints", () => {
   it("TestStepPoints_holds_each_level_over_its_slot", () => {
-    expect(stepPoints([10n, 5n], SIZE, { min: 0n, max: 10n })).toBe("0.0,0.0 50.0,0.0 50.0,25.0 100.0,25.0");
+    expect(stepPoints([10n, 5n], SIZE, { min: 0n, max: 10n })).toEqual(["0.0,0.0 50.0,0.0 50.0,25.0 100.0,25.0"]);
+  });
+
+  it("TestStepPoints_breaks_where_an_epoch_has_no_ceiling", () => {
+    expect(stepPoints([10n, null, 10n], SIZE, { min: 0n, max: 10n })).toHaveLength(2);
   });
 });

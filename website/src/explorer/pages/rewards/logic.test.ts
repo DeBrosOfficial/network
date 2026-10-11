@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { EpochRow } from "../../model/epochs";
+import type { RecordedEpochRow } from "../../model/epochs";
 import type { ValidatorReward, ValidatorRewardEpoch } from "../../model/rewards";
 import { operatorOwn, recordedFrom, splitOf, summarise } from "./logic";
 
 const ORAMA = 1_000_000_000n;
 
-function row(over: Partial<EpochRow> = {}): EpochRow {
+function row(over: Partial<RecordedEpochRow> = {}): RecordedEpochRow {
   return {
-    epoch: 9, startHeight: 1, endHeight: 2, startTime: "2026-10-08T00:00:00.000Z", endTime: "2026-10-09T00:00:00.000Z", blocks: 2, partial: false,
+    epoch: 9, unavailable: false, startHeight: 1, endHeight: 2, startTime: "2026-10-08T00:00:00.000Z", endTime: "2026-10-09T00:00:00.000Z", blocks: 2, partial: false,
     maxMintable: "0", mintedValidators: "0", mintedService: "0", mintedDevelopment: "0", mintedFaucet: "0", mintedTotal: "0",
     burned: "0", feesCollected: "0", feesBurned: "0", feesDistributed: "0", rewardsCredited: "0", rewardsForceBonded: "0",
     rewardsRecorded: true, rewardsCommission: (10n * ORAMA).toString(), rewardsOperatorShare: (70n * ORAMA).toString(), rewardsDelegators: (30n * ORAMA).toString(),

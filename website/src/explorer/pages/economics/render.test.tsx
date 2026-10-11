@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import type { EpochRow, SupplyPoint } from "../../model/epochs";
+import type { RecordedEpochRow, SupplyPoint, UnavailableEpochRow } from "../../model/epochs";
 import { SeriesChart } from "../../ui/series-chart";
 import { CompositionCard, SupplyTiles } from "./supply-cards";
 import { BurnTrend, SupplyTrends } from "./trend-cards";
@@ -28,9 +28,10 @@ function point(epoch: number, over: Partial<SupplyPoint> = {}): SupplyPoint {
   };
 }
 
-function epochRow(epoch: number, burned: string, partial = false): EpochRow {
+function epochRow(epoch: number, burned: string, partial = false): RecordedEpochRow {
   return {
     epoch,
+    unavailable: false,
     startHeight: 1,
     endHeight: 2,
     startTime: "2026-10-08T00:00:00.000Z",
@@ -138,6 +139,63 @@ describe("BurnTrend", () => {
     const out = html(<BurnTrend rows={[epochRow(2, "0"), epochRow(1, "0")]} />);
     expect(out.match(/<rect/g)).toHaveLength(2);
     expect(out).toContain('height="0"');
+  });
+});
+
+const unavailableRow = (epoch: number): UnavailableEpochRow => ({
+  epoch,
+  unavailable: true,
+  reason: "the node no longer kept the chain state at the closing height",
+  startHeight: 1,
+  endHeight: 2,
+  startTime: "2026-10-08T00:00:00.000Z",
+  endTime: "2026-10-09T00:00:00.000Z",
+  blocks: 2,
+  partial: false,
+  rewardsRecorded: false,
+  rewardsCommission: null,
+  rewardsOperatorShare: null,
+  rewardsDelegators: null,
+});
+
+describe("BurnTrend with an unavailable epoch", () => {
+  it("TestBurnTrend_an_unavailable_epoch_is_a_gap_with_no_bar_and_no_zero_in_the_table", () => {
+    const out = html(<BurnTrend rows={[epochRow(3, "3000000000"), unavailableRow(2), epochRow(1, "500000000")]} />);
+    expect(out.match(/<rect/g)).toHaveLength(2);
+    expect(out).toContain("1 slot has no figure");
+    expect(out).toContain("not available");
+    expect(out).toContain("never shown as zero");
+    expect(out).toContain("2 points");
+  });
+
+  it("TestBurnTrend_the_chart_scale_ignores_an_unavailable_epoch", () => {
+    const out = html(<BurnTrend rows={[epochRow(2, "3000000000"), unavailableRow(1)]} />);
+    expect(out).toContain("highest 3");
+    expect(out).toContain("lowest 0");
+    expect(out.match(/<rect/g)).toHaveLength(1);
+  });
+
+  it("TestBurnTrend_only_unavailable_epochs_draw_no_chart", () => {
+    const out = html(<BurnTrend rows={[unavailableRow(2), unavailableRow(1)]} />);
+    expect(out).not.toContain("<svg");
+    expect(out).toContain("no figure for any of these epochs");
+  });
+});
+
+describe("SupplyTrends with an epoch the index has no supply point for", () => {
+  it("TestSupplyTrends_a_missing_epoch_breaks_the_line_and_is_listed_as_not_available", () => {
+    const out = html(<SupplyTrends points={[point(5), point(4), point(1)]} />);
+    expect(out.match(/<polyline/g)).toHaveLength(8);
+    expect(out).toContain("epochs 2 to 3");
+    expect(out).toContain("not available");
+    expect(out).toContain("A blank stretch");
+    expect(out).toContain("1 slot has no figure");
+  });
+
+  it("TestSupplyTrends_contiguous_epochs_have_no_gap_note", () => {
+    const out = html(<SupplyTrends points={[point(3), point(2), point(1)]} />);
+    expect(out).not.toContain("A blank stretch");
+    expect(out.match(/<polyline/g)).toHaveLength(4);
   });
 });
 

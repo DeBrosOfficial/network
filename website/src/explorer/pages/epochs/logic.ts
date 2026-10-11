@@ -1,3 +1,4 @@
+import { hasFigures } from "../../model/epochs";
 import type { EpochClock, EpochRow } from "../../model/epochs";
 import { splitCeiling } from "../../model/schedule";
 
@@ -68,6 +69,8 @@ export interface CeilingWindow {
   epochs: number;
   /** Epochs left out because the index saw only part of them. */
   partialSkipped: number;
+  /** Epochs left out because the index could not read their figures: not counted as zero, so they change no sum. */
+  unavailableSkipped: number;
   validators: Tally;
   /** Storage and relay together: the chain keeps one running total for the two. */
   service: Tally;
@@ -81,12 +84,14 @@ export interface CeilingWindow {
  * What was minted against what the schedule allowed, over a run of closed epochs. Each epoch's
  * ceiling is the chain's own (the row's max_mintable) split at the genesis 60/25/10/5. A partial
  * epoch is left out: its minted figures cover only the blocks the index saw, so comparing them
- * with a whole epoch's ceiling would understate them.
+ * with a whole epoch's ceiling would understate them. An unavailable epoch has no figure to add, and
+ * its ceiling is left out with it, so the minted and the ceiling still cover the same epochs.
  */
 export function ceilingWindow(rows: readonly EpochRow[]): CeilingWindow {
   const win: CeilingWindow = {
     epochs: 0,
     partialSkipped: 0,
+    unavailableSkipped: 0,
     validators: { ceiling: 0n, minted: 0n },
     service: { ceiling: 0n, minted: 0n },
     development: { ceiling: 0n, minted: 0n },
@@ -94,6 +99,10 @@ export function ceilingWindow(rows: readonly EpochRow[]): CeilingWindow {
     faucet: 0n,
   };
   for (const row of rows) {
+    if (!hasFigures(row)) {
+      win.unavailableSkipped += 1;
+      continue;
+    }
     if (row.partial) {
       win.partialSkipped += 1;
       continue;

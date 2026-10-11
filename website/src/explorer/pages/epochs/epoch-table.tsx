@@ -5,8 +5,11 @@ import { formatInt } from "../../model/units";
 import { Amount } from "../../ui/amount";
 import { Badge } from "../../ui/badge";
 import { RelTime } from "../../ui/rel-time";
+import { NotAvailable } from "./unavailable";
 
 const AMOUNT_FRACTION = 2;
+/** Minted, burned and fees: the columns an unavailable epoch has no figure for. */
+const FIGURE_COLUMNS = 3;
 const TH = "px-3 py-2 font-medium";
 const TD = "px-3 py-2";
 
@@ -44,15 +47,23 @@ export function EpochTable({ rows }: { rows: readonly EpochRow[] }) {
                 <RelTime iso={row.endTime} />
               </td>
               <td className={`${TD} text-right font-mono tabular-nums`}>{formatInt(row.blocks)}</td>
-              <td className={`${TD} text-right`}>
-                <Amount norama={row.mintedTotal} bare maxFraction={AMOUNT_FRACTION} />
-              </td>
-              <td className={`${TD} text-right`}>
-                <Amount norama={row.burned} bare maxFraction={AMOUNT_FRACTION} />
-              </td>
-              <td className={`${TD} text-right`}>
-                <Amount norama={row.feesCollected} bare maxFraction={AMOUNT_FRACTION} />
-              </td>
+              {row.unavailable ? (
+                <td colSpan={FIGURE_COLUMNS} className={`${TD} text-right`}>
+                  <NotAvailable row={row} />
+                </td>
+              ) : (
+                <>
+                  <td className={`${TD} text-right`}>
+                    <Amount norama={row.mintedTotal} bare maxFraction={AMOUNT_FRACTION} />
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    <Amount norama={row.burned} bare maxFraction={AMOUNT_FRACTION} />
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    <Amount norama={row.feesCollected} bare maxFraction={AMOUNT_FRACTION} />
+                  </td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>

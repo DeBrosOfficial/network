@@ -5,6 +5,7 @@ import { formatInt } from "../../model/units";
 import { Amount } from "../../ui/amount";
 import { Help } from "../../ui/help";
 import { RelTime } from "../../ui/rel-time";
+import { NotAvailable, UnavailableBadge } from "../epochs/unavailable";
 import { splitOf } from "./logic";
 
 const AMOUNT_FRACTION = 2;
@@ -67,6 +68,7 @@ export function RewardsTable({ rows }: { rows: readonly EpochRow[] }) {
                   <Link to={paths.epoch(row.epoch)} className="font-mono font-medium underline decoration-dotted underline-offset-4">
                     {formatInt(row.epoch)}
                   </Link>
+                  {row.unavailable && <UnavailableBadge row={row} className="ml-2" />}
                 </td>
                 <td className={`${TD} text-muted`}>
                   <RelTime iso={row.endTime} />
@@ -78,7 +80,13 @@ export function RewardsTable({ rows }: { rows: readonly EpochRow[] }) {
                 <td className={`${TD} text-right`}><Cell row={row} pick="operatorsOwn" pct="operatorsOwnPct" /></td>
                 <td className={`${TD} text-right`}><Cell row={row} pick="delegators" pct="delegatorsPct" /></td>
                 <td className={`${TD} text-right`}>
-                  {split === null ? <span className="text-muted">{NOT_RECORDED}</span> : <Amount norama={row.rewardsForceBonded} bare maxFraction={AMOUNT_FRACTION} />}
+                  {row.unavailable ? (
+                    <NotAvailable row={row} />
+                  ) : split === null ? (
+                    <span className="text-muted">{NOT_RECORDED}</span>
+                  ) : (
+                    <Amount norama={row.rewardsForceBonded} bare maxFraction={AMOUNT_FRACTION} />
+                  )}
                 </td>
               </tr>
             );

@@ -1,4 +1,5 @@
-import type { EpochRow, SupplyPoint } from "../../model/epochs";
+import { hasFigures } from "../../model/epochs";
+import type { EpochRow, RecordedEpochRow, SupplyPoint } from "../../model/epochs";
 
 const PERMILLE = 1000n;
 
@@ -49,14 +50,33 @@ export function compositionAddsUp(point: SupplyPoint): boolean {
   return composition(point).reduce((sum, s) => sum + s.amount, 0n) === BigInt(point.totalSupply);
 }
 
-/** One figure of each supply point, oldest first: the order a chart draws in (the index answers newest first). */
-export function supplySeries(points: readonly SupplyPoint[], pick: (p: SupplyPoint) => string): bigint[] {
-  return [...points].reverse().map((p) => BigInt(pick(p)));
+/** A supply point, or the run of epochs between two points that the index has no supply point for. */
+export type SupplySlot = { point: SupplyPoint } | { gapFrom: number; gapTo: number };
+
+/**
+ * The supply points oldest first (the index answers newest first), with one gap slot for each run
+ * of epochs missing between two points: an epoch that closed unavailable has no supply point, and
+ * is a gap, not a point at zero. A run of any length is one slot, so a long outage cannot widen the chart.
+ */
+export function supplySlots(points: readonly SupplyPoint[]): SupplySlot[] {
+  const slots: SupplySlot[] = [];
+  let previous: SupplyPoint | null = null;
+  for (const point of [...points].reverse()) {
+    if (previous !== null && point.epoch > previous.epoch + 1) slots.push({ gapFrom: previous.epoch + 1, gapTo: point.epoch - 1 });
+    slots.push({ point });
+    previous = point;
+  }
+  return slots;
 }
 
-/** One figure of each epoch row, oldest first. */
-export function epochSeries(rows: readonly EpochRow[], pick: (r: EpochRow) => string): bigint[] {
-  return [...rows].reverse().map((r) => BigInt(pick(r)));
+/** One figure of each supply slot, oldest first: the order a chart draws in. A gap is null. */
+export function supplySeries(points: readonly SupplyPoint[], pick: (p: SupplyPoint) => string): (bigint | null)[] {
+  return supplySlots(points).map((slot) => ("point" in slot ? BigInt(pick(slot.point)) : null));
+}
+
+/** One figure of each epoch row, oldest first. An epoch with no figures is null: a gap, never zero. */
+export function epochSeries(rows: readonly EpochRow[], pick: (r: RecordedEpochRow) => string): (bigint | null)[] {
+  return [...rows].reverse().map((r) => (hasFigures(r) ? BigInt(pick(r)) : null));
 }
 
 /** The epochs the supply points cover, oldest and newest; null for no points. */

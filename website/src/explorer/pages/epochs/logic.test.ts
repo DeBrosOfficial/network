@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { EpochRow } from "../../model/epochs";
+import type { RecordedEpochRow } from "../../model/epochs";
 import { ceilingWindow, epochSpanMs, pageSearch, parseEpochParam, parsePageParam, sharePercent, uptimePercent, whyMissing } from "./logic";
 
 const ORAMA = 1_000_000_000n;
 
-function row(epoch: number, over: Partial<EpochRow> = {}): EpochRow {
+function row(epoch: number, over: Partial<RecordedEpochRow> = {}): RecordedEpochRow {
   return {
     epoch,
+    unavailable: false,
     startHeight: 1,
     endHeight: 2,
     startTime: "2026-10-08T00:00:00.000Z",

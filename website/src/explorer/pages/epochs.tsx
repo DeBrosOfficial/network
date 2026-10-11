@@ -11,6 +11,7 @@ import { EpochTable } from "./epochs/epoch-table";
 import { JumpForm } from "./epochs/jump-form";
 import { parsePageParam } from "./epochs/logic";
 import { Pager } from "./epochs/pager";
+import { UnavailableNote } from "./epochs/unavailable";
 
 const EPOCHS_PER_PAGE = 20;
 const PAGE_PARAM = "page";
@@ -31,6 +32,7 @@ function EpochList({ data, page }: { data: IndexPage<EpochRow>; page: number }) 
     <>
       <EpochTable rows={data.items} />
       <Pager param={PAGE_PARAM} page={page} hasMore={data.hasMore} />
+      {data.items.some((row) => row.unavailable) && <UnavailableNote />}
     </>
   );
 }

@@ -9,6 +9,7 @@ import { Skeleton } from "../ui/query-states";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { parsePageParam } from "./epochs/logic";
 import { Pager } from "./epochs/pager";
+import { UnavailableNote } from "./epochs/unavailable";
 import { RewardsTable } from "./rewards/rewards-table";
 
 const EPOCHS_PER_PAGE = 20;
@@ -17,7 +18,7 @@ const PAGE_PARAM = "page";
 const INTRO =
   "Each epoch, the chain pays the validators' share of the new ORAMA to the validators and the people who staked with them, on their capped voting power. The operator takes its commission first; the rest is shared by stake, the operator's own stake included. Open an epoch to see what each validator was paid.";
 const NOT_RECORDED_NOTE =
-  "An epoch marked not recorded closed before the chain reported who was paid. The chain's totals for it are on its page, but how they split is not known, so no figure is shown for it.";
+  "An epoch marked not recorded closed before the chain reported who was paid. How its payout split is not known, so no figure is shown for it.";
 
 function Loading() {
   return <Skeleton className="h-80 w-full" />;
@@ -36,6 +37,7 @@ export function RewardList({ data, page }: { data: IndexPage<EpochRow>; page: nu
       <RewardsTable rows={data.items} />
       <Pager param={PAGE_PARAM} page={page} hasMore={data.hasMore} />
       {data.items.some((row) => !row.rewardsRecorded) && <p className="mt-3 text-[13px] text-muted">{NOT_RECORDED_NOTE}</p>}
+      {data.items.some((row) => row.unavailable) && <UnavailableNote />}
     </>
   );
 }

@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { ChainIndexUnavailable, ChainReadError } from "../../data/chain/client";
 import type { QueryState } from "../../data/use-query";
-import type { EpochClock, EpochRow } from "../../model/epochs";
+import type { EpochClock, RecordedEpochRow } from "../../model/epochs";
 import { IndexQuery } from "../../ui/index-query";
 import { SeriesChart } from "../../ui/series-chart";
 import { HalvingCard } from "../emission/halving-card";
@@ -15,9 +15,10 @@ import { Pager } from "./pager";
 
 const ORAMA = 1_000_000_000n;
 
-function row(epoch: number, over: Partial<EpochRow> = {}): EpochRow {
+function row(epoch: number, over: Partial<RecordedEpochRow> = {}): RecordedEpochRow {
   return {
     epoch,
+    unavailable: false,
     startHeight: 1,
     endHeight: 14_400,
     startTime: "2026-10-08T00:00:00.000Z",
