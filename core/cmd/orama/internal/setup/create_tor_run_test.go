@@ -425,8 +425,10 @@ func TestRunCreate_tor_aMachineWithAnotherNetworkFileIsRefusedBeforeAnythingIsIn
 	}
 }
 
-// A run again with other flags (--exit changes the network file) finds machines that run
-// the first run's file, is refused, and leaves the manifest pinning that file.
+// A run again with other flags (--exit changes the network file and gives the relays the exit
+// role) is refused, and leaves the manifest pinning the file the machines run. The relays were
+// registered without the exit role, so the on-chain step refuses first (missingRoles); without
+// that, the machines' network file would be refused before anything is published.
 func TestRunCreate_tor_aRunWithOtherFlagsKeepsThePinOfTheFileTheMachinesRun(t *testing.T) {
 	h := newCreateHarness(t)
 	h.mustCreate(t, h.torOpts(3, torIPs...))
@@ -435,8 +437,8 @@ func TestRunCreate_tor_aRunWithOtherFlagsKeepsThePinOfTheFileTheMachinesRun(t *t
 	h.finished(torIPs, genesis)
 	again := h.torOpts(3, torIPs...)
 	again.Exit = true
-	if _, err := Run(context.Background(), again, h.deps); err == nil || !strings.Contains(err.Error(), "did not make") {
-		t.Fatalf("err = %v, want the machines' file refused", err)
+	if _, err := Run(context.Background(), again, h.deps); err == nil || !strings.Contains(err.Error(), "ROLE_EXIT") {
+		t.Fatalf("err = %v, want the exit role the relays lack named", err)
 	}
 	after, afterFile, _ := publishedTor(t, h)
 	if after.TorNetworkSHA256 != manifest.TorNetworkSHA256 || string(afterFile) != string(file) {
