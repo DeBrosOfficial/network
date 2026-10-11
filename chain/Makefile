@@ -188,11 +188,13 @@ build-linux-amd64-global:
 ## chain-test: alias for test, matching plans/open-network/track-c-chain.md's `make chain-test`.
 chain-test: test
 
-## chain-sim: alias reserved for a future randomized simulation harness
-## (plans/open-network/track-c-chain.md's `make chain-sim`). x/emission has no Msg service to
-## fuzz yet, so today this just runs the same unit tests, including the 4,000-epoch simulated
-## invariant run in x/emission/keeper.
-chain-sim: test
+## chain-sim: the model-based simulation of the chain (bugboard SA4, chain self-audit feat-876).
+## There is no simulation driver yet, so this fails instead of passing: it used to alias `test`,
+## and a green `chain-sim` that ran no simulation hid the gap. SA4 replaces this recipe.
+chain-sim:
+	@echo "chain-sim: no simulation driver exists yet (bugboard SA4, the model-based simulation of the chain self-audit, feat-876)." >&2
+	@echo "           'make test' runs the unit tests, including the 4,000-epoch invariant run in x/emission/keeper." >&2
+	@exit 1
 
 ## lint: go vet (the project's Go style rules - no magic numbers, wrapped errors, short
 ## functions/files - are enforced by review, not a separate linter here).
@@ -418,3 +420,5 @@ state-prune: build-oramad-state
 
 ## state-measure: generate the state, then measure it (snapshot, export, boot), then the history and the prune.
 state-measure: state-gen state-snapshot state-export state-boot state-indexer state-prune
+
+include ci.mk

@@ -18,14 +18,6 @@ import (
 type Oramad struct {
 	// Bin is the path of the oramad executable.
 	Bin string
-	// Log, when set, receives the progress lines.
-	Log func(format string, args ...any)
-}
-
-func (o Oramad) logf(format string, args ...any) {
-	if o.Log != nil {
-		o.Log(format, args...)
-	}
 }
 
 // Output is what a finished oramad command printed and how long it ran.

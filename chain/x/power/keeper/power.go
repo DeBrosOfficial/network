@@ -108,6 +108,7 @@ func (k Keeper) computePowers(ctx sdk.Context, emissionKeeper types.EmissionKeep
 		activeSet[valAddrStr] = m.ConsensusPubkey
 	}
 	activeOperators := make([]string, 0, len(activeSet))
+	// nosemgrep: consensus-map-iteration -- reads only, and the operators are counted as a set (CountOperators)
 	for addr, pk := range activeSet {
 		operator, err := k.operatorOf(ctx, addr, pk)
 		if err != nil {
@@ -569,6 +570,7 @@ func (k Keeper) buildValidatorEntries(
 	// order, so ranging over it here (a Go map) would NOT be deterministic on its own - instead we
 	// collect the keys and sort them before use.
 	outsiders := make([]string, 0, len(rampedByAddr))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for addr := range rampedByAddr {
 		if inCommittee[addr] {
 			continue

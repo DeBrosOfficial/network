@@ -123,6 +123,9 @@ fn leaves_of(bundle: &Bundle<Authorized, ZatBalance>) -> Vec<MerkleHashOrchard> 
 }
 
 /// Builds, proves and signs one spend-and-pay bundle; returns its bytes and the change note.
+// A vector generator: each argument is one knob of the committed test vectors, and a parameter
+// struct would only rename them.
+#[allow(clippy::too_many_arguments)]
 fn build(
     pk: &ProvingKey,
     sk: &SpendingKey,
@@ -132,7 +135,7 @@ fn build(
     pay: u64,
     binding: Option<&[u8]>,
     name: &str,
-    out: &PathBuf,
+    out: &std::path::Path,
 ) -> (Vec<u8>, Option<Note>) {
     let mut rng = OsRng;
     let fvk = FullViewingKey::from(sk);
@@ -158,7 +161,7 @@ fn build(
     let to_zat = |v: i64| ZatBalance::from_i64(v).map_err(|_| ());
     let probe = proven
         .clone()
-        .apply_signatures(&mut rng, [0u8; 32], &[ask.clone()])
+        .apply_signatures(rng, [0u8; 32], std::slice::from_ref(&ask))
         .unwrap()
         .try_map_value_balance::<_, (), _>(to_zat)
         .unwrap();
@@ -167,7 +170,7 @@ fn build(
     let hash = sighash(&probe_bytes, binding);
 
     let bundle = proven
-        .apply_signatures(&mut rng, hash, &[ask])
+        .apply_signatures(rng, hash, &[ask])
         .unwrap()
         .try_map_value_balance::<_, (), _>(to_zat)
         .unwrap();
@@ -211,7 +214,7 @@ fn main() {
     tree2.extend(leaves_of(&read(&transfer_bytes)));
     let position = tree2.len() as u64 - 1;
     let topup = binding(&signer, TARGET_FEE_TOPUP, &[]);
-    build(&pk, &sk, change.clone(), &tree2, position, 0, Some(&topup), "ironwood-unshield", &out);
+    build(&pk, &sk, change, &tree2, position, 0, Some(&topup), "ironwood-unshield", &out);
     let bond = binding(&signer, TARGET_BOND, &validator);
     build(&pk, &sk, change, &tree2, position, 0, Some(&bond), "ironwood-unshield-bond", &out);
 }

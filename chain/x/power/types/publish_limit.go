@@ -37,6 +37,7 @@ func ClampPublishedIncreases(prev, desired map[string]math.LegacyDec, maxShift m
 }
 
 func hasPositiveShare(shares map[string]math.LegacyDec) bool {
+	// nosemgrep: consensus-map-iteration -- answers whether any share is positive
 	for _, share := range shares {
 		if !share.IsNil() && share.IsPositive() {
 			return true
@@ -48,13 +49,16 @@ func hasPositiveShare(shares map[string]math.LegacyDec) bool {
 // publishedShift is the total-variation distance between two normalized share maps.
 func publishedShift(a, b map[string]math.LegacyDec) math.LegacyDec {
 	seen := make(map[string]bool, len(a)+len(b))
+	// nosemgrep: consensus-map-iteration -- builds a set of keys
 	for addr := range a {
 		seen[addr] = true
 	}
+	// nosemgrep: consensus-map-iteration -- builds a set of keys
 	for addr := range b {
 		seen[addr] = true
 	}
 	l1 := math.LegacyZeroDec()
+	// nosemgrep: consensus-map-iteration -- sums LegacyDec values; decimal addition is exact, so the sum does not depend on the order
 	for addr := range seen {
 		delta := shareOrZero(a, addr).Sub(shareOrZero(b, addr))
 		if delta.IsNegative() {
@@ -69,14 +73,17 @@ func publishedShift(a, b map[string]math.LegacyDec) math.LegacyDec {
 // from prev to desired, then renormalizes. alpha is 0 or 1 at the endpoints.
 func blendPublished(prev, desired map[string]math.LegacyDec, alpha math.LegacyDec) map[string]math.LegacyDec {
 	seen := make(map[string]bool, len(prev)+len(desired))
+	// nosemgrep: consensus-map-iteration -- builds a set of keys
 	for addr := range prev {
 		seen[addr] = true
 	}
+	// nosemgrep: consensus-map-iteration -- builds a set of keys
 	for addr := range desired {
 		seen[addr] = true
 	}
 	raw := make(map[string]math.LegacyDec, len(seen))
 	sum := math.LegacyZeroDec()
+	// nosemgrep: consensus-map-iteration -- fills a map from per-key values and sums them with exact LegacyDec addition
 	for addr := range seen {
 		before := shareOrZero(prev, addr)
 		after := shareOrZero(desired, addr)
@@ -91,6 +98,7 @@ func blendPublished(prev, desired map[string]math.LegacyDec, alpha math.LegacyDe
 		return map[string]math.LegacyDec{}
 	}
 	out := make(map[string]math.LegacyDec, len(raw))
+	// nosemgrep: consensus-map-iteration -- maps each key to a value computed from that key and the order-independent sum
 	for addr, value := range raw {
 		if !value.IsPositive() {
 			continue

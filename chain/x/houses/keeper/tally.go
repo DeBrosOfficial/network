@@ -65,6 +65,7 @@ func tallyTokenVotes(bonded math.Int, dels []types.BondedDelegation, votes map[s
 	if sum.GT(bonded) {
 		return math.Int{}, math.Int{}, math.Int{}, rejectAdvance(fmt.Errorf("delegations %s exceed bonded stake %s", sum, bonded))
 	}
+	// nosemgrep: consensus-map-iteration -- adds exact integer amounts into three totals; integer addition is order-independent
 	for validator, amt := range inherited {
 		counted := amt
 		if counted.GT(cap) {

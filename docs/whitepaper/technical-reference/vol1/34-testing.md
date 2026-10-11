@@ -309,7 +309,7 @@ The book you are reading is tested like code. `core/tools/whitepaper check` (run
 
 ### What runs where
 
-`make test` at the repository root is `core-test caddy-test e2e-lint e2e-coverage e2e-test-unit whitepaper-check` (`Makefile`). CI is `.github/workflows/ci.yml` plus `security.yml`. They overlap on the core module and little else.
+`make test` at the repository root is `core-test chain-test caddy-test sdk-test e2e-lint e2e-coverage e2e-test-unit whitepaper-check` (`Makefile`; `chain-test` is the pure-Go tests of the chain module, built with `-tags nowasm`). CI is `.github/workflows/ci.yml` (the module jobs, and for the chain the jobs `chain-test`, `chain-static` and `chain-rust`, plus a secret scan `secrets`), the nightly `chain-nightly.yml`, and `security.yml`. They overlap on the core and chain modules and little else. Every command a chain job runs is a target of `chain/Makefile` or `chain/ci.mk` (`make -C chain ci` runs the per-pull-request set), and the tool versions are pinned there.
 
 ![What make test, CI and nothing run](../diagrams/ch34-ci-vs-make.svg)
 
@@ -327,13 +327,21 @@ The book you are reading is tested like code. `core/tools/whitepaper check` (run
 | `e2e`: vet both ways, lint, harness unit tests | yes | no |
 | E2E coverage gate | yes (enforcing) | no |
 | Book gates | yes | no |
-| `chain` tests | no | no |
+| `chain`: release cross-builds, pure-Go tests (`-tags nowasm`) | yes (tests only) | yes |
+| `chain`: `go vet` under three build-tag sets (none, `nowasm`, `nowasm orchardffi`) | no (`make -C chain vet-all`) | yes, and the pre-push hook |
+| `chain`: every package under `-race` with libwasmvm, the Orchard library (cgo) and the verifier binary linked | no (`make -C chain test-race`) | yes; libwasmvm is built from the module-cache source |
+| `chain`: staticcheck, gosec (high/high), govulncheck against `govulncheck-accepted.yaml` | no (`make -C chain staticcheck gosec govulncheck`) | yes, through `e2e/cmd/scangate` |
+| `chain`: consensus-determinism rules (semgrep) and their tests | no (`make -C chain semgrep semgrep-test`) | yes |
+| `chain` Rust crates: clippy `-D warnings`, `cargo audit`, `cargo deny` | no (`make -C chain rust-lint rust-audit rust-deny`) | yes |
+| Secret scan of the committed tree (gitleaks) | no | yes |
+| `chain`: mutation testing of the money modules, nilaway, Miri and AddressSanitizer on `orchardffi` | no | `chain-nightly.yml`, every night at 02:30 UTC |
+| `chain-sim` (model-based simulation) | fails by design until the driver exists | no |
 | Chain load generator (`make -C chain bench-load`), unit tests aside | no | no |
 | Website tests | no | no |
 | `govulncheck` on `core`, `pnpm audit --prod` on `sdk` | no | `security.yml`: pull requests and pushes to `main`, and Mondays 08:00 UTC |
 | `/VERSION` against the two `package.json` files | no (a core test checks `version.txt`) | warns only |
 
-CI triggers on pushes and pull requests to `main` and `nightly`, with the concurrency group cancelling superseded runs; `security.yml` does not trigger on `nightly`. The release workflows run no tests: `release.yaml` and `release-apt.yml` check that `/VERSION` matches the tag and then build, and `publish-sdk.yml` runs typecheck, build and unit tests before publishing both npm packages. The fleet suite is run by the owner with `make e2e-fleet` (Infisical supplies the secrets and `E2E_RUNNER_CIDR` is required). `core/.githooks/pre-push` runs `go test ./...` in `core`.
+CI triggers on pushes and pull requests to `main` and `nightly`, with the concurrency group cancelling superseded runs; `security.yml` does not trigger on `nightly`. The release workflows run no tests: `release.yaml` and `release-apt.yml` check that `/VERSION` matches the tag and then build, and `publish-sdk.yml` runs typecheck, build and unit tests before publishing both npm packages. The fleet suite is run by the owner with `make e2e-fleet` (Infisical supplies the secrets and `E2E_RUNNER_CIDR` is required). `core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under every build-tag set (the race-detector tests stay in CI so the hook stays short); it unsets the `GIT_*` variables git sets for hooks before it runs anything.
 
 ## State it owns
 
@@ -450,7 +458,7 @@ CI triggers on pushes and pull requests to `main` and `nightly`, with the concur
 
 ## Known gaps
 
-- **Chain tests are in no automated gate.** `chain/` is a separate module; the root `make test` and CI do not run it, only `make -C chain test` by hand. The chain side of the piece, storage and transaction vectors is therefore unchecked by automation, while the core and SDK sides are. Location: `Makefile`, `.github/workflows/ci.yml`.
+- **The chain's shipped binary is not the one CI tests.** The race run links libwasmvm, the Orchard library and the verifier binary on `ubuntu-latest` against glibc; the static musl release build that ships (`make build-linux-amd64-full`, linked through zig) is built only by the tag-triggered `release-archive.yml` and tested by no workflow, so a link or musl-only fault surfaces at release time. Location: `.github/workflows/ci.yml` job `chain-test`, `chain/ci.mk` target `test-race`.
 - **CI lacks the no-server gates.** `ci.yml` does not run `caddy`, the `e2e` module's lint, coverage gate or unit tests, or the book gates, so a pull request can merge with a failing coverage gate or a broken anchor that `make test` would catch.
 - **Cache can hide a vector change.** Only the `Contract` and CLI reference steps use `-count=1`. Tests that read files outside the `core` module (`core/pkg/pieceroot/commit_test.go:TestRootsMatchTheChainVectors`, `core/pkg/storagefile/outer_vectors_test.go:TestApplyOuter_matchesTheChainVectors`, the gateway seal test, `core/pkg/version/version_test.go`) can report a cached pass in CI after the file changes.
 - **No fuzz targets exist.** `core/pkg` has no `Fuzz` function, so `e2e/features/scanners/dynamic_test.go:TestFuzz_targetsSmoke` always skips with `SkipNotApplicable`. A skip is not covered, so a fleet run reports INCOMPLETE at best until fuzz targets are added.
@@ -459,7 +467,7 @@ CI triggers on pushes and pull requests to `main` and `nightly`, with the concur
 - **Hooks cannot be installed.** `make -C core install-hooks` runs `scripts/install-hooks.sh`, which is not in the tree, so `core/.githooks` has no installer.
 - **Hand-copied vectors.** The Caddy and Shamir vectors are repeated numbers, not shared files, and the Shamir comment in `core/pkg/shamir/shamir_test.go:TestExpTable_CrossPlatform` names `orama-vault/src/sss/test_cross_platform.zig`, a path that does not exist (`vault/src/sss/test_cross_platform.zig` is the file).
 - **Coverage is a declaration.** The gate cannot tell whether a feature that lists a route calls it; a route touched only in a helper counts as covered.
-- **Security CI is narrow.** `security.yml` audits only `sdk` and runs `govulncheck` only on `core`, and only for `main`; `chain`, `e2e` and `sdk-vault` are covered only when the owner runs the fleet `scanners` feature.
+- **Security CI is narrow outside the chain.** `security.yml` audits only `sdk` and runs `govulncheck` only on `core`, and only for `main`; `ci.yml` runs govulncheck, staticcheck, gosec, the Rust advisory and licence checks and a secret scan on every pull request, but only for `chain` (and the tree); `e2e`, `caddy` and `sdk-vault` are covered only when the owner runs the fleet `scanners` feature.
 - **The `core/e2e` suites have no gate.** They run only by hand against an environment that must already exist, so nothing notices if they stop compiling under their tags.
 
 ## Verify it yourself

@@ -88,6 +88,7 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) (StorageInvariants, error) {
 	// when its epoch closed, and x/emission refused anything past that
 	// epoch's ceiling then. The account holds exactly what is still owed.
 	owed := math.ZeroInt()
+	// nosemgrep: consensus-map-iteration -- sums exact integers in a query-only invariant check
 	for _, pending := range pendingMint {
 		owed = owed.Add(pending)
 	}

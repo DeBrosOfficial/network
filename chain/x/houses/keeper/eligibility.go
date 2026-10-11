@@ -139,6 +139,7 @@ func (k Keeper) eligibleSet(ctx context.Context) (map[string]eligibleOperator, e
 func diversity(set map[string]eligibleOperator) (prefixes, asns int) {
 	prefixSeen := map[string]struct{}{}
 	asnSeen := map[uint32]struct{}{}
+	// nosemgrep: consensus-map-iteration -- builds two sets and returns their sizes
 	for _, op := range set {
 		prefixSeen[op.Prefix16] = struct{}{}
 		asnSeen[op.ASN] = struct{}{}

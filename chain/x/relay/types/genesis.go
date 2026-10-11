@@ -154,6 +154,7 @@ func validateEpochResults(results []EpochResult, activation Activation) (map[uin
 
 func validatePayouts(payouts []RelayPayout, results map[uint64]EpochResult) error {
 	sums := make(map[uint64]math.Int, len(results))
+	// nosemgrep: consensus-map-iteration -- builds a map from keys
 	for epoch, result := range results {
 		sums[epoch] = math.ZeroInt()
 		_ = result
@@ -183,6 +184,7 @@ func validatePayouts(payouts []RelayPayout, results map[uint64]EpochResult) erro
 		seen[key] = struct{}{}
 		sums[payout.Epoch] = sums[payout.Epoch].Add(payout.Amount)
 	}
+	// nosemgrep: consensus-map-iteration -- genesis validation: any mismatch fails, the order only changes the text of the refusal
 	for epoch, result := range results {
 		if !sums[epoch].Equal(result.Minted) {
 			return fmt.Errorf("epoch %d payouts %s != minted %s", epoch, sums[epoch], result.Minted)

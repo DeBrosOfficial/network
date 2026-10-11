@@ -19,6 +19,24 @@ core-lint:
 core-clean:
 	$(MAKE) -C core clean
 
+# === Chain (Orama L1: Go, plus the Rust Orchard verifier; see chain/Makefile and chain/ci.mk) ===
+# chain-test is the pure-Go unit tests (-tags nowasm, no cgo). CI additionally runs the race
+# detector with CosmWasm and the Orchard verifiers linked, and the static analysis: `make -C chain ci`.
+.PHONY: chain chain-build chain-test chain-lint chain-ci
+chain: chain-build
+
+chain-build:
+	$(MAKE) -C chain build
+
+chain-test:
+	$(MAKE) -C chain test
+
+chain-lint:
+	$(MAKE) -C chain vet-all
+
+chain-ci:
+	$(MAKE) -C chain ci
+
 # === Caddy modules (built into the node's Caddy by `orama maint build`) ===
 .PHONY: caddy-test
 caddy-test:
@@ -122,13 +140,14 @@ whitepaper-short: whitepaper-diagrams whitepaper-short-check
 whitepaper: whitepaper-diagrams whitepaper-gen whitepaper-check
 	cd core && go run ./tools/whitepaper build
 
-test: core-test caddy-test sdk-test e2e-lint e2e-coverage e2e-test-unit whitepaper-check
+test: core-test chain-test caddy-test sdk-test e2e-lint e2e-coverage e2e-test-unit whitepaper-check
 clean: core-clean
 
 help:
 	@echo "Orama Monorepo"
 	@echo ""
 	@echo "  Core (Go):     make core-build | core-test | core-lint | core-clean"
+	@echo "  Chain (Go):    make chain-build | chain-test | chain-lint | chain-ci  (see chain/ci.mk)"
 	@echo "  Website:       make website-dev | website-build"
 	@echo "  Vault (Zig):   make vault-build | vault-test"
 	@echo "  OS:            make os-build"
@@ -136,4 +155,4 @@ help:
 	@echo ""
 	@echo "  SDK (TS):      make sdk-build | sdk-test"
 	@echo ""
-	@echo "  Aggregate:     make build | clean  (delegates to core); make test runs core, caddy, SDK unit, fleet-e2e lint/coverage and whitepaper checks"
+	@echo "  Aggregate:     make build | clean  (delegates to core); make test runs core, chain, caddy, SDK unit, fleet-e2e lint/coverage and whitepaper checks"

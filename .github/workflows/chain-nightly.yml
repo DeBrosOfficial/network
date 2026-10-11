@@ -1,0 +1,108 @@
+# Heavy checks of the chain that do not belong on every pull request (chain self-audit, SA8,
+# bugboard 3394): mutation testing of the money modules, nilaway, and Miri and AddressSanitizer over
+# the Orchard FFI crate. The per-pull-request checks are in ci.yml; every command here is a target of
+# chain/ci.mk. A red nightly run is a finding to read, not noise.
+
+name: chain-nightly
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chain-nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # A surviving mutant is a change to the money code that no test notices. One job per module so a
+  # slow one does not hide the others; MUTATION_EFFICACY in chain/ci.mk is the gate.
+  mutation:
+    name: Mutation testing (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - x/emission/keeper
+          - x/emission/types
+          - x/fees/keeper
+          - x/power/keeper
+          - x/power/types
+          - x/storage/keeper
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      - name: Mutate ${{ matrix.package }}
+        run: make -C chain mutation MUTATION_PACKAGES=${{ matrix.package }}
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-${{ strategy.job-index }}
+          path: chain/build/mutation-*.json
+          if-no-files-found: ignore
+
+  # Nil-flow analysis. It reports a nil that a caller could pass, with no notion of the invariants
+  # that rule it out (a map key just inserted, a slice indexed inside its own range), so the report is
+  # read by a person; the job fails only if nilaway itself cannot run.
+  nilaway:
+    name: nilaway report
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      - name: nilaway
+        run: make -C chain nilaway
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nilaway
+          path: chain/build/nilaway.txt
+          if-no-files-found: ignore
+
+  # Miri (undefined behaviour in the unsafe FFI surface) and AddressSanitizer (the whole crate test
+  # suite, real proof vectors included) over the Rust Orchard verifier library.
+  rust-sanitizers:
+    name: Orchard FFI under Miri and AddressSanitizer
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      - name: Nightly Rust with Miri and rust-src
+        run: |
+          rustup toolchain install nightly --profile minimal --component miri,rust-src
+          cargo +nightly miri setup
+
+      - name: Miri
+        run: make -C chain rust-miri
+
+      - name: AddressSanitizer
+        run: make -C chain rust-asan

@@ -115,9 +115,6 @@ func newReporters(c *wiringChain) []sdk.AccAddress {
 	return reporters
 }
 
-// everyReporterSees gives each of the three reporters the same votes, except where a test says otherwise.
-func everyReporterSees(votes []relayVote) [][]relayVote { return [][]relayVote{votes, votes, votes} }
-
 // settle runs the blocks that carry an epoch past its report window, so it settles.
 func (c *wiringChain) settle() { c.blocks(int(relaytypes.ReportWindowEpochs) + 2) }
 

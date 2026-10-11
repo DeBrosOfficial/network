@@ -866,6 +866,8 @@ types are not): `harness/staticfind` drops those and nothing else. An installed 
 is as old as its last install and refuses a module whose `go` directive is
 newer ("package requires newer Go version").
 
+**CI runs part of this without a fleet.** The `chain-static` and `secrets` jobs of `.github/workflows/ci.yml` run govulncheck, staticcheck and gosec on the `chain` module and gitleaks on the tree. `cmd/scangate` applies the same judgement as the feature to their output: `scangate vuln` compares govulncheck's JSON with `govulncheck-accepted.yaml` (`harness/vulnaccept`), and `scangate static` drops only the grpc-gateway deprecation findings (`harness/staticfind`); the pinned staticcheck is the same `staticcheck.mod`. The other modules, the archive scan and the race run over the busiest core packages remain fleet-only. See `website/src/docs/contributor/testing.mdx`, "CI".
+
 **Accepted vulnerabilities.** govulncheck runs with `-format json`, and the
 vulnerabilities whose function the code reaches (a finding with a function in
 its trace; an imported package or a required module alone does not count) are

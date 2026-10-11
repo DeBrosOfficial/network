@@ -16,7 +16,7 @@ const docsDir = "../../../../docs"
 
 // txCommandMention finds `oramad tx <group> [<verb>]` in prose. Whitespace
 // between the words may be a line break.
-var txCommandMention = regexp.MustCompile("oramad tx\\s+([a-z][a-z-]*)(?:\\s+([a-z][a-z-]*))?")
+var txCommandMention = regexp.MustCompile(`oramad tx\s+([a-z][a-z-]*)(?:\s+([a-z][a-z-]*))?`)
 
 func subcommand(parent *cobra.Command, name string) *cobra.Command {
 	for _, c := range parent.Commands() {

@@ -52,6 +52,135 @@ jobs:
         working-directory: core
         run: go test -count=1 ./cmd/orama -run TestCLIReference
 
+  # The chain (Orama L1, Cosmos SDK + CosmWasm + the Orchard shielded verifier) was not built or
+  # tested by anything in CI, nor by the pre-push hook or the root `make test`; it was run by hand.
+  # The commands below are Makefile targets (chain/Makefile, chain/ci.mk), so a developer runs
+  # exactly what runs here.
+  chain-test:
+    name: Chain build and race tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      # native/build.sh builds with this toolchain; the Rust host library of the Orchard verifier,
+      # the verifier binary and libwasmvm are built with it so the cgo tests run, not skip.
+      - name: Rust toolchain
+        run: |
+          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup default "$toolchain"
+
+      - name: Build for the release targets
+        run: make -C chain build
+
+      - name: Vet under every build-tag set
+        run: make -C chain vet-all
+
+      # The pure-Go build the static release binaries use (-tags nowasm, no cgo).
+      - name: Test (nowasm)
+        run: make -C chain test
+
+      # CosmWasm, the Orchard library (cgo) and the out-of-process verifier all linked, under the
+      # race detector. libwasmvm is built from the source in the Go module cache, not downloaded.
+      - name: Test with the race detector
+        run: make -C chain test-race
+
+  chain-static:
+    name: Chain static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      # staticcheck, gosec (high severity, high confidence) and govulncheck over the chain, with
+      # the same acceptance rules as the fleet scanners feature (e2e/features/scanners): a
+      # reachable vulnerability not in govulncheck-accepted.yaml fails, and so does a stale entry.
+      - name: staticcheck
+        run: make -C chain staticcheck
+
+      - name: gosec
+        run: make -C chain gosec
+
+      - name: govulncheck
+        run: make -C chain govulncheck
+
+      # Determinism rules for the state machine (map iteration, wall clock, floats, goroutines,
+      # random numbers): chain/.semgrep/consensus.yml.
+      - name: Install semgrep
+        run: pipx install "semgrep==$(make -s -C chain print-SEMGREP_VERSION)"
+
+      - name: Consensus rules are tested
+        run: make -C chain semgrep-test
+
+      - name: Consensus rules over the state machine
+        run: make -C chain semgrep
+
+      - name: Fleet-scanner gate logic
+        working-directory: e2e
+        run: go test ./cmd/scangate/ ./harness/vulnaccept/ ./harness/staticfind/
+
+  chain-rust:
+    name: Chain Rust crates (clippy, audit, deny)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      - name: Rust toolchain
+        run: |
+          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
+          rustup toolchain install "$toolchain" --profile minimal --component clippy
+          rustup default "$toolchain"
+
+      # orchardffi, orchardverifier-bin, wallet and native (libwasmvm + the Orchard library).
+      - name: clippy
+        run: make -C chain rust-lint
+
+      # RustSec advisories and the policy in chain/deny.toml, per Cargo.lock.
+      - name: cargo audit
+        run: make -C chain rust-audit
+
+      - name: cargo deny
+        run: make -C chain rust-deny
+
+  secrets:
+    name: Secret scan of the committed tree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: e2e/go.sum
+
+      # The same scan as the fleet scanners feature (TestSecretScan_committedTree), with the same
+      # allowlist, .gitleaks.toml. Every path in it was looked at; a new fixture is added by name.
+      - name: gitleaks
+        run: |
+          go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          "$(go env GOPATH)/bin/gitleaks" dir . --no-banner --redact --exit-code 3
+
   agent-test:
     name: OramaOS agent tests
     runs-on: ubuntu-latest

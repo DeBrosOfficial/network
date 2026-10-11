@@ -170,6 +170,7 @@ func candidates(exts []Extension) (list []candidate, listing int) {
 		}
 	}
 	list = make([]candidate, 0, len(byTx))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for key, listers := range byTx {
 		list = append(list, candidate{raw: []byte(key), listers: listers})
 	}
@@ -179,6 +180,7 @@ func candidates(exts []Extension) (list []candidate, listing int) {
 
 func requiredTxs(exts []Extension, v View) [][]byte {
 	next := make(map[string]uint64, len(v.State.NextSequence))
+	// nosemgrep: consensus-map-iteration -- copies a map into a map
 	for key, seq := range v.State.NextSequence {
 		next[key] = seq
 	}
