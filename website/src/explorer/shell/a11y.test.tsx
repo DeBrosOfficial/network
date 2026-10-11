@@ -9,7 +9,7 @@ import { NoIndexerBox } from "../ui/index-query";
 import { IndexLagLine } from "../ui/index-lag";
 import { Help } from "../ui/help";
 import { CopyChip } from "../ui/copy";
-import { lagAnnouncement } from "../model/index-lag";
+import { LAG_ANNOUNCE_BLOCKS, lagAnnouncements } from "../model/index-lag";
 import type { IndexStatus } from "../model/types";
 import { navItems } from "./header";
 import { explorerPathsFor } from "../model/routes";
@@ -128,31 +128,49 @@ describe("a page that is a query, in its loading and error states", () => {
   });
 });
 
+
 describe("the indexer's lag line is not a chatty live region", () => {
   const status = (over: Partial<IndexStatus> = {}): IndexStatus => ({ startHeight: 1, cursor: 1000, tip: 1000, lag: 0, aggregatesFrom: 1, stuck: null, ...over });
+  const behind = (lag: number) => status({ cursor: 1000 - lag, tip: 1000, lag });
+  const silent = { status: "", alert: "" };
 
   it("TestIndexLagLine_the_visible_line_counting_blocks_is_not_live", () => {
     const out = renderToStaticMarkup(<IndexLagLine index={status()} />);
     expect(out).toMatch(/<p data-index-lag="current"[^>]*>History is up to date at block 1,000\.<\/p>/);
   });
 
-  it("TestIndexLagLine_a_current_index_says_nothing_aloud_and_a_block_later_says_the_same", () => {
-    expect(lagAnnouncement(status())).toBe("");
-    expect(lagAnnouncement(status({ cursor: 1001, tip: 1001 }))).toBe("");
-    expect(renderToStaticMarkup(<IndexLagLine index={status()} />)).toContain('<span role="status" class="sr-only"></span>');
+  it("TestLagAnnouncements_a_healthy_index_moving_between_0_1_and_2_blocks_behind_says_nothing", () => {
+    for (const lag of [0, 1, 2, 1, 0, 2, 1]) expect(lagAnnouncements(behind(lag))).toEqual(silent);
+    expect(LAG_ANNOUNCE_BLOCKS).toBeGreaterThan(2);
   });
 
-  it("TestLagAnnouncement_does_not_change_as_the_lag_grows_by_a_block", () => {
-    expect(lagAnnouncement(status({ cursor: 970, lag: 30 }))).toBe(lagAnnouncement(status({ cursor: 969, lag: 31 })));
-    expect(lagAnnouncement(status({ cursor: 970, lag: 30 }))).toBe("The indexed history is behind the chain.");
+  it("TestLagAnnouncements_an_index_that_falls_behind_speaks_once_and_stays_the_same_as_it_grows", () => {
+    expect(lagAnnouncements(behind(LAG_ANNOUNCE_BLOCKS - 1))).toEqual(silent);
+    const first = lagAnnouncements(behind(LAG_ANNOUNCE_BLOCKS));
+    expect(first).toEqual({ status: "The indexed history is behind the chain.", alert: "" });
+    expect(lagAnnouncements(behind(LAG_ANNOUNCE_BLOCKS + 25))).toEqual(first);
   });
 
-  it("TestLagAnnouncement_a_stuck_index_is_an_alert_with_its_fixed_position", () => {
+  it("TestLagAnnouncements_a_stuck_index_is_an_alert_with_its_fixed_position_and_an_empty_index_a_status", () => {
     const stuck = { height: 1001, reason: "boom", statePruned: false, failures: 2 };
+    const a = lagAnnouncements(status({ lag: 5, stuck }));
+    expect(a.status).toBe("");
+    expect(a.alert).toContain("stuck at block 1,001");
+    expect(lagAnnouncements(status({ lag: 6, stuck }))).toEqual(a);
+    expect(lagAnnouncements(status({ cursor: 0, tip: 50, lag: 50 }))).toEqual({ status: "The indexer has not indexed a block yet.", alert: "" });
+  });
+
+  it("TestIndexLagLine_has_two_regions_with_one_role_each_whatever_the_state", () => {
+    const stuck = { height: 1001, reason: "boom", statePruned: false, failures: 2 };
+    for (const index of [status(), behind(1), behind(40), status({ lag: 5, stuck })]) {
+      const out = renderToStaticMarkup(<IndexLagLine index={index} />);
+      expect(out.match(/role="status"/g)).toHaveLength(1);
+      expect(out.match(/role="alert"/g)).toHaveLength(1);
+    }
+    // The alert region holds the stuck sentence only when stuck, the status region never then.
     const out = renderToStaticMarkup(<IndexLagLine index={status({ lag: 5, stuck })} />);
-    expect(out).toContain('role="alert"');
-    expect(lagAnnouncement(status({ lag: 5, stuck }))).toBe(lagAnnouncement(status({ lag: 6, stuck })));
-    expect(lagAnnouncement(status({ cursor: 0, tip: 50, lag: 50 }))).toBe("The indexer has not indexed a block yet.");
+    expect(out).toContain('<span role="status" class="sr-only"></span>');
+    expect(out).toMatch(/<span role="alert" class="sr-only">The indexer is stuck/);
   });
 });
 

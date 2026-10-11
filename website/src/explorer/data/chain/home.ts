@@ -10,8 +10,8 @@ import type { IndexTx } from "./tx";
 import { arr, bool, digits, hash64, iso, optStr, rec, uint } from "./wire";
 
 /**
- * The home page's data in one read: GET /v1/chain/index/home (chain/indexer/home.go). The indexer builds
- * it once per block however many pages ask, and it holds what the page shows: the index's position
+ * The home page's data in one read: GET /v1/chain/index/home (chain/indexer/home.go). The indexer reuses a snapshot for two seconds while
+ * the index stays at one block, and readers who arrive during a build share it. It holds what the page shows: the index's position
  * and lag, the newest blocks and transactions, 48 hours of transaction counts, and the epoch in
  * progress, the supply and the base fee at the chain's tip.
  */

@@ -61,7 +61,7 @@ The rest of the chapter follows from those two. The limiters are small token buc
 
 ### The gateway-wide buckets
 
-`rateLimitMiddleware` sits fifth in the stack, after the internal-auth gate, route policy, logging and security headers, and before CORS, readiness, routing and authentication (the full order is in [the middleware stack](12-gateway-architecture.md#the-middleware-stack)). It runs before authentication on purpose: the credential routes are among the ones it protects. `configureRateLimiters` creates the buckets once per gateway, so their relative sizes are decided in one place.
+`rateLimitMiddleware` sits sixth in the stack, after the internal-auth gate, route policy, logging, security headers and CORS (so its refusals carry CORS headers a browser can read), and before readiness, routing and authentication (the full order is in [the middleware stack](12-gateway-architecture.md#the-middleware-stack)). It runs before authentication on purpose: the credential routes are among the ones it protects. `configureRateLimiters` creates the buckets once per gateway, so their relative sizes are decided in one place.
 
 For a non-exempt request the middleware computes the bucket key once and checks the buckets below in order. The first empty bucket answers 429.
 
@@ -88,7 +88,7 @@ Each choice has a reason in the code.
 
 **Credentials.** A challenge writes a nonce row and a verify runs signature recovery. A person signing in makes two or three calls; 30 a minute with a burst of 10 is far above that and far below what grinding needs, while the general bucket is no obstacle to grinding at all. The nine paths are one bucket, shared across them, so alternating endpoints does not multiply the allowance (`core/pkg/gateway/rate_limit_key.go:isAuthRateLimitPath`).
 
-**Chain query.** Each request runs a query on the node's chain process. The explorer does not use the route, so a person browsing is nowhere near 120 a minute.
+**Chain query.** Each request runs a query on the node's chain process. The explorer does use the route (the validators, nodes, storage, Tor, token, NFT, contract, market, governance and shielded pages); a page load is held near the burst of 30 and what it read is kept for 15 to 30 seconds, so a person browsing stays inside 120 a minute.
 
 **Chain head stream.** A stream is a request that holds a connection for up to 100 seconds, and a page open all day opens one about every minute and a half, so the bucket (12 a minute, burst 6, per client network) lets a household of tabs do that and not a client that opens streams to hold the gateway's slots. How many are open at once is bounded apart: four per client network (a refused one is a 429 with `Retry-After: 10`, and it takes nothing), and 1,024 per gateway. **Chain index.** A read under `/v1/chain/index/` can cost the indexer a scan (a page deep in a list skips the rows before it), so the reads have a bucket of their own, far above what a person browsing makes (a page is a few reads, the home one a block) and far below the general one, at most 32 are in flight on a gateway (the rest get `503` with `Retry-After: 2` and never reach the indexer) and one client network may have six of them at once (a seventh is a `429` with `Retry-After: 2`). They also draw on the general bucket after it, and a test holds them to it.
 

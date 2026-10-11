@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createChainSource } from "../data/chain/source";
 import { FakeStream, addr } from "../data/chain/fake-gateway";
 import { devAnswer } from "./dev-gateway";
-import { DEV_GATEWAY_ENV, explorerDevGatewayPlugin } from "./vite-plugin";
+import { DEV_FAILURE_BODY, DEV_GATEWAY_ENV, explorerDevGatewayPlugin, failed } from "./vite-plugin";
 
 const SITE_ROOT = path.resolve(import.meta.dirname, "../../..");
 const DEV_DIR = import.meta.dirname;
@@ -72,6 +72,41 @@ describe("the dev chain parses with the explorer's own readers", () => {
     ]);
     expect(results.every((r) => r !== null && r !== undefined)).toBe(true);
     expect((await source.getEpoch(12))).toBeNull();
+  });
+});
+
+describe("a read that fails inside the dev gateway", () => {
+  function fakeResponse() {
+    const sent = { status: 0, body: "", headers: {} as Record<string, string> };
+    const res = {
+      statusCode: 0,
+      setHeader: (name: string, value: string) => void (sent.headers[name] = value),
+      end: (body: string) => {
+        sent.body = body;
+        sent.status = res.statusCode;
+      },
+    };
+    return { res: res as never, sent };
+  }
+
+  it("TestDevFailure_the_client_gets_a_fixed_body_and_the_error_goes_to_the_console", () => {
+    const { res, sent } = fakeResponse();
+    const logged: string[] = [];
+    failed(res, new Error("open /Users/someone/secret/path: no such file"), (line) => logged.push(line));
+    expect(sent.status).toBe(500);
+    expect(JSON.parse(sent.body)).toEqual(DEV_FAILURE_BODY);
+    expect(sent.body).not.toContain("secret");
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toContain("explorer-dev-gateway");
+    expect(logged[0]).toContain("/Users/someone/secret/path");
+  });
+
+  it("TestDevFailure_a_thrown_value_that_is_not_an_error_is_logged_too", () => {
+    const { res, sent } = fakeResponse();
+    const logged: string[] = [];
+    failed(res, "boom", (line) => logged.push(line));
+    expect(sent.status).toBe(500);
+    expect(logged[0]).toContain("boom");
   });
 });
 

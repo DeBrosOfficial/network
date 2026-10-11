@@ -1,5 +1,5 @@
 import { useLiveQuery } from "../data/use-query";
-import { lagAnnouncement, lagNote } from "../model/index-lag";
+import { lagAnnouncements, lagNote } from "../model/index-lag";
 import type { LagTone } from "../model/index-lag";
 import type { IndexStatus } from "../model/types";
 import { cn } from "../../lib/utils";
@@ -14,14 +14,20 @@ const TONE: Record<LagTone, string> = {
 /** One line saying how far behind the chain the indexed history is. A stuck indexer is an alert, the rest are quiet status text. */
 export function IndexLagLine({ index, className }: { index: IndexStatus; className?: string }) {
   const note = lagNote(index);
+  const announce = lagAnnouncements(index);
   return (
     <>
       <p data-index-lag={note.tone} className={cn("text-[12.5px]", TONE[note.tone], className)}>
         {note.text}
       </p>
-      {/* The line above counts blocks, so it changes every block and is not itself live; this speaks only when the indexer's state changes. */}
-      <span role={note.tone === "stuck" ? "alert" : "status"} className="sr-only">
-        {lagAnnouncement(index)}
+      {/* The line above counts blocks, so it changes every block and is not itself live. These two regions are always
+          mounted, each with one role for good: they speak only when the indexer's state changes (a region whose role
+          switched would not be announced reliably). */}
+      <span role="status" className="sr-only">
+        {announce.status}
+      </span>
+      <span role="alert" className="sr-only">
+        {announce.alert}
       </span>
     </>
   );

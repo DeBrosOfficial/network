@@ -23,8 +23,13 @@ func bucketKey(client string) string { return clientkey.BucketKey(client) }
 const (
 	// chainQueriesPerMinute and chainQueryBurst are the per-address bucket of the public
 	// /v1/chain/query/ route: each request runs a query on the node's chain process, which is
-	// far dearer than the static routes the general limit was sized for. The explorer does not
-	// use this route, so a person browsing is nowhere near it.
+	// far dearer than the static routes the general limit was sized for. The explorer does use it:
+	// the validators, nodes, storage, Tor, token, NFT, contract, market, governance and shielded pages
+	// read module queries. A page load is held to a few dozen at most so that it stays near the burst
+	// (website/src/explorer/data/chain/validator-detail.ts caps the operator lookups of a validators
+	// page at 24; a list of NFT collections or proposals costs about twice log2 of the count, plus ten
+	// reads), and what the explorer has read is kept for 15 to 30 seconds, so a person browsing is
+	// inside the sustained rate.
 	chainQueriesPerMinute = 120
 	chainQueryBurst       = 30
 

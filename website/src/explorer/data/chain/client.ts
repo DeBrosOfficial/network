@@ -4,8 +4,18 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const HTTP_NOT_FOUND = 404;
 const HTTP_UNAVAILABLE = 503;
 const HTTP_RATE_LIMITED = 429;
-/** The statuses by which a gateway says its own node, not this reader's request, is the trouble. */
-const HTTP_UPSTREAM = new Set([502, 503, 504]);
+/**
+ * What a reader can do about the statuses of a gateway's own trouble. Each stands for several causes the
+ * gateway does not tell apart (core/pkg/gateway/handlers/chainread): a 502 is a node that could not be
+ * reached or answered wrongly, and also an address or id of the right shape that the indexer refuses; a
+ * 503 is an index that is busy, too many queries in flight on the gateway, too many head streams, or a
+ * misconfigured proxy (the missing indexer is told apart before this, by its body).
+ */
+const UPSTREAM_ADVICE: Readonly<Record<number, string>> = {
+  502: "could not get a usable answer from its chain node, or refused part of this request (check that the address or id is valid); try again in a minute.",
+  503: "is busy or cannot serve this read just now (too many reads at once, or its chain service is not available); try again in a minute.",
+  504: "did not get an answer from its chain node in time; try again in a minute.",
+};
 /** The gateway's words for an index route on a node with no indexer (core/pkg/gateway/handlers/chainread/index.go, msgNoIndexer). */
 const NO_INDEXER_MARKER = "runs no chain indexer";
 /** A 503 body is read only this far to tell the no-indexer answer from any other. */
@@ -24,8 +34,10 @@ export function gatewayHost(address: string): string {
  * What a reader is told when the browser got no answer from the gateway at `address` (the chain proxy's
  * base, or any URL on that gateway). A script cannot tell why: a gateway that is down, a TLS certificate
  * this browser does not trust (a staging certificate, for one) and a gateway that does not allow this
- * site to read it (CORS) all end in the same failed request. The message names the gateway and the three
- * likely causes and says how to tell them apart; it never carries what the browser reported.
+ * site to read it (CORS) all end in the same failed request, and so does a gateway that predates the one that
+ * lets a rate-limited answer through to this site (the browser hides a refusal without CORS headers). The
+ * message names the gateway and the usual causes and says how to tell them apart; it never carries what the
+ * browser reported.
  */
 export function unreachableMessage(address: string, timedOut = false): string {
   const host = gatewayHost(address);
@@ -34,9 +46,19 @@ export function unreachableMessage(address: string, timedOut = false): string {
     : `This browser could not read the gateway at ${host}.`;
   return (
     `The chain could not be reached. ${what} Likely causes: the gateway is down or cannot be reached from here, its TLS certificate is not one ` +
-    `this browser trusts (a staging certificate, for example), or it does not allow reads from this site (CORS). Open ` +
-    `https://${host}/v1/chain/status in a new tab: a certificate warning there points to the second cause, no answer at all to the first.`
+    `this browser trusts (a staging certificate, for example), it does not allow reads from this site (CORS), or it is limiting how fast ` +
+    `this address may read (an older gateway hides that answer from the browser). Open ${statusUrl(address)} in a new tab: a certificate ` +
+    `warning there points to the certificate, a normal answer to CORS or the rate limit, no answer at all to the gateway being down.`
   );
+}
+
+/** The gateway's status route, on the same scheme and host as `address` (http for a gateway on this machine, https otherwise). */
+function statusUrl(address: string): string {
+  try {
+    return `${new URL(address).origin}${CHAIN_PATH}/status`;
+  } catch {
+    return "the gateway's /v1/chain/status";
+  }
 }
 
 /** A read that failed. The message is written for the reader: it never carries what the node said. */
@@ -152,11 +174,8 @@ export function createClient(fetcher: ChainFetch = (input, init) => fetch(input,
           `The chain could not be read (HTTP 429). ${gatewayHost(base)} is limiting how fast this browser may read; wait a minute and try again.`,
         );
       }
-      if (HTTP_UPSTREAM.has(response.status)) {
-        throw new ChainReadError(
-          `The chain could not be read (HTTP ${response.status}). ${gatewayHost(base)} could not get an answer from its chain node; try again in a minute.`,
-        );
-      }
+      const advice = UPSTREAM_ADVICE[response.status];
+      if (advice !== undefined) throw new ChainReadError(`The chain could not be read (HTTP ${response.status}). ${gatewayHost(base)} ${advice}`);
       if (!response.ok) throw new ChainReadError(`The chain could not be read (HTTP ${response.status}).`);
       try {
         return await response.json();

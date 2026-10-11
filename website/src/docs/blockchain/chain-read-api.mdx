@@ -92,7 +92,7 @@ The chain indexer keeps what a node's own state does not: blocks and transaction
 | Route | Query | Answers |
 |---|---|---|
 | `index/status` | none | The index's heights (`start_height`, `cursor`, `earliest`, `tip`, `aggregates_from`) and `stuck` while it cannot go on |
-| `index/home` | none | The newest 24 blocks and 12 transactions, 48 hourly counts, the epoch in progress, the supply and base fee at the tip and example addresses, in one read, built at most once per block |
+| `index/home` | none | The newest 24 blocks and 12 transactions, 48 hourly counts, the epoch in progress, the supply and base fee at the tip and example addresses, in one read. The indexer reuses a snapshot for two seconds while the index stays at the same block and builds a new one after that or when the index moves; readers who arrive during a build wait for it |
 | `index/stats` | none | The last 48 hourly transaction counts |
 | `index/stats/hourly`, `/daily`, `/weekly` | `page`, `limit` | Longer statistics series |
 | `index/blocks/{height}` | none | One block with its transaction hashes |
@@ -184,11 +184,11 @@ A read needs no preflight: a `GET` with only `Accept` (and no `Authorization` or
 
 Any other origin is answered with the gateway's own origin instead, so a browser refuses to hand the answer to a page from anywhere else: read the chain from your server, or from an app deployed on the network. The answer carries `Vary: Origin`, `Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS`, `Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key`, `Access-Control-Max-Age: 600` and never `Access-Control-Allow-Credentials`: send reads with `credentials: "omit"`, and nothing of the reader's is attached. A preflight is `204`.
 
-A `429` is written before CORS is applied and carries no CORS headers, so a page from an allowed origin sees it as a failed request (a network error), not a status. Likewise a gateway that cannot be reached, whose certificate the browser does not trust (a staging certificate, for example) or that does not allow the page's origin all look the same to a script. When a read fails in a browser with no status, open `https://<gateway>/v1/chain/status` in a tab: a certificate warning there points to the certificate, a normal answer to CORS or the rate limit.
+The CORS rule is applied before the rate limiter, so a refusal (`429`) carries the same CORS headers as any answer and a page from an allowed origin reads its status and `Retry-After`; a page from any other origin cannot, as for every other answer. A gateway older than that change wrote its `429` without CORS headers, which a browser reports as a failed request (a network error) with no status. A gateway that cannot be reached, whose certificate the browser does not trust (a staging certificate, for example) or that does not allow the page's origin looks the same to a script. When a read fails in a browser with no status, open `https://<gateway>/v1/chain/status` in a tab: a certificate warning there points to the certificate, a normal answer to CORS or the rate limit, no answer to a gateway that is down. A preflight is answered before the limiter and is not counted by it.
 
 ## Errors
 
-A failure is a fixed one-line `text/plain` body, except the two JSON ones named below. Handle the status, not the words.
+A failure is a fixed one-line `text/plain` body, except a `429` from the per-route limits, which is the JSON `RATE_LIMITED` envelope described under [Rate limits](#rate-limits). Handle the status, not the words.
 
 | Status | Means | Body, and what to do |
 |---|---|---|

@@ -11,6 +11,15 @@ export function pickOpener<T extends Focusable>(active: T | null, body: unknown)
   return active !== null && active !== body ? active : null;
 }
 
+/**
+ * What to remember as the opener when a dialog is asked to open: the one already remembered if the
+ * dialog is open (a second shortcut press arrives with focus in the dialog's own input, which is no
+ * place to return to), else whatever has focus now.
+ */
+export function rememberOpener<T extends Focusable>(remembered: T | null, active: T | null, body: unknown): T | null {
+  return remembered ?? pickOpener(active, body);
+}
+
 /** Gives focus back to the opener; false when there is none or it has left the page (a link that navigated away). */
 export function refocus(opener: Focusable | null): boolean {
   if (opener === null || !opener.isConnected) return false;
@@ -29,7 +38,7 @@ export function useRestoreFocus() {
   const opener = useRef<HTMLElement | null>(null);
   const remember = useCallback(() => {
     const active = document.activeElement;
-    opener.current = pickOpener(active instanceof HTMLElement ? active : null, document.body);
+    opener.current = rememberOpener(opener.current, active instanceof HTMLElement ? active : null, document.body);
   }, []);
   const onCloseAutoFocus = useCallback((event: Event) => {
     event.preventDefault();

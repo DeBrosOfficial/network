@@ -41,6 +41,15 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+/** What a reader of the dev gateway is told when a read failed inside it: a fixed line, like the real gateway's. */
+export const DEV_FAILURE_BODY = { error: { message: "dev gateway failed; see the dev server's console" } };
+
+/** Answers a read that failed with the fixed body and writes what failed to the dev server's console, not to the client. */
+export function failed(res: ServerResponse, err: unknown, log: (line: string) => void): void {
+  log(`[explorer-dev-gateway] a read failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+  sendJson(res, 500, DEV_FAILURE_BODY);
+}
+
 function streamHeads(dev: DevModule, req: IncomingMessage, res: ServerResponse): void {
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" });
   let height = dev.devHead().height;
@@ -79,7 +88,7 @@ export function explorerDevGatewayPlugin(env: Record<string, string | undefined>
         }
         server.middlewares.use((req, res, next) => {
           if (!(req.url ?? "").startsWith(CHAIN_PREFIX)) return next();
-          serve(server, req, res).catch((err: unknown) => sendJson(res, 500, { error: { message: String(err) } }));
+          serve(server, req, res).catch((err: unknown) => failed(res, err, (line) => server.config.logger.error(line)));
         });
       },
     },

@@ -57,8 +57,8 @@ import { arr, rec, uint } from "./wire";
 const DIRECTORY_TTL_MS = 30_000;
 /**
  * How long one read of the home snapshot is shared. The page's tiles, block squares and activity feed
- * each ask for a part of it when the head moves; one read answers all of them. The indexer builds it
- * once per block, so this is only the time the readers of one page share a request.
+ * each ask for a part of it when the head moves; one read answers all of them. The indexer reuses a
+ * snapshot for two seconds, so this is the time the readers of one page share a request.
  */
 const HOME_REUSE_MS = 1_000;
 /** How long a read node list is reused: the nodes, storage and Tor pages each read it, and nodes change in registrations, not in blocks. */
@@ -134,6 +134,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
   };
 
   let nodeSet: { at: number; nodes: Promise<NodeSet> } | null = null;
+  let groupsRead: { at: number; groups: Promise<OperatorGroups> } | null = null;
 
   const nodes = (): Promise<NodeSet> => {
     if (nodeSet === null || now() - nodeSet.at > NODE_SET_TTL_MS) {
@@ -288,8 +289,17 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
       return loadSigning(client);
     },
 
-    async getOperatorGroups(): Promise<OperatorGroups> {
-      return loadOperatorGroups(client, await directory());
+    // Shared for as long as the directory is: the validators page and every validator's page ask for the same
+    // groups, and each read is up to MAX_OPERATOR_LOOKUPS of the gateway's module queries.
+    getOperatorGroups(): Promise<OperatorGroups> {
+      if (groupsRead === null || now() - groupsRead.at > DIRECTORY_TTL_MS) {
+        const pending = directory().then((dir) => loadOperatorGroups(client, dir));
+        groupsRead = { at: now(), groups: pending };
+        pending.catch(() => {
+          if (groupsRead?.groups === pending) groupsRead = null;
+        });
+      }
+      return groupsRead.groups;
     },
 
     getNetworkNodes: nodes,

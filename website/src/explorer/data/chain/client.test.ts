@@ -124,16 +124,55 @@ describe("createClient", () => {
     await expect(client.get("status")).rejects.toThrow("The gateway at gw.example.org:8443 did not answer within 15 seconds.");
   });
 
-  it("TestCreateClient_a_rate_limited_read_says_to_wait_and_a_gateway_with_no_node_says_so", async () => {
+  it("TestCreateClient_the_unreachable_message_lists_rate_limiting_among_the_causes", async () => {
+    const error = (await createClient(async () => {
+      throw new TypeError("Failed to fetch");
+    }, "https://stagenet.orama.network/v1/chain").get("status").catch((e: unknown) => e)) as Error;
+    expect(error.message).toMatch(/limiting how fast this address may read/);
+    expect(error.message).toMatch(/a normal answer to CORS or the rate limit/);
+  });
+
+  it("TestCreateClient_the_status_page_it_points_to_keeps_the_scheme_of_the_gateway", async () => {
+    // A gateway on this machine is http: the address to open must not be turned into https.
+    const failing = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    const local = (await createClient(failing, "http://localhost:5173/v1/chain").get("status").catch((e: unknown) => e)) as Error;
+    expect(local.message).toContain("Open http://localhost:5173/v1/chain/status in a new tab");
+    expect(local.message).not.toContain("https://localhost");
+    const remote = (await createClient(failing, "https://gw.example.org:8443/v1/chain").get("status").catch((e: unknown) => e)) as Error;
+    expect(remote.message).toContain("Open https://gw.example.org:8443/v1/chain/status in a new tab");
+  });
+
+  it("TestCreateClient_a_rate_limited_read_says_to_wait", async () => {
     const base = "https://stagenet.orama.network/v1/chain";
     await expect(createClient(async () => new Response("slow down", { status: 429 }), base).get("status")).rejects.toThrow(
       "The chain could not be read (HTTP 429). stagenet.orama.network is limiting how fast this browser may read; wait a minute and try again.",
     );
-    for (const status of [502, 504]) {
-      await expect(createClient(async () => new Response("bad gateway", { status }), base).get("status")).rejects.toThrow(
-        `The chain could not be read (HTTP ${status}). stagenet.orama.network could not get an answer from its chain node; try again in a minute.`,
-      );
+  });
+
+  it("TestCreateClient_a_502_is_not_only_a_dead_node_it_can_be_an_address_the_indexer_refused", async () => {
+    const base = "https://stagenet.orama.network/v1/chain";
+    const error = (await createClient(async () => new Response("chain request failed", { status: 502 }), base).get("index/accounts/x").catch((e: unknown) => e)) as Error;
+    expect(error.message).toContain("HTTP 502");
+    expect(error.message).toMatch(/refused part of this request \(check that the address or id is valid\)/);
+    expect(error.message).toMatch(/chain node/);
+  });
+
+  it("TestCreateClient_a_503_that_is_not_the_missing_indexer_says_busy_not_a_missing_indexer", async () => {
+    const base = "https://stagenet.orama.network/v1/chain";
+    for (const body of ["the chain index is busy; try again", "too many chain queries in flight"]) {
+      const error = (await createClient(async () => new Response(body, { status: 503 }), base).get("status").catch((e: unknown) => e)) as Error;
+      expect(error).not.toBeInstanceOf(ChainIndexUnavailable);
+      expect(error.message).toContain("HTTP 503");
+      expect(error.message).toMatch(/busy or cannot serve this read just now/);
+      expect(error.message).not.toMatch(/chain node/);
     }
+  });
+
+  it("TestCreateClient_a_504_says_the_node_was_too_slow_and_any_other_status_is_plain", async () => {
+    const base = "https://stagenet.orama.network/v1/chain";
+    await expect(createClient(async () => new Response("late", { status: 504 }), base).get("status")).rejects.toThrow(/HTTP 504\)\. stagenet\.orama\.network did not get an answer from its chain node in time/);
     await expect(createClient(async () => new Response("boom", { status: 500 }), base).get("status")).rejects.toThrow(/^The chain could not be read \(HTTP 500\)\.$/);
   });
 });

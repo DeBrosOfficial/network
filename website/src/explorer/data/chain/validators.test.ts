@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { addr, chainFixture, delegationPath, powerPath, stakingValidator, valoper } from "./fake-gateway";
+import { consensusAddress } from "./directory";
+import { addr, chainFixture, delegationPath, keyOf, powerPath, stakingValidator, valoper } from "./fake-gateway";
 import type { FakeGateway } from "./fake-gateway";
 import { createChainSource } from "./source";
+import { MAX_OPERATOR_LOOKUPS } from "./validator-detail";
 import { decShare, legacyDec } from "./wire";
 
 async function setup() {
@@ -326,6 +328,53 @@ describe("getOperatorGroups", () => {
     gw.on("validators?page=1&per_page=100", { jsonrpc: "2.0", id: -1, result: { validators: [], total: "0" } });
     expect((await source.getOperatorGroups()).groups).toEqual([]);
     expect(gw.asked.some((p) => p.includes("ValidatorPower"))).toBe(false);
+  });
+
+  /** A chain with `count` active validators, each with its own consensus key. */
+  async function manyValidators(count: number) {
+    const { gw, source } = await setup();
+    const numbers = Array.from({ length: count }, (_, i) => i + 20);
+    const consensus = await Promise.all(numbers.map((n) => consensusAddress(keyOf(n))));
+    gw.on("staking/validators", { validators: numbers.map((n) => stakingValidator(n, n, { description: { moniker: `V${n}` } })) });
+    gw.on("validators?page=1&per_page=100", {
+      jsonrpc: "2.0",
+      id: -1,
+      result: { validators: consensus.map((address, i) => ({ address, voting_power: String(1000 - i) })), total: String(count) },
+    });
+    for (const n of numbers) gw.on(powerPath(valoper(n)), { comet_power: "1", operator: addr(n) });
+    return { gw, source };
+  }
+
+  it("TestGetOperatorGroups_one_load_with_a_large_validator_set_stays_inside_the_gateways_query_burst", async () => {
+    // The gateway gives a client network a burst of 30 module queries; a validators page makes four of its own.
+    const gatewayBurst = 30;
+    const otherQueries = 4;
+    const { gw, source } = await manyValidators(150);
+    const before = gw.asked.length;
+    const { groups, unresolved } = await source.getOperatorGroups();
+    const lookups = gw.asked.slice(before).filter((p) => p.includes("ValidatorPower"));
+    expect(lookups).toHaveLength(MAX_OPERATOR_LOOKUPS);
+    expect(MAX_OPERATOR_LOOKUPS + otherQueries).toBeLessThanOrEqual(gatewayBurst);
+    expect(unresolved).toBe(150 - MAX_OPERATOR_LOOKUPS);
+    expect(groups.reduce((n, g) => n + g.validators.length, 0)).toBe(MAX_OPERATOR_LOOKUPS);
+  });
+
+  it("TestGetOperatorGroups_the_validators_page_and_a_validators_page_share_one_set_of_lookups", async () => {
+    const { gw, source } = await manyValidators(40);
+    await source.getOperatorGroups();
+    const after = gw.asked.length;
+    await source.getOperatorGroups();
+    expect(gw.asked.length).toBe(after);
+  });
+
+  it("TestGetOperatorGroups_a_failed_read_is_not_remembered", async () => {
+    const { gw, source } = await setup();
+    gw.on(powerPath(valoper(7)), { comet_power: "60", operator: addr(1) });
+    gw.failing.add(powerPath(valoper(8)));
+    await expect(source.getOperatorGroups()).rejects.toThrow("HTTP 500");
+    gw.failing.clear();
+    gw.on(powerPath(valoper(8)), { comet_power: "40", operator: addr(1) });
+    expect((await source.getOperatorGroups()).groups).toHaveLength(1);
   });
 
   it("TestGetOperatorGroups_a_failing_lookup_rejects_instead_of_a_partial_grouping", async () => {

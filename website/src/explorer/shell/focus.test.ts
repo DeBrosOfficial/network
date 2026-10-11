@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { closesMenu, focusLeftMenu } from "./menu-keys";
-import { pickOpener, refocus } from "./restore-focus";
+import { pickOpener, refocus, rememberOpener } from "./restore-focus";
 import { dismissesTip } from "../ui/help";
 
 const element = (connected = true) => ({ focus: vi.fn(), isConnected: connected });
@@ -15,6 +15,27 @@ describe("pickOpener", () => {
     const body = element();
     expect(pickOpener(null, body)).toBeNull();
     expect(pickOpener(body, body)).toBeNull();
+  });
+});
+
+describe("rememberOpener", () => {
+  it("TestRememberOpener_a_second_open_while_open_keeps_the_first_opener_not_the_dialogs_own_input", () => {
+    const button = element();
+    const paletteInput = element();
+    const first = rememberOpener(null, button, {});
+    expect(first).toBe(button);
+    // Ctrl+K again: focus is in the palette's own input.
+    expect(rememberOpener(first, paletteInput, {})).toBe(button);
+  });
+
+  it("TestRememberOpener_after_the_dialog_closed_the_next_opener_is_remembered", () => {
+    const next = element();
+    expect(rememberOpener(null, next, {})).toBe(next);
+  });
+
+  it("TestRememberOpener_nothing_focused_remembers_nothing", () => {
+    const body = element();
+    expect(rememberOpener(null, body, body)).toBeNull();
   });
 });
 

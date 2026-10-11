@@ -32,8 +32,14 @@ const JAIL_WINDOW = 20;
 /** The indexer's largest page, and the pages of the validator list one read follows (a set of 300 is far above the chain's plan). */
 const INDEX_PAGE = 100;
 const MAX_SIGNING_PAGES = 3;
-/** The operator of at most this many validators is looked up (one x/power query each); the largest first. */
-const MAX_OPERATOR_LOOKUPS = 100;
+/**
+ * The operator of at most this many validators is looked up (one x/power query each); the largest first.
+ * The gateway gives a client network a burst of 30 module queries and 120 a minute (core/pkg/gateway/rate_limit_key.go),
+ * and a validators page makes four more (the staking pool is REST; Lambda, x/power's Params, the current epoch and the
+ * founding committee are queries), so a load stays inside the burst only with a few less than 26 lookups. The validators
+ * past this are counted, not grouped, and the page says how many.
+ */
+export const MAX_OPERATOR_LOOKUPS = 24;
 /** How many of those queries run at once: the gateway answers at most 16 module queries at a time. */
 const LOOKUP_CONCURRENCY = 6;
 const MAX_REASON = 64;

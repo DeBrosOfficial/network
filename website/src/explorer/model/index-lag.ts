@@ -13,10 +13,26 @@ export interface LagNote {
  * block numbers that change with every block, and a live region that repeats it would speak every two
  * seconds; this changes only when the indexer's state does. Nothing is said while it is current.
  */
-export function lagAnnouncement(index: IndexStatus): string {
-  if (index.stuck !== null) return `The indexer is stuck at block ${formatInt(index.stuck.height)}; history stops at block ${formatInt(index.cursor)}.`;
-  if (index.cursor === 0) return "The indexer has not indexed a block yet.";
-  return index.lag === 0 ? "" : "The indexed history is behind the chain.";
+export interface LagAnnouncements {
+  /** Polite: the indexer is behind or has indexed nothing. */
+  status: string;
+  /** Assertive: the indexer cannot go on. */
+  alert: string;
+}
+
+/**
+ * How many blocks behind the chain the indexer may be before a screen reader is told. A healthy
+ * indexer is a block or two behind the head as each block is indexed, and moves between 0, 1 and 2 with
+ * every block; telling the reader each time it crossed from 0 to 1 would be the chatter this avoids.
+ */
+export const LAG_ANNOUNCE_BLOCKS = 5;
+
+export function lagAnnouncements(index: IndexStatus): LagAnnouncements {
+  if (index.stuck !== null) {
+    return { status: "", alert: `The indexer is stuck at block ${formatInt(index.stuck.height)}; history stops at block ${formatInt(index.cursor)}.` };
+  }
+  if (index.cursor === 0) return { status: "The indexer has not indexed a block yet.", alert: "" };
+  return { status: index.lag >= LAG_ANNOUNCE_BLOCKS ? "The indexed history is behind the chain." : "", alert: "" };
 }
 
 /**

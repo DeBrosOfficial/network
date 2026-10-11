@@ -688,9 +688,18 @@ func (g *Gateway) tunnelWebSocket(w http.ResponseWriter, r *http.Request, target
 // withMiddleware adds CORS, security headers, rate limiting, and logging middleware
 func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 	// Order: internal-auth -> route policy -> logging -> security headers ->
-	// rate limit -> CORS -> readiness -> domain routing -> cluster serverless
+	// CORS -> rate limit -> readiness -> domain routing -> cluster serverless
 	// routing -> auth -> authorization -> scope -> namespace rate limit ->
 	// long-request deadlines -> handler
+	//
+	// CORS is above the rate limit so that a refusal by the limiter (a 429)
+	// carries the same CORS headers as any answer: a browser page from an
+	// origin the gateway allows can then read the status and Retry-After
+	// instead of seeing an opaque failed fetch. The decision about which
+	// origins are allowed is unchanged (allowedOriginFor); only where in the
+	// chain it is made moved. A preflight is answered by corsMiddleware before
+	// the limiter and so is not counted by it: it does no work and reaches
+	// nothing behind it.
 	//
 	// Cluster serverless routing sits beside domain routing and does the same
 	// kind of thing: on the cluster gateway it proxies a tenant's function
@@ -707,7 +716,7 @@ func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 	// valid MAC, so no middleware below it has to ask whether the ones it sees
 	// are authentic — they are, or they are not there.
 	//
-	// The readiness gate sits directly INSIDE CORS, not above it. A gateway
+	// The readiness gate sits inside CORS (and the rate limiter), not above it. A gateway
 	// that is still starting refuses with a 503 carrying the reason, and a
 	// browser can only read that if the response has CORS headers and the
 	// preflight was answered — above corsMiddleware the SDK would see an
@@ -729,8 +738,8 @@ func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 		g.routePolicyMiddleware(
 			g.loggingMiddleware(
 				g.securityHeadersMiddleware(
-					g.rateLimitMiddleware(
-						g.corsMiddleware(
+					g.corsMiddleware(
+						g.rateLimitMiddleware(
 							g.readinessGate(
 								g.domainRoutingMiddleware(
 									g.clusterServerlessRoutingMiddleware(

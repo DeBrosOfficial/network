@@ -225,7 +225,7 @@ func keyedAnswer(body map[string]any, name string, rows any, page, limit int, by
 	return body
 }
 
-// serveHome answers the snapshot the home page shows, built at most once per block.
+// serveHome answers the snapshot the home page shows, reused for HeadMaxAge seconds while the index stays at one block.
 func (a *API) serveHome(w http.ResponseWriter, r *http.Request) {
 	if !noQuery(w, r) {
 		return

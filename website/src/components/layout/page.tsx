@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useNavigationType } from "react-router";
+import { useLocation, useNavigationType } from "react-router";
 import type { ReactNode } from "react";
 import { documentTitle, normalizePath } from "../../content/routes";
 import type { RouteMeta } from "../../content/routes";
@@ -81,7 +81,12 @@ export function canonicalPath(pagePath: string, keptOut: boolean, locationPath: 
   return keptOut ? normalizePath(locationPath) : pagePath;
 }
 
-function syncHead(page: PageMeta, noindex: boolean) {
+/** What the document head is written from: when any of these changes, the head is written again. */
+export function headDeps(page: PageMeta, noindex: boolean, pathname: string): [PageMeta, boolean, string] {
+  return [page, noindex, normalizePath(pathname)];
+}
+
+export function syncHead(page: PageMeta, noindex: boolean) {
   const keptOut = noindex || Boolean(page.noindex);
   const url = absoluteUrl(canonicalPath(page.path, keptOut, window.location.pathname));
   const image = absoluteUrl(page.image.path);
@@ -113,9 +118,12 @@ export function Page({ route, noindex = false, breadcrumbs = "top", children }: 
   const page = useMemo(() => pageFor(route.path) ?? looseMeta(route), [route]);
   const navigationType = useNavigationType();
 
+  // The address is an input of the head: a page kept out of search names it as its canonical (canonicalPath),
+  // and one component renders every /explorer/... address, so navigating inside it changes the head too.
+  const { pathname } = useLocation();
   useEffect(() => {
     syncHead(page, noindex);
-  }, [page, noindex]);
+  }, headDeps(page, noindex, pathname));
 
   useEffect(() => {
     // POP is the first load and back/forward: the browser already put the

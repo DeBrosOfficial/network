@@ -44,7 +44,7 @@ Every page has a loading, an error and an empty state, and each says what to do.
 
 - **"This node runs no chain indexer."** The gateway answered from a node that has none. Blocks, the current epoch and the head still load; the history that needs the index (transactions, epochs, supply, rewards) does not, and another node of the network may have it. Try again.
 - **"The chain could not be reached."** The message names the gateway and the three usual causes: it is down, its TLS certificate is not one your browser trusts (a staging certificate, for example), or it does not allow reads from this site. Open the gateway's `/v1/chain/status` in a new tab to tell them apart.
-- **A rate limit.** A gateway limits how fast one network address may read; the message says to wait a minute. A person browsing is far inside the limits.
+- **A rate limit.** A gateway limits how fast one network address may read. A gateway with the current CORS rule answers the explorer's origin even when it refuses, so the page says "HTTP 429" and to wait a minute. An older gateway wrote that refusal without CORS headers, which makes the browser hide it: the page then says "The chain could not be reached", and its list of causes includes the rate limit. A person browsing is far inside the limits.
 - **How far behind is the history.** The home and rewards pages say how many blocks the indexed history is behind the chain, and say so loudly when the indexer is stuck.
 
 The block height in the header moves on its own: the gateway tells the page when a block arrives, so nothing is polled. A screen reader is not told about every block: the page announces only when the network's health or the indexer's state changes.
@@ -64,7 +64,7 @@ A figure a page cannot read is left out, never shown as zero.
 
 ## Keyboard and screen readers
 
-The first stop of the Tab order is **Skip to the page**, which jumps over the header. The sections are a labelled navigation landmark and mark the current page; menus close with `Esc` and give focus back; the search box is a list you move through with the arrow keys and `Enter`. Every chart has its numbers in a table. The explorer is dark only, like the rest of the site.
+The first stop of the Tab order is **Skip to the page**, which jumps over the header. The sections are a labelled navigation landmark and mark the current page; menus close with `Esc` and give focus back; the search box is a list you move through with the arrow keys and `Enter`. The trend charts of the Supply and Emission pages each have a "View as a table" with the same numbers, and the small trend lines beside a figure (the home tile, a validator's voting power) sit next to a table or the figures themselves and are hidden from screen readers. The explorer is dark only, like the rest of the site.
 
 ## Build on the same data
 
