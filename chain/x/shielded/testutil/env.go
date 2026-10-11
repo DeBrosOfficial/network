@@ -157,6 +157,20 @@ func (e *Env) KeeperWith(verifiers ...verify.Verifier) keeper.Keeper {
 	)
 }
 
+// KeeperRequiring is KeeperWith for a chain that must verify (Dependencies.RequireVerifiers): a
+// verifier that is missing is a fault of the node and halts it in a block.
+func (e *Env) KeeperRequiring(verifiers ...verify.Verifier) keeper.Keeper {
+	return keeper.NewKeeper(
+		codec.NewProtoCodec(codectypes.NewInterfaceRegistry()),
+		runtime.NewKVStoreService(e.key),
+		keeper.TransientKVService(runtime.NewTransientStoreService(e.tkey)),
+		keeper.Dependencies{
+			Bank: e.Bank, Fees: e.Fees, Bonder: e.Bonder, NodeBonder: e.Nodes,
+			Tree: Tree{}, Nullifiers: e.Store, Verifiers: verifiers, RequireVerifiers: true,
+		},
+	)
+}
+
 // EndBlockUncommitted runs the keeper's EndBlock and stops before the multistore commit: the state
 // a node is in when it stops between FinalizeBlock and Commit.
 func (e *Env) EndBlockUncommitted() {

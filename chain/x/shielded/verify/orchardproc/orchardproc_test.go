@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -464,5 +465,102 @@ func TestWarm_startsTheProcessBeforeTheFirstBundle(t *testing.T) {
 	defer f.v.mu.Unlock()
 	if f.v.proc == nil {
 		t.Fatal("Warm did not start the process")
+	}
+}
+
+// A FIFO at the path must not hang the open: Warm answers at once, with the pin error.
+func TestPin_aFifoAtThePathIsRefusedWithoutBlocking(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	if err := syscall.Mkfifo(path, 0o600); err != nil {
+		t.Skipf("no fifo here: %v", err)
+	}
+	v, err := New(Config{Path: path, ChainID: "c", SHA256: strings.Repeat("0", 64)}) // mustNew would read the fifo itself
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- v.Warm() }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrBinaryPin) || !strings.Contains(err.Error(), "not a regular file") {
+			t.Fatalf("got %v, want the pin error naming a non-regular file", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("opening a fifo as the verifier binary hung")
+	}
+}
+
+// A link at the file itself is not followed: the path must be the file.
+func TestPin_aSymlinkAtTheFileIsRefused(t *testing.T) {
+	real := copyOfTestBinary(t)
+	link := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	v := mustNew(t, Config{Path: link, ChainID: "c", SHA256: hashOf(t, real)})
+	if err := v.Warm(); !errors.Is(err, ErrBinaryPin) || !errors.Is(err, verify.ErrVerifierFault) {
+		t.Fatalf("got %v, want ErrBinaryPin", err)
+	}
+}
+
+// A link in a directory above the file is fine: cosmovisor's current is one.
+func TestPin_aLinkedDirectoryAboveTheFileIsFollowed(t *testing.T) {
+	dir := t.TempDir()
+	real := copyOfTestBinary(t)
+	t.Setenv(fakeModeFileEnv, filepath.Join(t.TempDir(), "mode"))
+	if err := os.WriteFile(os.Getenv(fakeModeFileEnv), []byte(modeAccept), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Dir(real), filepath.Join(dir, "current")); err != nil {
+		t.Fatal(err)
+	}
+	v := mustNew(t, Config{Path: filepath.Join(dir, "current", filepath.Base(real)), ChainID: "c", SHA256: hashOf(t, real), StartTimeout: 10 * time.Second})
+	t.Cleanup(func() { _ = v.Close() })
+	if err := v.Warm(); err != nil {
+		t.Fatalf("a path through a linked directory must start: %v", err)
+	}
+}
+
+// A script is a valid verifier too (its interpreter opens the checked file after the exec): the
+// fake that the app tests use is one.
+func TestPin_aScriptStartsFromTheCheckedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	ready := "#!/bin/sh\nprintf '\\000\\000\\000\\011\\377\\377\\377\\377\\377\\377\\377\\377\\000'\nhead -c 1 >/dev/null\n"
+	if err := os.WriteFile(path, []byte(ready), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	v := mustNew(t, Config{Path: path, ChainID: "c", StartTimeout: 10 * time.Second})
+	t.Cleanup(func() { _ = v.Close() })
+	if err := v.Warm(); err != nil {
+		t.Fatalf("a script verifier did not become ready: %v", err)
+	}
+}
+
+// A verifier that panicked on a bundle is not asked again: the verdict is the panic's, the
+// process is stopped, and the next bundle runs on a fresh one.
+func TestVerify_afterAPanicTheNextRequestRunsOnAFreshProcess(t *testing.T) {
+	f := newFixture(t, 5*time.Second)
+	if err := f.v.Verify(fakeBundle(), nil); err != nil {
+		t.Fatal(err)
+	}
+	first := f.v.proc
+	f.mode(modePanicCode)
+	if err := f.v.Verify(fakeBundle(), nil); !errors.Is(err, verify.ErrVerifierPanic) {
+		t.Fatalf("got %v, want ErrVerifierPanic", err)
+	}
+	f.v.mu.Lock()
+	stopped := f.v.proc == nil
+	f.v.mu.Unlock()
+	if !stopped {
+		t.Fatal("the process that panicked was kept")
+	}
+	select {
+	case <-first.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the process that panicked is still running")
+	}
+	f.mode(modeAccept)
+	if err := f.v.Verify(fakeBundle(), nil); err != nil {
+		t.Fatalf("the request after a panic must run on a fresh process: %v", err)
 	}
 }

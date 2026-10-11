@@ -5,11 +5,16 @@ package app_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cosmos/cosmos-sdk/client/flags"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
+
+	"github.com/DeBrosOfficial/network/chain/app"
 	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
 	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
@@ -67,7 +72,13 @@ func TestShieldedReal_aVerifierThatDiesInABlockHaltsTheNodeAndTheRestartAgreesWi
 	faulty := fundedChain(t, db, home, faultingVerifier(t))
 	require.Equal(t, tx, faulty.shieldMsg(t), "both nodes sign the same transaction")
 	committed := faulty.height
+	exitCode := -1
+	old := app.VerifierHaltExit
+	app.VerifierHaltExit = func(code int) { exitCode = code }
+	t.Cleanup(func() { app.VerifierHaltExit = old })
 	halt := haltOfBlock(t, func() { faulty.finalize(t, tx) })
+	require.Equal(t, app.ExitVerifierHalt, exitCode, "the node ends the process with the verifier halt status, not only its consensus routine")
+	require.NotEmpty(t, halt.BundleHash)
 	require.ErrorIs(t, halt, verify.ErrVerifierFault)
 	require.Contains(t, halt.Error(), "--shielded-verifier")
 	require.Contains(t, halt.Error(), "executes the block again")
@@ -101,4 +112,19 @@ func TestShieldedReal_aRejectedBundleGivesTheSameResultOnEveryNode(t *testing.T)
 	}
 	require.Equal(t, hashes[0], hashes[1])
 	require.Equal(t, logs[0], logs[1])
+}
+
+// Only Linux starts the verifier from the file whose hash it checked, so with the library and the
+// binary both in place a host that cannot is still refused on a chain that must verify, and a
+// localnet or a scripted devnet may run anywhere.
+func TestCheckNodeCanVerify_aHostThatCannotStartFromTheCheckedFileIsRefused(t *testing.T) {
+	opts := simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir(), app.FlagShieldedVerifier: realVerifierPath(t)}
+	err := app.CheckNodeCanVerify("orama-stagenet-6", opts)
+	if runtime.GOOS == "linux" {
+		require.NoError(t, err)
+	} else {
+		require.ErrorContains(t, err, "only Linux can do")
+		require.ErrorContains(t, err, runtime.GOOS)
+	}
+	require.NoError(t, app.CheckNodeCanVerify("orama-localnet-1", opts))
 }

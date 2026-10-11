@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cast"
 
@@ -22,6 +23,10 @@ const (
 	// FlagShieldedVerifier names the out-of-process verifier binary, the second verifier of
 	// x/shielded. It is a flag of `oramad start` and a key of the app options.
 	FlagShieldedVerifier = "shielded-verifier"
+
+	// removedPinOption was a setting for the pin until the pin became link-time only. A node that
+	// still has it set is told it is ignored.
+	removedPinOption = "shielded-verifier-sha256"
 
 	// ShieldedVerifierBinary is the file name the release ships, and the default under
 	// <home>/bin/ when the flag is not given.
@@ -49,6 +54,10 @@ func CheckNodeCanVerify(chainID string, appOpts servertypes.AppOptions) error {
 	_, statErr := os.Stat(path)
 	present := path != "" && statErr == nil
 	if orchardverify.Linked && present {
+		if !orchardproc.StartsFromCheckedFile {
+			return fmt.Errorf("a node of chain %q must start its shielded verifier from the file whose hash it checked, which only Linux can do (this host is %s): "+
+				"run oramad on Linux; only a localnet or a scripted devnet may run elsewhere", chainID, runtime.GOOS)
+		}
 		return nil
 	}
 	return fmt.Errorf("a node of chain %q must verify shielded bundles and this one cannot "+
@@ -111,6 +120,9 @@ func (app *OramaApp) newShieldedVerifiers(appOpts servertypes.AppOptions) []veri
 		panic(fmt.Errorf("failed to build the Orchard verifier for chain %q: %w", chainID, err))
 	}
 	path, pin := shieldedVerifierPath(appOpts), ShieldedVerifierSHA256
+	if stray := cast.ToString(appOpts.Get(removedPinOption)); stray != "" {
+		app.Logger().Error("ignoring "+removedPinOption+": the verifier pin is linked into oramad and no setting changes it; remove it from app.toml and the environment", "module", "x/shielded")
+	}
 	process, err := orchardproc.New(orchardproc.Config{Path: path, ChainID: chainID, SHA256: pin})
 	if err != nil {
 		panic(fmt.Errorf("failed to build the out-of-process verifier for chain %q: %w", chainID, err))

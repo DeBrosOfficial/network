@@ -29,7 +29,7 @@ This page makes no legal commitment.
 
 ## What is out of scope
 
-- The declared trust points of the security model. That the bootstrap committee decides before lambda reaches 1, that release signers choose what validators can install, that directory authorities and relay reporters are trusted until a majority is independent, and similar, are known and documented. A way to exceed them is in scope.
+- The declared trust points of the security model. That the bootstrap committee decides before lambda reaches 1, that release signers choose what validators can install, that directory authorities and relay reporters are trusted until a majority is independent, and similar, are known and documented. A way to exceed them is in scope. A shielded bundle that kills the proof verifier outright (an abort or out-of-memory kill, not a panic it can catch) stops every validator on that bundle until a fixed binary is installed; the design (stop and re-execute, never retry or skip) is documented and the report we want is the bundle, which is Critical.
 - Findings that need a majority of voting power, or an operator's own root access to their own machine.
 - Volume attacks (flooding, resource exhaustion by sheer traffic) with no protocol flaw behind them.
 - Upstream bugs in Cosmos SDK, CometBFT, wasmd or wasmvm, Kubo, Tor, go-tuf or the Zcash crates that this repository does not change. Report those upstream. A way this repository's use of them is exploitable is in scope.

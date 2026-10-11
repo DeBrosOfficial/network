@@ -3,6 +3,8 @@ package keeper
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -101,7 +103,28 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 	if err != nil {
 		k.admission.remember(key, err)
 	}
-	return err
+	return unavailable(ctx, err)
+}
+
+// unavailable is what the mempool tells a submitter whose transaction this node could not check
+// because of the node itself: a generic refusal. The detail (paths, hashes, the child's state) goes
+// to this node's log only, so a remote client learns nothing about the machine.
+func unavailable(ctx sdk.Context, err error) error {
+	if !localFault(err) {
+		return err
+	}
+	ctx.Logger().Error("the shielded verifier could not check a bundle", "module", "x/shielded", "err", err)
+	class := verify.ErrVerifierFault
+	if !errors.Is(err, verify.ErrVerifierFault) {
+		class = verify.ErrVerifierNotLinked
+	}
+	return fmt.Errorf("%w: the shielded verifier is unavailable on this node; send the transaction to another node or try again later", class)
+}
+
+// localFault reports an error that is a fact about this node and not about the bundle: a verifier
+// fault, or verifiers that are not linked or not distinct.
+func localFault(err error) bool {
+	return errors.Is(err, verify.ErrVerifierFault) || errors.Is(err, verify.ErrVerifierNotLinked)
 }
 
 // checkInBlock is check for a bundle in a block.
@@ -117,8 +140,14 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 // mempool, a simulation) a fault only refuses the transaction on this node, which is local.
 func (k Keeper) checkInBlock(ctx sdk.Context, raw, binding []byte) error {
 	err := k.check(raw, binding)
-	if errors.Is(err, verify.ErrVerifierFault) && ctx.ExecMode() == sdk.ExecModeFinalize {
-		panic(VerifierHalt{Height: ctx.BlockHeight(), Err: err})
+	if ctx.ExecMode() != sdk.ExecModeFinalize {
+		return unavailable(ctx, err)
+	}
+	// Not linked and not distinct count as faults only on a chain that must verify: there they
+	// mean this node lost a verifier, while on a localnet or a devnet every node refuses alike.
+	if errors.Is(err, verify.ErrVerifierFault) || (k.deps.RequireVerifiers && localFault(err)) {
+		hash := sha256.Sum256(raw)
+		panic(VerifierHalt{Height: ctx.BlockHeight(), BundleHash: hex.EncodeToString(hash[:]), Err: err})
 	}
 	return err
 }

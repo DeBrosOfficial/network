@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"cosmossdk.io/log/v2"
 	"cosmossdk.io/math"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/spf13/cast"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -138,7 +140,7 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 	app.nullifierStore = store
 
 	app.ShieldedVerifiers = app.newShieldedVerifiers(appOpts)
-	app.AddRunTxRecoveryHandler(letVerifierHaltThrough)
+	app.AddRunTxRecoveryHandler(verifierHaltHandler(app.Logger(), func(code int) { VerifierHaltExit(code) }))
 	app.ShieldedKeeper = shieldedkeeper.NewKeeper(
 		app.appCodec,
 		runtime.NewKVStoreService(keys[shieldedtypes.StoreKey]),
@@ -151,21 +153,40 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 			Tree:       orchardverify.NewTree(),
 			Nullifiers: store,
 			Verifiers:  app.ShieldedVerifiers,
+			// A chain that is not a localnet or a scripted devnet must verify, so a verifier that
+			// is missing at run time halts the node instead of refusing bundles on it alone.
+			RequireVerifiers: !verifiersOptional(app.ChainID()),
 		},
 	)
 }
 
-// letVerifierHaltThrough is the transaction runner's recovery handler for a shielded verifier
-// halt. The runner turns any panic in a transaction into that transaction's failed result, which is
-// right for a bug in a message and wrong here: a verifier fault is a fact about this node's machine,
-// and a result recorded from it would differ from its peers' (shieldedkeeper.VerifierHalt). The
-// handler panics again with the halt itself, which no recovery between here and the consensus
-// reactor catches, so the node stops before it commits the block.
-func letVerifierHaltThrough(recovered any) error {
-	if halt, ok := recovered.(shieldedkeeper.VerifierHalt); ok {
+// ExitVerifierHalt is the exit status of an oramad that stopped because its shielded verifier
+// failed in a block. It is distinct so the journal and a monitor can tell it from a crash; the chain
+// unit's Restart=always restarts it whatever the status, and the restarted node executes the block
+// again (core/pkg/install global_units.go).
+const ExitVerifierHalt = 87
+
+// VerifierHaltExit ends the process. Only tests replace it.
+var VerifierHaltExit = os.Exit
+
+// verifierHaltHandler is the transaction runner's recovery handler for a shielded verifier halt.
+// The runner turns any panic in a transaction into that transaction's failed result, which is right
+// for a bug in a message and wrong here: a verifier fault is a fact about this node's machine, and a
+// result recorded from it would differ from its peers' (shieldedkeeper.VerifierHalt). The handler
+// logs the halt with the height and the bundle's hash and ends the process. It does not rely on the
+// panic alone, because CometBFT's consensus routine recovers a panic, logs it and stops consensus
+// but leaves the process alive, so systemd would never restart a node that no longer commits. If
+// exit returns (a test), the handler panics again with the halt itself.
+func verifierHaltHandler(logger log.Logger, exit func(int)) baseapp.RecoveryHandler {
+	return func(recovered any) error {
+		halt, ok := recovered.(shieldedkeeper.VerifierHalt)
+		if !ok {
+			return nil
+		}
+		logger.Error("STOPPING THE NODE: "+halt.Error(), "module", "x/shielded", "height", halt.Height, "bundle_sha256", halt.BundleHash)
+		exit(ExitVerifierHalt)
 		panic(halt)
 	}
-	return nil
 }
 
 // registerShieldedSnapshot adds the nullifier database to state-sync snapshots. The IAVL snapshot

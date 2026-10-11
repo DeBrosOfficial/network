@@ -37,6 +37,11 @@ type Dependencies struct {
 	// Verifiers must all accept a bundle (verify.Check). Fewer than verify.MinVerifiers, or a
 	// verifier that is not linked, means no bundle is ever accepted.
 	Verifiers []verify.Verifier
+	// RequireVerifiers says this node's chain accepts shielded bundles, so verifiers that are not
+	// linked or not distinct are a fault of this node, not a uniform refusal: in a block it
+	// halts (checkInBlock). A localnet or a scripted devnet runs without verifiers on purpose, on
+	// every node alike, and leaves it false so every bundle is refused there.
+	RequireVerifiers bool
 }
 
 // Keeper is x/shielded's keeper.

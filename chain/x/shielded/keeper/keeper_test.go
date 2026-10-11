@@ -1,6 +1,8 @@
 package keeper_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -604,4 +606,73 @@ func TestMultiAsset_isInert(t *testing.T) {
 	gs := types.DefaultGenesisState()
 	gs.Pools = []types.PoolBalance{{Vintage: 1, Asset: make([]byte, 32), Balance: math.OneInt()}}
 	require.Error(t, gs.Validate(), "genesis cannot name another asset")
+}
+
+// The halt names the height and the hash of the bundle that was in flight, so an operator can see
+// whether every node stopped on the same one.
+func TestTransfer_theHaltNamesTheBundleItStoppedOn(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	halt := haltOf(t, func() { _ = transfer(e, raw) })
+	sum := sha256.Sum256(raw)
+	require.Equal(t, hex.EncodeToString(sum[:]), halt.BundleHash)
+	require.Contains(t, halt.Error(), halt.BundleHash)
+	require.Equal(t, e.Ctx.BlockHeight(), halt.Height)
+	require.Contains(t, halt.Error(), fmt.Sprint(halt.Height))
+}
+
+// A remote submitter learns nothing about the node's verifier: the mempool's refusal is generic and
+// the detail (a path, a hash, the child's state) is only logged.
+func TestVerify_theMempoolRefusalOfAFaultIsGeneric(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	secret := "/var/lib/orama-global/chain/cosmovisor/current/bin/orama-orchard-verifier sha256 deadbeef"
+	e.V2.Reject = func([]byte) error { return fmt.Errorf("%w: start %q", verify.ErrVerifierFault, secret) }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	err = e.Keeper.Verify(ctx, raw, nil, adm)
+	require.ErrorIs(t, err, verify.ErrVerifierFault)
+	require.NotContains(t, err.Error(), "orama-orchard-verifier")
+	require.NotContains(t, err.Error(), "deadbeef")
+	require.Contains(t, err.Error(), "unavailable on this node")
+
+	e.V2.Reject = func([]byte) error { return fmt.Errorf("%w: %s", verify.ErrVerifierNotLinked, secret) }
+	err = e.Keeper.Verify(e.CheckCtx(), transferBundle(4, 20, emptyAnchor(t)), nil, adm)
+	require.ErrorIs(t, err, verify.ErrVerifierNotLinked)
+	require.NotContains(t, err.Error(), "deadbeef")
+}
+
+// On a chain that must verify, a verifier that is missing or not distinct is a fault of this node:
+// in a block it halts. On a localnet or a devnet, which run without verifiers on every node, it is
+// the same refusal everywhere and halts nothing.
+func TestTransfer_missingVerifiersHaltOnlyAChainThatMustVerify(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	for name, vs := range map[string][]verify.Verifier{
+		"one verifier":   {e.V1},
+		"a nil verifier": {e.V1, nil},
+		"the same twice": {e.V1, e.V1},
+	} {
+		strict := e.KeeperRequiring(vs...)
+		halt := haltOf(t, func() {
+			_ = e.Tx(func(ctx sdk.Context) error {
+				_, err := keeper.NewMsgServerImpl(strict).ShieldedTransfer(ctx, &types.MsgShieldedTransfer{
+					Signer: types.SignerlessAddress().String(), Bundle: raw,
+				})
+				return err
+			})
+		})
+		require.ErrorIs(t, halt, verify.ErrVerifierNotLinked, name)
+
+		lax := e.KeeperWith(vs...)
+		err := e.Tx(func(ctx sdk.Context) error {
+			_, err := keeper.NewMsgServerImpl(lax).ShieldedTransfer(ctx, &types.MsgShieldedTransfer{
+				Signer: types.SignerlessAddress().String(), Bundle: raw,
+			})
+			return err
+		})
+		require.ErrorIs(t, err, verify.ErrVerifierNotLinked, name)
+	}
 }

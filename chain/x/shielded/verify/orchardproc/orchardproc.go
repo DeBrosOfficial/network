@@ -36,6 +36,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
@@ -159,6 +160,13 @@ func (v *Verifier) Verify(b, binding []byte) error {
 		v.stop()
 		return fmt.Errorf("%w: out-of-process verifier: %w", verify.ErrVerifierFault, err)
 	}
+	if code == codePanic {
+		// A verifier that panicked is not trusted with the next request: the child exits after
+		// answering (orchardverifier-bin main.rs) and this side stops it, so the next bundle is
+		// asked of a fresh process and a panic can never leave state behind that changes a later
+		// verdict on this node alone.
+		v.stop()
+	}
 	return codeToError(code)
 }
 
@@ -218,8 +226,8 @@ func start(cfg Config) (*process, error) {
 		return nil, fmt.Errorf("%w: %w", verify.ErrVerifierFault, err)
 	}
 	defer bin.Close()
-	cmd := exec.Command(bin.execPath)
-	cmd.Args[0] = cfg.Path
+	cmd := exec.Command(cfg.Path)
+	bin.configure(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("%w: verifier stdin: %w", verify.ErrVerifierFault, err)
@@ -255,8 +263,8 @@ var ErrBinaryPin = fmt.Errorf("%w: the verifier binary does not match its pin", 
 // hashed are the file that runs: replacing the path or repointing a symlink after the hash starts
 // nothing else.
 type pinnedBinary struct {
-	file     *os.File
-	execPath string
+	file *os.File
+	path string
 }
 
 func (b *pinnedBinary) Close() { _ = b.file.Close() }
@@ -268,7 +276,18 @@ var afterPinCheck func()
 // openPinned opens cfg.Path once, compares the SHA-256 of what it read from that open file with
 // the pin, and returns the open file with the path to start the process from.
 func openPinned(cfg Config) (*pinnedBinary, error) {
-	f, err := os.Open(cfg.Path)
+	// A FIFO or a device at the path must not hang the open (and with it Warm or a block): look
+	// first, and open without blocking and without following a link at the file itself. Links in
+	// the directories above it are fine (cosmovisor's current is one).
+	info, err := os.Lstat(cfg.Path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: out-of-process verifier binary %q: %w; install the release's orama-orchard-verifier there or point --shielded-verifier at it",
+			verify.ErrVerifierNotLinked, cfg.Path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: %q is not a regular file (mode %s)", ErrBinaryPin, cfg.Path, info.Mode().Type())
+	}
+	f, err := os.OpenFile(cfg.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		return nil, fmt.Errorf("%w: out-of-process verifier binary %q: %w; install the release's orama-orchard-verifier there or point --shielded-verifier at it",
 			verify.ErrVerifierNotLinked, cfg.Path, err)
@@ -280,7 +299,7 @@ func openPinned(cfg Config) (*pinnedBinary, error) {
 	if afterPinCheck != nil {
 		afterPinCheck()
 	}
-	return &pinnedBinary{file: f, execPath: execPathOf(f, cfg.Path)}, nil
+	return &pinnedBinary{file: f, path: cfg.Path}, nil
 }
 
 // checkPin compares the SHA-256 of the open file with the pin.
