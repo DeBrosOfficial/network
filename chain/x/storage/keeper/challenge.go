@@ -77,6 +77,7 @@ func (k Keeper) openChallenges(ctx sdk.Context, epoch uint64) error {
 		return err
 	}
 	ids := make([]string, 0, len(nodes))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for nodeID := range nodes {
 		ids = append(ids, nodeID)
 	}
@@ -117,7 +118,16 @@ func (k Keeper) openNodeChallenges(ctx sdk.Context, epoch uint64, nodeID string,
 	}); err != nil {
 		return err
 	}
-	for _, ref := range want {
+	// In challenge-id order, not map order: the first slot that fails is the one the recorded
+	// failure names, and every node must name the same one.
+	wanted := make([]string, 0, len(want))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
+	for id := range want {
+		wanted = append(wanted, id)
+	}
+	sort.Strings(wanted)
+	for _, id := range wanted {
+		ref := want[id]
 		slot, err := k.loadSlot(ctx, ref.DealId, ref.Slot)
 		if err != nil {
 			return err

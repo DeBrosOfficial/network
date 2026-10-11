@@ -59,12 +59,16 @@ func (p Params) Validate() error {
 	if p.ActionGas > ^uint64(0)/uint64(p.MaxActionsPerBundle) {
 		return fmt.Errorf("action_gas x max_actions_per_bundle overflows uint64")
 	}
-	for name, v := range map[string]math.Int{
-		"nullifier_fee": p.NullifierFee, "unshield_floor": p.UnshieldFloor,
-		"max_fee_topup": p.MaxFeeTopup, "queue_per_address_cap": p.QueuePerAddressCap,
+	// A slice, not a map: the first field that fails is the one the error names, on every node.
+	for _, f := range []struct {
+		name string
+		v    math.Int
+	}{
+		{"nullifier_fee", p.NullifierFee}, {"unshield_floor", p.UnshieldFloor},
+		{"max_fee_topup", p.MaxFeeTopup}, {"queue_per_address_cap", p.QueuePerAddressCap},
 	} {
-		if v.IsNil() || !v.IsPositive() {
-			return fmt.Errorf("%s must be a positive integer", name)
+		if f.v.IsNil() || !f.v.IsPositive() {
+			return fmt.Errorf("%s must be a positive integer", f.name)
 		}
 	}
 	return nil
