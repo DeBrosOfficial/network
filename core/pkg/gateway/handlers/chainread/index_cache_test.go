@@ -74,3 +74,44 @@ func TestProxy_theNonIndexRoutesAreNeverCached(t *testing.T) {
 		}
 	}
 }
+
+// The indexer's cost for a read is not constant (a deep page skips rows), so the reads in flight are
+// bounded: the rest are asked to come back, and the indexer is not called for them.
+func TestIndexProxy_readsInFlightAreBounded(t *testing.T) {
+	p, up := indexProxy(t)
+	for i := 0; i < cap(p.indexSlots); i++ {
+		p.indexSlots <- struct{}{}
+	}
+
+	rec := httptest.NewRecorder()
+	p.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/chain/index/txs?page=1000&limit=100", nil))
+	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") == "" {
+		t.Fatalf("with every slot taken: HTTP %d, Retry-After %q; want 503 with a retry", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	if got := up.seen(); len(got) != 0 {
+		t.Errorf("the indexer was called for a read with no slot: %v", got)
+	}
+	if rec.Header().Get("Cache-Control") != "no-store" {
+		t.Errorf("the refusal is Cache-Control %q, want no-store", rec.Header().Get("Cache-Control"))
+	}
+
+	<-p.indexSlots
+	rec = httptest.NewRecorder()
+	p.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/chain/index/txs", nil))
+	if rec.Code != http.StatusOK {
+		t.Errorf("with a slot free: HTTP %d, want 200", rec.Code)
+	}
+	if len(p.indexSlots) != cap(p.indexSlots)-1 {
+		t.Errorf("the read did not give its slot back: %d of %d taken", len(p.indexSlots), cap(p.indexSlots))
+	}
+}
+
+// A read that is refused as malformed never takes a slot.
+func TestIndexProxy_aRefusedReadTakesNoSlot(t *testing.T) {
+	p, _ := indexProxy(t)
+	rec := httptest.NewRecorder()
+	p.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/chain/index/txs?page=0", nil))
+	if rec.Code != http.StatusBadRequest || len(p.indexSlots) != 0 {
+		t.Errorf("HTTP %d with %d slots taken, want 400 and none", rec.Code, len(p.indexSlots))
+	}
+}

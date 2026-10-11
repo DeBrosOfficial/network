@@ -38,11 +38,28 @@ const (
 	chainHeadStreamPath       = "/v1/chain/head/stream"
 	chainHeadStreamsPerMinute = 12
 	chainHeadStreamBurst      = 6
+	// chainHeadStreamsPerClient is how many head streams one client network may hold open at once: a
+	// few tabs. The bucket bounds how fast streams open and each lasts 100 s, so without this one
+	// client could hold twenty and about fifty clients could hold every slot of the gateway.
+	chainHeadStreamsPerClient = 4
+
+	// chainIndexPathPrefix is the chain indexer's reads (handlers/chainread/index.go). A page deep in a
+	// list costs the indexer a scan, so they have a bucket of their own, well above what a person
+	// browsing makes (a page is a few reads and the home is one a block) and well below the general
+	// one.
+	chainIndexPathPrefix = "/v1/chain/index/"
+	chainIndexPerMinute  = 1200
+	chainIndexBurst      = 240
 )
 
 // isChainQueryPath reports whether path is the public Orama module-query route.
 func isChainQueryPath(path string) bool {
 	return strings.HasPrefix(path, chainQueryPathPrefix)
+}
+
+// isChainIndexPath reports whether path is one of the chain indexer's reads.
+func isChainIndexPath(path string) bool {
+	return strings.HasPrefix(path, chainIndexPathPrefix)
 }
 
 func isAuthRateLimitPath(path string) bool {

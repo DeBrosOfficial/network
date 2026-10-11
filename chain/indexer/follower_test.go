@@ -64,18 +64,18 @@ func TestFollower_indexesBlocksTransactionsAndAccounts(t *testing.T) {
 	require.Equal(t, []string{"/cosmos.bank.v1beta1.MsgSend"}, got.Messages)
 	require.Equal(t, uint32(1), got.Index)
 
-	txs, err := store.AccountTxs(alice, 1, 10)
+	txs, err := store.AccountTxsFiltered(alice, FilterAll, 1, 10)
 	require.NoError(t, err)
 	require.Len(t, txs, 3, "alice is named by both sends and by her failed send")
 	require.Equal(t, int64(2), txs[0].Height, "newest first")
 	require.Equal(t, fail.raw.Hash(), mustHex(t, txs[1].Hash))
 
-	page2, err := store.AccountTxs(alice, 2, 2)
+	page2, err := store.AccountTxsFiltered(alice, FilterAll, 2, 2)
 	require.NoError(t, err)
 	require.Len(t, page2, 1)
 	require.Equal(t, hex.EncodeToString(send1.raw.Hash()), page2[0].Hash)
 
-	none, err := store.AccountTxs(carol, 1, 10)
+	none, err := store.AccountTxsFiltered(carol, FilterAll, 1, 10)
 	require.NoError(t, err)
 	require.Empty(t, none, "an address only in a message body is not in the event index")
 
@@ -110,7 +110,7 @@ func TestFollower_resumesAfterRestart(t *testing.T) {
 	require.Equal(t, 1, n)
 	require.Equal(t, []int64{3}, chain.fetched, "a restart resumes after the cursor")
 
-	txs, err := store.AccountTxs(alice, 1, 10)
+	txs, err := store.AccountTxsFiltered(alice, FilterAll, 1, 10)
 	require.NoError(t, err)
 	require.Len(t, txs, 3, "nothing indexed twice")
 
@@ -322,7 +322,7 @@ func TestFollower_skipsTheInjectedInclusionCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ok, "the injected commit has no transaction record")
 
-	latest, err := store.LatestTxs(10)
+	latest, err := store.TxsFiltered(FilterAll, 1, 10)
 	require.NoError(t, err)
 	require.Len(t, latest, 1)
 	st, err := store.Status()

@@ -177,6 +177,8 @@ export function homeJson(over: Record<string, unknown> = {}) {
 export class FakeStream {
   readonly opened: string[] = [];
   closed = 0;
+  /** A gateway that is refusing streams sends no head: the stream is closed with its status. */
+  withholdHead = false;
   private sources: FakeEventSource[] = [];
 
   constructor(private current: { height: number; time: string; chainId: string } = { height: HEAD, time: HEAD_TIME, chainId: CHAIN_ID }) {}
@@ -187,7 +189,9 @@ export class FakeStream {
       this.closed++;
     });
     this.sources.push(source);
-    queueMicrotask(() => source.emit("head", this.headData(this.current)));
+    queueMicrotask(() => {
+      if (!this.withholdHead) source.emit("head", this.headData(this.current));
+    });
     return source;
   };
 
@@ -210,7 +214,16 @@ export class FakeStream {
   }
 
   drop(): void {
-    for (const s of this.sources) s.onerror?.(new Event("error"));
+    for (const s of this.sources) if (!s.shut) s.onerror?.(new Event("error"));
+  }
+
+  /** The gateway refuses the stream (429 or 503): the browser closes the connection and does not retry. */
+  refuse(): void {
+    for (const s of this.sources) {
+      if (s.shut) continue;
+      s.readyState = 2;
+      s.onerror?.(new Event("error"));
+    }
   }
 
   get open(): number {
@@ -220,6 +233,9 @@ export class FakeStream {
 
 class FakeEventSource implements EventSourceLike {
   onerror: ((event: Event) => unknown) | null = null;
+  readyState = 1;
+  /** Closed by the page: a closed EventSource fires nothing. */
+  shut = false;
   private listeners = new Map<string, ((event: { data?: unknown }) => void)[]>();
 
   constructor(private readonly onClose: () => void) {}
@@ -229,6 +245,7 @@ class FakeEventSource implements EventSourceLike {
   }
 
   close(): void {
+    this.shut = true;
     this.listeners.clear();
     this.onClose();
   }

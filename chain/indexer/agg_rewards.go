@@ -56,7 +56,7 @@ type epochRewards struct {
 
 // rewardTotals are the sums of an epoch's validator rewards.
 type rewardTotals struct {
-	amount, commission, operatorShare, delegators cosmath.Int
+	commission, operatorShare, delegators cosmath.Int
 }
 
 // recorded is whether the epoch's payout is known from events: there is a reward event for each
@@ -81,18 +81,13 @@ func (rw epochRewards) apply(row *EpochRow) error {
 }
 
 func (rw epochRewards) totals() (rewardTotals, error) {
-	t := rewardTotals{amount: cosmath.ZeroInt(), commission: cosmath.ZeroInt(), operatorShare: cosmath.ZeroInt(), delegators: cosmath.ZeroInt()}
+	t := rewardTotals{commission: cosmath.ZeroInt(), operatorShare: cosmath.ZeroInt(), delegators: cosmath.ZeroInt()}
 	for _, v := range rw.validators {
-		for _, p := range []struct {
-			into *cosmath.Int
-			raw  string
-		}{{&t.amount, v.Amount}, {&t.commission, v.Commission}, {&t.operatorShare, v.OperatorShare}, {&t.delegators, v.Delegators}} {
-			n, ok := cosmath.NewIntFromString(p.raw)
-			if !ok {
-				return rewardTotals{}, fmt.Errorf("reward of %s holds %q, not an integer", v.Operator, p.raw)
-			}
-			*p.into = p.into.Add(n)
+		n, err := rewardInts(v)
+		if err != nil {
+			return rewardTotals{}, err
 		}
+		t.commission, t.operatorShare, t.delegators = t.commission.Add(n.commission), t.operatorShare.Add(n.share), t.delegators.Add(n.delegators)
 	}
 	return t, nil
 }
@@ -174,10 +169,15 @@ func (rw *epochRewards) addDelegator(epoch uint64, e abci.Event, delegated map[s
 // and force-bonded. No event at all is not checked: the epoch is then not recorded.
 func (rw epochRewards) check(epoch uint64, delegated map[string]cosmath.Int) error {
 	if len(rw.validators) == 0 {
+		if len(delegated) > 0 {
+			return fmt.Errorf("epoch %d: delegators were credited and no validator was reported as paid", epoch)
+		}
 		return nil
 	}
 	paid := cosmath.ZeroInt()
+	known := map[string]bool{}
 	for _, v := range rw.validators {
+		known[v.Operator] = true
 		n, _ := rewardInts(v)
 		got, ok := delegated[v.Operator]
 		if !ok {
@@ -187,6 +187,11 @@ func (rw epochRewards) check(epoch uint64, delegated map[string]cosmath.Int) err
 			return fmt.Errorf("epoch %d: the delegator credits of %s add up to %s but its reward says %s", epoch, v.Operator, got, n.delegators)
 		}
 		paid = paid.Add(n.amount)
+	}
+	for operator := range delegated {
+		if !known[operator] {
+			return fmt.Errorf("epoch %d: delegators were credited by %s, which was not reported as paid", epoch, operator)
+		}
 	}
 	if moved := rw.credited.Add(rw.bonded); !paid.Equal(moved) {
 		return fmt.Errorf("epoch %d: the validator rewards add up to %s but x/power moved %s (credited %s, force-bonded %s); this indexer's copy of the reward events is out of date",

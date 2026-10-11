@@ -105,6 +105,9 @@ func (g *Gateway) Close() {
 	if g.chainHeadRateLimiter != nil {
 		g.chainHeadRateLimiter.Stop()
 	}
+	if g.chainIndexRateLimiter != nil {
+		g.chainIndexRateLimiter.Stop()
+	}
 	if g.webrtcJoinRateLimiter != nil {
 		g.webrtcJoinRateLimiter.Stop()
 	}

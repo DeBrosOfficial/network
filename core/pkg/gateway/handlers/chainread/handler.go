@@ -174,6 +174,8 @@ type Proxy struct {
 	// those streams (head.go).
 	heads     *headHub
 	headSlots chan struct{}
+	// indexSlots bounds the indexer reads in flight (index.go).
+	indexSlots chan struct{}
 	// headMaxAge is how long a head stream lasts.
 	headMaxAge time.Duration
 	// faucet and faucetSlots are the faucet route's service and its requests in flight (faucet.go).
@@ -227,6 +229,7 @@ func New(cfg Config) (*Proxy, error) {
 		faucetBudget:   chainfaucet.NewBudget(big.NewInt(chainfaucet.DefaultBudgetNorama), chainfaucet.BudgetWindow),
 		faucetCeiling:  chainfaucet.NewBudget(big.NewInt(chainfaucet.DefaultCeilingNorama), chainfaucet.BudgetWindow),
 		headSlots:      make(chan struct{}, headStreamMaxConcurrent),
+		indexSlots:     make(chan struct{}, indexMaxConcurrent),
 		headMaxAge:     headStreamMaxAge,
 	}
 	p.heads = newHeadHub(p.readHead, headPollInterval)

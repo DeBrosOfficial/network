@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -226,4 +227,59 @@ func TestHomeCache_aReaderThatGivesUpDoesNotCancelTheBuild(t *testing.T) {
 	body, err := c.get(context.Background(), 1, now, build)
 	require.NoError(t, err)
 	require.Equal(t, "snapshot", string(body))
+}
+
+func TestHome_theStuckReasonIsForTheOperatorAndNotServed(t *testing.T) {
+	api, _, store := homeAPI(t, 0)
+	store.markStuck(8, errors.New("dial tcp 10.0.0.7:26657: connect: connection refused"))
+
+	rec := httptest.NewRecorder()
+	api.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/index/v1/home", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotContains(t, rec.Body.String(), "10.0.0.7", "an address from an error is not served on the public home")
+	require.NotContains(t, rec.Body.String(), "connection refused")
+	var home struct {
+		Status struct {
+			Stuck map[string]any `json:"stuck"`
+		} `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &home))
+	require.Equal(t, 8.0, home.Status.Stuck["height"])
+	require.Equal(t, 1.0, home.Status.Stuck["failures"])
+	require.NotContains(t, home.Status.Stuck, "reason")
+
+	_, status := get(t, api, http.MethodGet, "/index/v1/status")
+	require.Contains(t, status["stuck"].(map[string]any)["reason"], "connection refused", "the operator reads the reason on the status route")
+}
+
+func TestHomeCache_aBuildThatPanicsDoesNotWedgeTheRoute(t *testing.T) {
+	var c homeCache
+	now := func() time.Time { return time.Unix(1, 0) }
+	require.Panics(t, func() {
+		_, _ = c.get(context.Background(), 1, now, func(context.Context) ([]byte, error) { panic("boom") })
+	})
+
+	body, err := c.get(context.Background(), 1, now, func(context.Context) ([]byte, error) { return []byte("fine"), nil })
+	require.NoError(t, err, "the next request builds its own")
+	require.Equal(t, "fine", string(body))
+}
+
+func TestHomeCache_aReaderWaitingOnABuildThatFailedIsToldSoAndNothingIsKept(t *testing.T) {
+	var c homeCache
+	now := func() time.Time { return time.Unix(1, 0) }
+	// A build is under way and ends in failure while the reader waits on it.
+	failed := &homeCall{done: make(chan struct{}), err: errors.New("chain unreachable")}
+	c.pending = failed
+	close(failed.done)
+
+	_, err := c.get(context.Background(), 1, now, func(context.Context) ([]byte, error) {
+		t.Error("a reader that found a build under way made a build of its own")
+		return nil, nil
+	})
+	require.ErrorContains(t, err, "chain unreachable")
+
+	c.pending = nil
+	body, err := c.get(context.Background(), 1, now, func(context.Context) ([]byte, error) { return []byte("fine"), nil })
+	require.NoError(t, err, "the failure was not kept")
+	require.Equal(t, "fine", string(body))
 }

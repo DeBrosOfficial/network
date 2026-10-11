@@ -110,13 +110,13 @@ func TestStore_latestTxsAreNewestFirst(t *testing.T) {
 	chain.add(third)
 	store := index(t, chain, 1)
 
-	txs, err := store.LatestTxs(2)
+	txs, err := store.TxsFiltered(FilterAll, 1, 2)
 	require.NoError(t, err)
 	require.Len(t, txs, 2)
 	require.Equal(t, hex.EncodeToString(third.raw.Hash()), txs[0].Hash)
 	require.Equal(t, hex.EncodeToString(second.raw.Hash()), txs[1].Hash)
 
-	all, err := store.LatestTxs(MaxLimit)
+	all, err := store.TxsFiltered(FilterAll, 1, MaxLimit)
 	require.NoError(t, err)
 	require.Len(t, all, 3)
 }
@@ -124,7 +124,7 @@ func TestStore_latestTxsAreNewestFirst(t *testing.T) {
 func TestStore_latestTxsOfAnEmptyIndex(t *testing.T) {
 	store := openStore(t, t.TempDir())
 	defer store.Close()
-	txs, err := store.LatestTxs(10)
+	txs, err := store.TxsFiltered(FilterAll, 1, 10)
 	require.NoError(t, err)
 	require.Empty(t, txs)
 	hours, err := store.Stats()

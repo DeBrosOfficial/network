@@ -199,6 +199,17 @@ func (g *Gateway) rateLimitMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// A read of the chain indexer can cost a scan, so it has a bucket of its own beside the general one.
+		if g.chainIndexRateLimiter != nil && isChainIndexPath(r.URL.Path) && !g.chainIndexRateLimiter.Allow(ip) {
+			w.Header().Set("Retry-After", "10")
+			httputil.WriteRPCError(w, http.StatusTooManyRequests,
+				httputil.ErrCodeRateLimited,
+				"too many chain index reads from this address — wait a moment and try again",
+				httputil.WithRetryable(),
+				httputil.WithRetryAfter(10))
+			return
+		}
+
 		// Simulating and broadcasting a transaction each have two buckets of their own: the
 		// client's network and the route as a whole (chain_tx_limit.go).
 		if l := g.chainTxLimiterFor(r); l != nil && !l.allow(ip) {
@@ -230,6 +241,18 @@ func (g *Gateway) rateLimitMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Retry-After", "5")
 			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
+		}
+		if g.chainHeadHolds != nil && r.URL.Path == chainHeadStreamPath {
+			if !g.chainHeadHolds.acquire(ip) {
+				w.Header().Set("Retry-After", "10")
+				httputil.WriteRPCError(w, http.StatusTooManyRequests,
+					httputil.ErrCodeRateLimited,
+					"too many chain streams are open from this address — close one and try again",
+					httputil.WithRetryable(),
+					httputil.WithRetryAfter(10))
+				return
+			}
+			defer g.chainHeadHolds.release(ip)
 		}
 		next.ServeHTTP(w, r)
 	})

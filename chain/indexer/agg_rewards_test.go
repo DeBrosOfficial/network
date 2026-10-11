@@ -225,6 +225,12 @@ func TestRewards_eventsThatDisagreeWithTheTransfersStopTheIndex(t *testing.T) {
 		"a validator that is no operator address": func(vals []fakeValidator, d string) []abci.Event {
 			return append(rewardEvents(t), validatorRewardEvent("nobody", "340", "0", "340", "0", "0"))
 		},
+		"delegator credits for a validator that was not reported as paid": func(vals []fakeValidator, d string) []abci.Event {
+			return append(rewardEvents(t), validatorRewardEvent(vals[0].operator, "340", "0", "340", "0", "0"), delegatorRewardEvent(vals[1].operator, d, "5"))
+		},
+		"delegator credits and no validator reported as paid": func(vals []fakeValidator, d string) []abci.Event {
+			return append(rewardEvents(t), delegatorRewardEvent(vals[0].operator, d, "5"))
+		},
 		"an amount that is not an integer": func(vals []fakeValidator, d string) []abci.Event {
 			return append(rewardEvents(t), validatorRewardEvent(vals[0].operator, "many", "0", "0", "0", "0"))
 		},

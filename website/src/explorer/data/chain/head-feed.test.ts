@@ -110,7 +110,7 @@ describe("createHeadFeed", () => {
 
   it("TestHeadFeed_unavailable_before_any_head_rejects_current_and_closes_the_stream", async () => {
     const listeners = new Map<string, (event: { data?: unknown }) => void>();
-    const down = { onerror: null, addEventListener: (type: string, l: (event: { data?: unknown }) => void) => listeners.set(type, l), close: vi.fn() };
+    const down = { onerror: null, readyState: 1, addEventListener: (type: string, l: (event: { data?: unknown }) => void) => listeners.set(type, l), close: vi.fn() };
     const feed = createHeadFeed(URL, () => down);
     const pending = feed.current();
     listeners.get("unavailable")?.({});
@@ -120,7 +120,7 @@ describe("createHeadFeed", () => {
 
   it("TestHeadFeed_a_stream_that_never_speaks_is_a_timeout_not_a_hang", async () => {
     vi.useFakeTimers();
-    const silent = { onerror: null, addEventListener: () => undefined, close: vi.fn() };
+    const silent = { onerror: null, readyState: 1, addEventListener: () => undefined, close: vi.fn() };
     const feed = createHeadFeed(URL, () => silent);
     const pending = feed.current();
     const assertion = expect(pending).rejects.toThrow("The chain could not be reached.");
@@ -162,5 +162,97 @@ describe("createHeadFeed", () => {
     stream.push(HEAD + 1);
     expect(errors).toEqual(["The live connection to the chain was lost; it reconnects by itself."]);
     expect(heads).toEqual([HEAD + 1]);
+  });
+
+  describe("a stream the gateway refuses", () => {
+    it("TestHeadFeed_a_refused_stream_is_reported_and_opened_again_later", async () => {
+      vi.useFakeTimers();
+      const stream = new FakeStream();
+      const feed = createHeadFeed(URL, stream.factory);
+      const heads: number[] = [];
+      const errors: string[] = [];
+      feed.subscribe((h) => heads.push(h.height), (e) => errors.push(e.message));
+      await vi.advanceTimersByTimeAsync(0);
+
+      stream.refuse();
+      expect(errors).toEqual(["The gateway has too many live connections open; trying again shortly."]);
+      expect(stream.open).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(stream.opened).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(2);
+      expect(stream.opened).toHaveLength(2);
+      stream.push(HEAD + 1);
+      expect(heads).toEqual([HEAD + 1]);
+    });
+
+    it("TestHeadFeed_each_refusal_waits_twice_as_long_and_a_head_starts_the_count_again", async () => {
+      vi.useFakeTimers();
+      const stream = new FakeStream();
+      stream.withholdHead = true;
+      const feed = createHeadFeed(URL, stream.factory);
+      feed.subscribe(() => undefined, () => undefined);
+      await vi.advanceTimersByTimeAsync(0);
+
+      stream.refuse();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(stream.opened).toHaveLength(2);
+      stream.refuse();
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(stream.opened).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(2);
+      expect(stream.opened).toHaveLength(3);
+
+      stream.push(HEAD + 1);
+      stream.refuse();
+      await vi.advanceTimersByTimeAsync(5_001);
+      expect(stream.opened).toHaveLength(4);
+    });
+
+    it("TestHeadFeed_the_wait_has_a_ceiling", async () => {
+      vi.useFakeTimers();
+      const stream = new FakeStream();
+      stream.withholdHead = true;
+      const feed = createHeadFeed(URL, stream.factory);
+      feed.subscribe(() => undefined, () => undefined);
+      await vi.advanceTimersByTimeAsync(0);
+      for (let i = 0; i < 8; i++) {
+        stream.refuse();
+        await vi.advanceTimersByTimeAsync(60_001);
+      }
+      const before = stream.opened.length;
+      stream.refuse();
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(stream.opened).toHaveLength(before);
+      await vi.advanceTimersByTimeAsync(2);
+      expect(stream.opened).toHaveLength(before + 1);
+    });
+
+    it("TestHeadFeed_the_last_reader_leaving_cancels_the_reopen", async () => {
+      vi.useFakeTimers();
+      const stream = new FakeStream();
+      stream.withholdHead = true;
+      const feed = createHeadFeed(URL, stream.factory);
+      const stop = feed.subscribe(() => undefined, () => undefined);
+      await vi.advanceTimersByTimeAsync(0);
+      stream.refuse();
+      stop();
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(stream.opened).toHaveLength(1);
+    });
+
+    it("TestHeadFeed_current_on_a_refused_stream_rejects_and_does_not_reopen", async () => {
+      vi.useFakeTimers();
+      const listeners = new Map<string, (event: { data?: unknown }) => void>();
+      const refused = { onerror: null as ((e: Event) => unknown) | null, readyState: 1, addEventListener: (t: string, l: (event: { data?: unknown }) => void) => listeners.set(t, l), close: vi.fn() };
+      const feed = createHeadFeed(URL, () => refused);
+      const pending = feed.current();
+      const assertion = expect(pending).rejects.toThrow("too many live connections");
+      refused.readyState = 2;
+      refused.onerror?.(new Event("error"));
+      await assertion;
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(refused.close).toHaveBeenCalledTimes(1);
+    });
   });
 });

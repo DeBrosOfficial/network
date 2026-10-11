@@ -24,6 +24,13 @@ const (
 
 	indexMaxLimit = 100
 	indexMaxPage  = 1000
+
+	// indexMaxConcurrent bounds the index reads in flight on one gateway. A page deep in a list makes
+	// the indexer skip the rows before it (up to 99,900), so the work of one read is not constant;
+	// the reads beyond this get a 503 and ask again, as the module queries do.
+	indexMaxConcurrent = 32
+	// indexBusyRetryAfter is the Retry-After, in seconds, of that answer.
+	indexBusyRetryAfter = "2"
 )
 
 var (
@@ -70,6 +77,14 @@ func (p *Proxy) serveIndex(w http.ResponseWriter, r *http.Request, rest string) 
 	if !p.indexInstalled() {
 		w.Header().Set("Retry-After", noIndexerRetryAfter)
 		writeErr(w, http.StatusServiceUnavailable, msgNoIndexer)
+		return
+	}
+	select {
+	case p.indexSlots <- struct{}{}:
+		defer func() { <-p.indexSlots }()
+	default:
+		w.Header().Set("Retry-After", indexBusyRetryAfter)
+		writeErr(w, http.StatusServiceUnavailable, "the chain index is busy; try again")
 		return
 	}
 	p.forwardIndex(w, r, upstreamIndexBase+upstream, q)

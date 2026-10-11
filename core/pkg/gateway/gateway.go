@@ -234,6 +234,10 @@ type Gateway struct {
 	chainQueryRateLimiter *RateLimiter
 	// chainHeadRateLimiter bounds the head streams (/v1/chain/head/stream) one client network opens.
 	chainHeadRateLimiter *RateLimiter
+	// chainHeadHolds bounds the head streams one client network holds open at once.
+	chainHeadHolds *holdLimiter
+	// chainIndexRateLimiter bounds the chain indexer reads (/v1/chain/index/) one client network makes.
+	chainIndexRateLimiter *RateLimiter
 	// chainSimulateLimiter and chainBroadcastLimiter cap the wallet transaction routes
 	// (/v1/chain/simulate, /v1/chain/broadcast), per client network and per route.
 	chainSimulateLimiter  *chainTxLimiter
@@ -1699,6 +1703,10 @@ func configureRateLimiters(gw *Gateway) {
 
 	gw.chainHeadRateLimiter = NewRateLimiter(chainHeadStreamsPerMinute, chainHeadStreamBurst)
 	gw.chainHeadRateLimiter.StartCleanup(5*time.Minute, 10*time.Minute)
+	gw.chainHeadHolds = newHoldLimiter(chainHeadStreamsPerClient)
+
+	gw.chainIndexRateLimiter = NewRateLimiter(chainIndexPerMinute, chainIndexBurst)
+	gw.chainIndexRateLimiter.StartCleanup(5*time.Minute, 10*time.Minute)
 
 	gw.chainSimulateLimiter = newChainTxLimiter(chainSimulatePerAddressPerMinute, chainSimulatePerAddressBurst,
 		chainSimulateRoutePerMinute, chainSimulateRouteBurst)

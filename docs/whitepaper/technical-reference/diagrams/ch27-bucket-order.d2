@@ -5,12 +5,13 @@ ex: "exempt: call next, no bucket"
 a: "credential path?\nauth bucket 30/min burst 10" {shape: diamond}
 b: "path under /v1/chain/query/?\nchain query bucket 120/min burst 30" {shape: diamond}
 h: "path = /v1/chain/head/stream?\nhead stream bucket 12/min burst 6" {shape: diamond}
+i: "path under /v1/chain/index/?\nindex bucket 1,200/min burst 240" {shape: diamond}
 c: "POST simulate or broadcast?\nper-address bucket, then route bucket" {shape: diamond}
 d: "capability WebSocket upgrade?\n60/min burst 20" {shape: diamond}
 e: "path = /v1/proxy/relay?\n30/min burst 10" {shape: diamond}
 f: "general bucket\n10,000/min burst 5,000" {shape: diamond}
 ok: "next handler"
-r429: "429 RATE_LIMITED\nRetry-After 60 / 10 / 10 / 10 / 60 / 60 / 5"
+r429: "429 RATE_LIMITED\nRetry-After 60 / 10 / 10 / 10 / 10 / 60 / 60 / 5"
 
 in -> ex: "exempt"
 in -> a: "not exempt"
@@ -19,7 +20,9 @@ a -> b: "pass or n/a"
 b -> r429: "empty"
 b -> h: "pass or n/a"
 h -> r429: "empty"
-h -> c: "pass or n/a"
+h -> i: "pass or n/a"
+i -> r429: "empty"
+i -> c: "pass or n/a"
 c -> r429: "either empty"
 c -> d: "pass or n/a"
 d -> r429: "empty"

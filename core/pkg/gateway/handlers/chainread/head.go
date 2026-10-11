@@ -135,6 +135,11 @@ func (h *headHub) poll(ctx context.Context) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if ctx.Err() != nil {
+		// The last stream left while the read was in flight: this reader belongs to a session that has
+		// ended, and what it read must not become the next session's first head.
+		return
+	}
 	if err != nil {
 		if !h.failed {
 			h.failed = true

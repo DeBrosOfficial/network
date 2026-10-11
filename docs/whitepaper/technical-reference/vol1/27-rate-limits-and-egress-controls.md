@@ -69,6 +69,7 @@ For a non-exempt request the middleware computes the bucket key once and checks 
 | 1 | credential | `/v1/auth/challenge`, `verify`, `api-key`, `token`, `refresh`, `device`, `device/approve`, `device/token`, `devices/approve` | 30 | 10 | 60 s |
 | 2 | chain query | any path under `/v1/chain/query/` | 120 | 30 | 10 s |
 | 2 | chain head stream | `GET /v1/chain/head/stream` | 12 | 6 | 10 s |
+| 2 | chain index | any path under `/v1/chain/index/` | 1,200 | 240 | 10 s |
 | 3 | chain transaction, per client | `POST /v1/chain/simulate` | 30 | 10 | 10 s |
 | 3 | chain transaction, per client | `POST /v1/chain/broadcast` | 12 | 4 | 10 s |
 | 3 | chain light client, per client | `POST /v1/chain/light` | 240 | 60 | 10 s |
@@ -78,7 +79,7 @@ For a non-exempt request the middleware computes the bucket key once and checks 
 | 5 | relay stream | `/v1/proxy/relay` | 30 | 10 | 60 s |
 | 6 | general | everything else, and everything that passed the above | 10,000 | 5,000 | 5 s |
 
-The numbers come from `core/pkg/gateway/gateway.go:configureRateLimiters` and the constants next to each route (`core/pkg/gateway/rate_limit_key.go:chainQueriesPerMinute` and `chainHeadStreamsPerMinute`, `core/pkg/gateway/chain_tx_limit.go`, `core/pkg/gateway/ws_capability.go:capabilityUpgradesPerMinute`, `core/pkg/gateway/relay_tunnel_handler.go:relayStreamsPerMinute`). A request on a special path passes through its own bucket and then through the general one; the general bucket is the floor for all non-exempt traffic.
+The numbers come from `core/pkg/gateway/gateway.go:configureRateLimiters` and the constants next to each route (`core/pkg/gateway/rate_limit_key.go:chainQueriesPerMinute`, `chainHeadStreamsPerMinute` and `chainIndexPerMinute`, `core/pkg/gateway/chain_tx_limit.go`, `core/pkg/gateway/ws_capability.go:capabilityUpgradesPerMinute`, `core/pkg/gateway/relay_tunnel_handler.go:relayStreamsPerMinute`). A request on a special path passes through its own bucket and then through the general one; the general bucket is the floor for all non-exempt traffic.
 
 Each choice has a reason in the code.
 
@@ -86,7 +87,7 @@ Each choice has a reason in the code.
 
 **Chain query.** Each request runs a query on the node's chain process. The explorer does not use the route, so a person browsing is nowhere near 120 a minute.
 
-**Chain head stream.** A stream is a request that holds a connection for up to 100 seconds, and a page open all day opens one about every minute and a half, so the bucket (12 a minute, burst 6, per client network) lets a household of tabs do that and not a client that opens streams to hold the gateway's slots. How many are open at once is bounded apart, by a counter of 1,024 per gateway. The explorer's reads under `/v1/chain/index/` have no bucket of their own: they draw on the general one like any other route, and a test holds them to it.
+**Chain head stream.** A stream is a request that holds a connection for up to 100 seconds, and a page open all day opens one about every minute and a half, so the bucket (12 a minute, burst 6, per client network) lets a household of tabs do that and not a client that opens streams to hold the gateway's slots. How many are open at once is bounded apart: four per client network (a refused one is a 429 with `Retry-After: 10`, and it takes nothing), and 1,024 per gateway. **Chain index.** A read under `/v1/chain/index/` can cost the indexer a scan (a page deep in a list skips the rows before it), so the reads have a bucket of their own, far above what a person browsing makes (a page is a few reads, the home one a block) and far below the general one, and at most 32 are in flight on a gateway (the rest get `503` with `Retry-After: 2` and never reach the indexer). They also draw on the general bucket after it, and a test holds them to it.
 
 **Chain simulate and broadcast.** A wallet with no node of its own simulates and broadcasts through the gateway. The chain already makes a spam transaction cost its sender a fee, so the gateway bounds load only. Each route has two buckets: one per client network and one for the whole route on this gateway, so many addresses together cannot lift the load either. `chainTxLimiter.allow` takes from the client bucket first and from the route bucket only if the client bucket allowed, so one noisy address cannot use up the route. A broadcast is a write that reaches every validator's mempool, so its buckets are the tighter. Only a `POST` draws on these buckets (`chainTxLimiterFor`).
 
@@ -176,6 +177,8 @@ These are concurrency caps. They protect descriptors, memory and Tor circuits, n
 | Relay streams per client network | 4 at once | `relayMaxStreamsPerAddress` |
 | Relay stream size, lifetime | 64 MiB each direction, 5 min | `relayMaxBytes`, `relayMaxDuration` |
 | Relayed downloads per fetch capability | 4 at once | `core/pkg/gateway/handlers/storage/relayed_download.go:maxConcurrentPerFetchCap` |
+| Index reads in flight | 32 per gateway; the rest `503` with `Retry-After: 2` | `core/pkg/gateway/handlers/chainread/index.go:indexMaxConcurrent` |
+| Head streams open per client network | 4; the rest `429` with `Retry-After: 10` | `core/pkg/gateway/rate_limit_key.go:chainHeadStreamsPerClient` |
 | Head streams open | 1,024 per gateway; the rest `503` with `Retry-After: 5` | `core/pkg/gateway/handlers/chainread/head.go:headStreamMaxConcurrent` |
 | Signed-transaction calls in flight | simulate 8, broadcast 16; the rest `503` with `Retry-After: 2` | `core/pkg/gateway/handlers/chainread/tx.go:simulateMaxConcurrent` |
 | Signed transaction size | 1 MiB (CometBFT's default `max_tx_bytes`) | `core/pkg/gateway/handlers/chainread/tx.go:txMaxBytes` |
@@ -204,6 +207,7 @@ The table lists every limiter in the system. "Owner" names the chapter that expl
 | Chain broadcast buckets | client network; whole route | 12 / min burst 4; 600 / min burst 100 | per gateway | `core/pkg/gateway/chain_tx_limit.go:chainTxLimiter` | this chapter |
 | Chain light-client buckets | client network; whole route | 240 / min burst 60; 6,000 / min burst 600 | per gateway | `core/pkg/gateway/chain_tx_limit.go:chainTxLimiter` | this chapter |
 | Chain head stream bucket | client network | 12 / min, burst 6 | per gateway | `core/pkg/gateway/rate_limit_key.go:chainHeadStreamsPerMinute` | this chapter |
+| Chain index bucket | client network | 1,200 / min, burst 240 | per gateway | `core/pkg/gateway/rate_limit_key.go:chainIndexPerMinute` | this chapter |
 | Chain tx calls in flight | route | 8 simulate, 16 broadcast | per gateway | `core/pkg/gateway/handlers/chainread/tx.go:simulateMaxConcurrent` | this chapter |
 | Capability upgrade bucket | client network | 60 / min, burst 20 | per gateway | `core/pkg/gateway/ws_capability.go:capabilityUpgradesPerMinute` | this chapter, [14](14-authorization.md) |
 | Relay stream bucket | client network | 30 / min, burst 10 | per gateway | `core/pkg/gateway/relay_tunnel_handler.go:relayStreamsPerMinute` | this chapter, [12](12-gateway-architecture.md#anonymity-proxies) |

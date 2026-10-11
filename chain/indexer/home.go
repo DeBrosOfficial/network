@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -29,13 +30,23 @@ const (
 
 // HomeStatus is the index's position against the chain's, as /status has it, with the lag.
 type HomeStatus struct {
-	StartHeight    int64  `json:"start_height"`
-	Cursor         int64  `json:"cursor"`
-	Earliest       int64  `json:"earliest"`
-	Tip            int64  `json:"tip"`
-	Lag            int64  `json:"lag"`
-	AggregatesFrom int64  `json:"aggregates_from"`
-	Stuck          *Stuck `json:"stuck,omitempty"`
+	StartHeight    int64 `json:"start_height"`
+	Cursor         int64 `json:"cursor"`
+	Earliest       int64 `json:"earliest"`
+	Tip            int64 `json:"tip"`
+	Lag            int64 `json:"lag"`
+	AggregatesFrom int64 `json:"aggregates_from"`
+	// Stuck says that the indexer cannot go on and where, not why: the error behind it can name the
+	// node's addresses and is for the operator, who reads it on /status.
+	Stuck *HomeStuck `json:"stuck,omitempty"`
+}
+
+// HomeStuck is Stuck without its reason.
+type HomeStuck struct {
+	Height      int64     `json:"height"`
+	StatePruned bool      `json:"state_pruned"`
+	Since       time.Time `json:"since"`
+	Failures    int       `json:"failures"`
 }
 
 // HomeEpoch is the epoch in progress at the chain's tip, as x/emission has it.
@@ -117,7 +128,7 @@ func (s *Store) homeFromIndex(earliest, tip int64) (Home, error) {
 	}
 	h := Home{Status: HomeStatus{
 		StartHeight: st.StartHeight, Cursor: st.Cursor, Earliest: earliest, Tip: tip,
-		Lag: max(tip-st.Cursor, 0), AggregatesFrom: st.AggregatesFrom, Stuck: st.Stuck,
+		Lag: max(tip-st.Cursor, 0), AggregatesFrom: st.AggregatesFrom, Stuck: homeStuck(st.Stuck),
 	}}
 	if h.Blocks, err = blockPage(snap, 1, HomeBlocks); err != nil {
 		return Home{}, err
@@ -132,6 +143,13 @@ func (s *Store) homeFromIndex(earliest, tip int64) (Home, error) {
 		return Home{}, err
 	}
 	return h, nil
+}
+
+func homeStuck(s *Stuck) *HomeStuck {
+	if s == nil {
+		return nil
+	}
+	return &HomeStuck{Height: s.Height, StatePruned: s.StatePruned, Since: s.Since, Failures: s.Failures}
 }
 
 // examplesOf picks the newest transaction and the account that signed most of the window.
@@ -188,6 +206,10 @@ type homeCache struct {
 	pending *homeCall
 }
 
+// errHomeBuildAborted is what readers waiting on a build that panicked are told: the build is not
+// kept, and the next request makes its own.
+var errHomeBuildAborted = errors.New("the home snapshot build was aborted")
+
 type homeCall struct {
 	done chan struct{}
 	body []byte
@@ -213,20 +235,21 @@ func (c *homeCache) get(ctx context.Context, cursor int64, now func() time.Time,
 			return nil, fmt.Errorf("gave up waiting for the home snapshot: %w", ctx.Err())
 		}
 	}
-	call := &homeCall{done: make(chan struct{})}
+	call := &homeCall{done: make(chan struct{}), err: errHomeBuildAborted}
 	c.pending = call
 	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		c.pending = nil
+		if call.err == nil {
+			c.cursor, c.at, c.body = cursor, now(), call.body
+		}
+		c.mu.Unlock()
+		close(call.done)
+	}()
 
 	buildCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), homeBuildTimeout)
 	defer cancel()
 	call.body, call.err = build(buildCtx)
-
-	c.mu.Lock()
-	c.pending = nil
-	if call.err == nil {
-		c.cursor, c.at, c.body = cursor, now(), call.body
-	}
-	c.mu.Unlock()
-	close(call.done)
 	return call.body, call.err
 }

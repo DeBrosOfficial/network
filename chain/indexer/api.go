@@ -285,36 +285,6 @@ func pageQuery(w http.ResponseWriter, r *http.Request) (int, int, bool) {
 	return page, limit, true
 }
 
-// limitQuery accepts only limit, at most once, 1 to MaxLimit.
-func limitQuery(w http.ResponseWriter, r *http.Request) (int, bool) {
-	q, err := url.ParseQuery(r.URL.RawQuery)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad query")
-		return 0, false
-	}
-	limit := DefaultLimit
-	for k, vs := range q {
-		if k != "limit" {
-			writeError(w, http.StatusBadRequest, "unknown query parameter")
-			return 0, false
-		}
-		n, good := boundedInt(firstOf(vs), MaxLimit)
-		if len(vs) != 1 || !good {
-			writeError(w, http.StatusBadRequest, "limit is out of range")
-			return 0, false
-		}
-		limit = n
-	}
-	return limit, true
-}
-
-func firstOf(vs []string) string {
-	if len(vs) == 0 {
-		return ""
-	}
-	return vs[0]
-}
-
 var pageBounds = map[string]int{"page": MaxPage, "limit": MaxLimit}
 
 func boundedInt(raw string, max int) (int, bool) {

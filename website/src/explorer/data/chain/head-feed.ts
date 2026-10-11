@@ -11,7 +11,9 @@ import { iso, rec, str, uint } from "./wire";
  * There is no other way to learn the head here. A browser without EventSource, or a stream that
  * cannot be opened, is an error the page shows; it is not met by asking for the status on a timer,
  * which would be the per-reader load the stream exists to remove. EventSource reconnects by itself
- * when the connection drops or the gateway ends a stream (it does, after 100 s).
+ * when the connection drops or the gateway ends a stream (it does, after 100 s). It does not when the
+ * gateway refuses the stream (429 or 503: too many open): it gives up and closes, so the feed opens
+ * it again itself, further apart each time it is refused.
  */
 
 /** What a feed needs of an EventSource, so a test can stand in for one. */
@@ -19,15 +21,23 @@ export interface EventSourceLike {
   addEventListener(type: string, listener: (event: { data?: unknown }) => void): void;
   close(): void;
   onerror: ((event: Event) => unknown) | null;
+  /** EventSource.CLOSED (2) once the browser has given up on the connection. */
+  readonly readyState: number;
 }
 
 export type EventSourceFactory = (url: string) => EventSourceLike;
 
 /** How long the first head may take to arrive before the reader is told the chain could not be reached. */
 const FIRST_HEAD_TIMEOUT_MS = 15_000;
+/** EventSource.readyState once the browser will not try again. */
+const SOURCE_CLOSED = 2;
+/** How long to wait before opening a stream the gateway refused, doubling on each refusal up to the ceiling. */
+const REOPEN_MIN_MS = 5_000;
+const REOPEN_MAX_MS = 60_000;
 const MAX_CHAIN_ID = 64;
 
 const CONNECTION_LOST = "The live connection to the chain was lost; it reconnects by itself.";
+const CONNECTION_REFUSED = "The gateway has too many live connections open; trying again shortly.";
 const UNREACHABLE = "The chain could not be reached.";
 const NO_EVENT_SOURCE = "This browser cannot follow the chain live.";
 
@@ -68,6 +78,8 @@ export function createHeadFeed(streamUrl: string, open: EventSourceFactory | nul
   const waiting = new Set<{ resolve: (h: Head) => void; reject: (e: Error) => void }>();
   let source: EventSourceLike | null = null;
   let last: Head | null = null;
+  let refusals = 0;
+  let reopen: ReturnType<typeof setTimeout> | null = null;
 
   const fail = (error: Error) => {
     for (const s of subscribers) s.onError(error);
@@ -86,6 +98,7 @@ export function createHeadFeed(streamUrl: string, open: EventSourceFactory | nul
       fail(err instanceof Error ? err : new ChainReadError("The chain sent a malformed head."));
       return;
     }
+    refusals = 0;
     last = nextHead(last, head);
     for (const w of waiting) w.resolve(last);
     waiting.clear();
@@ -106,12 +119,41 @@ export function createHeadFeed(streamUrl: string, open: EventSourceFactory | nul
       failWaiting(error);
       fail(error);
     });
-    opened.onerror = () => fail(new ChainReadError(CONNECTION_LOST));
+    opened.onerror = () => {
+      if (source !== opened) return;
+      if (opened.readyState !== SOURCE_CLOSED) {
+        fail(new ChainReadError(CONNECTION_LOST));
+        return;
+      }
+      // The browser does not retry a stream the gateway refused. Let go of it, say so, and open it again later.
+      opened.close();
+      source = null;
+      const error = new ChainReadError(CONNECTION_REFUSED);
+      failWaiting(error);
+      fail(error);
+      scheduleReopen();
+    };
     source = opened;
   };
 
+  const scheduleReopen = () => {
+    if (reopen !== null || (subscribers.size === 0 && waiting.size === 0)) return;
+    const delay = Math.min(REOPEN_MAX_MS, REOPEN_MIN_MS * 2 ** refusals);
+    refusals += 1;
+    reopen = setTimeout(() => {
+      reopen = null;
+      if (subscribers.size > 0) connect();
+    }, delay);
+  };
+
   function release() {
-    if (subscribers.size > 0 || waiting.size > 0 || source === null) return;
+    if (subscribers.size > 0 || waiting.size > 0) return;
+    if (reopen !== null) {
+      clearTimeout(reopen);
+      reopen = null;
+    }
+    refusals = 0;
+    if (source === null) return;
     source.close();
     source = null;
     last = null;

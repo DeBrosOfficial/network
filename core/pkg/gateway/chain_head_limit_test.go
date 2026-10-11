@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/DeBrosOfficial/network/pkg/logging"
@@ -80,5 +81,132 @@ func TestChainHeadRateLimiter_isMuchTighterThanTheGeneralOne(t *testing.T) {
 	// A page held open all day reconnects about once every hundred seconds; its bucket must not run dry.
 	if perMinute := float64(60) / 100; g.chainHeadRateLimiter.rate*60 < perMinute {
 		t.Errorf("the head stream bucket refills at %.3f per minute, below the %.2f a page open all day uses", g.chainHeadRateLimiter.rate*60, perMinute)
+	}
+}
+
+// A read of the indexer can cost a scan, so /v1/chain/index/ has a bucket of its own: a client that
+// exhausts it is limited there and not on the other chain routes.
+func TestRateLimitMiddleware_indexReadsHaveTheirOwnBucket(t *testing.T) {
+	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
+	g := &Gateway{
+		logger:                logger,
+		rateLimiter:           NewRateLimiter(100000, 100000),
+		chainIndexRateLimiter: NewRateLimiter(60, 3),
+	}
+	served := 0
+	handler := g.rateLimitMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { served++ }))
+
+	var lastCode int
+	for i := 0; i < 10; i++ {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, request("127.0.0.1:9999", "10.0.0.1, 198.51.100.7", "/v1/chain/index/txs?page=1000&limit=100"))
+		lastCode = w.Code
+	}
+	if served != 3 || lastCode != http.StatusTooManyRequests {
+		t.Errorf("served %d of 10 index reads with last code %d; want the burst of 3 and a 429", served, lastCode)
+	}
+
+	served = 0
+	for _, path := range []string{"/v1/chain/status", "/v1/chain/head/stream", "/v1/chain/indexer/x"} {
+		handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "198.51.100.7", path))
+	}
+	if served != 3 {
+		t.Errorf("%d of 3 other chain reads were served; the index bucket must apply to /v1/chain/index/ alone", served)
+	}
+}
+
+func TestChainIndexRateLimiter_isFarAboveABrowsingPersonAndFarBelowTheGeneralBucket(t *testing.T) {
+	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
+	g := &Gateway{logger: logger}
+	configureRateLimiters(g)
+	if g.chainIndexRateLimiter == nil || g.chainHeadHolds == nil {
+		t.Fatal("the index limiter or the head stream holds are missing")
+	}
+	if g.chainIndexRateLimiter.rate*60 < 600 || g.chainIndexRateLimiter.burst < 100 {
+		t.Errorf("the index bucket (%.2f/s, burst %d) is too small for a page that reads the index a dozen times and a home a block",
+			g.chainIndexRateLimiter.rate, g.chainIndexRateLimiter.burst)
+	}
+	if g.chainIndexRateLimiter.rate >= g.rateLimiter.rate/5 || g.chainIndexRateLimiter.burst >= g.rateLimiter.burst/5 {
+		t.Errorf("the index bucket (%.2f/s, burst %d) is not far tighter than the general one (%.2f/s, burst %d)",
+			g.chainIndexRateLimiter.rate, g.chainIndexRateLimiter.burst, g.rateLimiter.rate, g.rateLimiter.burst)
+	}
+}
+
+func TestHoldLimiter_boundsWhatOneClientHoldsAndForgetsWhoHoldsNothing(t *testing.T) {
+	l := newHoldLimiter(2)
+	if !l.acquire("a") || !l.acquire("a") {
+		t.Fatal("two holds were refused")
+	}
+	if l.acquire("a") {
+		t.Error("a third hold was granted")
+	}
+	if !l.acquire("b") {
+		t.Error("another client was refused for a's holds")
+	}
+	l.release("a")
+	if !l.acquire("a") {
+		t.Error("a hold that was given back was not available")
+	}
+	l.release("a")
+	l.release("a")
+	l.release("b")
+	l.release("nobody")
+	if len(l.held) != 0 {
+		t.Errorf("clients holding nothing are still kept: %v", l.held)
+	}
+}
+
+// One client network may hold only so many head streams open, however fast its bucket would let it
+// open them; a refused one takes nothing, and a stream that ends gives its place back.
+func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfHeadStreams(t *testing.T) {
+	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
+	g := &Gateway{
+		logger:         logger,
+		rateLimiter:    NewRateLimiter(100000, 100000),
+		chainHeadHolds: newHoldLimiter(2),
+	}
+	release := make(chan struct{})
+	var inside sync.WaitGroup
+	handler := g.rateLimitMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		inside.Done()
+		<-release
+	}))
+
+	var done sync.WaitGroup
+	open := func(client string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		done.Add(1)
+		go func() {
+			defer done.Done()
+			handler.ServeHTTP(w, request("127.0.0.1:9999", client, "/v1/chain/head/stream"))
+		}()
+		return w
+	}
+	inside.Add(3)
+	open("198.51.100.7")
+	open("198.51.100.7")
+	open("203.0.113.9") // another client network has its own place
+	inside.Wait()
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/head/stream"))
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") == "" {
+		t.Errorf("a third stream from one client: HTTP %d, Retry-After %q; want 429 with a retry", w.Code, w.Header().Get("Retry-After"))
+	}
+
+	close(release)
+	done.Wait()
+	g.chainHeadHolds.mu.Lock()
+	held := len(g.chainHeadHolds.held)
+	g.chainHeadHolds.mu.Unlock()
+	if held != 0 {
+		t.Errorf("%d clients still hold streams after every stream ended", held)
+	}
+
+	inside.Add(1)
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/head/stream"))
+	if w.Code != http.StatusOK {
+		t.Errorf("a stream after the others ended: HTTP %d, want 200", w.Code)
 	}
 }

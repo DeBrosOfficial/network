@@ -51,7 +51,7 @@ func emitDelegatorReward(ctx sdk.Context, validator string, delegator sdk.AccAdd
 // yet (a bootstrap committee member who has not self-bonded) or has zero delegator shares, the
 // entire amount is treated as the operator's own. It emits a power_delegator_reward event for each
 // delegator other than the operator and one power_validator_reward event for the validator
-// (rewardevents.go), so an indexer can attribute the epoch's payout without reading state.
+// (emitValidatorReward, emitDelegatorReward), so an indexer can attribute the epoch's payout without reading state.
 func (k Keeper) distributeValidatorReward(ctx sdk.Context, valoperAddr string, amount math.Int, denom string) error {
 	valAddr, err := sdk.ValAddressFromBech32(valoperAddr)
 	if err != nil {

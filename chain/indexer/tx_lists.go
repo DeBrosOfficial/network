@@ -35,9 +35,6 @@ func (w *writer) addAccountKinds(addr string, kinds []string, height int64, inde
 	return nil
 }
 
-// LatestTxs returns the newest transactions, newest first.
-func (s *Store) LatestTxs(limit int) ([]Tx, error) { return s.TxsFiltered(FilterAll, 1, limit) }
-
 // TxsFiltered returns one page of the transactions that match filter, newest first. page starts at 1.
 func (s *Store) TxsFiltered(filter string, page, limit int) ([]Tx, error) {
 	prefix := []byte(pfxLatest)
@@ -45,11 +42,6 @@ func (s *Store) TxsFiltered(filter string, page, limit int) ([]Tx, error) {
 		prefix = kindTxPrefix(filter)
 	}
 	return s.txPage(prefix, page, limit, "the transaction list")
-}
-
-// AccountTxs returns one page of the transactions whose events name addr, newest first. page starts at 1.
-func (s *Store) AccountTxs(addr string, page, limit int) ([]Tx, error) {
-	return s.AccountTxsFiltered(addr, FilterAll, page, limit)
 }
 
 // AccountTxsFiltered returns one page of the transactions whose events name addr and that match
