@@ -155,6 +155,9 @@ func verifyRSAProof(fingerprint, publicKey, signature []byte, nodeID string, ed2
 	if !bytes.Equal(x509.MarshalPKCS1PublicKey(pub), publicKey) {
 		return fmt.Errorf("the RSA public key is not in canonical DER")
 	}
+	if bits := pub.N.BitLen(); bits < clusterreg.RelayRSAMinBits || bits > clusterreg.RelayRSAMaxBits {
+		return fmt.Errorf("the RSA key is %d bits, want %d to %d", bits, clusterreg.RelayRSAMinBits, clusterreg.RelayRSAMaxBits)
+	}
 	sum := sha256.Sum256(clusterreg.RelayRSAProofMessage(nodeID, ed25519Pub))
 	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, sum[:], signature); err != nil {
 		return fmt.Errorf("the signature does not verify under the RSA public key")

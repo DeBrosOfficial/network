@@ -21,6 +21,10 @@ const (
 
 	// RelayRSAPublicKeyMaxLen bounds the DER of the relay's RSA identity key (chain x/relay MaxRSAPublicKeyLen).
 	RelayRSAPublicKeyMaxLen = 1024
+	// RelayRSAMinBits and RelayRSAMaxBits bound the size of the relay's RSA identity key (chain x/relay MinRSABits and
+	// MaxRSABits). Tor's identity keys are 1024 bits.
+	RelayRSAMinBits = 1024
+	RelayRSAMaxBits = 4096
 	// RelayRSASignatureMaxLen bounds the RSA proof: a signature is as long as the key, and a 4096-bit key is 512 bytes.
 	RelayRSASignatureMaxLen = 512
 

@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -81,4 +82,18 @@ func TestVerifyRSAProof_aKeyThatHashesRightButIsNotAnRSAKeyIsRefused(t *testing.
 	sum := sha1.Sum(junk)
 	err := types.VerifyRSAProof(sum[:], junk, make([]byte, 32), "node-a", []byte("sig"))
 	require.ErrorIs(t, err, types.ErrRSAProofMismatch)
+}
+
+// A key outside the sizes Tor and the chain accept is refused before any signature is checked, however
+// its fingerprint was made: the modulus below is not a real key, only a number of the wrong size.
+func TestVerifyRSAProof_aKeyOfTheWrongSizeIsRefused(t *testing.T) {
+	for name, bits := range map[string]uint{"512 bits": 512, "4104 bits": 4104} {
+		n := new(big.Int).Lsh(big.NewInt(1), bits-1)
+		n.Add(n, big.NewInt(1))
+		der := x509.MarshalPKCS1PublicKey(&rsa.PublicKey{N: n, E: 65537})
+		sum := sha1.Sum(der)
+		err := types.VerifyRSAProof(sum[:], der, make([]byte, 32), "node-a", make([]byte, bits/8))
+		require.ErrorIs(t, err, types.ErrRSAProofMismatch, name)
+		require.ErrorContains(t, err, "bits", name)
+	}
 }

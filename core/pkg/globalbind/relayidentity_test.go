@@ -5,9 +5,12 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1" // #nosec G505 -- a Tor relay fingerprint is SHA-1 by definition
 	"crypto/sha512"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -132,5 +135,18 @@ func TestParseRelayIdentity_refusals(t *testing.T) {
 	}
 	if _, err := NewRelayIdentity(expanded, nil, vectorChain, vectorOperator, "node-a"); err == nil {
 		t.Error("a relay with no RSA key was signed for")
+	}
+}
+
+func TestVerifyRSAProof_aKeyOfTheWrongSizeIsRefused(t *testing.T) {
+	for name, bits := range map[string]uint{"512 bits": 512, "4104 bits": 4104} {
+		n := new(big.Int).Lsh(big.NewInt(1), bits-1)
+		n.Add(n, big.NewInt(1))
+		der := x509.MarshalPKCS1PublicKey(&rsa.PublicKey{N: n, E: 65537})
+		sum := sha1.Sum(der) // #nosec G401
+		err := verifyRSAProof(sum[:], der, make([]byte, bits/8), "node-a", make([]byte, 32))
+		if err == nil || !strings.Contains(err.Error(), "bits") {
+			t.Errorf("%s: err = %v", name, err)
+		}
 	}
 }
