@@ -162,7 +162,7 @@ func globalIndexerAPI() string {
 // stripped of anything unprintable like every other error text in the report.
 func readIndexerStatus(ctx context.Context) *IndexerReport {
 	r := &IndexerReport{}
-	body, err := globalIndexerGet(ctx, globalIndexerAPI()+"/index/v1/status")
+	body, err := globalIndexerGet(ctx, globalIndexerAPI()+"/index/v1/operator/status")
 	if err != nil {
 		r.Error = shortChainError(err)
 		return r

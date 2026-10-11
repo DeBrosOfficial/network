@@ -77,7 +77,9 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", cacheControl(segs))
 	switch {
 	case len(segs) == 1 && segs[0] == "status":
-		a.serveStatus(w, r)
+		a.serveStatus(w, r, false)
+	case len(segs) == 2 && segs[0] == operatorSegment && segs[1] == "status":
+		a.serveStatus(w, r, true)
 	case len(segs) == 1 && segs[0] == "home":
 		a.serveHome(w, r)
 	case len(segs) == 1 && segs[0] == "blocks":
@@ -118,7 +120,16 @@ func routeSegments(r *http.Request) ([]string, bool) {
 	return strings.Split(rest, "/"), true
 }
 
-func (a *API) serveStatus(w http.ResponseWriter, r *http.Request) {
+// operatorSegment prefixes the routes for the node's own operator. The gateway proxies only the
+// routes it allowlists (core/pkg/gateway/handlers/chainread/index.go) and lists none under it, so
+// they are answered to the processes of the node and never to the public.
+const operatorSegment = "operator"
+
+// serveStatus answers the index's heights and, while the follower is stuck, the block it is stuck
+// at. The error of the failing pass is the operator's: it names the chain's addresses and the
+// node's state, so the public status (the explorer reads it through the gateway) carries only
+// whether the state was pruned, and operator/status carries the error as well.
+func (a *API) serveStatus(w http.ResponseWriter, r *http.Request, withReason bool) {
 	if !noQuery(w, r) {
 		return
 	}
@@ -138,7 +149,11 @@ func (a *API) serveStatus(w http.ResponseWriter, r *http.Request) {
 		"aggregates_from": st.AggregatesFrom,
 	}
 	if st.Stuck != nil {
-		out["stuck"] = st.Stuck
+		stuck := *st.Stuck
+		if !withReason {
+			stuck.Reason = ""
+		}
+		out["stuck"] = stuck
 	}
 	writeJSON(w, out)
 }

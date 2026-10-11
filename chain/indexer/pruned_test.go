@@ -304,7 +304,7 @@ func TestStatus_aStuckFollowerSaysWhy(t *testing.T) {
 		_, err := f.Step(context.Background())
 		require.ErrorIs(t, err, boom)
 	}
-	code, body := get(t, api, http.MethodGet, "/index/v1/status")
+	code, body := get(t, api, http.MethodGet, "/index/v1/operator/status")
 	require.Equal(t, http.StatusOK, code)
 	stuck, ok := body["stuck"].(map[string]any)
 	require.True(t, ok, "the status names the stuck follower: %v", body)

@@ -249,7 +249,9 @@ func TestHome_theStuckReasonIsForTheOperatorAndNotServed(t *testing.T) {
 	require.NotContains(t, home.Status.Stuck, "reason")
 
 	_, status := get(t, api, http.MethodGet, "/index/v1/status")
-	require.Contains(t, status["stuck"].(map[string]any)["reason"], "connection refused", "the operator reads the reason on the status route")
+	require.NotContains(t, status["stuck"].(map[string]any), "reason", "the public status carries no error text")
+	_, op := get(t, api, http.MethodGet, "/index/v1/operator/status")
+	require.Contains(t, op["stuck"].(map[string]any)["reason"], "connection refused", "the operator reads the reason on operator/status")
 }
 
 func TestHomeCache_aBuildThatPanicsDoesNotWedgeTheRoute(t *testing.T) {

@@ -14,7 +14,7 @@ func stubIndexerStatus(t *testing.T, body string, err error) {
 	old := globalIndexerGet
 	t.Cleanup(func() { globalIndexerGet = old })
 	globalIndexerGet = func(_ context.Context, url string) ([]byte, error) {
-		if !strings.HasSuffix(url, "/index/v1/status") {
+		if !strings.HasSuffix(url, "/index/v1/operator/status") {
 			t.Errorf("the report asked the indexer for %s", url)
 		}
 		return []byte(body), err

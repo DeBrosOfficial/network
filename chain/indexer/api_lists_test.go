@@ -170,6 +170,7 @@ func TestCacheControl_headDependentAnswersAreShortAndSettledOnesLonger(t *testin
 	}
 	for target, want := range map[string]string{
 		"/index/v1/status":                     "public, max-age=2",
+		"/index/v1/operator/status":            "no-store",
 		"/index/v1/txs":                        "public, max-age=2",
 		"/index/v1/blocks":                     "public, max-age=2",
 		"/index/v1/accounts/" + alice + "/txs": "public, max-age=2",

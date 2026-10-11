@@ -19,6 +19,9 @@ const (
 // /index/v1/). An error answer is never cached (writeError). The gateway passes exactly these two
 // forms on (core/pkg/gateway/handlers/chainread/index.go).
 func cacheControl(segs []string) string {
+	if len(segs) > 0 && segs[0] == operatorSegment {
+		return cacheNoStore
+	}
 	if isSettled(segs) {
 		return publicMaxAge(SettledMaxAge)
 	}

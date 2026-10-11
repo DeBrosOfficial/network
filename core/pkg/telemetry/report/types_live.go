@@ -94,7 +94,7 @@ type ProviderReport struct {
 	Error               string `json:"error,omitempty"`
 }
 
-// IndexerReport is the chain indexer's own status (its /index/v1/status on loopback): the block it
+// IndexerReport is the chain indexer's own status (its /index/v1/operator/status on loopback): the block it
 // has indexed and the tip of its node, and, while it cannot advance, the block it is stuck on and
 // why. StatePruned is true when the node pruned the state it needs, which no retry changes.
 type IndexerReport struct {

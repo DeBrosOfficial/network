@@ -124,6 +124,8 @@ func TestIndexProxy_refusesBadParamsWithoutCallingTheIndexer(t *testing.T) {
 		code int
 	}{
 		{"/v1/chain/index/status?x=1", http.StatusBadRequest},
+		// The indexer's operator routes carry the node's own error text: never proxied.
+		{"/v1/chain/index/operator/status", http.StatusNotFound},
 		{"/v1/chain/index/stats?hours=3", http.StatusBadRequest},
 		{"/v1/chain/index/txs?limit=101", http.StatusBadRequest},
 		{"/v1/chain/index/txs?limit=0", http.StatusBadRequest},

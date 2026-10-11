@@ -12,8 +12,8 @@ import (
 type Stuck struct {
 	// Height is the block the follower cannot index.
 	Height int64 `json:"height"`
-	// Reason is the error of the last pass.
-	Reason string `json:"reason"`
+	// Reason is the error of the last pass, served on operator/status only.
+	Reason string `json:"reason,omitempty"`
 	// StatePruned is true when the reason is that the node no longer keeps the state of a height
 	// the block needs, which no retry changes.
 	StatePruned bool `json:"state_pruned"`
