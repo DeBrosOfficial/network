@@ -3,8 +3,10 @@ package keeper
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"cosmossdk.io/collections"
 
@@ -383,7 +385,22 @@ func (k Keeper) compress(ctx context.Context, owner sdk.AccAddress, assetID, anc
 	if err := k.Decompressed.Remove(ctx, assetID); err != nil {
 		return 0, 0, nil, 0, fmt.Errorf("failed to remove decompressed asset: %w", err)
 	}
+	emitCompress(ctx, asset, indices[0])
 	return asset.TreeId, indices[0], tree.Root(), next.Nonce, nil
+}
+
+// emitCompress reports the decompressed record a compress consumed and the leaf it moved to, on the
+// message's own event manager, after every write has succeeded (types.EventTypeCompress).
+func emitCompress(ctx context.Context, asset types.DecompressedAsset, leafIndex uint32) {
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(types.EventTypeCompress,
+		sdk.NewAttribute(types.AttributeKeyAssetID, hex.EncodeToString(asset.AssetId)),
+		sdk.NewAttribute(types.AttributeKeyDelegate, asset.Delegate),
+		sdk.NewAttribute(types.AttributeKeyMetadataCID, asset.MetadataCid),
+		sdk.NewAttribute(types.AttributeKeyCreatorHash, hex.EncodeToString(asset.CreatorHash)),
+		sdk.NewAttribute(types.AttributeKeyHashID, strconv.FormatUint(uint64(asset.HashId), 10)),
+		sdk.NewAttribute(types.AttributeKeyTreeID, strconv.FormatUint(asset.TreeId, 10)),
+		sdk.NewAttribute(types.AttributeKeyLeafIndex, strconv.FormatUint(uint64(leafIndex), 10)),
+	))
 }
 
 func (k Keeper) recordSnapshot(ctx context.Context, creator sdk.AccAddress, treeID uint64, cid string) (uint64, error) {

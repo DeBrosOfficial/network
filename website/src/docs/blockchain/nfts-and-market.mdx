@@ -18,7 +18,7 @@ A compressed NFT is a leaf in a concurrent Merkle tree. The chain stores only th
 | `Decompress` / `Compress` | Turn a leaf into a handle stored on chain, and back |
 | `RecordSnapshot` | Records a content id for a tree. Opens no storage deal |
 
-There is no admin key and no parameter that can be changed. There are no events: the indexer replays the messages to rebuild ownership. `GET /v1/chain/index/cnft/assets/{id}` and `…/cnft/owners/{addr}/assets` serve that index.
+There is no admin key and no parameter that can be changed. Only two messages emit an event, because they consume a record the message does not carry: a settle emits `market_settle` (listing, bid, tree, leaf index, asset id, buyer) and a compress emits `cnft_compress` (the decompressed record and the new leaf). The indexer replays the messages to rebuild ownership and takes those two records from the events. `GET /v1/chain/index/cnft/assets/{id}` and `…/cnft/owners/{addr}/assets` serve that index.
 
 ## The market (`x/market`)
 

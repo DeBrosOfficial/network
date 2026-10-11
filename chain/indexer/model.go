@@ -5,9 +5,11 @@
 //
 // Everything is taken from what the chain commits: block headers, the raw
 // transaction bytes, and each transaction's ExecTxResult (code, gas, events,
-// message responses). x/cnft and x/market emit no events of their own, so
-// cNFT state is rebuilt from the message bodies and their responses, the same
-// way the chain rebuilds a leaf from the transaction that wrote it.
+// message responses). cNFT state is rebuilt from the message bodies and their
+// responses, the same way the chain rebuilds a leaf from the transaction that
+// wrote it; only a settle and a compress, which delete a record their message
+// does not carry, are read from the events x/market and x/cnft emit for them
+// (chain_events.go).
 //
 // The follower also keeps aggregates for the explorer, computed once as it ingests
 // blocks and never per request (agg_*.go): one row per closed emission epoch, the

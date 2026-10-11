@@ -252,8 +252,9 @@ func (f *Follower) applyMessages(ctx context.Context, w *writer, pos txPos, hash
 	if len(resps) != len(msgs) {
 		return fmt.Errorf("transaction %s has %d messages but %d responses", hashHex, len(msgs), len(resps))
 	}
-	a := applier{ctx: ctx, chain: f.chain, w: w, height: pos.height, tx: hashHex}
+	a := applier{ctx: ctx, chain: f.chain, w: w, height: pos.height, tx: hashHex, events: res.Events}
 	for i := range msgs {
+		a.msgIndex = i
 		if err := a.apply(msgs[i], resps[i]); err != nil {
 			return fmt.Errorf("transaction %s message %d (%s): %w", hashHex, i, msgs[i].TypeUrl, err)
 		}

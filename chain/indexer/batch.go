@@ -139,6 +139,16 @@ func (w *writer) decompressed(id []byte) ([]byte, Asset, bool, error) {
 	return nil, Asset{}, false, closeIter(it)
 }
 
+// eventsFrom is the height of the first market_settle or cnft_compress event the index has seen.
+func (w *writer) eventsFrom() (int64, bool, error) {
+	v, ok, err := getUint(w.b, []byte(keyEventsFrom))
+	return int64(v), ok, err
+}
+
+func (w *writer) setEventsFrom(height int64) error {
+	return w.set([]byte(keyEventsFrom), be64(uint64(height)))
+}
+
 func (w *writer) treeCollection(tree uint64) (uint64, bool, error) {
 	return getUint(w.b, treeKey(tree))
 }

@@ -139,6 +139,8 @@ Every module has an `invariants` query. They return false if the module's accoun
 
 `orama-global indexer` (loopback port 31015) indexes blocks, transactions, per-address transactions and cNFT assets into a Pebble database. It feeds the `index/…` routes.
 
+A market settle and a cNFT compress consume a record the message does not carry (the listing and the winning bid, the decompressed asset), so the chain reports it in a `market_settle` and a `cnft_compress` event, and the indexer takes it from the event of the same transaction. A listing created, or an asset decompressed, before the index began is therefore indexed when it is settled or compressed, even on a node that pruned the state it was created in. Settles and compresses from before the chain emitted those events carry none: the indexer reads the state before the block for them, as it did before, and stops with `state_pruned` if the node no longer has it. The indexer records the first height at which it saw either event, and from then on a settle or compress without its event stops the indexer instead of being read from state.
+
 It also keeps aggregates for the explorer, computed once as each block is indexed and never per request:
 
 - One row per closed emission epoch: its first and last block and time, what was minted (validator and delegator share, storage and relay services, development, faucet) and burned during it, the fees collected, burned and distributed, and what the closing block credited to earnings accounts. Each figure is the chain's own, taken from its running totals at the epoch's closing height or from the closing block's events.

@@ -104,7 +104,7 @@ Nonces make every change a different leaf, so an old proof of an old state can n
 
 ![The states of an asset](../diagrams/ch45-asset-states.svg)
 
-`MsgDecompress` is signed by the leaf's owner (`ValidateBasic` requires the signer to equal `current.owner`; a delegate cannot decompress). It refuses an asset id that is already decompressed, zeroes the leaf in the tree, and stores a `DecompressedAsset` keyed by asset id with the leaf's fields, the tree id, the leaf index and the collection. `MsgCompress` takes the asset id and an anchor, requires the signer to be the stored owner, builds the leaf with nonce plus one, appends it to the same tree and removes the record. If the tree is full the compress fails and the asset stays decompressed.
+`MsgDecompress` is signed by the leaf's owner (`ValidateBasic` requires the signer to equal `current.owner`; a delegate cannot decompress). It refuses an asset id that is already decompressed, zeroes the leaf in the tree, and stores a `DecompressedAsset` keyed by asset id with the leaf's fields, the tree id, the leaf index and the collection. `MsgCompress` takes the asset id and an anchor, requires the signer to be the stored owner, builds the leaf with nonce plus one, appends it to the same tree and removes the record. If the tree is full the compress fails and the asset stays decompressed. A successful compress emits one `cnft_compress` event (`chain/x/cnft/types/events.go`) with the record it consumed (`asset_id`, `delegate`, `metadata_cid`, `creator_hash`, `hash_id`) and the leaf it appended (`tree_id`, `leaf_index`): the record is deleted in the same message, and the message names only the asset id.
 
 A decompressed asset is queryable (`/orama/cnft/v1/decompressed`) and can be an ordinary state record for an application that wants to read ownership without a proof. The module has no transfer message for it: it cannot move until it is compressed again. While an asset id is decompressed, `MsgMint` refuses to mint that id again.
 
@@ -114,7 +114,7 @@ A decompressed asset is queryable (`/orama/cnft/v1/decompressed`) and can be an 
 
 ### Rebuilding a tree from history
 
-The chain keeps no leaf data, and neither module emits events. The data is in the transactions: every state change carries the current leaf in its message and the new nonce in its response. `chain/indexer` folds each successful transaction of the cnft and market message types into an asset index (`chain/indexer/cnft.go`), which serves `/cnft/assets/...` and `/cnft/owners/<owner>/assets`. `types.Proof(leaves, index, depth)` rebuilds a proof and root from an ordered leaf list, and a test rebuilds a tree from transaction bodies and compares roots (`TestRebuildTreeFromTxBodies`). A wallet that stores its own leaf and refreshes its proof from an indexer needs no trust in the indexer: the chain verifies the proof.
+The chain keeps no leaf data. The data is in the transactions: every state change carries the current leaf in its message and the new nonce in its response. Only the two messages that consume a record the message does not carry emit an event, `market_settle` and `cnft_compress` (see Settlement and Compression above); no other message of either module emits one. `chain/indexer` folds each successful transaction of the cnft and market message types into an asset index (`chain/indexer/cnft.go`), which serves `/cnft/assets/...` and `/cnft/owners/<owner>/assets`. `types.Proof(leaves, index, depth)` rebuilds a proof and root from an ordered leaf list, and a test rebuilds a tree from transaction bodies and compares roots (`TestRebuildTreeFromTxBodies`). A wallet that stores its own leaf and refreshes its proof from an indexer needs no trust in the indexer: the chain verifies the proof.
 
 ### Listing
 
@@ -136,6 +136,8 @@ A listing is not an escrow. The leaf stays where it is and the seller may still 
 - **Accept a bid** (`bid_id` above 0). Only the seller can sign. The bid's escrowed amount is the price and the bidder is the buyer.
 
 The leaf and proof in the message must match the listing's index and asset id and prove that the *seller still owns the leaf* (`ProveOwned`). Then, in order (`chain/x/market/keeper/msg_server.go:settle`): `SplitSale` divides the price into `royalty = price x royalty_bps / 10,000` (rounded down) and the seller's remainder, which sum to the price; the buyer's payment is taken, or the winning bid consumed; every other bid on the listing is refunded; `TransferForSale` moves the leaf to the buyer (owner set to the buyer, delegate cleared, nonce plus one) with no further payment; `CreditEarnings` credits the royalty to the collection creator and the remainder to the seller from the `market` module; the listing is deleted. The whole message is one transaction, so a failure at any step leaves no partial state. The response reports price, royalty and seller proceeds.
+
+A successful settle emits one `market_settle` event (`chain/x/market/types/events.go`) at the end of the handler, so a failed settle emits nothing: `listing_id`, `bid_id` (0 for buy now), `tree_id`, `leaf_index`, `asset_id` (hex) and `buyer`. The listing is deleted and the bid consumed in the same message, and the message names the listing and bid only by id, so the tree and the bidder exist nowhere else once the block is committed.
 
 The royalty applies to market sales only. A creator who is also the seller receives both parts.
 
@@ -261,7 +263,7 @@ The marketplace has no listing index on chain: a client that wants "all listings
 - **Asset ids are not unique across compressed leaves.** The creator chooses them and the module checks only against decompressed assets; the market's one-listing-per-asset index is keyed by id alone, so two leaves with one id share a listing slot. `chain/x/cnft/keeper/msg_server.go:mint`.
 - **Tree deposits are never released and trees cannot be deleted.** `chain/x/cnft/types/expected_keepers.go:FeesKeeper`.
 - **Decompressed assets have no transfer.** The only exit is `MsgCompress`, signed by the owner. `chain/x/cnft/keeper/msg_server.go:decompress`.
-- **No events.** Neither module emits events; clients depend on transaction bodies and the indexer. `chain/indexer/cnft.go`.
+- **Only settle and compress emit events.** A client rebuilds every other change from transaction bodies and the indexer, and the settles and compresses that ran before the chain emitted these two events carry none, so an indexer that starts inside that history reads the state before the block, which a node that pruned it cannot answer. `chain/indexer/chain_events.go`.
 - **No on-chain listing or bid enumeration.** Only point queries exist. `chain/x/market/keeper/grpc_query.go`.
 - **No cnft invariants query.** Only the market module can be checked from outside the keeper. `chain/x/market/keeper/invariants.go:CheckInvariants`.
 - **The fleet e2e cannot run the paid paths.** Bids, buy now and royalty payout need a funded bank balance, which the fleet's chain does not provide; those are covered by keeper tests. `e2e/features/chain-assets/feature.yaml`.
@@ -271,9 +273,9 @@ The marketplace has no listing index on chain: a client that wants "all listings
 **Unit tests** (all in `make test`):
 
 - `chain/x/cnft/types/`: `TestEncodeLeaf_canonicalOrder`, `TestEncodeLeaf_everyFieldChangesTheEncoding`, `TestTreeDeposit_isDepthBufferAndCanopy`, `TestAppend_matchesFullRoot`, `TestTwoAppends_keepTheAnchorRoot`, `TestProof_fastForwardAndStale`, `TestProof_olderThanBufferFails`, `TestCanopy_shortProofMatchesCurrentRoot`, `TestMerkleProof_1024Leaves`, `TestMerkleBenchmark_1MLeaves`.
-- `chain/x/cnft/keeper/`: `TestCreateTree_locksDeposit`, `TestTwoMintsInOneBlock_keepIntermediateRoot`, `TestStaleProofAndRootOlderThanBuffer`, `TestMsgTransfer_doesNotCreditEarnings`, `TestDecompressCompressRoundTrip`, `TestRebuildTreeFromTxBodies`, `TestRecordSnapshot_storesCIDWithoutStorage`, `TestSnapshotsQuery_isBounded`.
-- `chain/x/market/`: `TestSplitSale_500BpsOf10000`, `TestSettle_paysEarningsNotBank`, `TestSettle_acceptsBidFromEscrow`.
-- `chain/indexer/`: `TestFollower_cnftLifecycle`, `TestFollower_marketSettleMovesTheLeafToTheBidder`.
+- `chain/x/cnft/keeper/`: `TestCreateTree_locksDeposit`, `TestTwoMintsInOneBlock_keepIntermediateRoot`, `TestStaleProofAndRootOlderThanBuffer`, `TestMsgTransfer_doesNotCreditEarnings`, `TestDecompressCompressRoundTrip`, `TestRebuildTreeFromTxBodies`, `TestCompress_emitsTheConsumedRecordAndTheNewLeaf`, `TestCompress_failedCompressEmitsNothing`, `TestRecordSnapshot_storesCIDWithoutStorage`, `TestSnapshotsQuery_isBounded`.
+- `chain/x/market/`: `TestSplitSale_500BpsOf10000`, `TestSettle_paysEarningsNotBank`, `TestSettle_acceptsBidFromEscrow`, `TestSettle_buyNowEmitsTheListingAndTheSigner`, `TestSettle_acceptedBidEmitsTheBidderNotTheSigner`, `TestSettle_failedSettleEmitsNothing`.
+- `chain/indexer/`: `TestFollower_cnftLifecycle`, `TestFollower_marketSettleMovesTheLeafToTheBidder`, `TestFollower_settleOfAListingFromBeforeTheStartNeedsNoPriorState`, `TestFollower_compressOfAnAssetDecompressedBeforeTheStartNeedsNoPriorState`, `TestFollower_afterTheFirstEventASettleWithoutOneStopsTheFollower`.
 - `chain/app/`: `TestWalletFlow_mintTransferListAndBuyACompressedNFT`, `TestWalletFlow_transferACompressedNFTToAnotherWallet`, `TestBindings_cnftMintAndProofVerification`, `TestBindings_marketListBidCancelAndSettle`.
 
 **Fleet e2e** (the owner runs the fleet suite): `e2e/features/chain-assets/` runs a client-side tree on the live chain: collection, tree deposit, mint, transfer between validators, metadata update, decompress and compress, burn, snapshot, every proof and shape refusal, and the market's list, relist refusal, self-bid, self-buy and cancel rules.

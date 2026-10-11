@@ -823,7 +823,7 @@ From [NFTs and the market](../vol2/45-nfts-and-the-market.md#known-gaps).
 - **Asset ids are not unique across compressed leaves.** The creator chooses them and the module checks only against decompressed assets; the market's one-listing-per-asset index is keyed by id alone, so two leaves with one id share a listing slot. `chain/x/cnft/keeper/msg_server.go:mint`.
 - **Tree deposits are never released and trees cannot be deleted.** `chain/x/cnft/types/expected_keepers.go:FeesKeeper`.
 - **Decompressed assets have no transfer.** The only exit is `MsgCompress`, signed by the owner. `chain/x/cnft/keeper/msg_server.go:decompress`.
-- **No events.** Neither module emits events; clients depend on transaction bodies and the indexer. `chain/indexer/cnft.go`.
+- **Only settle and compress emit events.** A client rebuilds every other change from transaction bodies and the indexer, and the settles and compresses that ran before the chain emitted these two events carry none, so an indexer that starts inside that history reads the state before the block, which a node that pruned it cannot answer. `chain/indexer/chain_events.go`.
 - **No on-chain listing or bid enumeration.** Only point queries exist. `chain/x/market/keeper/grpc_query.go`.
 - **No cnft invariants query.** Only the market module can be checked from outside the keeper. `chain/x/market/keeper/invariants.go:CheckInvariants`.
 - **The fleet e2e cannot run the paid paths.** Bids, buy now and royalty payout need a funded bank balance, which the fleet's chain does not provide; those are covered by keeper tests. `e2e/features/chain-assets/feature.yaml`.

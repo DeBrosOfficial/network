@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -24,6 +25,10 @@ type applier struct {
 	w      *writer
 	height int64
 	tx     string
+	// events are the transaction's events, and msgIndex is the position of the message being
+	// applied: the events that message emitted carry it (msgEvent).
+	events   []abci.Event
+	msgIndex int
 }
 
 // handler decodes a message and its response into fresh values and applies them.
@@ -135,7 +140,19 @@ func applyDecompress(a applier, msg, _ gogoproto.Message) error {
 // applyCompress moves a decompressed asset to the new leaf the chain appended.
 func applyCompress(a applier, msg, resp gogoproto.Message) error {
 	m, r := msg.(*cnfttypes.MsgCompress), resp.(*cnfttypes.MsgCompressResponse)
-	prev, err := a.decompressedAsset(m.AssetId)
+	ev, err := a.msgEvent(cnfttypes.EventTypeCompress)
+	if err != nil {
+		return err
+	}
+	var fromEvent *cnfttypes.DecompressedAsset
+	if ev != nil {
+		c, err := compressFromEvent(ev, m, r)
+		if err != nil {
+			return err
+		}
+		fromEvent = &c.prev
+	}
+	prev, err := a.decompressedAsset(m.AssetId, fromEvent)
 	if err != nil {
 		return err
 	}

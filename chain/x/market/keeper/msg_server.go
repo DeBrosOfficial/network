@@ -3,7 +3,9 @@ package keeper
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
@@ -266,7 +268,21 @@ func (k Keeper) settle(ctx context.Context, signer sdk.AccAddress, listingID, bi
 	if err := k.deleteListing(ctx, listing); err != nil {
 		return math.Int{}, math.Int{}, math.Int{}, err
 	}
+	emitSettle(ctx, listing, bidID, buyer)
 	return price, royalty, sellerProceeds, nil
+}
+
+// emitSettle reports the listing a settle consumed and who got the leaf, on the message's own event
+// manager, after every write has succeeded (types.EventTypeSettle).
+func emitSettle(ctx context.Context, listing types.Listing, bidID uint64, buyer sdk.AccAddress) {
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(types.EventTypeSettle,
+		sdk.NewAttribute(types.AttributeKeyListingID, strconv.FormatUint(listing.Id, 10)),
+		sdk.NewAttribute(types.AttributeKeyBidID, strconv.FormatUint(bidID, 10)),
+		sdk.NewAttribute(types.AttributeKeyTreeID, strconv.FormatUint(listing.TreeId, 10)),
+		sdk.NewAttribute(types.AttributeKeyLeafIndex, strconv.FormatUint(uint64(listing.LeafIndex), 10)),
+		sdk.NewAttribute(types.AttributeKeyAssetID, hex.EncodeToString(listing.AssetId)),
+		sdk.NewAttribute(types.AttributeKeyBuyer, buyer.String()),
+	))
 }
 
 func (k Keeper) payProceeds(ctx context.Context, creator, seller sdk.AccAddress, royalty, sellerProceeds math.Int) error {

@@ -65,7 +65,7 @@ The holder knows what they own and proves it. Every transfer, burn or metadata u
 
 A creator decides what is minted and to whom, but cannot change a minted leaf's owner, the royalty, or delete the tree. Asset ids are chosen by the creator and are unique only among decompressed assets, so a buyer relying on an id should also check the tree and the `creator_hash` written at mint. A delegate can transfer, burn and update metadata but cannot list or decompress. Tree deposits are never released.
 
-Neither module emits events, so ownership is rebuilt from transaction bodies. The indexer in [Storage deals, archive and indexer](ch18-storage-deals-archive-and-indexer.md) does this, and a wallet needs no trust in it because the chain verifies every proof.
+Only two messages emit an event, because they consume a record the message does not carry: a settle reports the listing, tree and buyer it consumed, and a compress the decompressed record it consumed. Everything else is rebuilt from transaction bodies. The indexer in [Storage deals, archive and indexer](ch18-storage-deals-archive-and-indexer.md) does this, and a wallet needs no trust in it because the chain verifies every proof.
 
 `x/market` lists a leaf at a fixed price, accepts escrowed bids, and settles by buy-now or by the seller accepting a bid. A listing is not an escrow; settlement re-proves that the seller still owns the leaf. In one transaction it splits the price into a creator royalty (basis points copied from the collection at listing) and the seller's remainder, refunds every other bid, moves the leaf with the delegate cleared, and credits both shares to earnings accounts. Bids and buy-now payments are visible bank movements, but proceeds never become public balances.
 

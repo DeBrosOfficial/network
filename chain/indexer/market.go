@@ -40,15 +40,9 @@ func applyCancelBid(a applier, msg, _ gogoproto.Message) error {
 // and the nonce advanced.
 func applySettle(a applier, msg, _ gogoproto.Message) error {
 	m := msg.(*markettypes.MsgSettle)
-	tree, err := a.listingTree(m.ListingId)
+	tree, buyer, err := a.settled(m)
 	if err != nil {
 		return err
-	}
-	buyer := m.Signer
-	if m.BidId != 0 {
-		if buyer, err = a.bidder(m.ListingId, m.BidId); err != nil {
-			return err
-		}
 	}
 	next := m.Leaf
 	next.Owner, next.Delegate, next.Nonce = buyer, "", m.Leaf.Nonce+1
@@ -58,12 +52,38 @@ func applySettle(a applier, msg, _ gogoproto.Message) error {
 	return a.w.deleteListing(m.ListingId)
 }
 
-// The lookups below read what an earlier message wrote. The index holds it
-// when that message came after the start height, including earlier in the
-// same block. Otherwise the record was already in the chain state before
-// this block, so it is read at height-1: settle and compress delete it, and
-// the latest state no longer has it. A node that pruned that state answers
-// with an error, and the block is not indexed.
+// settled returns the tree the listing was in and who the leaf goes to. The chain
+// reports both in the market_settle event of the same message; only a settle that
+// ran on a binary that did not emit it is resolved from the index and the
+// state (chain_events.go has the rule).
+func (a applier) settled(m *markettypes.MsgSettle) (tree uint64, buyer string, err error) {
+	ev, err := a.msgEvent(markettypes.EventTypeSettle)
+	if err != nil {
+		return 0, "", err
+	}
+	if ev != nil {
+		s, err := settleFromEvent(ev, m)
+		return s.treeID, s.buyer, err
+	}
+	if tree, err = a.listingTree(m.ListingId); err != nil {
+		return 0, "", err
+	}
+	buyer = m.Signer
+	if m.BidId != 0 {
+		if buyer, err = a.bidder(m.ListingId, m.BidId); err != nil {
+			return 0, "", err
+		}
+	}
+	return tree, buyer, nil
+}
+
+// The lookups below read what an earlier message wrote, for a settle or compress
+// whose transaction carries no event for it. The index holds it when that
+// message came after the start height, including earlier in the same block.
+// Otherwise the record was already in the chain state before this block, so it
+// is read at height-1: settle and compress delete it, and the latest state no
+// longer has it. A node that pruned that state answers with an error, and the
+// block is not indexed.
 
 func (a applier) listingTree(id uint64) (uint64, error) {
 	l, ok, err := a.w.listing(id)
@@ -90,11 +110,19 @@ func (a applier) bidder(listingID, bidID uint64) (string, error) {
 }
 
 // decompressedAsset returns the decompressed asset a compress consumes, and
-// drops its record from the index: the asset moves to a new leaf.
-func (a applier) decompressedAsset(id []byte) (cnfttypes.DecompressedAsset, error) {
+// drops its record from the index: the asset moves to a new leaf. fromEvent is
+// the record the chain reported in the compress's own event, nil for a compress
+// whose transaction carries none.
+func (a applier) decompressedAsset(id []byte, fromEvent *cnfttypes.DecompressedAsset) (cnfttypes.DecompressedAsset, error) {
 	loc, rec, ok, err := a.w.decompressed(id)
 	if err != nil {
 		return cnfttypes.DecompressedAsset{}, err
+	}
+	if fromEvent != nil {
+		if ok {
+			return *fromEvent, a.w.deleteAsset(loc)
+		}
+		return *fromEvent, nil
 	}
 	if ok {
 		creatorHash, err := hex.DecodeString(rec.CreatorHash)
