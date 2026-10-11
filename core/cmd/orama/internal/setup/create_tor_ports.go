@@ -22,7 +22,7 @@ type TorHost interface {
 	StartTor(ctx context.Context, role TorRole) error
 	// RestartTor restarts the role (`orama global restart`). A directory authority
 	// that is restarted too soon after another one started is refused by the machine
-	// with a message that contains tornet.AuthorityRollRefusal, and nothing changes.
+	// with exit code clierr.CodeNotYet (tornet.ErrAuthorityRoll), and nothing changes.
 	RestartTor(ctx context.Context, role TorRole) error
 	// TorState reads what the machine has of the role.
 	TorState(ctx context.Context, role TorRole) (TorState, error)
