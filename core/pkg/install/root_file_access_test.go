@@ -153,7 +153,9 @@ var rootFileAccessAllowed = map[string]string{
 	"pkg/install/wireguard.go (*WireGuardProvisioner) WriteConfig os.WriteFile(confPath)":                                                 allowWg,
 	"pkg/install/wireguard.go forcePrivateMode os.Chmod(path)":                                                                            allowWg,
 	"cmd/orama/internal/production/upgrade/nodeconfig.go (*Orchestrator) regenerateConfigs os.ReadFile(wireguardConfigPath)":              allowWg,
-	"pkg/install/installers/caddy.go writeCaddyProof os.WriteFile(path)":                                                                  allowEtc,
+	"pkg/install/installers/caddy.go writeCaddyProof os.WriteFile(next)":                                                                  allowEtc,
+	"pkg/install/installers/caddy.go writeCaddyProof os.Rename(next)":                                                                     allowEtc,
+	"pkg/install/installers/caddy.go writeCaddyProof os.Remove(next)":                                                                     allowEtc,
 }
 
 func TestRootRunCode_touchesOramaTreeOnlyThroughRootfs(t *testing.T) {

@@ -25,6 +25,8 @@ RestrictNamespaces=yes
 ProtectProc=invisible
 ReadWritePaths=/opt/orama/.orama/data /opt/orama/.orama/data/namespaces/%i /opt/orama/.orama/logs
 InaccessiblePaths=/opt/orama/.orama/secrets
+# Caddy's keys and its proof to the gateway live in /etc/caddy; only Caddy and the gateway read them.
+InaccessiblePaths=-/etc/caddy
 WorkingDirectory=/opt/orama
 
 # rqlited rewrites datetime('now') and CURRENT_TIMESTAMP into a literal in ITS

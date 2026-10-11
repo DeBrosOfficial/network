@@ -3,8 +3,10 @@ package clientkey
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"strings"
@@ -95,7 +97,12 @@ func (p *Prover) reload() bool {
 	p.lastReload = now
 	secret, err := readProof(p.path)
 	if err != nil {
-		p.secret = nil
+		// The proof is gone only when the file is (a removed or emptied secret proves nothing any
+		// more); a read that failed for another reason (too many open files) keeps the last good
+		// secret, so a passing failure does not put every public caller in the loopback bucket.
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, errProofShort) {
+			p.secret = nil
+		}
 		if p.report != nil {
 			p.report(err)
 		}
@@ -105,6 +112,9 @@ func (p *Prover) reload() bool {
 	p.secret = secret
 	return changed
 }
+
+// errProofShort is a proof file too short to be a secret the installer wrote.
+var errProofShort = errors.New("the proof file holds no secret")
 
 func readProof(path string) ([]byte, error) {
 	f, err := os.Open(path)
@@ -118,7 +128,7 @@ func readProof(path string) ([]byte, error) {
 	}
 	secret := strings.TrimSpace(string(raw))
 	if len(secret) < minProofLen {
-		return nil, fmt.Errorf("the Caddy proof file %s holds fewer than %d characters", path, minProofLen)
+		return nil, fmt.Errorf("the Caddy proof file %s holds fewer than %d characters: %w", path, minProofLen, errProofShort)
 	}
 	return []byte(secret), nil
 }

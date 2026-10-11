@@ -22,6 +22,8 @@ RestrictNamespaces=yes
 ProtectProc=invisible
 ReadWritePaths=/opt/orama/.orama/data/namespaces/%i /opt/orama/.orama/logs /opt/orama/.orama/data/ipfs
 InaccessiblePaths=/opt/orama/.orama/secrets
+# Caddy's keys and its proof to the gateway live in /etc/caddy; only Caddy and the gateway read them.
+InaccessiblePaths=-/etc/caddy
 EnvironmentFile=/var/lib/orama-unit-env/%i/ipfs-gc.env
 Environment=HOME=/opt/orama
 # `orama node ipfs-gc` collects through the running daemon's RPC API (IPFS_API

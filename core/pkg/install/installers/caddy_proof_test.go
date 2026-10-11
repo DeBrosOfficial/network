@@ -127,13 +127,27 @@ func TestWriteCaddyProof_errorsNameThePathNotTheSecret(t *testing.T) {
 	}
 
 	path := filepath.Join(dir, "proof")
+	if err := writeCaddyProof(path, func(string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(path)
 	restrictErr := errors.New("no such group")
 	err := writeCaddyProof(path, func(string) error { return restrictErr })
 	if !errors.Is(err, restrictErr) {
 		t.Fatalf("the restriction's failure is lost: %v", err)
 	}
-	written, _ := os.ReadFile(path)
-	if secret := strings.TrimSpace(string(written)); secret == "" || strings.Contains(err.Error(), secret) {
-		t.Errorf("the error carries the secret: %v", err)
+	if hexSecret.MatchString(err.Error()) {
+		t.Errorf("the error carries a secret: %v", err)
+	}
+	// The new secret never replaced the old one: Caddy and the gateway keep proving with it, and
+	// nothing of the failed write is left beside it.
+	if after, _ := os.ReadFile(path); string(after) != string(before) {
+		t.Error("a write that failed replaced the proof")
+	}
+	if _, statErr := os.Stat(path + ".new"); !os.IsNotExist(statErr) {
+		t.Errorf("the failed write left %s.new behind", path)
 	}
 }
+
+// hexSecret is the form of a proof: 64 hex characters.
+var hexSecret = regexp.MustCompile(`[0-9a-f]{64}`)

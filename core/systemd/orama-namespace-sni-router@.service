@@ -24,6 +24,8 @@ User=orama
 Group=orama
 NoNewPrivileges=yes
 ProtectSystem=strict
+# Caddy's keys and its proof to the gateway live in /etc/caddy; only Caddy and the gateway read them.
+InaccessiblePaths=-/etc/caddy
 ProtectHome=yes
 ProtectProc=invisible
 PrivateTmp=yes

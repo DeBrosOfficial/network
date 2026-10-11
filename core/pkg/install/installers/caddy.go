@@ -3,6 +3,7 @@ package installers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -245,10 +246,19 @@ func writeCaddyProof(path string, restrict func(path string) error) error {
 	if _, err := rand.Read(raw); err != nil {
 		return fmt.Errorf("generate the secret Caddy proves itself to the gateway with: %w", err)
 	}
-	if err := os.WriteFile(path, []byte(hex.EncodeToString(raw)+"\n"), 0o600); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
+	// Written beside the file and renamed over it: Caddy and the gateway read it on every request
+	// and reload, and a file truncated by an in-place write would read as no proof for a moment.
+	next := path + ".new"
+	if err := os.WriteFile(next, []byte(hex.EncodeToString(raw)+"\n"), 0o600); err != nil {
+		return fmt.Errorf("write %s: %w", next, err)
 	}
-	return restrict(path)
+	if err := restrict(next); err != nil {
+		return errors.Join(err, os.Remove(next))
+	}
+	if err := os.Rename(next, path); err != nil {
+		return errors.Join(fmt.Errorf("replace %s: %w", path, err), os.Remove(next))
+	}
+	return nil
 }
 
 // restrictToServiceGroup is root:orama 0640.

@@ -184,3 +184,34 @@ func TestMiddleware_nilProverStillDeletesTheHeader(t *testing.T) {
 		t.Errorf("the handler saw the header %q", seen)
 	}
 }
+
+// A reload that cannot read the file for a passing reason keeps the secret it had; a file that is
+// gone or emptied proves nothing any more.
+func TestProver_aFailedReadKeepsTheLastSecretAndARemovedFileDropsIt(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads a file whatever its mode")
+	}
+	path := writeProof(t, testProof)
+	now := time.Unix(1000, 0)
+	p := NewProver(path, nil)
+	p.now = func() time.Time { return now }
+	p.lastReload = now
+
+	if err := os.Chmod(path, 0); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(proofReloadInterval)
+	p.Verify("a wrong value, which makes the prover read the file again")
+	if !p.Verify(testProof) {
+		t.Fatal("an unreadable file dropped the secret the prover held")
+	}
+
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(proofReloadInterval)
+	p.Verify("a wrong value, which makes the prover read the file again")
+	if p.Verify(testProof) {
+		t.Fatal("a removed file still proves")
+	}
+}
