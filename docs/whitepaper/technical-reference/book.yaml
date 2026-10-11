@@ -442,6 +442,7 @@ volumes:
             verified: "0.3.0"
             owns:
               - chain/app/
+              - chain/x/internal/
               - chain/x/power/
               - chain/x/inclusion/
               - chain/x/confidential/
