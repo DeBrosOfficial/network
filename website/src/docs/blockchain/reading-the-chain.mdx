@@ -4,7 +4,7 @@ There are four ways to read the chain: the `orama chain` command, the gateway's 
 
 ## The gateway proxy: `/v1/chain/`
 
-Every gateway can serve a read-only proxy to a chain node. It is an open route (no credential). Upstream addresses come from `ORAMA_CHAIN_RPC_URL`, `ORAMA_CHAIN_REST_URL` and `ORAMA_CHAIN_INDEX_URL`; they default to the loopback of the node, or to the global network namespace address `198.18.0.2` on a co-located node.
+Every gateway can serve a read-only proxy to a chain node. It is an open route (no credential). The reference for developers who call it from outside, with every bound, the cache headers, the rate limits, CORS and the error codes, is [Public chain read API](/docs/blockchain/chain-read-api). Upstream addresses come from `ORAMA_CHAIN_RPC_URL`, `ORAMA_CHAIN_REST_URL` and `ORAMA_CHAIN_INDEX_URL`; they default to the loopback of the node, or to the global network namespace address `198.18.0.2` on a co-located node.
 
 | Route | What it returns |
 |---|---|
@@ -88,7 +88,7 @@ Both routes take `Content-Type: application/json` and `{"tx_bytes":"<base64 TxRa
 
 A refusal is a 422 with a JSON `code`, `codespace` and `log` on both routes, and only a refusal is shaped that way; every other failure is a plain-text body. The `log` is sanitised. An accepted broadcast is in one node's mempool, not in a block, so it can still be dropped. A 502 after a timeout does not say the transaction was not taken: send the same bytes again, and if the mempool has them the answer is the code 19 refusal with the hash.
 
-Reads are live. The proxy keeps no copy of a read and every answer is `Cache-Control: no-store`; a `status` comes from the node of the gateway that took the request, and its `sync_info.latest_block_time` and `catching_up` say how fresh that node is.
+Reads are live. The proxy keeps no copy of a read, and every answer is `Cache-Control: no-store` except the successful `index/…` ones described under Caching above; a `status` comes from the node of the gateway that took the request, and its `sync_info.latest_block_time` and `catching_up` say how fresh that node is.
 
 ## `orama chain`
 
@@ -169,9 +169,11 @@ To have every epoch with figures, run the indexer from the start of the chain ag
 
 ## The explorer
 
+A short guide for readers is [Using the explorer](/docs/blockchain/using-the-explorer); what follows is how it works. The routes it reads are the [Public chain read API](/docs/blockchain/chain-read-api).
+
 The site has an explorer page at `/explorer` (Home, Block, Transaction, Wallet, Validators, Validator, Epochs, Epoch, Emission, Supply, Rewards, Nodes, Node, Storage and Tor views, and under the **Browse** menu Tokens, NFTs, Contracts, Market, Governance and the Shielded pool, each with its detail pages). It reads the chain only through the gateway routes above, and has no demo data: when the proxy or the indexer is down a page shows an error box and nothing else. The transaction, block, wallet and epoch pages need the chain indexer on the node the gateway reads. A node that runs none answers the index routes `503` with "this node runs no chain indexer", and the explorer then says so in plain words instead of showing an error box; the current epoch and the emission schedule come from chain queries and still load.
 
-The page is static and `orama.network` has no chain behind it, so your browser calls a network's own gateway directly: `https://stagenet.orama.network/v1/chain/...`. `orama.network` does not proxy `/v1/`; a request for it there answers `404` with a JSON body that says where the API is. Each gateway answers the explorer's origin, exactly `https://orama.network`, on `GET` (and the preflight for it) under `/v1/chain/` and nowhere else, so a gateway that has not been upgraded to a version with that rule shows the explorer "The chain could not be reached." So does a gateway that has rate-limited the reader, because that answer carries no CORS headers and the browser hides it. The reads are the same open routes and limits as any other client's, counted per reader's address (an IPv6 reader per /64) and never per website. A page served from the network's own base domain, or from `localhost` while you develop, is allowed by the gateway's general rule.
+The page is static and `orama.network` has no chain behind it, so your browser calls a network's own gateway directly: `https://stagenet.orama.network/v1/chain/...`. `orama.network` does not proxy `/v1/`; a request for it there answers `404` with a JSON body that says where the API is. Each gateway answers the explorer's origin, exactly `https://orama.network`, on `GET` (and the preflight for it) under `/v1/chain/` and nowhere else, so a gateway that has not been upgraded to a version with that rule shows the explorer "The chain could not be reached." with the gateway's name and the usual causes (it is down, its TLS certificate is not trusted by the browser, or it does not allow reads from this site). So does a gateway that has rate-limited the reader, because that answer carries no CORS headers and the browser hides it. A script cannot tell these apart, so the message lists them and tells the reader to open the gateway's `/v1/chain/status` in a tab. The reads are the same open routes and limits as any other client's, counted per reader's address (an IPv6 reader per /64) and never per website. A page served from the network's own base domain, or from `localhost` while you develop, is allowed by the gateway's general rule.
 
 ### Choosing a network
 
