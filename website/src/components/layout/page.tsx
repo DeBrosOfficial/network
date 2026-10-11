@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useLocation, useNavigationType } from "react-router";
 import type { ReactNode } from "react";
 import { documentTitle, normalizePath } from "../../content/routes";
@@ -120,8 +120,11 @@ export function Page({ route, noindex = false, breadcrumbs = "top", children }: 
 
   // The address is an input of the head: a page kept out of search names it as its canonical (canonicalPath),
   // and one component renders every /explorer/... address, so navigating inside it changes the head too.
+  // A layout effect, so it runs before every child's effect: a page that names its own tab (the
+  // explorer's useDocumentTitle) sets the title after this and keeps it. As a plain effect it ran
+  // after the child's on the first load and put the site's title back.
   const { pathname } = useLocation();
-  useEffect(() => {
+  useLayoutEffect(() => {
     syncHead(page, noindex);
   }, headDeps(page, noindex, pathname));
 
