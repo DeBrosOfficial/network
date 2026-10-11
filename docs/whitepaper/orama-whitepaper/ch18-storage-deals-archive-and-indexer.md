@@ -46,7 +46,7 @@ The chain cannot read past block hashes, so it cannot check the truth. It checks
 
 ![The life of a range record](../technical-reference/diagrams/ch42-range-states.svg)
 
-`OramaApp.Commit` (`chain/app/retain.go`) lowers CometBFT's retain height to `min(tip - 201,600, last archived height)`. The last archived height is the contiguous archived prefix from block 1. A stalled archive therefore pins the retain height however far the tip runs, and no operator setting can prune an uncovered block. The number to watch is the archiver's retain lag. `orama-global history get` loads a bundle, verifies it against the chain record and writes one block. Verification covers the file hash, each block's own hash and the Merkle root. It does not check that headers chain or that commits are signed.
+`OramaApp.Commit` (`chain/app/retain.go`) lowers CometBFT's retain height to `min(tip - 201,600, last archived height)` (201,600 blocks is 11.7 days at the chain's 5 s blocks). The last archived height is the contiguous archived prefix from block 1. A stalled archive therefore pins the retain height however far the tip runs, and no operator setting can prune an uncovered block. The number to watch is the archiver's retain lag. `orama-global history get` loads a bundle, verifies it against the chain record and writes one block. Verification covers the file hash, each block's own hash and the Merkle root. It does not check that headers chain or that commits are signed.
 
 ## The indexer
 

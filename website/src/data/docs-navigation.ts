@@ -217,6 +217,7 @@ export const CONTRIBUTOR_DOCS: DocLink[] = [
   { title: "Architecture reference", slug: "contributor/architecture-reference", icon: LayoutDashboard, description: "Node process model, components, data flow and security" },
   { title: "Code style", slug: "contributor/code-style", icon: FileText, description: "Coding conventions" },
   { title: "Testing", slug: "contributor/testing", icon: FlaskConical, description: "Unit, fleet e2e and the coverage gate" },
+  { title: "Performance", slug: "contributor/performance", icon: Activity, description: "Microbenchmarks, the regression gate and chain-perf" },
   { title: "Deployment", slug: "contributor/deployment", icon: Upload, description: "Build, push, rollout" },
   { title: "Sandbox clusters", slug: "contributor/sandbox", icon: TestTube2, description: "Ephemeral Hetzner clusters" },
 ];

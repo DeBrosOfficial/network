@@ -4,7 +4,7 @@ The chain can run CosmWasm smart contracts through wasmd (v0.70.3 on wasmvm v3.0
 
 ## Uploading code is closed
 
-`MsgStoreCode`, `MsgStoreAndInstantiateContract` and `MsgStoreAndMigrateContract` are refused by the ante chain until `upload_sunset_height` (the locked default is 3,162,240, about 183 days at an assumed 5 second block). Before then the only code that can be stored is a SHA-256 on the governance code-upload allow-list ([Governance](/docs/blockchain/governance)). A contract cannot upload code. Anyone can instantiate a stored code at any time.
+`MsgStoreCode`, `MsgStoreAndInstantiateContract` and `MsgStoreAndMigrateContract` are refused by the ante chain until `upload_sunset_height` (the locked default is 3,162,240, about 183 days at the chain's 5 s block interval, the `timeout_commit` `oramad init` writes; see [Performance](/docs/contributor/performance#the-block-interval)). Before then the only code that can be stored is a SHA-256 on the governance code-upload allow-list ([Governance](/docs/blockchain/governance)). A contract cannot upload code. Anyone can instantiate a stored code at any time.
 
 ## The five standard contracts
 

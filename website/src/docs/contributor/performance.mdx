@@ -1,0 +1,82 @@
+# Performance
+
+Two measurements guard the chain's speed. Go microbenchmarks time the hot paths of the code on one machine and fail a release when one of them got more than 25% slower. The fleet e2e feature `chain-perf` times the running chain on the fleet the owner runs. This page says what each measures, how to run it, on what hardware, and where the numbers go. It holds no numbers itself: they are filled by the owner's run on the baseline machine, and a figure from a laptop never goes into a baseline.
+
+## The block interval
+
+The chain produces a block about every 5 seconds. `oramad init` writes CometBFT's `config.toml`, and the Cosmos SDK sets `timeout_commit` to `5s` when it creates that file (`server/util.go`, `interceptConfigs`, in cosmos-sdk v0.54.4); CometBFT's own default is 1 s. `oramad` takes CometBFT's default configuration without a change (`initCometBFTConfig` in `chain/cmd/oramad/cmd/commands.go`), the installer and the e2e deploy script edit no consensus timeout, so every chain `oramad init` made runs at `timeout_commit = 5s`. The interval is that wait plus the time of a round of votes, so it is a little over 5 s on a healthy network. `chain-perf` reads `timeout_commit` from a node's `config.toml` and measures the interval over 40 blocks.
+
+A parameter counted in blocks is longer or shorter in time than the figure its comment gives: the wasm upload sunset (3,162,240 blocks) is counted at 5 s, and the shielded anchor window (14,400 blocks) and the archive retention window (201,600 blocks) are written as 24 hours and 14 days at 6 s. At 5 s they last 20 hours and about 11.7 days. An epoch is unaffected: it closes after 24 hours of block time and 14,400 blocks, both.
+
+## Go microbenchmarks
+
+All of them are in the `chain` module and run with `make bench`:
+
+| Benchmark | Package | What it times |
+|---|---|---|
+| `BenchmarkVerify/actions=1,2` | `x/shielded/verify/orchard` | The in-process Rust Orchard/Ironwood verifier on a real bundle, per action count. It skips with a message when the library is not linked. |
+| `BenchmarkVerify/actions=1,2` | `x/shielded/verify/orchardproc` | The out-of-process verifier: the Go client and the Rust binary it keeps running, same bundles. It skips when the binary is not built. |
+| `BenchmarkCommit/entries=1000000` (and `10000000`) | `x/shielded/nullifier` | One block's 100 nullifiers committed to a Pebble store holding that many entries. |
+| `BenchmarkRunEndBlock/validators=30,100,300` | `x/power/keeper` | `x/power`'s end-block computation over a bonded set of that size. |
+| `BenchmarkRequired/...` | `x/inclusion` | The inclusion rule's sequential walk over 100 validators' lists, shared or distinct. |
+| `BenchmarkFinalizeBlock/txs=0,1,100` | `app` | One block executed and committed on the app harness: empty, with one and with 100 public sends. |
+| `BenchmarkCheckTx` | `app` | The mempool admission of one signed public send. |
+| `BenchmarkIAVLCommit/keys=100000,1000000` (and `10000000`) | `app` | One busy block's 1,000 writes to an IAVL tree of that size on Pebble, and the version save. |
+| `BenchmarkWASMExecute`, `BenchmarkWASMQuery` | `app` | A `cw20-base` transfer as a transaction in its own block, and a balance query. They need libwasmvm. |
+
+Only two bundle sizes are timed, one action and two, because those are the real proofs committed to the repository; a larger bundle needs the wallet crate's prover. The 10M-entry nullifier store and 10M-key IAVL tree take minutes to fill, so they run only with `BENCH_LARGE=1`.
+
+### Running them
+
+```bash
+cd chain
+make orchard-lib orchard-verifier     # once: the Rust verifier library and binary, for the verifier benchmarks
+make bench                            # BENCH_COUNT runs of every benchmark (6 by default) into bench/latest.txt
+make bench BENCH_FILTER='RunEndBlock|CheckTx' BENCH_TIME=10x   # a subset, quickly
+```
+
+`make bench` builds with `-tags orchardffi` when the library for this machine is in `x/shielded/verify/orchard/lib`, and with `-tags nowasm` when libwasmvm is not installed. It says which benchmarks will skip. The output is the standard Go benchmark format, readable by `benchstat`, with one comment line at the top that records where it was measured (`# benchgate: goos=... goarch=... cpus=... stable=... release=...`).
+
+### The baseline machine
+
+A baseline comes from a stable 8-core Linux amd64 machine, never a laptop: a laptop throttles and shares cores, and its numbers move more between runs than the 25% the gate allows. `make bench-baseline` writes `bench/baseline.txt` and refuses unless the machine is linux/amd64 with at least 8 CPUs. `BENCH_ALLOW_UNSTABLE=1` writes the file anyway, stamped `release=false`; `make bench-compare` refuses such a file as a baseline unless it is given the same variable.
+
+### The regression gate
+
+```bash
+make bench-compare BASE=bench/baseline.txt
+```
+
+It runs `benchstat` (golang.org/x/perf at a pinned version, through `go run`) over the baseline and `bench/latest.txt`, prints its table, and hands benchstat's CSV to `cmd/benchgate`. The gate fails, with a non-zero exit, when:
+
+- a benchmark's time per operation is more than 25% slower than the baseline's and benchstat says the difference is not noise (`DefaultRegressionPercent` in `chain/cmd/benchgate/compare.go`; `BENCH_REGRESSION_PERCENT` changes it);
+- a benchmark in the baseline has no result in the new run (it was renamed, removed or skipped, so the gate could not see it regress);
+- the input is empty, or a compared benchmark has fewer than 5 runs on a side (use `BENCH_COUNT=6` or more);
+- the baseline is not a release baseline, the new run did not come from a stable machine, or the two come from different platforms.
+
+A benchmark that is only in the new run is listed as new and does not fail.
+
+## The chain-perf fleet feature
+
+`e2e/features/chain-perf` runs in stage 9 of `make e2e-fleet`, alone after the stage's other packages. On the run's chain it records:
+
+| Metric | What it is |
+|---|---|
+| `chain-block-interval` | The interval between consecutive blocks over 40 blocks. |
+| `chain-transfer-inclusion` | The time from broadcasting a public transfer to the node serving it from a block, p50, p95 and p99 over 30 transfers sent one at a time. |
+| `chain-checktx` | The CheckTx rate of one node: 200 transfers broadcast back to back over one connection, latency percentiles and transfers per second. |
+
+The transaction timings run on the validator's node against its loopback RPC, so they measure the chain and not the path from the runner. The files are in the run's artifact directory under `chain-perf/`: `baseline.json` with every metric, one file per metric, and `run.json` with the shape of the run. Give a previous run's `baseline.json` to the next run as `E2E_CHAIN_BASELINE_FILE`, and a p95 or a throughput more than `E2E_PERF_REGRESSION_PCT` percent (25 by default) worse fails. The comparison is the same code the `perf` feature uses for the gateway and data plane ([Testing](/docs/contributor/testing)).
+
+## At a release
+
+1. On the baseline machine: `cd chain && make bench-compare BASE=bench/baseline.txt` after `make bench`. It must pass.
+2. Run `make e2e-fleet` with `E2E_CHAIN_BASELINE_FILE` set to the previous release's `chain-perf/baseline.json`. `chain-perf` must pass.
+3. If both pass and the release is kept, record its numbers as the next baseline: `make bench-baseline` on the baseline machine, commit `chain/bench/baseline.txt`, and keep the run's `chain-perf/baseline.json` with the release.
+
+| Measure | Release baseline |
+|---|---|
+| Microbenchmarks (`chain/bench/baseline.txt`) | not recorded yet |
+| Block interval, p50 / p95 / p99 | not recorded yet |
+| Public transfer inclusion, p50 / p95 / p99 | not recorded yet |
+| CheckTx rate | not recorded yet |

@@ -61,7 +61,7 @@ Fifth, there is no admin. The authority address of every stock module is the has
 
 The application sets `bApp.SetDisableBlockGasMeter(false)`. v0.54 disables the block gas meter by default, and without it the base fee would read zero gas used in every block and never rise (`chain/app/app.go`).
 
-CometBFT's `timeout_commit` is not overridden, so blocks come every 5 seconds when the validators are healthy; `chain/x/wasmpolicy/types/keys.go:AssumedBlockSeconds` encodes the same assumption.
+Blocks come about every 5 seconds when the validators are healthy. CometBFT's own `timeout_commit` default is 1 s, but when `oramad init` creates `config.toml` the Cosmos SDK (v0.54.4, `server/util.go`, `interceptConfigs`) sets it to `5s` because the config still holds CometBFT's default, and `oramad` returns that default unchanged (`chain/cmd/oramad/cmd/commands.go:initCometBFTConfig`). The installer and the e2e deploy script edit no consensus timeout. `chain/x/wasmpolicy/types/keys.go:AssumedBlockSeconds` encodes the same 5 s ([Block interval and measured performance](#block-interval-and-measured-performance)).
 
 #### Build variants
 
@@ -506,7 +506,7 @@ For the archive, `oramad query archive last-archived-height` is the contiguous a
 
 | Quantity | Value | Source |
 |---|---|---|
-| block interval | 5 s | CometBFT default, not overridden |
+| block interval | 5 s `timeout_commit`, a little more per block | the SDK's value when `oramad init` writes `config.toml`; `chain/cmd/oramad/cmd/commands.go:initCometBFTConfig` does not change it |
 | consensus block max bytes | 22,020,096 (21 MiB), the CometBFT default | `chain/spikes/inclusion_test.go` |
 | consensus block max gas | 100,000,000, patched into genesis by the scripts | `localnet.sh`, `orama setup --create-network` (`ApplyConsensusParams`) |
 | `staking.max_validators` | 100 (stock) | the Cosmos SDK default |
@@ -520,6 +520,17 @@ For the archive, `oramad query archive last-archived-height` is the contiguous a
 | iavl cache | 100,000 nodes | `defaultIAVLCacheSize` |
 | gateway concurrency (query, simulate, broadcast) | 16, 8, 16 | `handlers/chainread` |
 | transaction size | 1 MiB | CometBFT `max_tx_bytes`, which the chain does not change |
+
+### Block interval and measured performance
+
+The block interval is the `timeout_commit` of `config.toml`, `5s`, plus one round of votes. A parameter that is counted in blocks therefore lasts 5 s per block: `chain/x/wasmpolicy/types/keys.go:AssumedBlockSeconds` counts the upload sunset (3,162,240 blocks, 183 days) at 5 s, while `chain/x/shielded/types/params.go` writes the anchor window (14,400 blocks) as 24 hours and `chain/x/archive/types/constants.go` the retention window (201,600 blocks) as 14 days, both at 6 s. At the chain's 5 s the anchor window is 20 hours and the retention window about 11.7 days; the epoch is unaffected, because it needs 24 hours of block time and 14,400 blocks together.
+
+Speed is guarded by two measurements, neither with a number in this book: the figures are the owner's run on the baseline machine.
+
+- **Go microbenchmarks** in the `chain` module, run by `make bench` (`chain/Makefile`): the shielded verifier by action count for the in-process Rust library and for the out-of-process verifier, the nullifier store commit at 1M entries (10M with `BENCH_LARGE=1`), `x/power`'s end block at 30, 100 and 300 validators, the inclusion walk, `FinalizeBlock` and `CheckTx` on the app harness, an IAVL commit at 100k and 1M keys (10M with `BENCH_LARGE=1`) and a `cw20-base` call. `make bench-baseline` writes the baseline and refuses unless the machine is linux/amd64 with at least 8 CPUs; `make bench-compare BASE=<file>` runs the pinned `benchstat` and `chain/cmd/benchgate`, which fails when a benchmark's time per operation is more than 25% worse than the baseline's and benchstat does not call it noise, when a baseline benchmark has no result, when the input is empty or has fewer than 5 runs a side, or when the baseline is not a release baseline.
+- **The fleet feature** `e2e/features/chain-perf/` records the interval between blocks over 40 blocks, the broadcast-to-block time of a public transfer (p50, p95, p99 over 30) and the CheckTx rate of a node (200 transfers back to back), timing them on the node against its loopback RPC. It also fails unless `timeout_commit` is `5s`. It writes `chain-perf/baseline.json` and, given the previous run's file as `E2E_CHAIN_BASELINE_FILE`, fails a p95 or a throughput more than `E2E_PERF_REGRESSION_PCT` percent (25 by default) worse, with the comparison code the `perf` feature shares (`e2e/features/internal/perfbase/`).
+
+Both are part of cutting a release (`website/src/docs/contributor/performance.mdx`).
 
 **At 10x.** The first bottleneck is the ante chain run inside consensus: `ExtendVote`, `PrepareProposal` and `ProcessProposal` each run it, up to 1,024 times, against scratch branches, and the signature checks add up to 4,096 more. The caps bound it per block, and the cost of exceeding them is that excess listed transactions are skipped, not refused, so a flood degrades the inclusion guarantee before it degrades liveness. Second is `x/power`: every block it walks the committee and every bonded validator, computes two water-filling passes (each at most n iterations over n validators) and, when it limits an increase, 64 bisection steps over all entries. That is cheap at 100 validators and grows quadratically in the number of validators at the worst case. Third, the epoch-closing block's reward walk ([economics](40-economics.md#limits-and-scale)). The `staking.max_validators` of 100 is the ceiling on the stake-indexed set; the committee is additional and fixed at genesis. The public gateway is bounded per address and per route, not per chain: ten times the wallets means more 429 and 503 answers, not more load on the node.
 
@@ -588,8 +599,9 @@ For the archive, `oramad query archive last-archived-height` is the contiguous a
 - `chain/client/tx`: `vectors_test.go` regenerates the cross-language vectors with `-update-tx-vectors`.
 - `core/pkg/gateway/handlers/chainread/`: `TestQuery_everyEmbeddedMethodIsClassified` and the allowlist, sanitiser and limit tests; `core/pkg/clusterreg/` tests read the chain's limit constants.
 - `chain/spikes/`: `TestVoteExtensionBudget` prints the byte budget at 30, 60, 100 and 150 validators.
+- `chain/cmd/benchgate/`: the regression gate's parser and verdicts (`TestJudge_failsOnARegressionOverTheThreshold`, `TestJudge_aMissingBenchmarkFails`, `TestParseBenchstatCSV_emptyAndUnusableInput`) and the baseline-host rule (`TestNewStamp_refusesABaselineOffAStableHost`). The benchmarks themselves are `go test -bench` in the packages named above, run by `make bench`.
 
-**Fleet e2e** (the owner runs the fleet suite): `e2e/features/chain-core/` (consensus agreement, fee market, public transfers, unreachable authority, staking from earnings, every module's invariants), `e2e/features/chain-core-destructive/` (restart catch-up, base fee under load, export, the undelegate guard), `e2e/features/chain-economics/` (emission, power, nodes), `e2e/features/chain-waivers/` (unwired modules stay unwired; vote extensions enabled at exactly the genesis height), `e2e/features/chain-cli/`, `e2e/features/chain-explorer/` and `e2e/features/chain-wallet-routes/` (the gateway's chain routes).
+**Fleet e2e** (the owner runs the fleet suite): `e2e/features/chain-core/` (consensus agreement, fee market, public transfers, unreachable authority, staking from earnings, every module's invariants), `e2e/features/chain-core-destructive/` (restart catch-up, base fee under load, export, the undelegate guard), `e2e/features/chain-economics/` (emission, power, nodes), `e2e/features/chain-waivers/` (unwired modules stay unwired; vote extensions enabled at exactly the genesis height), `e2e/features/chain-cli/`, `e2e/features/chain-explorer/` and `e2e/features/chain-wallet-routes/` (the gateway's chain routes). `e2e/features/chain-perf/` (the block interval, public transfer inclusion latency and CheckTx rate, with the baseline comparison).
 
 **Read-only on a node or through the gateway:**
 

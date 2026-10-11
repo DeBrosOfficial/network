@@ -3,7 +3,7 @@
 > **At a glance.**
 >
 > - **What:** `x/shielded` is the chain's private payment layer: a single pool of norama held in the module account `shielded`, spent and created as Orchard-style notes (Zcash Ironwood bundles, Halo 2 proofs, no trusted setup). The chain never sees an amount, a sender or a recipient inside the pool. It sees only nullifiers, note commitments, a value balance and a proof, and it checks them. Public user-to-user norama sends are allowed, so this pool is how one person pays another privately. Value enters with `MsgShield` or `MsgShieldEarnings`, moves with the signer-less `MsgShieldedTransfer`, and leaves with `MsgUnshield` to a target the signer owns, through a 24 hour cap. A node accepts a bundle only if two independent verifiers both accept it.
-> - **Key numbers:** bundle at most 1 MiB and 16 actions; 250,000 gas per action; nullifier fee 1,000,000 norama (0.001 ORAMA) burned per nullifier; anchor window 14,400 blocks (24 h at 6 s); unshield cap per pool per 24 h is the larger of 2% of the pool and 1,000,000,000 norama (1 ORAMA); fee top-up at most 10,000,000 norama (0.01 ORAMA) per transaction; queue payment per address per window 100,000,000,000 norama (100 ORAMA); 64 signer-less transfers per block; 1000 queue payments per window; 256 proof verifications per node between blocks in the mempool; 4096 remembered failed bundles; sighash domains `orama-shielded-ironwood-sighash-v1` and `-bound-v1`.
+> - **Key numbers:** bundle at most 1 MiB and 16 actions; 250,000 gas per action; nullifier fee 1,000,000 norama (0.001 ORAMA) burned per nullifier; anchor window 14,400 blocks (20 h at the chain's 5 s blocks; the default is written as 24 h at 6 s); unshield cap per pool per 24 h is the larger of 2% of the pool and 1,000,000,000 norama (1 ORAMA); fee top-up at most 10,000,000 norama (0.01 ORAMA) per transaction; queue payment per address per window 100,000,000,000 norama (100 ORAMA); 64 signer-less transfers per block; 1000 queue payments per window; 256 proof verifications per node between blocks in the mempool; 4096 remembered failed bundles; sighash domains `orama-shielded-ironwood-sighash-v1` and `-bound-v1`.
 > - **Code:** `chain/x/shielded/` (`keeper`, `ante`, `bundle`, `pool`, `policy`, `nullifier`, `snapshot`, `verify`, `orchardffi`, `orchardverifier-bin`, `wallet`), wiring in `chain/app/shielded.go` and `chain/app/shielded_verifiers.go`.
 > - **Depends on:** [global nodes](37-global-nodes.md) for the machines that run `oramad`, [chain architecture](39-chain-architecture.md) for the module set and the ante chain, [economics](40-economics.md) for base fee, earnings and the burn, [governance and contracts](44-governance-and-contracts.md) for the contract rules the pool shares.
 
@@ -268,7 +268,7 @@ Queries, all point lookups (`chain/x/shielded/keeper/grpc_query.go`): `Params`, 
 | Signer-less transfers per block | 64 | `max_signerless_per_block` |
 | Mempool verifications between blocks | 256 per node | `MaxCheckVerificationsPerBlock` |
 | Queue payments per window | 1000 | `MaxServedPerWindow` |
-| Anchors held | one per block of the window, 14,400 | `anchor_window_blocks` |
+| Anchors held | one per block of the window, 14,400 (20 hours at 5 s blocks) | `anchor_window_blocks` |
 | Tree capacity | depth 32 | Orchard |
 | Nullifier storage | about 32 bytes in the index and 32 in the log per nullifier, plus key overhead; the genesis export is as large as the set | `nullifier.Store` |
 
