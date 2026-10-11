@@ -85,6 +85,7 @@ See [Upgrades](/docs/operator/upgrades#automatic-updates) and [Build and sign](/
 - If the change touches inter-node coordination, secrets, namespaces or deployments, read the upgrade page's **mixed-version windows**: pause namespace and deployment create and delete during the roll, and do not add a node until every cluster you are upgrading is on the same version.
 - If the change adds a migration, it must be applied before the gateway that requires it starts; migrations take a cluster-wide lock, and the gateway refuses to start if its required schema is not applied (`orama maint node schema status`).
 - RQLite v10 is one way. Take a registry backup first.
+- Nightly from commit `17dc142d` onwards cannot be rolled onto a chain created before it: the chain's consensus rules changed with no upgrade handler. Create the network fresh (`orama setup --create-network`, a new chain id). See [Upgrade notes](/docs/operator/upgrade-notes#nightly-from-commit-17dc142d-create-the-chain-fresh).
 
 ## Verification between nodes
 

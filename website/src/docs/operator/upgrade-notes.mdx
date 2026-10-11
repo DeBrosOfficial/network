@@ -2,6 +2,18 @@
 
 What a rolling upgrade does differently when it crosses a release that changes how a node is laid out, which service versions it runs, or the registry schema. Read the section that matches the release you are leaving before the first node is restarted. Everything here is in addition to the procedure on [Upgrades](/docs/operator/upgrades); the rule that never changes is one node at a time, followers first, the leader last.
 
+## Nightly from commit 17dc142d: create the chain fresh
+
+**A nightly build from commit `17dc142d` onwards cannot be rolled onto a chain created before it. Create the network fresh.** Do not run `orama node upgrade` over a chain whose genesis predates it: the validators would compute different results and fork. The release changes the chain's consensus rules and there is no upgrade handler for it, because networks are created fresh (a stagenet is wiped and given a new chain id). What changed, all of it consensus-breaking:
+
+- The token transfer hook's results, gas use and events.
+- The order in which storage challenge slots are drawn.
+- A new end-of-block conservation check that halts the chain on a violation.
+- The genesis defaults of the shielded anchor window (now 17,280 blocks a day, 24 hours) and the archive retention window (now 14 days of blocks, 241,920), which count blocks of the chain's one interval of 5 seconds.
+- The exact chain-id rule: a test network's id is `orama-[<name>-]<localnet|devnet|stagenet>-<id>` and nothing else.
+
+`orama setup --create-network` writes the new network's manifest and defaults its `--min-version` to the version of the CLI that created it, so a node older than that CLI cannot join the new network. The manifest has no field that marks a release as requiring a chain created after a commit (`VERSION` did not change at this commit), so no tool stops you from staging this build over an old chain: this note is the guard.
+
 ## First upgrade from 0.122.x
 
 The whole hop runs this release's code, from this checkout:

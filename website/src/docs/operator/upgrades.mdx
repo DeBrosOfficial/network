@@ -4,6 +4,8 @@ A new Orama version is a new **signed archive** and a **rolling restart**. Extra
 
 > **Never restart all nodes at once.** The registry database (index RQLite) is a Raft group and needs a majority of its voters. Stopping two of three loses quorum and takes the cluster down.
 
+> **Chain: create the network fresh from nightly `17dc142d` on.** That build changes the chain's consensus rules with no upgrade handler, so it cannot be rolled onto a chain created before it. See [Upgrade notes](/docs/operator/upgrade-notes#nightly-from-commit-17dc142d-create-the-chain-fresh).
+
 ## The short version
 
 ```bash
