@@ -2,6 +2,9 @@ package app_test
 
 import (
 	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/collections"
 
@@ -11,6 +14,27 @@ import (
 	"github.com/DeBrosOfficial/network/chain/app/params"
 	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
 )
+
+// testMinBlocksPerEpoch is the emission min_blocks_per_epoch that committeeGenesis writes, and so how
+// many blocks apart the chain's own end-of-block full conservation pass runs. One runs it every block;
+// a test that wants the production shape (a pass only at some heights) sets it with withCadence.
+var testMinBlocksPerEpoch uint64 = 1
+
+// withCadence sets min_blocks_per_epoch for the genesis a test builds next and restores it when the
+// test ends. Tests do not run in parallel, so the package variable is not shared.
+func withCadence(t testing.TB, minBlocksPerEpoch uint64) {
+	t.Helper()
+	prev := testMinBlocksPerEpoch
+	testMinBlocksPerEpoch = minBlocksPerEpoch
+	t.Cleanup(func() { testMinBlocksPerEpoch = prev })
+}
+
+// requireConserved runs the full conservation pass over the last committed state. Call it only after a
+// finalized block: coins burned by a keeper write are booked with x/emission in the next end-blocker.
+func requireConserved(t testing.TB, a *app.OramaApp) {
+	t.Helper()
+	require.NoError(t, a.CheckConservationFull(a.NewContext(true)))
+}
 
 // mintNoramaForTest creates coins from x/emission's module account the way a test funds an account,
 // and books the norama among them as supply that existed before the schedule, which is what x/emission

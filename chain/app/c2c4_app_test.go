@@ -55,7 +55,7 @@ func committeeGenesis(t testing.TB, oramaApp *app.OramaApp, n int, deadline uint
 	genState[powertypes.ModuleName] = oramaApp.AppCodec().MustMarshalJSON(powerGen)
 
 	emissionGen := emissiontypes.DefaultGenesisState()
-	emissionGen.Params = emissiontypes.NewParams(2*time.Second, 1, true)
+	emissionGen.Params = emissiontypes.NewParams(2*time.Second, testMinBlocksPerEpoch, true)
 	genState[emissiontypes.ModuleName] = oramaApp.AppCodec().MustMarshalJSON(emissionGen)
 
 	return genState, keys

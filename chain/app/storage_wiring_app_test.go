@@ -45,6 +45,12 @@ func newWiringChain(t testing.TB) *wiringChain {
 // newWiringChainWith is newWiringChain with the x/nodes genesis adjusted first.
 func newWiringChainWith(t testing.TB, mutate func(*nodestypes.GenesisState)) *wiringChain {
 	t.Helper()
+	return newWiringChainGenesis(t, mutate, nil)
+}
+
+// newWiringChainGenesis is newWiringChainWith with the whole genesis adjustable too (mutateAll runs last).
+func newWiringChainGenesis(t testing.TB, mutate func(*nodestypes.GenesisState), mutateAll func(oramaApp *app.OramaApp, genState app.GenesisState)) *wiringChain {
+	t.Helper()
 	oramaApp := buildTestApp(t)
 	genesis := time.Unix(1_700_000_000, 0)
 	genState, _ := committeeGenesis(t, oramaApp, 1, 365)
@@ -56,6 +62,9 @@ func newWiringChainWith(t testing.TB, mutate func(*nodestypes.GenesisState)) *wi
 		mutate(&nodesGen)
 	}
 	genState[nodestypes.ModuleName] = oramaApp.AppCodec().MustMarshalJSON(&nodesGen)
+	if mutateAll != nil {
+		mutateAll(oramaApp, genState)
+	}
 	initChain(t, oramaApp, genState, 0, genesis)
 	finalize(t, oramaApp, 1, genesis.Add(2*time.Second))
 	return &wiringChain{t: t, app: oramaApp, genesis: genesis, height: 1}

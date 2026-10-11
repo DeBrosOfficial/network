@@ -194,15 +194,22 @@ chain-test: test
 ## of x/token after every block, and fails with the seed, so
 ##   make chain-sim SIM_SEEDS=42 SIM_BLOCKS=500
 ## reproduces a failure. The chain also halts itself on a violation, which fails the run too.
-## Runs under the race detector. Defaults are a few minutes.
+## Each seed runs once per cadence in SIM_CADENCES: the chain's own full conservation pass runs every
+## min_blocks_per_epoch blocks, so 1 runs it at every height and 7 is the production shape (the pass
+## at some heights only; the simulation's explicit pass still runs after every block). After the seeds
+## one run of the 14,400-block production cadence reaches the first height at which a production chain
+## runs the pass itself. Runs under the race detector. Defaults are a few minutes.
 SIM_SEEDS ?= 1 2 3 4 5
 SIM_BLOCKS ?= 200
+SIM_CADENCES ?= 1 7
 chain-sim:
-	@for seed in $(SIM_SEEDS); do \
-		echo "chain-sim: seed=$$seed blocks=$(SIM_BLOCKS)"; \
-		go test -race -count=1 -timeout 30m -run '^TestSimulation$$' ./app -args -sim.seed=$$seed -sim.blocks=$(SIM_BLOCKS) || exit 1; \
-		go test -race -count=1 -timeout 30m -run '^(TestDeterminism_|TestApp_exportImportReproduces)' ./app -args -sim.seed=$$seed -sim.blocks=$(SIM_BLOCKS) || exit 1; \
-	done
+	@for seed in $(SIM_SEEDS); do for cadence in $(SIM_CADENCES); do \
+		echo "chain-sim: seed=$$seed blocks=$(SIM_BLOCKS) cadence=$$cadence"; \
+		go test -race -count=1 -timeout 30m -run '^TestSimulation$$' ./app -args -sim.seed=$$seed -sim.blocks=$(SIM_BLOCKS) -sim.cadence=$$cadence || exit 1; \
+		go test -race -count=1 -timeout 30m -run '^(TestDeterminism_|TestApp_exportImportReproduces)' ./app -args -sim.seed=$$seed -sim.blocks=$(SIM_BLOCKS) -sim.cadence=$$cadence || exit 1; \
+	done; done
+	@echo "chain-sim: the production cadence (14,400 blocks)"
+	go test -race -count=1 -timeout 30m -run '^TestConservation_productionCadence' ./app -args -sim.production-cadence
 
 ## lint: go vet (the project's Go style rules - no magic numbers, wrapped errors, short
 ## functions/files - are enforced by review, not a separate linter here).

@@ -45,6 +45,7 @@ func (c *wiringChain) requireModuleInvariants() {
 	nd, err := c.app.NodesKeeper.CheckInvariants(ctx)
 	require.NoError(c.t, err)
 	require.True(c.t, nd.BalanceMatches && nd.ActiveRolesBonded && nd.CapacityBacked, nd.Detail)
+	requireConserved(c.t, c.app)
 }
 
 // Probation nodes have no bond. Before, the missing bond failed the miss row, the whole row was

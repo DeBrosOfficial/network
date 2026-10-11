@@ -12,7 +12,7 @@ import (
 // both pass the full conservation pass. The state comes from the randomized simulation, so it holds
 // tokens with every capability, delegations, faucet drips and burned fees, not an empty genesis.
 func TestApp_exportImportReproducesTheStateAfterTheNextBlock(t *testing.T) {
-	c := newSimChain(t, *simSeed+3000, false)
+	c := newSimChain(t, *simSeed+3000, false, *simCadence)
 	for i := 0; i < *simBlocks; i++ {
 		c.block()
 	}

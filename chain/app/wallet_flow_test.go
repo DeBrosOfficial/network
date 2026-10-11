@@ -154,6 +154,7 @@ func (f *flow) requireInvariants() {
 	nodes, err := f.app.NodesKeeper.CheckInvariants(ctx)
 	require.NoError(f.t, err)
 	require.True(f.t, nodes.BalanceMatches, nodes.Detail)
+	requireConserved(f.t, f.app)
 }
 
 func norama(n int64) math.Int { return math.NewInt(n).MulRaw(oneOrama) }

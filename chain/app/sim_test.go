@@ -32,7 +32,17 @@ import (
 var (
 	simSeed   = flag.Int64("sim.seed", 1, "seed of the randomized simulation (make chain-sim runs several)")
 	simBlocks = flag.Int("sim.blocks", 30, "blocks the randomized simulation produces")
+	// The chain's own full conservation pass runs every min_blocks_per_epoch blocks (conservation.go).
+	// 1 runs it at every height; a larger value is the production shape, where it runs at some heights
+	// only. verify() runs the full pass after every block either way, so a state the chain itself would
+	// not have checked is checked here.
+	simProductionCadence = flag.Bool("sim.production-cadence", false, "also run the 14,400-block test that reaches the production cadence's first full conservation pass (minutes)")
+	simCadence           = flag.Uint64("sim.cadence", 1, "min_blocks_per_epoch of the simulated chain, which is how often the chain runs its own full conservation pass")
 )
+
+// simSecondSeedCadence is the cadence of the second seed that every plain `go test` runs, so the default
+// run covers one chain that checks itself at every block and one that checks itself at every seventh.
+const simSecondSeedCadence = 7
 
 const (
 	simUserCount     = 6
@@ -81,12 +91,12 @@ type simChain struct {
 	outcomes map[string]int
 }
 
-func newSimChain(t *testing.T, seed int64, withMirror bool) *simChain {
+func newSimChain(t *testing.T, seed int64, withMirror bool, cadence uint64) *simChain {
 	t.Helper()
 	oramaApp := buildTestApp(t)
 	genState, keys := committeeGenesis(t, oramaApp, 1, 365)
 	emission := emissiontypes.DefaultGenesisState()
-	emission.Params = emissiontypes.NewParams(2*time.Second, 1, true)
+	emission.Params = emissiontypes.NewParams(2*time.Second, cadence, true)
 	emission.Params.FaucetEnabled = true
 	emission.Params.FaucetMaxDrip = math.NewInt(simMaxDrip)
 	emission.Params.FaucetEpochCap = math.NewInt(simMaxDrip).MulRaw(1_000_000)
@@ -253,7 +263,7 @@ func (c *simChain) report() {
 
 func TestSimulation(t *testing.T) {
 	t.Logf("simulation seed=%d blocks=%d", *simSeed, *simBlocks)
-	c := newSimChain(t, *simSeed, false)
+	c := newSimChain(t, *simSeed, false, *simCadence)
 	for i := 0; i < *simBlocks; i++ {
 		c.block()
 	}
@@ -262,7 +272,7 @@ func TestSimulation(t *testing.T) {
 
 // A second seed on every plain `go test`, so the default run covers two interleavings.
 func TestSimulation_secondSeed(t *testing.T) {
-	c := newSimChain(t, *simSeed+1000, false)
+	c := newSimChain(t, *simSeed+1000, false, simSecondSeedCadence)
 	for i := 0; i < *simBlocks; i++ {
 		c.block()
 	}
@@ -273,7 +283,7 @@ func TestSimulation_secondSeed(t *testing.T) {
 // depend on map order, wall-clock time, a random source or the node. make chain-sim runs it under the
 // race detector.
 func TestDeterminism_twoAppsFedTheSameBlocksAgreeAtEveryHeight(t *testing.T) {
-	c := newSimChain(t, *simSeed+2000, true)
+	c := newSimChain(t, *simSeed+2000, true, *simCadence)
 	for i := 0; i < *simBlocks; i++ {
 		c.block()
 	}

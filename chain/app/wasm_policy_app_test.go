@@ -59,6 +59,7 @@ func (r *relayChain) requireInvariants() {
 	fees, err := r.app.FeesKeeper.CheckInvariants(r.ctx())
 	require.NoError(r.t, err)
 	require.True(r.t, fees.EarningsMatchModule && fees.DepositsMatchModule && fees.FeesBalance, fees.Detail)
+	requireConserved(r.t, r.app)
 }
 
 func TestDeposit_growthIsChargedToTheCallerAndDeletionRefunds(t *testing.T) {

@@ -177,6 +177,10 @@ func (c *shieldedChain) block(t *testing.T, txs ...[]byte) []*abci.ExecTxResult 
 	resp := c.finalize(t, txs...)
 	_, err := c.app.Commit()
 	require.NoError(t, err)
+	// This chain keeps the default min_blocks_per_epoch, so it runs its own full pass only at the
+	// production cadence's heights; the pass here looks at every block, shield, transfer and unshield
+	// included (the shielded pool's ledger against the module account).
+	requireConserved(t, c.app)
 	return resp.TxResults
 }
 
