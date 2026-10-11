@@ -159,6 +159,27 @@ func TestDecide_aValidatorOnAutoSkipsAndIsNotAnError(t *testing.T) {
 	}
 }
 
+// Whatever the mode, the window and the cluster's health, a validator is never told to upgrade: its
+// chain binary changes at a governed upgrade the operator stages, not at a timer's tick.
+func TestDecide_aValidatorIsNeverToldToUpgrade(t *testing.T) {
+	hours := []time.Time{time.Date(2026, 9, 28, 2, 0, 0, 0, time.UTC), time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)}
+	healths := []Health{{Voters: 3, HealthyVoters: 3}, {Voters: 3, HealthyVoters: 1}, {Degraded: true, Voters: 3, HealthyVoters: 3}}
+	for _, mode := range []string{ModeOff, ModeNotify, ModeAuto} {
+		for _, win := range [][2]int{{0, 0}, {1, 5}, {5, 1}} {
+			for _, now := range hours {
+				for _, h := range healths {
+					s := DefaultSettings()
+					s.Role, s.Mode, s.WindowStart, s.WindowEnd = RoleValidator, mode, win[0], win[1]
+					d, err := Decide(s, h, now, "1.0.0", Candidate{Version: "1.0.1", Channel: s.Channel}, nil)
+					if err != nil || d.Action == ActionUpgrade {
+						t.Fatalf("mode %s window %v at %v health %+v: %+v, %v", mode, win, now, h, d, err)
+					}
+				}
+			}
+		}
+	}
+}
+
 // The window is in UTC whatever zone a node's clock is set to: a node on
 // Europe/Berlin must not open it two hours early.
 func TestDecide_theWindowIsInUTCWhateverTheNodesZone(t *testing.T) {
