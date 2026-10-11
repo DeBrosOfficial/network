@@ -187,26 +187,9 @@ func (g *Gateway) rateLimitMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Opening a head stream is cheap to ask for and holds a connection for a hundred seconds, so
-		// it has a bucket of its own.
-		if g.chainHeadRateLimiter != nil && r.URL.Path == chainHeadStreamPath && !g.chainHeadRateLimiter.Allow(ip) {
-			w.Header().Set("Retry-After", "10")
-			httputil.WriteRPCError(w, http.StatusTooManyRequests,
-				httputil.ErrCodeRateLimited,
-				"too many chain streams from this address — wait a moment and try again",
-				httputil.WithRetryable(),
-				httputil.WithRetryAfter(10))
-			return
-		}
-
-		// A read of the chain indexer can cost a scan, so it has a bucket of its own beside the general one.
-		if g.chainIndexRateLimiter != nil && isChainIndexPath(r.URL.Path) && !g.chainIndexRateLimiter.Allow(ip) {
-			w.Header().Set("Retry-After", "10")
-			httputil.WriteRPCError(w, http.StatusTooManyRequests,
-				httputil.ErrCodeRateLimited,
-				"too many chain index reads from this address — wait a moment and try again",
-				httputil.WithRetryable(),
-				httputil.WithRetryAfter(10))
+		// Opening a head stream holds a connection for a hundred seconds and a read of the chain indexer can
+		// cost a scan, so each has a bucket of its own (chain_read_limit.go).
+		if g.chainReadBucketRefused(w, r, ip) {
 			return
 		}
 
@@ -242,18 +225,11 @@ func (g *Gateway) rateLimitMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
-		if g.chainHeadHolds != nil && r.URL.Path == chainHeadStreamPath {
-			if !g.chainHeadHolds.acquire(ip) {
-				w.Header().Set("Retry-After", "10")
-				httputil.WriteRPCError(w, http.StatusTooManyRequests,
-					httputil.ErrCodeRateLimited,
-					"too many chain streams are open from this address — close one and try again",
-					httputil.WithRetryable(),
-					httputil.WithRetryAfter(10))
-				return
-			}
-			defer g.chainHeadHolds.release(ip)
+		release, held := g.holdChainRead(w, r, ip)
+		if !held {
+			return
 		}
+		defer release()
 		next.ServeHTTP(w, r)
 	})
 }

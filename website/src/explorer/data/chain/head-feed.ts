@@ -110,7 +110,8 @@ export function createHeadFeed(streamUrl: string, open: EventSourceFactory | nul
   };
 
   const connect = () => {
-    if (source !== null) return;
+    // While a refused stream waits to be opened again, a new reader waits with it: opening at once would skip the wait.
+    if (source !== null || reopen !== null) return;
     if (open === null) throw new ChainReadError(NO_EVENT_SOURCE);
     const opened = open(streamUrl);
     opened.addEventListener("head", onHead);

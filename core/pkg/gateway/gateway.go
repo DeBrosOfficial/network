@@ -238,6 +238,8 @@ type Gateway struct {
 	chainHeadHolds *holdLimiter
 	// chainIndexRateLimiter bounds the chain indexer reads (/v1/chain/index/) one client network makes.
 	chainIndexRateLimiter *RateLimiter
+	// chainIndexHolds bounds the index reads one client network has in flight at once.
+	chainIndexHolds *holdLimiter
 	// chainSimulateLimiter and chainBroadcastLimiter cap the wallet transaction routes
 	// (/v1/chain/simulate, /v1/chain/broadcast), per client network and per route.
 	chainSimulateLimiter  *chainTxLimiter
@@ -1707,6 +1709,7 @@ func configureRateLimiters(gw *Gateway) {
 
 	gw.chainIndexRateLimiter = NewRateLimiter(chainIndexPerMinute, chainIndexBurst)
 	gw.chainIndexRateLimiter.StartCleanup(5*time.Minute, 10*time.Minute)
+	gw.chainIndexHolds = newHoldLimiter(chainIndexReadsPerClient)
 
 	gw.chainSimulateLimiter = newChainTxLimiter(chainSimulatePerAddressPerMinute, chainSimulatePerAddressBurst,
 		chainSimulateRoutePerMinute, chainSimulateRouteBurst)

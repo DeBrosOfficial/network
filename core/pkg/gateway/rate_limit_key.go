@@ -48,8 +48,12 @@ const (
 	// browsing makes (a page is a few reads and the home is one a block) and well below the general
 	// one.
 	chainIndexPathPrefix = "/v1/chain/index/"
-	chainIndexPerMinute  = 1200
-	chainIndexBurst      = 240
+	// chainIndexReadsPerClient is how many index reads one client network may have in flight at once.
+	// The gateway holds 32 in all; without a share each, one client could take every one of them with
+	// its burst and the rest would be refused until its reads ended.
+	chainIndexReadsPerClient = 6
+	chainIndexPerMinute      = 1200
+	chainIndexBurst          = 240
 )
 
 // isChainQueryPath reports whether path is the public Orama module-query route.

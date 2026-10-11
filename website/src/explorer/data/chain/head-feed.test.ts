@@ -228,6 +228,25 @@ describe("createHeadFeed", () => {
       expect(stream.opened).toHaveLength(before + 1);
     });
 
+    it("TestHeadFeed_a_reader_that_arrives_during_the_wait_does_not_skip_it", async () => {
+      vi.useFakeTimers();
+      const stream = new FakeStream();
+      stream.withholdHead = true;
+      const feed = createHeadFeed(URL, stream.factory);
+      feed.subscribe(() => undefined, () => undefined);
+      await vi.advanceTimersByTimeAsync(0);
+      stream.refuse();
+
+      const late: number[] = [];
+      feed.subscribe((h) => late.push(h.height), () => undefined);
+      expect(stream.opened).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(5_001);
+      expect(stream.opened).toHaveLength(2);
+      stream.push(HEAD + 1);
+      stream.push(HEAD + 2);
+      expect(late).toEqual([HEAD + 2]);
+    });
+
     it("TestHeadFeed_the_last_reader_leaving_cancels_the_reopen", async () => {
       vi.useFakeTimers();
       const stream = new FakeStream();
