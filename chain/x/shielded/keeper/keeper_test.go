@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -348,10 +349,47 @@ func TestTransfer_oneVerifierFailsClosed(t *testing.T) {
 	}
 }
 
+// A fault every time is the bundle's own: in a block it is asked blockVerifyAttempts times and
+// refused, the same verdict on every node.
 func TestTransfer_verifierFaultRejectsTheBundle(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
 	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
 	require.ErrorIs(t, transfer(e, transferBundle(2, 20, emptyAnchor(t))), verify.ErrVerifierFault)
+	require.Equal(t, 3, e.V2.Calls, "the bundle is asked again while the verifier faults")
+}
+
+// A verifier process killed during the check is no verdict: in a block the bundle is asked again,
+// so the node reaches its peers' verdict instead of refusing a transaction they accepted.
+func TestTransfer_aVerifierThatFaultsOnceInABlockGivesItsVerdictOnTheNextAsk(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	shield(t, e, 1, 1000)
+	e.EndBlock()
+	asked := 0
+	e.V2.Reject = func([]byte) error {
+		if asked++; asked == 1 {
+			return fmt.Errorf("%w: out-of-process verifier: the process died", verify.ErrVerifierFault)
+		}
+		return nil
+	}
+	require.NoError(t, transfer(e, transferBundle(2, 20, rootAfter(1))))
+	require.Equal(t, 2, asked)
+}
+
+// A verdict is never asked again, and neither is a fault in the mempool, whose refusal is local.
+func TestVerify_aVerdictInABlockAndAFaultInCheckTxAreNotAskedAgain(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrProofRejected }
+	require.ErrorIs(t, transfer(e, transferBundle(2, 20, emptyAnchor(t))), verify.ErrProofRejected)
+	require.Equal(t, 1, e.V2.Calls, "a rejection is a verdict")
+
+	e = testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.Equal(t, 1, e.V2.Calls, "CheckTx asks once")
 }
 
 func TestTransfer_signerMustBeTheProtocolAddress(t *testing.T) {

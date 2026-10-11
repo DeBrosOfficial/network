@@ -15,7 +15,8 @@
 // The process is started on first use and kept. Requests are serialized. A request that times
 // out, or whose process dies or answers out of protocol, kills the process and is rejected with
 // verify.ErrVerifierFault; the next request starts a fresh process. Fail closed: a fault is
-// never turned into an accept and a request is never retried.
+// never turned into an accept and this package never retries a request. The keeper asks again in
+// a block, where a fault is no verdict (x/shielded/keeper blockVerifyAttempts).
 package orchardproc
 
 import (

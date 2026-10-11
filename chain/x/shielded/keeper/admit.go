@@ -87,7 +87,7 @@ func (k Keeper) Admit(ctx sdk.Context, raw, binding []byte, kind Kind, verifyPro
 func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) error {
 	ctx.GasMeter().ConsumeGas(adm.Gas, "shielded proof verification")
 	if !ctx.IsCheckTx() {
-		return k.check(raw, binding)
+		return k.checkInBlock(raw, binding)
 	}
 	key := admissionKey(raw, binding)
 	if err, failed := k.admission.recalled(key); failed {
@@ -99,6 +99,27 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 	err := k.check(raw, binding)
 	if err != nil {
 		k.admission.remember(key, err)
+	}
+	return err
+}
+
+// blockVerifyAttempts is how many times a bundle in a block is put to the verifiers while they
+// fault. A fault (verify.ErrVerifierFault: the out-of-process verifier died, hung past its timeout
+// or answered out of protocol, or a verifier caught a panic) is not a verdict on the bundle, and
+// in a block every node must reach the same one: a node whose verifier process was killed during
+// the check refused a transaction its peers accepted and computed another state (the chain-chaos
+// verifier test). The out-of-process verifier starts a fresh process for the next request, so the
+// bundle is asked again. A fault the bundle itself causes repeats on every attempt on every node
+// and the bundle is refused everywhere alike. CheckTx is not retried: a mempool refusal is local.
+const blockVerifyAttempts = 3
+
+// checkInBlock is check for a bundle in a block (see blockVerifyAttempts).
+func (k Keeper) checkInBlock(raw, binding []byte) error {
+	var err error
+	for attempt := 0; attempt < blockVerifyAttempts; attempt++ {
+		if err = k.check(raw, binding); !errors.Is(err, verify.ErrVerifierFault) {
+			return err
+		}
 	}
 	return err
 }
