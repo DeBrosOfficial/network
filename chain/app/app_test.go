@@ -50,7 +50,7 @@ const testChainID = "orama-localnet-apptest-1"
 // emissiontypes.SplitEpochMint here.
 const epoch1ValidatorShareNorama = 8_908_800_000_000
 
-func buildTestApp(t *testing.T) *app.OramaApp {
+func buildTestApp(t testing.TB) *app.OramaApp {
 	t.Helper()
 	app.SetAddressPrefixes()
 	return app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(testChainID))

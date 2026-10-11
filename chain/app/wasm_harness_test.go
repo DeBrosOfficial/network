@@ -44,7 +44,7 @@ type wasmUser struct {
 
 // wasmChain is a real app with the standard contracts in genesis, driven through FinalizeBlock.
 type wasmChain struct {
-	t        *testing.T
+	t        testing.TB
 	app      *app.OramaApp
 	genesis  time.Time
 	height   int64
@@ -61,7 +61,7 @@ type wasmChainOptions struct {
 
 // newWasmChain builds the chain: a one-member committee, opts.users funded accounts, and (unless
 // skipStandard) the standard contracts added exactly as `oramad genesis add-standard-contracts` does.
-func newWasmChain(t *testing.T, opts wasmChainOptions) *wasmChain {
+func newWasmChain(t testing.TB, opts wasmChainOptions) *wasmChain {
 	t.Helper()
 	oramaApp := buildTestApp(t)
 	genState, _ := committeeGenesis(t, oramaApp, 1, 365)
@@ -170,7 +170,7 @@ func (c *wasmChain) instantiate(user wasmUser, codeID uint64, msg any, funds sdk
 	return contractFromEvents(c.t, res)
 }
 
-func contractFromEvents(t *testing.T, res abci.ExecTxResult) sdk.AccAddress {
+func contractFromEvents(t testing.TB, res abci.ExecTxResult) sdk.AccAddress {
 	t.Helper()
 	for _, ev := range res.Events {
 		if ev.Type != "instantiate" {

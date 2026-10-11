@@ -35,7 +35,7 @@ type committeeKey struct {
 	cons    cmted25519.PrivKey
 }
 
-func committeeGenesis(t *testing.T, oramaApp *app.OramaApp, n int, deadline uint64) (app.GenesisState, []committeeKey) {
+func committeeGenesis(t testing.TB, oramaApp *app.OramaApp, n int, deadline uint64) (app.GenesisState, []committeeKey) {
 	t.Helper()
 	genState := app.NewDefaultGenesisState(oramaApp)
 	keys := make([]committeeKey, n)
@@ -61,7 +61,7 @@ func committeeGenesis(t *testing.T, oramaApp *app.OramaApp, n int, deadline uint
 	return genState, keys
 }
 
-func initChain(t *testing.T, oramaApp *app.OramaApp, genState app.GenesisState, maxGas int64, genesisTime time.Time) {
+func initChain(t testing.TB, oramaApp *app.OramaApp, genState app.GenesisState, maxGas int64, genesisTime time.Time) {
 	t.Helper()
 	stateBytes, err := json.Marshal(genState)
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func initChain(t *testing.T, oramaApp *app.OramaApp, genState app.GenesisState, 
 	require.NoError(t, err)
 }
 
-func finalize(t *testing.T, oramaApp *app.OramaApp, height int64, blockTime time.Time, txs ...[]byte) *abci.ResponseFinalizeBlock {
+func finalize(t testing.TB, oramaApp *app.OramaApp, height int64, blockTime time.Time, txs ...[]byte) *abci.ResponseFinalizeBlock {
 	t.Helper()
 	resp, err := oramaApp.FinalizeBlock(&abci.RequestFinalizeBlock{
 		Height: height,
@@ -419,14 +419,14 @@ func TestApp_outsiderBondsFromEarnings(t *testing.T) {
 	require.True(t, feesInv.EarningsMatchModule && feesInv.DepositsMatchModule && feesInv.FeesBalance, feesInv.Detail)
 }
 
-func writeCache(t *testing.T, ctx sdk.Context) {
+func writeCache(t testing.TB, ctx sdk.Context) {
 	t.Helper()
 	cache, ok := ctx.MultiStore().(storetypes.CacheMultiStore)
 	require.True(t, ok, "expected a cache multistore")
 	cache.Write()
 }
 
-func addAuthAccount(t *testing.T, oramaApp *app.OramaApp, genState app.GenesisState, priv cryptotypes.PrivKey) {
+func addAuthAccount(t testing.TB, oramaApp *app.OramaApp, genState app.GenesisState, priv cryptotypes.PrivKey) {
 	t.Helper()
 	var authGen authtypes.GenesisState
 	require.NoError(t, oramaApp.AppCodec().UnmarshalJSON(genState[authtypes.ModuleName], &authGen))
@@ -441,7 +441,7 @@ func addAuthAccount(t *testing.T, oramaApp *app.OramaApp, genState app.GenesisSt
 	genState[authtypes.ModuleName] = oramaApp.AppCodec().MustMarshalJSON(&authGen)
 }
 
-func signedTx(t *testing.T, oramaApp *app.OramaApp, key cryptotypes.PrivKey, seed int64, gas uint64, msgs ...sdk.Msg) []byte {
+func signedTx(t testing.TB, oramaApp *app.OramaApp, key cryptotypes.PrivKey, seed int64, gas uint64, msgs ...sdk.Msg) []byte {
 	t.Helper()
 	signer := sdk.AccAddress(key.PubKey().Address())
 	acc := oramaApp.AccountKeeper.GetAccount(oramaApp.NewContext(true), signer)

@@ -55,7 +55,7 @@ func newFakeStakingKeeper() *fakeStakingKeeper {
 }
 
 // addValidator registers a validator with a self-delegation of selfBond tokens.
-func (f *fakeStakingKeeper) addValidator(t *testing.T, valoperAddr string, pubKey []byte, tokens int64, commissionRate string) {
+func (f *fakeStakingKeeper) addValidator(t testing.TB, valoperAddr string, pubKey []byte, tokens int64, commissionRate string) {
 	t.Helper()
 	pk := &ed25519.PubKey{Key: pubKey}
 	pkAny, err := codectypes.NewAnyWithValue(pk)
@@ -335,7 +335,7 @@ type testFixture struct {
 	Emission *fakeEmissionKeeper
 }
 
-func newTestFixture(t *testing.T) *testFixture {
+func newTestFixture(t testing.TB) *testFixture {
 	t.Helper()
 
 	key := storetypes.NewKVStoreKey(types.StoreKey)

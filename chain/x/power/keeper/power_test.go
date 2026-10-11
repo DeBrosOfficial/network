@@ -13,7 +13,7 @@ import (
 	"github.com/DeBrosOfficial/network/chain/x/power/types"
 )
 
-func setupSingleCommitteeGenesis(t *testing.T, f *testFixture) sdk.AccAddress {
+func setupSingleCommitteeGenesis(t testing.TB, f *testFixture) sdk.AccAddress {
 	t.Helper()
 	f.Ctx = f.Ctx.WithChainID("orama-devnet-1")
 	memberAddr := sdk.AccAddress("solo_committee_member")

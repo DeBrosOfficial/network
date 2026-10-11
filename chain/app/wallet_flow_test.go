@@ -60,7 +60,7 @@ type wallet struct {
 	addr sdk.AccAddress
 }
 
-func newFlow(t *testing.T) *flow {
+func newFlow(t testing.TB) *flow {
 	t.Helper()
 	b, err := oramatx.New(buildTestApp(t).TxConfig())
 	require.NoError(t, err)
@@ -122,13 +122,13 @@ func (f *flow) deliverGas(w wallet, gas uint64, msgs ...sdk.Msg) *abci.ExecTxRes
 	return resp.TxResults[0]
 }
 
-func requireOK(t *testing.T, res *abci.ExecTxResult) {
+func requireOK(t testing.TB, res *abci.ExecTxResult) {
 	t.Helper()
 	require.Zero(t, res.Code, "tx failed: %s", res.Log)
 }
 
 // requireRejected asserts the transaction failed and its log names why.
-func requireRejected(t *testing.T, res *abci.ExecTxResult, why string) {
+func requireRejected(t testing.TB, res *abci.ExecTxResult, why string) {
 	t.Helper()
 	require.NotZero(t, res.Code, "tx unexpectedly succeeded")
 	require.Contains(t, strings.ToLower(res.Log), strings.ToLower(why))

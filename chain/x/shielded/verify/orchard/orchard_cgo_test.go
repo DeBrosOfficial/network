@@ -157,23 +157,6 @@ func errString(err error) string {
 	return err.Error()
 }
 
-func benchmarkVerify(b *testing.B, name string) {
-	bundle, _, chainID := loadVector(b, name)
-	v := mustNew(b, chainID)
-	if err := v.Verify(bundle, nil); err != nil { // builds the verifying key once, outside the timing
-		b.Fatal(err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := v.Verify(bundle, nil); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkVerify_1action(b *testing.B) { benchmarkVerify(b, "ironwood-1-action") }
-func BenchmarkVerify_2action(b *testing.B) { benchmarkVerify(b, "ironwood-2-action") }
-
 func TestWarm_buildsTheKeyAndIsRepeatable(t *testing.T) {
 	if err := Warm(); err != nil {
 		t.Fatalf("Warm: %v", err)

@@ -23,7 +23,7 @@ BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 WASMVM_DIR := $(shell go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3 2>/dev/null)
 LIBWASMVM := $(firstword $(wildcard $(WASMVM_DIR)/internal/api/libwasmvm.dylib $(WASMVM_DIR)/internal/api/libwasmvm.aarch64.so $(WASMVM_DIR)/internal/api/libwasmvm.x86_64.so))
 
-.PHONY: build build-wasm contracts-verify test chain-test lint chain-sim localnet localnet-stop localnet-clean orchard-lib orchard-lib-linux-amd64 proto-shielded proto-emission proto-fees proto-power proto-nodes orchard-verifier orchard-verifier-linux-amd64 orchard-test build-linux-amd64-orchard orchard-smoke orchard-smoke-linux-amd64 native-lib-linux-amd64 build-linux-amd64-full build-linux-amd64-global
+.PHONY: build build-wasm contracts-verify test chain-test lint chain-sim localnet localnet-stop localnet-clean orchard-lib orchard-lib-linux-amd64 proto-shielded proto-emission proto-fees proto-power proto-nodes orchard-verifier orchard-verifier-linux-amd64 orchard-test build-linux-amd64-orchard orchard-smoke orchard-smoke-linux-amd64 native-lib-linux-amd64 build-linux-amd64-full build-linux-amd64-global bench bench-baseline bench-compare
 
 ## build: cross-compile oramad for linux/amd64, darwin/amd64 and darwin/arm64.
 ## CGO_ENABLED=0 and -tags nowasm: these binaries are static and do not include CosmWasm.
@@ -277,3 +277,61 @@ proto-nodes:
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/nodes/v1/*.proto && \
 	cp $$out/github.com/DeBrosOfficial/network/chain/x/nodes/types/*.go x/nodes/types/ && rm -rf $$out
+
+# Microbenchmarks and their regression gate (website/src/docs/contributor/performance.mdx).
+#
+#   make bench                      run every Benchmark* with -count, write bench/latest.txt
+#   make bench-baseline             the same, written to bench/baseline.txt: only on a stable box
+#   make bench-compare BASE=<file>  benchstat BASE against bench/latest.txt; fails when a benchmark
+#                                   got more than the gate's threshold slower in time/op
+#
+# A release baseline comes from a stable 8-core linux/amd64 machine, never a laptop: bench-baseline
+# refuses elsewhere, and BENCH_ALLOW_UNSTABLE=1 writes the file anyway, stamped as not a release
+# baseline (bench-compare then refuses it unless it is given BENCH_ALLOW_UNSTABLE=1 too).
+# BENCH_LARGE=1 adds the 10M-entry nullifier store and 10M-key IAVL benchmarks (minutes to fill).
+# The Rust verifier benchmarks skip, with a message, when `make orchard-lib` / `make orchard-verifier`
+# have not been run on this machine.
+BENCH_DIR := bench
+BENCH_COUNT ?= 6
+BENCH_TIME ?= 1s
+BENCH_FILTER ?= .
+BENCH_OUT ?= $(BENCH_DIR)/latest.txt
+BENCH_BASELINE ?= $(BENCH_DIR)/baseline.txt
+NEW ?= $(BENCH_OUT)
+# Pinned: the gate parses this version's csv output.
+BENCHSTAT := go run golang.org/x/perf/cmd/benchstat@v0.0.0-20250813145418-2f7363a06fe1
+BENCHGATE := go run ./cmd/benchgate
+HOST_GOOS := $(shell go env GOOS)
+HOST_GOARCH := $(shell go env GOARCH)
+ORCHARD_HOST_LIB := $(ORCHARD_LIBDIR)/$(HOST_GOOS)_$(HOST_GOARCH)/liborama_orchard.a
+ORCHARD_PROCESS_BIN := $(VERIFIER_CRATE)/target/release/$(VERIFIER_NAME)
+BENCH_TAGS := $(strip $(if $(LIBWASMVM),,nowasm) $(if $(wildcard $(ORCHARD_HOST_LIB)),orchardffi))
+BENCH_UNSTABLE_FLAG := $(if $(BENCH_ALLOW_UNSTABLE),-allow-unstable)
+BENCH_LARGE_ENV := $(if $(BENCH_LARGE),ORAMA_BENCH_LARGE=1)
+# bench_run <stamp flags> <output file>: stamp first (a refusal costs nothing), then the benchmarks.
+define bench_run
+	mkdir -p $(BENCH_DIR)
+	@$(if $(wildcard $(ORCHARD_HOST_LIB)),,echo "bench: $(ORCHARD_HOST_LIB) is absent, so BenchmarkVerify of x/shielded/verify/orchard will skip (run make orchard-lib)";)
+	@$(if $(wildcard $(ORCHARD_PROCESS_BIN)),,echo "bench: $(ORCHARD_PROCESS_BIN) is absent, so BenchmarkVerify of x/shielded/verify/orchardproc will skip (run make orchard-verifier)";)
+	bash -o pipefail -c '$(BENCHGATE) stamp $(1) > "$$0.tmp" && $(BENCH_LARGE_ENV) CGO_ENABLED=1 go test -tags "$(BENCH_TAGS)" -run "^\$$" -bench "$$1" -benchtime $(BENCH_TIME) -count $(BENCH_COUNT) -timeout 120m ./... | tee -a "$$0.tmp"' $(2) '$(BENCH_FILTER)' || { rm -f $(2).tmp; exit 1; }
+	mv $(2).tmp $(2)
+	@echo "bench: wrote $(2)"
+endef
+
+## bench: run every Benchmark* (BENCH_COUNT runs each, BENCH_TIME per run) and write benchstat-comparable output.
+bench:
+	$(call bench_run,,$(BENCH_OUT))
+
+## bench-baseline: bench, written to $(BENCH_BASELINE). Refuses unless this is linux/amd64 with at least 8 CPUs.
+bench-baseline:
+	$(call bench_run,-baseline $(BENCH_UNSTABLE_FLAG),$(BENCH_BASELINE))
+
+## bench-compare: benchstat BASE against NEW (default bench/latest.txt) and run the regression gate.
+bench-compare:
+	@test -n "$(BASE)" || { echo "usage: make bench-compare BASE=<baseline file> [NEW=$(BENCH_OUT)]"; exit 2; }
+	@test -f "$(BASE)" || { echo "bench-compare: baseline $(BASE) not found"; exit 2; }
+	@test -f "$(NEW)" || { echo "bench-compare: $(NEW) not found: run make bench first"; exit 2; }
+	mkdir -p $(BENCH_DIR)
+	$(BENCHSTAT) $(BASE) $(NEW)
+	$(BENCHSTAT) -format csv $(BASE) $(NEW) > $(BENCH_DIR)/compare.csv
+	$(BENCHGATE) compare -base $(BASE) -new $(NEW) $(if $(BENCH_REGRESSION_PERCENT),-threshold $(BENCH_REGRESSION_PERCENT)) $(BENCH_UNSTABLE_FLAG) < $(BENCH_DIR)/compare.csv

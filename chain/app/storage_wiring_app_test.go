@@ -31,19 +31,19 @@ const wiringCapacity = uint64(1 << 20)
 // the keepers land in a block context that is committed as its own block, exactly as the funding
 // step of TestApp_operatorBondsNodeFromEarnings does.
 type wiringChain struct {
-	t       *testing.T
+	t       testing.TB
 	app     *app.OramaApp
 	genesis time.Time
 	height  int64
 }
 
-func newWiringChain(t *testing.T) *wiringChain {
+func newWiringChain(t testing.TB) *wiringChain {
 	t.Helper()
 	return newWiringChainWith(t, nil)
 }
 
 // newWiringChainWith is newWiringChain with the x/nodes genesis adjusted first.
-func newWiringChainWith(t *testing.T, mutate func(*nodestypes.GenesisState)) *wiringChain {
+func newWiringChainWith(t testing.TB, mutate func(*nodestypes.GenesisState)) *wiringChain {
 	t.Helper()
 	oramaApp := buildTestApp(t)
 	genesis := time.Unix(1_700_000_000, 0)

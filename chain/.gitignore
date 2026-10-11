@@ -8,3 +8,8 @@
 /x/shielded/orchardffi/target/
 /x/shielded/wallet/target/
 /x/shielded/verify/orchard/lib/
+
+# Microbenchmark output (make bench); bench/baseline.txt is committed at a release
+/bench/*.tmp
+/bench/latest.txt
+/bench/compare.csv
