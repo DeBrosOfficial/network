@@ -116,7 +116,28 @@ func chainIssues(n Node, median int64, hasMedian bool) []Issue {
 	if c.SigningError != "" && c.Jailed == nil && c.MissedBlockRatio == nil {
 		add(Warning, "chain.signing", c.SigningError)
 	}
+	if c.UpgradeError != "" {
+		add(Warning, "chain.upgrade-plan", "the chain's scheduled upgrade could not be read: "+c.UpgradeError)
+	}
+	if u := c.Upgrade; u != nil && !u.Staged {
+		add(Warning, "chain.upgrade-unstaged", unstagedUpgradeMessage(u, c.LatestHeight))
+	}
 	return out
+}
+
+// unstagedUpgradeMessage tells an operator the chain will halt at the upgrade's height on this
+// node, and how to stage the binary.
+func unstagedUpgradeMessage(u *report.ChainUpgrade, height int64) string {
+	reason := "its binary is not staged on this node"
+	if u.StageError != "" {
+		reason = "its binary cannot be staged: " + u.StageError
+	}
+	when := fmt.Sprintf("%d blocks from height %d", u.Height-height, height)
+	if u.Height <= height {
+		when = fmt.Sprintf("the chain is at its height %d", height)
+	}
+	return fmt.Sprintf("chain upgrade %q is scheduled at height %d (%s) and %s: the node halts there until it is "+
+		"(orama upgrade, or orama maint global stage-oramad --upgrade %s)", u.Name, u.Height, when, reason, u.Name)
 }
 
 type missed struct {

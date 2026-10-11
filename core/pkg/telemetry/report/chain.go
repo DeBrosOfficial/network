@@ -97,6 +97,7 @@ func collectChain() *ChainReport {
 	queryChainRPC(ctx, rpcBase, nodeID, r, time.Now())
 	if r.Responsive {
 		readChainSigning(r, apiBase)
+		readChainUpgrade(ctx, apiBase, r)
 	}
 	return r
 }

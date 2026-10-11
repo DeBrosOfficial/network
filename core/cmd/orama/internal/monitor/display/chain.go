@@ -49,9 +49,30 @@ func ChainTables(t view.Theme, s view.ChainSummary) string {
 		rows = append(rows, chainRow(t, n))
 	}
 	b.WriteString(view.Table(t, tableIndent, []string{"NODE", "RPC", "HEIGHT", "BLOCK AGE", "SYNC", "PEERS", "VALIDATOR"}, rows))
+	b.WriteString(upgradeLines(t, s))
 	if len(s.Validators) > 0 {
 		b.WriteString("\n")
 		b.WriteString(validatorTable(t, s))
+	}
+	return b.String()
+}
+
+// upgradeLines is the software upgrade the chain has scheduled, one line per node that reports
+// one (or could not read it), with whether that node holds the binary. Empty when none does.
+func upgradeLines(t view.Theme, s view.ChainSummary) string {
+	var b strings.Builder
+	for _, n := range s.Nodes {
+		sentence := view.UpgradeSentence(n.Chain)
+		if sentence == "" {
+			continue
+		}
+		if b.Len() == 0 {
+			b.WriteString("\n" + tableIndent + t.Bold.Render("Scheduled chain upgrade") + "\n")
+		}
+		if u := n.Chain.Upgrade; n.Chain.UpgradeError != "" || (u != nil && !u.Staged) {
+			sentence = t.Warn.Render(sentence)
+		}
+		fmt.Fprintf(&b, "%s%s  %s\n", tableIndent, n.Host, sentence)
 	}
 	return b.String()
 }

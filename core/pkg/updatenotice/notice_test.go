@@ -43,3 +43,23 @@ func TestNotice_refusals(t *testing.T) {
 		t.Error("a corrupt notice read as none")
 	}
 }
+
+func TestNotice_Policy(t *testing.T) {
+	cases := []struct {
+		name string
+		n    Notice
+		want string
+	}{
+		{"available on notify reports only", Notice{State: StateAvailable, Mode: "notify"}, PolicyNotify},
+		{"available on auto is queued for the node's turn", Notice{State: StateAvailable, Mode: "auto"}, PolicyUpgrade},
+		{"available with no mode recorded is not an install", Notice{State: StateAvailable}, PolicyNotify},
+		{"refused", Notice{State: StateRefused, Mode: "auto"}, PolicyRefuse},
+		{"failed", Notice{State: StateFailed, Mode: "auto"}, PolicyRolledBack},
+		{"unknown state", Notice{State: "weird"}, ""},
+	}
+	for _, c := range cases {
+		if got := c.n.Policy(); got != c.want {
+			t.Errorf("%s: Policy() = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

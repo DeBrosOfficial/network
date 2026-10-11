@@ -47,6 +47,12 @@ func writeNode(b *strings.Builder, t view.Theme, cs cluster.CollectionStatus) {
 	line(b, t, "IPFS", ipfsLine(t, r.IPFS))
 	line(b, t, "Tor", torLine(t, r.Tor))
 	line(b, t, "Chain", chainLine(t, r.Chain))
+	if up := view.UpgradeSentence(r.Chain); up != "" {
+		line(b, t, "Chain upgrade", up)
+	}
+	if upd := view.UpdateSentence(r.Update); upd != "" {
+		line(b, t, "Update", upd)
+	}
 	if r.Global != nil {
 		line(b, t, "Global", globalLine(t, r.Global))
 	}

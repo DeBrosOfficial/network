@@ -19,7 +19,7 @@ const (
 )
 
 // NodeHeaders are the columns of the node table.
-var NodeHeaders = []string{"HOST", "ROLE", "HEALTH", "RAFT", "GATEWAY", "LOAD", "STEAL", "MEM", "DISK", "VERSION", "AGE"}
+var NodeHeaders = []string{"HOST", "ROLE", "HEALTH", "RAFT", "GATEWAY", "LOAD", "STEAL", "MEM", "DISK", "VERSION", "UPDATE", "AGE"}
 
 // NodeCells renders one node as a row of the node table.
 func NodeCells(t Theme, cs cluster.CollectionStatus) []string {
@@ -30,7 +30,7 @@ func NodeCells(t Theme, cs cluster.CollectionStatus) []string {
 	row := []string{cs.Node.Host, role, healthCell(t, cs.Health())}
 	r := cs.Report
 	if r == nil {
-		return append(row, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell)
+		return append(row, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell, unknownCell)
 	}
 	row = append(row, raftCell(t, cs), gatewayCell(t, cs))
 	if r.System != nil {
@@ -47,7 +47,7 @@ func NodeCells(t Theme, cs cluster.CollectionStatus) []string {
 		version = unknownCell
 	}
 	age := FormatAge(time.Duration(cs.ReportAgeSec) * time.Second)
-	return append(row, version, age)
+	return append(row, version, UpdateCell(t, r.Update), age)
 }
 
 func healthCell(t Theme, h cluster.NodeHealth) string {

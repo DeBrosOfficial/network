@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
 )
 
 // Path is the notice file, beside the other release state in /etc/orama.
@@ -45,6 +46,36 @@ type Notice struct {
 	Candidate string    `json:"candidate,omitempty"`
 	Reason    string    `json:"reason,omitempty"`
 	CheckedAt time.Time `json:"checked_at"`
+}
+
+// What the policy does with the release a notice names.
+const (
+	// PolicyNotify: the release is only reported; nothing is installed.
+	PolicyNotify = "notify"
+	// PolicyUpgrade: the cluster is on auto, so this node installs the release when it is its
+	// turn inside the maintenance window; Reason says what it is waiting for.
+	PolicyUpgrade = "upgrade"
+	// PolicyRefuse: the release was refused and will not be installed.
+	PolicyRefuse = "refuse"
+	// PolicyRolledBack: this node installed the release and put the previous one back.
+	PolicyRolledBack = "rolled back"
+)
+
+// Policy is what the cluster's policy does with the release: notify, upgrade (queued for this
+// node's turn), refuse, or rolled back. It is empty for a notice of no known state.
+func (n Notice) Policy() string {
+	switch n.State {
+	case StateAvailable:
+		if n.Mode == updatepolicy.ModeAuto {
+			return PolicyUpgrade
+		}
+		return PolicyNotify
+	case StateRefused:
+		return PolicyRefuse
+	case StateFailed:
+		return PolicyRolledBack
+	}
+	return ""
 }
 
 // Write replaces the notice at path.

@@ -54,6 +54,11 @@ type ChainReport struct {
 	// SigningError is set when the slashing or staking query failed. The RPC
 	// section stays responsive: these queries are extra.
 	SigningError string `json:"signing_error,omitempty"`
+
+	// Upgrade is the software upgrade the chain has scheduled; nil when none is.
+	// UpgradeError is set when the chain's REST API did not answer the query.
+	Upgrade      *ChainUpgrade `json:"upgrade,omitempty"`
+	UpgradeError string        `json:"upgrade_error,omitempty"`
 }
 
 // GlobalReport is the global-node services installed on this machine.

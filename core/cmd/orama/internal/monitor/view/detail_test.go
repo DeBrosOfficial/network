@@ -99,7 +99,7 @@ func TestNodeCells_unreachableAndReported(t *testing.T) {
 	up.Report.Version = "0.200.0"
 	up.ReportAgeSec = 4
 	cells := NodeCells(th, up)
-	want := []string{"1.1.1.1", "node", "healthy", "Leader", "OK", "0.50", "31%", "40%", "91%", "0.200.0", "4s"}
+	want := []string{"1.1.1.1", "node", "healthy", "Leader", "OK", "0.50", "31%", "40%", "91%", "0.200.0", "-", "4s"}
 	if strings.Join(cells, "|") != strings.Join(want, "|") {
 		t.Fatalf("row = %v\nwant  %v", cells, want)
 	}

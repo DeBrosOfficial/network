@@ -3,39 +3,69 @@ package display
 import (
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/operatorview"
 	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
 	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/DeBrosOfficial/network/pkg/updatenotice"
 )
 
 // noChain is the CHAIN column of a node that runs no chain (a cluster-only node).
 const noChain = "-"
 
-// StatusTable prints `orama status` without a terminal: a row per node (cluster health and the
-// node's chain), the verdict, and the operator's own account when op is not nil.
+// StatusTable prints `orama status` without a terminal: a row per node (cluster health, the node's
+// chain and its update finding), the verdict, what the update agents found and the chain upgrade
+// scheduled, and the operator's own account when op is not nil.
 func StatusTable(snap *cluster.ClusterSnapshot, op *operatorview.Summary, w io.Writer) error {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	fmt.Fprintf(tw, "IP\tROLE\tSTATUS\tCHAIN\tDETAILS\n")
+	fmt.Fprintf(tw, "IP\tROLE\tSTATUS\tCHAIN\tUPDATE\tDETAILS\n")
 	healthy := 0
 	for _, cs := range snap.Nodes {
 		health := cs.Health()
 		if health == cluster.HealthHealthy {
 			healthy++
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", cs.Node.Host, cs.Node.Role, health, chainCell(nodeChain(cs)), cs.Detail())
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", cs.Node.Host, cs.Node.Role, health, chainCell(nodeChain(cs)),
+			view.UpdateCell(view.NewTheme(false), nodeUpdate(cs)), cs.Detail())
 	}
 	if err := tw.Flush(); err != nil {
 		return fmt.Errorf("write status table: %w", err)
 	}
 	_, verdict := view.Verdict(snap)
 	fmt.Fprintf(w, "\n%d/%d nodes healthy · %s %s\n", healthy, snap.TotalCount(), view.StateIcon(verdict.State), verdict.Headline)
+	writeUpdates(w, snap)
 	if op != nil {
 		WriteOperator(w, op)
 	}
 	return nil
+}
+
+// writeUpdates prints, under the table, what each node's auto-update agent found (the release,
+// what the policy does with it and why) and the chain upgrade scheduled for each node (its height,
+// the blocks and time left, whether the binary is staged). It prints nothing when no node has
+// either.
+func writeUpdates(w io.Writer, snap *cluster.ClusterSnapshot) {
+	var updates, upgrades []string
+	for _, cs := range snap.Nodes {
+		if sentence := view.UpdateSentence(nodeUpdate(cs)); sentence != "" {
+			updates = append(updates, fmt.Sprintf("  %s  %s\n", cs.Node.Host, sentence))
+		}
+		if sentence := view.UpgradeSentence(nodeChain(cs)); sentence != "" {
+			upgrades = append(upgrades, fmt.Sprintf("  %s  %s\n", cs.Node.Host, sentence))
+		}
+	}
+	for _, section := range []struct {
+		title string
+		lines []string
+	}{{"Updates", updates}, {"Scheduled chain upgrade", upgrades}} {
+		if len(section.lines) == 0 {
+			continue
+		}
+		fmt.Fprintf(w, "\n%s\n%s", section.title, strings.Join(section.lines, ""))
+	}
 }
 
 // WriteOperator prints the operator's own account: earnings, spendable balance and bond, or why it
@@ -57,6 +87,13 @@ func nodeChain(cs cluster.CollectionStatus) *report.ChainReport {
 		return nil
 	}
 	return cs.Report.Chain
+}
+
+func nodeUpdate(cs cluster.CollectionStatus) *updatenotice.Notice {
+	if cs.Report == nil {
+		return nil
+	}
+	return cs.Report.Update
 }
 
 // chainCell is a node's chain in a few words: its height and whether it is a validator, or why not.
@@ -82,6 +119,15 @@ type statusNode struct {
 	Status string       `json:"status"`
 	Error  string       `json:"error,omitempty"`
 	Chain  *statusChain `json:"chain,omitempty"`
+	// Update is what the node's auto-update agent last found; absent when it found nothing.
+	Update *statusUpdate `json:"update,omitempty"`
+}
+
+// statusUpdate is the agent's finding with what the cluster's policy does with it: notify,
+// upgrade, refuse or rolled back (Reason says why).
+type statusUpdate struct {
+	updatenotice.Notice
+	Policy string `json:"policy"`
 }
 
 type statusChain struct {
@@ -91,6 +137,20 @@ type statusChain struct {
 	CatchingUp  bool   `json:"catching_up"`
 	Validator   bool   `json:"validator"`
 	VotingPower int64  `json:"voting_power"`
+	// Upgrade is the chain upgrade scheduled for the node; UpgradeError is why it could not be read.
+	Upgrade      *statusUpgrade `json:"upgrade,omitempty"`
+	UpgradeError string         `json:"upgrade_error,omitempty"`
+}
+
+// statusUpgrade is the chain upgrade scheduled for a node. BlocksRemaining is zero or negative once
+// the height has passed; ETASeconds is absent when no block time is known or the height is reached.
+type statusUpgrade struct {
+	Name            string `json:"name"`
+	Height          int64  `json:"height"`
+	BlocksRemaining int64  `json:"blocks_remaining"`
+	ETASeconds      *int64 `json:"eta_seconds,omitempty"`
+	Staged          bool   `json:"staged"`
+	StageError      string `json:"stage_error,omitempty"`
 }
 
 // statusDoc is `orama status --json`. Healthy is the one bit a script checks: the verdict is
@@ -111,11 +171,30 @@ func StatusJSON(snap *cluster.ClusterSnapshot, op *operatorview.Summary, w io.Wr
 		n := statusNode{Host: cs.Node.Host, Role: cs.Node.Role, Status: string(cs.Health()), Error: cs.Detail()}
 		if c := nodeChain(cs); c != nil {
 			n.Chain = &statusChain{ChainID: c.ChainID, Height: c.LatestHeight, Responsive: c.Responsive,
-				CatchingUp: c.CatchingUp, Validator: c.IsValidator, VotingPower: c.VotingPower}
+				CatchingUp: c.CatchingUp, Validator: c.IsValidator, VotingPower: c.VotingPower,
+				Upgrade: upgradeJSON(c), UpgradeError: c.UpgradeError}
 			doc.Healthy = doc.Healthy && c.Responsive && !c.CatchingUp
+		}
+		if u := nodeUpdate(cs); u != nil {
+			n.Update = &statusUpdate{Notice: *u, Policy: u.Policy()}
 		}
 		doc.Healthy = doc.Healthy && cs.Health() == cluster.HealthHealthy
 		doc.Nodes = append(doc.Nodes, n)
 	}
 	return writeJSON(w, doc)
+}
+
+// upgradeJSON is the chain's scheduled upgrade as the JSON status carries it; nil when none is.
+func upgradeJSON(c *report.ChainReport) *statusUpgrade {
+	u := c.Upgrade
+	if u == nil {
+		return nil
+	}
+	cd := view.CountdownTo(c, u)
+	out := &statusUpgrade{Name: u.Name, Height: u.Height, BlocksRemaining: cd.BlocksLeft, Staged: u.Staged, StageError: u.StageError}
+	if cd.HasETA {
+		eta := int64(cd.ETA.Seconds())
+		out.ETASeconds = &eta
+	}
+	return out
 }
