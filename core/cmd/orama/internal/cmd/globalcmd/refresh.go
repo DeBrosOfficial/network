@@ -55,8 +55,9 @@ staged.
 
 The chain indexer refuses an index written in an older layout than the new
 orama-global's. So when the indexer is installed, the refresh stops it, runs
-'orama-global indexer migrate' (which renames an old index to
-<state>/indexer/index.v<layout>-<time> and deletes nothing), and starts it again;
+'orama-global indexer migrate' as the indexer's own account, not as root (which
+renames an old index to <state>/indexer/index.v<layout>-<time> and deletes
+nothing, and refuses an index path that is a symlink or not a directory), and starts it again;
 the indexer then builds a new index from the chain. An index of the current layout
 is left as it is. An indexer that is already crash-looping on an old index is put
 right the same way, and one stopped on purpose stays stopped.

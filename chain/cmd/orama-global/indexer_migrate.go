@@ -26,7 +26,10 @@ deleted: the old index stays on disk until you remove it. An index of the curren
 layout, or none, is left as it is; one of a newer layout is an error.
 
 The indexer must not be running: the index is opened read-only, and a running
-indexer holds it. 'orama upgrade' stops the indexer, runs this, and starts it.`,
+indexer holds it. 'orama upgrade' stops the indexer, runs this as the indexer's
+own account (runuser -u orama-indexer), and starts it. Run it as that account,
+not as root: the account owns <home>, and migrate refuses an index path that is a
+symbolic link or not a directory.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runIndexerMigrate(cmd.OutOrStdout(), home, time.Now())

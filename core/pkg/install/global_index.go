@@ -15,15 +15,18 @@ import (
 // with its layout version and the time, never deleted. It returns what the command said.
 //
 // The indexer must be stopped: the command opens the index read-only and fails while the indexer
-// holds it. Run it as root after the release's orama-global is in place; it writes nothing to the
-// index, so the indexer's account keeps its ownership.
+// holds it. It runs as the indexer's own account (runuser), after the release's orama-global is in
+// place, not as root: the account owns the directory and everything in it, so a root process that
+// opened and renamed what is there would act on whatever the account had put at that path, a link
+// to another directory included. As the account it can touch only what the account already can, and
+// what it renames stays owned by the account.
 func MigrateIndexerLayout(h GlobalHost) (string, error) {
 	bin := filepath.Join(h.BinDir, globalServiceBin)
-	out, err := h.Run(bin, "indexer", "migrate", "--home", constants.GlobalIndexerHome)
+	out, err := h.Run("runuser", "-u", globalIndexerUser, "--", bin, "indexer", "migrate", "--home", constants.GlobalIndexerHome)
 	said := strings.TrimSpace(string(out))
 	if err != nil {
-		return said, fmt.Errorf("failed to move the chain indexer's old index aside (%s indexer migrate --home %s): %w\n%s",
-			bin, constants.GlobalIndexerHome, err, said)
+		return said, fmt.Errorf("failed to move the chain indexer's old index aside (runuser -u %s -- %s indexer migrate --home %s): %w\n%s",
+			globalIndexerUser, bin, constants.GlobalIndexerHome, err, said)
 	}
 	return said, nil
 }

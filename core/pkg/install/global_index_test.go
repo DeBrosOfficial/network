@@ -21,8 +21,9 @@ func TestMigrateIndexerLayout_runsTheInstalledBinaryOnTheIndexersHome(t *testing
 	if err != nil || said != "indexer: moved it aside" {
 		t.Fatalf("said %q, err %v", said, err)
 	}
-	if name != "/usr/lib/orama-global/bin/orama-global" || strings.Join(args, " ") != "indexer migrate --home "+constants.GlobalIndexerHome {
-		t.Fatalf("ran %s %v", name, args)
+	want := "-u " + globalIndexerUser + " -- /usr/lib/orama-global/bin/orama-global indexer migrate --home " + constants.GlobalIndexerHome
+	if name != "runuser" || strings.Join(args, " ") != want {
+		t.Fatalf("ran %s %v, want runuser %s: the migration must run as the indexer's account, not as root", name, args, want)
 	}
 }
 

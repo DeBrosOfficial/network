@@ -145,7 +145,7 @@ A chain indexer's index has a layout version, and the indexer refuses an index w
 
 On a node with the indexer installed, the upgrade (`orama maint global refresh`, which `orama upgrade` runs after the node's cluster services) handles it while the indexer is stopped:
 
-1. It stops the indexer, then runs `orama-global indexer migrate --home /var/lib/orama-global/indexer`.
+1. It stops the indexer, then runs `orama-global indexer migrate --home /var/lib/orama-global/indexer` as the indexer's own account (`runuser -u orama-indexer --`), not as root, since that account owns the directory. The command refuses an `index` that is a symbolic link or not a directory.
 2. An index of an older layout is renamed to `/var/lib/orama-global/indexer/index.v<layout>-<UTC time>`, for example `index.v2-20261011T013005Z`, and the command prints that it did. Nothing is deleted. An index of the current layout is left where it is, and so is the absence of one. An index of a **newer** layout (the node was rolled back) is an error, and the indexer stays stopped.
 3. It starts the indexer. With no index at `/var/lib/orama-global/indexer/index` it begins a new one and indexes the chain again from block 1; the routes under `/v1/chain/index/` answer with what it has indexed so far while it catches up. The node keeps only its last 100 chain states, so the new index's epochs, supply and validators begin at the first height the node still has state for, and the earlier epochs are not in it ([Epochs the index could not read](/docs/blockchain/reading-the-chain#epochs-the-index-could-not-read)). Blocks, transactions and accounts are complete from block 1.
 

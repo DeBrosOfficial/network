@@ -99,7 +99,7 @@ func wantCalls(t *testing.T, got []string, want ...string) {
 	}
 }
 
-const migrateCall = "run /usr/lib/orama-global/bin/orama-global indexer migrate --home " + constants.GlobalIndexerHome
+const migrateCall = "run runuser -u orama-indexer -- /usr/lib/orama-global/bin/orama-global indexer migrate --home " + constants.GlobalIndexerHome
 
 func TestRestartRefreshed_aReplacedIndexerIsStoppedMigratedAndStarted(t *testing.T) {
 	f := newRefreshFixture(t, map[install.GlobalService]string{

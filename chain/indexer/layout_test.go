@@ -178,3 +178,59 @@ func TestMoveAsideStale_theLayoutBeforeRewardsIsMovedAside(t *testing.T) {
 	_, err = os.Stat(res.MovedTo)
 	require.NoError(t, err, "the old index is kept")
 }
+
+func TestMoveAsideStale_aSymlinkedIndexDirectoryIsRefusedAndWhatItPointsAtIsLeftAlone(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "elsewhere")
+	indexOfLayout(t, target, schemaVersion-1)
+	dir := filepath.Join(root, "index")
+	require.NoError(t, os.Symlink(target, dir))
+
+	res, err := MoveAsideStale(dir, movedAt)
+
+	require.ErrorContains(t, err, "symbolic link")
+	require.Equal(t, MoveResult{Current: schemaVersion}, res, "nothing was found, so nothing was read")
+	_, err = os.Lstat(dir)
+	require.NoError(t, err, "the link is still where it was")
+	_, err = os.Stat(filepath.Join(target, pebbleCurrent))
+	require.NoError(t, err, "and what it points at was not opened, renamed or removed")
+	entries, err := os.ReadDir(root)
+	require.NoError(t, err)
+	require.Len(t, entries, 2, "no moved-aside copy appeared beside it")
+}
+
+func TestMoveAsideStale_anIndexThatIsNotADirectoryIsRefused(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "index")
+	require.NoError(t, os.WriteFile(dir, []byte("not an index"), 0o600))
+
+	_, err := MoveAsideStale(dir, movedAt)
+
+	require.ErrorContains(t, err, "not a directory")
+	_, err = os.Stat(dir)
+	require.NoError(t, err, "the file is left where it is")
+}
+
+func TestMoveAsideStale_aCurrentFileThatIsALinkIsRefused(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "index")
+	require.NoError(t, os.Mkdir(dir, 0o700))
+	secret := filepath.Join(root, "secret")
+	require.NoError(t, os.WriteFile(secret, []byte("MANIFEST-000001\n"), 0o600))
+	require.NoError(t, os.Symlink(secret, filepath.Join(dir, pebbleCurrent)))
+
+	_, err := MoveAsideStale(dir, movedAt)
+
+	require.ErrorContains(t, err, "not a regular file")
+	_, err = os.Stat(dir)
+	require.NoError(t, err, "the directory is not moved")
+}
+
+func TestMoveAsideStale_aDirectoryWithoutACurrentFileHoldsNoIndex(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "index")
+	require.NoError(t, os.Mkdir(dir, 0o700))
+
+	res, err := MoveAsideStale(dir, movedAt)
+
+	require.NoError(t, err)
+	require.False(t, res.Present)
+}
