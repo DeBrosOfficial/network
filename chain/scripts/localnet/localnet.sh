@@ -7,6 +7,7 @@
 #   localnet.sh stop          stop every running node (keeps chain data on disk)
 #   localnet.sh clean         stop every running node and delete all chain data
 #   localnet.sh status        print each node's height and catching-up state
+#   localnet.sh funder-key    print node0's validator account key in hex (the faucet signer a load generator uses)
 #
 # Env overrides:
 #   CHAIN_ID              default: orama-localnet-1 (must contain "-localnet-": x/power's
@@ -21,6 +22,15 @@
 #   WITH_WASM             default: 0. Set to 1 to build oramad with cgo and libwasmvm (`make build-wasm`
 #                         explains how to install the library) and store the standard contracts in genesis
 #                         (`oramad genesis add-standard-contracts`). Without it the localnet has no CosmWasm.
+#   WITH_SHIELDED         default: 0. Set to 1 to build oramad with the Orchard verifier library linked
+#                         (`make orchard-lib` builds it) and give every node the out-of-process verifier binary
+#                         (built from x/shielded/orchardverifier-bin; its sha256 is linked into oramad as the
+#                         pin). Without it a node accepts no shielded bundle.
+#   FAUCET_ENABLED        default: 0. Set to 1 to turn on the test-network faucet in genesis with no per-recipient
+#                         cooldown, so a load generator can fund many accounts. FAUCET_MAX_DRIP and
+#                         FAUCET_EPOCH_CAP (norama) override the largest drip and the per-epoch cap.
+#   TIMEOUT_COMMIT        default: unset (CometBFT's own timeout_commit). A Go duration such as 1s; it patches
+#                         timeout_commit in every node's config.toml.
 #
 # Genesis starts at exactly zero norama supply: every node is a member of x/power's bootstrap
 # committee (plans/open-network.md D16), which needs no self-bond and no gentx - each committee
@@ -37,6 +47,18 @@ EPOCH_MIN_BLOCKS="${EPOCH_MIN_BLOCKS:-5}"
 BLOCK_MAX_GAS="${BLOCK_MAX_GAS:-100000000}"
 VOTE_EXTENSIONS_ENABLE_HEIGHT="${VOTE_EXTENSIONS_ENABLE_HEIGHT:-0}"
 WITH_WASM="${WITH_WASM:-0}"
+WITH_SHIELDED="${WITH_SHIELDED:-0}"
+FAUCET_ENABLED="${FAUCET_ENABLED:-0}"
+FAUCET_MAX_DRIP="${FAUCET_MAX_DRIP:-1000000000000}"
+FAUCET_EPOCH_CAP="${FAUCET_EPOCH_CAP:-1000000000000000000}"
+TIMEOUT_COMMIT="${TIMEOUT_COMMIT:-}"
+VERIFIER_NAME="orama-orchard-verifier"
+verifier_sha=""
+
+if [ -n "$TIMEOUT_COMMIT" ] && ! [[ "$TIMEOUT_COMMIT" =~ ^[0-9]+(ms|s|m)$ ]]; then
+	echo "TIMEOUT_COMMIT must be a duration such as 500ms, 1s or 1m, got: $TIMEOUT_COMMIT" >&2
+	exit 1
+fi
 
 case "$CHAIN_ID" in
 *-stagenet-*|*-devnet-*|*-localnet-*) ;;
@@ -83,13 +105,31 @@ pprof_port() { echo $((31005 + $1 * 10)); }
 pid_file() { echo "$(node_home "$1")/localnet.pid"; }
 
 build() {
-	if [ "$WITH_WASM" = "1" ]; then
-		log "building oramad with libwasmvm"
-		(cd "$chain_root" && CGO_ENABLED=1 go build -o "$bin" ./cmd/oramad)
-		return
+	local cgo=0 tags=""
+	if [ "$WITH_WASM" = "1" ]; then cgo=1; else tags="nowasm"; fi
+	if [ "$WITH_SHIELDED" = "1" ]; then
+		cgo=1
+		tags="$tags orchardffi"
+		build_verifier
 	fi
-	log "building oramad"
-	(cd "$chain_root" && CGO_ENABLED=0 go build -o "$bin" ./cmd/oramad)
+	local ldflags=""
+	if [ -n "$verifier_sha" ]; then ldflags="-X github.com/DeBrosOfficial/network/chain/app.ShieldedVerifierSHA256=$verifier_sha"; fi
+	log "building oramad (wasm=$WITH_WASM shielded=$WITH_SHIELDED)"
+	(cd "$chain_root" && CGO_ENABLED="$cgo" go build -tags "$tags" -ldflags "$ldflags" -o "$bin" ./cmd/oramad)
+}
+
+# build_verifier builds the Orchard library oramad links and the out-of-process verifier binary every
+# node runs beside it. A node of a localnet chain id may start without them, but then it accepts no
+# shielded bundle (app.CheckNodeCanVerify).
+build_verifier() {
+	if ! ls "$chain_root"/x/shielded/verify/orchard/lib/*/liborama_orchard.a >/dev/null 2>&1; then
+		log "building the Orchard library (make orchard-lib)"
+		(cd "$chain_root" && make orchard-lib)
+	fi
+	log "building $VERIFIER_NAME"
+	(cd "$chain_root/x/shielded/orchardverifier-bin" && cargo build --release --locked)
+	cp "$chain_root/x/shielded/orchardverifier-bin/target/release/$VERIFIER_NAME" "$data_dir/$VERIFIER_NAME"
+	verifier_sha="$(shasum -a 256 "$data_dir/$VERIFIER_NAME" | cut -d' ' -f1)"
 }
 
 node_count() {
@@ -118,10 +158,15 @@ build_genesis() {
 	# allow-bootstrap-stake only relaxes the epoch-duration/min-blocks-per-epoch floors here -
 	# genesis supply is exactly zero either way (no genesis account is ever funded), so its premine
 	# gate is satisfied trivially (see docs/whitepaper/technical-reference/vol2/39-chain-architecture.md).
+	local faucet_flags=()
+	if [ "$FAUCET_ENABLED" = "1" ]; then
+		faucet_flags=(--faucet-enabled --faucet-cooldown 0 --faucet-max-drip "$FAUCET_MAX_DRIP" --faucet-epoch-cap "$FAUCET_EPOCH_CAP")
+	fi
 	run_logged "$bin" genesis set-emission-params \
 		--epoch-duration "$EPOCH_DURATION" \
 		--min-blocks-per-epoch "$EPOCH_MIN_BLOCKS" \
 		--allow-bootstrap-stake \
+		${faucet_flags[@]+"${faucet_flags[@]}"} \
 		--home "$first"
 
 	log "adding all $n nodes as x/power bootstrap committee members (zero self-bond, no gentx)"
@@ -197,10 +242,23 @@ configure_node() {
 		-e "s#^address = \"localhost:9090\"#address = \"127.0.0.1:$grpc\"#" \
 		"$home/config/app.toml"
 	rm -f "$home/config/app.toml.bak"
+
+	if [ -n "$TIMEOUT_COMMIT" ]; then
+		sed -i.bak -e "s#^timeout_commit = .*#timeout_commit = \"$TIMEOUT_COMMIT\"#" "$home/config/config.toml"
+		rm -f "$home/config/config.toml.bak"
+	fi
+	if [ "$WITH_SHIELDED" = "1" ]; then
+		mkdir -p "$home/bin"
+		cp "$data_dir/$VERIFIER_NAME" "$home/bin/$VERIFIER_NAME"
+	fi
 }
 
 cmd_start() {
 	local n="${1:-4}"
+	if ! [[ "$n" =~ ^[0-9]+$ ]] || [ "$n" -lt 1 ] || [ "$n" -gt 10 ]; then
+		echo "the validator count must be a number from 1 to 10 (the port scheme has room for 10), got: $n" >&2
+		exit 1
+	fi
 	if [ -d "$data_dir" ]; then
 		log "$data_dir already exists; run '$0 clean' first for a fresh localnet"
 		exit 1
@@ -272,6 +330,12 @@ cmd_stop() {
 	done
 }
 
+# cmd_funder_key prints node0's validator account key as 64 hex characters: the seat that earns fees
+# from epoch 2 and signs the faucet drips that fund a load generator's accounts. It is a localnet test key.
+cmd_funder_key() {
+	"$bin" keys export validator --unarmored-hex --unsafe --keyring-backend test --home "$(node_home 0)" <<<"y"
+}
+
 cmd_clean() {
 	cmd_stop
 	log "removing $data_dir"
@@ -286,8 +350,9 @@ start)
 stop) cmd_stop ;;
 clean) cmd_clean ;;
 status) cmd_status ;;
+funder-key) cmd_funder_key ;;
 *)
-	echo "usage: $0 [start [N]|stop|clean|status]" >&2
+	echo "usage: $0 [start [N]|stop|clean|status|funder-key]" >&2
 	exit 2
 	;;
 esac
