@@ -103,6 +103,12 @@ const (
 	// TorNetworkFile. Root writes it; the torrc files are rendered from it.
 	GlobalTorAuthoritiesFile = "tor-network.json"
 
+	// GlobalTorAuthorityKeysDir is where `orama maint global tor authority-keys` makes a
+	// directory authority's keys on the authority's own machine (setup --create-network):
+	// root-only, outside every tor DataDirectory. offline/<nickname>/ holds the encrypted
+	// identity key and its passphrase; deploy/<nickname>/ is the bundle the install reads.
+	GlobalTorAuthorityKeysDir = "/var/lib/orama-tor-authority"
+
 	// GlobalTorArchiveDir is the directory below a directory authority's
 	// DataDirectory that holds the archive of its votes and consensuses.
 	GlobalTorArchiveDir = "archive"

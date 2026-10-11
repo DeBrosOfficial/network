@@ -24,6 +24,12 @@ type Timing struct {
 	// BalancePoll and BalanceDeadline: the node setup reads the chain through seeing the faucet's
 	// drip, which the seed that made it saw in a block a moment before.
 	BalancePoll, BalanceDeadline time.Duration
+	// TorPoll asks a Tor role how it is doing. TorConsensusDeadline bounds each wait for
+	// the network's Tor consensus: the first one comes at least 30 minutes after the
+	// authorities start (tornet.AuthorityLearnWindow: they cast no Running vote before),
+	// then up to one voting interval and its delays. TorRollDeadline bounds the wait to restart one authority:
+	// the others' 30 minutes, then the consensus that lists it again.
+	TorPoll, TorConsensusDeadline, TorRollDeadline time.Duration
 }
 
 // DefaultTiming is what a run on real machines waits.
@@ -34,6 +40,7 @@ func DefaultTiming() Timing {
 		DNSPoll: 30 * time.Second, DNSDeadline: 60 * time.Minute,
 		SlotPoll: 5 * time.Second, SlotDeadline: 3 * time.Minute,
 		BalancePoll: 2 * time.Second, BalanceDeadline: 2 * time.Minute,
+		TorPoll: time.Minute, TorConsensusDeadline: 2 * time.Hour, TorRollDeadline: 2 * time.Hour,
 	}
 }
 

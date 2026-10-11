@@ -117,6 +117,7 @@ func (r *runner) genesisPhase(ctx context.Context) error {
 	if err := VerifyGenesis(genesis, r.genesisSpec()); err != nil {
 		return err
 	}
+	r.genesis = genesis
 	if err := r.distributeGenesis(ctx, nodes, genesis); err != nil {
 		return err
 	}
@@ -194,11 +195,15 @@ func (r *runner) allowNewGenesis(nodes []*nodeRun, replacing bool) error {
 // published with another genesis is found now, not after the chain ran. Every
 // machine already holds the genesis, so a refusal leaves only machines that no
 // chain runs on.
-func (r *runner) publish(genesis []byte) error {
+func (r *runner) publish(genesis []byte) error { return r.publishWith(genesis, nil) }
+
+// publishWith is publish with the network's Tor network file, which the manifest then
+// pins; nil keeps the one already published, if any.
+func (r *runner) publishWith(genesis, torNetwork []byte) error {
 	c, m := r.opts.Create, r.net.Manifest
 	faucet := c.Faucet()
 	published, err := netregistry.Publish(netregistry.PublishInput{
-		Dir: c.PublishDir, Name: m.Name, ChainID: m.ChainID, Genesis: genesis, ReleaseRoot: r.net.Root,
+		Dir: c.PublishDir, Name: m.Name, ChainID: m.ChainID, Genesis: genesis, ReleaseRoot: r.net.Root, TorNetwork: torNetwork,
 		Seeds: m.Seeds, Channel: m.Channel, MinVersion: m.MinVersion, ReleaseRepo: m.ReleaseRepo, Faucet: &faucet,
 	})
 	if errors.Is(err, netregistry.ErrGenesisChange) {

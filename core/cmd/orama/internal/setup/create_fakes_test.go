@@ -29,6 +29,8 @@ type seatFake struct {
 	mu      sync.Mutex
 	home    HomeState
 	genesis []byte
+	// initIn is what the machine's chain home was made with.
+	initIn InitChainInput
 	// built is the steps of the genesis this machine built, nil if it built none.
 	built [][]string
 	wired string
@@ -39,6 +41,8 @@ type seatFake struct {
 	health     ChainHealth
 	epochs     []uint64
 	epochCalls int
+	// tor is the Tor network the machines of the creation run, shared by all of them.
+	tor *torSim
 }
 
 func fakeSeat(idx int) Seat {
@@ -57,7 +61,7 @@ func (s *seatFake) InitChain(_ context.Context, in InitChainInput) error {
 	s.w.add("init-chain %s %s", s.ip, in.Node.Name)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.genesis = placeholderGenesis(in.ChainID)
+	s.genesis, s.initIn = placeholderGenesis(in.ChainID), in
 	s.home = HomeState{Genesis: true, SHA256: netregistry.Digest(s.genesis)}
 	return s.initErr
 }
@@ -146,6 +150,7 @@ type seatEnroller struct {
 	genesis map[string][]byte
 	seats   map[string]*seatFake
 	order   []string
+	tor     *torSim
 }
 
 func (e *seatEnroller) Enroll(ctx context.Context, req MachineRequest) (Machine, error) {
@@ -154,7 +159,7 @@ func (e *seatEnroller) Enroll(ctx context.Context, req MachineRequest) (Machine,
 		return nil, err
 	}
 	s := &seatFake{fakeMachine: m.(*fakeMachine), idx: len(e.order), home: e.homes[req.IP], genesis: e.genesis[req.IP],
-		health: ChainHealth{Running: true, RPCUp: true, Height: 10}}
+		health: ChainHealth{Running: true, RPCUp: true, Height: 10}, tor: e.tor}
 	e.seats[req.IP] = s
 	e.order = append(e.order, req.IP)
 	return s, nil
@@ -172,7 +177,7 @@ type createHarness struct {
 func newCreateHarness(t *testing.T) *createHarness {
 	t.Helper()
 	h := newHarness()
-	se := &seatEnroller{fakeEnroller: h.enroll, homes: map[string]HomeState{}, genesis: map[string][]byte{}, seats: map[string]*seatFake{}}
+	se := &seatEnroller{fakeEnroller: h.enroll, homes: map[string]HomeState{}, genesis: map[string][]byte{}, seats: map[string]*seatFake{}, tor: newTorSim()}
 	h.deps.Enroll = se
 	dir := t.TempDir()
 	root := filepath.Join(dir, "release-root.json")
@@ -185,7 +190,7 @@ func newCreateHarness(t *testing.T) *createHarness {
 // createOpts is a creation of the network "stagenet" on the given machines.
 func (h *createHarness) createOpts(ips ...string) Options {
 	return Options{IPs: ips, Yes: true, StorageGB: 10, Create: &CreateOptions{
-		Name: "stagenet", ChainID: "orama-stagenet-6", ReleaseRoot: h.rootFile, PublishDir: h.publishDir,
+		Name: "stagenet", ChainID: "orama-stagenet-6", ReleaseRoot: h.rootFile, PublishDir: h.publishDir, TorAuthoritiesSet: true,
 	}}
 }
 

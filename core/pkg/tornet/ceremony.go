@@ -145,13 +145,20 @@ func (r CeremonyRequest) check() error {
 	probe := r.Network
 	probe.Authorities = nil
 	for i, s := range r.Specs {
-		probe.Authorities = append(probe.Authorities, Authority{
-			Nickname: s.Nickname, Address: s.Address, ORPort: s.ORPort, DirPort: s.DirPort,
-			V3Ident: fmt.Sprintf("%040X", i+1), Fingerprint: fmt.Sprintf("%040X", i+101),
-			Ed25519ID: base64.RawStdEncoding.EncodeToString(append(make([]byte, ed25519KeyLen-1), byte(i+1))),
-		})
+		probe.Authorities = append(probe.Authorities, s.placeholder(i))
 	}
 	return probe.Validate()
+}
+
+// placeholder is the authority s describes with identities that only have the
+// right shape, for Network's own checks before the real keys exist. i makes
+// them distinct.
+func (s AuthoritySpec) placeholder(i int) Authority {
+	return Authority{
+		Nickname: s.Nickname, Address: s.Address, ORPort: s.ORPort, DirPort: s.DirPort,
+		V3Ident: fmt.Sprintf("%040X", i+1), Fingerprint: fmt.Sprintf("%040X", i+101),
+		Ed25519ID: base64.RawStdEncoding.EncodeToString(append(make([]byte, ed25519KeyLen-1), byte(i+1))),
+	}
 }
 
 func prepareOutDir(dir string) error {

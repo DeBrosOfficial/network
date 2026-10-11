@@ -26,11 +26,14 @@ const (
 	StepOnchain  Step = "onchain"
 	StepHotKey   Step = "hotkey"
 	StepName     Step = "name"
-	StepDNS      Step = "dns"
+	// StepTor is the machine's role in the network's own Tor network, which only a
+	// creation makes.
+	StepTor Step = "tor"
+	StepDNS Step = "dns"
 )
 
 // StepOrder lists the steps in the order a run takes them.
-var StepOrder = []Step{StepEnroll, StepHardware, StepRelease, StepCluster, StepGlobal, StepGenesis, StepSync, StepRestart, StepOnchain, StepHotKey, StepName, StepDNS}
+var StepOrder = []Step{StepEnroll, StepHardware, StepRelease, StepCluster, StepGlobal, StepGenesis, StepSync, StepRestart, StepOnchain, StepHotKey, StepName, StepTor, StepDNS}
 
 // State is how a step is going.
 type State string

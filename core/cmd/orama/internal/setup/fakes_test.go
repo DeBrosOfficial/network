@@ -645,7 +645,8 @@ func newHarness() *harness {
 	h.deps = Deps{
 		Networks: h.networks, Releases: fakeReleases{w: w}, Trust: fakeTrust{w}, Wallet: fakeWallet{}, Enroll: h.enroll, Chain: h.chain,
 		Names: fakeNames{w: w}, ASN: func(context.Context, string) (uint32, error) { return 24940, nil }, Record: h.rec, Report: h.report,
-		Timing: Timing{SyncPoll: time.Millisecond, SyncDeadline: time.Second, RestartBudget: time.Second, ReadyBudget: time.Second, DNSPoll: time.Millisecond, DNSDeadline: time.Second, SlotPoll: time.Millisecond, SlotDeadline: 50 * time.Millisecond, BalancePoll: time.Millisecond, BalanceDeadline: 50 * time.Millisecond},
+		Timing: Timing{SyncPoll: time.Millisecond, SyncDeadline: time.Second, RestartBudget: time.Second, ReadyBudget: time.Second, DNSPoll: time.Millisecond, DNSDeadline: time.Second, SlotPoll: time.Millisecond, SlotDeadline: 50 * time.Millisecond, BalancePoll: time.Millisecond, BalanceDeadline: 50 * time.Millisecond,
+			TorPoll: time.Millisecond, TorConsensusDeadline: 10 * time.Second, TorRollDeadline: 10 * time.Second},
 	}
 	return h
 }

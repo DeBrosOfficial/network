@@ -21,6 +21,12 @@ import (
 // about an hour, which expires the consensus every node holds.
 const AuthorityLearnWindow = 30 * time.Minute
 
+// AuthorityRollRefusal begins the message with which `orama global stop` and
+// `restart` refuse a directory authority while another has started inside
+// AuthorityLearnWindow. A caller that rolls authorities waits and tries again on
+// this refusal and on no other.
+const AuthorityRollRefusal = "not now, or the network is left without a consensus"
+
 // RecentlyStartedAuthorities lists, one sentence each, the authorities of n
 // other than self (a relay fingerprint) that cannot be counted on to vote
 // Running at now, judged by the full consensus c: one that published its

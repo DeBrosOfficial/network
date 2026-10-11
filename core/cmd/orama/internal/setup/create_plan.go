@@ -33,6 +33,9 @@ func BuildCreatePlan(o Options, m *netregistry.Manifest, env string) (*Plan, err
 		p.Nodes[i].Validator = false
 		p.Nodes[i].BindConsensus = p.Nodes[i].Full()
 	}
+	if ownTorNetwork(o) {
+		p.applyTor(o)
+	}
 	p.Notes = append(p.Notes, createNotes(o.Create, m, len(p.Nodes), o.Domain)...)
 	return p, nil
 }

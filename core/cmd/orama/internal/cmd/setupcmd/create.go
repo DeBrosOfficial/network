@@ -14,10 +14,11 @@ type createFlags struct {
 	name, chainID, releaseRoot, releaseRepo, channel, minVersion, publishDir string
 	seeds                                                                    []string
 	forceNewGenesis, noFaucet                                                bool
+	torAuthorities                                                           int
 }
 
 // createOnly are the flags that apply to a creation alone.
-var createOnly = []string{"chain-id", "release-root", "release-repo", "channel", "min-version", "seed", "publish-dir", "force-new-genesis", "no-faucet"}
+var createOnly = []string{"chain-id", "release-root", "release-repo", "channel", "min-version", "seed", "publish-dir", "force-new-genesis", "no-faucet", "tor-authorities"}
 
 func (c *createFlags) bind(f *pflag.FlagSet) {
 	f.StringVar(&c.name, "create-network", "", "Create a network of this name instead of joining one: the machines are its bootstrap validators")
@@ -30,6 +31,8 @@ func (c *createFlags) bind(f *pflag.FlagSet) {
 	f.StringVar(&c.publishDir, "publish-dir", "", "With --create-network: where networks/<name>/ is written (default ./"+setup.DefaultPublishDir+")")
 	f.BoolVar(&c.forceNewGenesis, "force-new-genesis", false, "With --create-network: build a new genesis although the machines carry one. Refused once a chain has run")
 	f.BoolVar(&c.noFaucet, "no-faucet", false, "With --create-network: leave the test-network faucet out of the genesis")
+	f.IntVar(&c.torAuthorities, "tor-authorities", 0, "With --create-network: how many of the machines, the first ones, run a directory authority of the network's own Tor network, the others running relays; 0 makes no Tor network. "+
+		"Default 3 when there are at least 3 machines (and no --tor-network or --no-relay); fewer than 3 is refused. The step takes two hours or more")
 }
 
 // options is the creation the flags describe, nil for a join. A flag that only
@@ -48,5 +51,6 @@ func (c *createFlags) options(cmd *cobra.Command) (*setup.CreateOptions, error) 
 		Name: c.name, ChainID: c.chainID, ReleaseRoot: c.releaseRoot, ReleaseRepo: c.releaseRepo, Channel: c.channel,
 		MinVersion: c.minVersion, Seeds: append([]string(nil), c.seeds...), PublishDir: c.publishDir,
 		ForceNewGenesis: c.forceNewGenesis, NoFaucet: c.noFaucet,
+		TorAuthorities: c.torAuthorities, TorAuthoritiesSet: cmd.Flags().Changed("tor-authorities"),
 	}, nil
 }

@@ -968,7 +968,9 @@ stale waivers).
   `E2E_PERF_REGRESSION_PCT`, `E2E_BASELINE_FILE`, `E2E_CHAIN_BASELINE_FILE`,
   `E2E_CHAIN_SOAK`,
   `E2E_INSTALL_PREVIOUS`,
-  `E2E_ORAMA_TX_SIGNING`, `E2E_ORAMAOS_IMAGE`, `E2E_ORAMAOS_OVMF`. `GOFLAGS`,
+  `E2E_ORAMA_TX_SIGNING`, `E2E_ORAMAOS_IMAGE`, `E2E_ORAMAOS_OVMF`,
+  `E2E_SETUP_TOR_NETWORK` (set to 1, it makes join-one-command create a
+  network with its own Tor network, two and a half hours). `GOFLAGS`,
   `GOPROXY`, `GOSUMDB`, `GONOSUMDB`, `GOPRIVATE`, `GONOPROXY` and
   `GOINSECURE` pass only with `E2E_ALLOW_GO_ENV=1`; otherwise the go command
   uses its default proxy and checksum database, and the runner runs

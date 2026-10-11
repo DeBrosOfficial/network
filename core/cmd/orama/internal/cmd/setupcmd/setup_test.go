@@ -315,7 +315,7 @@ func TestOptionsFromFlags_createNetwork(t *testing.T) {
 	resetFlags(t)
 	for name, value := range map[string]string{
 		"create-network": "stagenet", "chain-id": "orama-stagenet-7", "release-root": "root.json", "publish-dir": "out",
-		"seed": "seed.example.org", "no-faucet": "true", "force-new-genesis": "true", "ip": "203.0.113.10",
+		"seed": "seed.example.org", "no-faucet": "true", "force-new-genesis": "true", "ip": "203.0.113.10", "tor-authorities": "4",
 	} {
 		if err := Cmd.Flags().Set(name, value); err != nil {
 			t.Fatal(err)
@@ -327,7 +327,7 @@ func TestOptionsFromFlags_createNetwork(t *testing.T) {
 	}
 	want := setup.CreateOptions{
 		Name: "stagenet", ChainID: "orama-stagenet-7", ReleaseRoot: "root.json", PublishDir: "out",
-		Seeds: []string{"seed.example.org"}, NoFaucet: true, ForceNewGenesis: true,
+		Seeds: []string{"seed.example.org"}, NoFaucet: true, ForceNewGenesis: true, TorAuthorities: 4, TorAuthoritiesSet: true,
 	}
 	if opts.Create == nil || fmt.Sprint(*opts.Create) != fmt.Sprint(want) {
 		t.Errorf("create = %+v, want %+v", opts.Create, want)
@@ -339,8 +339,11 @@ func TestOptionsFromFlags_aCreationFlagWithoutCreateNetworkIsRefused(t *testing.
 	for _, name := range createOnly {
 		resetFlags(t)
 		value := "x"
-		if name == "force-new-genesis" || name == "no-faucet" {
+		switch name {
+		case "force-new-genesis", "no-faucet":
 			value = "true"
+		case "tor-authorities":
+			value = "3"
 		}
 		if err := Cmd.Flags().Set(name, value); err != nil {
 			t.Fatal(err)

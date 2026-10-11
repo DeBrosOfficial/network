@@ -609,7 +609,7 @@ upstream Tor code, run by Orama's own directory authorities (orama.network/docs/
 The roles are installed by 'orama global install --services dirauth|relay|relay,exit|onion'.
 ```
 
-Subcommands: `archive`, `ceremony`, `monitor`, `onions`
+Subcommands: `archive`, `authority-keys`, `ceremony`, `monitor`, `onions`
 
 ## orama maint global tor archive
 
@@ -642,6 +642,47 @@ reporter's group); nothing else of the data directory is copied there.
 | `--bandwidth-file` | — | The bandwidth file the authority votes with |
 | `--data-dir` | — | The authority's tor DataDirectory [required] |
 | `--export-votes-dir` | — | Also copy the authority's own vote to &amp;lt;dir>/&amp;lt;valid-after>.vote for the bandwidth reporter (the directory must exist) |
+
+## orama maint global tor authority-keys
+
+Make this machine's directory-authority keys, or read back the ones it has (run as root)
+
+```text
+orama maint global tor authority-keys [flags]
+```
+
+```text
+Make the keys of ONE directory authority on this machine, which will run it: the
+relay identity (tor --list-fingerprint) and the authority identity key, signing key and
+12-month certificate (tor-gencert), the same programs and key handling as
+'orama maint global tor ceremony'. The tor package of the Tor Project's repository
+is installed first if it is missing.
+
+Below --dir (default /var/lib/orama-tor-authority, root only) it writes
+  offline/<nickname>/authority_identity_key   the identity key, encrypted, mode 0400
+  offline/<nickname>/passphrase               its passphrase, generated here, mode 0400
+  deploy/<nickname>/keys/                     the signing key, the certificate and the
+                                              relay identity: what 'orama global
+                                              install --services dirauth' reads, with
+                                              --tor-authority-keys deploy/<nickname>
+Nothing secret is printed or leaves the machine. The identity key is never in the
+bundle and never in a tor DataDirectory.
+
+It prints the public identity as one line of JSON: the nickname, address, ports, v3
+identity, relay fingerprint, ed25519 identity, the certificate's expiry and whether
+this run made the keys. Running it again reads the keys back and checks them; keys
+are never made over keys, and a directory that holds part of a set is an error.
+
+This is how 'orama setup --create-network' makes the authorities of a new network's own Tor
+network, on a test network. The passphrase beside the key is that arrangement's trade-off:
+a production network runs the ceremony on an offline machine instead.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--address` | — | The authority's public IPv4 address [required] |
+| `--dir` | `/var/lib/orama-tor-authority` | The keys home; only root may enter it |
+| `--nickname` | — | The authority's nickname, 1 to 19 letters and digits [required] |
 
 ## orama maint global tor ceremony
 

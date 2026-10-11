@@ -80,7 +80,13 @@ func (c *CreatedNetwork) NextSteps() []string {
 	}
 	steps = append(steps,
 		fmt.Sprintf("  2. In the repository: copy %s to networks/%s/%s, run `make -C core sync-networks`, and commit networks/ and core/pkg/netregistry/embedded/.", filepath.Clean(c.Dir), m.Name, c.replaces()),
-		"     The next CLI release then knows the network by name.",
+		"     The next CLI release then knows the network by name.")
+	if m.TorNetworkSHA256 != "" {
+		steps = append(steps,
+			"     The directory holds the network's own Tor network, tor-network.json, and the manifest pins it (sha256 "+m.TorNetworkSHA256+"): the relays of every machine that joins install it.",
+			"     The file lists no validator onion service yet; add them once their onion roles run (`orama maint global tor onions add`, then `orama maint network publish --tor-network`).")
+	}
+	steps = append(steps,
 		"  3. Deploy the website (website/deploy.sh): it serves networks/ at "+netregistry.PublishedBaseURL+".",
 		"Until a CLI release carries it, anyone can join by adding the network from the website's copy:",
 		"  orama network add "+c.ManifestURL(),

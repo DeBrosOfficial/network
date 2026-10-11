@@ -21,6 +21,17 @@ const (
 	ClusterJoin ClusterRole = "join"
 )
 
+// TorRole is a machine's role in the Orama Tor network a creation makes.
+type TorRole string
+
+const (
+	// TorDirauth runs a directory authority: it signs the network's consensus, and
+	// is a relay in it. A machine runs an authority or a relay, never both.
+	TorDirauth TorRole = "dirauth"
+	// TorRelay runs a relay.
+	TorRelay TorRole = "relay"
+)
+
 // NodePlan is what one IP gets.
 type NodePlan struct {
 	IP      string
@@ -31,6 +42,10 @@ type NodePlan struct {
 	// for cluster-only.
 	Services []install.GlobalService
 	Exit     bool
+	// Tor is the machine's role in the network's own Tor network, installed after
+	// the chain runs (a creation with --tor-authorities); empty runs none. It is
+	// not in Services: those are installed with the chain.
+	Tor TorRole
 	// Roles are the on-chain roles the node registers (clusterreg.Role*).
 	Roles []int
 	// Validator says this node's consensus key becomes the operator's validator.
@@ -103,7 +118,8 @@ func BuildPlan(in PlanInput) (*Plan, error) {
 		Env: in.Env, Domain: o.Domain, JoinsExisting: len(in.ExistingHosts) > 0,
 	}
 	relay := relayWanted(o, in.Network)
-	if o.Exit && !relay && !o.ClusterOnly {
+	own := ownTorNetwork(o)
+	if o.Exit && !relay && !own && !o.ClusterOnly {
 		return nil, clierr.Usage("--exit needs a relay, and a relay needs the Tor network file: network %s pins none, so pass --tor-network <file>", in.Network.Name)
 	}
 	validatorTaken := false
@@ -124,7 +140,7 @@ func BuildPlan(in PlanInput) (*Plan, error) {
 	if size := clusterSize(in.ExistingHosts, o.IPs); !o.ClusterOnly && size < minQuorumCluster {
 		p.QuorumLossVoters = size
 	}
-	if !o.ClusterOnly && !relay {
+	if !o.ClusterOnly && !relay && !own {
 		p.Notes = append(p.Notes, noRelayNote(o, in.Network))
 	}
 	return p, nil
@@ -198,12 +214,17 @@ func globalServices(o Options, relay bool) ([]install.GlobalService, []int) {
 	roles := []int{clusterreg.RoleStorage}
 	if relay {
 		services = append(services, install.GlobalServiceRelay)
-		roles = append(roles, clusterreg.RoleRelay)
-		if o.Exit {
-			roles = append(roles, clusterreg.RoleExit)
-		}
+		roles = append(roles, torRelayRoles(o.Exit)...)
 	}
 	return services, roles
+}
+
+// torRelayRoles are the on-chain roles of a relay: relay, and exit beside it.
+func torRelayRoles(exit bool) []int {
+	if exit {
+		return []int{clusterreg.RoleRelay, clusterreg.RoleExit}
+	}
+	return []int{clusterreg.RoleRelay}
 }
 
 // ServiceNames are the node's --services values for `orama global install`:
@@ -213,7 +234,7 @@ func (n NodePlan) ServiceNames() []string {
 	for _, s := range n.Services {
 		names = append(names, string(s))
 	}
-	if n.Exit {
+	if n.Exit && n.HasService(install.GlobalServiceRelay) {
 		names = append(names, "exit")
 	}
 	return names
@@ -251,12 +272,15 @@ func nodeSummary(n NodePlan) string {
 		return fmt.Sprintf("%s: %s only", label, what)
 	}
 	extras := []string{"chain", fmt.Sprintf("%d GB public storage", n.StorageGB)}
-	if n.HasService(install.GlobalServiceRelay) {
+	if n.HasService(install.GlobalServiceRelay) || n.Tor == TorRelay {
 		kind := "relay"
 		if n.Exit {
 			kind = "EXIT relay"
 		}
 		extras = append(extras, kind)
+	}
+	if n.Tor == TorDirauth {
+		extras = append(extras, "Tor directory authority")
 	}
 	if n.Validator {
 		extras = append(extras, "validator")

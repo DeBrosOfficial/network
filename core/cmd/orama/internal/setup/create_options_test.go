@@ -12,7 +12,7 @@ import (
 )
 
 func createOptions(ips ...string) Options {
-	return Options{IPs: ips, Yes: true, Create: &CreateOptions{Name: "stagenet", ChainID: "orama-stagenet-6", ReleaseRoot: "/tmp/release-root.json"}}
+	return Options{IPs: ips, Yes: true, Create: &CreateOptions{Name: "stagenet", ChainID: "orama-stagenet-6", ReleaseRoot: "/tmp/release-root.json", TorAuthoritiesSet: true}}
 }
 
 func nIPs(n int) []string {

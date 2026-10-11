@@ -1,0 +1,257 @@
+package setup
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/DeBrosOfficial/network/pkg/tornet"
+)
+
+// torRun is a machine of the Tor step.
+type torRun struct {
+	run  *nodeRun
+	host TorHost
+	role TorRole
+	// index is the machine's position among the authorities; unused for a relay.
+	index int
+	// keys is the authority's public identity, once its keys exist.
+	keys tornet.AuthorityKeys
+	// state is what the machine has, read when the step starts and kept up to date by it.
+	state TorState
+}
+
+func (x *torRun) ip() string { return x.run.plan.IP }
+
+// torFiles are the two network files of the creation. The network starts with the
+// first, whose bootstrap mode lets the authorities make their first consensus; the
+// manifest pins the final one, which every joiner and every node ends up with.
+type torFiles struct {
+	first, final       []byte
+	firstSHA, finalSHA string
+}
+
+// torRuns are the machines that run a Tor role, authorities first, and checks each
+// can be one.
+func (r *runner) torRuns() ([]*torRun, error) {
+	var runs []*torRun
+	for _, n := range r.fullRuns() {
+		if n.plan.Tor == "" {
+			continue
+		}
+		h, ok := n.m.(TorHost)
+		if !ok {
+			return nil, fmt.Errorf("machine %s cannot run a Tor role: its connection (%T) does not make authority keys or install one", n.plan.IP, n.m)
+		}
+		x := &torRun{run: n, host: h, role: n.plan.Tor, index: len(runs)}
+		runs = append(runs, x)
+		r.create.tor[n] = x
+	}
+	return runs, nil
+}
+
+// torPhase makes the network's own Tor network once the chains run, or does nothing
+// when the run makes none. Every part asks the machines what they already have:
+//
+//  1. each authority's keys are made on its own machine (kept if they exist);
+//  2. the network file is built from the authorities' public identities, and the
+//     one the manifest pins is written into the published directory;
+//  3. the roles are installed and started: the authorities within minutes of each
+//     other, then the relays;
+//  4. the run waits until the machines hold a consensus signed by a majority of the
+//     authorities that lists them: no authority votes Running for 30 minutes after it
+//     starts, so that takes about an hour;
+//  5. the nodes leave the bootstrap mode one at a time, authorities first, an
+//     authority only once the machine itself allows it.
+func (r *runner) torPhase(ctx context.Context) error {
+	runs := r.create.torRuns
+	if len(runs) == 0 {
+		return nil
+	}
+	if err := r.torMakeKeys(ctx, runs); err != nil {
+		return err
+	}
+	files, err := r.torNetworkFiles(runs)
+	if err != nil {
+		return err
+	}
+	if err := r.publishWith(r.genesis, files.final); err != nil {
+		return err
+	}
+	if err := r.torReadStates(ctx, runs); err != nil {
+		return err
+	}
+	if err := r.torInstallAll(ctx, runs, files); err != nil {
+		return err
+	}
+	if err := r.torStartAll(ctx, runs); err != nil {
+		return err
+	}
+	r.d.Report.Linef("the first consensus needs a majority of the authorities to vote, and a directory authority casts no Running vote for %s after it starts: "+
+		"expect it about an hour after the authorities were started", tornet.AuthorityLearnWindow)
+	if err := r.torWaitReady(ctx, runs, time.Time{}, "the network's first Tor consensus"); err != nil {
+		return err
+	}
+	if err := r.torLeaveBootstrap(ctx, runs, files); err != nil {
+		return err
+	}
+	r.d.Report.Linef("the Tor network %s is up: %d directory authorities and %d relays hold a consensus signed by a majority of the authorities; its network file is pinned in the manifest (sha256 %s)",
+		r.net.Manifest.Name, r.opts.Create.TorAuthorities, len(runs)-r.opts.Create.TorAuthorities, files.finalSHA)
+	return nil
+}
+
+// authorityRuns are the runs that are authorities.
+func authorityRuns(runs []*torRun) []*torRun {
+	var out []*torRun
+	for _, x := range runs {
+		if x.role == TorDirauth {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
+// torEach runs fn on the machines in parallel, as far as the cluster can spare them.
+func (r *runner) torEach(ctx context.Context, runs []*torRun, fn func(context.Context, *torRun) error) error {
+	nodes := make([]*nodeRun, len(runs))
+	for i, x := range runs {
+		nodes[i] = x.run
+	}
+	return r.parallel(ctx, nodes, func(ctx context.Context, n *nodeRun) error { return fn(ctx, r.create.tor[n]) })
+}
+
+// torMakeKeys has each authority's machine make its keys, or say it has them.
+func (r *runner) torMakeKeys(ctx context.Context, runs []*torRun) error {
+	return r.torEach(ctx, authorityRuns(runs), func(ctx context.Context, x *torRun) error {
+		ip, want := x.ip(), AuthorityKeysInput{Nickname: torAuthorityNickname(x.index), Address: x.ip()}
+		r.emit(ip, StepTor, StateRunning, "making the directory authority's keys on the machine")
+		keys, err := x.host.AuthorityKeys(ctx, want)
+		if err != nil {
+			r.emit(ip, StepTor, StateFailed, err.Error())
+			return fmt.Errorf("machine %s: make the directory authority's keys: %w", ip, err)
+		}
+		if keys.Authority.Nickname != want.Nickname || keys.Authority.Address != want.Address {
+			err := fmt.Errorf("machine %s answered with the authority %s at %s, not %s at %s", ip, keys.Authority.Nickname, keys.Authority.Address, want.Nickname, want.Address)
+			r.emit(ip, StepTor, StateFailed, err.Error())
+			return err
+		}
+		x.keys = keys
+		if keys.Created {
+			r.emit(ip, StepTor, StateDone, "made the authority's keys: the identity key stays on the machine")
+		} else {
+			r.emit(ip, StepTor, StateSkipped, "the authority's keys exist; they are kept")
+		}
+		return nil
+	})
+}
+
+// torNetworkFiles builds the network file from the authorities' identities, and
+// shows the operator the identities to read against the machines' own output.
+func (r *runner) torNetworkFiles(runs []*torRun) (torFiles, error) {
+	var auths []tornet.Authority
+	for _, x := range authorityRuns(runs) {
+		auths = append(auths, x.keys.Authority)
+	}
+	n := tornet.Network{
+		Name: r.net.Manifest.Name, Private: true, Bootstrap: true, AllowExit: r.opts.Exit,
+		AllowSharedSubnets:    distinctSubnets(r.opts.IPs) < minDistinctSubnets,
+		HSDirMinUptimeHours:   torHSDirMinUptimeHours,
+		VotingIntervalMinutes: torVotingIntervalMinutes, VoteDelaySeconds: torDelaySeconds, DistDelaySeconds: torDelaySeconds,
+		Authorities: auths,
+	}
+	first, err := n.Marshal()
+	if err != nil {
+		return torFiles{}, fmt.Errorf("build the Tor network file: %w", err)
+	}
+	n.Bootstrap = false
+	final, err := n.Marshal()
+	if err != nil {
+		return torFiles{}, fmt.Errorf("build the Tor network file: %w", err)
+	}
+	if n.AllowSharedSubnets {
+		r.d.Report.Linef("the machines are in fewer than %d /16 networks, so the Tor network allows a circuit to use two relays of one /16 (allow_shared_subnets): it weakens path selection, and cannot be built otherwise", minDistinctSubnets)
+	}
+	for _, line := range strings.Split(torSeatLines(auths), "\n") {
+		r.d.Report.Linef("  Tor authority %s", line)
+	}
+	return torFiles{first: first, final: final, firstSHA: netregistry.Digest(first), finalSHA: netregistry.Digest(final)}, nil
+}
+
+// torReadStates reads what each machine has of its role.
+func (r *runner) torReadStates(ctx context.Context, runs []*torRun) error {
+	return r.torEach(ctx, runs, func(ctx context.Context, x *torRun) error {
+		st, err := x.host.TorState(ctx, x.role)
+		if err != nil {
+			r.emit(x.ip(), StepTor, StateFailed, err.Error())
+			return fmt.Errorf("machine %s: read its Tor %s: %w", x.ip(), x.role, err)
+		}
+		x.state = st
+		return nil
+	})
+}
+
+// torInstallAll installs the roles that are not installed, with the bootstrap file. A
+// machine that has either of this run's two files is left as it is; one that has
+// another is refused, because it is not what this run made.
+func (r *runner) torInstallAll(ctx context.Context, runs []*torRun, files torFiles) error {
+	var todo []*torRun
+	for _, x := range runs {
+		switch {
+		case !x.state.Installed:
+			todo = append(todo, x)
+		case x.state.NetworkSHA256 == files.firstSHA || x.state.NetworkSHA256 == files.finalSHA:
+			r.emit(x.ip(), StepTor, StateSkipped, fmt.Sprintf("the %s is installed", x.role))
+		default:
+			err := fmt.Errorf("machine %s runs a Tor network file (sha256 %q) that this run did not make (sha256 %s, or %s once the bootstrap mode is left): "+
+				"the machine was set up for another network or with other flags; this run does not change it", x.ip(), x.state.NetworkSHA256, files.firstSHA, files.finalSHA)
+			r.emit(x.ip(), StepTor, StateFailed, err.Error())
+			return err
+		}
+	}
+	return r.torEach(ctx, todo, func(ctx context.Context, x *torRun) error {
+		if err := r.torInstall(ctx, x, files.first); err != nil {
+			return err
+		}
+		x.state.Installed, x.state.NetworkSHA256 = true, files.firstSHA
+		return nil
+	})
+}
+
+// torInstall installs x's role with the network file.
+func (r *runner) torInstall(ctx context.Context, x *torRun, network []byte) error {
+	ip := x.ip()
+	in := TorInstall{Role: x.role, IP: ip, Contact: r.contact(), Network: network, Exit: x.run.plan.Exit}
+	switch x.role {
+	case TorDirauth:
+		in.Bundle = x.keys.Bundle
+	default:
+		in.NodeID = x.run.plan.Name
+	}
+	r.emit(ip, StepTor, StateRunning, fmt.Sprintf("installing the %s", x.role))
+	if err := x.host.InstallTor(ctx, in); err != nil {
+		r.emit(ip, StepTor, StateFailed, err.Error())
+		return fmt.Errorf("machine %s: install the Tor %s: %w", ip, x.role, err)
+	}
+	r.emit(ip, StepTor, StateDone, fmt.Sprintf("the %s is installed", x.role))
+	return nil
+}
+
+// torStartAll starts the roles that do not run. The authorities go one after the
+// other without waiting for anything: they must be up to vote together.
+func (r *runner) torStartAll(ctx context.Context, runs []*torRun) error {
+	for _, x := range runs {
+		if x.state.Active {
+			continue
+		}
+		r.emit(x.ip(), StepTor, StateRunning, fmt.Sprintf("starting the %s", x.role))
+		if err := x.host.StartTor(ctx, x.role); err != nil {
+			r.emit(x.ip(), StepTor, StateFailed, err.Error())
+			return fmt.Errorf("machine %s: %w", x.ip(), err)
+		}
+		x.state.Active = true
+		r.emit(x.ip(), StepTor, StateDone, fmt.Sprintf("the %s is started", x.role))
+	}
+	return nil
+}

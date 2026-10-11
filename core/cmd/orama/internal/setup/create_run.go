@@ -14,14 +14,19 @@ type createState struct {
 	// seats is filled by machines in parallel.
 	mu    sync.Mutex
 	seats map[*nodeRun]Seat
+	// torRuns are the machines that run a Tor role, authorities first, and tor
+	// finds one by its machine; both are empty when the run makes no Tor network.
+	torRuns []*torRun
+	tor     map[*nodeRun]*torRun
 }
 
 // runCreate creates the network: the same machines, release and cluster as a
 // join, then the chain from nothing. The seats' keys are made first, the
 // genesis is built from them on the first machine and handed to the others, the
 // chains are started one at a time, and the on-chain registration is the join's.
-// Every phase asks the machines what they already have, so a run that stopped
-// is run again as it was.
+// The network's own Tor network (torPhase) comes last, because it takes hours and
+// nothing else waits for it. Every phase asks the machines what they already
+// have, so a run that stopped is run again as it was.
 func (r *runner) runCreate(ctx context.Context) (*Result, error) {
 	if err := r.createPreflight(ctx); err != nil {
 		return nil, err
@@ -40,7 +45,7 @@ func (r *runner) runCreate(ctx context.Context) (*Result, error) {
 	}
 	r.announceAllNameservers(ctx)
 	for _, phase := range []func(context.Context) error{
-		r.chainInitPhase, r.genesisPhase, r.chainStartPhase, r.restartPhase, r.epochPhase, r.onchainPhase,
+		r.chainInitPhase, r.genesisPhase, r.chainStartPhase, r.restartPhase, r.epochPhase, r.onchainPhase, r.torPhase,
 	} {
 		if err := phase(ctx); err != nil {
 			return nil, err
@@ -77,7 +82,7 @@ func (r *runner) createPreflight(ctx context.Context) error {
 		return err
 	}
 	r.res.Plan, r.res.Env, r.res.Operator = r.plan, env, r.oper
-	r.create = &createState{boots: map[*nodeRun]Bootstrapper{}, seats: map[*nodeRun]Seat{}, homes: map[*nodeRun]HomeState{}}
+	r.create = &createState{boots: map[*nodeRun]Bootstrapper{}, seats: map[*nodeRun]Seat{}, homes: map[*nodeRun]HomeState{}, tor: map[*nodeRun]*torRun{}}
 	return r.confirm()
 }
 
@@ -92,5 +97,7 @@ func (r *runner) bootstrappers() error {
 		}
 		r.create.boots[n] = b
 	}
-	return nil
+	var err error
+	r.create.torRuns, err = r.torRuns()
+	return err
 }

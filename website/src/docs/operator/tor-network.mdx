@@ -20,7 +20,8 @@ key ceremony, consensus reader, vote archive, relay monitor file),
 `core/pkg/onionnet` (runs a client tor on a network file), `core/pkg/txgate`
 (the gate behind the onion service), `core/pkg/install/global_install_tor.go`
 (the install), `core/cmd/orama/internal/cmd/globalcmd/tor*.go` and `txgate.go`
-(the CLI), `core/cmd/orama/internal/cmd/vpncmd` (`orama maint vpn`) and
+(the CLI), `core/cmd/orama/internal/cmd/vpncmd` (`orama maint vpn`),
+`core/cmd/orama/internal/setup/create_tor*.go` (the Tor step of `orama setup --create-network`) and
 `chain/reporter` (the bandwidth reporter).
 
 ## Roles
@@ -166,7 +167,10 @@ in it never reaches a torrc, because the parser refuses it first.
 
 Run on an **air-gapped machine** that has `tor` and `tor-gencert` (the `tor`
 package: `apt install tor`, or `brew install tor`). The operator holds a
-passphrase file (`0600`, one line, at least 16 characters):
+passphrase file (`0600`, one line, at least 16 characters). (A test network that
+`orama setup --create-network` creates makes each authority's keys on the authority's own
+machine instead, with `orama maint global tor authority-keys`; see
+[A created network's Tor network](#a-created-networks-tor-network).)
 
 ```bash
 orama maint global tor ceremony --name orama-stagenet --out ./tor-ceremony \
@@ -655,10 +659,53 @@ If a step fails, do not fix the node by hand: fix the source, and install again
 and the staging directory, so it removes the Tor roles with the rest, including a
 relay's identity (the relay gets a new fingerprint when it is installed again; an
 authority keeps its identity because the bundle is in the ceremony output, which
-is why that output stays with the operator). After a reset and `orama setup --create-network`,
-repeat steps 4 to 7. `orama setup` installs `chain,ipfs,provider`
-without Tor flags; it does not remove a Tor role, and the namespace keeps the
+is why that output stays with the operator). After a reset, `orama setup --create-network`
+makes the Tor network again with new authorities, by itself
+([below](#a-created-networks-tor-network)); with `--tor-authorities 0` repeat steps 4 to 7.
+`orama setup` installs `chain,ipfs,provider` first and the Tor roles after the chain runs;
+it does not remove a Tor role, and the namespace keeps the
 Tor ports because the layout is built from the installed units.
+
+## A created network's Tor network
+
+`orama setup --create-network` makes the network its own Tor network after its chains run
+([Create a network](/docs/operator/setup#the-networks-own-tor-network) has the operator's view; this
+section is what runs on the machines). `--tor-authorities N` (default 3 with three or more machines, 0 for none)
+puts a directory authority on the first N machines and a relay on each of the others. It is the manual procedure
+above, run through SSH, with these differences:
+
+- **The keys are made on the authority's own machine**, not on an offline one.
+  `orama maint global tor authority-keys --nickname OramaAuth01 --address <ip>` installs the Tor Project's `tor`
+  package if it is missing and runs the same `tor --list-fingerprint` and `tor-gencert` as the ceremony, one
+  authority at a time, below `/var/lib/orama-tor-authority` (root only, outside every DataDirectory):
+  `offline/<nickname>/authority_identity_key` (encrypted, `0400`), `offline/<nickname>/passphrase` (32 random
+  bytes, base64, `0400`, generated on the machine, never printed) and `deploy/<nickname>/keys/` (the signing
+  key, the certificate, the relay identity), which is the bundle `--tor-authority-keys` takes. It prints one
+  line of JSON with the public identity and whether it made the keys; run again it reads them back and
+  checks them, and a directory that holds part of a set is an error. The passphrase beside the key is what
+  makes this a test network's arrangement: the ceremony keeps the identity key off every server.
+- **Two network files.** The authorities are installed with `bootstrap: true`, and the file the manifest pins
+  (`tor_network_sha256`, and `networks/<name>/tor-network.json`) is the same file with `bootstrap: false`, so
+  a machine that joins later never assumes reachability. Voting interval 30 minutes, vote and distribution delay
+  300 s, `hsdir_min_uptime_hours` 1, `allow_exit` with `--exit`, and `allow_shared_subnets` when the machines are
+  in fewer than three /16 networks.
+- **The authorities start together and leave the bootstrap mode one at a time.** All authorities are started within
+  seconds of each other; the first consensus is read from each machine's own `orama global tor info` (valid,
+  signed by a majority of the authorities, listing the machine), not timed. Each authority is then installed with
+  the final file and restarted with `orama global restart dirauth`. The machine refuses that restart
+  while another authority has started less than 30 minutes ago ([Directory authorities](#directory-authorities)),
+  with a message that begins "not now, or the network is left without a consensus"; setup asks again every
+  minute on that refusal and on no other, and waits, after each restart, for a consensus made after it that lists
+  the authority, since the rule judges the others by the consensus the machine holds. The relays are installed with the final file
+  and restarted together afterwards. The whole step takes two and a half hours or so on three authorities.
+- **It resumes.** The state of each machine decides: keys that exist are read back; a role installed with either
+  of the two files is not installed again, a file that is neither is refused; a role that is not running is
+  started; a machine with the final file installed and running is done; one whose final file is newer than its
+  process (`orama-global-tor-<role>.torrc` newer than the unit's last start) is restarted without being installed again.
+- **Onion services are not installed.** The torrc of every authority carries `hsdir_interval` from its first
+  start, so the consensus has the onion period from its first round, and the onion services that are installed later
+  need no restart for it. Add their addresses with `orama maint global tor onions add`, then
+  `orama maint network publish --tor-network`.
 
 ## For clients of the network (wallets, the VPN app)
 

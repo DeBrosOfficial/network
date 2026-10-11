@@ -118,6 +118,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
     - [`orama maint global stage-oramad`](#orama-maint-global-stage-oramad) - Place a TUF-verified oramad in the cosmovisor layout
     - [`orama maint global tor`](#orama-maint-global-tor) - The Orama Tor network: authority key ceremony, vote archive, relay monitor, onion list
       - [`orama maint global tor archive`](#orama-maint-global-tor-archive) - Archive this directory authority's consensus and votes (run by orama-global-tor-archive.timer)
+      - [`orama maint global tor authority-keys`](#orama-maint-global-tor-authority-keys) - Make this machine's directory-authority keys, or read back the ones it has (run as root)
       - [`orama maint global tor ceremony`](#orama-maint-global-tor-ceremony) - Generate the directory authorities' keys and the network file (run on an offline machine)
       - [`orama maint global tor monitor`](#orama-maint-global-tor-monitor) - Write this relay's or directory authority's monitor.json for the node report (run by orama-global-tor-monitor.timer)
       - [`orama maint global tor onions`](#orama-maint-global-tor-onions) - The validator onion services the network file lists
@@ -2568,7 +2569,7 @@ upstream Tor code, run by Orama's own directory authorities (orama.network/docs/
 The roles are installed by 'orama global install --services dirauth|relay|relay,exit|onion'.
 ```
 
-Subcommands: `archive`, `ceremony`, `monitor`, `onions`
+Subcommands: `archive`, `authority-keys`, `ceremony`, `monitor`, `onions`
 
 ## orama maint global tor archive
 
@@ -2601,6 +2602,48 @@ reporter's group); nothing else of the data directory is copied there.
 | `--bandwidth-file` | — | The bandwidth file the authority votes with |
 | `--data-dir` | — | The authority's tor DataDirectory [required] |
 | `--export-votes-dir` | — | Also copy the authority's own vote to &lt;dir>/&lt;valid-after>.vote for the bandwidth reporter (the directory must exist) |
+
+
+## orama maint global tor authority-keys
+
+Make this machine's directory-authority keys, or read back the ones it has (run as root)
+
+```text
+orama maint global tor authority-keys [flags]
+```
+
+```text
+Make the keys of ONE directory authority on this machine, which will run it: the
+relay identity (tor --list-fingerprint) and the authority identity key, signing key and
+12-month certificate (tor-gencert), the same programs and key handling as
+'orama maint global tor ceremony'. The tor package of the Tor Project's repository
+is installed first if it is missing.
+
+Below --dir (default /var/lib/orama-tor-authority, root only) it writes
+  offline/<nickname>/authority_identity_key   the identity key, encrypted, mode 0400
+  offline/<nickname>/passphrase               its passphrase, generated here, mode 0400
+  deploy/<nickname>/keys/                     the signing key, the certificate and the
+                                              relay identity: what 'orama global
+                                              install --services dirauth' reads, with
+                                              --tor-authority-keys deploy/<nickname>
+Nothing secret is printed or leaves the machine. The identity key is never in the
+bundle and never in a tor DataDirectory.
+
+It prints the public identity as one line of JSON: the nickname, address, ports, v3
+identity, relay fingerprint, ed25519 identity, the certificate's expiry and whether
+this run made the keys. Running it again reads the keys back and checks them; keys
+are never made over keys, and a directory that holds part of a set is an error.
+
+This is how 'orama setup --create-network' makes the authorities of a new network's own Tor
+network, on a test network. The passphrase beside the key is that arrangement's trade-off:
+a production network runs the ceremony on an offline machine instead.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--address` | — | The authority's public IPv4 address [required] |
+| `--dir` | `/var/lib/orama-tor-authority` | The keys home; only root may enter it |
+| `--nickname` | — | The authority's nickname, 1 to 19 letters and digits [required] |
 
 
 ## orama maint global tor ceremony
@@ -5465,6 +5508,17 @@ a flag overrides the announcement, and the genesis built here is published over 
 has its keys keeps them, and a genesis the machines carry is kept (--force-new-genesis builds a
 new one, and only while no chain has run).
 
+A creation also makes the network its own Tor network, unless --tor-authorities 0: the first N machines
+(default 3, when there are at least 3 machines and neither --tor-network nor --no-relay is given; fewer
+than 3 is refused) each run a directory authority, whose keys are made on that machine and never leave it,
+and the others run relays (exits with --exit). After the chains run and the nodes are registered, setup
+installs and starts the authorities within minutes of each other, waits until the machines' own tor holds a
+consensus signed by a majority of the authorities that lists them (an authority casts no Running vote for
+30 minutes after it starts, so that takes about an hour), then leaves the bootstrap mode: the authorities
+are restarted one at a time, each only when its own machine allows it (30 minutes after the previous one
+started), then the relays. The step takes two hours or more; a run that stops resumes where it stopped.
+networks/<name>/ gets the tor-network.json the manifest pins, which every machine that joins installs.
+
 --cluster-only installs the cluster node alone (2 vCPU, 2 GiB, 10 GiB free). The full profile
 needs 4 vCPU, 8 GiB and 80 GiB free plus the storage you offer. Nothing is installed on any
 machine until every machine passes.
@@ -5499,7 +5553,8 @@ machine until every machine passes.
 | `--release-root` | — | With --create-network: the release-root.json the network's releases are verified against; the manifest pins its digest (default: the announced network's) |
 | `--seed` | — | With --create-network: a seed DNS name (repeatable; default ns1.&lt;name>.orama.network ..., one per machine; with --domain, the cluster's nameservers ns&lt;N>.&lt;domain>, one per machine up to 13) |
 | `--storage-gb` | `0` | Public storage each node offers, in GB (default 50); counts towards the disk floor |
-| `--tor-network` | — | A tor-network.json to give the relays instead of the one the network pins (a network that pins none runs a relay only with it) |
+| `--tor-authorities` | `0` | With --create-network: how many of the machines, the first ones, run a directory authority of the network's own Tor network, the others running relays; 0 makes no Tor network. Default 3 when there are at least 3 machines (and no --tor-network or --no-relay); fewer than 3 is refused. The step takes two hours or more |
+| `--tor-network` | — | A tor-network.json to give the relays instead of the one the network pins (a network that pins none runs a relay only with it; a creation makes its own Tor network instead, see --tor-authorities) |
 | `--upload-release` | `false` | Download the release on this computer and upload it to each machine over SSH, one after the other, instead of each machine downloading it from the release repository (for machines that cannot reach the repository) |
 | `--user` | `root` | SSH login on the machines |
 | `-y`, `--yes` | `false` | Ask nothing: use the answers given as flags (every machine needs a --host-key) |

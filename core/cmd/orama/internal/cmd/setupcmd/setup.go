@@ -69,6 +69,17 @@ a flag overrides the announcement, and the genesis built here is published over 
 has its keys keeps them, and a genesis the machines carry is kept (--force-new-genesis builds a
 new one, and only while no chain has run).
 
+A creation also makes the network its own Tor network, unless --tor-authorities 0: the first N machines
+(default 3, when there are at least 3 machines and neither --tor-network nor --no-relay is given; fewer
+than 3 is refused) each run a directory authority, whose keys are made on that machine and never leave it,
+and the others run relays (exits with --exit). After the chains run and the nodes are registered, setup
+installs and starts the authorities within minutes of each other, waits until the machines' own tor holds a
+consensus signed by a majority of the authorities that lists them (an authority casts no Running vote for
+30 minutes after it starts, so that takes about an hour), then leaves the bootstrap mode: the authorities
+are restarted one at a time, each only when its own machine allows it (30 minutes after the previous one
+started), then the relays. The step takes two hours or more; a run that stops resumes where it stopped.
+networks/<name>/ gets the tor-network.json the manifest pins, which every machine that joins installs.
+
 --cluster-only installs the cluster node alone (2 vCPU, 2 GiB, 10 GiB free). The full profile
 needs 4 vCPU, 8 GiB and 80 GiB free plus the storage you offer. Nothing is installed on any
 machine until every machine passes.`,
@@ -123,7 +134,7 @@ func init() {
 	f.StringVar(&flags.env, "env", "", "CLI environment to record the cluster under (default: the active one on this network, else <network>-<name>)")
 	f.StringVar(&flags.contact, "contact", "", "Where an abuse complaint about the relay goes (default: your operator account)")
 	f.Uint32Var(&flags.asn, "asn", 0, "Autonomous system number to declare for the nodes (default: looked up from the address; 0 leaves it undeclared)")
-	f.StringVar(&flags.torNetwork, "tor-network", "", "A tor-network.json to give the relays instead of the one the network pins (a network that pins none runs a relay only with it)")
+	f.StringVar(&flags.torNetwork, "tor-network", "", "A tor-network.json to give the relays instead of the one the network pins (a network that pins none runs a relay only with it; a creation makes its own Tor network instead, see --tor-authorities)")
 	f.BoolVar(&flags.noRelay, "no-relay", false, "Run no relay though the network pins a Tor network file")
 	f.BoolVar(&flags.noValidator, "no-validator", false, "Do not create a validator (and do not bond the 1,000 ORAMA self-bond)")
 	f.BoolVar(&flags.allowQuorumLoss, "allow-quorum-loss", false, "Restart a cluster of fewer than three voters with --force when the global layer is installed: the cluster is unavailable while the node restarts (without it, a run with --yes stops there)")

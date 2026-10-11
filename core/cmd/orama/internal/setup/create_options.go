@@ -3,6 +3,7 @@ package setup
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
@@ -65,6 +66,13 @@ type CreateOptions struct {
 	ForceNewGenesis bool
 	// NoFaucet leaves the test-network faucet out of the genesis.
 	NoFaucet bool
+	// TorAuthorities is how many of the machines, the first ones, run a directory
+	// authority of the network's own Tor network (the rest run relays); 0 makes no
+	// Tor network. TorAuthoritiesSet says --tor-authorities was given: without it
+	// the number is DefaultTorAuthorities when the run has that many machines and
+	// asked for no other Tor network, else 0.
+	TorAuthorities    int
+	TorAuthoritiesSet bool
 }
 
 // Production reports whether the network's chain id is a production one.
@@ -165,8 +173,10 @@ func (o *Options) prepareCreate() error {
 	c.PublishDir = orDefaultString(c.PublishDir, DefaultPublishDir)
 	c.MinVersion = orDefaultString(c.MinVersion, version.Current)
 	c.Channel = orDefaultString(c.Channel, defaultChannel(c.ChainID))
-	_, err := c.manifest(strings.Repeat("0", 64), len(o.IPs), o.Domain)
-	return err
+	if _, err := c.manifest(strings.Repeat("0", 64), len(o.IPs), o.Domain); err != nil {
+		return err
+	}
+	return o.prepareTor()
 }
 
 // defaultChannel is the release channel of a network's class: the nightly feed
@@ -214,6 +224,9 @@ func (c *CreateOptions) commandLine() []string {
 	}
 	if c.NoFaucet {
 		parts = append(parts, "--no-faucet")
+	}
+	if c.TorAuthoritiesSet {
+		parts = append(parts, "--tor-authorities", strconv.Itoa(c.TorAuthorities))
 	}
 	return parts
 }

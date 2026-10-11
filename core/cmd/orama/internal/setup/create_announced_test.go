@@ -23,7 +23,7 @@ func (h *createHarness) announce(faucet bool) {
 func TestRunCreate_anAnnouncedNetworkNeedsNoChainIDNoRootAndNoRepo(t *testing.T) {
 	h := newCreateHarness(t)
 	h.announce(true)
-	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "stagenet", PublishDir: h.publishDir}}
+	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "stagenet", PublishDir: h.publishDir, TorAuthoritiesSet: true}}
 
 	res := h.mustCreate(t, opts)
 
@@ -50,7 +50,7 @@ func TestRunCreate_aFlagOverridesTheAnnouncement(t *testing.T) {
 	h.announce(true)
 	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{
 		Name: "stagenet", PublishDir: h.publishDir, ReleaseRoot: h.rootFile, ReleaseRepo: "https://mirror.example", Channel: "dev/x",
-		Seeds: []string{"s1.override.example"}, NoFaucet: true,
+		Seeds: []string{"s1.override.example"}, NoFaucet: true, TorAuthoritiesSet: true,
 	}}
 
 	res := h.mustCreate(t, opts)
@@ -67,7 +67,7 @@ func TestRunCreate_aFlagOverridesTheAnnouncement(t *testing.T) {
 func TestRunCreate_theAnnouncementDecidesTheFaucet(t *testing.T) {
 	h := newCreateHarness(t)
 	h.announce(false)
-	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "stagenet", PublishDir: h.publishDir}}
+	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "stagenet", PublishDir: h.publishDir, TorAuthoritiesSet: true}}
 	if res := h.mustCreate(t, opts); res.Created.Manifest.Faucet {
 		t.Error("the announcement says no faucet, and the network got one")
 	}

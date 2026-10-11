@@ -31,8 +31,16 @@ const (
 	createdSeats   = 3
 )
 
-// createArgs is `orama setup --create-network` for the fresh servers, unattended.
+// createArgs is `orama setup --create-network` for the fresh servers, unattended, without
+// the network's own Tor network (--tor-authorities 0): that step takes two hours or more
+// (TestSetup_createANetworkWithItsOwnTorNetwork), and this test is about the chain.
 func createArgs(t *testing.T, publishDir string, extras ...harness.Extra) []string {
+	t.Helper()
+	return createArgsWith(t, publishDir, []string{"--tor-authorities", "0"}, extras...)
+}
+
+// createArgsWith is createArgs with the Tor flags given.
+func createArgsWith(t *testing.T, publishDir string, tor []string, extras ...harness.Extra) []string {
 	t.Helper()
 	root := os.Getenv(releaseRootEnv)
 	if root == "" {
@@ -45,6 +53,7 @@ func createArgs(t *testing.T, publishDir string, extras ...harness.Extra) []stri
 	if channel := os.Getenv(releaseChannelEnv); channel != "" {
 		args = append(args, "--channel", channel)
 	}
+	args = append(args, tor...)
 	return append(append([]string{"setup", "--yes"}, args...), machineArgs(t, extras...)...)
 }
 

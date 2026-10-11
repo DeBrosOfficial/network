@@ -23,6 +23,7 @@ covers:
   cli:
     - orama global tor
     - orama maint global tor ceremony
+    - orama maint global tor authority-keys
     - orama maint global tor archive
     - orama global tor info
     - orama maint global tor onions
@@ -32,6 +33,7 @@ covers:
     - orama global install
   claims:
     - "website/src/docs/operator/tor-network.mdx#key-ceremony: the ceremony writes the identity key only under offline/ and the deploy bundle holds no identity key"
+    - "website/src/docs/operator/tor-network.mdx#a-created-networks-tor-network: authority-keys checks its arguments (a missing flag, a private address, a name, a bad nickname) before it installs the Tor package or makes a key, and the keys it makes are checked on fresh servers by join-one-command"
     - "website/src/docs/operator/tor-network.mdx#the-network-file: the ceremony writes the one network file (private true, no validator onions) and orama maint global tor onions add puts a validator onion into it, refusing a clearnet host"
     - "website/src/docs/operator/tor-network.mdx#the-validator-onion-service: the onion service serves the account read, the broadcast and the transaction lookup, and no other path of the chain REST API"
     - "website/src/docs/operator/tor-network.mdx#directory-authorities: the authorities sign a consensus that lists every relay, and the archive's manifest matches the files"
