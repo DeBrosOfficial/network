@@ -62,7 +62,7 @@ Bounds on what a parameter proposal can set: quorum 0.334 to 0.667, pass thresho
 | Emission split | `x/emission` reads it at the next epoch close |
 | Relay reporters | Applied through `x/relay`'s update message |
 | Code-upload hashes | Consulted by `x/wasmpolicy` before the upload sunset height |
-| Software upgrade | Scheduled in `x/upgrade` |
+| Software upgrade | Scheduled in `x/upgrade` as a name and a height, with no binary information. `orama status` shows the scheduled plan and whether each validator has staged it ([Chain upgrades on a validator](/docs/operator/upgrades#chain-upgrades-on-a-validator)) |
 | Development spend | Minted and credited to the recipient's earnings |
 | Power bounds (multiplier) | **Recorded only**. Nothing reads it yet |
 | Adapter allow-list | **Recorded only**. Nothing reads it yet |

@@ -26,7 +26,7 @@ The anchor is the one file whose integrity decides all others: root-owned, read 
 
 An upgrade runs in groups. While the node still serves, it verifies the archive, resolves the public IP, records the Raft identity (id, address, suffrage), and hands over: it refuses to stop a voter unless quorum survives, transfers leadership on the index and on each tenant RQLite, and waits up to 60 s for another leader. The quorum guard counts a majority of the configured voters, not of the voters that remain, because stopping a node does not remove it from the Raft configuration. Then it stops services, swaps binaries, and re-executes itself from the new binary so config and unit generation run the new release's code. Restart waits up to 5 min for the same readiness predicate the rollout uses; tenant units start only after the index node is ready.
 
-Two details matter in practice. Release 0.200 moved files on disk, and the migration runs inside `orama-node` as the unprivileged user: it plans every path before moving any, and refuses when both the old and new location exist. Rolling back past it is unsupported. And a release-policy library (modes off, notify and auto, a maintenance window, validators never automatic) exists but nothing runs it, so no node upgrades itself.
+Two details matter in practice. Release 0.200 moved files on disk, and the migration runs inside `orama-node` as the unprivileged user: it plans every path before moving any, and refuses when both the old and new location exist. Rolling back past it is unsupported. A timer runs the release policy: it reports by default (`orama status` shows a newer release), installs one node at a time on `auto`, never on a validator.
 
 ## Who signs a release
 

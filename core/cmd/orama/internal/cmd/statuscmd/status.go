@@ -49,6 +49,11 @@ In a terminal this is the live view (tab/1-0 switch tabs, ? help, q quit). Piped
 prints one table; --json prints a document whose "healthy" is true only when the verdict is
 operational, every node is healthy and every node's chain answers and has caught up.
 
+Each node's UPDATE column (and "update" in --json) is what its auto-update agent found: a newer
+release, the channel, what the cluster's policy does with it (notify, upgrade, refuse) and why. A chain
+upgrade the chain has scheduled is listed with its height, the blocks and time left and whether the
+node has its binary staged ("chain.upgrade" in --json); neither makes "healthy" false.
+
 The cluster data comes from the gateway's operator telemetry API (sign in with 'orama auth login');
 --ssh reads every node over SSH instead, for when no gateway answers. The subcommands show one
 aspect at a time.`,
