@@ -5,8 +5,9 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"unicode"
 	"unicode/utf8"
+
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/termtext"
 )
 
 // Step is one thing a run does to a machine, in the order it does them.
@@ -66,17 +67,7 @@ type Reporter interface {
 // the byte-order mark, the tag block), the line and paragraph separators, and
 // bytes that are not UTF-8. Line feeds and tabs stay; use oneLine where a value
 // must not be able to start another line.
-func CleanTerminal(s string) string {
-	return strings.Map(func(r rune) rune {
-		switch {
-		case r == '\n' || r == '\t':
-			return r
-		case unicode.IsControl(r), unicode.Is(unicode.Cf, r), unicode.Is(unicode.Zl, r), unicode.Is(unicode.Zp, r), r == unicode.ReplacementChar:
-			return '?'
-		}
-		return r
-	}, s)
-}
+func CleanTerminal(s string) string { return termtext.Clean(s) }
 
 // NewTerminalWriter returns a writer that passes w what is written to it with
 // CleanTerminal applied, as it arrives: a prompt without a newline is shown at

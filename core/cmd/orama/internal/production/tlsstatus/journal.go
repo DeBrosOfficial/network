@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/termtext"
 )
 
 // Caddy's JSON log: the loggers that obtain and renew certificates, and the
@@ -69,9 +71,11 @@ func lastObtainErrors(journal, ca string) map[string]ObtainError {
 			continue
 		}
 		status, problem, message, retry := parseObtainError(l.Error)
-		out[name] = ObtainError{
-			At: logTime(l.Ts), CA: firstNonEmpty(ca, l.Issuer),
-			Status: status, Type: problem, Message: message, RetryAfter: retry,
+		// The CA's words reach the operator's terminal and setup's: an escape sequence in them is
+		// made harmless here, once, for every consumer (the table, --json, setup).
+		out[termtext.Clean(name)] = ObtainError{
+			At: logTime(l.Ts), CA: termtext.Clean(firstNonEmpty(ca, l.Issuer)),
+			Status: status, Type: termtext.Clean(problem), Message: termtext.Clean(message), RetryAfter: retry,
 		}
 	}
 	return out

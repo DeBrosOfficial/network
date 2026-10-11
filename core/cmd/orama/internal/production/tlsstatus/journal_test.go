@@ -143,3 +143,20 @@ func TestParseObtainError_noRetryTimeWhenTheCAGaveNone(t *testing.T) {
 		t.Errorf("%d %q %q %v", status, problem, message, retry)
 	}
 }
+
+// A CA's message is printed on a root terminal and in setup's error: an escape sequence in it, which
+// the journal stores JSON-escaped and decoding turns back into control characters, is made harmless.
+func TestLastObtainErrors_anEscapeSequenceInTheCAsWordsIsCleaned(t *testing.T) {
+	line := strings.Replace(rateLimitedLine, "too many certificates", `\u001b]0;owned\u0007too many certificates`, 1)
+	got := lastObtainErrors(journal(line), "")
+	e, ok := got["stagenet.example.org"]
+	if !ok {
+		t.Fatalf("the error was not read: %+v", got)
+	}
+	if strings.ContainsAny(e.Message, "\x1b\x07") {
+		t.Fatalf("control characters reached the message: %q", e.Message)
+	}
+	if !strings.Contains(e.Message, "?]0;owned?too many certificates") {
+		t.Fatalf("the message lost its text: %q", e.Message)
+	}
+}

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DeBrosOfficial/network/cmd/orama/internal/termtext"
+
 	"github.com/DeBrosOfficial/network/pkg/privhelper"
 )
 
@@ -93,18 +95,19 @@ func Collect(ctx context.Context, d Deps) (*Report, error) {
 	}
 	failures := lastObtainErrors(journal, cf.ACMECA)
 
-	r := &Report{Unit: CaddyUnit, CA: cf.ACMECA, Names: make([]Name, 0, len(cf.Names))}
+	r := &Report{Unit: CaddyUnit, CA: termtext.Clean(cf.ACMECA), Names: make([]Name, 0, len(cf.Names))}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(cf.HTTPSPort))
 	for _, name := range cf.Names {
-		n := Name{Name: name}
+		n := Name{Name: termtext.Clean(name)}
 		if f, ok := failures[name]; ok {
 			n.LastError = &f
 		}
 		state, err := d.Handshake(ctx, addr, probeName(name))
 		if err != nil {
-			n.ServeError = err.Error()
+			n.ServeError = termtext.Clean(err.Error())
 		} else {
 			n.Issuer, n.NotAfter, n.Held = held(state, probeName(name), d.Now())
+			n.Issuer = termtext.Clean(n.Issuer)
 		}
 		r.Names = append(r.Names, n)
 	}
