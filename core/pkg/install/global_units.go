@@ -443,14 +443,30 @@ func RenderGlobalArchiverUnit() string {
 	return needsChain(renderGlobalUnit("Orama history archiver", globalArchiverUser, constants.GlobalArchiverHome, exec, ""))
 }
 
+// The indexer shares its host with the chain, and a public route reaches it (the gateway proxies
+// /v1/chain/index/ with no credential), so the work it can take from the chain is bounded in the
+// unit. The chain host is 4 vCPU (website/src/docs/blockchain/run-a-global-node.mdx):
+//   - CPUQuota 100% is one of them at most, summed over all the indexer's threads, so a burst of
+//     deep reads or a catch-up from height 1 leaves three for oramad, which signs blocks. The
+//     follower is bound by one fsync per block and the reads by 32 in flight per gateway, so
+//     a core is more than either needs in steady state.
+//   - Nice 10 gives it a CFS weight of 110 against oramad's 1024 (nice 0), about a ninth, when the host is busy, so
+//     the chain keeps priority on a smaller host or while the quota's core is shared with it.
+const (
+	globalIndexerCPUQuota = "100%"
+	globalIndexerNice     = 10
+)
+
 // RenderGlobalIndexerUnit is orama-global-indexer.service. It reads blocks
 // from the local oramad RPC on loopback, keeps its index in its own state
 // directory, and serves the read API on loopback only; the gateway proxies
-// /v1/chain/index/ to it. It has no key and no access to the chain home.
+// /v1/chain/index/ to it. It has no key and no access to the chain home. Its CPU
+// is bounded below the chain's (globalIndexerCPUQuota, globalIndexerNice).
 func RenderGlobalIndexerUnit() string {
 	exec := fmt.Sprintf("%s/orama-global indexer --rpc tcp://127.0.0.1:%d --home %s --listen 127.0.0.1:%d",
 		globalBinDir, constants.ChainRPCPort, constants.GlobalIndexerHome, constants.GlobalIndexerPort)
-	return needsChain(renderGlobalUnit("Orama chain indexer", globalIndexerUser, constants.GlobalIndexerHome, exec, ""))
+	limits := fmt.Sprintf("CPUQuota=%s\nNice=%d\n", globalIndexerCPUQuota, globalIndexerNice)
+	return needsChain(renderGlobalUnit("Orama chain indexer", globalIndexerUser, constants.GlobalIndexerHome, exec, limits))
 }
 
 // RenderGlobalRepairUnit holds repair seeds. A host that runs it does not

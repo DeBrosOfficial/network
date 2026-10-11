@@ -206,6 +206,29 @@ func TestGlobalIndexerUnit_ownUserLoopbackAPIAndOwnHome(t *testing.T) {
 	}
 }
 
+func TestGlobalIndexerUnit_cpuIsBoundedBelowTheChain(t *testing.T) {
+	unit := RenderGlobalIndexerUnit()
+	quota := mustDirective(t, unit, "CPUQuota")
+	if quota != globalIndexerCPUQuota || !strings.HasSuffix(quota, "%") {
+		t.Fatalf("CPUQuota = %q, want %q", quota, globalIndexerCPUQuota)
+	}
+	pct, err := strconv.Atoi(strings.TrimSuffix(quota, "%"))
+	if err != nil || pct <= 0 || pct > 100 {
+		t.Fatalf("CPUQuota %q is not between 1%% and one core (100%%) of the 4 vCPU a chain host has", quota)
+	}
+	nice, err := strconv.Atoi(mustDirective(t, unit, "Nice"))
+	if err != nil || nice != globalIndexerNice || nice <= 0 {
+		t.Fatalf("Nice = %q, want %d, a lower priority than the chain's", mustDirective(t, unit, "Nice"), globalIndexerNice)
+	}
+	if !strings.Contains(unit, "CPUQuota="+quota+"\nNice="+strconv.Itoa(nice)+"\nReadWritePaths=") {
+		t.Fatalf("the limits are not in the [Service] section:\n%s", unit)
+	}
+	chain := RenderGlobalChainUnit("")
+	if strings.Contains(chain, "CPUQuota=") || strings.Contains(chain, "Nice=") {
+		t.Fatalf("the chain unit must keep the host's default priority:\n%s", chain)
+	}
+}
+
 func TestGlobalChainUnit_runsOramadUnderCosmovisorWithoutDownloads(t *testing.T) {
 	unit := RenderGlobalChainUnit("")
 	exec := mustDirective(t, unit, "ExecStart")
