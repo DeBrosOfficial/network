@@ -26,4 +26,6 @@ var (
 	// reporter and the operator of a registered relay: a relay's operator must
 	// not be able to report on its own pay.
 	ErrReporterOperatesRelay = errors.New("an address cannot be both a reporter and a relay operator")
+	// ErrRelayNotRegistered is returned by MsgUpdateRelay for a node on which no relay is registered.
+	ErrRelayNotRegistered = errors.New("no relay is registered on the node")
 )

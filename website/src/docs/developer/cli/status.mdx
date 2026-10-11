@@ -17,7 +17,8 @@ orama status [flags]
 ```text
 Show everything about your nodes in one place: each node's cluster health and chain
 (height, syncing, validator), the verdict with what to do, and your account on the chain (earnings,
-spendable balance, bond): the one 'orama setup' registered your nodes under, or the one --operator names.
+spendable balance, bond, and each Tor relay registered on your nodes with the last payout it received):
+the one 'orama setup' registered your nodes under, or the one --operator names.
 
 In a terminal this is the live view (tab/1-0 switch tabs, ? help, q quit). Piped or with --once it
 prints one table; --json prints a document whose "healthy" is true only when the verdict is
@@ -40,7 +41,7 @@ aspect at a time.
 | `--interval` | `5s` | How often the live view refreshes |
 | `--node` | — | Show only this node (public IP or WireGuard IP) |
 | `--once` | `false` | Print one table and exit, even in a terminal |
-| `--operator` | — | Your operator account (orama1...), to show its earnings, balance and bond |
+| `--operator` | — | Your operator account (orama1...), to show its earnings, balance, bond and relays |
 | `--ssh` | `false` | Collect over SSH from every node instead of the gateway API (break-glass) |
 
 Subcommands: `alerts`, `chain`, `cluster`, `dns`, `mesh`, `namespaces`, `node`, `report`, `service`, `traffic`

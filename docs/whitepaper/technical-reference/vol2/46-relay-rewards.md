@@ -22,9 +22,11 @@ Four constraints shape the design.
 
 ## The model
 
-**Relay.** A registered Tor relay: the node id, the RSA identity fingerprint (the 20-byte SHA-1 of the relay's RSA identity), the ed25519 identity public key, the operator account, the `/16` bucket and the exit declaration (`Relay` in `chain/proto/orama/relay/v1/relay.proto`). The fingerprint is the key.
+**Relay.** A registered Tor relay: the node id, the RSA identity fingerprint (the 20-byte SHA-1 of the relay's RSA identity, written as 40 upper-case hex digits by Tor and by every tool here), the ed25519 identity public key, the operator account, the `/16` bucket and the exit declaration (`Relay` in `chain/proto/orama/relay/v1/relay.proto`). The fingerprint is the key, and it is what identifies a relay in a report and in a payout: a directory authority's vote names a relay by its fingerprint and its ed25519 identity, a registration names a node by both, and a payout is paid to the operator of the node that holds the registered fingerprint. The ed25519 identity is the relay's Tor master identity, bound to the node as the service key `relay` (a binding of `MsgRegisterNode` or `MsgUpdateNode`, signed by that key for the operator like every service key).
 
 **Cross-certificate.** The ed25519 identity's signature over the string `orama/relay/rsa-cross-cert/v1`, a zero byte, the node id, a zero byte, and the RSA fingerprint (`CrossCertMessage` in `chain/x/relay/types/crosscert.go`). It binds the Tor identity to the node and to the operator who owns it.
+
+**RSA proof.** A fingerprint is public (the consensus lists it), and the cross-certificate is made by the node's own key, so alone it would let anyone with a relay node register a stranger's fingerprint first and keep the real relay out. The message therefore also carries the relay's RSA identity public key (PKCS#1 DER, 1024 to 4096 bits, whose SHA-1 digest must be the fingerprint, in canonical encoding) and that key's RSASSA-PKCS1-v1_5 SHA-256 signature over `orama/relay/rsa-proof/v1`, a zero byte, the node id, a zero byte and the ed25519 key the node binds as `relay` (`RSAProofMessage`, `VerifyRSAProof` in `chain/x/relay/types/rsaproof.go`). Only the holder of the RSA secret key can make it, and it names the node, so it cannot be replayed for another.
 
 **Reporter.** An address in x/relay's reporter set. At genesis it holds the authorities' reporter keys; afterwards the set changes only through a passed governance proposal. A reporter is not an authority in any other sense.
 
@@ -44,11 +46,12 @@ Four constraints shape the design.
 
 | Message | Signer | Effect |
 |---|---|---|
-| `MsgRegisterRelay` | the node's operator | records a relay after the cross-signature checks |
+| `MsgRegisterRelay` | the node's operator | records a relay after the cross-signature and RSA proof checks (fields operator, node_id, rsa_fingerprint, exit, ed25519_signature, rsa_public_key, rsa_signature) |
+| `MsgUpdateRelay` | the node's operator | replaces the fingerprint and exit declaration of the node's relay, and takes the ed25519 key the node binds now |
 | `MsgReportEpoch` | a reporter | adds one chunk of a report |
 | `MsgUpdateReporters` | no one | accepted only inside a passed structural proposal (below) |
 
-Queries: `Params`, `Reporters`, `Relay` (by fingerprint hex), `Relays` (every relay, in fingerprint order, at most 100 a page by the page key), `EpochResult`, `Invariants`. There is no message that removes a relay, and no message that jails one. The module has no `MsgUpdateParams`: its six parameters are fixed at genesis (`chain/x/relay/types/params.go`).
+Queries: `Params`, `Reporters`, `Relay` (by fingerprint hex), `Relays` (every relay, in fingerprint order, at most 100 a page by the page key), `OperatorRelays` (an operator's relays, each with the epoch and gross amount of the last payout it received, paged the same way), `RelayPayouts` (the rows one settled epoch paid, in fingerprint order, paged the same way), `EpochResult`, `Invariants`. Registration and settlement also emit events (below). There is no message that removes a relay, and no message that jails one. The module has no `MsgUpdateParams`: its six parameters are fixed at genesis (`chain/x/relay/types/params.go`).
 
 ## How it works
 
@@ -58,12 +61,16 @@ Queries: `Params`, `Reporters`, `Relay` (by fingerprint hex), `Relays` (every re
 
 1. The node id is not empty and the fingerprint is 20 bytes.
 2. The operator is not in the reporter set (`ErrReporterOperatesRelay`).
-3. x/nodes resolves the node (`RelayBinding`): its ed25519 key (the binding whose service is `relay`, else the first ed25519 binding), its operator, and its effective network (a canonical `A.B.0.0/16` derived from its literal-IP endpoints, or empty when it has none or its identity is still inside the network-identity lock). The message's operator must be the node's operator.
-4. `VerifyCrossCert`: the ed25519 signature over the cross-certificate message verifies under the node's key (`ErrCrossCertMismatch` otherwise).
+3. x/nodes resolves the node (`RelayBinding`, `chain/app/relay_view.go`): the node must hold `ROLE_RELAY` (a node's roles are fixed at registration, so a node registered without the role can never register a relay), and its ed25519 key is the binding whose service is `relay` and no other: a node with no such binding is refused with a message that names the missing binding, because falling back to another ed25519 key of the node (the validator's consensus key, say) would register a key that no vote carries and leave the relay unpaid without a word. It also returns its operator, and its effective network (a canonical `A.B.0.0/16` derived from its literal-IP endpoints, or empty when it has none or its identity is still inside the network-identity lock). The message's operator must be the node's operator.
+4. `VerifyCrossCert`: the ed25519 signature over the cross-certificate message verifies under the node's key (`ErrCrossCertMismatch` otherwise), and `VerifyRSAProof`: the RSA public key hashes to the fingerprint and its signature over the proof message verifies (`ErrRSAProofMismatch` otherwise).
 5. The `/16` bucket is derived from the network (`RelayPrefix16`): a relay with no identified network, or an IPv6 one, goes into one shared bucket named `unidentified`.
 6. The fingerprint and the node must both be unregistered.
 
-The record keeps a snapshot of the ed25519 key and the `/16`. Neither follows later changes in x/nodes. Registration does not check or lock a bond: the code says bond locking belongs to x/nodes, and the module does not import it. A relay is a registration plus a signature, and the exit flag it declares is advisory (pay uses the reporters' median).
+The record keeps a snapshot of the ed25519 key and the `/16`. Neither follows later changes in x/nodes on its own; `MsgUpdateRelay` below reads them again. Registration emits `relay_registered` (node, operator, fingerprint, ed25519 id, exit). Registration does not check or lock a bond: the code says bond locking belongs to x/nodes, and the module does not import it. A relay is a registration plus a signature, and the exit flag it declares is advisory (pay uses the reporters' median).
+
+### Rotation
+
+`MsgUpdateRelay` (`updateRelay` in the same file) is how a relay follows a change of its Tor keys. It runs the same checks as registration against the node's binding as it is now, so the cross-certificate must verify under the key the node binds today and the operator must own both the node and the registered relay; the node must already have a relay (`ErrRelayNotRegistered`) and the new fingerprint must not belong to another relay. The old fingerprint stops being a registered relay (a report that still names it is refused, and one already stored for an epoch that names it is skipped at settlement), the new one takes its place with the jail flag unchanged, and the relay emits `relay_updated` (the new record and `previous_rsa_fingerprint`). An update with the fingerprint unchanged refreshes the ed25519 key and the exit declaration: after an operator rebinds the relay's key with `MsgUpdateNode`, the relay keeps its old key until `MsgUpdateRelay` is sent, and a report that carries the new key is refused. The payouts the old fingerprint earned stay under it. A reporter's stored report that names the old fingerprint is skipped at settlement and does not stop the state from being exported and imported (`validateEntries` checks only the shape of stored entries), and a jail aimed at the old fingerprint finds no relay: jail the new one. Roles are not touched: there is no message that gives a registered node a role it did not register with.
 
 ### The reporter
 
@@ -120,6 +127,8 @@ The complete report replaces the chunks. The bound on a whole report is 32 x 4,0
    - Per operator, in order, pay the operator's total through the service split: the operator's share (the remainder after rounding) is credited to its earnings account through x/fees, 5 percent is burned from the relay module account, 5 percent moves to the archive fund (`payOperator`). The payout rows and the epoch's `minted` stay gross.
 5. The result and the payouts are stored; the epoch's reports and chunks are deleted.
 
+**Events.** Settlement emits `relay_payout` once per paid relay (`epoch`, `rsa_fingerprint`, `node_id`, `operator`, `amount`, the gross payout) and `relay_operator_paid` once per paid operator (`epoch`, `operator`, `amount`, and the three parts it was split into: `earnings`, `burned`, `archive`), so a reader can tell which operator an epoch credited without reading state; the credit itself is a module-to-module transfer that names no relay (`chain/x/relay/types/events.go`). The newest payout of each relay is also kept (`LastPayouts`) so `OperatorRelays` can show it.
+
 ![The scoring and capping pipeline of one epoch](../diagrams/ch46-settlement.svg)
 
 The medians are exact rules: for weights the middle value of an odd count and the floored average of the two middle values of an even count (formed as low plus half the difference so it cannot overflow); for uptime the same with decimal division; for Exit the lower median of the bit, so one dissenter among three does not set it.
@@ -138,13 +147,15 @@ The medians are exact rules: for weights the middle value of an odd count and th
 |---|---|---|---|---|
 | `Params` | the six parameters | genesis only | settlement | x/relay store |
 | `Reporters` | the reporter addresses | genesis; `MsgUpdateReporters` under the flag | report, settlement, registration | x/relay store |
-| `Relays` | one record per fingerprint | `MsgRegisterRelay`; `JailRelay` | reports, settlement | x/relay store |
-| `NodeIndex` | node id to fingerprint | registration | registration | x/relay store |
+| `Relays` | one record per fingerprint | `MsgRegisterRelay`; `MsgUpdateRelay`; `JailRelay` | reports, settlement | x/relay store |
+| `NodeIndex` | node id to fingerprint | registration, update | registration, update | x/relay store |
+| `OperatorIndex` | (operator, fingerprint) of every relay | registration, update; rebuilt at genesis | `OperatorRelays` | x/relay store |
 | `Chunks` | in-flight chunks by (epoch, reporter, index) | `MsgReportEpoch` | reassembly, `EndBlock` | x/relay store |
 | `Reports` | complete reports by (epoch, reporter) | reassembly | settlement | x/relay store |
 | `Activation` | whether rewards are active and since which epoch | settlement | settlement | x/relay store |
 | `EpochResults` | quorum, ceiling, minted per settled epoch | settlement | queries, reporters, invariants | x/relay store |
-| `Payouts` | gross payout per (epoch, fingerprint) | settlement | queries, invariants | x/relay store |
+| `Payouts` | gross payout per (epoch, fingerprint) | settlement | `RelayPayouts`, invariants | x/relay store |
+| `LastPayouts` | the newest payout row of each fingerprint | settlement; rebuilt at genesis from `Payouts` | `OperatorRelays` | x/relay store |
 | relay module account | the minted reward in transit | x/emission | settlement | x/bank |
 | reporter `hot-key`, `operator`, `authority-id`, `vote-interval` | signer, operator, authority identity, voting interval | operator | reporter | reporter home |
 | reporter `votes/*.vote` | archived votes | whatever syncs the archive | reporter | reporter home |
@@ -154,7 +165,7 @@ The medians are exact rules: for weights the middle value of an odd count and th
 
 **Genesis.** `DefaultGenesisState` starts with no reporters and rewards inactive; a production genesis writes the authorities' reporter set. The parameters are the placeholder defaults in `chain/x/relay/types/params.go` unless genesis overrides them; nothing can change them afterwards.
 
-**Registering a relay.** The operator signs the cross-certificate with the relay's ed25519 identity and submits `MsgRegisterRelay`. No `orama` command builds this message or the signature; the tests in `e2e/features/chain-services/` do it by hand. `orama global tor info` prints the fingerprints that the message needs ([anonymity and Tor](38-anonymity-and-tor.md)).
+**Registering a relay.** `orama setup` does it for every node that runs a relay (`core/cmd/orama/internal/setup/onchain_relay.go`). On the node, as root, `orama global tor relay-identity` reads the relay's RSA key and its ed25519 master key from the relay's DataDirectory and prints the fingerprint, the binding of the ed25519 key as the operator's service key `relay`, the cross-certificate, and the RSA public key with its proof (`core/cmd/orama/internal/cmd/globalcmd/tor_relay_identity.go`); no secret key leaves the machine. Setup checks both signatures against the chain and the node id before any transaction, registers the node with that binding in its set (or adds it to a registered node's set, keeping the other keys), bonds the node, and then sends `MsgRegisterRelay`, or `MsgUpdateRelay` when the chain holds a relay on the node with another fingerprint, key or exit declaration; a re-run that changes nothing sends nothing. The operator's RootWallet signs those two messages (`/orama.relay.v1.MsgRegisterRelay` and `/orama.relay.v1.MsgUpdateRelay`, fields operator, node_id, rsa_fingerprint, exit, ed25519_signature, rsa_public_key, rsa_signature). `orama global tor info` prints the fingerprints for an operator who sends them by hand ([anonymity and Tor](38-anonymity-and-tor.md)).
 
 **An epoch.** During e the authorities vote hourly and the votes are archived. When e closes, each reporter's next pass makes it due, narrows the votes, and sends chunks during e+1. In the first block of e+2 the end step settles e.
 
@@ -261,6 +272,12 @@ The medians are exact rules: for weights the middle value of an odd count and th
 **Rejected:** applying the ceiling only.
 **Why:** the caps bound what one relay, operator or network can claim; the ceiling is the budget and scales everything last, so caps never leave an unspendable remainder.
 
+### A report that names an unregistered relay is refused, not trimmed
+
+**Chosen:** `MsgReportEpoch` fails as a whole when one of its entries names a relay that is not registered or carries another ed25519 identity, and the reporter filters those out first.
+**Rejected:** accepting the chunk and ignoring the entry.
+**Why:** the chunks of a report must commit to one `inputs_root`, which the reporter computes over exactly the entries it sends; a chain that dropped entries silently would store a report different from the one committed to and would make the same message succeed or fail depending on registry state the reporter cannot see. A refusal is deterministic (the same registry gives the same answer to every validator), tells the reporter which relay to leave out, and costs it one transaction. Settlement is the opposite, and skips: a relay unregistered or rotated after its report was stored must not abort the epoch.
+
 ### Registration by cross-signature, no bond check
 
 **Chosen:** the ed25519 identity signs the RSA fingerprint.
@@ -271,14 +288,16 @@ The medians are exact rules: for weights the middle value of an odd count and th
 
 - **Nothing requires a RELAY bond at registration or payment.** `registerRelay` reads the node's binding and operator but not whether it holds an active RELAY role bond, and settlement asks x/nodes only whether the node is live. Consequence: a relay is paid with no stake, as long as its node is live. Code: `chain/x/relay/keeper/register.go`, `chain/app/relay_view.go:RelayBinding`.
 - **No way to remove a relay and nothing calls `JailRelay`.** Consequence: a bad relay is never removed or stopped from being paid by anything in the tree. Code: `chain/x/relay/keeper/jail.go:JailRelay`.
+- **An operator's relay list shows the last payout only.** Consequence: the history of what a relay was paid is `RelayPayouts` epoch by epoch and the `relay_payout` events; there is no per-relay history query. Code: `chain/x/relay/keeper/grpc_query.go:OperatorRelays`.
 - **The own-operator rule is not enforced by the chain.** The reporter key and the operator account differ. Consequence: an authority operator that also runs relays can report on them with a modified reporter, held only by the median. Code: `chain/reporter/runner.go:Config`, `chain/x/relay/keeper/register.go`.
 - **`inputs_root` commits to the entries, not to the archive.** The code comment says binding it to archived votes is outside the module. Consequence: `website/src/docs/operator/tor-network.mdx` and [anonymity and Tor](38-anonymity-and-tor.md) say the root commits to the archive's manifest; it does not, and another party can only recompute the entries from the votes and the registry as it stood. Code: `chain/x/relay/types/hash.go:InputsRoot`.
 - **Relay bandwidth is not measured.** Consequence: without a bandwidth file no relay has a `Measured=` value, so every weight is zero and no relay is paid. Code: `core/pkg/tornet/torrc.go:BandwidthFile`.
-- **No command registers a relay.** The cross-signature and the message are built only in tests. Consequence: an operator needs tooling this repository does not ship. Code: `chain/x/relay/types/crosscert.go:CrossCertMessage`.
+- **Only setup registers a relay.** A relay installed by `orama global install` alone, on a node that setup did not register, has no command of its own that sends `MsgRegisterRelay`; `orama setup` run again on that node does it. Consequence: an operator who installs by hand builds the message with the SDK. Code: `core/cmd/orama/internal/setup/onchain_relay.go:registerRelay`.
+- **RootWallet decodes the relay messages only once it is updated.** Setup's signature request for `MsgRegisterRelay` and `MsgUpdateRelay` is refused by a RootWallet that has no decoder for those two types. Consequence: a relay is not registered until the wallet ships them.
 - **A single missing reporter stops all relay pay for the epoch.** Quorum equals the number of initial authorities. Consequence: the epoch's ceiling is not minted and is not carried forward. Code: `chain/x/relay/types/params.go:DefaultMinReportersQuorum`, `chain/x/relay/keeper/settle.go:SettleEpoch`.
 - **The settlement end step is unmetered and scans whole reports.** Consequence: the cost grows with relays times reporters in one block; see Limits. Code: `chain/x/relay/keeper/settle.go:scoreRelays`.
 - **Payouts and results are never pruned.** Consequence: one row per paid relay per epoch forever. Code: `chain/x/relay/keeper/settle.go:storePayouts`.
-- **A relay record is a snapshot with no update or removal.** The ed25519 key and the `/16` bucket are read once at registration, and the node and fingerprint are each registered once. Consequence: a relay whose Tor identity changes, or that moves to another network, cannot be corrected; a changed identity needs a new node, and the old record stays, keeps its bucket and is skipped when the votes carry another key. Code: `chain/x/relay/keeper/register.go`.
+- **A relay record is a snapshot until it is updated, and cannot be removed.** The ed25519 key and the `/16` bucket are read at registration and again only by `MsgUpdateRelay`. Consequence: a relay whose key was rebound by `MsgUpdateNode`, or whose node moved to another network, is skipped (its reports are refused) until its operator sends `MsgUpdateRelay`; a relay that is retired stays on the list. Code: `chain/x/relay/keeper/register.go`.
 - **The reporter cannot report above 32,000 relays at its default chunk size.** `--chunk-entries` up to 4,096 raises that to 131,072. Code: `chain/reporter/chunk.go:Messages`.
 - **A stale comment.** `NodeView` says x/nodes does not exist in this binary yet. Code: `chain/x/relay/types/expected_keepers.go`.
 
@@ -287,13 +306,15 @@ The medians are exact rules: for weights the middle value of an odd count and th
 **Unit tests.**
 
 - `cd chain && go test ./x/relay/...` covers the state machine: `TestRSAFingerprintMustMatchEd25519CrossSignature`, `TestChunkedReportsReassembleInIndexOrder`, `TestInputsRootRecomputesAndRejectsAMutatedEntry`, `TestRepeatedChunkIsIdempotentUntilComplete`, `TestReportEpoch_onlyForAClosedEpochInsideItsWindow`, `TestEndBlock_settlesAnEpochOnlyAfterItsReportWindow`, `TestEndBlock_settlesOneEpochPerBlockOldestFirst`, `TestQuorumFailureMintsNothingAndDoesNotActivate`, `TestMedianOfThreeIgnoresHundredXLiar`, `TestCaps`, `TestUptimeBelowMinimumPaysNothing`, `TestExitMultiplierOnlyWhenMedianExitFlagIsSet`, `TestPayProRataStopsAtCeiling`, `TestSettle_paysThroughTheServiceSplitAndTheOperatorGetsTheRemainder`, `TestSettle_unidentifiedRelaysShareOnePrefixCap`, `TestRegisterRelay_refusesAReporterAsOperator`, `TestModuleNeverSetsAllowReporterChange`.
+- `TestRegisterRelay_refusesAFingerprintTheCallerCannotProve` and `TestVerifyRSAProof` (a stranger's fingerprint, another key's proof, a proof made for another node or key, a key that is not canonical DER), `TestGenesis_aRotationWithAReportWaitingStillExportsAndImports`, `TestUpdateRelay_rotatesTheFingerprintAndKeepsTheJail`, `TestUpdateRelay_followsTheNodesRotatedEd25519Key`, `TestUpdateRelay_refusals`, `TestRegisterRelay_refusals`, `TestReportEpoch_refusesARelayThatIsNotRegistered`, `TestSettle_paysOnlyTheRegisteredFingerprintAfterARotation`, `TestSettle_emitsWhoWasPaidAndHowTheSplitFell`, `TestOperatorRelays_listsEachRelayWithItsLastPayout`, `TestRelayPayouts_pagesOneEpochOnly` and `TestGenesis_rebuildsTheOperatorIndexAndTheLastPayouts` (`chain/x/relay/keeper/relay_registry_test.go`), and in `chain/app/`: `TestRegisterRelay_refusesANodeWithoutTheRelayRole`, `TestRegisterRelay_refusesARelayNodeThatBindsNoRelayKey`, `TestUpdateRelay_followsAMsgUpdateNodeRebind`. `cd core && go test ./cmd/orama/internal/setup/ -run Relay` covers setup: the key and fingerprint registered after the bond, an exit, a re-run that sends nothing, a node registered without the key, a rotated fingerprint, and an identity the chain would refuse stopping the run before any transaction.
 - `cd chain && go test ./reporter/` covers the reporter: `TestObserve_weightIsTheMeasuredMedianNeverTheAdvertisedBandwidth`, `TestObserve_refusesAnArchiveThatMissesTooMuch`, `TestStep_neverReportsItsOwnOperatorsRelays`, `TestStep_aRetryResendsTheEntriesChosenFirst`, `TestStep_reportsUntilTheEndOfTheWindowAndNotAfter`, `TestStep_aDamagedVoteIsNotReportedAround`, `TestMessages_chunksReassembleToTheRoot`.
 - `cd chain && go test ./app/ -run 'TestApp_relay|TestApp_aRelayEpoch|TestApp_aStorageProvider'` runs the app-level settlement tests: `TestApp_relayEpochsSettleWithoutAnyMessage` (one relay, the 90/5/5 split) and `TestApp_aRelayEpochPaysEachOperatorFromTheMedianOfTheReporters` (three reporters and six relays: the median against an inflated report, the per-relay cap, the exit multiplier, the uptime floor, an operator's relays summed, a retired node unpaid), and for storage `TestApp_aStorageProviderIsPaidForEveryEpochItProvesACustomersDeal`.
 
-**Fleet e2e features** (the owner runs `make e2e-fleet`): `e2e/features/chain-services/` (cross-certified registration and its refusals, the reporter set closed to messages, report shape), `e2e/features/relay-reporter/` (the reporter refuses to start without its identity; a closed epoch's report is accepted; needs an authority's archived votes), `e2e/features/tor-network/` and `e2e/features/onion-network/` (the Tor network the relays belong to).
+**Fleet e2e features** (the owner runs `make e2e-fleet`): `e2e/features/chain-services/` (cross-certified registration and its refusals, the reporter set closed to messages, report shape), `e2e/features/relay-reporter/` (the reporter refuses to start without its identity; a closed epoch's report is accepted; needs an authority's archived votes; after setup each relay is registered with its node and operator, `relay-identity` signs what the chain checks, and a settled epoch's payouts add up to its mint and credit the operators; needs a target with relays), `e2e/features/tor-network/` and `e2e/features/onion-network/` (the Tor network the relays belong to).
 
 **Read-only queries.**
 
 - `orama chain query orama.relay.v1.Query/Reporters '{}'` lists the reporter set; `orama chain query orama.relay.v1.Query/EpochResult '{"epoch":"5"}'` shows whether an epoch settled, its ceiling and what it minted.
 - `orama chain query orama.relay.v1.Query/Relay '{"rsa_fingerprint_hex":"..."}'` shows a registration with its operator, `/16` bucket and jail flag.
+- `orama chain query orama.relay.v1.Query/OperatorRelays '{"operator":"orama1..."}'` lists an operator's relays with the last payout of each; `orama chain query orama.relay.v1.Query/RelayPayouts '{"epoch":"5"}'` lists what epoch 5 paid. `orama status` shows the same lines for the operator it names, and the explorer's Tor page shows what the newest settled epoch paid each relay.
 - On an authority host: `cat monitor.json` and `cat state.json` in the reporter home show the last report and the owed epochs (`ls report-*.json` shows an epoch in flight).

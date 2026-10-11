@@ -38,9 +38,11 @@ const (
 	// markConsensusBinding precedes the consensus key's binding, printed only
 	// when the request asks for it.
 	markConsensusBinding = "__CONSENSUS_BINDING__"
-	markStatus           = "__STATUS__"
-	markActive           = "__ACTIVE__"
-	markLog              = "__LOG__"
+	// markRelayIdentity precedes the Tor relay's identity, printed only when the request asks for it.
+	markRelayIdentity = "__RELAY_IDENTITY__"
+	markStatus        = "__STATUS__"
+	markActive        = "__ACTIVE__"
+	markLog           = "__LOG__"
 	// hotKeyWaitSeconds bounds the wait for the provider to create its hot key.
 	hotKeyWaitSeconds = 60
 	// chainLogLines is how much of the chain's log an error carries.
@@ -173,7 +175,9 @@ func splitMarked(out string, marks ...string) map[string]string {
 // the chain node id, the consensus public key, and the hot key's binding signed
 // for the operator on this chain. With in.BindConsensus it also prints the
 // consensus key's binding, signed here by the key CometBFT signs blocks with: that
-// key never leaves the machine. No private key is printed.
+// key never leaves the machine. With in.RelayNodeID it also prints the Tor relay's
+// identity, signed here by the relay's ed25519 key (`orama global tor relay-identity`).
+// No private key is printed.
 func identityScript(in IdentityRequest) string {
 	oramad := constants.GlobalBinDir + "/" + constants.ChainDaemonName
 	script := strings.NewReplacer(
@@ -201,22 +205,30 @@ runuser -u {CHAINUSER} -- {ORAMAD} --home {CHAINHOME} comet show-validator
 echo {BINDING}
 {CLI} global bind --chain-id {CHAINID} --operator {OPERATOR} --service {SERVICE} --key-file "$HK" --key-type secp256k1
 `)
-	if !in.BindConsensus {
-		return script
-	}
-	return script + strings.NewReplacer(
-		"{CONSBINDING}", markConsensusBinding, "{CLI}", constants.GlobalBinDir+"/orama", "{VALKEY}", constants.ChainValidatorKeyPath,
-		"{CHAINID}", clusterops.ShellQuote(in.ChainID), "{OPERATOR}", clusterops.ShellQuote(in.Operator), "{SERVICE}", clusterreg.ConsensusService,
-	).Replace(`echo {CONSBINDING}
+	if in.BindConsensus {
+		script += strings.NewReplacer(
+			"{CONSBINDING}", markConsensusBinding, "{CLI}", constants.GlobalBinDir+"/orama", "{VALKEY}", constants.ChainValidatorKeyPath,
+			"{CHAINID}", clusterops.ShellQuote(in.ChainID), "{OPERATOR}", clusterops.ShellQuote(in.Operator), "{SERVICE}", clusterreg.ConsensusService,
+		).Replace(`echo {CONSBINDING}
 {CLI} global bind --chain-id {CHAINID} --operator {OPERATOR} --service {SERVICE} --key-file {VALKEY}
 `)
+	}
+	if in.RelayNodeID != "" {
+		script += strings.NewReplacer(
+			"{RELAYIDENTITY}", markRelayIdentity, "{CLI}", constants.GlobalBinDir+"/orama",
+			"{CHAINID}", clusterops.ShellQuote(in.ChainID), "{OPERATOR}", clusterops.ShellQuote(in.Operator), "{NODEID}", clusterops.ShellQuote(in.RelayNodeID),
+		).Replace(`echo {RELAYIDENTITY}
+{CLI} global tor relay-identity --chain-id {CHAINID} --operator {OPERATOR} --node-id {NODEID}
+`)
+	}
+	return script
 }
 
 // ParseIdentity reads identityScript's output into the facts a registration
 // needs. Every value is checked: the node id, the consensus key and the binding
 // are about to be signed over.
 func ParseIdentity(out string) (NodeIdentity, error) {
-	sec := splitMarked(out, markNodeID, markConsensus, markBinding, markConsensusBinding)
+	sec := splitMarked(out, markNodeID, markConsensus, markBinding, markConsensusBinding, markRelayIdentity)
 	var id NodeIdentity
 	id.ChainNodeID = strings.TrimSpace(sec[markNodeID])
 	if b, err := hex.DecodeString(id.ChainNodeID); err != nil || len(b) != 20 {
@@ -242,6 +254,9 @@ func ParseIdentity(out string) (NodeIdentity, error) {
 		if id.ConsensusBinding, err = parseConsensusBinding(raw, id.ConsensusPubKey); err != nil {
 			return id, err
 		}
+	}
+	if raw, ok := sec[markRelayIdentity]; ok {
+		id.RelayIdentity = []byte(raw)
 	}
 	return id, nil
 }

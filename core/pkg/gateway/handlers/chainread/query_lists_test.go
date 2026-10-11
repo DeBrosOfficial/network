@@ -20,6 +20,10 @@ var listQueries = []struct {
 	{"nodes", "orama.nodes.v1.Query/Nodes", "nodes", "node_id", []byte{0x0a, 0x05, 0x0a, 0x03, 'n', '-', '1', 0x12, 0x03, 0x0a, 0x01, 'k'}, "n-1"},
 	// QueryRelaysResponse{relays: [Relay{node_id: "n-1"}], pagination: {next_key: "k"}}
 	{"relays", "orama.relay.v1.Query/Relays", "relays", "node_id", []byte{0x0a, 0x05, 0x0a, 0x03, 'n', '-', '1', 0x12, 0x03, 0x0a, 0x01, 'k'}, "n-1"},
+	// QueryOperatorRelaysResponse{relays: [RelayStanding{last_payout_epoch: 7}], pagination: {next_key: "k"}}
+	{"operator relays", "orama.relay.v1.Query/OperatorRelays", "relays", "last_payout_epoch", []byte{0x0a, 0x02, 0x10, 0x07, 0x12, 0x03, 0x0a, 0x01, 'k'}, "7"},
+	// QueryRelayPayoutsResponse{payouts: [RelayPayout{epoch: 7}], pagination: {next_key: "k"}}
+	{"relay payouts", "orama.relay.v1.Query/RelayPayouts", "payouts", "epoch", []byte{0x0a, 0x02, 0x08, 0x07, 0x12, 0x03, 0x0a, 0x01, 'k'}, "7"},
 	// QueryDealsResponse{deals: [Deal{id: 7}], pagination: {next_key: "k"}}
 	{"deals", "orama.storage.v1.Query/Deals", "deals", "id", []byte{0x0a, 0x02, 0x08, 0x07, 0x12, 0x03, 0x0a, 0x01, 'k'}, "7"},
 }

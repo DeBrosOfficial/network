@@ -3,8 +3,14 @@ package keeper_test
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1" // #nosec G505 -- a Tor relay fingerprint is SHA-1 by definition
+	"crypto/sha256"
+	"crypto/x509"
+	"sync"
 	"testing"
 	"time"
 
@@ -203,9 +209,50 @@ func (s *fakeService) FundArchive(_ context.Context, senderModule string, amt ma
 	return nil
 }
 
+// rsaID is a relay's RSA identity: its key, the PKCS#1 DER of the public half and the SHA-1 digest of that
+// DER, which is the fingerprint Tor and the chain name the relay by.
+type rsaID struct {
+	key *rsa.PrivateKey
+	der []byte
+	fp  []byte
+}
+
+var (
+	rsaIDs   = map[byte]rsaID{}
+	rsaIDsMu sync.Mutex
+)
+
+// newRSAID is the RSA identity the tests call mark. Generating a key costs milliseconds, so each mark is
+// made once for the whole test binary; two marks are two different relays.
+func newRSAID(t *testing.T, mark byte) rsaID {
+	t.Helper()
+	rsaIDsMu.Lock()
+	defer rsaIDsMu.Unlock()
+	if id, ok := rsaIDs[mark]; ok {
+		return id
+	}
+	key, err := rsa.GenerateKey(rand.Reader, types.MinRSABits)
+	require.NoError(t, err)
+	der := x509.MarshalPKCS1PublicKey(&key.PublicKey)
+	sum := sha1.Sum(der)
+	id := rsaID{key: key, der: der, fp: sum[:]}
+	rsaIDs[mark] = id
+	return id
+}
+
+// proof is the RSA identity's signature over the proof message of a node and its relay key.
+func (r rsaID) proof(t *testing.T, nodeID string, ed25519Pub []byte) []byte {
+	t.Helper()
+	sum := sha256.Sum256(types.RSAProofMessage(nodeID, ed25519Pub))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, r.key, crypto.SHA256, sum[:])
+	require.NoError(t, err)
+	return sig
+}
+
 type relayKey struct {
 	nodeID   string
 	fp       []byte
+	rsa      rsaID
 	pub      ed25519.PublicKey
 	priv     ed25519.PrivateKey
 	operator sdk.AccAddress
@@ -216,8 +263,8 @@ func newRelayKey(t *testing.T, id string, mark byte, operator sdk.AccAddress, ip
 	t.Helper()
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	fp := bytes.Repeat([]byte{mark}, types.RSAFingerprintLen)
-	return relayKey{nodeID: id, fp: fp, pub: pub, priv: priv, operator: operator, ipv4: ipv4}
+	identity := newRSAID(t, mark)
+	return relayKey{nodeID: id, fp: identity.fp, rsa: identity, pub: pub, priv: priv, operator: operator, ipv4: ipv4}
 }
 
 type testFixture struct {
@@ -285,13 +332,9 @@ func (f *testFixture) init(t *testing.T, quorum uint32, reporters []sdk.AccAddre
 func (f *testFixture) register(t *testing.T, rk relayKey, exit bool) {
 	t.Helper()
 	f.Nodes.add(rk)
-	_, err := f.Msg.RegisterRelay(f.Ctx, &types.MsgRegisterRelay{
-		Operator:         rk.operator.String(),
-		NodeId:           rk.nodeID,
-		RsaFingerprint:   rk.fp,
-		Exit:             exit,
-		Ed25519Signature: ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, rk.fp)),
-	})
+	msg := registerMsg(t, rk)
+	msg.Exit = exit
+	_, err := f.Msg.RegisterRelay(f.Ctx, msg)
 	require.NoError(t, err)
 }
 

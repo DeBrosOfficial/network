@@ -3,6 +3,12 @@ package setup
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1" // #nosec G505 -- a Tor relay fingerprint is SHA-1 by definition
+	"crypto/sha512"
+	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -40,7 +46,9 @@ type world struct {
 	// registry
 	operatorRegistered bool
 	nodes              map[string]*RegisteredNode
-	validator          bool
+	// relays are the relays x/relay holds, by node id.
+	relays    map[string]*RegisteredRelay
+	validator bool
 	// names is the name each node holds, by node id.
 	names map[string]string
 	// foreignNames are names held by someone else, by name.
@@ -65,7 +73,7 @@ type world struct {
 }
 
 func newWorld() *world {
-	return &world{nodes: map[string]*RegisteredNode{}, names: map[string]string{}, balance: new(big.Int), feeBalances: map[string]*big.Int{}}
+	return &world{nodes: map[string]*RegisteredNode{}, relays: map[string]*RegisteredRelay{}, names: map[string]string{}, balance: new(big.Int), feeBalances: map[string]*big.Int{}}
 }
 
 func (w *world) add(format string, args ...any) {
@@ -181,10 +189,62 @@ func (m *fakeMachine) Identity(_ context.Context, in IdentityRequest) (NodeIdent
 		id.ConsensusPubKey = signed.Pubkey
 		id.ConsensusBinding = &clusterreg.NodeBinding{Service: signed.Service, KeyType: signed.KeyType, Pubkey: signed.Pubkey, Signature: signed.Signature}
 	}
+	if in.RelayNodeID != "" {
+		m.w.add("relay-identity %s node=%s", m.ip, in.RelayNodeID)
+		doc, err := fakeRelayIdentity(m.ip, in)
+		if err != nil {
+			return NodeIdentity{}, err
+		}
+		id.RelayIdentity = doc
+	}
 	if m.tamperIdentity != nil {
 		m.tamperIdentity(&id)
 	}
 	return id, m.identityErr
+}
+
+// fakeRelaySecret is the expanded ed25519 secret of the Tor relay of the fake machine at ip.
+func fakeRelaySecret(ip string) []byte {
+	seed := make([]byte, ed25519.SeedSize)
+	copy(seed, "relay-"+ip)
+	sum := sha512.Sum512(seed)
+	return sum[:]
+}
+
+var (
+	fakeRelayRSAs   = map[string]*rsa.PrivateKey{}
+	fakeRelayRSAsMu sync.Mutex
+)
+
+// fakeRelayRSA is the RSA identity key of the Tor relay of the fake machine at ip. A key costs
+// milliseconds, so each machine's is made once for the test binary.
+func fakeRelayRSA(ip string) *rsa.PrivateKey {
+	fakeRelayRSAsMu.Lock()
+	defer fakeRelayRSAsMu.Unlock()
+	if key, ok := fakeRelayRSAs[ip]; ok {
+		return key
+	}
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	fakeRelayRSAs[ip] = key
+	return key
+}
+
+// fakeRelayFingerprint is the RSA fingerprint of the Tor relay of the fake machine at ip.
+func fakeRelayFingerprint(ip string) []byte {
+	sum := sha1.Sum(x509.MarshalPKCS1PublicKey(&fakeRelayRSA(ip).PublicKey)) // #nosec G401
+	return sum[:]
+}
+
+// fakeRelayIdentity is what `orama global tor relay-identity` prints on the fake machine at ip.
+func fakeRelayIdentity(ip string, in IdentityRequest) ([]byte, error) {
+	identity, err := globalbind.NewRelayIdentity(fakeRelaySecret(ip), fakeRelayRSA(ip), in.ChainID, in.Operator, in.RelayNodeID)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(identity)
 }
 
 // fakeConsensusSeed is the consensus key of the fake machine at ip: the node
@@ -412,6 +472,40 @@ func (s *fakeSession) FundHotKey(_ context.Context, f clusterreg.HotKeyFunding) 
 		s.w.balance.Sub(s.w.balance, amount)
 	}
 	return &onchain.Receipt{}, nil
+}
+func (s *fakeSession) RelayOfNode(_ context.Context, _, nodeID string) (*RegisteredRelay, error) {
+	s.w.mu.Lock()
+	defer s.w.mu.Unlock()
+	return s.w.relays[nodeID], nil
+}
+func (s *fakeSession) RegisterRelay(_ context.Context, r clusterreg.RelayRegistration) (*onchain.Receipt, error) {
+	s.w.add("tx register-relay %s fp=%X exit=%t", r.NodeID, r.RSAFingerprint, r.Exit)
+	return s.holdRelay(r)
+}
+func (s *fakeSession) UpdateRelay(_ context.Context, r clusterreg.RelayRegistration) (*onchain.Receipt, error) {
+	s.w.add("tx update-relay %s fp=%X exit=%t", r.NodeID, r.RSAFingerprint, r.Exit)
+	return s.holdRelay(r)
+}
+
+// holdRelay records r as the relay of its node, with the key the node binds as "relay". It checks r as the
+// real client does before it sends.
+func (s *fakeSession) holdRelay(r clusterreg.RelayRegistration) (*onchain.Receipt, error) {
+	if err := clusterreg.ValidateRelay(r); err != nil {
+		return nil, fmt.Errorf("relay of node %q: %w", r.NodeID, err)
+	}
+	s.w.mu.Lock()
+	defer s.w.mu.Unlock()
+	node := s.w.nodes[r.NodeID]
+	if node == nil {
+		return nil, fmt.Errorf("node %s is not registered", r.NodeID)
+	}
+	for _, b := range node.Bindings {
+		if b.Service == clusterreg.RelayService {
+			s.w.relays[r.NodeID] = &RegisteredRelay{Fingerprint: r.RSAFingerprint, Ed25519ID: b.Pubkey, Exit: r.Exit}
+			return &onchain.Receipt{}, nil
+		}
+	}
+	return nil, fmt.Errorf("node %s binds no ed25519 key for service %q", r.NodeID, clusterreg.RelayService)
 }
 func (s *fakeSession) OperatorRegistered(context.Context, string) (bool, error) {
 	s.w.mu.Lock()

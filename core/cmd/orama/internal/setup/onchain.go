@@ -11,6 +11,7 @@ import (
 
 	"github.com/DeBrosOfficial/network/pkg/clusterreg"
 	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/DeBrosOfficial/network/pkg/globalbind"
 	"github.com/DeBrosOfficial/network/pkg/onchain"
 )
 
@@ -185,11 +186,19 @@ func (r *runner) registerOperator(ctx context.Context, sess ChainSession) error 
 func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun, bonds map[int]*big.Int) error {
 	ip, id := n.plan.IP, n.plan.Name
 	r.emit(ip, StepOnchain, StateRunning, "")
-	ident, err := n.m.Identity(ctx, IdentityRequest{ChainID: r.net.Manifest.ChainID, Operator: r.oper, BindConsensus: n.plan.BindConsensus})
+	req := IdentityRequest{ChainID: r.net.Manifest.ChainID, Operator: r.oper, BindConsensus: n.plan.BindConsensus}
+	if slices.Contains(n.plan.Roles, clusterreg.RoleRelay) {
+		req.RelayNodeID = id
+	}
+	ident, err := n.m.Identity(ctx, req)
 	if err != nil {
 		return fmt.Errorf("read the node's keys: %w", err)
 	}
 	consensus, err := r.consensusBindingOf(n, ident)
+	if err != nil {
+		return err
+	}
+	relay, err := r.relayIdentityOf(n, ident)
 	if err != nil {
 		return err
 	}
@@ -198,7 +207,7 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 		return fmt.Errorf("check whether node %q is registered: %w", id, err)
 	}
 	if node == nil {
-		if err := r.sendRegistration(ctx, sess, n, ident, consensus); err != nil {
+		if err := r.sendRegistration(ctx, sess, n, ident, consensus, relay); err != nil {
 			return err
 		}
 		node = &RegisteredNode{Bonds: map[int]*big.Int{}}
@@ -209,8 +218,14 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 		if err := r.bindConsensus(ctx, sess, n, node, consensus); err != nil {
 			return err
 		}
+		if err := r.bindRelayKey(ctx, sess, n, node, relay); err != nil {
+			return err
+		}
 	}
 	if err := r.bondRoles(ctx, sess, n, node, bonds); err != nil {
+		return err
+	}
+	if err := r.registerRelay(ctx, sess, n, relay); err != nil {
 		return err
 	}
 	if want := StorageCapacityBytes(n.plan.StorageGB); node.CapacityBytes != want {
@@ -278,7 +293,7 @@ func (r *runner) fundHotKey(ctx context.Context, sess ChainSession, n *nodeRun, 
 	return nil
 }
 
-func (r *runner) sendRegistration(ctx context.Context, sess ChainSession, n *nodeRun, ident NodeIdentity, consensus *clusterreg.NodeBinding) error {
+func (r *runner) sendRegistration(ctx context.Context, sess ChainSession, n *nodeRun, ident NodeIdentity, consensus *clusterreg.NodeBinding, relay *globalbind.RelayIdentity) error {
 	asn, err := r.asnOf(ctx, n.plan.IP)
 	if err != nil {
 		return err
@@ -286,6 +301,9 @@ func (r *runner) sendRegistration(ctx context.Context, sess ChainSession, n *nod
 	bindings := []clusterreg.NodeBinding{ident.HotBinding}
 	if consensus != nil {
 		bindings = append(bindings, *consensus)
+	}
+	if relay != nil {
+		bindings = append(bindings, relayBinding(relay))
 	}
 	reg := clusterreg.NodeRegistration{
 		Operator: r.oper, NodeID: n.plan.Name, Roles: n.plan.Roles, HotKey: ident.HotKey,

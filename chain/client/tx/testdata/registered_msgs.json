@@ -88,6 +88,7 @@
     "/orama.nodes.v1.MsgUpdateNode",
     "/orama.relay.v1.MsgRegisterRelay",
     "/orama.relay.v1.MsgReportEpoch",
+    "/orama.relay.v1.MsgUpdateRelay",
     "/orama.relay.v1.MsgUpdateReporters",
     "/orama.shielded.v1.MsgShield",
     "/orama.shielded.v1.MsgShieldEarnings",
@@ -817,7 +818,9 @@
       "node_id": "",
       "rsa_fingerprint": null,
       "exit": false,
-      "ed25519_signature": null
+      "ed25519_signature": null,
+      "rsa_public_key": null,
+      "rsa_signature": null
     },
     "/orama.relay.v1.MsgReportEpoch": {
       "@type": "/orama.relay.v1.MsgReportEpoch",
@@ -827,6 +830,16 @@
       "chunk_count": 0,
       "entries": [],
       "inputs_root": null
+    },
+    "/orama.relay.v1.MsgUpdateRelay": {
+      "@type": "/orama.relay.v1.MsgUpdateRelay",
+      "operator": "",
+      "node_id": "",
+      "rsa_fingerprint": null,
+      "exit": false,
+      "ed25519_signature": null,
+      "rsa_public_key": null,
+      "rsa_signature": null
     },
     "/orama.relay.v1.MsgUpdateReporters": {
       "@type": "/orama.relay.v1.MsgUpdateReporters",

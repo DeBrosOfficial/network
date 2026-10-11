@@ -36,8 +36,7 @@ func (gs GenesisState) Validate() error {
 	if err := gs.Activation.validate(); err != nil {
 		return err
 	}
-	relays, err := validateRelays(gs.Relays)
-	if err != nil {
+	if err := validateRelays(gs.Relays); err != nil {
 		return err
 	}
 	for _, reporter := range reporters {
@@ -54,10 +53,10 @@ func (gs GenesisState) Validate() error {
 	if err := validatePayouts(gs.Payouts, results); err != nil {
 		return err
 	}
-	if err := validateChunks(gs.Chunks, relays); err != nil {
+	if err := validateChunks(gs.Chunks); err != nil {
 		return err
 	}
-	return validateReports(gs.Reports, gs.Chunks, relays)
+	return validateReports(gs.Reports, gs.Chunks)
 }
 
 func (a Activation) validate() error {
@@ -73,47 +72,47 @@ func (a Activation) validate() error {
 	return nil
 }
 
-func validateRelays(relays []Relay) (map[string]Relay, error) {
-	byFP := make(map[string]Relay, len(relays))
+func validateRelays(relays []Relay) error {
+	byFP := make(map[string]struct{}, len(relays))
 	nodes := make(map[string]struct{}, len(relays))
 	for _, relay := range relays {
 		if relay.NodeId == "" {
-			return nil, fmt.Errorf("relay has an empty node id")
+			return fmt.Errorf("relay has an empty node id")
 		}
 		if len(relay.RsaFingerprint) != RSAFingerprintLen {
-			return nil, fmt.Errorf("relay %s fingerprint must be %d bytes", relay.NodeId, RSAFingerprintLen)
+			return fmt.Errorf("relay %s fingerprint must be %d bytes", relay.NodeId, RSAFingerprintLen)
 		}
 		if len(relay.Ed25519Id) != Ed25519PubLen {
-			return nil, fmt.Errorf("relay %s ed25519 id must be %d bytes", relay.NodeId, Ed25519PubLen)
+			return fmt.Errorf("relay %s ed25519 id must be %d bytes", relay.NodeId, Ed25519PubLen)
 		}
 		operator, err := CanonicalAddress(relay.Operator)
 		if err != nil {
-			return nil, fmt.Errorf("relay %s: %w", relay.NodeId, err)
+			return fmt.Errorf("relay %s: %w", relay.NodeId, err)
 		}
 		if operator != relay.Operator {
-			return nil, fmt.Errorf("relay %s operator must be canonical", relay.NodeId)
+			return fmt.Errorf("relay %s operator must be canonical", relay.NodeId)
 		}
 		canonical := relay.Prefix16
 		if relay.Prefix16 != UnidentifiedPrefix16 {
 			canonical, err = CanonicalPrefix16(relay.Prefix16)
 			if err != nil {
-				return nil, fmt.Errorf("relay %s: %w", relay.NodeId, err)
+				return fmt.Errorf("relay %s: %w", relay.NodeId, err)
 			}
 		}
 		if canonical != relay.Prefix16 {
-			return nil, fmt.Errorf("relay %s prefix16 must be canonical, got %q", relay.NodeId, relay.Prefix16)
+			return fmt.Errorf("relay %s prefix16 must be canonical, got %q", relay.NodeId, relay.Prefix16)
 		}
 		fp := string(relay.RsaFingerprint)
 		if _, ok := byFP[fp]; ok {
-			return nil, fmt.Errorf("duplicate relay fingerprint")
+			return fmt.Errorf("duplicate relay fingerprint")
 		}
 		if _, ok := nodes[relay.NodeId]; ok {
-			return nil, fmt.Errorf("duplicate relay node id %q", relay.NodeId)
+			return fmt.Errorf("duplicate relay node id %q", relay.NodeId)
 		}
-		byFP[fp] = relay
+		byFP[fp] = struct{}{}
 		nodes[relay.NodeId] = struct{}{}
 	}
-	return byFP, nil
+	return nil
 }
 
 func validateEpochResults(results []EpochResult, activation Activation) (map[uint64]EpochResult, error) {
@@ -193,7 +192,7 @@ func validatePayouts(payouts []RelayPayout, results map[uint64]EpochResult) erro
 	return nil
 }
 
-func validateChunks(chunks []ReportChunk, relays map[string]Relay) error {
+func validateChunks(chunks []ReportChunk) error {
 	type meta struct {
 		count uint32
 		root  []byte
@@ -201,7 +200,7 @@ func validateChunks(chunks []ReportChunk, relays map[string]Relay) error {
 	}
 	groups := map[string]*meta{}
 	for _, chunk := range chunks {
-		if err := validateChunkShape(chunk, relays); err != nil {
+		if err := validateChunkShape(chunk); err != nil {
 			return err
 		}
 		key := fmt.Sprintf("%d/%s", chunk.Epoch, chunk.Reporter)
@@ -221,7 +220,7 @@ func validateChunks(chunks []ReportChunk, relays map[string]Relay) error {
 	return nil
 }
 
-func validateChunkShape(chunk ReportChunk, relays map[string]Relay) error {
+func validateChunkShape(chunk ReportChunk) error {
 	if chunk.Epoch == 0 || chunk.Epoch > MaxReportEpoch {
 		return fmt.Errorf("chunk epoch %d must be in [1, %d]", chunk.Epoch, MaxReportEpoch)
 	}
@@ -237,10 +236,10 @@ func validateChunkShape(chunk ReportChunk, relays map[string]Relay) error {
 	if len(chunk.Entries) > MaxEntriesPerChunk {
 		return fmt.Errorf("chunk has %d entries, max %d", len(chunk.Entries), MaxEntriesPerChunk)
 	}
-	return validateEntries(chunk.Entries, relays)
+	return validateEntries(chunk.Entries)
 }
 
-func validateReports(reports []CompleteReport, chunks []ReportChunk, relays map[string]Relay) error {
+func validateReports(reports []CompleteReport, chunks []ReportChunk) error {
 	pending := make(map[string]struct{}, len(chunks))
 	for _, chunk := range chunks {
 		pending[fmt.Sprintf("%d/%s", chunk.Epoch, chunk.Reporter)] = struct{}{}
@@ -268,7 +267,7 @@ func validateReports(reports []CompleteReport, chunks []ReportChunk, relays map[
 		if len(report.Entries) > MaxEntriesPerReport() {
 			return fmt.Errorf("report has %d entries, max %d", len(report.Entries), MaxEntriesPerReport())
 		}
-		if err := validateEntries(report.Entries, relays); err != nil {
+		if err := validateEntries(report.Entries); err != nil {
 			return fmt.Errorf("report epoch %d: %w", report.Epoch, err)
 		}
 		root, err := InputsRoot(report.Entries)
@@ -282,7 +281,11 @@ func validateReports(reports []CompleteReport, chunks []ReportChunk, relays map[
 	return nil
 }
 
-func validateEntries(entries []RelayObservation, relays map[string]Relay) error {
+// validateEntries checks the shape of stored observations and that none repeats a fingerprint. It does not
+// ask that the relay is registered: a report is checked against the registry when it is received, and the
+// registry changes afterwards (MsgUpdateRelay replaces a fingerprint or a key while a report waits for its
+// epoch to settle), so a state exported then must still import. Settlement skips such an entry.
+func validateEntries(entries []RelayObservation) error {
 	seen := make(map[string]struct{}, len(entries))
 	for i, entry := range entries {
 		if err := entry.Validate(); err != nil {
@@ -293,13 +296,6 @@ func validateEntries(entries []RelayObservation, relays map[string]Relay) error 
 			return fmt.Errorf("entry %d duplicates a fingerprint", i)
 		}
 		seen[fp] = struct{}{}
-		relay, ok := relays[fp]
-		if !ok {
-			return fmt.Errorf("entry %d relay is not registered", i)
-		}
-		if !bytes.Equal(relay.Ed25519Id, entry.Ed25519Id) {
-			return fmt.Errorf("entry %d: %w", i, ErrEd25519Mismatch)
-		}
 	}
 	return nil
 }

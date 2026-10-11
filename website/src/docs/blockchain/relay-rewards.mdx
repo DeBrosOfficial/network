@@ -2,19 +2,26 @@
 
 `x/relay` is the chain's registry of Tor relays and exits, and the rule for paying them from the relay share of emission (10% of each epoch's maximum).
 
-**State today: the registry, the epoch report and the payout are all wired.** `x/relay`'s end block settles each reported epoch, with no message needed. What is still missing is on the operator side: no `orama` command registers a relay, bandwidth measurement (`sbws`) is not installed, and nothing in the repository has run against a real Tor network yet. This page describes what the code does.
+**State today: the registry, the epoch report and the payout are all wired.** `x/relay`'s end block settles each reported epoch, with no message needed, and `orama setup` registers the relay of every node it sets up. What is still missing: bandwidth measurement (`sbws`) is not installed, and nothing in the repository has run against a real Tor network yet. This page describes what the code does.
 
 ## Messages
 
 | Message | Signed by | What it does |
 |---|---|---|
-| `RegisterRelay` | The operator | Registers a relay: `node_id`, the relay's RSA fingerprint (20 bytes), whether it is an exit, and an ed25519 cross-certificate from the node identity over the node id and fingerprint |
+| `RegisterRelay` | The operator | Registers a relay: `node_id`, the relay's RSA fingerprint (20 bytes, the 40 hex digits Tor writes), whether it is an exit, and a cross-certificate over the node id and fingerprint signed by the relay's ed25519 identity. The node must hold the relay role and bind that identity as its `relay` service key; no other key of the node is taken for it |
+| `UpdateRelay` | The operator | Replaces the fingerprint and exit declaration of the node's relay, and takes the ed25519 key the node binds now. It is how a relay follows a rotation of its Tor keys, or a `MsgUpdateNode` that rebinds the key |
 | `ReportEpoch` | A reporter | Sends one chunk of a per-epoch report: observations per relay (consensus weight, flags, uptime fraction) and an `inputs_root`. Up to 32 chunks of 4,096 entries |
 | `UpdateReporters` | Nobody directly | Accepted only inside a passed governance proposal that changes the reporter set |
 
 Reporters are the directory authorities' measurement software. A report from anyone not in the reporter set fails with `ErrNotReporter`. At most 128 reporters exist. The operator of a registered relay cannot be a reporter: `RegisterRelay` refuses a reporter's address and a reporter-set change that names a relay operator is refused.
 
 **The report window.** Epoch `e` is reported on while the chain is in epoch `e+1`. A report for the epoch in progress, a future epoch, an epoch whose window has passed, or an epoch with no relay ceiling is refused. The end block then settles the oldest reported epoch once the chain is in epoch `e+2`, one epoch per block. An epoch nobody reported is never settled and takes no later report. A relay is bucketed by the /16 of its operator's node, or into a shared "unidentified" bucket when the /16 is not known.
+
+## How a relay is identified
+
+A directory authority's vote names a relay by its RSA fingerprint and its ed25519 identity, so those two are what the chain registers. The fingerprint is the relay's key in `x/relay`; the ed25519 identity is the one the node binds as its `relay` service key; the node and its operator come from `x/nodes`. A report is accepted only for a registered relay with the registered identity, the reporter leaves every other relay out, and a payout goes to the operator of the node that holds the registered fingerprint. A relay the chain does not know is not reported and is not paid. The Tor keys sign for themselves: `orama global tor relay-identity` runs on the relay's node and prints a binding and a certificate made with the relay's keys, which never leave the machine.
+
+`orama setup` does all of it for a node that runs a relay, and re-running it sends nothing that is already in place. See [A relay is registered with the chain](/docs/operator/setup#a-relay-is-registered-with-the-chain), and [Running the Tor network](/docs/operator/tor-network#relays) for the registration by hand.
 
 ## How a reward is computed
 
@@ -53,9 +60,16 @@ Relay pay goes through the same 90/5/5 service split as storage pay (`SplitServi
 
 The payout rows and the epoch's minted amount stay gross, before the split.
 
+## Seeing what a relay was paid
+
+- `orama status` lists each of your relays (fingerprint, node, whether it is an exit or jailed) with the epoch and amount of its last payout, under your account. What reaches your earnings is 90% of your total for the epoch, so the earnings figure moves by less than the sum of the payouts.
+- The explorer's Tor page lists every registered relay with its node and operator, and a Paid column with what the newest settled epoch paid it.
+- The chain emits `relay_payout` for each paid relay (epoch, fingerprint, node, operator, gross amount) and `relay_operator_paid` for each paid operator (the amount credited to earnings, burned and given to the archive), and `relay_registered` and `relay_updated` when a relay is registered or rotated.
+
 ## What is missing
 
-- There is no `orama` command to register a relay (`MsgRegisterRelay` is in the SDK) or to send a report by hand.
+- A relay installed with `orama global install` alone is registered by running `orama setup` on its node, or by hand with `orama global tor relay-identity` and the SDK; there is no `orama` command that sends the registration on its own, and none that sends a report by hand.
+- RootWallet has to decode `MsgRegisterRelay` and `MsgUpdateRelay` before it signs them; until it does, setup stops at the relay with the wallet's refusal.
 - The reporter, `orama-global reporter`, runs on a directory-authority host: `orama global install --services chain,dirauth,reporter --tor-reporter-operator <orama1...>` sets up its home, its `authority-id` and its unit, and the authority exports its own vote of each period to a directory the reporter reads. It sends each closed epoch to `x/relay` in chunks and drops an epoch whose report window has passed or that is already settled (`ErrWindowClosed`, `ErrEpochSettled`) instead of retrying it. Its hot key must be in `x/relay`'s reporter set, which is a chain decision, not part of the install.
 - Bandwidth measurement (`sbws`) is not built. Without a bandwidth file the authorities weight relays by what they claim, which a relay can inflate, and that is the reason consensus weight is not yet a trustworthy reward basis.
 
@@ -63,4 +77,4 @@ See [Tor](/docs/privacy/tor) for what exists on the network side.
 
 ## Queries
 
-`Params`, `Reporters`, `Relay` and `EpochResult` are public through the gateway. The TypeScript SDK has `relayParams`, `relayReporters`, `relay` and `relayEpochResult`.
+`Params`, `Reporters`, `Relay`, `Relays` (paged), `OperatorRelays` (an operator's relays with their last payout, paged), `RelayPayouts` (the rows one settled epoch paid, paged) and `EpochResult` are public through the gateway. The TypeScript SDK has `relayParams`, `relayReporters`, `relay`, `operatorRelays`, `relayPayouts` and `relayEpochResult`; `oramad query relay` has `operator-relays [operator]` and `payouts [epoch]` beside `relay [fingerprint-hex]` and `epoch [epoch]`.

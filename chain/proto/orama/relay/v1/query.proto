@@ -22,6 +22,12 @@ service Query {
   rpc Relays(QueryRelaysRequest) returns (QueryRelaysResponse) {
     option (google.api.http).get = "/orama/relay/v1/relays";
   }
+  rpc OperatorRelays(QueryOperatorRelaysRequest) returns (QueryOperatorRelaysResponse) {
+    option (google.api.http).get = "/orama/relay/v1/operator-relays/{operator}";
+  }
+  rpc RelayPayouts(QueryRelayPayoutsRequest) returns (QueryRelayPayoutsResponse) {
+    option (google.api.http).get = "/orama/relay/v1/payouts/{epoch}";
+  }
   rpc EpochResult(QueryEpochResultRequest) returns (QueryEpochResultResponse) {
     option (google.api.http).get = "/orama/relay/v1/epoch-result/{epoch}";
   }
@@ -58,6 +64,26 @@ message QueryRelaysRequest {
 
 message QueryRelaysResponse {
   repeated Relay relays = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryOperatorRelaysRequest {
+  string operator = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryOperatorRelaysResponse {
+  repeated RelayStanding relays = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryRelayPayoutsRequest {
+  uint64 epoch = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryRelayPayoutsResponse {
+  repeated RelayPayout payouts = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 

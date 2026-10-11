@@ -3,6 +3,11 @@ package keeper
 import (
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
+
+	"cosmossdk.io/collections"
+	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -117,4 +122,76 @@ func (q queryServer) Invariants(goCtx context.Context, _ *types.QueryInvariantsR
 		PayoutsMatch: got.PayoutsMatch,
 		Detail:       got.Detail,
 	}, nil
+}
+
+// OperatorRelays pages through the relays an operator has registered, in RSA fingerprint order, each
+// with the last payout it received. A relay that was never paid has last_payout_epoch 0.
+func (q queryServer) OperatorRelays(goCtx context.Context, req *types.QueryOperatorRelaysRequest) (*types.QueryOperatorRelaysResponse, error) {
+	if req == nil || req.Operator == "" {
+		return nil, status.Error(codes.InvalidArgument, "operator is required")
+	}
+	operator, err := types.CanonicalAddress(req.Operator)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	pagination, err := pagebound.Clamp(req.Pagination, MaxRelaysPerPage)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	standings, page, err := query.CollectionPaginate(ctx, q.Keeper.OperatorIndex, pagination,
+		func(key collections.Pair[string, []byte], _ collections.NoValue) (types.RelayStanding, error) {
+			return q.Keeper.standingOf(ctx, key.K2())
+		}, query.WithCollectionPaginationPairPrefix[string, []byte](operator))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if standings == nil {
+		standings = []types.RelayStanding{}
+	}
+	return &types.QueryOperatorRelaysResponse{Relays: standings, Pagination: page}, nil
+}
+
+// standingOf is a registered relay with its last payout.
+func (k Keeper) standingOf(ctx sdk.Context, fingerprint []byte) (types.RelayStanding, error) {
+	relay, found, err := k.getRelay(ctx, fingerprint)
+	if err != nil {
+		return types.RelayStanding{}, err
+	}
+	if !found {
+		return types.RelayStanding{}, fmt.Errorf("operator index names relay %X that is not stored", fingerprint)
+	}
+	standing := types.RelayStanding{Relay: relay, LastPayoutAmount: math.ZeroInt()}
+	last, err := k.LastPayouts.Get(ctx, fingerprint)
+	switch {
+	case err == nil:
+		standing.LastPayoutEpoch, standing.LastPayoutAmount = last.Epoch, last.Amount
+	case !errors.Is(err, collections.ErrNotFound):
+		return types.RelayStanding{}, fmt.Errorf("failed to load the last payout of relay %X: %w", fingerprint, err)
+	}
+	return standing, nil
+}
+
+// RelayPayouts pages through the payouts of one settled epoch in RSA fingerprint order. An epoch that
+// paid nobody, or was never settled, has none.
+func (q queryServer) RelayPayouts(goCtx context.Context, req *types.QueryRelayPayoutsRequest) (*types.QueryRelayPayoutsResponse, error) {
+	if req == nil || req.Epoch == 0 {
+		return nil, status.Error(codes.InvalidArgument, "epoch is required")
+	}
+	pagination, err := pagebound.Clamp(req.Pagination, MaxRelaysPerPage)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	payouts, page, err := query.CollectionPaginate(sdk.UnwrapSDKContext(goCtx), q.Keeper.Payouts, pagination,
+		func(_ collections.Pair[uint64, []byte], payout types.RelayPayout) (types.RelayPayout, error) {
+			return payout, nil
+		},
+		query.WithCollectionPaginationPairPrefix[uint64, []byte](req.Epoch))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if payouts == nil {
+		payouts = []types.RelayPayout{}
+	}
+	return &types.QueryRelayPayoutsResponse{Payouts: payouts, Pagination: page}, nil
 }

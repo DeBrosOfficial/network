@@ -1,6 +1,6 @@
 import { addr, chainFixture, CHAIN_ID, HEAD, HEAD_TIME, rpc } from "../data/chain/fake-gateway";
 import type { FakeGateway } from "../data/chain/fake-gateway";
-import { NODE_PARAMS, RELAY_PARAMS, STORAGE_PARAMS, ARCHIVE_PARAMS, page, retainJson } from "../data/chain/fake-network";
+import { NODE_PARAMS, RELAY_PARAMS, STORAGE_PARAMS, ARCHIVE_PARAMS, page, relayJson, retainJson } from "../data/chain/fake-network";
 import {
   CLOSED_EPOCHS,
   DEV_BLOCKS,
@@ -94,6 +94,10 @@ function queryRoutes(): [RegExp, Handler][] {
     [/^query\/orama\.relay\.v1\.Query\/Params$/, () => RELAY_PARAMS],
     [/^query\/orama\.relay\.v1\.Query\/Relays$/, () => page("relays", devRelays())],
     [/^query\/orama\.relay\.v1\.Query\/Reporters$/, () => ({ reporters: [addr(30), addr(31)] })],
+    [
+      /^query\/orama\.relay\.v1\.Query\/RelayPayouts$/,
+      (_m, p) => page("payouts", [{ epoch: String(jsonParam(p).epoch), rsa_fingerprint: relayJson(1).rsa_fingerprint, operator: addr(1), amount: "250000000" }]),
+    ],
     [/^query\/orama\.relay\.v1\.Query\/EpochResult$/, (_m, p) => ({ result: { epoch: String(jsonParam(p).epoch), quorum_met: true, activating: false, ceiling: "1000", minted: "400" } })],
     [/^query\/cosmos\.bank\.v1beta1\.Query\/TotalSupply$/, () => ({ supply: [{ denom: "norama", amount: "41000000000000000" }], pagination: { next_key: null } })],
     [/^query\/orama\.shielded\.v1\.Query\/Params$/, () => ({ params: { enabled: true } })],

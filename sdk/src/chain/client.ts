@@ -613,6 +613,16 @@ export class OramaChainClient {
     return this.moduleQuery(RELAY, "Relay", { rsa_fingerprint_hex: assertText(rsaFingerprintHex, "rsaFingerprintHex", 64) }, options);
   }
 
+  /** An operator's registered relays, each with the last payout it received (`last_payout_epoch` is 0 for a relay never paid). */
+  async operatorRelays(operator: string, page: WalletPageOptions = {}, options?: QueryOptions): Promise<ChainQueryResult> {
+    return this.moduleQuery(RELAY, "OperatorRelays", { operator: assertAddress(operator), ...pagination(page) }, options);
+  }
+
+  /** What x/relay paid each relay in one settled epoch, gross of the operator's 90/5/5 split. */
+  async relayPayouts(epoch: Uint64Like, page: WalletPageOptions = {}, options?: QueryOptions): Promise<ChainQueryResult> {
+    return this.moduleQuery(RELAY, "RelayPayouts", { epoch: assertUint64(epoch, "epoch"), ...pagination(page) }, options);
+  }
+
   /** The result x/relay computed for an epoch. */
   async relayEpochResult(epoch: Uint64Like, options?: QueryOptions): Promise<ChainQueryResult> {
     return this.moduleQuery(RELAY, "EpochResult", { epoch: assertUint64(epoch, "epoch") }, options);

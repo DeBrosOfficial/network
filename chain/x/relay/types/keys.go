@@ -29,4 +29,10 @@ var (
 	PayoutsPrefix = collections.NewPrefix(7)
 	// NodeIndexPrefix keys a node id to its RSA fingerprint.
 	NodeIndexPrefix = collections.NewPrefix(8)
+	// OperatorIndexPrefix keys (operator, RSA fingerprint) of every registered relay. It is
+	// derived from Relays and rebuilt at InitGenesis.
+	OperatorIndexPrefix = collections.NewPrefix(9)
+	// LastPayoutsPrefix keys the newest RelayPayout of each relay by RSA fingerprint. It is
+	// derived from Payouts and rebuilt at InitGenesis.
+	LastPayoutsPrefix = collections.NewPrefix(10)
 )

@@ -31,6 +31,17 @@ func (m msgServer) RegisterRelay(goCtx context.Context, msg *types.MsgRegisterRe
 	return &types.MsgRegisterRelayResponse{}, nil
 }
 
+func (m msgServer) UpdateRelay(goCtx context.Context, msg *types.MsgUpdateRelay) (*types.MsgUpdateRelayResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("update relay: nil message")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := m.Keeper.updateRelay(ctx, msg); err != nil {
+		return nil, err
+	}
+	return &types.MsgUpdateRelayResponse{}, nil
+}
+
 func (m msgServer) ReportEpoch(goCtx context.Context, msg *types.MsgReportEpoch) (*types.MsgReportEpochResponse, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("report epoch: nil message")

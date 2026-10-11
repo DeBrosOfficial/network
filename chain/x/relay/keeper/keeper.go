@@ -28,16 +28,20 @@ type Keeper struct {
 	earnings     types.EarningsKeeper
 	service      types.ServiceSplit
 
-	Schema       collections.Schema
-	Params       collections.Item[types.Params]
-	Reporters    collections.Map[string, bool]
-	Relays       collections.Map[[]byte, types.Relay]
-	NodeIndex    collections.Map[string, []byte]
-	Chunks       collections.Map[collections.Triple[uint64, string, uint32], types.ReportChunk]
-	Reports      collections.Map[collections.Pair[uint64, string], types.CompleteReport]
-	Activation   collections.Item[types.Activation]
-	EpochResults collections.Map[uint64, types.EpochResult]
-	Payouts      collections.Map[collections.Pair[uint64, []byte], types.RelayPayout]
+	Schema    collections.Schema
+	Params    collections.Item[types.Params]
+	Reporters collections.Map[string, bool]
+	Relays    collections.Map[[]byte, types.Relay]
+	NodeIndex collections.Map[string, []byte]
+	// OperatorIndex lists (operator, RSA fingerprint) of every registered relay and LastPayouts holds
+	// each relay's newest payout row; both are derived (from Relays and Payouts) and rebuilt at genesis.
+	OperatorIndex collections.KeySet[collections.Pair[string, []byte]]
+	LastPayouts   collections.Map[[]byte, types.RelayPayout]
+	Chunks        collections.Map[collections.Triple[uint64, string, uint32], types.ReportChunk]
+	Reports       collections.Map[collections.Pair[uint64, string], types.CompleteReport]
+	Activation    collections.Item[types.Activation]
+	EpochResults  collections.Map[uint64, types.EpochResult]
+	Payouts       collections.Map[collections.Pair[uint64, []byte], types.RelayPayout]
 }
 
 // NewKeeper builds a new x/relay Keeper.
@@ -51,15 +55,17 @@ func NewKeeper(
 ) Keeper {
 	sb := collections.NewSchemaBuilder(storeService)
 	k := Keeper{
-		storeService: storeService,
-		nodes:        nodes,
-		emission:     emission,
-		earnings:     earnings,
-		service:      service,
-		Params:       collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
-		Reporters:    collections.NewMap(sb, types.ReportersPrefix, "reporters", collections.StringKey, collections.BoolValue),
-		Relays:       collections.NewMap(sb, types.RelaysPrefix, "relays", collections.BytesKey, codec.CollValue[types.Relay](cdc)),
-		NodeIndex:    collections.NewMap(sb, types.NodeIndexPrefix, "node_index", collections.StringKey, collections.BytesValue),
+		storeService:  storeService,
+		nodes:         nodes,
+		emission:      emission,
+		earnings:      earnings,
+		service:       service,
+		Params:        collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+		Reporters:     collections.NewMap(sb, types.ReportersPrefix, "reporters", collections.StringKey, collections.BoolValue),
+		Relays:        collections.NewMap(sb, types.RelaysPrefix, "relays", collections.BytesKey, codec.CollValue[types.Relay](cdc)),
+		NodeIndex:     collections.NewMap(sb, types.NodeIndexPrefix, "node_index", collections.StringKey, collections.BytesValue),
+		OperatorIndex: collections.NewKeySet(sb, types.OperatorIndexPrefix, "operator_index", collections.PairKeyCodec(collections.StringKey, collections.BytesKey)),
+		LastPayouts:   collections.NewMap(sb, types.LastPayoutsPrefix, "last_payouts", collections.BytesKey, codec.CollValue[types.RelayPayout](cdc)),
 		Chunks: collections.NewMap(
 			sb, types.ChunksPrefix, "chunks",
 			collections.TripleKeyCodec(collections.Uint64Key, collections.StringKey, collections.Uint32Key),
