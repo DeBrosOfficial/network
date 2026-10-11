@@ -53,7 +53,7 @@ Storage, relay and development shares are claimed by the modules that can prove 
 
 ### Accounting for burns
 
-`x/emission` has no burn path; fees, deposits, tokens, service splits, shielded fees and slashing burn on their own. A reconciliation in the last end-blocker compares the bank supply with genesis supply plus mints minus recorded burns, and attributes any shortfall to burning. It never raises the counter on a surplus, so a mint that bypasses the counters shows up as a broken invariant, and the conservation check at the end of the block halts the chain on it (below).
+`x/emission` has no burn path; fees, deposits, tokens, service splits, shielded fees and slashing burn on their own. A reconciliation in the last end-blocker compares the bank supply with genesis supply plus mints minus recorded burns, and attributes any shortfall to burning. It never raises the counter on a surplus, so a mint that bypasses the counters shows up as a broken invariant, and the conservation check at the end of the block halts the chain on it (below). After such a halt `oramad export` refuses the state until an operator passes `--allow-conservation-violation`, which logs every violation and exports anyway so a coordinated recovery has a file to start from.
 
 ## The base fee
 

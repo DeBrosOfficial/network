@@ -102,6 +102,18 @@ func guardStart(rootCmd *cobra.Command) {
 	}
 }
 
+// addExportFlags adds --allow-conservation-violation to `oramad export`. The default stays to refuse a
+// state that breaks conservation; the flag is the operator's explicit choice to export it anyway.
+func addExportFlags(rootCmd *cobra.Command) {
+	for _, sub := range rootCmd.Commands() {
+		if sub.Name() == "export" {
+			sub.Flags().Bool(app.FlagAllowConservationViolation, false,
+				"export a state that breaks conservation anyway, logging every violation (recovery after a conservation halt; the genesis it writes is not sound until the violations are repaired)")
+			return
+		}
+	}
+}
+
 // checkQueryGasLimit refuses a query gas limit of 0 (unbounded) on any chain that is not a localnet.
 func checkQueryGasLimit(chainID string, limit uint64) error {
 	if limit != 0 || app.IsLocalnetChainID(chainID) {
@@ -180,6 +192,7 @@ func initRootCmd(
 	})
 
 	guardStart(rootCmd)
+	addExportFlags(rootCmd)
 
 	rootCmd.AddCommand(
 		server.StatusCommand(),
@@ -320,5 +333,5 @@ func appExport(
 		oramaApp = app.NewOramaApp(logger, db, true, appOpts)
 	}
 
-	return oramaApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
+	return oramaApp.ExportAppStateAndValidatorsOpts(forZeroHeight, jailAllowedAddrs, modulesToExport, viperAppOpts.GetBool(app.FlagAllowConservationViolation))
 }

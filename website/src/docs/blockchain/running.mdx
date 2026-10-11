@@ -27,6 +27,30 @@ The unit runs `oramad` under cosmovisor. It is not one of the `orama-namespace-*
 
 The Orama node reads height, block time, and whether this machine is a validator from the RPC on 127.0.0.1:31001. It does not import the chain's Go types.
 
+## When the chain halts on a conservation violation
+
+Every validator checks, at the end of every block, that no coin was created or lost ([supply](/docs/blockchain/supply)). A failed check makes the block fail on every validator that computed it, so the chain stops at that height and does not commit it. Block production stops (`oramad status` shows the height standing still) and each validator's log, `journalctl -u orama-global-chain`, carries an error that contains `conservation violated at height <H>` followed by the failed checks, one per check, named by module (`emission supply`, `bank balances`, `staking pools`, `x/fees`, and so on). The same text on every validator means the verdict is the chain's, not one machine's fault.
+
+The committed state is the one before height `H`; nothing was lost. What you do depends on what the checks name.
+
+1. **Stop and compare.** Leave the validators stopped. Read the log line on at least two validators; the failed checks and the height must be the same.
+2. **Look at the state.** `oramad export` refuses a state that breaks conservation, so it fails with the same list:
+
+   ```bash
+   oramad export --home /var/lib/orama-global/chain --output-document /tmp/exported.json
+   ```
+
+3. **Export it anyway, on purpose.** The flag is an operator's explicit choice and is off by default. It logs `EXPORTING A STATE THAT BREAKS CONSERVATION` and then every violation at error level, and writes the genesis:
+
+   ```bash
+   oramad export --home /var/lib/orama-global/chain --allow-conservation-violation --output-document /tmp/exported.json
+   ```
+
+   The file is evidence and a starting point, not a sound genesis: a chain started from it carries the violation until it is repaired in the file. Every validator exports the file, hashes it and compares; a difference means state diverged and nobody proceeds.
+4. **Resume with a patched binary, all together.** If the investigation shows the checker was wrong (a false positive), or the bug is in code that did not corrupt state, ship a patched `oramad` to every validator and start them together. The block at `H` was never committed, so the chain executes it again with the patched binary and continues from there; a fix that changes what a transaction does, and not only the check, changes consensus and needs a new chain instead. If the state itself is damaged, repair the exported file, validate it with `oramad genesis validate`, and start a new chain from it with a new chain id, as for any reset.
+
+Do not start only some validators on the patched binary: a validator whose binary computes another verdict forks itself off.
+
 ## What a running chain is not
 
 Installing this unit does not put ORAMA in front of apps. Gateway requests stay on the gateway. Whether `orama-global-chain` is up on a given machine is a fact about that machine, not a consequence of installing Orama.

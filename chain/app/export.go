@@ -15,14 +15,33 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
+// FlagAllowConservationViolation is the `oramad export` flag that exports a state that breaks
+// conservation. Export is the recovery path after the chain halts on a conservation violation, so
+// a refusal with no way out would leave the operators nothing to start a patched chain from.
+const FlagAllowConservationViolation = "allow-conservation-violation"
+
 // ExportAppStateAndValidators exports the application's state for a new genesis file, e.g. ahead
-// of a coordinated hard fork (plans/open-network.md D20).
+// of a coordinated hard fork (plans/open-network.md D20). It refuses a state that breaks conservation.
 func (app *OramaApp) ExportAppStateAndValidators(forZeroHeight bool, jailAllowedAddrs, modulesToExport []string) (servertypes.ExportedApp, error) {
+	return app.ExportAppStateAndValidatorsOpts(forZeroHeight, jailAllowedAddrs, modulesToExport, false)
+}
+
+// ExportAppStateAndValidatorsOpts is ExportAppStateAndValidators with the operator's explicit choice
+// for a state that breaks conservation. With allowConservationViolation it logs every violation at
+// error level and exports anyway; without it, the export is refused.
+func (app *OramaApp) ExportAppStateAndValidatorsOpts(forZeroHeight bool, jailAllowedAddrs, modulesToExport []string, allowConservationViolation bool) (servertypes.ExportedApp, error) {
 	ctx := app.NewContextLegacy(true, cmtproto.Header{Height: app.LastBlockHeight()})
 
-	// A state that breaks conservation is not written out as the start of a new chain.
 	if err := app.CheckConservationFull(ctx); err != nil {
-		return servertypes.ExportedApp{}, fmt.Errorf("refusing to export a state that breaks conservation: %w", err)
+		if !allowConservationViolation {
+			return servertypes.ExportedApp{}, fmt.Errorf("refusing to export a state that breaks conservation (--%s exports it anyway, for a coordinated recovery): %w",
+				FlagAllowConservationViolation, err)
+		}
+		app.Logger().Error("EXPORTING A STATE THAT BREAKS CONSERVATION: the genesis written is not a sound start for a chain until the violations below are understood and repaired",
+			"height", app.LastBlockHeight(), "flag", FlagAllowConservationViolation)
+		for _, violation := range joinedErrors(err) {
+			app.Logger().Error("conservation violation in exported state", "violation", violation.Error())
+		}
 	}
 
 	// CometBFT starts InitChain at last height + 1.
@@ -54,6 +73,14 @@ func (app *OramaApp) ExportAppStateAndValidators(forZeroHeight bool, jailAllowed
 		Height:          height,
 		ConsensusParams: app.GetConsensusParams(ctx),
 	}, nil
+}
+
+// joinedErrors returns the errors an errors.Join holds, or err itself.
+func joinedErrors(err error) []error {
+	if multi, ok := err.(interface{ Unwrap() []error }); ok {
+		return multi.Unwrap()
+	}
+	return []error{err}
 }
 
 // iterateValidators runs IterateValidators, capturing an error the callback reports through the
