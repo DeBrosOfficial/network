@@ -1,6 +1,11 @@
 //! An in-memory Orchard note commitment tree (depth 32) for the dev builder and tests. It keeps
-//! every leaf and recomputes roots and paths on demand, which is fine for the handful of notes a
-//! vector scenario holds. A real wallet keeps witnesses incrementally.
+//! every leaf and computes roots and paths on demand. Interior nodes are memoized until the next
+//! append, so a root and a witness cost one pass over the leaves rather than one per sibling: that
+//! is what lets the load generator witness thousands of notes. A real wallet keeps witnesses
+//! incrementally.
+
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 use incrementalmerkletree::{Hashable, Level};
 use orchard::note::ExtractedNoteCommitment;
@@ -10,6 +15,8 @@ use orchard::NOTE_COMMITMENT_TREE_DEPTH;
 #[derive(Default, Clone)]
 pub struct NoteTree {
     leaves: Vec<MerkleHashOrchard>,
+    /// Interior nodes by (level, index), valid for the current leaves only.
+    memo: RefCell<HashMap<(u8, u64), MerkleHashOrchard>>,
 }
 
 impl NoteTree {
@@ -28,6 +35,7 @@ impl NoteTree {
     /// Appends a note commitment and returns its position.
     pub fn append(&mut self, cmx: &ExtractedNoteCommitment) -> u32 {
         self.leaves.push(MerkleHashOrchard::from_cmx(cmx));
+        self.memo.borrow_mut().clear();
         u32::try_from(self.leaves.len() - 1).expect("tree position fits u32")
     }
 
@@ -38,9 +46,14 @@ impl NoteTree {
         if level == 0 {
             return self.leaves[index as usize];
         }
+        if let Some(hash) = self.memo.borrow().get(&(level, index)) {
+            return *hash;
+        }
         let left = self.node(level - 1, 2 * index);
         let right = self.node(level - 1, 2 * index + 1);
-        MerkleHashOrchard::combine(Level::from(level - 1), &left, &right)
+        let hash = MerkleHashOrchard::combine(Level::from(level - 1), &left, &right);
+        self.memo.borrow_mut().insert((level, index), hash);
+        hash
     }
 
     pub fn root(&self) -> Anchor {
