@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -132,4 +134,106 @@ func TestNodes_aReversePageIsRefused(t *testing.T) {
 	f := newTestFixture(t)
 	_, err := keeper.NewQueryServerImpl(f.Keeper).Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: []byte{}, Reverse: true}})
 	require.Error(t, err, "the node list is read in id order only")
+}
+
+// The reverse refusal comes before the key is looked at, so a reverse request is answered with the
+// reason it is refused, whatever key it carries.
+func TestNodes_aReversePageIsRefusedForItsOrderWhateverItsKey(t *testing.T) {
+	f := newTestFixture(t)
+	q := keeper.NewQueryServerImpl(f.Keeper)
+	for name, key := range map[string][]byte{"no key": nil, "an empty key": {}, "a key that is no node id": {0xff, 0x00, 0x7f}, "a node id": []byte("node-1")} {
+		_, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: key, Reverse: true}})
+		require.Equal(t, codes.InvalidArgument, status.Code(err), name)
+		require.ErrorContains(t, err, "node id order only", name)
+	}
+}
+
+// pageIDs are the node ids of a page.
+func pageIDs(nodes []types.Node) []string {
+	ids := []string{}
+	for _, n := range nodes {
+		ids = append(ids, n.NodeId)
+	}
+	return ids
+}
+
+// TestNodes_aPageKeyIsWhatCollectionPaginateGivesForTheSamePage: the key the query names for the
+// next page is the one query.CollectionPaginate names for the same page of the same store, and the
+// page holds the same nodes, so a client that pages the node list with the SDK's own keys is
+// answered as it would be by any other paginated list.
+func TestNodes_aPageKeyIsWhatCollectionPaginateGivesForTheSamePage(t *testing.T) {
+	f := newTestFixture(t)
+	q := keeper.NewQueryServerImpl(f.Keeper)
+	const count = 7
+	for i := 0; i < count; i++ {
+		id := fmt.Sprintf("node-%d", i)
+		require.NoError(t, f.Keeper.Nodes.Set(f.Ctx, id, types.Node{NodeId: id, Status: types.NodeStatusActive}))
+	}
+	first, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Limit: 3}})
+	require.NoError(t, err)
+	second, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: first.Pagination.NextKey, Limit: 3}})
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name  string
+		key   []byte
+		limit uint64
+	}{
+		{"the first page", nil, 3},
+		{"a page of one", nil, 1},
+		{"a middle page", first.Pagination.NextKey, 3},
+		{"the last page, short", second.Pagination.NextKey, 3},
+		{"a page that ends exactly at the last node", nil, count},
+		{"a limit above the nodes", nil, 50},
+		{"a key between two node ids", []byte("node-30"), 2},
+		{"a key that is no node id", []byte{0xff, 0x00, 0x7f}, 3},
+		{"a key past the last node", []byte("node-9"), 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			page := &query.PageRequest{Key: tc.key, Limit: tc.limit}
+			got, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: page})
+			require.NoError(t, err)
+			want, wantPage, err := query.CollectionPaginate(f.Ctx, f.Keeper.Nodes, page, func(_ string, n types.Node) (types.Node, error) { return n, nil })
+			require.NoError(t, err)
+			require.Equal(t, pageIDs(want), pageIDs(got.Nodes))
+			require.Equal(t, wantPage.NextKey, got.Pagination.NextKey, "the next key is CollectionPaginate's")
+			require.Equal(t, len(wantPage.NextKey) == 0, got.Pagination.NextKey == nil, "no next key after the last node")
+		})
+	}
+
+	past, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: []byte("node-9")}})
+	require.NoError(t, err)
+	require.NotNil(t, past.Nodes, "an empty page is an empty list")
+	require.Empty(t, past.Nodes)
+	require.Nil(t, past.Pagination.NextKey, "a key past the last node has no next page")
+}
+
+// TestNodes_aRecordLargerThanTheByteBoundIsAPageOfItsOwn: a record that alone reads more than
+// MaxNodesPageBytes is returned alone, with the key of the node after it, so the pages still reach
+// every node and none repeats. It cannot be cut, and it cannot stop the list.
+func TestNodes_aRecordLargerThanTheByteBoundIsAPageOfItsOwn(t *testing.T) {
+	f := newTestFixture(t)
+	q := keeper.NewQueryServerImpl(f.Keeper)
+	huge := types.Node{NodeId: "node-b", Status: types.NodeStatusActive, Endpoints: []string{strings.Repeat("h", keeper.MaxNodesPageBytes+1)}}
+	require.Greater(t, huge.Size(), keeper.MaxNodesPageBytes)
+	for _, n := range []types.Node{{NodeId: "node-a", Status: types.NodeStatusActive}, huge, {NodeId: "node-c", Status: types.NodeStatusActive}} {
+		require.NoError(t, f.Keeper.Nodes.Set(f.Ctx, n.NodeId, n))
+	}
+
+	var pages [][]string
+	var key []byte
+	for len(pages) < 10 {
+		res, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: key}})
+		require.NoError(t, err)
+		pages = append(pages, pageIDs(res.Nodes))
+		if key = res.Pagination.NextKey; key == nil {
+			break
+		}
+	}
+	require.Equal(t, [][]string{{"node-a"}, {"node-b"}, {"node-c"}}, pages, "the record over the bound is alone on its page")
+
+	alone, err := q.Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: []byte("node-b")}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"node-b"}, pageIDs(alone.Nodes), "a page that starts at the record returns it, not an empty page")
+	require.Equal(t, []byte("node-c"), alone.Pagination.NextKey)
 }

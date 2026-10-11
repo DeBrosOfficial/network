@@ -121,6 +121,9 @@ func (q queryServer) Nodes(goCtx context.Context, req *types.QueryNodesRequest) 
 // nodesPage reads one page from the page key on, and returns the key of the node the next page
 // starts at, nil after the last node. The key has the form query.CollectionPaginate gives.
 func (q queryServer) nodesPage(ctx sdk.Context, page *query.PageRequest) ([]types.Node, []byte, error) {
+	if page.Reverse {
+		return nil, nil, status.Error(codes.InvalidArgument, "the node list is read in node id order only")
+	}
 	codec := q.Keeper.Nodes.KeyCodec()
 	var rng collections.Ranger[string]
 	if len(page.Key) > 0 {
@@ -129,9 +132,6 @@ func (q queryServer) nodesPage(ctx sdk.Context, page *query.PageRequest) ([]type
 			return nil, nil, status.Errorf(codes.InvalidArgument, "pagination.key is not a node id key: %v", err)
 		}
 		rng = new(collections.Range[string]).StartInclusive(start)
-	}
-	if page.Reverse {
-		return nil, nil, status.Error(codes.InvalidArgument, "the node list is read in node id order only")
 	}
 	limit := page.Limit
 	if limit == 0 {
