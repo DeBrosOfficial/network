@@ -444,7 +444,6 @@ volumes:
               - chain/app/
               - chain/x/internal/
               - chain/x/power/
-              - chain/x/internal/
               - chain/bench/
               - chain/x/inclusion/
               - chain/x/confidential/

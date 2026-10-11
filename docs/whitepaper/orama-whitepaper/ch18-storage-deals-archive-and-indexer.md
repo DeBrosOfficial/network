@@ -18,7 +18,7 @@ An owner opens a deal: a class, 3 to 32 replicas (3 is a constant, not a paramet
 
 A piece is cut into 1,024-byte leaves, padded to a power of two, and hashed into a SHA-256 tree. A proof is the leaf plus one sibling per level, 1,856 bytes at 64 GiB. Challenges are drawn modulo the real leaf count, so padding is never asked for.
 
-A private file is sealed in two layers (`core/pkg/storagefile/file.go:Prepare`). The inner layer is XChaCha20-Poly1305 under a random file key, itself wrapped by the owner's storage key from RootWallet. The outer layer is a per-slot ChaCha20 stream keyed from a separate repair seed. Every slot therefore has its own ciphertext and its own piece root, and a repair delegate that holds only the seed can turn one replica into another without learning the plaintext.
+A private file is sealed in two layers (`core/pkg/storagefile/file.go:Prepare`). The inner layer is XChaCha20-Poly1305 under a random file key, itself wrapped by the owner's storage key from RootWallet. The outer layer is a per-slot ChaCha20 stream keyed from a separate repair seed. Every slot has its own ciphertext and its own piece root, and a repair delegate that holds only the seed can turn one replica into another without learning the plaintext.
 
 ## Assignment, acceptance, proof
 
