@@ -551,6 +551,8 @@ type fakeDomain struct {
 	waitErr error
 	// slots answers NameserverIPs; nil answers a cluster whose slots are all taken.
 	slots func() []string
+	// slotsErr, when set, is every NameserverIPs read's failure.
+	slotsErr error
 }
 
 func (f fakeDomain) Records(_ context.Context, via Machine, _ string) ([]string, error) {
@@ -563,6 +565,9 @@ func (f fakeDomain) Wait(_ context.Context, via Machine, _ string, _, _ time.Dur
 }
 func (f fakeDomain) NameserverIPs(context.Context, Machine, string) ([]string, error) {
 	f.w.add("domain slots")
+	if f.slotsErr != nil {
+		return nil, f.slotsErr
+	}
 	if f.slots != nil {
 		return f.slots(), nil
 	}

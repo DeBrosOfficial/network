@@ -1,7 +1,9 @@
 package lifecycle
 
 import (
+	"os/signal"
 	"reflect"
+	"syscall"
 	"testing"
 )
 
@@ -35,5 +37,14 @@ func TestSelectFrontendToRestore(t *testing.T) {
 	// Empty candidate list is safe.
 	if got := selectFrontendToRestore(nil, func(string) bool { return true }); len(got) != 0 {
 		t.Errorf("nil candidates: expected empty, got %v", got)
+	}
+}
+
+// A restart over ssh whose session dropped must not be ended by the SIGPIPE of its next write.
+func TestIgnoreLostTerminal_aBrokenPipeDoesNotEndTheRestart(t *testing.T) {
+	t.Cleanup(func() { signal.Reset(syscall.SIGPIPE) })
+	ignoreLostTerminal()
+	if !signal.Ignored(syscall.SIGPIPE) {
+		t.Fatal("SIGPIPE is not ignored, so the first write after the terminal went away ends the restart")
 	}
 }

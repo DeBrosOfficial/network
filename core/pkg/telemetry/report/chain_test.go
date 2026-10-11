@@ -2,12 +2,14 @@ package report
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // Fixtures are shaped like CometBFT v0.39 RPC answers: a JSON-RPC envelope,
@@ -313,5 +315,16 @@ func TestCollectChain_endpointsAreReadForEachCollection(t *testing.T) {
 	current = namespaceSrv.URL
 	if r := collectChain(); r == nil || r.LatestHeight != 200 {
 		t.Errorf("second report %+v, want the namespace node at height 200 without a restart", r)
+	}
+}
+
+func TestShortChainError_cutsAtACharacterBoundary(t *testing.T) {
+	msg := strings.Repeat("a", chainErrorMaxLen-1) + "é" + "tail"
+	got := shortChainError(errors.New(msg))
+	if !utf8.ValidString(got) {
+		t.Fatalf("the cut left invalid UTF-8: %q", got[len(got)-8:])
+	}
+	if want := strings.Repeat("a", chainErrorMaxLen-1) + "…"; got != want {
+		t.Fatalf("got the tail %q, want the text cut before the character that crosses the limit", got[len(got)-8:])
 	}
 }

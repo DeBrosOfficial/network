@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -54,14 +55,19 @@ func (r *runner) announceAllNameservers(ctx context.Context) {
 	for _, n := range r.runs {
 		want = append(want, n.plan.IP)
 	}
+	var readErr error
 	err := pollUntil(ctx, r.d.Timing.SlotPoll, r.d.Timing.SlotDeadline, "every machine's nameserver slot", func(ctx context.Context) (bool, error) {
 		have, err := r.d.Domain.NameserverIPs(ctx, r.via, r.opts.Domain)
+		// A read that fails is retried until the deadline: a node that has just joined can be a
+		// moment from answering. The last failure is kept for the message.
+		readErr = err
 		if err != nil {
 			return false, nil
 		}
 		return allNameservers(want, have), nil
 	})
 	if err != nil {
+		err = errors.Join(err, readErr)
 		r.d.Report.Linef("  not every machine has its nameserver slot yet (%v); these are the records the cluster has, and the records it needs are printed again if DNS is not ready at the end", err)
 	}
 	r.announceDomain(ctx)

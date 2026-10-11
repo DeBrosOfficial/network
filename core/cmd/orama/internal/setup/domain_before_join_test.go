@@ -119,6 +119,19 @@ func TestRun_finalRecordsArePrintedWhenTheSlotsNeverCome(t *testing.T) {
 	}
 }
 
+// A slot read that keeps failing is named in the message, not only the deadline.
+func TestRun_finalRecordsWaitNamesWhyTheSlotsCouldNotBeRead(t *testing.T) {
+	h := newHarness()
+	h.deps.Domain = fakeDomain{w: h.w, slotsErr: errors.New("the cluster's nameservers: connection refused")}
+	opts := h.opts(ip1, ip2)
+	opts.Domain = "cluster.example.org"
+	opts.ClusterOnly, opts.StorageGB = true, 0
+	mustRun(t, h, opts)
+	if !strings.Contains(h.report.text(), "connection refused") {
+		t.Errorf("the wait gave up without saying why the slots could not be read:\n%s", h.report.text())
+	}
+}
+
 func TestAllNameservers(t *testing.T) {
 	for _, tc := range []struct {
 		want, have []string

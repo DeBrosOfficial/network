@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/globalnetns"
@@ -364,8 +365,14 @@ func shortChainError(err error) string {
 		}
 		return '?'
 	}, err.Error())
-	if len(msg) > chainErrorMaxLen {
-		return msg[:chainErrorMaxLen] + "…"
+	if len(msg) <= chainErrorMaxLen {
+		return msg
 	}
-	return msg
+	// Cut at the last whole character within the limit: a cut inside a multi-byte one leaves
+	// invalid UTF-8 in the report.
+	cut := chainErrorMaxLen
+	for cut > 0 && !utf8.RuneStart(msg[cut]) {
+		cut--
+	}
+	return msg[:cut] + "…"
 }

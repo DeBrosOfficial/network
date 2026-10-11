@@ -36,6 +36,7 @@ func HandleRestartWithFlags(force bool) error {
 		}
 	}
 
+	ignoreLostTerminal()
 	fmt.Printf("Restarting all Orama production services...\n")
 	// An interrupt, a terminate or a hangup (an ssh session that dropped) must not end the process
 	// with the auto-update timer stopped: restartWithAutoUpdatePaused finishes the restart and
@@ -49,6 +50,13 @@ func HandleRestartWithFlags(force bool) error {
 	return restartWithAutoUpdatePaused(ctx, systemdTimerUnits, restartServices,
 		func(ctx context.Context) error { return waitNodeServing(ctx, "restarted") })
 }
+
+// ignoreLostTerminal keeps a restart running when its terminal goes away. Over `ssh host orama
+// node restart` with no tty, the first write after the session drops raises SIGPIPE, whose default
+// action ends a Go program writing to stdout or stderr: the restart would stop half way, with
+// services and the auto-update timer stopped. Ignored, the write fails with EPIPE and the restart
+// goes on; the hangup that comes with the drop is handled like an interrupt.
+func ignoreLostTerminal() { signal.Ignore(syscall.SIGPIPE) }
 
 // restartServices stops every production service in order and starts them again.
 func restartServices() error {
