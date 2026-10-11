@@ -58,13 +58,13 @@ func (a applier) msgEvent(typ string) (map[string]string, error) {
 			found[at.Key] = at.Value
 		}
 	}
-	from, seen, err := a.w.eventsFrom()
+	from, seen, err := a.w.eventsFrom(keyEventsFrom)
 	if err != nil {
 		return nil, err
 	}
 	if found != nil {
 		if !seen {
-			if err := a.w.setEventsFrom(a.height); err != nil {
+			if err := a.w.setEventsFrom(keyEventsFrom, a.height); err != nil {
 				return nil, err
 			}
 		}

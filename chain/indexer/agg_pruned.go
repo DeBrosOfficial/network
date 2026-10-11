@@ -55,8 +55,12 @@ func (f *Follower) canFold(ctx context.Context, w *writer, height int64) (bool, 
 // dropped (their status and power are state too), and the next epoch begins after b with its start
 // totals unknown until an epoch closes at a height whose state is there.
 //
-// The chain's rule that closed the epoch is the one the watch holds. The next close whose state is
-// readable checks it against the chain, as for every epoch, and stops the index if it was wrong.
+// The boundary b is the chain's own when it reported the close in an event (agg_boundary.go), and
+// so is the next epoch's, whatever became of the closing rule meanwhile: the rule the watch carries
+// on is not consulted once the chain has reported a close. It matters only for blocks of a binary
+// that emitted no such event, where it is the rule the epoch began under; the next close whose
+// state is readable checks it against the chain, as for every epoch, and stops the index if it
+// was wrong.
 func (f *Follower) closeUnreadable(w *writer, wt watch, b blockFacts, rw epochRewards) (watch, error) {
 	row := unavailableRow(wt, b, fmt.Sprintf(reasonStatePruned, b.height))
 	if err := rw.apply(&row); err != nil {

@@ -149,7 +149,7 @@ func TestFollower_settleWithoutAnEventBeforeTheChainEmittedOneReadsThePriorState
 	store := index(t, chain, 2)
 	require.Equal(t, erin, onlyAsset(t, store, id).Owner)
 	require.Contains(t, chain.asked, queryKey(queryListing, 1))
-	from, seen, err := (&writer{b: store.db.NewIndexedBatch()}).eventsFrom()
+	from, seen, err := (&writer{b: store.db.NewIndexedBatch()}).eventsFrom(keyEventsFrom)
 	require.NoError(t, err)
 	require.False(t, seen, "no event was seen, so no height was recorded")
 	require.Zero(t, from)

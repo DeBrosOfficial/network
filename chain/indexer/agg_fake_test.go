@@ -75,6 +75,26 @@ type fakeLedger struct {
 	validators []fakeValidator
 	// stuck makes the chain never close an epoch, whatever the rule says.
 	stuck bool
+	// changes are the x/emission params the chain changes to: from the height of a key on, the
+	// rule is its value (the duration in seconds and the minimum blocks).
+	changes map[int64]epochRule
+}
+
+// epochRule is the closing rule x/emission params carry.
+type epochRule struct {
+	durationSec int64
+	minBlocks   uint64
+}
+
+// ruleAt is the closing rule in force at the BeginBlock of height h.
+func (l *fakeLedger) ruleAt(h int64) epochRule {
+	rule, from := epochRule{l.durationSec, l.minBlocks}, int64(0)
+	for at, r := range l.changes {
+		if at <= h && at > from {
+			rule, from = r, at
+		}
+	}
+	return rule
 }
 
 // newFakeLedger is a chain whose epoch never closes and that has no validators.
@@ -92,7 +112,8 @@ func (l *fakeLedger) state(h int64) emissiontypes.EpochState {
 	epoch, start, blocks, closed := uint64(1), blockTime(0).UnixNano(), uint64(0), int64(0)
 	for i := int64(1); i <= h; i++ {
 		blocks++
-		if !l.stuck && blockTime(i).Sub(time.Unix(0, start)) >= time.Duration(l.durationSec)*time.Second && blocks >= l.minBlocks {
+		rule := l.ruleAt(i)
+		if !l.stuck && blockTime(i).Sub(time.Unix(0, start)) >= time.Duration(rule.durationSec)*time.Second && blocks >= rule.minBlocks {
 			epoch, start, blocks = epoch+1, blockTime(i).UnixNano(), 0
 			closed++
 		}
@@ -108,6 +129,16 @@ func (l *fakeLedger) state(h int64) emissiontypes.EpochState {
 	}
 }
 
+// closeAt reports whether the block at height h closed an epoch, and the epoch it closed with the
+// blocks and start the closed epoch had: what x/emission reports in emission_epoch_closed.
+func (l *fakeLedger) closeAt(h int64) (epoch uint64, blocks uint64, startUnixNano int64, closed bool) {
+	before, after := l.state(h-1), l.state(h)
+	if after.CurrentEpoch == before.CurrentEpoch {
+		return 0, 0, 0, false
+	}
+	return before.CurrentEpoch, before.BlocksInEpoch + 1, before.EpochStartUnixNano, true
+}
+
 func (l *fakeLedger) supply(h int64) int64 {
 	s := l.state(h)
 	minted := s.CumulativeMinted.Add(s.CumulativeDevelopmentMinted).Add(s.CumulativeServiceMinted)
@@ -120,7 +151,7 @@ func (l *fakeLedger) answer(method string, height int64, req gogoproto.Message) 
 		return &emissiontypes.QueryCurrentEpochResponse{EpochState: l.state(height)}, nil
 	case queryEmissionParams:
 		return &emissiontypes.QueryParamsResponse{Params: emissiontypes.Params{
-			EpochDurationSeconds: l.durationSec, MinBlocksPerEpoch: l.minBlocks,
+			EpochDurationSeconds: l.ruleAt(height).durationSec, MinBlocksPerEpoch: l.ruleAt(height).minBlocks,
 			FaucetMaxDrip: math.ZeroInt(), FaucetEpochCap: math.ZeroInt(),
 		}}, nil
 	case queryEmissionSchedule:

@@ -11,7 +11,7 @@ Both conditions have to be true:
 - at least 24 hours of block time have passed since the epoch started
 - at least 14,400 blocks have been produced in the epoch
 
-If blocks arrive faster than that, the epoch still waits for the 24 hours. If they arrive slower, it waits for the 14,400th block. A halt does not mint the epochs that were missed: the next close moves the schedule forward by exactly one epoch.
+If blocks arrive faster than that, the epoch still waits for the 24 hours. If they arrive slower, it waits for the 14,400th block. A halt does not mint the epochs that were missed: the next close moves the schedule forward by exactly one epoch. The block that closes an epoch emits an `emission_epoch_closed` event (the epoch, the blocks it held, when it began), so a reader can find where an epoch ended without working it out from the two thresholds, which governance can change.
 
 On a devnet, stagenet or localnet chain id, `allow_bootstrap_stake` relaxes both floors. The stagenet installer uses a 300 second epoch with 10 blocks; the localnet script uses 30 seconds with 5 blocks. Neither is the production schedule.
 

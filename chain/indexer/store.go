@@ -20,21 +20,24 @@ const (
 	// keyEventsFrom is the first height at which the chain emitted a market_settle or cnft_compress
 	// event, absent until the follower has seen one (chain_events.go).
 	keyEventsFrom = "m/events"
-	pfxBlock      = "b/" // height
-	pfxTx         = "t/" // 32-byte hash
-	pfxAccount    = "a/" // address "/" height index → 32-byte hash
-	pfxAsset      = "c/a/"
-	pfxOwner      = "c/o/" // owner "/" asset location → empty
-	pfxTree       = "c/t/" // tree id → collection id
-	pfxListing    = "k/l/" // listing id → listing
-	pfxBid        = "k/b/" // listing id, bid id → bidder
-	pfxLatest     = "l/"   // height index → 32-byte hash, for the newest-first transaction list
-	pfxKindTx     = "f/g/" // filter "/" height, index → 32-byte hash, for the filtered transaction lists
-	pfxKindAcct   = "f/a/" // address "/" filter "/" height, index → 32-byte hash, for an account's filtered lists
-	pfxHour       = "s/h/" // unix hour → hour statistics
-	pfxSummary    = "s/a/" // address → account summary
-	pfxDay        = "s/d/" // unix day → day statistics
-	pfxWeek       = "s/w/" // Monday-based week number → week statistics
+	// keyEpochEventsFrom is the first height at which the chain emitted an emission_epoch_closed
+	// event, absent until the aggregator has seen one (agg_boundary.go).
+	keyEpochEventsFrom = "m/epoch-events"
+	pfxBlock           = "b/" // height
+	pfxTx              = "t/" // 32-byte hash
+	pfxAccount         = "a/" // address "/" height index → 32-byte hash
+	pfxAsset           = "c/a/"
+	pfxOwner           = "c/o/" // owner "/" asset location → empty
+	pfxTree            = "c/t/" // tree id → collection id
+	pfxListing         = "k/l/" // listing id → listing
+	pfxBid             = "k/b/" // listing id, bid id → bidder
+	pfxLatest          = "l/"   // height index → 32-byte hash, for the newest-first transaction list
+	pfxKindTx          = "f/g/" // filter "/" height, index → 32-byte hash, for the filtered transaction lists
+	pfxKindAcct        = "f/a/" // address "/" filter "/" height, index → 32-byte hash, for an account's filtered lists
+	pfxHour            = "s/h/" // unix hour → hour statistics
+	pfxSummary         = "s/a/" // address → account summary
+	pfxDay             = "s/d/" // unix day → day statistics
+	pfxWeek            = "s/w/" // Monday-based week number → week statistics
 
 	keyWatch       = "e/w"  // the aggregator's position
 	keyAggFrom     = "e/b"  // the height the aggregates begin at

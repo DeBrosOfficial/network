@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"cosmossdk.io/math"
@@ -103,6 +104,12 @@ func (k Keeper) closeEpoch(ctx sdk.Context, state types.EpochState) error {
 		return err
 	}
 
+	closed := sdk.NewEvent(types.EventTypeEpochClosed,
+		sdk.NewAttribute(types.AttributeKeyEpoch, strconv.FormatUint(closingEpoch, 10)),
+		sdk.NewAttribute(types.AttributeKeyBlocks, strconv.FormatUint(state.BlocksInEpoch, 10)),
+		sdk.NewAttribute(types.AttributeKeyStartUnixNano, strconv.FormatInt(state.EpochStartUnixNano, 10)),
+	)
+
 	state.CumulativeMinted = state.CumulativeMinted.Add(split.Validator)
 	canonicalValidator := types.SplitEpochMint(maxMint).Validator
 	state.ValidatorSplitDelta = nonNilInt(state.ValidatorSplitDelta).Add(split.Validator.Sub(canonicalValidator))
@@ -113,6 +120,7 @@ func (k Keeper) closeEpoch(ctx sdk.Context, state types.EpochState) error {
 	if err := k.EpochState.Set(ctx, state); err != nil {
 		return fmt.Errorf("failed to advance emission epoch state past epoch %d: %w", closingEpoch, err)
 	}
+	ctx.EventManager().EmitEvent(closed)
 
 	k.Logger(ctx).Info(
 		"emission epoch closed",

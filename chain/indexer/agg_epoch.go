@@ -30,12 +30,16 @@ type blockFacts struct {
 // block's own write batch, so a block is folded exactly once; the watch's Height also makes a
 // repeat of the same block a no-op.
 //
-// The epoch in progress is tracked without asking the chain each block: x/emission closes an epoch
-// in BeginBlock when both the duration and the block count have passed (emission.ShouldCloseEpoch),
-// so the follower applies the same rule to the block's time and height and queries the chain only
-// for a block where the rule holds. The query confirms the close and fails loudly if the chain
-// disagrees, so a changed rule cannot silently skew the epochs.
+// The epoch in progress is tracked without asking the chain each block. x/emission reports the close
+// in an emission_epoch_closed event of the closing block, and the follower closes the epoch at the
+// block that carries it (agg_boundary.go). Only for blocks of a binary that did not emit the event
+// does it apply the closing rule x/emission used (emission.ShouldCloseEpoch: both the duration and
+// the block count have passed) to the block's time and height. Either way the chain's state, when
+// it is readable, confirms the close and fails loudly if the chain disagrees.
 func (f *Follower) aggregate(ctx context.Context, w *writer, b blockFacts) error {
+	if err := w.noteEpochEvents(b); err != nil {
+		return err
+	}
 	if !f.folding {
 		return nil
 	}
@@ -108,7 +112,8 @@ func (f *Follower) baseline(r chainReader, w *writer, b blockFacts) (watch, erro
 	}, nil
 }
 
-// due reports whether the chain's closing rule holds at block b.
+// due reports whether the closing rule the watch holds is met at block b. It decides a close only
+// for blocks before the chain reported its closes in events (closesAt).
 func (wt watch) due(b blockFacts) bool {
 	elapsed := b.time.Sub(time.Unix(0, wt.StartUnixNano))
 	blocks := b.height - wt.StartHeight + 1
@@ -118,8 +123,9 @@ func (wt watch) due(b blockFacts) bool {
 // advance closes the epoch if block b closed it. When the node no longer keeps the state of b, the
 // epoch is closed as unavailable (closeUnreadable) and the index goes on.
 func (f *Follower) advance(r chainReader, w *writer, wt watch, b blockFacts) (watch, error) {
-	if !wt.due(b) {
-		return wt, nil
+	closes, err := wt.closesAt(w, b)
+	if err != nil || !closes {
+		return wt, err
 	}
 	rw, err := readRewards(wt.Epoch, b.events)
 	if err != nil {
