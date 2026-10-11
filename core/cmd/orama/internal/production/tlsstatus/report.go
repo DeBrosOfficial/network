@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -159,24 +160,39 @@ func handshake(ctx context.Context, addr, serverName string) (*tls.ConnectionSta
 	return &state, nil
 }
 
-// readJournal reads the last lines of unit's journal that the certificate loggers wrote, as the
-// message alone, which for Caddy is its JSON log line. journalctl filters (--grep) before it counts
-// (-n): on the systemd 255 of the nodes, `-n 1` with a --grep returns the newest matching entry
-// however many entries the unit wrote after it. So the window holds the CA's answers however many
-// other lines the unit logs: a node with no certificate logs a handshake error per client, which
-// pushed the last failed order out of a window of the unit's last lines. It needs root, like
-// `orama node logs`.
+// readJournal reads the last lines of unit's journal that the certificate loggers wrote, oldest
+// first, as the message alone, which for Caddy is its JSON log line. The window must hold the CA's
+// answers however many other lines the unit logs: a node with no certificate logs a handshake error
+// per client, which pushed the last failed order out of a window of the unit's last lines. So
+// journalctl reads backwards from the newest entry and counts only the lines --grep keeps
+// (--reverse: systemd 255 implies it for --grep with -n, 249 and 252 count before they filter
+// without it), and the lines are put back in order. It needs root, like `orama node logs`.
 func readJournal(ctx context.Context, unit string, lines int) (string, error) {
 	cmd := exec.CommandContext(ctx, "journalctl", journalArgs(unit, lines)...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
-	return journalResult(unit, out, stderr.Bytes(), err)
+	newestFirst, err := journalResult(unit, out, stderr.Bytes(), err)
+	if err != nil {
+		return "", err
+	}
+	return oldestFirst(newestFirst), nil
+}
+
+// oldestFirst reverses journal lines read newest first: lastObtainErrors reads them in the order
+// they were written, so a success after a failure clears it and a failure after a success stands.
+func oldestFirst(newestFirst string) string {
+	lines := strings.Split(strings.TrimRight(newestFirst, "\n"), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return ""
+	}
+	slices.Reverse(lines)
+	return strings.Join(lines, "\n") + "\n"
 }
 
 // journalArgs are journalctl's arguments for the certificate loggers' last lines of unit.
 func journalArgs(unit string, lines int) []string {
-	return []string{"-u", unit, "--no-pager", "-o", "cat", "--grep", certificateLoggerPattern, "-n", strconv.Itoa(lines)}
+	return []string{"-u", unit, "--no-pager", "-o", "cat", "--reverse", "--grep", certificateLoggerPattern, "-n", strconv.Itoa(lines)}
 }
 
 // journalResult reads journalctl's answer. It exits 1 when no entry matches, with nothing on
