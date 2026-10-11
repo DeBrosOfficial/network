@@ -70,15 +70,22 @@ var ErrNotFound = errors.New("not found on chain")
 // bad bech32 address, for one).
 var ErrInvalidRequest = errors.New("invalid chain query")
 
+// ErrOutOfGas is a query that cost more than the node's query-gas-limit: the SDK's ErrOutOfGas.
+// The caller asked for too much, so it is the caller's to change (a smaller page), not a node fault.
+var ErrOutOfGas = errors.New("chain query exceeds the node's gas limit")
+
 const (
 	sdkCodespace      = "sdk"
 	sdkKeyNotFound    = 22
 	sdkInvalidRequest = 18
 	sdkUnknownRequest = 6
+	sdkOutOfGas       = 11
 
-	// paginationField and limitField name the cosmos-sdk PageRequest of a paginated query.
+	// paginationField and the fields below name the cosmos-sdk PageRequest of a paginated query.
 	paginationField = "pagination"
 	limitField      = "limit"
+	offsetField     = "offset"
+	countTotalField = "count_total"
 )
 
 // wasmNotFoundPhrase maps the wasmd queries that can find nothing to the message wasmd gives then:
@@ -234,23 +241,39 @@ func (m *Method) CheckRequest(data []byte) error {
 	return nil
 }
 
-// PageLimit returns the pagination.limit of an encoded request: 0 when the method takes no
-// pagination or the request leaves the limit unset, which a cosmos-sdk query reads as its default.
-func (m *Method) PageLimit(data []byte) (uint64, error) {
+// Page is what an encoded request asks of pagination.
+type Page struct {
+	// Limit is 0 when the request leaves it unset, which a cosmos-sdk query reads as its default.
+	Limit uint64
+	// Offset skips entries one by one and CountTotal walks every key of the store to count them.
+	Offset     uint64
+	CountTotal bool
+}
+
+// Page returns the pagination of an encoded request: the zero Page when the method takes none or
+// the request leaves it unset.
+func (m *Method) Page(data []byte) (Page, error) {
 	msg := dynamicpb.NewMessage(m.input)
 	if err := proto.Unmarshal(data, msg); err != nil {
-		return 0, fmt.Errorf("request for %s: %w", m.Path, err)
+		return Page{}, fmt.Errorf("request for %s: %w", m.Path, err)
 	}
 	page := m.input.Fields().ByName(paginationField)
 	if page == nil || page.Message() == nil || !msg.Has(page) {
-		return 0, nil
+		return Page{}, nil
 	}
 	pm := msg.Get(page).Message()
-	limit := page.Message().Fields().ByName(limitField)
-	if limit == nil {
-		return 0, nil
+	fields := page.Message().Fields()
+	var out Page
+	if f := fields.ByName(limitField); f != nil {
+		out.Limit = pm.Get(f).Uint()
 	}
-	return pm.Get(limit).Uint(), nil
+	if f := fields.ByName(offsetField); f != nil {
+		out.Offset = pm.Get(f).Uint()
+	}
+	if f := fields.ByName(countTotalField); f != nil {
+		out.CountTotal = pm.Get(f).Bool()
+	}
+	return out, nil
 }
 
 // DecodeRPC decodes the body of a CometBFT abci_query answer, in its JSON-RPC envelope, into the
@@ -278,6 +301,9 @@ func (m *Method) abciResponse(result json.RawMessage) (json.RawMessage, error) {
 	}
 	if res.Response.Code == sdkKeyNotFound && res.Response.Codespace == sdkCodespace {
 		return nil, fmt.Errorf("%w: %s: %s", ErrNotFound, m.Path, truncate(res.Response.Log))
+	}
+	if res.Response.Code == sdkOutOfGas && res.Response.Codespace == sdkCodespace {
+		return nil, fmt.Errorf("%w: %s: %s", ErrOutOfGas, m.Path, truncate(res.Response.Log))
 	}
 	if res.Response.Code == sdkInvalidRequest && res.Response.Codespace == sdkCodespace {
 		return nil, fmt.Errorf("%w: %s: %s", ErrInvalidRequest, m.Path, truncate(res.Response.Log))

@@ -135,6 +135,20 @@ func TestQuery_aMissingKeyIs404AndOtherChainErrorsAre502(t *testing.T) {
 	}
 }
 
+// A query over the node's gas limit is the caller's to shrink: a 422 that names the fix, without
+// the node's log, and not counted as a node failure.
+func TestQuery_aQueryOverTheGasLimitIs422(t *testing.T) {
+	up := &abciUpstream{code: 11, log: "out of gas in location: ReadFlat; gasWanted: 2000000"}
+	p := queryProxy(t, up)
+	rr := getQuery(p, http.MethodGet, nodeQuery)
+	if rr.Code != http.StatusUnprocessableEntity || strings.Contains(rr.Body.String(), "ReadFlat") {
+		t.Fatalf("out of gas: %d %q", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "smaller page") {
+		t.Errorf("the answer does not say what to change: %q", rr.Body.String())
+	}
+}
+
 func TestQuery_refusesEverythingThatIsNotAnEmbeddedQuery(t *testing.T) {
 	up := &abciUpstream{value: nodeAnswer}
 	p := queryProxy(t, up)

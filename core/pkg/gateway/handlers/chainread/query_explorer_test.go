@@ -86,6 +86,25 @@ func TestQuery_aPageOverTheCapIsRefusedOnEveryExplorerMethod(t *testing.T) {
 	}
 }
 
+// An offset (the node steps over every entry before it) and a total count (it walks the whole
+// store) are refused on every paged explorer method before the chain is asked.
+func TestQuery_anOffsetOrATotalCountIsRefusedOnEveryExplorerMethod(t *testing.T) {
+	up := &abciUpstream{value: []byte{}}
+	p := queryProxy(t, up)
+	for name, template := range explorerRequests {
+		target := "/v1/chain/query/" + name
+		for _, page := range []string{`"pagination":{"offset":1000,"limit":10}`, `"pagination":{"count_total":true}`} {
+			req := strings.Replace(template, "%s", page, 1)
+			if rr := getQuery(p, http.MethodGet, jsonTarget(target, req)); rr.Code != http.StatusBadRequest {
+				t.Errorf("%s %s: status %d, want 400", name, page, rr.Code)
+			}
+		}
+	}
+	if len(up.calls) != 0 {
+		t.Fatalf("a refused page reached the chain: %v", up.calls)
+	}
+}
+
 // QueryContractsByCodeResponse{contracts: ["orama1abc"]}.
 var contractsAnswer = []byte{0x0a, 0x09, 'o', 'r', 'a', 'm', 'a', '1', 'a', 'b', 'c'}
 

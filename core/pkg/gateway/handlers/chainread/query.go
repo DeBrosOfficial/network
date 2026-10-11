@@ -206,8 +206,8 @@ func (p *Proxy) serveQuery(w http.ResponseWriter, r *http.Request, name string) 
 }
 
 // queryUpstream validates the caller's query and builds the abci_query one. It reports false for
-// an unknown key, a repeated key, both request forms, an oversized or malformed request, or a
-// height that is not a positive integer or 0.
+// an unknown key, a repeated key, both request forms, an oversized or malformed request, a page
+// over the limit or with an offset or a total count, or a height that is not a positive integer or 0.
 func queryUpstream(r *http.Request, m *chainread.Method) (url.Values, bool) {
 	q, ok := singleQuery(r, "data", "json", "height")
 	if !ok || (q.Get("data") != "" && q.Get("json") != "") {
@@ -217,7 +217,11 @@ func queryUpstream(r *http.Request, m *chainread.Method) (url.Values, bool) {
 	if !ok {
 		return nil, false
 	}
-	if limit, err := m.PageLimit(req); err != nil || limit > queryMaxPageLimit {
+	// An offset makes the node step over the entries before it one by one and count_total walks
+	// the whole store, so either costs a public caller up to the node's whole query gas: a page is
+	// asked for by the key the previous page returned, as the modules' own list queries require.
+	page, err := m.Page(req)
+	if err != nil || page.Limit > queryMaxPageLimit || page.Offset != 0 || page.CountTotal {
 		return nil, false
 	}
 	up := url.Values{}
@@ -259,7 +263,8 @@ func queryRequestBytes(q url.Values, m *chainread.Method) ([]byte, bool) {
 	return req, m.CheckRequest(req) == nil
 }
 
-// writeQueryFailure answers a query the node refused. A key that is not on chain is a 404. The
+// writeQueryFailure answers a query the node refused. A key that is not on chain is a 404, a
+// query over the node's gas limit a 422. The
 // node's own message is not repeated to the caller: it can carry paths and store details. A
 // failure that is neither a not-found nor a malformed request is a 502 with a generic body, and
 // its error is logged here with the method so the 502 can be diagnosed.
@@ -270,6 +275,12 @@ func (p *Proxy) writeQueryFailure(w http.ResponseWriter, name string, err error)
 	}
 	if errors.Is(err, chainread.ErrInvalidRequest) {
 		writeErr(w, http.StatusBadRequest, "the chain refused the request")
+		return
+	}
+	// Not logged: a caller can ask for queries that run out of gas as fast as its bucket allows,
+	// and each would be an error line.
+	if errors.Is(err, chainread.ErrOutOfGas) {
+		writeErr(w, http.StatusUnprocessableEntity, "the query costs more than the node allows: ask for a smaller page")
 		return
 	}
 	if p.logger != nil {

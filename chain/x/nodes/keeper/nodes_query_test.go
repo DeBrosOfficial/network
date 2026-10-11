@@ -84,11 +84,12 @@ func TestNodes_aPageIsBoundedAndPagesByKey(t *testing.T) {
 	require.Zero(t, res.Pagination.Total, "a total would walk every node, so it is not computed")
 }
 
-// TestNodes_aFullPageOfTheLargestRecordsAnswersUnderTheQueryGasLimit pins why the query runs on a
-// meter of its own: 100 records of 64 maximum-length endpoints and 64 bindings (the largest the
-// genesis parameters allow) read more than the node's query-gas-limit (2,000,000), and the
-// public route must answer them whole.
-func TestNodes_aFullPageOfTheLargestRecordsAnswersUnderTheQueryGasLimit(t *testing.T) {
+// TestNodes_aPageOfTheLargestRecordsStopsAtItsByteBoundUnderTheQueryGasLimit: 100 records of 64
+// maximum-length endpoints and 64 bindings (the largest the genesis parameters allow) read more
+// than the node's query-gas-limit (2,000,000). On the caller's meter a page ends at
+// MaxNodesPageBytes instead, under the limit, and its next_key resumes at the next node, so every
+// node is read without the query ever running out of gas.
+func TestNodes_aPageOfTheLargestRecordsStopsAtItsByteBoundUnderTheQueryGasLimit(t *testing.T) {
 	const queryGasLimit = 2_000_000
 	const largest = 64
 	f := newTestFixture(t)
@@ -104,16 +105,31 @@ func TestNodes_aFullPageOfTheLargestRecordsAnswersUnderTheQueryGasLimit(t *testi
 		require.NoError(t, f.Keeper.Nodes.Set(f.Ctx, id, types.Node{NodeId: id, Operator: op.String(), Endpoints: endpoints, Bindings: bindings, Status: types.NodeStatusActive}))
 	}
 
-	bounded := f.Ctx.WithGasMeter(storetypes.NewGasMeter(queryGasLimit))
-	res, err := keeper.NewQueryServerImpl(f.Keeper).Nodes(bounded, &types.QueryNodesRequest{})
-	require.NoError(t, err)
-	require.Len(t, res.Nodes, keeper.MaxNodesPerPage)
-
-	// The same reads on the caller's meter run out of gas: the reason for the meter of its own.
-	over := f.Ctx.WithGasMeter(storetypes.NewGasMeter(queryGasLimit))
-	require.Panics(t, func() {
-		for i := 0; i < keeper.MaxNodesPerPage; i++ {
-			_, _ = f.Keeper.Nodes.Get(over, fmt.Sprintf("node-%03d", i))
+	q := keeper.NewQueryServerImpl(f.Keeper)
+	seen := map[string]bool{}
+	var key []byte
+	for pages := 0; ; pages++ {
+		require.Less(t, pages, keeper.MaxNodesPerPage, "the pages never reach the last node")
+		bounded := f.Ctx.WithGasMeter(storetypes.NewGasMeter(queryGasLimit))
+		res, err := q.Nodes(bounded, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: key}})
+		require.NoError(t, err, "a page runs on the caller's meter and stays under the query gas limit")
+		require.NotEmpty(t, res.Nodes)
+		require.Less(t, len(res.Nodes), keeper.MaxNodesPerPage, "a page of the largest records ends at its byte bound")
+		for _, n := range res.Nodes {
+			require.False(t, seen[n.NodeId], "node %s on two pages", n.NodeId)
+			seen[n.NodeId] = true
 		}
-	})
+		key = res.Pagination.NextKey
+		if len(key) == 0 {
+			break
+		}
+	}
+	require.Len(t, seen, keeper.MaxNodesPerPage, "every node is read once")
+}
+
+// The node list has one order; a reverse page is refused rather than answered in id order.
+func TestNodes_aReversePageIsRefused(t *testing.T) {
+	f := newTestFixture(t)
+	_, err := keeper.NewQueryServerImpl(f.Keeper).Nodes(f.Ctx, &types.QueryNodesRequest{Pagination: &query.PageRequest{Key: []byte{}, Reverse: true}})
+	require.Error(t, err, "the node list is read in id order only")
 }
