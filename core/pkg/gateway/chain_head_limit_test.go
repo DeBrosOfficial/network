@@ -24,7 +24,7 @@ func TestRateLimitMiddleware_theIndexRoutesDrawOnTheGeneralBucket(t *testing.T) 
 		"/v1/chain/index/accounts/orama1x/rewards", "/v1/chain/index/status",
 	} {
 		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, request("127.0.0.1:9999", "10.0.0.1, 198.51.100.7", path))
+		handler.ServeHTTP(w, behindCaddy(t, "10.0.0.1, 198.51.100.7", path))
 		lastCode = w.Code
 	}
 	if served != 4 || lastCode != http.StatusTooManyRequests {
@@ -32,7 +32,7 @@ func TestRateLimitMiddleware_theIndexRoutesDrawOnTheGeneralBucket(t *testing.T) 
 	}
 
 	served = 0
-	handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "203.0.113.9", "/v1/chain/index/home"))
+	handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, "203.0.113.9", "/v1/chain/index/home"))
 	if served != 1 {
 		t.Error("another client network has its own bucket")
 	}
@@ -51,7 +51,7 @@ func TestRateLimitMiddleware_headStreamsHaveTheirOwnBucket(t *testing.T) {
 	var lastCode int
 	for i := 0; i < 10; i++ {
 		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, request("127.0.0.1:9999", "10.0.0.1, 198.51.100.7", "/v1/chain/head/stream"))
+		handler.ServeHTTP(w, behindCaddy(t, "10.0.0.1, 198.51.100.7", "/v1/chain/head/stream"))
 		lastCode = w.Code
 	}
 	if served != 3 || lastCode != http.StatusTooManyRequests {
@@ -60,7 +60,7 @@ func TestRateLimitMiddleware_headStreamsHaveTheirOwnBucket(t *testing.T) {
 
 	served = 0
 	for i := 0; i < 10; i++ {
-		handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/index/home"))
+		handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, "198.51.100.7", "/v1/chain/index/home"))
 	}
 	if served != 10 {
 		t.Errorf("%d of 10 index reads were served; the stream bucket must not apply to them", served)
@@ -99,7 +99,7 @@ func TestRateLimitMiddleware_indexReadsHaveTheirOwnBucket(t *testing.T) {
 	var lastCode int
 	for i := 0; i < 10; i++ {
 		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, request("127.0.0.1:9999", "10.0.0.1, 198.51.100.7", "/v1/chain/index/txs?page=1000&limit=100"))
+		handler.ServeHTTP(w, behindCaddy(t, "10.0.0.1, 198.51.100.7", "/v1/chain/index/txs?page=1000&limit=100"))
 		lastCode = w.Code
 	}
 	if served != 3 || lastCode != http.StatusTooManyRequests {
@@ -108,7 +108,7 @@ func TestRateLimitMiddleware_indexReadsHaveTheirOwnBucket(t *testing.T) {
 
 	served = 0
 	for _, path := range []string{"/v1/chain/status", "/v1/chain/head/stream", "/v1/chain/indexer/x"} {
-		handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "198.51.100.7", path))
+		handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, "198.51.100.7", path))
 	}
 	if served != 3 {
 		t.Errorf("%d of 3 other chain reads were served; the index bucket must apply to /v1/chain/index/ alone", served)
@@ -178,7 +178,7 @@ func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfHeadStreams(t *testing.
 		done.Add(1)
 		go func() {
 			defer done.Done()
-			handler.ServeHTTP(w, request("127.0.0.1:9999", client, "/v1/chain/head/stream"))
+			handler.ServeHTTP(w, behindCaddy(t, client, "/v1/chain/head/stream"))
 		}()
 		return w
 	}
@@ -189,7 +189,7 @@ func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfHeadStreams(t *testing.
 	inside.Wait()
 
 	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/head/stream"))
+	handler.ServeHTTP(w, behindCaddy(t, "198.51.100.7", "/v1/chain/head/stream"))
 	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") == "" {
 		t.Errorf("a third stream from one client: HTTP %d, Retry-After %q; want 429 with a retry", w.Code, w.Header().Get("Retry-After"))
 	}
@@ -205,7 +205,7 @@ func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfHeadStreams(t *testing.
 
 	inside.Add(1)
 	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/head/stream"))
+	handler.ServeHTTP(w, behindCaddy(t, "198.51.100.7", "/v1/chain/head/stream"))
 	if w.Code != http.StatusOK {
 		t.Errorf("a stream after the others ended: HTTP %d, want 200", w.Code)
 	}
@@ -231,7 +231,7 @@ func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfIndexReads(t *testing.T
 		done.Add(1)
 		go func() {
 			defer done.Done()
-			handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", client, "/v1/chain/index/txs"))
+			handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, client, "/v1/chain/index/txs"))
 		}()
 	}
 	inside.Add(3)
@@ -241,7 +241,7 @@ func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfIndexReads(t *testing.T
 	inside.Wait()
 
 	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/index/blocks"))
+	handler.ServeHTTP(w, behindCaddy(t, "198.51.100.7", "/v1/chain/index/blocks"))
 	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") == "" {
 		t.Errorf("a third read in flight from one client: HTTP %d, Retry-After %q; want 429 with a retry", w.Code, w.Header().Get("Retry-After"))
 	}
@@ -252,7 +252,7 @@ func TestRateLimitMiddleware_aClientHoldsAtMostItsShareOfIndexReads(t *testing.T
 	}
 	inside.Add(1)
 	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/index/blocks"))
+	handler.ServeHTTP(w, behindCaddy(t, "198.51.100.7", "/v1/chain/index/blocks"))
 	if w.Code != http.StatusOK {
 		t.Errorf("a read after the others ended: HTTP %d, want 200", w.Code)
 	}

@@ -721,7 +721,11 @@ func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 	// The traffic attribution step sits directly inside auth, the first point
 	// that knows the request's namespace, and notes it for loggingMiddleware's
 	// request metrics (see traffic.go).
-	return g.internalAuthMiddleware(
+	//
+	// The Caddy proof is checked and deleted before even that: X-Forwarded-For is believed
+	// only on a request that carries it, and no header holding the secret may travel to a
+	// handler or a proxied service.
+	return g.callerProof.Middleware(g.internalAuthMiddleware(
 		g.routePolicyMiddleware(
 			g.loggingMiddleware(
 				g.securityHeadersMiddleware(
@@ -734,7 +738,7 @@ func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 											g.trafficAttributionMiddleware(
 												g.authorizationMiddleware(
 													g.scopeMiddleware(
-														g.namespaceRateLimitMiddleware(longRequestDeadlines(next)))))))))))))))
+														g.namespaceRateLimitMiddleware(longRequestDeadlines(next))))))))))))))))
 }
 
 // securityHeadersMiddleware adds standard security headers to all responses

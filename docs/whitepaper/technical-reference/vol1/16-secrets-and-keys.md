@@ -207,6 +207,7 @@ All are `HKDF-SHA256(cluster secret, label)`. None rotates on its own: they chan
 | Coordination MAC key (v1 and v2 stamps) | `internal-coordination` | computed in memory | every gateway and node | [15](15-inter-node-trust.md) |
 | Internal-auth hop key | `internal-auth-hop` | computed in memory | every gateway | [12](12-gateway-architecture.md), [15](15-inter-node-trust.md) |
 | ACME DNS-01 key | `acme-challenge` | `/etc/caddy/orama-acme.key`, `root:orama` 0640, written at install | Caddy, the gateway (derives its own) | [25](25-tls-and-certificates.md) |
+| Caddy proof | none: 32 random bytes, new at every install and upgrade | `/etc/caddy/orama-caddy-proof.key`, `root:orama` 0640 | Caddy, the gateways (`clientkey.Prover`) | [27](27-rate-limits-and-egress-controls.md) |
 | TLS store master key | `caddy-tls-store`, split by HKDF-Expand into `orama-tls-store-mac-v1` and `orama-tls-store-seal-v1` | `/etc/caddy/orama-tls-store.key`, `root:orama` 0640 | Caddy, the index gateway | [25](25-tls-and-certificates.md) |
 | Kubo RPC bearer | `ipfs-kubo-api` | Kubo `API.Authorizations`; computed by gateways | Kubo, gateways, `orama node report` | [19](19-storage.md) |
 | IPFS Cluster REST password | `ipfs-cluster-rest-api` | `service.json` `basic_auth_credentials` (0600) | Cluster, gateways, the inspector | [19](19-storage.md) |

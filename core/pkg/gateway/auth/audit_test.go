@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
 )
 
 type auditDB struct {
@@ -164,6 +165,7 @@ func TestAuditLog_recordsTheClientAddressNotTheProxys(t *testing.T) {
 	req.RemoteAddr = "127.0.0.1:54321"
 	req.Header.Set("X-Forwarded-For", "10.0.0.1, 203.0.113.4")
 	req.Header.Set("User-Agent", "anchat/2.1")
+	req = clientkeytest.ViaCaddy(t, req)
 
 	log.RecordFromRequest(context.Background(), req, AuditEvent{Action: AuditVerifySucceeded})
 

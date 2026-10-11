@@ -10,6 +10,7 @@ import (
 
 	"github.com/DeBrosOfficial/network/pkg/client"
 	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
 	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
 	"github.com/DeBrosOfficial/network/pkg/gateway/wssession"
 	"github.com/DeBrosOfficial/network/pkg/serverless"
@@ -245,12 +246,17 @@ func TestDeleteFunction_doesNotRecordTheCredential(t *testing.T) {
 }
 
 func TestExtractRemoteIP(t *testing.T) {
-	for name, tc := range map[string]struct{ peer, xff, real, want string }{
-		"proxy last entry":          {"127.0.0.1:1", "6.6.6.6, 203.0.113.9", "", "203.0.113.9"},
-		"mesh gateway":              {"10.0.0.3:1", "203.0.113.9", "", "203.0.113.9"},
-		"private peer off the mesh": {"192.168.1.5:1", "203.0.113.9", "203.0.113.10", "192.168.1.5"},
-		"X-Real-IP ignored":         {"127.0.0.1:1", "", "203.0.113.10", "127.0.0.1"},
-		"direct":                    {"198.51.100.7:1", "203.0.113.9", "", "198.51.100.7"},
+	for name, tc := range map[string]struct {
+		peer, xff, real string
+		proven          bool
+		want            string
+	}{
+		"proxy last entry":          {"127.0.0.1:1", "6.6.6.6, 203.0.113.9", "", true, "203.0.113.9"},
+		"a local process's xff":     {"127.0.0.1:1", "6.6.6.6, 203.0.113.9", "", false, "127.0.0.1"},
+		"mesh gateway":              {"10.0.0.3:1", "203.0.113.9", "", false, "203.0.113.9"},
+		"private peer off the mesh": {"192.168.1.5:1", "203.0.113.9", "203.0.113.10", false, "192.168.1.5"},
+		"X-Real-IP ignored":         {"127.0.0.1:1", "", "203.0.113.10", true, "127.0.0.1"},
+		"direct":                    {"198.51.100.7:1", "203.0.113.9", "", false, "198.51.100.7"},
 	} {
 		r := httptest.NewRequest(http.MethodPost, "/", nil)
 		r.RemoteAddr = tc.peer
@@ -259,6 +265,9 @@ func TestExtractRemoteIP(t *testing.T) {
 		}
 		if tc.real != "" {
 			r.Header.Set("X-Real-IP", tc.real)
+		}
+		if tc.proven {
+			r = clientkeytest.ViaCaddy(t, r)
 		}
 		if got := extractRemoteIP(r); got != tc.want {
 			t.Errorf("%s: %q, want %q", name, got, tc.want)

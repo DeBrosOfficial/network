@@ -53,9 +53,9 @@ Other processes need the wildcard too. The shared TURN server terminates TLS its
 
 ### The Caddyfile the installer renders
 
-Install phase 4 calls `ConfigureCaddy` after writing `node.yaml`, the Corefile and the ntfy config (`core/pkg/install/orchestrator.go`, the block commented "Configure Caddy"). The inputs are the node's domain (else the base domain), the contact email `admin@<that domain>`, the ACME endpoint `http://localhost:10104/v1/internal/acme`, the base domain, the ACME CA and the cluster secret. `CaddyInstaller.Configure` writes, in this order, `/etc/caddy/orama-acme.key`, `/etc/caddy/orama-tls-store.key` and then `/etc/caddy/Caddyfile` (`core/pkg/install/installers/caddy.go:Configure`). The keys go first because a Caddyfile that names a missing key file stops Caddy from loading any config. Both key files are written 0600 and then handed to the `orama` group, ending `root:orama 0640` inside `/etc/caddy` (`restrictToGroup`).
+Install phase 4 calls `ConfigureCaddy` after writing `node.yaml`, the Corefile and the ntfy config (`core/pkg/install/orchestrator.go`, the block commented "Configure Caddy"). The inputs are the node's domain (else the base domain), the contact email `admin@<that domain>`, the ACME endpoint `http://localhost:10104/v1/internal/acme`, the base domain, the ACME CA and the cluster secret. `CaddyInstaller.Configure` writes, in this order, `/etc/caddy/orama-acme.key`, `/etc/caddy/orama-tls-store.key`, `/etc/caddy/orama-caddy-proof.key` and then `/etc/caddy/Caddyfile` (`core/pkg/install/installers/caddy.go:Configure`). The keys go first because a Caddyfile that names a missing key file stops Caddy from loading any config. All three files are written 0600 and then handed to the `orama` group, ending `root:orama 0640` inside `/etc/caddy` (`restrictToGroup`). The first two are derived from the cluster secret; the third is 32 random bytes in hex, new at every install and upgrade, and is not a certificate key: it is the secret Caddy proves itself to the gateway with ([rate limits](27-rate-limits-and-egress-controls.md), "Caddy proves itself").
 
-For a node `node1.dbrs.space` in a cluster with base `dbrs.space` and the default CA, `generateCaddyfile` produces this (the proxy blocks are abbreviated here; each repeats the six `header_up` lines):
+For a node `node1.dbrs.space` in a cluster with base `dbrs.space` and the default CA, `generateCaddyfile` produces this (the proxy blocks are abbreviated here; each repeats the `header_up` lines):
 
 ```
 {
@@ -87,6 +87,7 @@ For a node `node1.dbrs.space` in a cluster with base `dbrs.space` and the defaul
         header_up -X-Internal-Auth-JWT-Custom
         header_up -X-Internal-Auth-Scopes
         header_up -X-Internal-Auth-MAC
+        header_up X-Orama-Caddy-Proof "{file./etc/caddy/orama-caddy-proof.key}"
     }
 }
 
@@ -103,7 +104,7 @@ http://dbrs.space {
 }
 
 push.dbrs.space {
-    (the same tls block; reverse_proxy localhost:10109, same header_up lines)
+    (the same tls block; reverse_proxy localhost:10109, the same header_up lines but the last, which is header_up -X-Orama-Caddy-Proof)
 }
 
 :80 {
@@ -119,6 +120,7 @@ Each part has a reason in the code.
 - **The `http://` sites and `:80`.** Naming a site with the `http://` scheme stops Caddy from adding its automatic HTTP-to-HTTPS redirect for that name. The gateway therefore stays reachable over plain HTTP when certificates are unavailable, for example under a CA rate limit, and the `:80` catch-all proxies any other plain-HTTP request, such as one by IP address, to the gateway.
 - **`protocols h1`.** Caddy serves HTTP/1.1 only. HTTP/3 would bind UDP 443, which the TURN relay needs. HTTP/2 is off because it forbids the `Connection: Upgrade` and `Upgrade: websocket` headers (RFC 7540 section 8.1.2.2): a WebSocket upgrade sent over an h2 connection reaches the gateway as a plain GET, the gateway's `isWebSocketUpgrade` check fails, and the query-string `?api_key=` and `?jwt=` WebSocket auth fallback is ignored, producing 401 (bug 249, comment in `generateCaddyfile`). RFC 8441 would fix it, but mobile WebSocket libraries do not implement it. The cost is no h2 multiplexing on plain REST; the dominant workloads, REST over keep-alive and single-connection WebSockets, gain little from it. `TestTLS_onlyHTTP11ByALPN` in the fleet suite offers h2 and checks the node never agrees to it.
 - **The `header_up -X-Internal-Auth-*` lines.** The gateway trusts six `X-Internal-Auth-*` headers when they arrive with a valid MAC (chapter 12 and [inter-node trust](15-inter-node-trust.md)). Caddy is where the internet ends and reverse-proxies to localhost, so forged headers would travel with every public request; Caddy strips them a hop before the gateway's own MAC check. The list is `internalAuthHeaders`, and `TestInternalAuthHeadersMatchTheGateway` keeps it equal to the gateway's.
+- **The `header_up X-Orama-Caddy-Proof` line.** In every block that fronts the gateway Caddy sets this header to the content of the proof file, read for each request (`{file.…}`). `header_up` with a value sets the field, so a copy the client sent is replaced, never added to. The gateway's first middleware compares it, deletes it and believes the `X-Forwarded-For` Caddy appended only when it matched, which is how each public caller gets a rate-limit bucket of its own ([rate limits](27-rate-limits-and-egress-controls.md)). The ntfy block strips the header instead and never carries the secret, so ntfy never learns it (`TestGenerateCaddyfile_setsTheProofOnEveryGatewayBlock`).
 
 The Caddyfile is regenerated by every install and upgrade. The CA is the one setting that persists: `--acme-ca` (`letsencrypt`, `letsencrypt-staging` or an https directory URL) is recorded as `tls.acme_ca` in `node.yaml`, and a regeneration without the flag re-reads it, so a staging cluster does not silently return to production and spend the limits staging exists to protect (`core/pkg/install/config.go:ACMECA`). A value read back is validated again, and `ValidateACMECA` refuses spaces, braces and quotes because the value lands in the global block of a file root writes. A joining node adopts the cluster's CA when it passes none (`useClusterACMECA` in the install orchestrator).
 
@@ -256,6 +258,7 @@ The CLI loads each configured environment's `ca_file` with `TrustEnvironmentCAs`
 | ACME challenge TXT records | `dns_records`, namespace `acme`, TTL 60 | `acmePresentHandler`, `acmeCleanupHandler` | CoreDNS; the CA |
 | Store master key (hex) | `/etc/caddy/orama-tls-store.key`, `root:orama` 0640 | install (`writeCaddyTLSStoreKey`) | Caddy at provision; the gateway derives its own copy |
 | ACME key (hex) | `/etc/caddy/orama-acme.key`, `root:orama` 0640 | install (`writeCaddyACMEKey`) | Caddy at provision; the gateway derives its own copy |
+| Caddy proof (hex, random) | `/etc/caddy/orama-caddy-proof.key`, `root:orama` 0640 | install and upgrade (`writeCaddyProof`), a new one each time | Caddy, for each request, and the index gateway (`clientkey.Prover`) |
 | Caddyfile | `/etc/caddy/Caddyfile`, 0644 | install and upgrade | Caddy (`caddy run`, `caddy reload`) |
 | Caddy admin socket | `/run/orama-caddy/admin.sock`, 0600, in a 0700 runtime directory | Caddy | `caddy reload`, as the `orama` user |
 | Caddy runtime config autosave | `/var/lib/caddy/config` (`XDG_CONFIG_HOME`) | Caddy | Caddy |

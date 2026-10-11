@@ -202,7 +202,9 @@ const localFlood = 2 * floodCeiling
 
 // TestRateLimit_loopbackWithForwardedForIsNotExempt: every public request
 // reaches the gateway from 127.0.0.1 through Caddy, so loopback with a
-// forwarding header is charged to the forwarded address and limited; plain
+// forwarding header is limited, never exempt; a process on the node cannot
+// read the proof Caddy sets, so a header it writes is charged to the peer
+// address, not to the address it names (clientkey.Resolve); plain
 // loopback (a process on the node) and another node over the overlay are
 // exempt (website/src/docs/contributor/architecture-reference.mdx "Middleware Stack"; docs/whitepaper/technical-reference/vol1/27-rate-limits-and-egress-controls.md "Rate
 // limiting").

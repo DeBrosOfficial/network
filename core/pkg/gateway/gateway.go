@@ -25,6 +25,7 @@ import (
 	"github.com/DeBrosOfficial/network/pkg/deployments/health"
 	"github.com/DeBrosOfficial/network/pkg/deployments/process"
 	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
 	authhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/auth"
 	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
 	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/cache"
@@ -203,6 +204,10 @@ type Gateway struct {
 	// Empty when this gateway has no cluster secret, and an empty key trusts
 	// nothing.
 	internalAuthKey []byte
+
+	// callerProof tells a request that came through this node's Caddy from one a process on the
+	// node wrote, so X-Forwarded-For is believed only from Caddy (see clientkey.Prover).
+	callerProof *clientkey.Prover
 
 	// Middleware cache for auth/routing lookups (eliminates redundant DB queries)
 	mwCache *middlewareCache
@@ -482,6 +487,8 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 				"gateway cannot delegate auth to a namespace gateway",
 			zap.Error(err))
 	}
+
+	gw.callerProof = newCallerProof(cfg, logger)
 
 	// Wire the JWT verifier so the persistent WS handler can apply
 	// mid-session auth refresh on the open WS (bugboard #321 control

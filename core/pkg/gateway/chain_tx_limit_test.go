@@ -27,8 +27,10 @@ func directClient(path string, n int) *http.Request {
 	return request(fmt.Sprintf("198.51.100.%d:9999", n), "", path)
 }
 
-func fromClient(path string, n int) *http.Request {
-	return request("127.0.0.1:9999", fmt.Sprintf("198.51.100.%d", n), path)
+// fromClient is a request as the node's Caddy forwards it for the public address 198.51.100.n.
+func fromClient(t *testing.T, path string, n int) *http.Request {
+	t.Helper()
+	return behindCaddy(t, fmt.Sprintf("198.51.100.%d", n), path)
 }
 
 // Each transaction route has a bucket of its own: a client that exhausts broadcast is still served
@@ -41,7 +43,7 @@ func TestChainTxRoutes_haveBucketsOfTheirOwn(t *testing.T) {
 	var last *httptest.ResponseRecorder
 	for i := 0; i < 6; i++ {
 		last = httptest.NewRecorder()
-		handler.ServeHTTP(last, fromClient(chainBroadcastPath, 7))
+		handler.ServeHTTP(last, fromClient(t, chainBroadcastPath, 7))
 	}
 	if *served != 2 || last.Code != http.StatusTooManyRequests {
 		t.Fatalf("served %d of 6 broadcasts with last code %d; want the burst of 2 and a 429", *served, last.Code)
@@ -51,9 +53,9 @@ func TestChainTxRoutes_haveBucketsOfTheirOwn(t *testing.T) {
 	}
 
 	*served = 0
-	handler.ServeHTTP(httptest.NewRecorder(), fromClient(chainSimulatePath, 7))
-	handler.ServeHTTP(httptest.NewRecorder(), fromClient("/v1/chain/status", 7))
-	handler.ServeHTTP(httptest.NewRecorder(), fromClient(chainBroadcastPath, 8))
+	handler.ServeHTTP(httptest.NewRecorder(), fromClient(t, chainSimulatePath, 7))
+	handler.ServeHTTP(httptest.NewRecorder(), fromClient(t, "/v1/chain/status", 7))
+	handler.ServeHTTP(httptest.NewRecorder(), fromClient(t, chainBroadcastPath, 8))
 	if *served != 3 {
 		t.Errorf("%d of 3 other requests were served; the broadcast bucket must not apply to them, nor to another client", *served)
 	}
@@ -75,7 +77,7 @@ func TestChainTxRoutes_haveBucketsOfTheirOwn(t *testing.T) {
 func TestChainTxRoutes_theRouteBucketBoundsAllAddressesTogether(t *testing.T) {
 	handler, served := chainTxGateway(t, newChainTxLimiter(6000, 1000, 60, 4), newChainTxLimiter(6000, 1000, 60, 4))
 	for i := 0; i < 20; i++ {
-		handler.ServeHTTP(httptest.NewRecorder(), fromClient(chainSimulatePath, i+1))
+		handler.ServeHTTP(httptest.NewRecorder(), fromClient(t, chainSimulatePath, i+1))
 	}
 	if *served != 4 {
 		t.Fatalf("served %d of 20 simulates from 20 addresses, want the route's burst of 4", *served)

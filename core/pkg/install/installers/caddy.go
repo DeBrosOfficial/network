@@ -1,6 +1,7 @@
 package installers
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 
 	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
 	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
 	"github.com/DeBrosOfficial/network/pkg/tlsstore"
 )
 
@@ -36,11 +38,23 @@ var internalAuthHeaders = []string{
 
 // proxyBlock renders a reverse_proxy directive that strips the internal-auth
 // headers on the way up. The indentation matches the surrounding site block.
-func proxyBlock(upstream string) string {
+//
+// A block that fronts the cluster gateway (proveToGateway) also sets the proof header to the
+// node's secret, which Caddy reads from CaddyProofPath for each request, so the gateway believes
+// the X-Forwarded-For Caddy appends (clientkey.Prover). `header_up Field value` sets the field,
+// which replaces every copy the client sent: a client cannot supply the header, only Caddy can.
+// A block that fronts anything else strips the header and never carries the secret, so no other
+// service learns it.
+func proxyBlock(upstream string, proveToGateway bool) string {
 	var sb strings.Builder
 	sb.WriteString("    reverse_proxy " + upstream + " {\n")
 	for _, h := range internalAuthHeaders {
 		sb.WriteString("        header_up -" + h + "\n")
+	}
+	if proveToGateway {
+		sb.WriteString(fmt.Sprintf("        header_up %s \"{file.%s}\"\n", clientkey.ProofHeader, CaddyProofPath))
+	} else {
+		sb.WriteString("        header_up -" + clientkey.ProofHeader + "\n")
 	}
 	sb.WriteString("    }")
 	return sb.String()
@@ -141,6 +155,11 @@ func (ci *CaddyInstaller) Configure(domain string, email string, acmeEndpoint st
 	if err := writeCaddyTLSStoreKey(clusterSecret); err != nil {
 		return err
 	}
+	// A new proof at every install and upgrade: Caddy reads the file for each request and the
+	// gateway reads it again when a header does not match, so neither is restarted for it.
+	if err := writeCaddyProof(CaddyProofPath, restrictToServiceGroup); err != nil {
+		return err
+	}
 
 	// Create Caddyfile
 	caddyfile := ci.generateCaddyfile(domain, email, acmeEndpoint, baseDomain, acmeCA)
@@ -167,6 +186,15 @@ const CaddyTLSStoreKeyPath = "/etc/caddy/orama-tls-store.key"
 
 // caddyTLSStorePath is the index gateway's route Caddy's storage module calls.
 const caddyTLSStorePath = "/v1/internal/tls-store"
+
+// CaddyProofPath holds the secret Caddy sets in clientkey.ProofHeader on every request it
+// forwards to the cluster gateway. Unlike the two keys above it is not derived from the cluster
+// secret: it is random, per node, and made again at every install and upgrade (writeCaddyProof).
+// root:orama 0640, so Caddy and the gateway read it and a tenant's deployment cannot.
+const CaddyProofPath = constants.CaddyProofFile
+
+// caddyProofBytes is the proof's size before hex: 256 bits.
+const caddyProofBytes = 32
 
 // CaddyAdminSocket is Caddy's admin API. It used to be the default,
 // localhost:2019: unauthenticated control of the process that terminates TLS
@@ -208,6 +236,23 @@ func writeCaddyTLSStoreKey(clusterSecret string) error {
 	}
 	return restrictToGroup(CaddyTLSStoreKeyPath, serviceUserName)
 }
+
+// writeCaddyProof writes a new random proof secret to path, root:orama 0640. It is created 0600
+// and only then handed to the group by restrict (restrictToGroup, in production), like the keys
+// above, and its content appears in no log and no error.
+func writeCaddyProof(path string, restrict func(path string) error) error {
+	raw := make([]byte, caddyProofBytes)
+	if _, err := rand.Read(raw); err != nil {
+		return fmt.Errorf("generate the secret Caddy proves itself to the gateway with: %w", err)
+	}
+	if err := os.WriteFile(path, []byte(hex.EncodeToString(raw)+"\n"), 0o600); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return restrict(path)
+}
+
+// restrictToServiceGroup is root:orama 0640.
+func restrictToServiceGroup(path string) error { return restrictToGroup(path, serviceUserName) }
 
 // propagationOptions are the acme issuer's DNS-01 propagation options: on a
 // nameserver node, check this node's own CoreDNS, after a delay long enough for
@@ -314,14 +359,14 @@ func (ci *CaddyInstaller) generateCaddyfile(domain, email, acmeEndpoint, baseDom
 		hosts = append(hosts, domain)
 	}
 	for _, h := range hosts {
-		sb.WriteString(fmt.Sprintf("\n%s {\n%s\n%s\n}\n", h, tlsBlock, proxyBlock(gw)))
+		sb.WriteString(fmt.Sprintf("\n%s {\n%s\n%s\n}\n", h, tlsBlock, proxyBlock(gw, true)))
 	}
 
 	// HTTP blocks — serve traffic over plain HTTP so the gateway is reachable
 	// even when TLS certificates are unavailable (e.g., Let's Encrypt rate limits).
 	// Without these, Caddy auto-redirects HTTP→HTTPS for the named domain blocks above.
 	for _, h := range hosts {
-		sb.WriteString(fmt.Sprintf("\nhttp://%s {\n%s\n}\n", h, proxyBlock(gw)))
+		sb.WriteString(fmt.Sprintf("\nhttp://%s {\n%s\n}\n", h, proxyBlock(gw, true)))
 	}
 
 	// Self-hosted ntfy reverse-proxy (feature #72). Emitted only when
@@ -331,11 +376,11 @@ func (ci *CaddyInstaller) generateCaddyfile(domain, email, acmeEndpoint, baseDom
 	// cert (different rotation cadence, different blast radius).
 	if ci.withNtfy && ci.ntfyHostname != "" {
 		sb.WriteString(fmt.Sprintf("\n%s {\n%s\n%s\n}\n",
-			ci.ntfyHostname, tlsBlock, proxyBlock(fmt.Sprintf("localhost:%d", NtfyListenPort))))
+			ci.ntfyHostname, tlsBlock, proxyBlock(fmt.Sprintf("localhost:%d", NtfyListenPort), false)))
 	}
 
 	// HTTP catch-all fallback (handles remaining plain HTTP traffic)
-	sb.WriteString(fmt.Sprintf("\n:80 {\n%s\n}\n", proxyBlock(gw)))
+	sb.WriteString(fmt.Sprintf("\n:80 {\n%s\n}\n", proxyBlock(gw, true)))
 
 	return sb.String()
 }

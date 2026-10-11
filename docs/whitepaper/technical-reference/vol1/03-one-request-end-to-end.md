@@ -33,7 +33,7 @@ The client connects to port 443 on that address. On a node where the SNI router 
 
 Caddy holds a wildcard certificate for `*.example.network`. The cluster obtained it once through ACME DNS-01 by publishing a TXT record in its own DNS, and every node serves it from a certificate store kept in the registry ([TLS and certificates](25-tls-and-certificates.md)). Caddy speaks HTTP/1.1 only, terminates TLS and reverse-proxies to `localhost:10104`, the index gateway. Before it forwards, it deletes six request headers, `X-Internal-Auth-Validated`, `-Namespace`, `-JWT-Sub`, `-JWT-Custom`, `-Scopes` and `-MAC`. Those are the headers a gateway believes about identity; a client must not be able to send them.
 
-From here on every public request arrives at the gateway from `127.0.0.1`. The gateway therefore never uses the source address as evidence of anything, and learns the client's address from the last `X-Forwarded-For` entry Caddy appended ([Rate limits and egress controls](27-rate-limits-and-egress-controls.md)).
+From here on every public request arrives at the gateway from `127.0.0.1`. The gateway therefore never uses the source address as evidence of anything, and learns the client's address from the last `X-Forwarded-For` entry Caddy appended, believed only on a request that carries the secret Caddy proves itself with in `X-Orama-Caddy-Proof` ([Rate limits and egress controls](27-rate-limits-and-egress-controls.md)).
 
 ## 3. The index gateway: the stack before the proxy
 

@@ -102,3 +102,11 @@ func WildcardKeyPath(oramaDir string) string {
 func HostTURNConfigPath(oramaDir string) string {
 	return filepath.Join(DataDir(oramaDir), TURNSubdir, TURNConfigFileName)
 }
+
+// CaddyProofFile is the secret that proves a request came through the node's own Caddy: Caddy puts
+// its content in a header on every request it forwards to the cluster gateway and the gateway
+// compares it before it believes Caddy's X-Forwarded-For (pkg/gateway/clientkey). It is made at
+// install, again at every install and upgrade, root:orama 0640 in root-owned /etc/caddy next to
+// Caddy's other keys: the gateway and Caddy run as the orama user and read it, a tenant's
+// deployment, which runs under a user of its own, cannot.
+const CaddyProofFile = "/etc/caddy/orama-caddy-proof.key"

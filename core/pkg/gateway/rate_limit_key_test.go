@@ -6,8 +6,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
 	"github.com/DeBrosOfficial/network/pkg/logging"
 )
+
+// behindCaddy is a request as the node's Caddy forwards it: from loopback, with the address it is
+// talking to appended to X-Forwarded-For and its proof in the header (which the gateway's first
+// middleware has already checked and deleted).
+func behindCaddy(t *testing.T, forwardedFor, path string) *http.Request {
+	t.Helper()
+	return clientkeytest.ViaCaddy(t, request("127.0.0.1:9999", forwardedFor, path))
+}
 
 func request(remoteAddr, forwardedFor, path string) *http.Request {
 	r := httptest.NewRequest(http.MethodPost, path, nil)
@@ -25,7 +34,7 @@ func request(remoteAddr, forwardedFor, path string) *http.Request {
 func TestRateLimitClient_aForgedForwardedForDoesNotExempt(t *testing.T) {
 	// Caddy proxies from loopback and appends the real client, so the last
 	// entry is real and everything before it is the caller's invention.
-	client, exempt := rateLimitClient(request("127.0.0.1:9999", "10.0.0.1, 203.0.113.7", "/v1/auth/challenge"))
+	client, exempt := rateLimitClient(behindCaddy(t, "10.0.0.1, 203.0.113.7", "/v1/auth/challenge"))
 
 	if exempt {
 		t.Fatal("a forged internal address exempted the caller from every limit")
@@ -37,7 +46,7 @@ func TestRateLimitClient_aForgedForwardedForDoesNotExempt(t *testing.T) {
 
 func TestRateLimitClient_theWholeChainCanBeForged(t *testing.T) {
 	// Every entry but the last is the caller's, however many they send.
-	client, exempt := rateLimitClient(request("127.0.0.1:9999",
+	client, exempt := rateLimitClient(behindCaddy(t,
 		"10.0.0.1, 10.0.0.2, 127.0.0.1, 198.51.100.9", "/v1/auth/verify"))
 
 	if exempt {
@@ -84,19 +93,34 @@ func TestRateLimitClient_aLocalCallerIsExemptOnlyWithNothingForwarded(t *testing
 		t.Error("a process on this machine was rate limited")
 	}
 
-	_, exempt = rateLimitClient(request("127.0.0.1:9999", "203.0.113.7", "/v1/health"))
+	_, exempt = rateLimitClient(behindCaddy(t, "203.0.113.7", "/v1/health"))
 	if exempt {
 		t.Fatal("a request that came through Caddy was treated as local — that exempts " +
 			"every public request, because they all arrive from 127.0.0.1")
 	}
 }
 
-func TestRateLimitClient_ignoresAnUnparseableForwardedFor(t *testing.T) {
-	client, exempt := rateLimitClient(request("127.0.0.1:9999", "not-an-address", "/v1/health"))
+// A process on this machine can write X-Forwarded-For as Caddy does, but it cannot send the proof
+// Caddy sets: the header names no client, and the caller is not exempt either (a request with a
+// forwarding header is not a local process), so a tenant gains neither a bucket of its own nor an
+// exemption by writing one, and a node whose Caddy has lost the proof does not exempt the internet.
+func TestRateLimitClient_aForwardedForWithoutTheProofNamesNoClient(t *testing.T) {
+	for _, forwarded := range []string{"203.0.113.7", "10.0.0.1, 203.0.113.7", "not-an-address"} {
+		client, exempt := rateLimitClient(request("127.0.0.1:9999", forwarded, "/v1/auth/challenge"))
+		if exempt || client != "127.0.0.1" {
+			t.Errorf("forwarded %q without the proof: client %q exempt %v, want the peer, limited", forwarded, client, exempt)
+		}
+	}
+}
 
-	if !exempt || client != "127.0.0.1" {
-		t.Errorf("client %q exempt %v; garbage in the header must not decide anything",
-			client, exempt)
+// Caddy always appends the address it talks to; a proven request with nothing usable to name is
+// keyed by the peer and is not exempt, because it did not come from a process on this machine.
+func TestRateLimitClient_aProvenRequestWithNoUsableEntryIsNotExempt(t *testing.T) {
+	for _, forwarded := range []string{"", "not-an-address"} {
+		client, exempt := rateLimitClient(behindCaddy(t, forwarded, "/v1/health"))
+		if exempt || client != "127.0.0.1" {
+			t.Errorf("proven with forwarded %q: client %q exempt %v, want the peer, limited", forwarded, client, exempt)
+		}
 	}
 }
 
@@ -137,7 +161,7 @@ func TestRateLimitMiddleware_aForgedHeaderIsStillLimitedOnTheAuthPath(t *testing
 	var lastCode int
 	for i := 0; i < 10; i++ {
 		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, request("127.0.0.1:9999", "10.0.0.1, 203.0.113.7", "/v1/auth/challenge"))
+		handler.ServeHTTP(w, behindCaddy(t, "10.0.0.1, 203.0.113.7", "/v1/auth/challenge"))
 		lastCode = w.Code
 	}
 
@@ -164,7 +188,7 @@ func TestRateLimitMiddleware_ordinaryPathsUseTheGeneralLimit(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		handler.ServeHTTP(httptest.NewRecorder(),
-			request("127.0.0.1:9999", "203.0.113.7", "/v1/db/query"))
+			behindCaddy(t, "203.0.113.7", "/v1/db/query"))
 	}
 
 	if served != 10 {
@@ -248,7 +272,7 @@ func TestRateLimitMiddleware_chainQueriesHaveTheirOwnBucket(t *testing.T) {
 	var lastCode int
 	for i := 0; i < 10; i++ {
 		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, request("127.0.0.1:9999", "10.0.0.1, 198.51.100.7", "/v1/chain/query/orama.nodes.v1.Query/Node"))
+		handler.ServeHTTP(w, behindCaddy(t, "10.0.0.1, 198.51.100.7", "/v1/chain/query/orama.nodes.v1.Query/Node"))
 		lastCode = w.Code
 	}
 	if served != 3 || lastCode != http.StatusTooManyRequests {
@@ -257,7 +281,7 @@ func TestRateLimitMiddleware_chainQueriesHaveTheirOwnBucket(t *testing.T) {
 
 	served = 0
 	for i := 0; i < 10; i++ {
-		handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "198.51.100.7", "/v1/chain/status"))
+		handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, "198.51.100.7", "/v1/chain/status"))
 	}
 	if served != 10 {
 		t.Errorf("%d of 10 explorer requests were served; the query bucket must not apply to them", served)
@@ -309,14 +333,14 @@ func TestRateLimitMiddleware_chainQueryBucketIsTheIPv6Slash64(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		client := fmt.Sprintf("2001:db8:1:2:%x::1", i+1)
-		handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", client, path))
+		handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, client, path))
 	}
 	if served != 3 {
 		t.Errorf("served %d of 20 queries from one /64, want the burst of 3", served)
 	}
 
 	served = 0
-	handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "2001:db8:1:3::1", path))
+	handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, "2001:db8:1:3::1", path))
 	if served != 1 {
 		t.Error("a different /64 must have its own bucket")
 	}
@@ -352,14 +376,14 @@ func TestRateLimitMiddleware_everyBucketIsTheIPv6Slash64(t *testing.T) {
 
 			for i := 0; i < 20; i++ {
 				client := fmt.Sprintf("2001:db8:1:2:%x::1", i+1)
-				handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", client, tc.path))
+				handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, client, tc.path))
 			}
 			if served != tc.want {
 				t.Errorf("served %d of 20 requests from one /64, want the burst of %d", served, tc.want)
 			}
 
 			served = 0
-			handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", "2001:db8:1:3::1", tc.path))
+			handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, "2001:db8:1:3::1", tc.path))
 			if served != 1 {
 				t.Error("a different /64 must have its own bucket")
 			}
@@ -373,7 +397,7 @@ func TestRateLimitMiddleware_ipv4ClientsStayPerAddress(t *testing.T) {
 	served := 0
 	handler := g.rateLimitMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { served++ }))
 	for _, client := range []string{"203.0.113.7", "203.0.113.8", "203.0.113.9"} {
-		handler.ServeHTTP(httptest.NewRecorder(), request("127.0.0.1:9999", client, "/v1/db/query"))
+		handler.ServeHTTP(httptest.NewRecorder(), behindCaddy(t, client, "/v1/db/query"))
 	}
 	if served != 3 {
 		t.Errorf("served %d of 3 clients at distinct IPv4 addresses, each has its own bucket", served)

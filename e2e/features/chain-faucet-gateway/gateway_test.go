@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,8 @@ import (
 
 const (
 	faucetPath = "/v1/chain/faucet"
+	// caddyProofFile is the secret the node's Caddy proves itself to the gateway with.
+	caddyProofFile = "/etc/caddy/orama-caddy-proof.key"
 	// funding is what the faucet account is given for fees: a drip costs it one transaction fee.
 	funding = 20
 	// drip is what the newcomer asks for, in ORAMA.
@@ -102,6 +105,55 @@ func TestFaucetGateway_aNewcomerIsFundedThroughTheGatewayAlone(t *testing.T) {
 	c.RequireInvariants(t, "gateway faucet drips")
 
 	requireRateLimited(t, g)
+	requireClientsHaveBucketsOfTheirOwn(t, c, f, g, n)
+}
+
+// requireClientsHaveBucketsOfTheirOwn shows the per-client key behind Caddy (bugboard 3411). Every
+// public request reaches the gateway from 127.0.0.1, so a bucket keyed by the connection would be
+// one bucket for the world. The runner's bucket is empty when this runs; a second client, another
+// node of the fleet reaching n's public address from its own, is still served, and the runner's
+// forged X-Forwarded-For and proof header buy it nothing. Both are text/plain bodies: a client that
+// is not limited meets the handler's 415, one that is meets the limiter's 429.
+func requireClientsHaveBucketsOfTheirOwn(t *testing.T, c *chain.Chain, f *fleet.Fleet, g *gw.Client, n fleet.Node) {
+	t.Helper()
+	other := c.Node(t, 0)
+	if other.Name == n.Name {
+		t.Fatalf("the faucet node %s is node 0: no second client in the fleet", n.Name)
+	}
+	// The secret Caddy proves itself with is the gateway's and Caddy's alone, and is not in the
+	// Caddyfile (which anyone on the node may read): the Caddyfile names the file.
+	stat := f.Exec(t, n, "stat -c '%U:%G %a' "+fleet.ShellQuote(caddyProofFile))
+	if got := strings.TrimSpace(stat.Stdout); stat.Exit != 0 || got != "root:orama 640" {
+		t.Errorf("%s is %q (exit %d) on %s, want root:orama with mode 640", caddyProofFile, got, stat.Exit, n.Name)
+	}
+	leak := f.Exec(t, n, "sudo grep -qF \"$(sudo cat "+fleet.ShellQuote(caddyProofFile)+")\" /etc/caddy/Caddyfile")
+	if leak.Exit != 1 {
+		t.Errorf("grep for the proof secret in the Caddyfile exited %d on %s, want 1 (not found)", leak.Exit, n.Name)
+	}
+
+	if res := post(t, g, "text/plain", "x"); !limited(res) {
+		t.Fatalf("the runner's bucket is not empty: HTTP %d %s", res.Status, res.Body)
+	}
+
+	// The runner names another network, and sets the header only Caddy can: it is still the runner.
+	forged := http.Header{}
+	forged.Set("Content-Type", "text/plain")
+	forged.Set("X-Forwarded-For", "198.51.100.77")
+	forged.Set("X-Orama-Caddy-Proof", strings.Repeat("0", 64))
+	if res := g.MustSend(t, gw.Req{Method: http.MethodPost, Path: faucetPath, Header: forged, Body: []byte("x")}); !limited(res) {
+		t.Errorf("a forged X-Forwarded-For and proof header got HTTP %d %s: the runner is one client however it names itself", res.Status, res.Body)
+	}
+
+	cmd := fmt.Sprintf("curl -sk -o /dev/null -w '%%{http_code}' --max-time 20 -X POST -H 'Content-Type: text/plain' -d x --resolve %s:443:%s https://%s%s",
+		f.State.BaseDomain, n.PublicIP, f.State.BaseDomain, faucetPath)
+	out := f.Exec(t, other, cmd)
+	if got := strings.TrimSpace(out.Stdout); got != strconv.Itoa(http.StatusUnsupportedMediaType) {
+		t.Errorf("%s asking %s's faucet from its own address got HTTP %q (exit %d), want the handler's 415: one client's empty bucket must not be everyone's",
+			other.Name, n.Name, got, out.Exit)
+	}
+	if res := post(t, g, "text/plain", "x"); !limited(res) {
+		t.Errorf("the runner's bucket was refilled by another client's request: HTTP %d %s", res.Status, res.Body)
+	}
 }
 
 // post sends one POST to the faucet route.

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
 )
 
 // TestIPRateLimiter_PullBudget verifies the per-IP pull limiter admits exactly
@@ -58,14 +60,16 @@ func TestClientIP(t *testing.T) {
 		remoteAddr string
 		xff        string
 		xreal      string
+		proven     bool
 		want       string
 	}{
-		{"remote_addr", "192.0.2.5:54321", "", "", "192.0.2.5"},
-		{"a forged xff from a direct caller is ignored", "192.0.2.5:54321", "203.0.113.1", "", "192.0.2.5"},
-		{"a forged x-real-ip is ignored", "192.0.2.5:54321", "", "198.51.100.2", "192.0.2.5"},
-		{"through the proxy the last entry counts, not the first", "127.0.0.1:54321", "6.6.6.6, 203.0.113.7", "", "203.0.113.7"},
-		{"a forged first entry cannot pick the bucket", "127.0.0.1:54321", "9.9.9.9, 203.0.113.7", "", "203.0.113.7"},
-		{"an ipv6 client is its /64", "[2001:db8:1:2:aaaa::1]:443", "", "", "2001:db8:1:2::/64"},
+		{"remote_addr", "192.0.2.5:54321", "", "", false, "192.0.2.5"},
+		{"a forged xff from a direct caller is ignored", "192.0.2.5:54321", "203.0.113.1", "", false, "192.0.2.5"},
+		{"a forged x-real-ip is ignored", "192.0.2.5:54321", "", "198.51.100.2", false, "192.0.2.5"},
+		{"through the proxy the last entry counts, not the first", "127.0.0.1:54321", "6.6.6.6, 203.0.113.7", "", true, "203.0.113.7"},
+		{"a forged first entry cannot pick the bucket", "127.0.0.1:54321", "9.9.9.9, 203.0.113.7", "", true, "203.0.113.7"},
+		{"a local process's xff without the proxy's proof is not believed", "127.0.0.1:54321", "9.9.9.9, 203.0.113.7", "", false, "127.0.0.1"},
+		{"an ipv6 client is its /64", "[2001:db8:1:2:aaaa::1]:443", "", "", false, "2001:db8:1:2::/64"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -76,6 +80,9 @@ func TestClientIP(t *testing.T) {
 			}
 			if tc.xreal != "" {
 				r.Header.Set("X-Real-IP", tc.xreal)
+			}
+			if tc.proven {
+				r = clientkeytest.ViaCaddy(t, r)
 			}
 			if got := clientIP(r); got != tc.want {
 				t.Fatalf("clientIP() = %q, want %q", got, tc.want)

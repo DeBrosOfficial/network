@@ -1,12 +1,14 @@
-// Package clientkey decides which address a request belongs to, in two separate questions:
+// Package clientkey decides which address a request belongs to, in separate questions:
 //
 //   - Resolve: whom to rate-limit, and whether the caller is internal traffic exempt from limits.
 //   - Attribute: whom to name in the request log, the audit trail, namespace affinity and the
 //     X-Forwarded-For handed to proxied services.
+//   - Public: whom a route that exempts nobody (the faucet) holds responsible.
 //
 // and the bucket key an address is limited under (BucketKey). The cluster gateway, its auth audit,
 // the serverless handlers and the vault proxy share them, so no handler keeps its own reading of
-// X-Forwarded-For.
+// X-Forwarded-For. The one thing they all depend on is Prover, which tells a request that came
+// through the node's own Caddy from one a process on the node wrote.
 package clientkey
 
 import (
@@ -29,17 +31,21 @@ func init() {
 // WireGuard subnet was exempt from every limit — so one header removed all
 // rate limiting, including from the endpoints that mint credentials.
 //
-// The peer address is the only thing a caller cannot choose. X-Forwarded-For
-// is honoured only when the peer is the local reverse proxy, and only its last
-// entry: Caddy appends the address it is actually talking to, so the last entry
-// is the real client and the ones before it are whatever the client claimed.
+// The peer address is the only thing a caller cannot choose, and behind the node's Caddy it is
+// always 127.0.0.1. X-Forwarded-For is honoured only on a request that Caddy proved it forwarded
+// (Prover): Caddy puts a per-node secret in ProofHeader, and the last entry is then the address
+// Caddy is actually talking to, the real client; the ones before it are whatever the client
+// claimed. A process on the node, tenant code included, also reaches the gateway from the loopback
+// address and can write any X-Forwarded-For, but it cannot read the secret, so its header is
+// never believed and it is keyed by its peer address.
 //
 // Two things follow that are worth being explicit about, because getting either
 // backwards would be worse than the bug:
 //
-//   - Loopback is not exempt when the request arrived through Caddy. Every
-//     public request reaches the gateway from 127.0.0.1, so exempting loopback
-//     after this fix would exempt the whole internet.
+//   - Loopback is not exempt when the request arrived through Caddy, or when it carries a
+//     forwarding header that is not proven. Every public request reaches the gateway from
+//     127.0.0.1, so exempting loopback would exempt the whole internet; a Caddy that has lost its
+//     proof leaves the public sharing one bucket, which is the safe side.
 //   - Loopback with no forwarding header is a genuinely local caller — a
 //     service on the node talking to the index gateway — and stays exempt.
 
@@ -55,11 +61,13 @@ func Resolve(r *http.Request) (client string, exempt bool) {
 	}
 
 	if isLoopback(peer) {
-		// Came through the local reverse proxy: the last entry is the address
-		// Caddy is talking to, and everything before it is what that caller
-		// claimed. Anything the caller can write is not a rate-limit key.
-		if forwarded := lastForwardedFor(r); forwarded != "" {
-			return forwarded, false
+		if client, ok := provenClient(r); ok {
+			return client, false
+		}
+		// Through Caddy but with no usable address, or a forwarding header nobody proved: not a
+		// local process, and not exempt.
+		if proven(r) || r.Header.Get("X-Forwarded-For") != "" {
+			return peer, false
 		}
 		// Nothing forwarded, so this really is a process on this machine.
 		return peer, true
@@ -71,18 +79,25 @@ func Resolve(r *http.Request) (client string, exempt bool) {
 }
 
 // Attribute returns the address a request is attributed to. The peer address is the client unless
-// the peer is one that writes a trustworthy X-Forwarded-For: the local reverse proxy (loopback),
-// which appends the address it is talking to, or another node's gateway on the WireGuard mesh, which
-// forwards a single value it resolved itself. From such a peer the last entry is the client, when it
-// parses as an IP. Any other peer, a private address that is not on the mesh included, is the client
-// itself and its headers (X-Forwarded-For, X-Real-IP) are ignored. Unlike Resolve it never exempts.
+// the peer is one that writes a trustworthy X-Forwarded-For: the local reverse proxy (loopback,
+// when the request carries its proof), which appends the address it is talking to, or another
+// node's gateway on the WireGuard mesh, which forwards a single value it resolved itself. From
+// such a peer the last entry is the client, when it parses as an IP. Any other peer, a private
+// address that is not on the mesh included, is the client itself and its headers (X-Forwarded-For,
+// X-Real-IP) are ignored. Unlike Resolve it never exempts.
 func Attribute(r *http.Request) string {
 	peer := peerIP(r)
 	ip := net.ParseIP(peer)
 	if ip == nil {
 		return peer
 	}
-	if ip.IsLoopback() || (wireGuardNet != nil && wireGuardNet.Contains(ip)) {
+	if ip.IsLoopback() {
+		if client, ok := provenClient(r); ok {
+			return client
+		}
+		return peer
+	}
+	if wireGuardNet != nil && wireGuardNet.Contains(ip) {
 		if forwarded := lastForwardedFor(r); forwarded != "" {
 			return forwarded
 		}
@@ -90,13 +105,28 @@ func Attribute(r *http.Request) string {
 	return peer
 }
 
-// Peer returns the address the connection came from and nothing else: no forwarding header is read.
-// It is the client of a route that must not take a caller's word for who it is (the faucet): a
-// process on the node, tenant code included, reaches the gateway from the loopback address and can
-// write any X-Forwarded-For, and a header written by whoever sent the request is not proof of the
-// local reverse proxy. Behind that proxy every public caller therefore shares the proxy's address
-// until the proxy proves itself to the gateway with a header only it can write.
-func Peer(r *http.Request) string { return peerIP(r) }
+// Public returns the client of a route open to the internet that exempts nobody (the faucet): the
+// address Caddy proved it is talking to, or else the address the connection came from. A process
+// on the node, tenant code included, reaches the gateway from the loopback address and can write
+// any X-Forwarded-For; without Caddy's proof its header is not read, so it is one client however
+// many names it claims.
+func Public(r *http.Request) string {
+	if client, ok := provenClient(r); ok {
+		return client
+	}
+	return peerIP(r)
+}
+
+// provenClient returns the client of a request that came through the node's Caddy: the peer is the
+// loopback address, the request carries Caddy's proof, and the last X-Forwarded-For entry (the
+// address Caddy appended) is an IP.
+func provenClient(r *http.Request) (string, bool) {
+	if !isLoopback(peerIP(r)) || !proven(r) {
+		return "", false
+	}
+	client := lastForwardedFor(r)
+	return client, client != ""
+}
 
 // lastForwardedFor returns the final entry of X-Forwarded-For, which is the
 // address the nearest proxy appended.
