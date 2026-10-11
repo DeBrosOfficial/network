@@ -146,7 +146,7 @@ The cache records the chain id, the hash of block 1, the height its anchor is va
 
 The validators and the load generator share one machine, so every number is of that machine (CPU, disk and the loopback network), not of a network of separate hosts, and the report says so. Block time (`TIMEOUT_COMMIT`) is a setting you choose, and a closed-loop number moves with it. The load generator is itself a bottleneck at high rates; the report gives the longest queue inside the sender, and a step that shows one is measuring the generator. A fee that is fixed when a transaction is signed can be overtaken by the base fee, which rises up to 12.5% a block while blocks are fuller than the target; such a transaction is refused with the chain's insufficient-fee reason and shows in the refused column, which is the behaviour of the base fee under that load and not an error of the tool.
 
-While a run is on, a node's log may show an ERR line `failed to LoadFinalizeBlockResponse ... could not find results for height` about once per block. The node reports a height a moment before it has saved that block's results; the follower asks again 50 ms later and gets them. It is not a fault of the chain.
+The follower reads a block once the next one exists: a node reports a height as its latest a moment before it has saved that block's results and committed its state, so a block read at once would ask for results that are not there yet. Each block, its results and the base fee after it are read once, and a read that fails stops the run with the error.
 
 ## At a release
 

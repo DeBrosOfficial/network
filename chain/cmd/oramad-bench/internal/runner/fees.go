@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	"github.com/DeBrosOfficial/network/chain/client/node"
 	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
@@ -13,9 +12,6 @@ import (
 const (
 	// feeQueue is how many blocks may wait for their base fee to be read.
 	feeQueue = 1024
-	// feeAttempts and feeRetryWait bound the retries of a read that raced the node's commit.
-	feeAttempts  = 20
-	feeRetryWait = 100 * time.Millisecond
 )
 
 // feeRecorder reads x/fees' base fee after every block the follower sees. It does so off the
@@ -54,24 +50,15 @@ func (f *feeRecorder) Run(ctx context.Context) {
 	}
 }
 
-// record reads the base fee after block b. The node reports a block before it has committed that
-// block's state, and a query at that height fails until it has, so the read is tried again a few
-// times before the block is counted as missed.
+// record reads the base fee after block b. The follower hands a block on once the next one exists,
+// so the state at its height is committed and the read answers; a failed read is a missed block.
 func (f *feeRecorder) record(ctx context.Context, b watch.BlockStat) {
-	for attempt := 0; attempt < feeAttempts; attempt++ {
-		var resp feestypes.QueryBaseFeeResponse
-		err := f.client.QueryAt(ctx, b.Height, "/orama.fees.v1.Query/BaseFee", &feestypes.QueryBaseFeeRequest{}, &resp)
-		if err == nil {
-			f.series.Add(watch.FeeSample{Height: b.Height, At: b.SeenAt, BaseFee: resp.BaseFee.String()})
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(feeRetryWait):
-		}
+	var resp feestypes.QueryBaseFeeResponse
+	if err := f.client.QueryAt(ctx, b.Height, "/orama.fees.v1.Query/BaseFee", &feestypes.QueryBaseFeeRequest{}, &resp); err != nil {
+		f.failed.Add(1)
+		return
 	}
-	f.failed.Add(1)
+	f.series.Add(watch.FeeSample{Height: b.Height, At: b.SeenAt, BaseFee: resp.BaseFee.String()})
 }
 
 // Missed is how many blocks have no base fee sample.

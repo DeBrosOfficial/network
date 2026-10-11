@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-// maxConsecutiveFailures is how many polls in a row may fail to read a block before the follower
-// gives up. A node reports a height before it has saved that block's results, so a read right at the
-// tip can fail once and succeed on the next poll.
-const maxConsecutiveFailures = 100
-
 // DefaultPoll is how often the follower asks for a new block. A latency is measured to the moment
 // the follower saw the block, so this is the resolution of every inclusion latency.
 const DefaultPoll = 50 * time.Millisecond
@@ -64,7 +59,6 @@ type Follower struct {
 	blocks []BlockStat
 	hooks  []func(BlockStat)
 	last   int64
-	fails  int
 	err    error
 }
 
@@ -129,27 +123,20 @@ func (f *Follower) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-tick.C:
-			if err := f.catchUp(ctx); err != nil && f.tolerate(err) != nil {
+			if err := f.catchUp(ctx); err != nil {
+				f.mu.Lock()
+				f.err = err
+				f.mu.Unlock()
 				return err
 			}
 		}
 	}
 }
 
-// tolerate counts a failed poll and returns the error once too many came in a row; it returns nil
-// while the failures may still be the node catching up with itself.
-func (f *Follower) tolerate(err error) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.fails++
-	if f.fails < maxConsecutiveFailures {
-		return nil
-	}
-	f.err = err
-	return err
-}
-
-// catchUp reads every block between the last one seen and the node's latest.
+// catchUp reads every block after the last one seen up to the one before the node's latest. A node
+// reports block H as its latest once it has stored it, before it has saved H's execution results
+// and committed H's state; both are there once block H+1 exists, so a block is read only then and
+// every read of it (its results, the base fee after it) answers the first time.
 func (f *Follower) catchUp(ctx context.Context) error {
 	latest, err := f.src.LatestHeight(ctx)
 	if err != nil {
@@ -161,7 +148,7 @@ func (f *Follower) catchUp(ctx context.Context) error {
 	f.mu.Lock()
 	next := f.last + 1
 	f.mu.Unlock()
-	for h := next; h <= latest; h++ {
+	for h := next; h < latest; h++ {
 		b, err := f.src.Block(ctx, h)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -171,9 +158,6 @@ func (f *Follower) catchUp(ctx context.Context) error {
 		}
 		f.record(b)
 	}
-	f.mu.Lock()
-	f.fails = 0
-	f.mu.Unlock()
 	return nil
 }
 

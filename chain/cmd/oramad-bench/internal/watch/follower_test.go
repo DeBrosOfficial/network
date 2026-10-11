@@ -51,7 +51,7 @@ func TestFollower_startsAfterTheLatestBlockAndMatchesTheLedger(t *testing.T) {
 	if err != nil || start != 5 {
 		t.Fatalf("start %d, %v", start, err)
 	}
-	src.latest = 6
+	src.latest = 7 // block 6 is read once block 7 exists
 	if err := f.catchUp(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestFollower_catchesUpOverAGapInOrder(t *testing.T) {
 	}
 	var seen []int64
 	f.OnBlock(func(b BlockStat) { seen = append(seen, b.Height) })
-	src.latest = 3
+	src.latest = 4
 	if err := f.catchUp(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestFollower_blocksBetweenFiltersBySightingTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	for h := int64(1); h <= 3; h++ {
-		src.latest = h
+		src.latest = h + 1
 		now = t0.Add(time.Duration(h) * time.Second)
 		if err := f.catchUp(context.Background()); err != nil {
 			t.Fatal(err)
@@ -112,26 +112,28 @@ func TestFollower_blocksBetweenFiltersBySightingTime(t *testing.T) {
 	}
 }
 
-func TestFollower_aBlockNotReadyYetIsRetriedOnTheNextPoll(t *testing.T) {
-	src := &fakeBlocks{latest: 0, blocks: map[int64]BlockData{1: block(1)}, fail: map[int64]error{1: errors.New("could not find results for height #1")}}
+// A node reports block H as its latest before it has saved H's results; the follower reads H only
+// once H+1 exists, so it never asks for results that are not there yet.
+func TestFollower_readsABlockOnlyOnceTheNextOneExists(t *testing.T) {
+	src := &fakeBlocks{latest: 0, blocks: map[int64]BlockData{1: block(1), 2: block(2)}, fail: map[int64]error{2: errors.New("could not find results for height #2")}}
 	now := t0
 	f := newFollower(src, &now)
 	if _, err := f.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	src.latest = 1
-	if err := f.catchUp(context.Background()); err == nil {
-		t.Fatal("a failed read was not reported by catchUp")
-	}
-	if f.tolerate(errors.New("x")) != nil {
-		t.Fatal("one failed poll must be tolerated")
-	}
-	delete(src.fail, 1)
 	if err := f.catchUp(context.Background()); err != nil {
-		t.Fatal(err)
+		t.Fatalf("the latest block was read before the next one existed: %v", err)
 	}
-	if len(f.Blocks(t0, t0)) != 1 || f.Err() != nil {
-		t.Fatalf("the block was not read after the retry: %v", f.Err())
+	if len(f.Blocks(t0, t0)) != 0 {
+		t.Fatal("block 1 was read while it was the node's latest")
+	}
+	src.latest = 2
+	if err := f.catchUp(context.Background()); err != nil {
+		t.Fatalf("block 2, the latest, was asked for: %v", err)
+	}
+	if got := f.Blocks(t0, t0); len(got) != 1 || got[0].Height != 1 {
+		t.Fatalf("got %+v, want block 1 once block 2 exists", got)
 	}
 }
 
@@ -143,7 +145,7 @@ func TestFollower_aBlockItCannotReadStopsIt(t *testing.T) {
 	if _, err := f.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	src.latest = 2
+	src.latest = 3
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err := f.Run(ctx)
