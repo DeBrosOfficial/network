@@ -384,6 +384,9 @@ volumes:
               - contracts/
               - core/pkg/contracttest/
               - core/pkg/srcscan/
+              - chain/ci.mk
+              - chain/deny.toml
+              - chain/.semgrep/
 
       - title: Client Surfaces
         chapters:

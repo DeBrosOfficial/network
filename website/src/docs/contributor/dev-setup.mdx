@@ -68,12 +68,12 @@ make lint
 
 | Task | Command |
 |---|---|
-| All unit tests | `make -C core test`. The root `make test` is the full local gate: core, Caddy modules, the SDK unit tests (`make sdk-test`; `cd sdk && pnpm install --frozen-lockfile` first), the fleet-e2e lint and coverage gate, and the whitepaper checks |
+| All unit tests | `make -C core test`. The root `make test` is the full local gate: core, the chain's pure-Go tests, Caddy modules, the SDK unit tests (`make sdk-test`; `cd sdk && pnpm install --frozen-lockfile` first), the fleet-e2e lint and coverage gate, and the whitepaper checks |
 | One package | `cd core && go test ./pkg/path/to/package/...` |
 | One test | `go test ./pkg/path/... -run TestName` |
 | Race detector | `go test -race ./pkg/path/...` |
 | Regenerate the CLI reference | `make -C core docs` (a test fails if whitepaper appendix D, `docs/whitepaper/technical-reference/appendices/d-cli-reference.md`, drifts from the command tree) |
-| The chain | `cd chain && make build && make test` (see [Running a chain node](/docs/blockchain/running)) |
+| The chain | `cd chain && make build && make test` (see [Running a chain node](/docs/blockchain/running)); `make -C chain ci` runs the race tests, static analysis and Rust checks that CI runs ([CI](/docs/contributor/testing#ci)) |
 | The SDK | `cd sdk && pnpm install && pnpm build && pnpm test` |
 | The vault | `cd vault && zig build && zig build test` |
 | This website | `cd website && pnpm install && pnpm dev` (build: `pnpm build`; docs check: `node scripts/check-docs.mjs`) |
