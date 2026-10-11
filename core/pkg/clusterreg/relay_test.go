@@ -11,8 +11,8 @@ import (
 // write for the same message (relay_wire_test.go there asserts the same constants), so this encoder
 // and the chain's cannot drift apart. Exit is field 4, a varint, and is absent when false.
 const (
-	registerRelayExitHex   = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a14111111111111111111111111111111111111111120012a4022222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
-	registerRelayNoExitHex = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a1411111111111111111111111111111111111111112a4022222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+	registerRelayExitHex   = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a14111111111111111111111111111111111111111120012a402222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222232093333333333333333333a1044444444444444444444444444444444"
+	registerRelayNoExitHex = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a1411111111111111111111111111111111111111112a402222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222232093333333333333333333a1044444444444444444444444444444444"
 	// crossCertGoldenHex is chain/x/relay/types CrossCertMessage("node-a", 20 x 0x11).
 	crossCertGoldenHex = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763100" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111"
 )
@@ -24,6 +24,8 @@ func validRelay() RelayRegistration {
 		RSAFingerprint:   bytes.Repeat([]byte{0x11}, RelayFingerprintLen),
 		Exit:             true,
 		Ed25519Signature: bytes.Repeat([]byte{0x22}, RelaySignatureLen),
+		RSAPublicKey:     bytes.Repeat([]byte{0x33}, 9),
+		RSASignature:     bytes.Repeat([]byte{0x44}, 16),
 	}
 }
 
@@ -50,6 +52,16 @@ func TestRelayTypeURLs(t *testing.T) {
 	}
 }
 
+// rsaProofGoldenHex is chain/x/relay/types RSAProofMessage("node-a", 32 x 0x55).
+const rsaProofGoldenHex = "6f72616d612f72656c61792f7273612d70726f6f662f7631" + "00" + "6e6f64652d61" + "00" +
+	"5555555555555555555555555555555555555555555555555555555555555555"
+
+func TestRelayRSAProofMessage_matchesTheChain(t *testing.T) {
+	if got := RelayRSAProofMessage("node-a", bytes.Repeat([]byte{0x55}, 32)); hex.EncodeToString(got) != rsaProofGoldenHex {
+		t.Errorf("rsa proof message %x", got)
+	}
+}
+
 func TestRelayCrossCertMessage_matchesTheChain(t *testing.T) {
 	got := RelayCrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, RelayFingerprintLen))
 	if hex.EncodeToString(got) != crossCertGoldenHex {
@@ -72,6 +84,10 @@ func TestValidateRelay(t *testing.T) {
 		"a 21-byte fingerprint": func(r *RelayRegistration) { r.RSAFingerprint = append(r.RSAFingerprint, 0) },
 		"no signature":          func(r *RelayRegistration) { r.Ed25519Signature = nil },
 		"a 63-byte signature":   func(r *RelayRegistration) { r.Ed25519Signature = r.Ed25519Signature[:63] },
+		"no rsa public key":     func(r *RelayRegistration) { r.RSAPublicKey = nil },
+		"an rsa key too long":   func(r *RelayRegistration) { r.RSAPublicKey = make([]byte, RelayRSAPublicKeyMaxLen+1) },
+		"no rsa signature":      func(r *RelayRegistration) { r.RSASignature = nil },
+		"an rsa proof too long": func(r *RelayRegistration) { r.RSASignature = make([]byte, RelayRSASignatureMaxLen+1) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := validRelay()

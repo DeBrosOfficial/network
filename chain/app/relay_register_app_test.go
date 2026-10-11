@@ -1,7 +1,14 @@
 package app_test
 
 import (
+	"crypto"
 	stded25519 "crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1" // #nosec G505 -- a Tor relay fingerprint is SHA-1 by definition
+	"crypto/sha256"
+	"crypto/x509"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -66,21 +73,65 @@ func (c *wiringChain) addNodeWith(id, endpoint string, roles []nodestypes.Role, 
 	return n
 }
 
-// registerRelay sends MsgRegisterRelay through x/relay's msg server, wired to the real x/nodes.
+// appRSA is a relay's RSA identity: its key, the PKCS#1 DER of the public half and the SHA-1 of that DER,
+// which is the fingerprint. One is made per mark for the whole test binary: a key costs milliseconds.
+type appRSA struct {
+	key *rsa.PrivateKey
+	der []byte
+	fp  []byte
+}
+
+var (
+	appRSAs   = map[byte]appRSA{}
+	appRSAsMu sync.Mutex
+)
+
+func newAppRSA(t testing.TB, mark byte) appRSA {
+	t.Helper()
+	appRSAsMu.Lock()
+	defer appRSAsMu.Unlock()
+	if id, ok := appRSAs[mark]; ok {
+		return id
+	}
+	key, err := rsa.GenerateKey(rand.Reader, relaytypes.MinRSABits)
+	require.NoError(t, err)
+	der := x509.MarshalPKCS1PublicKey(&key.PublicKey)
+	sum := sha1.Sum(der)
+	id := appRSA{key: key, der: der, fp: sum[:]}
+	appRSAs[mark] = id
+	return id
+}
+
+// proof is the RSA identity's signature over the proof message of a node and its relay key.
+func (r appRSA) proof(t testing.TB, nodeID string, ed25519Pub []byte) []byte {
+	t.Helper()
+	sum := sha256.Sum256(relaytypes.RSAProofMessage(nodeID, ed25519Pub))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, r.key, crypto.SHA256, sum[:])
+	require.NoError(t, err)
+	return sig
+}
+
+// registerMsg is a MsgRegisterRelay for n with the RSA identity id, signed by n's relay key and by id.
+func (c *wiringChain) registerMsg(n relayNode, id appRSA) *relaytypes.MsgRegisterRelay {
+	c.t.Helper()
+	return &relaytypes.MsgRegisterRelay{
+		Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: id.fp,
+		Ed25519Signature: stded25519.Sign(n.priv, relaytypes.CrossCertMessage(n.id, id.fp)),
+		RsaPublicKey:     id.der,
+		RsaSignature:     id.proof(c.t, n.id, n.priv.Public().(stded25519.PublicKey)),
+	}
+}
+
+// registerRelay sends MsgRegisterRelay through x/relay's msg server, wired to the real x/nodes. The
+// relay's RSA identity is the one called mark; it returns the fingerprint.
 func (c *wiringChain) registerRelay(n relayNode, mark byte) []byte {
 	c.t.Helper()
-	fp := make([]byte, relaytypes.RSAFingerprintLen)
-	for i := range fp {
-		fp[i] = mark
-	}
+	id := newAppRSA(c.t, mark)
 	c.write(func(ctx sdk.Context) {
-		_, err := relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).RegisterRelay(ctx, &relaytypes.MsgRegisterRelay{
-			Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: fp,
-			Ed25519Signature: stded25519.Sign(n.priv, relaytypes.CrossCertMessage(n.id, fp)),
-		})
+		_, err := relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).RegisterRelay(ctx, c.registerMsg(n, id))
 		require.NoError(c.t, err)
 	})
-	return fp
+	return id.fp
 }
 
 func (c *wiringChain) storedRelay(fp []byte) relaytypes.Relay {
@@ -116,15 +167,13 @@ func TestRegisterRelay_identityInsideLockIsUnidentified(t *testing.T) {
 	require.Equal(t, relaytypes.UnidentifiedPrefix16, c.storedRelay(fp).Prefix16)
 }
 
-// registerRelayErr sends MsgRegisterRelay for n with fingerprint fp through x/relay wired to the real x/nodes.
-func (c *wiringChain) registerRelayErr(n relayNode, fp []byte) error {
+// registerRelayErr sends MsgRegisterRelay for n with the RSA identity called mark through x/relay wired to
+// the real x/nodes.
+func (c *wiringChain) registerRelayErr(n relayNode, mark byte) error {
 	c.t.Helper()
 	var err error
 	c.write(func(ctx sdk.Context) {
-		_, err = relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).RegisterRelay(ctx, &relaytypes.MsgRegisterRelay{
-			Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: fp,
-			Ed25519Signature: stded25519.Sign(n.priv, relaytypes.CrossCertMessage(n.id, fp)),
-		})
+		_, err = relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).RegisterRelay(ctx, c.registerMsg(n, newAppRSA(c.t, mark)))
 	})
 	return err
 }
@@ -132,14 +181,14 @@ func (c *wiringChain) registerRelayErr(n relayNode, fp []byte) error {
 func TestRegisterRelay_refusesANodeWithoutTheRelayRole(t *testing.T) {
 	c := newWiringChain(t)
 	n := c.addNodeWith("storage-only", "https://93.184.216.34:443", []nodestypes.Role{nodestypes.RoleStorage}, "relay")
-	err := c.registerRelayErr(n, bytes32(0x11)[:relaytypes.RSAFingerprintLen])
+	err := c.registerRelayErr(n, 0x11)
 	require.ErrorContains(t, err, "does not have role ROLE_RELAY")
 }
 
 func TestRegisterRelay_refusesARelayNodeThatBindsNoRelayKey(t *testing.T) {
 	c := newWiringChain(t)
 	n := c.addNodeWith("relay-consensus", "https://93.184.216.34:443", []nodestypes.Role{nodestypes.RoleRelay}, "consensus")
-	err := c.registerRelayErr(n, bytes32(0x11)[:relaytypes.RSAFingerprintLen])
+	err := c.registerRelayErr(n, 0x11)
 	require.ErrorContains(t, err, `binds no ed25519 key for service "relay"`,
 		"another ed25519 key of the node is never taken for the relay's: its votes would never match")
 }
@@ -165,21 +214,16 @@ func TestUpdateRelay_followsAMsgUpdateNodeRebind(t *testing.T) {
 	require.Equal(t, []byte(n.priv.Public().(stded25519.PublicKey)), c.storedRelay(fp).Ed25519Id, "registration snapshotted the old key")
 
 	c.write(func(ctx sdk.Context) {
+		id := newAppRSA(t, 0x11)
 		_, err := relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).UpdateRelay(ctx, &relaytypes.MsgUpdateRelay{
 			Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: fp,
 			Ed25519Signature: stded25519.Sign(newPriv, relaytypes.CrossCertMessage(n.id, fp)),
+			RsaPublicKey:     id.der,
+			RsaSignature:     id.proof(t, n.id, newPub),
 		})
 		require.NoError(t, err)
 	})
 	require.Equal(t, []byte(newPub), c.storedRelay(fp).Ed25519Id)
-}
-
-func bytes32(mark byte) []byte {
-	out := make([]byte, 32)
-	for i := range out {
-		out[i] = mark
-	}
-	return out
 }
 
 // nodeBindings is the binding set the chain holds for a node.

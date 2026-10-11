@@ -50,6 +50,14 @@ message MsgRegisterRelay {
   // ed25519_signature is the node's ed25519 identity signature over the
   // canonical cross-cert message (node_id and rsa_fingerprint).
   bytes ed25519_signature = 5;
+  // rsa_public_key is the relay's RSA identity public key, PKCS#1 DER
+  // (RSAPublicKey). Its SHA-1 digest is rsa_fingerprint, which is how the
+  // chain knows the fingerprint is the key's and not just a name.
+  bytes rsa_public_key = 6;
+  // rsa_signature is the RSA identity's RSASSA-PKCS1-v1_5 SHA-256 signature
+  // over the canonical RSA proof message (node_id and the node's relay
+  // ed25519 key): proof that whoever registers the fingerprint holds its key.
+  bytes rsa_signature = 7;
 }
 
 message MsgRegisterRelayResponse {}
@@ -67,6 +75,8 @@ message MsgUpdateRelay {
   bytes rsa_fingerprint = 3;
   bool exit = 4;
   bytes ed25519_signature = 5;
+  bytes rsa_public_key = 6;
+  bytes rsa_signature = 7;
 }
 
 message MsgUpdateRelayResponse {}

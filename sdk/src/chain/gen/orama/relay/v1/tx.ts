@@ -24,6 +24,18 @@ export interface MsgRegisterRelay {
    * canonical cross-cert message (node_id and rsa_fingerprint).
    */
   ed25519Signature: Uint8Array;
+  /**
+   * rsa_public_key is the relay's RSA identity public key, PKCS#1 DER
+   * (RSAPublicKey). Its SHA-1 digest is rsa_fingerprint, which is how the
+   * chain knows the fingerprint is the key's and not just a name.
+   */
+  rsaPublicKey: Uint8Array;
+  /**
+   * rsa_signature is the RSA identity's RSASSA-PKCS1-v1_5 SHA-256 signature
+   * over the canonical RSA proof message (node_id and the node's relay
+   * ed25519 key): proof that whoever registers the fingerprint holds its key.
+   */
+  rsaSignature: Uint8Array;
 }
 
 export interface MsgRegisterRelayResponse {
@@ -42,6 +54,8 @@ export interface MsgUpdateRelay {
   rsaFingerprint: Uint8Array;
   exit: boolean;
   ed25519Signature: Uint8Array;
+  rsaPublicKey: Uint8Array;
+  rsaSignature: Uint8Array;
 }
 
 export interface MsgUpdateRelayResponse {
@@ -84,6 +98,8 @@ function createBaseMsgRegisterRelay(): MsgRegisterRelay {
     rsaFingerprint: new Uint8Array(0),
     exit: false,
     ed25519Signature: new Uint8Array(0),
+    rsaPublicKey: new Uint8Array(0),
+    rsaSignature: new Uint8Array(0),
   };
 }
 
@@ -103,6 +119,12 @@ export const MsgRegisterRelay: MessageFns<MsgRegisterRelay> = {
     }
     if (message.ed25519Signature.length !== 0) {
       writer.uint32(42).bytes(message.ed25519Signature);
+    }
+    if (message.rsaPublicKey.length !== 0) {
+      writer.uint32(50).bytes(message.rsaPublicKey);
+    }
+    if (message.rsaSignature.length !== 0) {
+      writer.uint32(58).bytes(message.rsaSignature);
     }
     return writer;
   },
@@ -160,6 +182,22 @@ export const MsgRegisterRelay: MessageFns<MsgRegisterRelay> = {
             message.ed25519Signature = reader.bytes();
             continue;
           }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.rsaPublicKey = reader.bytes();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.rsaSignature = reader.bytes();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -191,6 +229,16 @@ export const MsgRegisterRelay: MessageFns<MsgRegisterRelay> = {
         : isSet(object.ed25519_signature)
         ? bytesFromBase64(object.ed25519_signature)
         : new Uint8Array(0),
+      rsaPublicKey: isSet(object.rsaPublicKey)
+        ? bytesFromBase64(object.rsaPublicKey)
+        : isSet(object.rsa_public_key)
+        ? bytesFromBase64(object.rsa_public_key)
+        : new Uint8Array(0),
+      rsaSignature: isSet(object.rsaSignature)
+        ? bytesFromBase64(object.rsaSignature)
+        : isSet(object.rsa_signature)
+        ? bytesFromBase64(object.rsa_signature)
+        : new Uint8Array(0),
     };
   },
 
@@ -211,6 +259,12 @@ export const MsgRegisterRelay: MessageFns<MsgRegisterRelay> = {
     if (message.ed25519Signature.length !== 0) {
       obj.ed25519Signature = base64FromBytes(message.ed25519Signature);
     }
+    if (message.rsaPublicKey.length !== 0) {
+      obj.rsaPublicKey = base64FromBytes(message.rsaPublicKey);
+    }
+    if (message.rsaSignature.length !== 0) {
+      obj.rsaSignature = base64FromBytes(message.rsaSignature);
+    }
     return obj;
   },
 
@@ -224,6 +278,8 @@ export const MsgRegisterRelay: MessageFns<MsgRegisterRelay> = {
     message.rsaFingerprint = object.rsaFingerprint ?? new Uint8Array(0);
     message.exit = object.exit ?? false;
     message.ed25519Signature = object.ed25519Signature ?? new Uint8Array(0);
+    message.rsaPublicKey = object.rsaPublicKey ?? new Uint8Array(0);
+    message.rsaSignature = object.rsaSignature ?? new Uint8Array(0);
     return message;
   },
 };
@@ -287,6 +343,8 @@ function createBaseMsgUpdateRelay(): MsgUpdateRelay {
     rsaFingerprint: new Uint8Array(0),
     exit: false,
     ed25519Signature: new Uint8Array(0),
+    rsaPublicKey: new Uint8Array(0),
+    rsaSignature: new Uint8Array(0),
   };
 }
 
@@ -306,6 +364,12 @@ export const MsgUpdateRelay: MessageFns<MsgUpdateRelay> = {
     }
     if (message.ed25519Signature.length !== 0) {
       writer.uint32(42).bytes(message.ed25519Signature);
+    }
+    if (message.rsaPublicKey.length !== 0) {
+      writer.uint32(50).bytes(message.rsaPublicKey);
+    }
+    if (message.rsaSignature.length !== 0) {
+      writer.uint32(58).bytes(message.rsaSignature);
     }
     return writer;
   },
@@ -363,6 +427,22 @@ export const MsgUpdateRelay: MessageFns<MsgUpdateRelay> = {
             message.ed25519Signature = reader.bytes();
             continue;
           }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.rsaPublicKey = reader.bytes();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.rsaSignature = reader.bytes();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -394,6 +474,16 @@ export const MsgUpdateRelay: MessageFns<MsgUpdateRelay> = {
         : isSet(object.ed25519_signature)
         ? bytesFromBase64(object.ed25519_signature)
         : new Uint8Array(0),
+      rsaPublicKey: isSet(object.rsaPublicKey)
+        ? bytesFromBase64(object.rsaPublicKey)
+        : isSet(object.rsa_public_key)
+        ? bytesFromBase64(object.rsa_public_key)
+        : new Uint8Array(0),
+      rsaSignature: isSet(object.rsaSignature)
+        ? bytesFromBase64(object.rsaSignature)
+        : isSet(object.rsa_signature)
+        ? bytesFromBase64(object.rsa_signature)
+        : new Uint8Array(0),
     };
   },
 
@@ -414,6 +504,12 @@ export const MsgUpdateRelay: MessageFns<MsgUpdateRelay> = {
     if (message.ed25519Signature.length !== 0) {
       obj.ed25519Signature = base64FromBytes(message.ed25519Signature);
     }
+    if (message.rsaPublicKey.length !== 0) {
+      obj.rsaPublicKey = base64FromBytes(message.rsaPublicKey);
+    }
+    if (message.rsaSignature.length !== 0) {
+      obj.rsaSignature = base64FromBytes(message.rsaSignature);
+    }
     return obj;
   },
 
@@ -427,6 +523,8 @@ export const MsgUpdateRelay: MessageFns<MsgUpdateRelay> = {
     message.rsaFingerprint = object.rsaFingerprint ?? new Uint8Array(0);
     message.exit = object.exit ?? false;
     message.ed25519Signature = object.ed25519Signature ?? new Uint8Array(0);
+    message.rsaPublicKey = object.rsaPublicKey ?? new Uint8Array(0);
+    message.rsaSignature = object.rsaSignature ?? new Uint8Array(0);
     return message;
   },
 };

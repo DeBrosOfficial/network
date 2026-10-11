@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,7 +27,7 @@ type relayClaim struct {
 // snapshotted from the node's "relay" binding; MsgUpdateRelay refreshes it
 // after a rotation, and this module does not watch binding changes by itself.
 func (k Keeper) registerRelay(ctx sdk.Context, msg *types.MsgRegisterRelay) error {
-	claim, err := k.checkRelayClaim(ctx, "register relay", msg.Operator, msg.NodeId, msg.RsaFingerprint, msg.Ed25519Signature, msg.Exit)
+	claim, err := k.checkRelayClaim(ctx, "register relay", msg.Operator, msg.NodeId, relayProof{fingerprint: msg.RsaFingerprint, ed25519Signature: msg.Ed25519Signature, rsaPublicKey: msg.RsaPublicKey, rsaSignature: msg.RsaSignature}, msg.Exit)
 	if err != nil {
 		return err
 	}
@@ -52,13 +53,16 @@ func (k Keeper) registerRelay(ctx sdk.Context, msg *types.MsgRegisterRelay) erro
 // MsgUpdateNode on x/nodes. The jail flag is kept; the old fingerprint stops being a registered relay
 // (its earlier payouts stay under it).
 func (k Keeper) updateRelay(ctx sdk.Context, msg *types.MsgUpdateRelay) error {
-	claim, err := k.checkRelayClaim(ctx, "update relay", msg.Operator, msg.NodeId, msg.RsaFingerprint, msg.Ed25519Signature, msg.Exit)
+	claim, err := k.checkRelayClaim(ctx, "update relay", msg.Operator, msg.NodeId, relayProof{fingerprint: msg.RsaFingerprint, ed25519Signature: msg.Ed25519Signature, rsaPublicKey: msg.RsaPublicKey, rsaSignature: msg.RsaSignature}, msg.Exit)
 	if err != nil {
 		return err
 	}
 	oldFingerprint, err := k.NodeIndex.Get(ctx, msg.NodeId)
-	if err != nil {
+	if errors.Is(err, collections.ErrNotFound) {
 		return fmt.Errorf("update relay: node %s: %w", msg.NodeId, types.ErrRelayNotRegistered)
+	}
+	if err != nil {
+		return fmt.Errorf("update relay: failed to load the relay of node %s: %w", msg.NodeId, err)
 	}
 	old, found, err := k.getRelay(ctx, oldFingerprint)
 	if err != nil {
@@ -89,10 +93,20 @@ func (k Keeper) updateRelay(ctx sdk.Context, msg *types.MsgUpdateRelay) error {
 	return nil
 }
 
+// relayProof is what a registration or an update offers as proof of the fingerprint: the node's
+// ed25519 cross-signature over it, and the RSA identity key behind it with that key's signature.
+type relayProof struct {
+	fingerprint      []byte
+	ed25519Signature []byte
+	rsaPublicKey     []byte
+	rsaSignature     []byte
+}
+
 // checkRelayClaim validates what a registration and an update share: the shapes, the operator's
-// ownership of the node, that the operator is not a reporter, and the node's ed25519 cross-signature
-// over the fingerprint. what names the message in errors.
-func (k Keeper) checkRelayClaim(ctx sdk.Context, what, operatorAddr, nodeID string, rsaFingerprint, signature []byte, exit bool) (relayClaim, error) {
+// ownership of the node, that the operator is not a reporter, the node's ed25519 cross-signature over
+// the fingerprint and the RSA identity's own proof of it. what names the message in errors.
+func (k Keeper) checkRelayClaim(ctx sdk.Context, what, operatorAddr, nodeID string, proof relayProof, exit bool) (relayClaim, error) {
+	rsaFingerprint := proof.fingerprint
 	if nodeID == "" {
 		return relayClaim{}, fmt.Errorf("%s: node id is empty", what)
 	}
@@ -118,8 +132,11 @@ func (k Keeper) checkRelayClaim(ctx sdk.Context, what, operatorAddr, nodeID stri
 	if !boundOperator.Equals(operator) {
 		return relayClaim{}, fmt.Errorf("%s: operator does not own node %s", what, nodeID)
 	}
-	if !types.VerifyCrossCert(pub, nodeID, rsaFingerprint, signature) {
+	if !types.VerifyCrossCert(pub, nodeID, rsaFingerprint, proof.ed25519Signature) {
 		return relayClaim{}, fmt.Errorf("%s: %w", what, types.ErrCrossCertMismatch)
+	}
+	if err := types.VerifyRSAProof(rsaFingerprint, proof.rsaPublicKey, pub, nodeID, proof.rsaSignature); err != nil {
+		return relayClaim{}, fmt.Errorf("%s: %w", what, err)
 	}
 	prefix16, err := types.RelayPrefix16(network)
 	if err != nil {

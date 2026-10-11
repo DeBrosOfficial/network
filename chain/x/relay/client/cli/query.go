@@ -27,6 +27,8 @@ func GetQueryCmd() *cobra.Command {
 		GetCmdQueryParams(),
 		GetCmdQueryReporters(),
 		GetCmdQueryRelay(),
+		GetCmdQueryOperatorRelays(),
+		GetCmdQueryRelayPayouts(),
 		GetCmdQueryEpochResult(),
 		GetCmdQueryInvariants(),
 	)
@@ -91,6 +93,54 @@ func GetCmdQueryRelay() *cobra.Command {
 			res, err := types.NewQueryClient(clientCtx).Relay(cmd.Context(), &types.QueryRelayRequest{RsaFingerprintHex: args[0]})
 			if err != nil {
 				return fmt.Errorf("failed to query relay: %w", err)
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// GetCmdQueryOperatorRelays implements `oramad query relay operator-relays [operator]`.
+func GetCmdQueryOperatorRelays() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "operator-relays [operator]",
+		Short: "Query an operator's registered relays with the last payout of each",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return fmt.Errorf("failed to get client context: %w", err)
+			}
+			res, err := types.NewQueryClient(clientCtx).OperatorRelays(cmd.Context(), &types.QueryOperatorRelaysRequest{Operator: args[0]})
+			if err != nil {
+				return fmt.Errorf("failed to query the relays of %s: %w", args[0], err)
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// GetCmdQueryRelayPayouts implements `oramad query relay payouts [epoch]`.
+func GetCmdQueryRelayPayouts() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "payouts [epoch]",
+		Short: "Query what one settled epoch paid each relay",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			epoch, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid epoch %q: %w", args[0], err)
+			}
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return fmt.Errorf("failed to get client context: %w", err)
+			}
+			res, err := types.NewQueryClient(clientCtx).RelayPayouts(cmd.Context(), &types.QueryRelayPayoutsRequest{Epoch: epoch})
+			if err != nil {
+				return fmt.Errorf("failed to query the relay payouts of epoch %d: %w", epoch, err)
 			}
 			return clientCtx.PrintProto(res)
 		},

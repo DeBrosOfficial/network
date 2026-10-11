@@ -35,12 +35,15 @@ func (f *testFixture) reportsOf(t *testing.T, epoch uint64) []types.CompleteRepo
 	return out
 }
 
-func registerMsg(rk relayKey) *types.MsgRegisterRelay {
+func registerMsg(t *testing.T, rk relayKey) *types.MsgRegisterRelay {
+	t.Helper()
 	return &types.MsgRegisterRelay{
 		Operator:         rk.operator.String(),
 		NodeId:           rk.nodeID,
 		RsaFingerprint:   rk.fp,
 		Ed25519Signature: ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, rk.fp)),
+		RsaPublicKey:     rk.rsa.der,
+		RsaSignature:     rk.rsa.proof(t, rk.nodeID, rk.pub),
 	}
 }
 
@@ -269,7 +272,7 @@ func TestRegisterRelay_refusesAReporterAsOperator(t *testing.T) {
 	f.init(t, 1, []sdk.AccAddress{reporter}, nil)
 	rk := newRelayKey(t, "node-a", 0x11, reporter, "10.1.2.3")
 	f.Nodes.add(rk)
-	_, err := f.Msg.RegisterRelay(f.Ctx, registerMsg(rk))
+	_, err := f.Msg.RegisterRelay(f.Ctx, registerMsg(t, rk))
 	require.ErrorIs(t, err, types.ErrReporterOperatesRelay)
 }
 

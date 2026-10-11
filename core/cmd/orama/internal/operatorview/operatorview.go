@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -35,6 +36,10 @@ const (
 	// fingerprintBytes is the length of a Tor relay's RSA fingerprint.
 	fingerprintBytes = 20
 )
+
+// nodeIDPattern is what x/nodes accepts as a node id. A relay's node id is printed on a terminal, so one
+// that is not this (a gateway that answers with control characters) is refused, not shown.
+var nodeIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`)
 
 // Querier runs one module query and answers its JSON.
 type Querier interface {
@@ -143,6 +148,9 @@ func relays(ctx context.Context, q Querier, address string) (out []Relay, more b
 // relayRow checks what the chain said of one relay: the fingerprint is 20 bytes of base64, the epoch
 // a number and the amount a non-negative integer. An empty epoch or amount is "never paid".
 func relayRow(nodeID, fingerprint, epoch, payout string) (Relay, error) {
+	if !nodeIDPattern.MatchString(nodeID) {
+		return Relay{}, fmt.Errorf("the chain names a relay's node %q, which is not a node id", nodeID)
+	}
 	raw, err := base64.StdEncoding.DecodeString(fingerprint)
 	if err != nil || len(raw) != fingerprintBytes {
 		return Relay{}, fmt.Errorf("the relay of node %q has a fingerprint %q that is not %d bytes of base64", nodeID, fingerprint, fingerprintBytes)

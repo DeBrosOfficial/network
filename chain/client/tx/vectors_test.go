@@ -167,8 +167,8 @@ func vectorMessages(signer string) []struct {
 		{"shielded_shield_earnings", &shieldedtypes.MsgShieldEarnings{Signer: signer, Bundle: bytesOf(2, 300)}, ""},
 		{"shielded_unshield_bond", &shieldedtypes.MsgUnshield{Signer: signer, Bundle: bytesOf(3, 300), Target: shieldedtypes.UnshieldTargetBond, Validator: otherVal}, ""},
 		{"shielded_unshield_node_bond", &shieldedtypes.MsgUnshield{Signer: signer, Bundle: bytesOf(4, 300), Target: shieldedtypes.UnshieldTargetNodeBond, NodeId: "node-1", Role: nodestypes.RoleStorage}, ""},
-		{"relay_register_relay", &relaytypes.MsgRegisterRelay{Operator: signer, NodeId: "node-1", RsaFingerprint: bytesOf(1, 32), Exit: true, Ed25519Signature: bytesOf(2, 64)}, ""},
-		{"relay_update_relay", &relaytypes.MsgUpdateRelay{Operator: signer, NodeId: "node-1", RsaFingerprint: bytesOf(3, 20), Exit: true, Ed25519Signature: bytesOf(4, 64)}, ""},
+		{"relay_register_relay", &relaytypes.MsgRegisterRelay{Operator: signer, NodeId: "node-1", RsaFingerprint: bytesOf(1, 32), Exit: true, Ed25519Signature: bytesOf(2, 64), RsaPublicKey: bytesOf(5, 140), RsaSignature: bytesOf(6, 128)}, ""},
+		{"relay_update_relay", &relaytypes.MsgUpdateRelay{Operator: signer, NodeId: "node-1", RsaFingerprint: bytesOf(3, 20), Exit: true, Ed25519Signature: bytesOf(4, 64), RsaPublicKey: bytesOf(5, 140), RsaSignature: bytesOf(6, 128)}, ""},
 	}
 }
 

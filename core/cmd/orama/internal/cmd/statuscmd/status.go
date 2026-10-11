@@ -43,7 +43,8 @@ var Cmd = &cobra.Command{
 	Short: "Show your nodes, the cluster, the chain and your account",
 	Long: `Show everything about your nodes in one place: each node's cluster health and chain
 (height, syncing, validator), the verdict with what to do, and your account on the chain (earnings,
-spendable balance, bond): the one 'orama setup' registered your nodes under, or the one --operator names.
+spendable balance, bond, and each Tor relay registered on your nodes with the last payout it received):
+the one 'orama setup' registered your nodes under, or the one --operator names.
 
 In a terminal this is the live view (tab/1-0 switch tabs, ? help, q quit). Piped or with --once it
 prints one table; --json prints a document whose "healthy" is true only when the verdict is
@@ -62,7 +63,7 @@ func init() {
 	pf.StringVar(&flags.node, "node", "", "Show only this node (public IP or WireGuard IP)")
 	pf.BoolVar(&flags.ssh, "ssh", false, "Collect over SSH from every node instead of the gateway API (break-glass)")
 	pf.StringVar(&flags.config, "config", "", "With --ssh: read nodes from this file instead of resolving them")
-	Cmd.Flags().StringVar(&flags.operator, "operator", "", "Your operator account (orama1...), to show its earnings, balance and bond")
+	Cmd.Flags().StringVar(&flags.operator, "operator", "", "Your operator account (orama1...), to show its earnings, balance, bond and relays")
 	Cmd.Flags().BoolVar(&flags.once, "once", false, "Print one table and exit, even in a terminal")
 	Cmd.Flags().DurationVar(&flags.interval, "interval", monitor.DefaultInterval, "How often the live view refreshes")
 	for _, v := range Views {

@@ -14,6 +14,8 @@ func relayFor(node string) clusterreg.RelayRegistration {
 		RSAFingerprint:   bytes.Repeat([]byte{0x11}, clusterreg.RelayFingerprintLen),
 		Exit:             true,
 		Ed25519Signature: bytes.Repeat([]byte{0x22}, clusterreg.RelaySignatureLen),
+		RSAPublicKey:     bytes.Repeat([]byte{0x33}, 9),
+		RSASignature:     bytes.Repeat([]byte{0x44}, 16),
 	}
 }
 
@@ -54,11 +56,14 @@ func TestRegisterRelay_refusesABadRelayBeforeTheChainIsAsked(t *testing.T) {
 	short.RSAFingerprint = short.RSAFingerprint[:19]
 	unsigned := relayFor("node-a")
 	unsigned.Ed25519Signature = nil
+	noProof := relayFor("node-a")
+	noProof.RSASignature = nil
 	for name, r := range map[string]clusterreg.RelayRegistration{
 		"no node id":          relayFor(""),
 		"a bad node id":       relayFor("bad id"),
 		"a short fingerprint": short,
 		"no signature":        unsigned,
+		"no rsa proof":        noProof,
 	} {
 		t.Run(name, func(t *testing.T) {
 			chain := newFakeChain()

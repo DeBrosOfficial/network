@@ -818,7 +818,9 @@
       "node_id": "",
       "rsa_fingerprint": null,
       "exit": false,
-      "ed25519_signature": null
+      "ed25519_signature": null,
+      "rsa_public_key": null,
+      "rsa_signature": null
     },
     "/orama.relay.v1.MsgReportEpoch": {
       "@type": "/orama.relay.v1.MsgReportEpoch",
@@ -835,7 +837,9 @@
       "node_id": "",
       "rsa_fingerprint": null,
       "exit": false,
-      "ed25519_signature": null
+      "ed25519_signature": null,
+      "rsa_public_key": null,
+      "rsa_signature": null
     },
     "/orama.relay.v1.MsgUpdateReporters": {
       "@type": "/orama.relay.v1.MsgUpdateReporters",

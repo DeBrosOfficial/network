@@ -69,6 +69,7 @@ func (r *runner) registerRelay(ctx context.Context, sess ChainSession, n *nodeRu
 	exit := slices.Contains(n.plan.Roles, clusterreg.RoleExit)
 	reg := clusterreg.RelayRegistration{
 		Operator: r.oper, NodeID: id, RSAFingerprint: relay.Fingerprint, Exit: exit, Ed25519Signature: relay.CrossCert,
+		RSAPublicKey: relay.RSAPublicKey, RSASignature: relay.RSASignature,
 	}
 	fingerprint := strings.ToUpper(fmt.Sprintf("%x", relay.Fingerprint))
 	held, err := sess.RelayOfNode(ctx, r.oper, id)

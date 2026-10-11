@@ -22,9 +22,10 @@ var relayIdentityCmd = &cobra.Command{
 	Use:   "relay-identity",
 	Short: "Sign what registering this node's Tor relay on the chain needs (run as root, on the relay's node)",
 	Long: `Print the relay's RSA fingerprint, the binding that makes its ed25519 master identity the
-operator's service key "relay", and the cross-certificate that ties the fingerprint to the node.
-x/relay pays the relay that a directory authority's vote names by that ed25519 identity and that
-fingerprint, so the chain needs both, signed by the relay's own key.
+operator's service key "relay", the cross-certificate that ties the fingerprint to the node, and the RSA
+identity's own proof of the fingerprint. x/relay pays the relay that a directory authority's vote names
+by that ed25519 identity and that fingerprint, so the chain needs both, signed by the relay's own keys;
+a fingerprint is public, so the RSA proof is what shows the registrant holds the key behind it.
 
 The signatures are made here with the relay's key in its DataDirectory
 (` + constants.GlobalTorRelayHome + `); the key is never printed or copied. 'orama setup' runs this on the
@@ -65,7 +66,8 @@ func relayIdentityDoc(home, chainID, operator, nodeID string) ([]byte, error) {
 	if err != nil {
 		return nil, clierr.Failure("%v", err)
 	}
-	identity, err := globalbind.NewRelayIdentity(keys.Ed25519Expanded, keys.Fingerprint, chainID, operator, nodeID)
+	defer clear(keys.Ed25519Expanded)
+	identity, err := globalbind.NewRelayIdentity(keys.Ed25519Expanded, keys.RSA, chainID, operator, nodeID)
 	if err != nil {
 		return nil, clierr.Usage("%v", err)
 	}

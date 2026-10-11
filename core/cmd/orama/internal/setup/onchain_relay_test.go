@@ -114,11 +114,11 @@ func TestRun_aRelayIdentityTheChainWouldRefuseStopsTheRunBeforeAnyTransaction(t 
 	tamper := map[string]func(*NodeIdentity){
 		"no identity at all": func(id *NodeIdentity) { id.RelayIdentity = nil },
 		"a cross-certificate of another node": func(id *NodeIdentity) {
-			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayFingerprint(ip1), testChainID, testOperator, "someone-else")
+			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayRSA(ip1), testChainID, testOperator, "someone-else")
 			id.RelayIdentity, _ = json.Marshal(other)
 		},
 		"a binding for another operator": func(id *NodeIdentity) {
-			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayFingerprint(ip1), testChainID, "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s", "alice")
+			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayRSA(ip1), testChainID, "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s", "alice")
 			id.RelayIdentity, _ = json.Marshal(other)
 		},
 		"text": func(id *NodeIdentity) { id.RelayIdentity = []byte("no relay here") },

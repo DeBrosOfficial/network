@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -17,27 +18,29 @@ func TestRelays_pagesEveryRelayInFingerprintOrder(t *testing.T) {
 	f := newTestFixture(t)
 	f.init(t, 1, []sdk.AccAddress{acc(1)}, nil)
 	q := keeper.NewQueryServerImpl(f.Keeper)
+	exitOf := map[string]bool{}
 	for i, mark := range []byte{0x33, 0x11, 0x22} {
-		f.register(t, newRelayKey(t, "node-"+string(rune('a'+i)), mark, acc(2), "10.1.0.1"), mark == 0x22)
+		rk := newRelayKey(t, "node-"+string(rune('a'+i)), mark, acc(2), "10.1.0.1")
+		f.register(t, rk, mark == 0x22)
+		exitOf[string(rk.fp)] = mark == 0x22
 	}
 
-	var marks []byte
-	var exits []bool
+	var fingerprints [][]byte
 	var key []byte
 	for pages := 0; pages < 5; pages++ {
 		res, err := q.Relays(f.Ctx, &types.QueryRelaysRequest{Pagination: &query.PageRequest{Key: key, Limit: 2}})
 		require.NoError(t, err)
 		require.LessOrEqual(t, len(res.Relays), 2)
 		for _, r := range res.Relays {
-			marks = append(marks, r.RsaFingerprint[0])
-			exits = append(exits, r.Exit)
+			fingerprints = append(fingerprints, r.RsaFingerprint)
+			require.Equal(t, exitOf[string(r.RsaFingerprint)], r.Exit)
 		}
 		if key = res.Pagination.NextKey; key == nil {
 			break
 		}
 	}
-	require.Equal(t, []byte{0x11, 0x22, 0x33}, marks)
-	require.Equal(t, []bool{false, true, false}, exits)
+	require.Len(t, fingerprints, 3)
+	require.True(t, bytes.Compare(fingerprints[0], fingerprints[1]) < 0 && bytes.Compare(fingerprints[1], fingerprints[2]) < 0, "fingerprint order")
 }
 
 func TestRelays_emptyListIsEmptyNotAnError(t *testing.T) {

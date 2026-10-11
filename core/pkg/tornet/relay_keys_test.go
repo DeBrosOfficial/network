@@ -49,6 +49,9 @@ func TestReadRelayKeys_readsTheFingerprintAndTheExpandedSecret(t *testing.T) {
 	if len(keys.Ed25519Expanded) != Ed25519ExpandedLen || keys.Ed25519Expanded[0] != 7 {
 		t.Errorf("expanded secret %x", keys.Ed25519Expanded)
 	}
+	if keys.RSA == nil || keys.RSA.Validate() != nil {
+		t.Errorf("the RSA identity key was not read: %+v", keys.RSA)
+	}
 	if keys.Ed25519ID != "" {
 		t.Errorf("ed25519 id %q before tor wrote one", keys.Ed25519ID)
 	}
@@ -90,6 +93,20 @@ func TestReadRelayKeys_refusals(t *testing.T) {
 		home, _ := keyedRelayHome(t)
 		write(t, filepath.Join(home, ceremonyKeysDir, KeyEd25519Master), make([]byte, 96))
 		if _, err := ReadRelayKeys(home); err == nil || !strings.Contains(err.Error(), "not a tor ed25519 secret key file") {
+			t.Fatalf("err = %v", err)
+		}
+	})
+	t.Run("a link in place of the keys directory", func(t *testing.T) {
+		home, _ := keyedRelayHome(t)
+		elsewhere := t.TempDir()
+		keys := filepath.Join(home, ceremonyKeysDir)
+		if err := os.Rename(keys, filepath.Join(elsewhere, ceremonyKeysDir)); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(elsewhere, ceremonyKeysDir), keys); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadRelayKeys(home); err == nil || !strings.Contains(err.Error(), "not a directory") {
 			t.Fatalf("err = %v", err)
 		}
 	})

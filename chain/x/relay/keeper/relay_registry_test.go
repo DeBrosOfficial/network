@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -19,17 +18,19 @@ import (
 	"github.com/DeBrosOfficial/network/chain/x/relay/types"
 )
 
-// updateMsg is a MsgUpdateRelay for rk's node carrying fingerprint fp, cross-signed by key.
-func updateMsg(rk relayKey, fp []byte, key ed25519.PrivateKey) *types.MsgUpdateRelay {
+// updateMsg is a MsgUpdateRelay for rk's node that gives it the RSA identity id, cross-signed by key and
+// proved by id's own key.
+func updateMsg(t *testing.T, rk relayKey, id rsaID, key ed25519.PrivateKey) *types.MsgUpdateRelay {
+	t.Helper()
 	return &types.MsgUpdateRelay{
 		Operator:         rk.operator.String(),
 		NodeId:           rk.nodeID,
-		RsaFingerprint:   fp,
-		Ed25519Signature: ed25519.Sign(key, types.CrossCertMessage(rk.nodeID, fp)),
+		RsaFingerprint:   id.fp,
+		Ed25519Signature: ed25519.Sign(key, types.CrossCertMessage(rk.nodeID, id.fp)),
+		RsaPublicKey:     id.der,
+		RsaSignature:     id.proof(t, rk.nodeID, key.Public().(ed25519.PublicKey)),
 	}
 }
-
-func fingerprintOf(mark byte) []byte { return bytes.Repeat([]byte{mark}, types.RSAFingerprintLen) }
 
 // eventsOf runs fn with a fresh event manager and returns the events of the given type it emitted.
 func eventsOf(f *testFixture, eventType string, fn func(ctx sdk.Context)) []sdk.Event {
@@ -43,6 +44,9 @@ func eventsOf(f *testFixture, eventType string, fn func(ctx sdk.Context)) []sdk.
 	}
 	return out
 }
+
+// hexOf is a fingerprint as the events write it: 40 upper-case hex digits.
+func hexOf(fp []byte) string { return strings.ToUpper(hex.EncodeToString(fp)) }
 
 func attr(e sdk.Event, key string) string {
 	for _, a := range e.Attributes {
@@ -62,21 +66,23 @@ func TestRegisterRelay_refusals(t *testing.T) {
 	second := newRelayKey(t, "node-b", 0x22, operator, "10.1.0.2")
 	f.Nodes.add(second)
 
-	short := registerMsg(second)
+	short := registerMsg(t, second)
 	short.RsaFingerprint = short.RsaFingerprint[:types.RSAFingerprintLen-1]
-	noNode := registerMsg(second)
+	noNode := registerMsg(t, second)
 	noNode.NodeId = ""
-	dup := registerMsg(second)
-	dup.RsaFingerprint = rk.fp
-	dup.Ed25519Signature = ed25519.Sign(second.priv, types.CrossCertMessage(second.nodeID, rk.fp))
-	again := registerMsg(rk)
-	again.RsaFingerprint = fingerprintOf(0x66)
+	sameIdentity := second
+	sameIdentity.rsa, sameIdentity.fp = rk.rsa, rk.fp
+	dup := registerMsg(t, sameIdentity)
+	again := registerMsg(t, rk)
+	secondIdentity := newRSAID(t, 0x66)
+	again.RsaFingerprint, again.RsaPublicKey = secondIdentity.fp, secondIdentity.der
+	again.RsaSignature = secondIdentity.proof(t, rk.nodeID, rk.pub)
 	again.Ed25519Signature = ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, again.RsaFingerprint))
-	notOwner := registerMsg(second)
+	notOwner := registerMsg(t, second)
 	notOwner.Operator = other.String()
-	badSig := registerMsg(second)
+	badSig := registerMsg(t, second)
 	badSig.Ed25519Signature = ed25519.Sign(rk.priv, types.CrossCertMessage(second.nodeID, second.fp))
-	unknown := registerMsg(second)
+	unknown := registerMsg(t, second)
 	unknown.NodeId = "no-such-node"
 
 	for name, c := range map[string]struct {
@@ -107,11 +113,12 @@ func TestRegisterRelay_emitsWhatAnIndexerNeeds(t *testing.T) {
 	f.Nodes.add(rk)
 
 	events := eventsOf(f, types.EventTypeRelayRegistered, func(ctx sdk.Context) {
-		_, err := f.Msg.RegisterRelay(ctx, registerMsg(rk))
+		_, err := f.Msg.RegisterRelay(ctx, registerMsg(t, rk))
 		require.NoError(t, err)
 	})
 	require.Len(t, events, 1)
-	require.Equal(t, strings.Repeat("AB", types.RSAFingerprintLen), attr(events[0], types.AttributeKeyRSAFingerprint), "40 upper-case hex digits")
+	require.Equal(t, hexOf(rk.fp), attr(events[0], types.AttributeKeyRSAFingerprint), "40 upper-case hex digits")
+	require.Len(t, attr(events[0], types.AttributeKeyRSAFingerprint), 2*types.RSAFingerprintLen)
 	require.Equal(t, "node-a", attr(events[0], types.AttributeKeyNodeID))
 	require.Equal(t, acc(2).String(), attr(events[0], types.AttributeKeyOperator))
 	require.Equal(t, hex.EncodeToString(rk.pub), attr(events[0], types.AttributeKeyEd25519ID))
@@ -125,16 +132,17 @@ func TestUpdateRelay_rotatesTheFingerprintAndKeepsTheJail(t *testing.T) {
 	f.register(t, rk, false)
 	require.NoError(t, f.Keeper.JailRelay(f.Ctx, rk.fp))
 
-	newFP := fingerprintOf(0x77)
+	rotated := newRSAID(t, 0x77)
+	newFP := rotated.fp
 	events := eventsOf(f, types.EventTypeRelayUpdated, func(ctx sdk.Context) {
-		msg := updateMsg(rk, newFP, rk.priv)
+		msg := updateMsg(t, rk, rotated, rk.priv)
 		msg.Exit = true
 		_, err := f.Msg.UpdateRelay(ctx, msg)
 		require.NoError(t, err)
 	})
 	require.Len(t, events, 1)
-	require.Equal(t, strings.Repeat("77", types.RSAFingerprintLen), attr(events[0], types.AttributeKeyRSAFingerprint))
-	require.Equal(t, strings.Repeat("11", types.RSAFingerprintLen), attr(events[0], types.AttributeKeyPreviousRSAFingerprint))
+	require.Equal(t, hexOf(newFP), attr(events[0], types.AttributeKeyRSAFingerprint))
+	require.Equal(t, hexOf(rk.fp), attr(events[0], types.AttributeKeyPreviousRSAFingerprint))
 
 	_, err := f.Keeper.Relays.Get(f.Ctx, rk.fp)
 	require.Error(t, err, "the old fingerprint is no longer a registered relay")
@@ -165,11 +173,11 @@ func TestUpdateRelay_followsTheNodesRotatedEd25519Key(t *testing.T) {
 	node.pub = pub
 	f.Nodes.byID["node-a"] = node
 
-	stale := updateMsg(rk, rk.fp, rk.priv)
+	stale := updateMsg(t, rk, rk.rsa, rk.priv)
 	_, err = f.Msg.UpdateRelay(f.Ctx, stale)
 	require.ErrorIs(t, err, types.ErrCrossCertMismatch, "the old key no longer cross-signs for the node")
 
-	_, err = f.Msg.UpdateRelay(f.Ctx, updateMsg(rk, rk.fp, priv))
+	_, err = f.Msg.UpdateRelay(f.Ctx, updateMsg(t, rk, rk.rsa, priv))
 	require.NoError(t, err)
 	relay, err := f.Keeper.Relays.Get(f.Ctx, rk.fp)
 	require.NoError(t, err)
@@ -188,14 +196,18 @@ func TestUpdateRelay_refusals(t *testing.T) {
 	third := newRelayKey(t, "node-c", 0x33, other, "10.1.0.3")
 	f.register(t, third, false)
 
-	notOwner := updateMsg(rk, fingerprintOf(0x44), rk.priv)
+	fresh := newRSAID(t, 0x44)
+	notOwner := updateMsg(t, rk, fresh, rk.priv)
 	notOwner.Operator = other.String()
-	taken := updateMsg(rk, third.fp, rk.priv)
-	short := updateMsg(rk, fingerprintOf(0x44)[:19], rk.priv)
-	badSig := updateMsg(rk, fingerprintOf(0x44), third.priv)
-	noRelay := updateMsg(bare, fingerprintOf(0x55), bare.priv)
-	asReporter := updateMsg(rk, fingerprintOf(0x44), rk.priv)
+	taken := updateMsg(t, rk, third.rsa, rk.priv)
+	short := updateMsg(t, rk, fresh, rk.priv)
+	short.RsaFingerprint = short.RsaFingerprint[:19]
+	badSig := updateMsg(t, rk, fresh, third.priv)
+	noRelay := updateMsg(t, bare, newRSAID(t, 0x55), bare.priv)
+	asReporter := updateMsg(t, rk, fresh, rk.priv)
 	asReporter.Operator = reporter.String()
+	notTheKeysProof := updateMsg(t, rk, fresh, rk.priv)
+	notTheKeysProof.RsaSignature = third.rsa.proof(t, rk.nodeID, rk.pub)
 
 	for name, c := range map[string]struct {
 		msg  *types.MsgUpdateRelay
@@ -207,6 +219,7 @@ func TestUpdateRelay_refusals(t *testing.T) {
 		"cross-signature of another key": {badSig, types.ErrCrossCertMismatch.Error()},
 		"a node with no relay":           {noRelay, types.ErrRelayNotRegistered.Error()},
 		"a reporter":                     {asReporter, types.ErrReporterOperatesRelay.Error()},
+		"an rsa proof by another key":    {notTheKeysProof, types.ErrRSAProofMismatch.Error()},
 	} {
 		_, err := f.Msg.UpdateRelay(f.Ctx, c.msg)
 		require.Error(t, err, name)
@@ -228,8 +241,8 @@ func TestReportEpoch_refusesARelayThatIsNotRegistered(t *testing.T) {
 	err := f.submit(t, reporter, 1, []types.RelayObservation{obs(rk, 10, "1", false), obs(stranger, 10, "1", false)})
 	require.ErrorContains(t, err, "relay is not registered", "one unregistered relay refuses the whole chunk, so a reporter reports only what the chain knows")
 
-	rotated := fingerprintOf(0x77)
-	_, err = f.Msg.UpdateRelay(f.Ctx, updateMsg(rk, rotated, rk.priv))
+	rotated := newRSAID(t, 0x77)
+	_, err = f.Msg.UpdateRelay(f.Ctx, updateMsg(t, rk, rotated, rk.priv))
 	require.NoError(t, err)
 	err = f.submitAt(t, reporter, 1, []types.RelayObservation{obs(rk, 10, "1", false)})
 	require.ErrorContains(t, err, "relay is not registered", "a fingerprint a rotation replaced is not a registered relay")
@@ -245,7 +258,7 @@ func TestSettle_paysOnlyTheRegisteredFingerprintAfterARotation(t *testing.T) {
 
 	f.Emission.setCeiling(2, math.NewInt(1000))
 	require.NoError(t, f.submit(t, reporter, 2, []types.RelayObservation{obs(rk, 40, "1", false)}))
-	_, err := f.Msg.UpdateRelay(f.Ctx, updateMsg(rk, fingerprintOf(0x77), rk.priv))
+	_, err := f.Msg.UpdateRelay(f.Ctx, updateMsg(t, rk, newRSAID(t, 0x77), rk.priv))
 	require.NoError(t, err)
 
 	result, err := f.Keeper.SettleEpoch(f.Ctx, 2)
@@ -279,7 +292,7 @@ func TestSettle_emitsWhoWasPaidAndHowTheSplitFell(t *testing.T) {
 	}
 	require.Len(t, payout, 1)
 	require.Equal(t, "2", attr(payout[0], types.AttributeKeyEpoch))
-	require.Equal(t, strings.Repeat("11", types.RSAFingerprintLen), attr(payout[0], types.AttributeKeyRSAFingerprint))
+	require.Equal(t, hexOf(rk.fp), attr(payout[0], types.AttributeKeyRSAFingerprint))
 	require.Equal(t, "node-a", attr(payout[0], types.AttributeKeyNodeID))
 	require.Equal(t, operator.String(), attr(payout[0], types.AttributeKeyOperator))
 	require.Equal(t, "40", attr(payout[0], types.AttributeKeyAmount))
@@ -312,12 +325,16 @@ func TestOperatorRelays_listsEachRelayWithItsLastPayout(t *testing.T) {
 	res, err := q.OperatorRelays(f.Ctx, &types.QueryOperatorRelaysRequest{Operator: operator.String()})
 	require.NoError(t, err)
 	require.Len(t, res.Relays, 2, "another operator's relay is not listed")
-	require.Equal(t, paid.fp, res.Relays[0].Relay.RsaFingerprint)
-	require.Equal(t, uint64(3), res.Relays[0].LastPayoutEpoch)
-	require.Equal(t, "60", res.Relays[0].LastPayoutAmount.String())
-	require.Equal(t, idle.fp, res.Relays[1].Relay.RsaFingerprint)
-	require.Equal(t, uint64(0), res.Relays[1].LastPayoutEpoch)
-	require.True(t, res.Relays[1].LastPayoutAmount.IsZero())
+	byNode := map[string]types.RelayStanding{}
+	for _, standing := range res.Relays {
+		byNode[standing.Relay.NodeId] = standing
+	}
+	require.Equal(t, paid.fp, byNode["node-a"].Relay.RsaFingerprint)
+	require.Equal(t, uint64(3), byNode["node-a"].LastPayoutEpoch)
+	require.Equal(t, "60", byNode["node-a"].LastPayoutAmount.String())
+	require.Equal(t, idle.fp, byNode["node-b"].Relay.RsaFingerprint)
+	require.Equal(t, uint64(0), byNode["node-b"].LastPayoutEpoch)
+	require.True(t, byNode["node-b"].LastPayoutAmount.IsZero())
 
 	page, err := q.OperatorRelays(f.Ctx, &types.QueryOperatorRelaysRequest{Operator: operator.String(), Pagination: &query.PageRequest{Limit: 1}})
 	require.NoError(t, err)
@@ -397,4 +414,85 @@ func TestGenesis_rebuildsTheOperatorIndexAndTheLastPayouts(t *testing.T) {
 	require.Len(t, res.Relays, 1)
 	require.Equal(t, uint64(3), res.Relays[0].LastPayoutEpoch, "the newest payout wins, whatever order genesis lists them in")
 	require.Equal(t, "60", res.Relays[0].LastPayoutAmount.String())
+}
+
+// A report waits for its epoch to settle while its relay can be rotated: the state exported then must
+// still be valid and import, and settlement skips the entry of the replaced fingerprint.
+func TestGenesis_aRotationWithAReportWaitingStillExportsAndImports(t *testing.T) {
+	f := newTestFixture(t)
+	reporter, operator := acc(1), acc(2)
+	f.init(t, 1, []sdk.AccAddress{reporter}, nil)
+	rk := newRelayKey(t, "node-a", 0x11, operator, "10.1.0.1")
+	f.register(t, rk, false)
+	f.activate(t, []sdk.AccAddress{reporter}, []types.RelayObservation{obs(rk, 1, "1", false)})
+	f.Emission.setCeiling(2, math.NewInt(1000))
+	require.NoError(t, f.submit(t, reporter, 2, []types.RelayObservation{obs(rk, 40, "1", false)}))
+
+	_, err := f.Msg.UpdateRelay(f.Ctx, updateMsg(t, rk, newRSAID(t, 0x77), rk.priv))
+	require.NoError(t, err)
+	exported, err := f.Keeper.ExportGenesis(f.Ctx)
+	require.NoError(t, err)
+	require.Len(t, exported.Reports, 1, "the report still waits")
+	require.NoError(t, exported.Validate(), "an entry of a replaced fingerprint is not a reason to refuse the export")
+
+	fresh := newTestFixture(t)
+	require.NoError(t, fresh.Keeper.InitGenesis(fresh.Ctx, *exported))
+}
+
+// A fingerprint is public, so the chain asks the registrant to prove it holds the RSA key behind it:
+// nobody can register, or rotate to, a fingerprint whose key they do not hold.
+func TestRegisterRelay_refusesAFingerprintTheCallerCannotProve(t *testing.T) {
+	f := newTestFixture(t)
+	f.init(t, 1, []sdk.AccAddress{acc(1)}, nil)
+	victim := newRelayKey(t, "node-victim", 0x11, acc(2), "10.1.0.1")
+	squatter := newRelayKey(t, "node-squatter", 0x22, acc(3), "10.2.0.1")
+	f.Nodes.add(squatter)
+
+	withMsg := func(edit func(*types.MsgRegisterRelay)) error {
+		msg := registerMsg(t, squatter)
+		edit(msg)
+		_, err := f.Msg.RegisterRelay(f.Ctx, msg)
+		return err
+	}
+	victimFingerprint := func(msg *types.MsgRegisterRelay) {
+		msg.RsaFingerprint = victim.fp
+		msg.Ed25519Signature = ed25519.Sign(squatter.priv, types.CrossCertMessage(squatter.nodeID, victim.fp))
+	}
+	for name, edit := range map[string]func(*types.MsgRegisterRelay){
+		"the victim's fingerprint with the squatter's own key": victimFingerprint,
+		"the victim's fingerprint, its public key and the squatter's signature": func(msg *types.MsgRegisterRelay) {
+			victimFingerprint(msg)
+			msg.RsaPublicKey = victim.rsa.der
+		},
+		"a proof made for another node": func(msg *types.MsgRegisterRelay) {
+			msg.RsaSignature = squatter.rsa.proof(t, "node-victim", squatter.pub)
+		},
+		"a proof made for another relay key": func(msg *types.MsgRegisterRelay) {
+			otherPub, _, err := ed25519.GenerateKey(rand.Reader)
+			require.NoError(t, err)
+			msg.RsaSignature = squatter.rsa.proof(t, squatter.nodeID, otherPub)
+		},
+		"no key and no signature": func(msg *types.MsgRegisterRelay) {
+			msg.RsaPublicKey, msg.RsaSignature = nil, nil
+		},
+		"a key of 2000 bytes": func(msg *types.MsgRegisterRelay) {
+			msg.RsaPublicKey = make([]byte, 2*types.MaxRSAPublicKeyLen)
+		},
+		"a key with a byte appended": func(msg *types.MsgRegisterRelay) {
+			msg.RsaPublicKey = append(append([]byte(nil), msg.RsaPublicKey...), 0)
+		},
+		"a cut signature": func(msg *types.MsgRegisterRelay) {
+			msg.RsaSignature = msg.RsaSignature[:len(msg.RsaSignature)-1]
+		},
+	} {
+		err := withMsg(edit)
+		require.ErrorIs(t, err, types.ErrRSAProofMismatch, name)
+	}
+	require.NoError(t, withMsg(func(*types.MsgRegisterRelay) {}), "the squatter's own fingerprint with its own proof registers")
+	_, err := f.Keeper.Relays.Get(f.Ctx, victim.fp)
+	require.Error(t, err, "the victim's fingerprint stayed free")
+
+	f.Nodes.add(victim)
+	_, err = f.Msg.RegisterRelay(f.Ctx, registerMsg(t, victim))
+	require.NoError(t, err, "the victim registers its own fingerprint, which nobody could take before it")
 }

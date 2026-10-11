@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"crypto/ed25519"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,12 +39,7 @@ func TestRegisterRelay_invalidNetworkRejected(t *testing.T) {
 	f.init(t, 1, []sdk.AccAddress{acc(1)}, nil)
 	rk := newRelayKey(t, "node-a", 0x11, acc(2), "not-a-network")
 	f.Nodes.add(rk)
-	_, err := f.Msg.RegisterRelay(f.Ctx, &types.MsgRegisterRelay{
-		Operator:         rk.operator.String(),
-		NodeId:           rk.nodeID,
-		RsaFingerprint:   rk.fp,
-		Ed25519Signature: ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, rk.fp)),
-	})
+	_, err := f.Msg.RegisterRelay(f.Ctx, registerMsg(t, rk))
 	require.ErrorContains(t, err, "prefix /16")
 }
 
