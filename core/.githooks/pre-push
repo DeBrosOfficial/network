@@ -22,11 +22,12 @@ if [ $status -ne 0 ]; then
   exit 1
 fi
 
-# The chain: build and vet under each build-tag set. The race-detector tests (CosmWasm, the Orchard
-# verifier and the verifier binary all linked, several minutes) run in CI, not here: this hook has
-# to stay fast. `make -C chain test` runs the pure-Go unit tests by hand.
+# The chain: build, and vet the default and nowasm tag sets. The third set ("nowasm orchardffi", the cgo
+# files) and the race-detector tests (CosmWasm, the Orchard verifier and the verifier binary all
+# linked, several minutes) run in CI, not here: this hook has to stay fast. `make -C chain vet-all`
+# vets all three by hand, `make -C chain test` runs the pure-Go unit tests.
 echo -e "\n${CYAN}Building and vetting the chain...${NOCOLOR}"
-cd "$ROOT/chain" && CGO_ENABLED=0 go build -tags nowasm ./... && make vet-all
+cd "$ROOT/chain" && CGO_ENABLED=0 go build -tags nowasm ./... && make vet-all TAGSETS='"" "nowasm"'
 status=$?
 if [ $status -ne 0 ]; then
   echo -e "${RED}Push aborted: the chain does not build or vet.${NOCOLOR}"

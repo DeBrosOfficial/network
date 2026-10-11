@@ -19,9 +19,12 @@ GREMLINS_VERSION := v0.6.0
 SEMGREP_VERSION := 1.180.0
 CARGO_AUDIT_VERSION := 0.22.2
 CARGO_DENY_VERSION := 0.20.2
-# The toolchain native/build.sh builds with. Miri and the sanitizers need a nightly one.
+# The toolchain native/build.sh builds with. Miri and the sanitizers need a nightly one, pinned to
+# a dated build (an undated `nightly` turns the nightly job red on a day nothing in the repo
+# changed). 2026-10-01 is in rustup's dist index with miri and rust-src available for
+# x86_64-unknown-linux-gnu. Move the date on purpose, with the job's result in hand.
 RUST_TOOLCHAIN ?= 1.98.1
-RUST_NIGHTLY ?= nightly
+RUST_NIGHTLY ?= nightly-2026-10-01
 
 # The comparison the fleet scanners feature makes: reachable vulnerabilities against the accepted
 # list, staticcheck findings with the generated gateway code removed. The same code, no fleet.
@@ -74,7 +77,7 @@ MUTATION_EFFICACY ?=
 MUTATION_MIN := x/emission/types=80 x/power/types=65 x/storage/keeper=0
 MUTATION_DEFAULT_MIN := 90
 
-.PHONY: ci ci-nightly test-race wasmvm-lib native-vendor staticcheck gosec govulncheck vet-all \
+.PHONY: rust-ignores ci ci-nightly test-race wasmvm-lib native-vendor staticcheck gosec govulncheck vet-all \
 	nilaway semgrep semgrep-test mutation rust-lint rust-audit rust-deny rust-miri rust-asan \
 	rust-tools tools-go
 
@@ -83,7 +86,7 @@ print-%:
 	@echo '$($*)'
 
 ## ci: everything the pull-request workflow runs, in one command (slow: build, race tests, scanners).
-ci: vet-all test-race staticcheck gosec govulncheck semgrep-test semgrep rust-lint rust-audit rust-deny
+ci: vet-all test-race staticcheck gosec govulncheck semgrep-test semgrep rust-lint rust-audit rust-deny rust-ignores
 
 ## ci-nightly: the heavy checks the nightly workflow runs.
 ci-nightly: nilaway mutation rust-miri rust-asan
@@ -215,6 +218,19 @@ rust-deny: rust-tools
 		echo "cargo deny $$c"; \
 		cargo deny --manifest-path $$c/Cargo.toml --config deny.toml --log-level error check || exit 1; \
 	done
+
+## rust-ignores: keep the ignored advisories honest. Every ignore in deny.toml carries a "review-by
+## YYYY-MM-DD" in its reason and the date has not passed, deny.toml and RUST_AUDIT_IGNORE name the same
+## ids, and every ignored id matches a crate in some lockfile (cargo-deny reports "advisory-not-detected"
+## for an id in every crate it checked when the ignore covers nothing). scripts/rustignores does the
+## comparison; cargo-deny's own failures are read from its output, so a failed run is not a clean one.
+rust-ignores: rust-tools native-vendor
+	@out=$$(mktemp -d); trap 'rm -rf $$out' EXIT; \
+	for c in $(RUST_AUDITED); do \
+		echo "cargo deny advisories $$c"; \
+		cargo deny --manifest-path $$c/Cargo.toml --config deny.toml --format json check advisories 2> $$out/$$(echo $$c | tr / -).json > /dev/null || true; \
+	done; \
+	go run ./scripts/rustignores -deny deny.toml -ci ci.mk $$out/*.json
 
 ## rust-miri: Miri over the Orchard FFI crate's unsafe surface (nightly job): the two extern "C"
 ## entry points with bad arguments (tests/ffi_args.rs) and the input-framing refusals of verify

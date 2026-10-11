@@ -258,6 +258,8 @@ For development without the fleet suite, use [Sandbox clusters](/docs/contributo
 
 ## CI
 
+Every third-party action in `.github/workflows` is pinned by its full commit SHA with the release as a `# vX.Y.Z` comment, so a moved tag cannot change what CI runs; `.github/dependabot.yml` opens the weekly pull request that moves a pin. The nightly Rust toolchain of the Miri and AddressSanitizer jobs is a dated build too (`RUST_NIGHTLY` in `chain/ci.mk`).
+
 `.github/workflows/ci.yml` runs on pushes and pull requests to `main` and `nightly`. Its jobs: the core module (vet, race tests, the contract tests, the generated CLI reference), the OramaOS agent, the SDK, the Vault SDK, the Vault guardian (Zig), the chain, and a secret scan. `security.yml` runs `pnpm audit` on the SDK and `govulncheck` on `core` (with accepted advisories listed in `e2e/features/scanners/govulncheck-accepted.yaml`, each with a reason and a review date) for `main`, and on Mondays; `release.yaml` builds with GoReleaser on a `v*` tag and checks that the `VERSION` file matches the tag; `publish-sdk.yml` and `release-apt.yml` publish the SDK and the apt packages.
 
 ### The chain in CI
@@ -268,8 +270,8 @@ Every command the chain jobs run is a target of `chain/Makefile` or `chain/ci.mk
 |---|---|---|
 | `chain-test` | the release cross-builds; `go vet` under each build-tag set (none, `nowasm`, `nowasm orchardffi`); the pure-Go tests (`-tags nowasm`); then every package under the race detector with CosmWasm, the Orchard verifier library (cgo) and the out-of-process verifier binary all linked, so the cgo and subprocess tests run and do not skip | `build`, `vet-all`, `test`, `test-race` |
 | `chain-static` | staticcheck, gosec (high severity, high confidence) and govulncheck under two build-tag sets that together cover every file (the default build, and `nowasm orchardffi`); the consensus-determinism rules (semgrep) over the state machine, and the tests of those rules | `staticcheck`, `gosec`, `govulncheck`, `semgrep`, `semgrep-test` |
-| `chain-rust` | `cargo clippy --all-targets -D warnings`, `cargo audit` and `cargo deny` (policy in `chain/deny.toml`) over `orchardffi`, `orchardverifier-bin`, `wallet`, `native` and, for audit and deny, the test contracts | `rust-lint`, `rust-audit`, `rust-deny` |
-| `secrets` | gitleaks over the committed tree, with the allowlist `.gitleaks.toml` | none |
+| `chain-rust` | `cargo clippy --all-targets -D warnings`, `cargo audit` and `cargo deny` (policy in `chain/deny.toml`) over `orchardffi`, `orchardverifier-bin`, `wallet`, `native` and, for audit and deny, the test contracts; then the check of the ignored advisories | `rust-lint`, `rust-audit`, `rust-deny`, `rust-ignores` |
+| `secrets` | gitleaks over the committed tree, with the allowlist `.gitleaks.toml` (a public fixture that trips a rule is allowed by its path and its exact value together, so a real credential added to the same file is still found) | none |
 
 `make -C chain ci` runs the first three jobs' commands in one go; it builds libwasmvm and the Orchard verifiers first, so it takes a while.
 
@@ -279,7 +281,7 @@ staticcheck and govulncheck are judged the way the fleet `scanners` feature judg
 
 **The consensus rules.** `chain/.semgrep/consensus.yml` flags, in `app/`, `x/*/keeper`, `x/*/types`, `x/*/ante` and `x/inclusion`, everything that can make two validators compute different state from the same block: ranging over a map, `time.Now` and its relatives, floating point, goroutines, and the `math/rand`, `math/rand/v2` and `crypto/rand` packages. A finding is fixed or suppressed on its own line with `// nosemgrep: <rule-id> -- <reason>`, and the reason says why the order or value cannot reach the app hash (the keys are sorted next; the result is a set; the sum is of exact integers). `chain/.semgrep/consensus.go` holds the rules' own test cases (`make -C chain semgrep-test`). The map rule relies on semgrep's type inference, which resolves a map only when its type is visible in the same function or file, so it is a net and not a proof: new state-machine code that ranges over a map is still reviewed for order by a person.
 
-**The Rust crates.** The crates are checked with the toolchain `native/build.sh` builds with. clippy runs over every target, examples included, and two lints are switched off for a stated reason (`CLIPPY_ALLOW` in `chain/ci.mk`). `chain/deny.toml` allows crates.io only, no source repositories, permissive licences (MPL-2.0 for three named crates), and lists each ignored RustSec advisory with its reason. The ignored advisories are all in `chain/native/Cargo.lock`, which is seeded from libwasmvm's own lock file; changing it changes the hash-pinned static library, so those updates are taken with the next wasmvm bump. `cargo audit` ignores the same ids (`RUST_AUDIT_IGNORE`); change both lists together.
+**The Rust crates.** The crates are checked with the toolchain `native/build.sh` builds with. clippy runs over every target, examples included, and two lints are switched off for a stated reason (`CLIPPY_ALLOW` in `chain/ci.mk`). `chain/deny.toml` allows crates.io only, no source repositories, permissive licences (MPL-2.0 for three named crates), and lists each ignored RustSec advisory with its reason. The ignored advisories are all in `chain/native/Cargo.lock`, which is seeded from libwasmvm's own lock file; changing it changes the hash-pinned static library, so those updates are taken with the next wasmvm bump. `cargo audit` ignores the same ids (`RUST_AUDIT_IGNORE`); change both lists together. `make -C chain rust-ignores` (`chain/scripts/rustignores`) keeps the ignores honest: every reason carries a `review-by YYYY-MM-DD` and the build fails on the day after it, the two lists must name the same ids, and an ignored id that `cargo deny` finds in none of the crates' lockfiles (it reports `advisory-not-detected` in every crate) fails too, so the ignore is removed.
 
 ### Nightly
 
@@ -299,7 +301,7 @@ Miri does not run the proof and Merkle-hashing tests: halo2 and Sinsemilla take 
 
 ### The pre-push hook
 
-`core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under every build-tag set. The race-detector tests stay in CI so the hook stays short. The hook removes the `GIT_*` variables git sets for hooks before it runs anything: a test that calls git and inherits them acts on the repository being pushed.
+`core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under the default and `nowasm` build-tag sets (`make -C chain vet-all` runs all three, and CI does). The race-detector tests stay in CI so the hook stays short. The hook removes the `GIT_*` variables git sets for hooks before it runs anything: a test that calls git and inherits them acts on the repository being pushed.
 
 ### What CI does not run
 
