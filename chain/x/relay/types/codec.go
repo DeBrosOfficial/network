@@ -15,6 +15,7 @@ func RegisterLegacyAminoCodec(*codec.LegacyAmino) {}
 func RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
 	reg.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgRegisterRelay{},
+		&MsgUpdateRelay{},
 		&MsgReportEpoch{},
 		&MsgUpdateReporters{},
 	)

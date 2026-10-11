@@ -23,7 +23,7 @@ BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 WASMVM_DIR := $(shell go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3 2>/dev/null)
 LIBWASMVM := $(firstword $(wildcard $(WASMVM_DIR)/internal/api/libwasmvm.dylib $(WASMVM_DIR)/internal/api/libwasmvm.aarch64.so $(WASMVM_DIR)/internal/api/libwasmvm.x86_64.so))
 
-.PHONY: bench bench-baseline bench-compare bench-load build build-linux-amd64-full build-linux-amd64-global build-linux-amd64-orchard build-wasm chain-sim chain-test contracts-verify lint localnet localnet-clean localnet-stop native-lib-linux-amd64 orchard-lib orchard-lib-linux-amd64 orchard-smoke orchard-smoke-linux-amd64 orchard-test orchard-verifier orchard-verifier-linux-amd64 proto-emission proto-fees proto-nodes proto-power proto-shielded test
+.PHONY: bench bench-baseline bench-compare bench-load build build-linux-amd64-full build-linux-amd64-global build-linux-amd64-orchard build-wasm chain-sim chain-test contracts-verify lint localnet localnet-clean localnet-stop native-lib-linux-amd64 orchard-lib orchard-lib-linux-amd64 orchard-smoke orchard-smoke-linux-amd64 orchard-test orchard-verifier orchard-verifier-linux-amd64 proto-emission proto-fees proto-nodes proto-power proto-relay proto-shielded test
 
 ## build: cross-compile oramad for linux/amd64, darwin/amd64 and darwin/arm64.
 ## CGO_ENABLED=0 and -tags nowasm: these binaries are static and do not include CosmWasm.
@@ -296,6 +296,20 @@ proto-nodes:
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/nodes/v1/*.proto && \
 	cp $$out/github.com/DeBrosOfficial/network/chain/x/nodes/types/*.go x/nodes/types/ && rm -rf $$out
+
+## proto-relay: regenerate x/relay's gogoproto and grpc-gateway code from proto/orama/relay/v1.
+## Same toolchain as proto-nodes.
+proto-relay:
+	@out=$$(mktemp -d) && \
+	protoc -I proto \
+		-I $(GOPROTO_MOD)/cosmos-sdk@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-sdk)/proto \
+		-I $(GOPROTO_MOD)/gogoproto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/gogoproto) \
+		-I $(shell go list -m -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway)/third_party/googleapis \
+		-I $(GOPROTO_MOD)/cosmos-proto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-proto)/proto \
+		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
+		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
+		proto/orama/relay/v1/*.proto && \
+	cp $$out/github.com/DeBrosOfficial/network/chain/x/relay/types/*.go x/relay/types/ && rm -rf $$out
 
 # Microbenchmarks and their regression gate (website/src/docs/contributor/performance.mdx).
 #

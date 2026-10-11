@@ -146,6 +146,123 @@ func (m *MsgRegisterRelayResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgRegisterRelayResponse proto.InternalMessageInfo
 
+// MsgUpdateRelay rotates the registered relay of a node: rsa_fingerprint is
+// the new 20-byte digest, ed25519_signature the node's current "relay" ed25519
+// identity over the canonical cross-cert message (node_id and the new
+// rsa_fingerprint). The relay keeps its jail flag; the previous fingerprint
+// stops being a registered relay.
+type MsgUpdateRelay struct {
+	Operator         string `protobuf:"bytes,1,opt,name=operator,proto3" json:"operator,omitempty"`
+	NodeId           string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	RsaFingerprint   []byte `protobuf:"bytes,3,opt,name=rsa_fingerprint,json=rsaFingerprint,proto3" json:"rsa_fingerprint,omitempty"`
+	Exit             bool   `protobuf:"varint,4,opt,name=exit,proto3" json:"exit,omitempty"`
+	Ed25519Signature []byte `protobuf:"bytes,5,opt,name=ed25519_signature,json=ed25519Signature,proto3" json:"ed25519_signature,omitempty"`
+}
+
+func (m *MsgUpdateRelay) Reset()         { *m = MsgUpdateRelay{} }
+func (m *MsgUpdateRelay) String() string { return proto.CompactTextString(m) }
+func (*MsgUpdateRelay) ProtoMessage()    {}
+func (*MsgUpdateRelay) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c484ccd75423ab28, []int{2}
+}
+func (m *MsgUpdateRelay) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgUpdateRelay) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgUpdateRelay.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgUpdateRelay) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgUpdateRelay.Merge(m, src)
+}
+func (m *MsgUpdateRelay) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgUpdateRelay) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgUpdateRelay.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgUpdateRelay proto.InternalMessageInfo
+
+func (m *MsgUpdateRelay) GetOperator() string {
+	if m != nil {
+		return m.Operator
+	}
+	return ""
+}
+
+func (m *MsgUpdateRelay) GetNodeId() string {
+	if m != nil {
+		return m.NodeId
+	}
+	return ""
+}
+
+func (m *MsgUpdateRelay) GetRsaFingerprint() []byte {
+	if m != nil {
+		return m.RsaFingerprint
+	}
+	return nil
+}
+
+func (m *MsgUpdateRelay) GetExit() bool {
+	if m != nil {
+		return m.Exit
+	}
+	return false
+}
+
+func (m *MsgUpdateRelay) GetEd25519Signature() []byte {
+	if m != nil {
+		return m.Ed25519Signature
+	}
+	return nil
+}
+
+type MsgUpdateRelayResponse struct {
+}
+
+func (m *MsgUpdateRelayResponse) Reset()         { *m = MsgUpdateRelayResponse{} }
+func (m *MsgUpdateRelayResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgUpdateRelayResponse) ProtoMessage()    {}
+func (*MsgUpdateRelayResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c484ccd75423ab28, []int{3}
+}
+func (m *MsgUpdateRelayResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgUpdateRelayResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgUpdateRelayResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgUpdateRelayResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgUpdateRelayResponse.Merge(m, src)
+}
+func (m *MsgUpdateRelayResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgUpdateRelayResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgUpdateRelayResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgUpdateRelayResponse proto.InternalMessageInfo
+
 // MsgReportEpoch is one chunk of {rsa_fingerprint, ed25519_id,
 // consensus_weight, flags, uptime_fraction}, plus inputs_root over the
 // canonical encoding of every chunk's entries in chunk_index order.
@@ -162,7 +279,7 @@ func (m *MsgReportEpoch) Reset()         { *m = MsgReportEpoch{} }
 func (m *MsgReportEpoch) String() string { return proto.CompactTextString(m) }
 func (*MsgReportEpoch) ProtoMessage()    {}
 func (*MsgReportEpoch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c484ccd75423ab28, []int{2}
+	return fileDescriptor_c484ccd75423ab28, []int{4}
 }
 func (m *MsgReportEpoch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -241,7 +358,7 @@ func (m *MsgReportEpochResponse) Reset()         { *m = MsgReportEpochResponse{}
 func (m *MsgReportEpochResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgReportEpochResponse) ProtoMessage()    {}
 func (*MsgReportEpochResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c484ccd75423ab28, []int{3}
+	return fileDescriptor_c484ccd75423ab28, []int{5}
 }
 func (m *MsgReportEpochResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -288,7 +405,7 @@ func (m *MsgUpdateReporters) Reset()         { *m = MsgUpdateReporters{} }
 func (m *MsgUpdateReporters) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateReporters) ProtoMessage()    {}
 func (*MsgUpdateReporters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c484ccd75423ab28, []int{4}
+	return fileDescriptor_c484ccd75423ab28, []int{6}
 }
 func (m *MsgUpdateReporters) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -338,7 +455,7 @@ func (m *MsgUpdateReportersResponse) Reset()         { *m = MsgUpdateReportersRe
 func (m *MsgUpdateReportersResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateReportersResponse) ProtoMessage()    {}
 func (*MsgUpdateReportersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_c484ccd75423ab28, []int{5}
+	return fileDescriptor_c484ccd75423ab28, []int{7}
 }
 func (m *MsgUpdateReportersResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -370,6 +487,8 @@ var xxx_messageInfo_MsgUpdateReportersResponse proto.InternalMessageInfo
 func init() {
 	proto.RegisterType((*MsgRegisterRelay)(nil), "orama.relay.v1.MsgRegisterRelay")
 	proto.RegisterType((*MsgRegisterRelayResponse)(nil), "orama.relay.v1.MsgRegisterRelayResponse")
+	proto.RegisterType((*MsgUpdateRelay)(nil), "orama.relay.v1.MsgUpdateRelay")
+	proto.RegisterType((*MsgUpdateRelayResponse)(nil), "orama.relay.v1.MsgUpdateRelayResponse")
 	proto.RegisterType((*MsgReportEpoch)(nil), "orama.relay.v1.MsgReportEpoch")
 	proto.RegisterType((*MsgReportEpochResponse)(nil), "orama.relay.v1.MsgReportEpochResponse")
 	proto.RegisterType((*MsgUpdateReporters)(nil), "orama.relay.v1.MsgUpdateReporters")
@@ -379,47 +498,49 @@ func init() {
 func init() { proto.RegisterFile("orama/relay/v1/tx.proto", fileDescriptor_c484ccd75423ab28) }
 
 var fileDescriptor_c484ccd75423ab28 = []byte{
-	// 636 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xcd, 0x4e, 0x14, 0x4d,
-	0x14, 0x9d, 0x9e, 0x3f, 0x86, 0x9a, 0x8f, 0x9f, 0xaf, 0x42, 0xa4, 0xed, 0x90, 0x66, 0xd2, 0x0b,
-	0x9d, 0x60, 0x9c, 0x16, 0x84, 0x85, 0xac, 0x74, 0xfc, 0x49, 0x58, 0x10, 0x92, 0x22, 0x6c, 0x74,
-	0x31, 0x69, 0xba, 0x2f, 0x3d, 0x15, 0x98, 0xaa, 0xb6, 0xaa, 0x06, 0x87, 0x9d, 0xf1, 0x09, 0x78,
-	0x07, 0x5f, 0x80, 0x85, 0x0f, 0xc1, 0x92, 0xb8, 0x32, 0x2e, 0x8c, 0x81, 0x05, 0xaf, 0x61, 0xaa,
-	0xfa, 0x07, 0x19, 0x88, 0xb0, 0xeb, 0x7b, 0xce, 0xb9, 0x75, 0xeb, 0x9c, 0xbe, 0x29, 0x34, 0xcf,
-	0x45, 0x30, 0x08, 0x7c, 0x01, 0x07, 0xc1, 0x91, 0x7f, 0xb8, 0xec, 0xab, 0x51, 0x27, 0x11, 0x5c,
-	0x71, 0x3c, 0x6d, 0x88, 0x8e, 0x21, 0x3a, 0x87, 0xcb, 0xce, 0x5c, 0xcc, 0x63, 0x6e, 0x28, 0x5f,
-	0x7f, 0xa5, 0x2a, 0xe7, 0x61, 0xc8, 0xe5, 0x80, 0xcb, 0x5e, 0x4a, 0xa4, 0x45, 0x46, 0xcd, 0xa7,
-	0x95, 0x3f, 0x90, 0xb1, 0x3e, 0x78, 0x20, 0xe3, 0x8c, 0x70, 0xc6, 0x46, 0xa6, 0x23, 0x0c, 0xe7,
-	0xfd, 0xb4, 0xd0, 0xec, 0xa6, 0x8c, 0x09, 0xc4, 0x54, 0x2a, 0x10, 0x44, 0x53, 0x78, 0x15, 0x35,
-	0x78, 0x02, 0x22, 0x50, 0x5c, 0xd8, 0x56, 0xcb, 0x6a, 0x4f, 0x76, 0xed, 0xef, 0xdf, 0x9e, 0xce,
-	0x65, 0xd3, 0x5e, 0x45, 0x91, 0x00, 0x29, 0xb7, 0x95, 0xa0, 0x2c, 0x26, 0x85, 0x12, 0xcf, 0xa3,
-	0x09, 0xc6, 0x23, 0xe8, 0xd1, 0xc8, 0x2e, 0xeb, 0x26, 0x52, 0xd7, 0xe5, 0x46, 0x84, 0x1f, 0xa3,
-	0x19, 0x21, 0x83, 0xde, 0x1e, 0x65, 0x31, 0x88, 0x44, 0x50, 0xa6, 0xec, 0x4a, 0xcb, 0x6a, 0xff,
-	0x47, 0xa6, 0x85, 0x0c, 0xde, 0x5d, 0xa1, 0x18, 0xa3, 0x2a, 0x8c, 0xa8, 0xb2, 0xab, 0x2d, 0xab,
-	0xdd, 0x20, 0xe6, 0x1b, 0x3f, 0x41, 0xff, 0x43, 0xb4, 0xb2, 0xb6, 0xb6, 0xfc, 0xa2, 0x27, 0x69,
-	0xcc, 0x02, 0x35, 0x14, 0x60, 0xd7, 0x4c, 0xfb, 0x6c, 0x46, 0x6c, 0xe7, 0xf8, 0xfa, 0xd4, 0x97,
-	0xcb, 0x93, 0xa5, 0xe2, 0x46, 0x9e, 0x83, 0xec, 0x71, 0x6f, 0x04, 0x64, 0xc2, 0x99, 0x04, 0xef,
-	0xb8, 0x8c, 0xa6, 0x0d, 0x99, 0x70, 0xa1, 0xde, 0x26, 0x3c, 0xec, 0x6b, 0xdb, 0xc2, 0x94, 0x70,
-	0x0f, 0xdb, 0xb9, 0x12, 0xcf, 0xa1, 0x1a, 0xe8, 0x76, 0x63, 0xba, 0x4a, 0xd2, 0x02, 0x2f, 0xa2,
-	0x66, 0xd8, 0x1f, 0xb2, 0xfd, 0x1e, 0x65, 0x11, 0x8c, 0x8c, 0xdf, 0x29, 0x82, 0x0c, 0xb4, 0xa1,
-	0x91, 0x2b, 0x41, 0xc8, 0x87, 0x2c, 0xb5, 0x9c, 0x0b, 0x5e, 0x6b, 0x04, 0xbf, 0x44, 0x13, 0xc0,
-	0x94, 0xa0, 0x20, 0xed, 0x5a, 0xab, 0xd2, 0x6e, 0xae, 0xb4, 0x3a, 0xd7, 0x37, 0xa4, 0x63, 0x0c,
-	0x6d, 0xed, 0x4a, 0x10, 0x87, 0x81, 0xa2, 0x9c, 0x75, 0xab, 0xa7, 0xbf, 0x16, 0x4b, 0x24, 0x6f,
-	0xd3, 0x23, 0x28, 0x4b, 0x86, 0x4a, 0xf6, 0x04, 0xe7, 0xca, 0xae, 0x9b, 0xd0, 0x50, 0x0a, 0x11,
-	0xce, 0x55, 0x16, 0x57, 0xee, 0xc4, 0x5b, 0x45, 0x0f, 0xae, 0x27, 0x92, 0x87, 0x85, 0x1d, 0xd4,
-	0x08, 0xf9, 0x20, 0x39, 0x00, 0x05, 0x26, 0x99, 0x06, 0x29, 0x6a, 0xef, 0x23, 0xc2, 0x9b, 0x32,
-	0xde, 0x49, 0xa2, 0x40, 0x01, 0xc9, 0x8e, 0x92, 0xf8, 0x19, 0xaa, 0xeb, 0xdf, 0x75, 0x8f, 0x24,
-	0x33, 0x1d, 0x5e, 0x40, 0x93, 0xf9, 0x4d, 0xa4, 0x5d, 0x6e, 0x55, 0xda, 0x93, 0xe4, 0x0a, 0x58,
-	0x6f, 0xea, 0xab, 0x66, 0x52, 0x6f, 0x01, 0x39, 0x37, 0x47, 0xe6, 0x97, 0x5d, 0xf9, 0x5a, 0x46,
-	0x95, 0x4d, 0x19, 0xe3, 0x0f, 0x68, 0xea, 0xfa, 0x5a, 0xdf, 0x08, 0x70, 0x7c, 0x39, 0x9c, 0xf6,
-	0x5d, 0x8a, 0x22, 0x91, 0x1d, 0xd4, 0xfc, 0x7b, 0x75, 0xdc, 0x5b, 0x1b, 0x0b, 0xde, 0x79, 0xf4,
-	0x6f, 0xbe, 0x38, 0x36, 0x40, 0x33, 0xe3, 0x49, 0x7a, 0xb7, 0xb4, 0x8e, 0x69, 0x9c, 0xa5, 0xbb,
-	0x35, 0xf9, 0x08, 0xa7, 0xf6, 0xf9, 0xf2, 0x64, 0xc9, 0xea, 0x6e, 0x9d, 0x9e, 0xbb, 0xd6, 0xd9,
-	0xb9, 0x6b, 0xfd, 0x3e, 0x77, 0xad, 0xe3, 0x0b, 0xb7, 0x74, 0x76, 0xe1, 0x96, 0x7e, 0x5c, 0xb8,
-	0xa5, 0xf7, 0x6b, 0x31, 0x55, 0xfd, 0xe1, 0x6e, 0x27, 0xe4, 0x03, 0xff, 0x0d, 0x74, 0x05, 0x97,
-	0x5b, 0x7b, 0x7b, 0x34, 0xa4, 0xc1, 0x81, 0xcf, 0x40, 0x7d, 0xe2, 0x62, 0xdf, 0x0f, 0xfb, 0x01,
-	0x65, 0xfe, 0x28, 0x7b, 0x52, 0xd4, 0x51, 0x02, 0x72, 0xb7, 0x6e, 0x1e, 0x94, 0xe7, 0x7f, 0x02,
-	0x00, 0x00, 0xff, 0xff, 0xd0, 0x65, 0x1b, 0xe3, 0xe1, 0x04, 0x00, 0x00,
+	// 665 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x54, 0xcd, 0x4e, 0xdb, 0x4c,
+	0x14, 0x8d, 0xf3, 0x47, 0x98, 0x7c, 0xfc, 0x7c, 0x23, 0x54, 0x5c, 0x0b, 0x99, 0xc8, 0x8b, 0x36,
+	0xa2, 0x6a, 0x5c, 0x28, 0x2c, 0xca, 0xaa, 0x4d, 0x7f, 0x24, 0x16, 0x08, 0x69, 0x10, 0x9b, 0x76,
+	0x11, 0x19, 0xfb, 0xe2, 0x8c, 0x20, 0x33, 0xee, 0xcc, 0x84, 0x86, 0x5d, 0xd5, 0x27, 0xe0, 0x51,
+	0x58, 0xf4, 0x21, 0x58, 0xa2, 0xae, 0x50, 0x17, 0x55, 0x05, 0x0b, 0xde, 0xa1, 0xab, 0xca, 0x63,
+	0x3b, 0x98, 0x10, 0x01, 0xeb, 0xee, 0x7c, 0xef, 0x39, 0x77, 0xee, 0x3d, 0x67, 0x7c, 0x07, 0xcd,
+	0x73, 0xe1, 0xf5, 0x3c, 0x57, 0xc0, 0x81, 0x77, 0xe4, 0x1e, 0x2e, 0xbb, 0x6a, 0xd0, 0x8a, 0x04,
+	0x57, 0x1c, 0x4f, 0x6b, 0xa0, 0xa5, 0x81, 0xd6, 0xe1, 0xb2, 0x35, 0x17, 0xf2, 0x90, 0x6b, 0xc8,
+	0x8d, 0xbf, 0x12, 0x96, 0xf5, 0xd8, 0xe7, 0xb2, 0xc7, 0x65, 0x27, 0x01, 0x92, 0x20, 0x85, 0xe6,
+	0x93, 0xc8, 0xed, 0xc9, 0x30, 0x3e, 0xb8, 0x27, 0xc3, 0x14, 0xb0, 0x46, 0x5a, 0x26, 0x2d, 0x34,
+	0xe6, 0xfc, 0x34, 0xd0, 0xec, 0xa6, 0x0c, 0x09, 0x84, 0x54, 0x2a, 0x10, 0x24, 0x86, 0xf0, 0x2a,
+	0xaa, 0xf1, 0x08, 0x84, 0xa7, 0xb8, 0x30, 0x8d, 0x86, 0xd1, 0x9c, 0x6c, 0x9b, 0x3f, 0xbe, 0x3f,
+	0x9f, 0x4b, 0xbb, 0xbd, 0x09, 0x02, 0x01, 0x52, 0x6e, 0x2b, 0x41, 0x59, 0x48, 0x86, 0x4c, 0x3c,
+	0x8f, 0x26, 0x18, 0x0f, 0xa0, 0x43, 0x03, 0xb3, 0x18, 0x17, 0x91, 0x6a, 0x1c, 0x6e, 0x04, 0xf8,
+	0x29, 0x9a, 0x11, 0xd2, 0xeb, 0xec, 0x51, 0x16, 0x82, 0x88, 0x04, 0x65, 0xca, 0x2c, 0x35, 0x8c,
+	0xe6, 0x7f, 0x64, 0x5a, 0x48, 0xef, 0xc3, 0x75, 0x16, 0x63, 0x54, 0x86, 0x01, 0x55, 0x66, 0xb9,
+	0x61, 0x34, 0x6b, 0x44, 0x7f, 0xe3, 0x67, 0xe8, 0x7f, 0x08, 0x56, 0xd6, 0xd6, 0x96, 0x5f, 0x75,
+	0x24, 0x0d, 0x99, 0xa7, 0xfa, 0x02, 0xcc, 0x8a, 0x2e, 0x9f, 0x4d, 0x81, 0xed, 0x2c, 0xbf, 0x3e,
+	0xf5, 0xed, 0xea, 0x64, 0x69, 0x38, 0x91, 0x63, 0x21, 0x73, 0x54, 0x1b, 0x01, 0x19, 0x71, 0x26,
+	0xc1, 0x39, 0x37, 0xd0, 0xf4, 0xa6, 0x0c, 0x77, 0xa2, 0xc0, 0x53, 0xf0, 0x6f, 0xc9, 0x36, 0xd1,
+	0xa3, 0x9b, 0xca, 0x86, 0xa2, 0x8f, 0x8b, 0x5a, 0x34, 0x81, 0x88, 0x0b, 0xf5, 0x3e, 0xe2, 0x7e,
+	0x37, 0x16, 0x2d, 0x74, 0x08, 0x0f, 0x10, 0x9d, 0x31, 0xf1, 0x1c, 0xaa, 0x40, 0x5c, 0xae, 0x25,
+	0x97, 0x49, 0x12, 0xe0, 0x45, 0x54, 0xf7, 0xbb, 0x7d, 0xb6, 0xdf, 0xa1, 0x2c, 0x80, 0x81, 0x56,
+	0x3b, 0x45, 0x90, 0x4e, 0x6d, 0xc4, 0x99, 0x6b, 0x82, 0xcf, 0xfb, 0x2c, 0x11, 0x9c, 0x11, 0xde,
+	0xc6, 0x19, 0xfc, 0x1a, 0x4d, 0x00, 0x53, 0x82, 0x82, 0x34, 0x2b, 0x8d, 0x52, 0xb3, 0xbe, 0xd2,
+	0x68, 0xdd, 0x5c, 0x8b, 0x96, 0x16, 0xb4, 0xb5, 0x2b, 0x41, 0x1c, 0x7a, 0x8a, 0x72, 0xd6, 0x2e,
+	0x9f, 0xfe, 0x5a, 0x2c, 0x90, 0xac, 0x2c, 0x6e, 0x41, 0x59, 0xd4, 0x57, 0xb2, 0x23, 0x38, 0x57,
+	0x66, 0x55, 0x5b, 0x86, 0x92, 0x14, 0xe1, 0x5c, 0xa5, 0x66, 0x65, 0x4a, 0x9c, 0x55, 0x6d, 0x56,
+	0xce, 0x91, 0xcc, 0x2c, 0x6c, 0xa1, 0x9a, 0xcf, 0x7b, 0xd1, 0x01, 0x28, 0xd0, 0xce, 0xd4, 0xc8,
+	0x30, 0x76, 0x3e, 0x23, 0x9c, 0xb3, 0x38, 0x39, 0x4a, 0xe2, 0x17, 0xa8, 0x1a, 0x5f, 0xd6, 0x03,
+	0x9c, 0x4c, 0x79, 0x78, 0x01, 0x4d, 0x66, 0x93, 0x48, 0xb3, 0xd8, 0x28, 0x35, 0x27, 0xc9, 0x75,
+	0x62, 0xbd, 0x1e, 0x8f, 0x9a, 0x52, 0x9d, 0x05, 0x64, 0xdd, 0x6e, 0x99, 0x0d, 0xbb, 0xf2, 0xa7,
+	0x88, 0x4a, 0x9b, 0x32, 0xc4, 0x9f, 0xd0, 0xd4, 0xcd, 0x5d, 0xbe, 0x65, 0xe0, 0xe8, 0x46, 0x58,
+	0xcd, 0xfb, 0x18, 0x43, 0x47, 0x76, 0x50, 0x3d, 0xbf, 0x2f, 0xf6, 0x98, 0xc2, 0x1c, 0x6e, 0x3d,
+	0xb9, 0x1b, 0xcf, 0x1f, 0x9b, 0xff, 0x23, 0xed, 0xb1, 0xf3, 0x0c, 0xf1, 0xb1, 0xc7, 0x8e, 0xbb,
+	0x3f, 0x0f, 0xcd, 0x8c, 0x5e, 0x90, 0x73, 0xc7, 0x44, 0x29, 0xc7, 0x5a, 0xba, 0x9f, 0x93, 0xb5,
+	0xb0, 0x2a, 0x5f, 0xaf, 0x4e, 0x96, 0x8c, 0xf6, 0xd6, 0xe9, 0x85, 0x6d, 0x9c, 0x5d, 0xd8, 0xc6,
+	0xef, 0x0b, 0xdb, 0x38, 0xbe, 0xb4, 0x0b, 0x67, 0x97, 0x76, 0xe1, 0xfc, 0xd2, 0x2e, 0x7c, 0x5c,
+	0x0b, 0xa9, 0xea, 0xf6, 0x77, 0x5b, 0x3e, 0xef, 0xb9, 0xef, 0xa0, 0x2d, 0xb8, 0xdc, 0xda, 0xdb,
+	0xa3, 0x3e, 0xf5, 0x0e, 0x5c, 0x06, 0xea, 0x0b, 0x17, 0xfb, 0xae, 0xdf, 0xf5, 0x28, 0x73, 0x07,
+	0xe9, 0xf3, 0xac, 0x8e, 0x22, 0x90, 0xbb, 0x55, 0xfd, 0x38, 0xbf, 0xfc, 0x1b, 0x00, 0x00, 0xff,
+	0xff, 0xbe, 0x9c, 0xc8, 0xad, 0x2d, 0x06, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -438,6 +559,11 @@ type MsgClient interface {
 	// the ed25519 identity bound to node_id. The per-relay bond is not
 	// escrowed here (that is x/nodes).
 	RegisterRelay(ctx context.Context, in *MsgRegisterRelay, opts ...grpc.CallOption) (*MsgRegisterRelayResponse, error)
+	// UpdateRelay replaces the RSA fingerprint (and the exit declaration) of the
+	// relay already registered on node_id, cross-signed again by the ed25519
+	// identity the node binds now. It is the rotation path for a relay's RSA key
+	// and for the ed25519 key a MsgUpdateNode on x/nodes rebinds.
+	UpdateRelay(ctx context.Context, in *MsgUpdateRelay, opts ...grpc.CallOption) (*MsgUpdateRelayResponse, error)
 	// ReportEpoch submits one chunk of an epoch report. The report counts
 	// once every chunk is present and inputs_root matches the canonical
 	// entries.
@@ -460,6 +586,15 @@ func NewMsgClient(cc grpc1.ClientConn) MsgClient {
 func (c *msgClient) RegisterRelay(ctx context.Context, in *MsgRegisterRelay, opts ...grpc.CallOption) (*MsgRegisterRelayResponse, error) {
 	out := new(MsgRegisterRelayResponse)
 	err := c.cc.Invoke(ctx, "/orama.relay.v1.Msg/RegisterRelay", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) UpdateRelay(ctx context.Context, in *MsgUpdateRelay, opts ...grpc.CallOption) (*MsgUpdateRelayResponse, error) {
+	out := new(MsgUpdateRelayResponse)
+	err := c.cc.Invoke(ctx, "/orama.relay.v1.Msg/UpdateRelay", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -490,6 +625,11 @@ type MsgServer interface {
 	// the ed25519 identity bound to node_id. The per-relay bond is not
 	// escrowed here (that is x/nodes).
 	RegisterRelay(context.Context, *MsgRegisterRelay) (*MsgRegisterRelayResponse, error)
+	// UpdateRelay replaces the RSA fingerprint (and the exit declaration) of the
+	// relay already registered on node_id, cross-signed again by the ed25519
+	// identity the node binds now. It is the rotation path for a relay's RSA key
+	// and for the ed25519 key a MsgUpdateNode on x/nodes rebinds.
+	UpdateRelay(context.Context, *MsgUpdateRelay) (*MsgUpdateRelayResponse, error)
 	// ReportEpoch submits one chunk of an epoch report. The report counts
 	// once every chunk is present and inputs_root matches the canonical
 	// entries.
@@ -507,6 +647,9 @@ type UnimplementedMsgServer struct {
 
 func (*UnimplementedMsgServer) RegisterRelay(ctx context.Context, req *MsgRegisterRelay) (*MsgRegisterRelayResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterRelay not implemented")
+}
+func (*UnimplementedMsgServer) UpdateRelay(ctx context.Context, req *MsgUpdateRelay) (*MsgUpdateRelayResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateRelay not implemented")
 }
 func (*UnimplementedMsgServer) ReportEpoch(ctx context.Context, req *MsgReportEpoch) (*MsgReportEpochResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportEpoch not implemented")
@@ -533,6 +676,24 @@ func _Msg_RegisterRelay_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).RegisterRelay(ctx, req.(*MsgRegisterRelay))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_UpdateRelay_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateRelay)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateRelay(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/orama.relay.v1.Msg/UpdateRelay",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateRelay(ctx, req.(*MsgUpdateRelay))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -581,6 +742,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterRelay",
 			Handler:    _Msg_RegisterRelay_Handler,
+		},
+		{
+			MethodName: "UpdateRelay",
+			Handler:    _Msg_UpdateRelay_Handler,
 		},
 		{
 			MethodName: "ReportEpoch",
@@ -672,6 +837,90 @@ func (m *MsgRegisterRelayResponse) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *MsgRegisterRelayResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgUpdateRelay) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgUpdateRelay) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgUpdateRelay) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Ed25519Signature) > 0 {
+		i -= len(m.Ed25519Signature)
+		copy(dAtA[i:], m.Ed25519Signature)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Ed25519Signature)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.Exit {
+		i--
+		if m.Exit {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.RsaFingerprint) > 0 {
+		i -= len(m.RsaFingerprint)
+		copy(dAtA[i:], m.RsaFingerprint)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.RsaFingerprint)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.NodeId) > 0 {
+		i -= len(m.NodeId)
+		copy(dAtA[i:], m.NodeId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.NodeId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Operator) > 0 {
+		i -= len(m.Operator)
+		copy(dAtA[i:], m.Operator)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Operator)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgUpdateRelayResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgUpdateRelayResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgUpdateRelayResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -880,6 +1129,43 @@ func (m *MsgRegisterRelay) Size() (n int) {
 }
 
 func (m *MsgRegisterRelayResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgUpdateRelay) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Operator)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.NodeId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.RsaFingerprint)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.Exit {
+		n += 2
+	}
+	l = len(m.Ed25519Signature)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgUpdateRelayResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1195,6 +1481,258 @@ func (m *MsgRegisterRelayResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgRegisterRelayResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgUpdateRelay) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgUpdateRelay: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgUpdateRelay: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Operator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Operator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NodeId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RsaFingerprint", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RsaFingerprint = append(m.RsaFingerprint[:0], dAtA[iNdEx:postIndex]...)
+			if m.RsaFingerprint == nil {
+				m.RsaFingerprint = []byte{}
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Exit", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Exit = bool(v != 0)
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ed25519Signature", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Ed25519Signature = append(m.Ed25519Signature[:0], dAtA[iNdEx:postIndex]...)
+			if m.Ed25519Signature == nil {
+				m.Ed25519Signature = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgUpdateRelayResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgUpdateRelayResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgUpdateRelayResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

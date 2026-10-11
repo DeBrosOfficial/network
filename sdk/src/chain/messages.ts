@@ -375,6 +375,9 @@ export const MSG = {
   relayRegisterRelay: defineMsg("/orama.relay.v1.MsgRegisterRelay", relay.MsgRegisterRelay, (m) =>
     desc("Register relay", `Register ${m.exit ? "exit relay" : "relay"} for node ${m.nodeId}`),
   ),
+  relayUpdateRelay: defineMsg("/orama.relay.v1.MsgUpdateRelay", relay.MsgUpdateRelay, (m) =>
+    desc("Update relay", `Replace the ${m.exit ? "exit relay" : "relay"} fingerprint of node ${m.nodeId}`),
+  ),
   relayReportEpoch: defineMsg("/orama.relay.v1.MsgReportEpoch", relay.MsgReportEpoch, (m) =>
     desc("Report relay epoch", `Report ${m.entries.length} relay observations for epoch ${m.epoch} (chunk ${m.chunkIndex + 1} of ${m.chunkCount})`),
   ),

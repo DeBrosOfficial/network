@@ -142,3 +142,16 @@ message RelayPayout {
     (gogoproto.nullable) = false
   ];
 }
+
+// RelayStanding is one registered relay with the last payout it received:
+// last_payout_epoch is 0 and last_payout_amount "0" for a relay never paid.
+message RelayStanding {
+  Relay relay = 1 [(gogoproto.nullable) = false];
+  uint64 last_payout_epoch = 2;
+  // last_payout_amount is the relay's gross norama of that epoch, before the
+  // 90/5/5 split of its operator's total.
+  string last_payout_amount = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false
+  ];
+}

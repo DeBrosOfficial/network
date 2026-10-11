@@ -87,6 +87,12 @@ describe("x/relay decoders", () => {
     expect(said(decode(`${RELAY}MsgRegisterRelay`, { operator: ALICE, node_id: "n1" }))).toBe("Alice registered a relay on node n1");
   });
 
+  it("TestRelay_update_relay_names_the_node_and_the_new_fingerprint", () => {
+    const m = decode(`${RELAY}MsgUpdateRelay`, { operator: ALICE, node_id: "n1", rsa_fingerprint: "AQID" });
+    expect(said(m)).toBe("Alice rotated the fingerprint of the relay on node n1");
+    expect(fieldsOf(m)).toMatchObject({ "RSA fingerprint": "010203" });
+  });
+
   it("TestRelay_report_epoch_counts_the_observations", () => {
     const m = decode(`${RELAY}MsgReportEpoch`, { reporter: ALICE, epoch: "42", chunk_index: 0, chunk_count: 2, entries: [{}, {}] });
     expect(said(m)).toBe("Alice reported 2 relay observations for epoch 42");

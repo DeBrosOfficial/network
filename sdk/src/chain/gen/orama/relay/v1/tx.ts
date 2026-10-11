@@ -30,6 +30,24 @@ export interface MsgRegisterRelayResponse {
 }
 
 /**
+ * MsgUpdateRelay rotates the registered relay of a node: rsa_fingerprint is
+ * the new 20-byte digest, ed25519_signature the node's current "relay" ed25519
+ * identity over the canonical cross-cert message (node_id and the new
+ * rsa_fingerprint). The relay keeps its jail flag; the previous fingerprint
+ * stops being a registered relay.
+ */
+export interface MsgUpdateRelay {
+  operator: string;
+  nodeId: string;
+  rsaFingerprint: Uint8Array;
+  exit: boolean;
+  ed25519Signature: Uint8Array;
+}
+
+export interface MsgUpdateRelayResponse {
+}
+
+/**
  * MsgReportEpoch is one chunk of {rsa_fingerprint, ed25519_id,
  * consensus_weight, flags, uptime_fraction}, plus inputs_root over the
  * canonical encoding of every chunk's entries in chunk_index order.
@@ -258,6 +276,209 @@ export const MsgRegisterRelayResponse: MessageFns<MsgRegisterRelayResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<MsgRegisterRelayResponse>, I>>(_: I): MsgRegisterRelayResponse {
     const message = createBaseMsgRegisterRelayResponse();
+    return message;
+  },
+};
+
+function createBaseMsgUpdateRelay(): MsgUpdateRelay {
+  return {
+    operator: "",
+    nodeId: "",
+    rsaFingerprint: new Uint8Array(0),
+    exit: false,
+    ed25519Signature: new Uint8Array(0),
+  };
+}
+
+export const MsgUpdateRelay: MessageFns<MsgUpdateRelay> = {
+  encode(message: MsgUpdateRelay, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.operator !== "") {
+      writer.uint32(10).string(message.operator);
+    }
+    if (message.nodeId !== "") {
+      writer.uint32(18).string(message.nodeId);
+    }
+    if (message.rsaFingerprint.length !== 0) {
+      writer.uint32(26).bytes(message.rsaFingerprint);
+    }
+    if (message.exit !== false) {
+      writer.uint32(32).bool(message.exit);
+    }
+    if (message.ed25519Signature.length !== 0) {
+      writer.uint32(42).bytes(message.ed25519Signature);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgUpdateRelay {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMsgUpdateRelay();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.operator = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.nodeId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.rsaFingerprint = reader.bytes();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.exit = reader.bool();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.ed25519Signature = reader.bytes();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): MsgUpdateRelay {
+    return {
+      operator: isSet(object.operator) ? globalThis.String(object.operator) : "",
+      nodeId: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      rsaFingerprint: isSet(object.rsaFingerprint)
+        ? bytesFromBase64(object.rsaFingerprint)
+        : isSet(object.rsa_fingerprint)
+        ? bytesFromBase64(object.rsa_fingerprint)
+        : new Uint8Array(0),
+      exit: isSet(object.exit) ? globalThis.Boolean(object.exit) : false,
+      ed25519Signature: isSet(object.ed25519Signature)
+        ? bytesFromBase64(object.ed25519Signature)
+        : isSet(object.ed25519_signature)
+        ? bytesFromBase64(object.ed25519_signature)
+        : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: MsgUpdateRelay): unknown {
+    const obj: any = {};
+    if (message.operator !== "") {
+      obj.operator = message.operator;
+    }
+    if (message.nodeId !== "") {
+      obj.nodeId = message.nodeId;
+    }
+    if (message.rsaFingerprint.length !== 0) {
+      obj.rsaFingerprint = base64FromBytes(message.rsaFingerprint);
+    }
+    if (message.exit !== false) {
+      obj.exit = message.exit;
+    }
+    if (message.ed25519Signature.length !== 0) {
+      obj.ed25519Signature = base64FromBytes(message.ed25519Signature);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MsgUpdateRelay>, I>>(base?: I): MsgUpdateRelay {
+    return MsgUpdateRelay.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MsgUpdateRelay>, I>>(object: I): MsgUpdateRelay {
+    const message = createBaseMsgUpdateRelay();
+    message.operator = object.operator ?? "";
+    message.nodeId = object.nodeId ?? "";
+    message.rsaFingerprint = object.rsaFingerprint ?? new Uint8Array(0);
+    message.exit = object.exit ?? false;
+    message.ed25519Signature = object.ed25519Signature ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseMsgUpdateRelayResponse(): MsgUpdateRelayResponse {
+  return {};
+}
+
+export const MsgUpdateRelayResponse: MessageFns<MsgUpdateRelayResponse> = {
+  encode(_: MsgUpdateRelayResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgUpdateRelayResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMsgUpdateRelayResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(_: any): MsgUpdateRelayResponse {
+    return {};
+  },
+
+  toJSON(_: MsgUpdateRelayResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MsgUpdateRelayResponse>, I>>(base?: I): MsgUpdateRelayResponse {
+    return MsgUpdateRelayResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MsgUpdateRelayResponse>, I>>(_: I): MsgUpdateRelayResponse {
+    const message = createBaseMsgUpdateRelayResponse();
     return message;
   },
 };

@@ -30,6 +30,12 @@ type relayNode struct {
 // addRelayNode registers an operator and a RELAY node with the given endpoint on the real app.
 func (c *wiringChain) addRelayNode(id, endpoint string) relayNode {
 	c.t.Helper()
+	return c.addNodeWith(id, endpoint, []nodestypes.Role{nodestypes.RoleRelay}, "relay")
+}
+
+// addNodeWith registers an operator and a node with the given roles, whose ed25519 key is bound under service.
+func (c *wiringChain) addNodeWith(id, endpoint string, roles []nodestypes.Role, service string) relayNode {
+	c.t.Helper()
 	n := relayNode{id: id, operator: sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())}
 	hotPriv := secp256k1.GenPrivKey()
 	hot := sdk.AccAddress(hotPriv.PubKey().Address())
@@ -46,12 +52,12 @@ func (c *wiringChain) addRelayNode(id, endpoint string) relayNode {
 		_, err := srv.RegisterOperator(ctx, &nodestypes.MsgRegisterOperator{Operator: n.operator.String()})
 		require.NoError(c.t, err)
 		_, err = srv.RegisterNode(ctx, &nodestypes.MsgRegisterNode{
-			Operator: n.operator.String(), NodeId: id, Roles: []nodestypes.Role{nodestypes.RoleRelay}, HotKey: hot.String(),
+			Operator: n.operator.String(), NodeId: id, Roles: roles, HotKey: hot.String(),
 			Bindings: []nodestypes.Binding{{
 				Service: nodestypes.HotKeyService, KeyType: nodestypes.KeyTypeSecp256k1, Pubkey: hotPriv.PubKey().Bytes(), Signature: hotSig,
 			}, {
-				Service: "relay", KeyType: nodestypes.KeyTypeEd25519, Pubkey: pub,
-				Signature: stded25519.Sign(priv, nodestypes.BindingSignBytes(testChainID, n.operator.String(), "relay", pub)),
+				Service: service, KeyType: nodestypes.KeyTypeEd25519, Pubkey: pub,
+				Signature: stded25519.Sign(priv, nodestypes.BindingSignBytes(testChainID, n.operator.String(), service, pub)),
 			}},
 			Endpoints: []string{endpoint},
 		})
@@ -108,4 +114,78 @@ func TestRegisterRelay_identityInsideLockIsUnidentified(t *testing.T) {
 	n := c.addRelayNode("relay-new", "https://93.184.216.34:443")
 	fp := c.registerRelay(n, 0x11)
 	require.Equal(t, relaytypes.UnidentifiedPrefix16, c.storedRelay(fp).Prefix16)
+}
+
+// registerRelayErr sends MsgRegisterRelay for n with fingerprint fp through x/relay wired to the real x/nodes.
+func (c *wiringChain) registerRelayErr(n relayNode, fp []byte) error {
+	c.t.Helper()
+	var err error
+	c.write(func(ctx sdk.Context) {
+		_, err = relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).RegisterRelay(ctx, &relaytypes.MsgRegisterRelay{
+			Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: fp,
+			Ed25519Signature: stded25519.Sign(n.priv, relaytypes.CrossCertMessage(n.id, fp)),
+		})
+	})
+	return err
+}
+
+func TestRegisterRelay_refusesANodeWithoutTheRelayRole(t *testing.T) {
+	c := newWiringChain(t)
+	n := c.addNodeWith("storage-only", "https://93.184.216.34:443", []nodestypes.Role{nodestypes.RoleStorage}, "relay")
+	err := c.registerRelayErr(n, bytes32(0x11)[:relaytypes.RSAFingerprintLen])
+	require.ErrorContains(t, err, "does not have role ROLE_RELAY")
+}
+
+func TestRegisterRelay_refusesARelayNodeThatBindsNoRelayKey(t *testing.T) {
+	c := newWiringChain(t)
+	n := c.addNodeWith("relay-consensus", "https://93.184.216.34:443", []nodestypes.Role{nodestypes.RoleRelay}, "consensus")
+	err := c.registerRelayErr(n, bytes32(0x11)[:relaytypes.RSAFingerprintLen])
+	require.ErrorContains(t, err, `binds no ed25519 key for service "relay"`,
+		"another ed25519 key of the node is never taken for the relay's: its votes would never match")
+}
+
+func TestUpdateRelay_followsAMsgUpdateNodeRebind(t *testing.T) {
+	c := newWiringChain(t)
+	n := c.addRelayNode("relay-rotate", "https://93.184.216.34:443")
+	fp := c.registerRelay(n, 0x11)
+
+	newPub, newPriv, err := stded25519.GenerateKey(nil)
+	require.NoError(t, err)
+	hot := c.nodeBindings(n.id)[0]
+	c.write(func(ctx sdk.Context) {
+		_, err := nodeskeeper.NewMsgServerImpl(c.app.NodesKeeper).UpdateNode(ctx, &nodestypes.MsgUpdateNode{
+			Operator: n.operator.String(), NodeId: n.id,
+			Bindings: []nodestypes.Binding{hot, {
+				Service: "relay", KeyType: nodestypes.KeyTypeEd25519, Pubkey: newPub,
+				Signature: stded25519.Sign(newPriv, nodestypes.BindingSignBytes(testChainID, n.operator.String(), "relay", newPub)),
+			}},
+		})
+		require.NoError(t, err)
+	})
+	require.Equal(t, []byte(n.priv.Public().(stded25519.PublicKey)), c.storedRelay(fp).Ed25519Id, "registration snapshotted the old key")
+
+	c.write(func(ctx sdk.Context) {
+		_, err := relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).UpdateRelay(ctx, &relaytypes.MsgUpdateRelay{
+			Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: fp,
+			Ed25519Signature: stded25519.Sign(newPriv, relaytypes.CrossCertMessage(n.id, fp)),
+		})
+		require.NoError(t, err)
+	})
+	require.Equal(t, []byte(newPub), c.storedRelay(fp).Ed25519Id)
+}
+
+func bytes32(mark byte) []byte {
+	out := make([]byte, 32)
+	for i := range out {
+		out[i] = mark
+	}
+	return out
+}
+
+// nodeBindings is the binding set the chain holds for a node.
+func (c *wiringChain) nodeBindings(id string) []nodestypes.Binding {
+	c.t.Helper()
+	node, err := c.app.NodesKeeper.GetNode(c.app.NewContext(true), id)
+	require.NoError(c.t, err)
+	return node.Bindings
 }

@@ -151,6 +151,20 @@ export interface RelayPayout {
   amount: string;
 }
 
+/**
+ * RelayStanding is one registered relay with the last payout it received:
+ * last_payout_epoch is 0 and last_payout_amount "0" for a relay never paid.
+ */
+export interface RelayStanding {
+  relay: Relay | undefined;
+  lastPayoutEpoch: bigint;
+  /**
+   * last_payout_amount is the relay's gross norama of that epoch, before the
+   * 90/5/5 split of its operator's total.
+   */
+  lastPayoutAmount: string;
+}
+
 function createBaseParams(): Params {
   return {
     minReportersQuorum: 0,
@@ -1317,6 +1331,120 @@ export const RelayPayout: MessageFns<RelayPayout> = {
     message.rsaFingerprint = object.rsaFingerprint ?? new Uint8Array(0);
     message.operator = object.operator ?? "";
     message.amount = object.amount ?? "";
+    return message;
+  },
+};
+
+function createBaseRelayStanding(): RelayStanding {
+  return { relay: undefined, lastPayoutEpoch: 0n, lastPayoutAmount: "" };
+}
+
+export const RelayStanding: MessageFns<RelayStanding> = {
+  encode(message: RelayStanding, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.relay !== undefined) {
+      Relay.encode(message.relay, writer.uint32(10).fork()).join();
+    }
+    if (message.lastPayoutEpoch !== 0n) {
+      if (BigInt.asUintN(64, message.lastPayoutEpoch) !== message.lastPayoutEpoch) {
+        throw new globalThis.Error("value provided for field message.lastPayoutEpoch of type uint64 too large");
+      }
+      writer.uint32(16).uint64(message.lastPayoutEpoch);
+    }
+    if (message.lastPayoutAmount !== "") {
+      writer.uint32(26).string(message.lastPayoutAmount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RelayStanding {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseRelayStanding();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.relay = Relay.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.lastPayoutEpoch = reader.uint64() as bigint;
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.lastPayoutAmount = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): RelayStanding {
+    return {
+      relay: isSet(object.relay) ? Relay.fromJSON(object.relay) : undefined,
+      lastPayoutEpoch: isSet(object.lastPayoutEpoch)
+        ? BigInt(object.lastPayoutEpoch)
+        : isSet(object.last_payout_epoch)
+        ? BigInt(object.last_payout_epoch)
+        : 0n,
+      lastPayoutAmount: isSet(object.lastPayoutAmount)
+        ? globalThis.String(object.lastPayoutAmount)
+        : isSet(object.last_payout_amount)
+        ? globalThis.String(object.last_payout_amount)
+        : "",
+    };
+  },
+
+  toJSON(message: RelayStanding): unknown {
+    const obj: any = {};
+    if (message.relay !== undefined) {
+      obj.relay = Relay.toJSON(message.relay);
+    }
+    if (message.lastPayoutEpoch !== 0n) {
+      obj.lastPayoutEpoch = message.lastPayoutEpoch.toString();
+    }
+    if (message.lastPayoutAmount !== "") {
+      obj.lastPayoutAmount = message.lastPayoutAmount;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RelayStanding>, I>>(base?: I): RelayStanding {
+    return RelayStanding.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RelayStanding>, I>>(object: I): RelayStanding {
+    const message = createBaseRelayStanding();
+    message.relay = (object.relay !== undefined && object.relay !== null) ? Relay.fromPartial(object.relay) : undefined;
+    message.lastPayoutEpoch = (object.lastPayoutEpoch !== undefined && object.lastPayoutEpoch !== null)
+      ? BigInt(object.lastPayoutEpoch)
+      : 0n;
+    message.lastPayoutAmount = object.lastPayoutAmount ?? "";
     return message;
   },
 };

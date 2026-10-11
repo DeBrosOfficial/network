@@ -80,7 +80,9 @@ var publicQuery = names(
 	"orama.power.v1.Query/ValidatorPower",
 	"orama.relay.v1.Query/Params", "orama.relay.v1.Query/Reporters", "orama.relay.v1.Query/Relay",
 	"orama.relay.v1.Query/EpochResult",
-	"orama.relay.v1.Query/Relays", // paged by key, at most MaxRelaysPerPage relays a page, by x/relay
+	"orama.relay.v1.Query/Relays",         // paged by key, at most MaxRelaysPerPage relays a page, by x/relay
+	"orama.relay.v1.Query/OperatorRelays", // an operator's relays with their last payout, paged like Relays
+	"orama.relay.v1.Query/RelayPayouts",   // one epoch's payouts, paged like Relays
 	"orama.shielded.v1.Query/Params", "orama.shielded.v1.Query/TreeState", "orama.shielded.v1.Query/NullifierSpent",
 	"orama.storage.v1.Query/Params", "orama.storage.v1.Query/Deal", "orama.storage.v1.Query/Slot",
 	"orama.storage.v1.Query/Authorization", "orama.storage.v1.Query/Challenges", "orama.storage.v1.Query/EpochMint",

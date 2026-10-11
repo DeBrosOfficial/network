@@ -210,6 +210,9 @@ describe("module queries through /v1/chain/query/", () => {
       [(c) => c.relayReporters(), "orama.relay.v1.Query/Reporters", undefined],
       [(c) => c.relay("ab".repeat(20)), "orama.relay.v1.Query/Relay", { rsa_fingerprint_hex: "ab".repeat(20) }],
       [(c) => c.relayEpochResult(9), "orama.relay.v1.Query/EpochResult", { epoch: "9" }],
+      [(c) => c.operatorRelays(ADDRESS), "orama.relay.v1.Query/OperatorRelays", { operator: ADDRESS }],
+      [(c) => c.operatorRelays(ADDRESS, { limit: 5 }), "orama.relay.v1.Query/OperatorRelays", { operator: ADDRESS, pagination: { limit: 5 } }],
+      [(c) => c.relayPayouts(9), "orama.relay.v1.Query/RelayPayouts", { epoch: "9" }],
     ];
     for (const [call, name, request] of cases) {
       const { url } = await run(call);

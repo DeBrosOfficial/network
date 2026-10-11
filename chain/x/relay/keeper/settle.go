@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
@@ -116,6 +117,7 @@ func (k Keeper) SettleEpoch(ctx sdk.Context, epoch uint64) (types.EpochResult, e
 
 type claim struct {
 	fingerprint []byte
+	nodeID      string
 	operator    string
 	prefix16    string
 	amount      math.Int
@@ -163,6 +165,13 @@ func (k Keeper) payEpoch(ctx sdk.Context, params types.Params, epoch uint64, rep
 			Operator:       c.operator,
 			Amount:         scaled[i],
 		})
+		ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeRelayPayout,
+			sdk.NewAttribute(types.AttributeKeyEpoch, strconv.FormatUint(epoch, 10)),
+			sdk.NewAttribute(types.AttributeKeyRSAFingerprint, fingerprintHex(c.fingerprint)),
+			sdk.NewAttribute(types.AttributeKeyNodeID, c.nodeID),
+			sdk.NewAttribute(types.AttributeKeyOperator, c.operator),
+			sdk.NewAttribute(types.AttributeKeyAmount, scaled[i].String()),
+		))
 		minted = minted.Add(scaled[i])
 		if _, ok := operatorTotals[c.operator]; !ok {
 			operators = append(operators, c.operator)
@@ -185,7 +194,7 @@ func (k Keeper) payEpoch(ctx sdk.Context, params types.Params, epoch uint64, rep
 		if err != nil {
 			return nil, math.Int{}, math.Int{}, fmt.Errorf("settle epoch: operator %q: %w", operator, err)
 		}
-		if err := k.payOperator(ctx, addr, operatorTotals[operator]); err != nil {
+		if err := k.payOperator(ctx, epoch, addr, operatorTotals[operator]); err != nil {
 			return nil, math.Int{}, math.Int{}, fmt.Errorf("settle epoch: %w", err)
 		}
 	}
@@ -195,7 +204,7 @@ func (k Keeper) payEpoch(ctx sdk.Context, params types.Params, epoch uint64, rep
 // payOperator pays one operator's settled total through the C2 service split: the operator's part
 // goes to its earnings account, the burn share is burned and the archive share funds the archive.
 // The operator receives the rounding remainder, so the three parts sum to total exactly.
-func (k Keeper) payOperator(ctx sdk.Context, operator sdk.AccAddress, total math.Int) error {
+func (k Keeper) payOperator(ctx sdk.Context, epoch uint64, operator sdk.AccAddress, total math.Int) error {
 	toOperator, burn, archive := k.service.SplitServicePayment(total)
 	if !toOperator.Add(burn).Add(archive).Equal(total) {
 		return fmt.Errorf("service split of %s summed to %s", total, toOperator.Add(burn).Add(archive))
@@ -216,6 +225,14 @@ func (k Keeper) payOperator(ctx sdk.Context, operator sdk.AccAddress, total math
 			return fmt.Errorf("failed to fund the archive from the payment to %s: %w", operator, err)
 		}
 	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeOperatorPaid,
+		sdk.NewAttribute(types.AttributeKeyEpoch, strconv.FormatUint(epoch, 10)),
+		sdk.NewAttribute(types.AttributeKeyOperator, operator.String()),
+		sdk.NewAttribute(types.AttributeKeyAmount, total.String()),
+		sdk.NewAttribute(types.AttributeKeyEarnings, toOperator.String()),
+		sdk.NewAttribute(types.AttributeKeyBurned, burn.String()),
+		sdk.NewAttribute(types.AttributeKeyArchive, archive.String()),
+	))
 	return nil
 }
 
@@ -284,6 +301,7 @@ func (k Keeper) scoreRelays(ctx sdk.Context, params types.Params, reports []type
 		}
 		claims = append(claims, claim{
 			fingerprint: append([]byte(nil), relay.RsaFingerprint...),
+			nodeID:      relay.NodeId,
 			operator:    relay.Operator,
 			prefix16:    relay.Prefix16,
 			amount:      amount,
@@ -350,6 +368,24 @@ func (k Keeper) storePayouts(ctx sdk.Context, payouts []types.RelayPayout) error
 		if err := k.Payouts.Set(ctx, payoutKey(payout.Epoch, payout.RsaFingerprint), payout); err != nil {
 			return fmt.Errorf("settle epoch: failed to store payout: %w", err)
 		}
+		if err := k.recordLastPayout(ctx, payout); err != nil {
+			return fmt.Errorf("settle epoch: %w", err)
+		}
+	}
+	return nil
+}
+
+// recordLastPayout keeps payout as the relay's newest row unless a newer epoch is held already.
+func (k Keeper) recordLastPayout(ctx sdk.Context, payout types.RelayPayout) error {
+	last, err := k.LastPayouts.Get(ctx, payout.RsaFingerprint)
+	if err == nil && last.Epoch >= payout.Epoch {
+		return nil
+	}
+	if err != nil && !errors.Is(err, collections.ErrNotFound) {
+		return fmt.Errorf("failed to load the last payout of relay %X: %w", payout.RsaFingerprint, err)
+	}
+	if err := k.LastPayouts.Set(ctx, payout.RsaFingerprint, payout); err != nil {
+		return fmt.Errorf("failed to store the last payout of relay %X: %w", payout.RsaFingerprint, err)
 	}
 	return nil
 }

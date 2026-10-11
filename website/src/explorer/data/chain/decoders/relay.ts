@@ -16,6 +16,18 @@ export const RELAY_DECODERS = table(
       field("RSA fingerprint", r.hex("rsa_fingerprint", FINGERPRINT_BYTES)),
     ],
   }),
+  define("/orama.relay.v1.MsgUpdateRelay", {
+    module: MODULE,
+    tag: "Update relay",
+    actor: "operator",
+    verb: ["rotated", "rotate"],
+    object: (r) => sp`the fingerprint of ${r.bool("exit") ? "the exit relay" : "the relay"} on node ${r.name("node_id")}`,
+    fields: (r) => [
+      field("Node ID", r.name("node_id")),
+      field("Kind", r.bool("exit") ? "Exit relay" : "Relay"),
+      field("RSA fingerprint", r.hex("rsa_fingerprint", FINGERPRINT_BYTES)),
+    ],
+  }),
   define("/orama.relay.v1.MsgReportEpoch", {
     module: MODULE,
     tag: "Report relay epoch",

@@ -3,6 +3,8 @@ package keeper
 import (
 	"fmt"
 
+	"cosmossdk.io/collections"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/relay/types"
@@ -33,6 +35,9 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 		if err := k.NodeIndex.Set(ctx, relay.NodeId, relay.RsaFingerprint); err != nil {
 			return fmt.Errorf("failed to index relay %s: %w", relay.NodeId, err)
 		}
+		if err := k.OperatorIndex.Set(ctx, collections.Join(relay.Operator, relay.RsaFingerprint)); err != nil {
+			return fmt.Errorf("failed to index operator of relay %s: %w", relay.NodeId, err)
+		}
 	}
 	if err := k.Activation.Set(ctx, genState.Activation); err != nil {
 		return fmt.Errorf("failed to set relay activation: %w", err)
@@ -45,6 +50,9 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 	for _, payout := range genState.Payouts {
 		if err := k.Payouts.Set(ctx, payoutKey(payout.Epoch, payout.RsaFingerprint), payout); err != nil {
 			return fmt.Errorf("failed to set epoch %d payout: %w", payout.Epoch, err)
+		}
+		if err := k.recordLastPayout(ctx, payout); err != nil {
+			return err
 		}
 	}
 	for _, chunk := range genState.Chunks {
