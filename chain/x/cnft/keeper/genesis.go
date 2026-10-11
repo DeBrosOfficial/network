@@ -45,6 +45,7 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 			nextSnap[snap.TreeId] = snap.Id + 1
 		}
 	}
+	// nosemgrep: consensus-map-iteration -- InitGenesis writes independent keys; the store flushes them in sorted order and the gas of each write is the same in any order
 	for treeID, next := range nextSnap {
 		if err := k.NextSnapshot.Set(ctx, treeID, next); err != nil {
 			return fmt.Errorf("failed to set next snapshot id for tree %d: %w", treeID, err)

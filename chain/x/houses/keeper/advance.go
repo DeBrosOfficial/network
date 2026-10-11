@@ -377,6 +377,7 @@ func applyStringSet(current, add, remove []string) []string {
 		delete(set, item)
 	}
 	out := make([]string, 0, len(set))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for item := range set {
 		out = append(out, item)
 	}

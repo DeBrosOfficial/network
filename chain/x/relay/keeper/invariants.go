@@ -49,6 +49,7 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) (Invariants, error) {
 	ceilingHolds := true
 	payoutsMatch := true
 	detail := ""
+	// nosemgrep: consensus-map-iteration -- query-only invariant report; the order of the detail lines is not state
 	for epoch, entry := range rows {
 		if !entry.seen || entry.ceiling.IsNil() || entry.minted.IsNil() || entry.minted.IsNegative() || entry.ceiling.IsNegative() || entry.minted.GT(entry.ceiling) {
 			ceilingHolds = false

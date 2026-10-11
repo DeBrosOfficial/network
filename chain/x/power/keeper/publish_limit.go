@@ -56,6 +56,7 @@ func (k Keeper) previousPowerShares(ctx sdk.Context) (map[string]math.LegacyDec,
 		return out, nil
 	}
 	scale := math.LegacyNewDec(total)
+	// nosemgrep: consensus-map-iteration -- maps each key to a value computed from that key alone
 	for addr, power := range weights {
 		out[addr] = math.LegacyNewDec(power).Quo(scale)
 	}

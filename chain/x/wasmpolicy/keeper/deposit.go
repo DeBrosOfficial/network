@@ -301,6 +301,7 @@ func (k Keeper) CheckInvariants(ctx context.Context) (Invariants, error) {
 		return inv, fmt.Errorf("failed to walk charged bytes: %w", err)
 	}
 	orphans := make([]string, 0, len(sums))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for addr := range sums {
 		orphans = append(orphans, addr)
 	}

@@ -77,6 +77,7 @@ func (r relayReporterEnactor) ChangeReporters(ctx sdk.Context, add, remove []str
 		current[canonical] = struct{}{}
 	}
 	next := make([]string, 0, len(current))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for addr := range current {
 		next = append(next, addr)
 	}

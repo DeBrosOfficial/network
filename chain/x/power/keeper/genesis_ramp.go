@@ -79,6 +79,7 @@ func (k Keeper) exportRampRecords(ctx sdk.Context) ([]types.ValidatorRampRecord,
 		return nil, fmt.Errorf("failed to walk ramp epochs: %w", err)
 	}
 	addrs := make([]string, 0, len(records))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for addr := range records {
 		addrs = append(addrs, addr)
 	}

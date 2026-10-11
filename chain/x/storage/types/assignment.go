@@ -102,6 +102,7 @@ func PickCandidate(cands []Candidate, seed []byte, rules PickRules) (Candidate, 
 		}
 	}
 	sort.Strings(ops)
+	// nosemgrep: consensus-map-iteration -- sorts each value in place and writes it back to its own key
 	for op, nodes := range byOp {
 		sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })
 		byOp[op] = nodes

@@ -169,13 +169,16 @@ func rawObject(module string, gs GenesisState) (map[string]json.RawMessage, erro
 // values).
 func objectDiffs(module string, want, got map[string]json.RawMessage, skip func(string) bool) []string {
 	keys := map[string]bool{}
+	// nosemgrep: consensus-map-iteration -- builds a set of keys
 	for k := range want {
 		keys[k] = true
 	}
+	// nosemgrep: consensus-map-iteration -- builds a set of keys
 	for k := range got {
 		keys[k] = true
 	}
 	var diffs []string
+	// nosemgrep: consensus-map-iteration -- InitChain validation: any difference fails, the order only changes the text of the refusal
 	for k := range keys {
 		if skip(k) {
 			continue

@@ -50,6 +50,7 @@ func ComputeOperatorCappedShares(stakes []OperatorStake, cap, maxRedistributionM
 		members[s.Operator] = append(members[s.Operator], i)
 	}
 	operators := make([]string, 0, len(members))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for op := range members {
 		operators = append(operators, op)
 	}

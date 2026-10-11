@@ -82,6 +82,7 @@ func (k Keeper) indexIPs(ctx sdk.Context, prev, next []string, nodeID string) er
 			return fmt.Errorf("release endpoint address %s: %w", ip, err)
 		}
 	}
+	// nosemgrep: consensus-map-iteration -- writes independent keys; the store flushes them in sorted order and the gas of each write is the same in any order
 	for ip := range keep {
 		if err := k.LiveIPs.Set(ctx, ip, nodeID); err != nil {
 			return fmt.Errorf("index endpoint address %s: %w", ip, err)

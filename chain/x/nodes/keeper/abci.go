@@ -129,6 +129,7 @@ func (k Keeper) recordServiceDays(ctx sdk.Context) error {
 		return fmt.Errorf("walk nodes for service days: %w", err)
 	}
 	operators := make([]string, 0, len(found))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for operator := range found {
 		operators = append(operators, operator)
 	}

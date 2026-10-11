@@ -89,6 +89,7 @@ func (p *inclusionPool) Eligible(now time.Time, after time.Duration) [][]byte {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	out := make([][]byte, 0, len(p.entries))
+	// nosemgrep: consensus-map-iteration -- proposer-local mempool bookkeeping; the order of this node's own vote-extension candidates is not consensus input (the list rules re-sort by bytes)
 	for key, e := range p.entries {
 		age := now.Sub(e.firstSeen)
 		if age > p.maxAge {
