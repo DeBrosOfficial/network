@@ -109,6 +109,22 @@ async function blogLines(llmsDir) {
   return { lines, count: POSTS.length };
 }
 
+/**
+ * The llms/ file name of each docs slug: one flat file per page, every "/" of the slug a "-"
+ * (developer/cli/app is developer-cli-app). Two pages may not land on one file.
+ */
+export function llmsFileNames(slugs) {
+  const names = new Map();
+  const owner = new Map();
+  for (const slug of slugs) {
+    const name = slug.replaceAll("/", "-");
+    if (owner.has(name)) throw new Error(`build-llms: ${slug} and ${owner.get(name)} would both be llms/${name}.md`);
+    owner.set(name, slug);
+    names.set(slug, name);
+  }
+  return names;
+}
+
 async function build() {
   const llmsDir = join(DIST, "llms");
   mkdirSync(llmsDir, { recursive: true });
@@ -130,6 +146,7 @@ async function build() {
   }
 
   const lines = [`# ${PROJECT}`, "", `> ${SUMMARY}`, ""];
+  const fileNames = llmsFileNames(published.keys());
   let count = 0;
   for (const [persona, heading] of SECTIONS) {
     const slugs = [...published.keys()].filter((slug) => slug.startsWith(`${persona}/`));
@@ -137,7 +154,7 @@ async function build() {
     lines.push(`## ${heading}`, "");
     for (const slug of slugs) {
       const page = published.get(slug);
-      const name = slug.replace("/", "-");
+      const name = fileNames.get(slug);
       writeFileSync(join(llmsDir, `${name}.md`), mdxToMarkdown(readFileSync(join(SRC_DOCS, `${slug}.mdx`), "utf8")));
       lines.push(`- [${page.card?.title ?? page.title}](${BASE}/llms/${name}.md): ${page.description}`);
       count++;

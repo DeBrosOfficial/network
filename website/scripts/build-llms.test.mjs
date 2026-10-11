@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mdxToMarkdown } from "./build-llms.mjs";
+import { llmsFileNames, mdxToMarkdown } from "./build-llms.mjs";
 
 describe("mdxToMarkdown", () => {
   it("TestMdxToMarkdown_drops_front_matter_and_esm_lines", () => {
@@ -24,5 +24,21 @@ describe("mdxToMarkdown", () => {
 
   it("TestMdxToMarkdown_empty_input", () => {
     expect(mdxToMarkdown("")).toBe("\n");
+  });
+});
+
+describe("llmsFileNames", () => {
+  it("TestLlmsFileNames_flattens_every_slash", () => {
+    const names = llmsFileNames(["developer/cli/app", "operator/setup"]);
+    expect(names.get("developer/cli/app")).toBe("developer-cli-app");
+    expect(names.get("operator/setup")).toBe("operator-setup");
+  });
+
+  it("TestLlmsFileNames_refuses_two_pages_on_one_file", () => {
+    expect(() => llmsFileNames(["developer/cli-app", "developer/cli/app"])).toThrow(/both be llms\/developer-cli-app.md/);
+  });
+
+  it("TestLlmsFileNames_empty", () => {
+    expect(llmsFileNames([]).size).toBe(0);
   });
 });
