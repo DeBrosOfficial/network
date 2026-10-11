@@ -77,3 +77,12 @@ paths = [
   '''(^|/)docs/whitepaper/technical-reference/vol1/15-inter-node-trust\.md$''',
   '''(^|/)e2e/harness/secrets/patterns\.go$''',
 ]
+
+[[allowlists]]
+description = "Public values the generic-api-key rule takes for a secret: public keys in test fixtures (a base64 ed25519 key counting 0 to 31, a base64 secp256k1 account key), a systemd flag line, and base64 collection keys in the stagenet genesis ('lastCodeId', 'lastContractId'). Reviewed with the chain CI gate (bugboard 3381); none is a credential"
+paths = [
+  '''(^|/)core/cmd/orama/internal/setup/create_genesis_test\.go$''',
+  '''(^|/)core/pkg/install/global_netns_test\.go$''',
+  '''(^|/)core/pkg/onchain/gateway_test\.go$''',
+  '''(^|/)networks/stagenet/genesis\.json$''',
+]
