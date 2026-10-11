@@ -43,7 +43,7 @@
 #   gen-shielded build the wallet scenario for this chain (needs the Rust toolchain).
 #
 # Environment (all optional):
-#   CHAIN_ID                        orama-stagenet-1; must contain -stagenet- or -devnet-.
+#   CHAIN_ID                        orama-stagenet-1; exactly orama-[<name>-](stagenet|devnet)-<id>.
 #   ORAMA_ENV                       the CLI environment of this network (the one `orama setup` recorded, named
 #                                   after the network) for `faucet` to fund the accounts through (default stagenet).
 #   FAUCET_FUND_NORAMA              what `faucet` gives each node's faucet account for transaction fees (1,000 ORAMA).

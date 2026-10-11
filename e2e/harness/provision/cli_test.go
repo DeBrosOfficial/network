@@ -113,19 +113,31 @@ func chainEnv(t *testing.T, chainID, nodes string) []string {
 func TestChainScript_refusesUnsafeInput(t *testing.T) {
 	good := "node-1:203.0.113.1:10.0.0.1"
 	cases := map[string][]string{
-		"must contain -devnet-": chainEnv(t, "orama-mainnet-1", good),
-		"invalid CHAIN_ID":      chainEnv(t, "Orama;rm", good),
-		"WireGuard IP":          chainEnv(t, "orama-devnet-e2e-x", "node-1:203.0.113.1:192.168.1.1"),
-		"public IP":             chainEnv(t, "orama-devnet-e2e-x", "node-1:203.0.113.999:10.0.0.1"),
-		"node name":             chainEnv(t, "orama-devnet-e2e-x", "Node$(id):203.0.113.1:10.0.0.1"),
-		"is empty":              chainEnv(t, "orama-devnet-e2e-x", ""),
-		"want name:public-ip":   chainEnv(t, "orama-devnet-e2e-x", good+":extra"),
-		"E2E_SSH_KEY":           {"CHAIN_ID=orama-devnet-e2e-x", "E2E_CHAIN_NODES=" + good},
+		"orama-[<name>-]devnet-<id> exactly": chainEnv(t, "orama-mainnet-1", good),
+		"invalid CHAIN_ID":                   chainEnv(t, "Orama;rm", good),
+		"WireGuard IP":                       chainEnv(t, "orama-devnet-e2e-x", "node-1:203.0.113.1:192.168.1.1"),
+		"public IP":                          chainEnv(t, "orama-devnet-e2e-x", "node-1:203.0.113.999:10.0.0.1"),
+		"node name":                          chainEnv(t, "orama-devnet-e2e-x", "Node$(id):203.0.113.1:10.0.0.1"),
+		"is empty":                           chainEnv(t, "orama-devnet-e2e-x", ""),
+		"want name:public-ip":                chainEnv(t, "orama-devnet-e2e-x", good+":extra"),
+		"E2E_SSH_KEY":                        {"CHAIN_ID=orama-devnet-e2e-x", "E2E_CHAIN_NODES=" + good},
 	}
 	for want, env := range cases {
 		out, err := runChainScript(t, env, "status")
 		if err == nil || !strings.Contains(out, want) {
 			t.Errorf("%s: err %v output %q", want, err, out)
+		}
+	}
+}
+
+// The chain-id gate is the chain's exact rule, not a substring: an id that only contains -devnet-, is of
+// another class, or has a class word as its name word is refused before any machine is touched.
+func TestChainScript_refusesAChainIDThatOnlyContainsDevnet(t *testing.T) {
+	good := "node-1:203.0.113.1:10.0.0.1"
+	for _, id := range []string{"orama-1-devnet-x", "foo-devnet-bar", "orama-stagenet-1", "orama-localnet-1", "orama-devnet-localnet-1", "orama-devnet-"} {
+		out, err := runChainScript(t, chainEnv(t, id, good), "status")
+		if err == nil || !strings.Contains(out, "devnet-<id> exactly") {
+			t.Errorf("%s: err %v output %q", id, err, out)
 		}
 	}
 }

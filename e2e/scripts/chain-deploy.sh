@@ -5,7 +5,7 @@
 # with the fleet passed in instead of hardcoded host aliases: every node is reached by its public IP
 # with the run's own SSH key and pinned known_hosts, and the chain's p2p runs over the WireGuard
 # overlay. It only touches the chain's own user, binary, state directory and systemd unit, never an
-# Orama cluster service. Devnet only: CHAIN_ID must contain -devnet-. keyring-backend test (an
+# Orama cluster service. Devnet only: CHAIN_ID is exactly orama-[<name>-]devnet-<id>. keyring-backend test (an
 # unencrypted, on-disk keyring) is used throughout: a devnet-only convenience for throwaway keys.
 #
 # Environment (all required unless a default is given):
