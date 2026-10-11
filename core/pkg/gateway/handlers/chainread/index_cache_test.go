@@ -84,7 +84,7 @@ func TestIndexProxy_readsInFlightAreBounded(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	p.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/chain/index/txs?page=1000&limit=100", nil))
+	p.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/chain/index/txs?page=10&limit=100", nil))
 	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") == "" {
 		t.Fatalf("with every slot taken: HTTP %d, Retry-After %q; want 503 with a retry", rec.Code, rec.Header().Get("Retry-After"))
 	}

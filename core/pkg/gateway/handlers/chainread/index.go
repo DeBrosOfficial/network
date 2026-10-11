@@ -24,10 +24,14 @@ const (
 
 	indexMaxLimit = 100
 	indexMaxPage  = 1000
+	// indexMaxListPage is the deepest numbered page of the long lists (blocks, transactions, an
+	// account's transactions), chain/indexer MaxListPage; past it they are read by cursor.
+	indexMaxListPage = 10
 
-	// indexMaxConcurrent bounds the index reads in flight on one gateway. A page deep in a list makes
-	// the indexer skip the rows before it (up to 99,900), so the work of one read is not constant;
-	// the reads beyond this get a 503 and ask again, as the module queries do.
+	// indexMaxConcurrent bounds the index reads in flight on one gateway. A numbered page makes the
+	// indexer skip the rows before it (up to 900 on the long lists, which go deeper by cursor, and up
+	// to 99,900 on the short ones), so the work of one read is not constant; the reads beyond this
+	// get a 503 and ask again, as the module queries do.
 	indexMaxConcurrent = 32
 	// indexBusyRetryAfter is the Retry-After, in seconds, of that answer.
 	indexBusyRetryAfter = "2"
@@ -65,6 +69,8 @@ func (p *Proxy) serveIndex(w http.ResponseWriter, r *http.Request, rest string) 
 	switch kind {
 	case queryPaged:
 		q, ok = pageQuery(r)
+	case queryBlockList:
+		q, ok = blockListQuery(r)
 	case queryTxList:
 		q, ok = txListQuery(r)
 	default:
@@ -124,10 +130,12 @@ func (p *Proxy) forwardIndex(w http.ResponseWriter, r *http.Request, path string
 	p.relay(w, r, p.index, path, q, indexCacheControl)
 }
 
-// What query an index route takes: none, page and limit, or page, limit and a filter.
+// What query an index route takes: none; page and limit; the block list's page or cursor and
+// limit; or the transaction lists' page or cursor, limit and a filter.
 const (
 	queryNone = iota
 	queryPaged
+	queryBlockList
 	queryTxList
 )
 
@@ -142,7 +150,7 @@ func indexRoute(segs []string) (string, int, bool) {
 	case len(segs) == 1 && segs[0] == "home":
 		return "home", queryNone, true
 	case len(segs) == 1 && segs[0] == "blocks":
-		return "blocks", queryPaged, true
+		return "blocks", queryBlockList, true
 	case len(segs) == 1 && segs[0] == "txs":
 		return "txs", queryTxList, true
 	case len(segs) == 2 && segs[0] == "blocks":
@@ -200,9 +208,13 @@ func aggregateRoute(segs []string) (string, int, bool) {
 // txListFilters are the values of the filter parameter of the transaction lists (chain/indexer/kinds.go).
 var txListFilters = map[string]bool{"all": true, "failed": true, "transfers": true, "staking": true, "storage": true}
 
-// txListQuery accepts page and limit as pageQuery does, and filter, each at most once, and nothing else.
+// cursorPattern is the form of a list cursor: unpadded base64url of the 12 bytes of a height and a
+// position in its block (chain/indexer/cursor.go). The indexer decodes and checks it again.
+var cursorPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16}$`)
+
+// txListQuery accepts the block list's query and filter, each at most once, and nothing else.
 func txListQuery(r *http.Request) (url.Values, bool) {
-	q, ok := singleQuery(r, "page", "limit", "filter")
+	q, ok := singleQuery(r, "page", "cursor", "limit", "filter")
 	if !ok {
 		return nil, false
 	}
@@ -210,12 +222,38 @@ func txListQuery(r *http.Request) (url.Values, bool) {
 	if filter != "" && !txListFilters[filter] {
 		return nil, false
 	}
-	out, ok := pageValues(q)
+	out, ok := listValues(q)
 	if !ok {
 		return nil, false
 	}
 	if filter != "" {
 		out.Set("filter", filter)
+	}
+	return out, true
+}
+
+// blockListQuery accepts page (1 to indexMaxListPage) or cursor, and limit, each at most once.
+func blockListQuery(r *http.Request) (url.Values, bool) {
+	q, ok := singleQuery(r, "page", "cursor", "limit")
+	if !ok {
+		return nil, false
+	}
+	return listValues(q)
+}
+
+// listValues checks a long list's page, cursor and limit: a page up to indexMaxListPage or a
+// cursor, never both, so no read makes the indexer skip more than indexMaxListPage pages of rows.
+func listValues(q url.Values) (url.Values, bool) {
+	cursor := q.Get("cursor")
+	if cursor != "" && (q.Get("page") != "" || !cursorPattern.MatchString(cursor)) {
+		return nil, false
+	}
+	out, ok := boundedValues(q, indexMaxListPage)
+	if !ok {
+		return nil, false
+	}
+	if cursor != "" {
+		out.Set("cursor", cursor)
 	}
 	return out, true
 }
@@ -231,9 +269,12 @@ func pageQuery(r *http.Request) (url.Values, bool) {
 }
 
 // pageValues checks the page and limit among the values of a query.
-func pageValues(q url.Values) (url.Values, bool) {
+func pageValues(q url.Values) (url.Values, bool) { return boundedValues(q, indexMaxPage) }
+
+// boundedValues checks the page (1 to maxPage) and limit among the values of a query.
+func boundedValues(q url.Values, maxPage int64) (url.Values, bool) {
 	out := url.Values{}
-	for key, max := range map[string]int64{"page": indexMaxPage, "limit": indexMaxLimit} {
+	for key, max := range map[string]int64{"page": maxPage, "limit": indexMaxLimit} {
 		raw := q.Get(key)
 		if raw == "" {
 			continue

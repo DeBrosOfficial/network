@@ -60,6 +60,7 @@ covers:
     - orama.shielded.v1.Params
     - orama.shielded.v1.TreeState
   claims:
+    - "website/src/docs/blockchain/reading-the-chain.mdx#the-chain-indexer: index/txs, index/accounts/{addr}/txs and index/blocks take page up to 10 and go deeper by cursor=<next_cursor>; a page with a cursor and a malformed cursor are refused"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: the explorer list adds bank TotalSupply and DenomOwners and wasmd Codes, CodeInfo, ContractsByCode, ContractsByCreator, ContractHistory and AllContractState to the served queries, each paginated one capped at 100 entries a page"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: wasmd's SmartContractState and Code, and x/shielded's Pools, are not served"
     - "website/src/docs/blockchain/reading-the-chain.mdx#explorer-queries: a code id that is not stored and an address that is no contract are a 404 on CodeInfo and AllContractState, as on ContractInfo"
