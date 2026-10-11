@@ -17,6 +17,7 @@ import (
 	"github.com/DeBrosOfficial/network/e2e/harness"
 	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
 	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
 )
 
 const (
@@ -37,7 +38,9 @@ const (
 	olderSnapshot = 2
 	uploadBudget  = 5 * time.Minute
 	serveBudget   = 2 * time.Minute
-	pollEvery     = 2 * time.Second
+	// statusBudget bounds the wait for the node's next report to carry the agent's notice.
+	statusBudget = 3 * time.Minute
+	pollEvery    = 2 * time.Second
 )
 
 type agent struct {
@@ -166,6 +169,53 @@ func TestAutoupdateRun_followsItsPolicyAndRefusesWhatDoesNotVerify(t *testing.T)
 		}
 		if after := a.manifest(t); after != before {
 			t.Fatal("notify changed the installed release")
+		}
+	})
+	t.Run("statusShowsTheUpdateWithWhatThePolicyWillDo", func(t *testing.T) {
+		// The notice the agent just wrote reaches the node report, `orama status` (table and
+		// JSON) and the alerts: version, channel, the policy's decision and why.
+		eventually.Require(t, pollEvery, statusBudget, "orama status --json to show the update on the node", func() (bool, error) {
+			res := infra.Run(t, cli, "status", "--json")
+			if res.Exit != infra.ExitOK {
+				return false, fmt.Errorf("orama status --json exited %d: %s%s", res.Exit, res.Stdout, res.Stderr)
+			}
+			var doc struct {
+				Nodes []struct {
+					Update *struct {
+						State, Policy, Mode, Channel, Current, Candidate, Reason string
+					} `json:"update"`
+				} `json:"nodes"`
+			}
+			if err := oramacli.DecodeJSON(res, &doc); err != nil {
+				return false, err
+			}
+			if len(doc.Nodes) != 1 || doc.Nodes[0].Update == nil {
+				return false, fmt.Errorf("the node has no update in the status yet: %s", res.Stdout)
+			}
+			u := doc.Nodes[0].Update
+			if u.State != "available" || u.Policy != "notify" || u.Mode != "notify" || u.Candidate != a.newVer ||
+				u.Current != a.oldVer || u.Channel != "stable" || u.Reason == "" {
+				return false, fmt.Errorf("update = %+v, want %s available on stable, policy notify, running %s", *u, a.newVer, a.oldVer)
+			}
+			return true, nil
+		})
+		table := infra.Run(t, cli, "status", "--once")
+		if !strings.Contains(table.Stdout, a.newVer+" (notify)") || !strings.Contains(table.Stdout, "will notify") {
+			t.Errorf("the status table does not show the update and its policy:\n%s", table.Stdout)
+		}
+		report := infra.Run(t, cli, "status", "report", "--json")
+		var alerts struct {
+			Alerts []struct{ Severity, Subsystem, Message string } `json:"alerts"`
+		}
+		if err := oramacli.DecodeJSON(report, &alerts); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, al := range alerts.Alerts {
+			found = found || (al.Subsystem == "update" && al.Severity == "info" && strings.Contains(al.Message, a.newVer))
+		}
+		if !found {
+			t.Errorf("no information alert for release %s in %+v", a.newVer, alerts.Alerts)
 		}
 	})
 	t.Run("aTamperedArchiveIsRefusedAndReported", func(t *testing.T) {

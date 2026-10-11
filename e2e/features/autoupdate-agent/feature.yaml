@@ -11,6 +11,8 @@
 # the channel, so metadata signed under the new keys verifies.
 # A channel is the path prefix of its targets: nightly/ is offered on the nightly
 # channel and not on main.
+# The finding reaches the node report, `orama status` (table and --json: release,
+# channel, the policy's decision and why) and the alerts.
 # The repository is a static server on the node's loopback.
 id: autoupdate-agent
 title: Auto-update agent on an eval cluster
@@ -24,6 +26,8 @@ requires:
   chain: false
 covers:
   cli:
+    - orama status
+    - orama status report
     - orama maint node autoupdate run
     - orama maint cluster settings
     - orama maint cluster settings set
@@ -36,3 +40,4 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/29-build-signing-and-release.md: a release that does not verify is refused and reported, never installed"
     - "docs/whitepaper/technical-reference/vol1/29-build-signing-and-release.md: a root rotation is followed link by link: every N.root.json must be signed by the previous root's keys at their threshold and by its own, and the node adopts the newest"
     - "docs/whitepaper/technical-reference/vol1/29-build-signing-and-release.md: an upgrade that fails at a check before it stopped anything puts the previous release back and does not mark the release bad"
+    - "website/src/docs/operator/upgrades.mdx#automatic-updates: a newer verified release is shown by orama status with the release, the channel, what the policy will do and why, and as an information alert"

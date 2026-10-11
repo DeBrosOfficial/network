@@ -4,6 +4,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +92,47 @@ func TestBootstrap_chainHeightAdvances(t *testing.T) {
 	})
 	if last := readChain(t, cli, f.State.Env); last.Height <= first.Height {
 		t.Errorf("chain height went from %d to %d", first.Height, last.Height)
+	}
+}
+
+// TestBootstrap_statusReadsTheChainsScheduledUpgrade: every node's report reads x/upgrade's
+// current_plan from the chain's REST API (no upgrade_error), and the fresh chain has none
+// scheduled, so `orama status --json` lists no chain.upgrade and the table no section for one.
+// (A governed upgrade takes a 60-day timelock, so the fleet suite does not schedule one; the
+// pending-plan view is covered by the unit tests of the report, the alerts and the status.)
+func TestBootstrap_statusReadsTheChainsScheduledUpgrade(t *testing.T) {
+	t.Parallel()
+	harness.RequireChain(t)
+	f := harness.Fleet(t)
+	infra.WaitConverged(t, len(f.State.Nodes), infra.ConvergeBudget, "the fresh cluster to converge")
+	res := harness.CLI(t).MustOK(t, "status", "--env", f.State.Env, "--json")
+	var doc struct {
+		Nodes []struct {
+			Host  string `json:"host"`
+			Chain *struct {
+				Upgrade      *struct{ Name string } `json:"upgrade"`
+				UpgradeError string                 `json:"upgrade_error"`
+			} `json:"chain"`
+		} `json:"nodes"`
+	}
+	if err := oramacli.DecodeJSON(res, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Nodes) != len(f.State.Nodes) {
+		t.Fatalf("orama status lists %d nodes, want %d", len(doc.Nodes), len(f.State.Nodes))
+	}
+	for _, n := range doc.Nodes {
+		switch {
+		case n.Chain == nil:
+			t.Errorf("%s: no chain in the status", n.Host)
+		case n.Chain.UpgradeError != "":
+			t.Errorf("%s: the scheduled upgrade could not be read: %s", n.Host, n.Chain.UpgradeError)
+		case n.Chain.Upgrade != nil:
+			t.Errorf("%s: a fresh chain reports the scheduled upgrade %q", n.Host, n.Chain.Upgrade.Name)
+		}
+	}
+	if table := harness.CLI(t).MustOK(t, "status", "--env", f.State.Env).Stdout; strings.Contains(table, "Scheduled chain upgrade") {
+		t.Errorf("the status table shows a chain upgrade on a fresh chain:\n%s", table)
 	}
 }
 
