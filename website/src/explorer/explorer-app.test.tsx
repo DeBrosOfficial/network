@@ -21,9 +21,29 @@ describe("explorer routes render on the server", () => {
     ["/explorer/epoch/not-a-number", "That is not an epoch number"],
     ["/explorer/emission", "Emission"],
     ["/explorer/economics", "Supply and economics"],
+    ["/explorer/nodes", "The machines that make up"],
+    ["/explorer/node/node-1", "Search address, transaction, block"],
+    ["/explorer/storage", "Storage and archive"],
+    ["/explorer/tor", "Tor and relays"],
     [`/explorer/tx/${HASH}`, "Search address, transaction, block"],
     [`/explorer/wallet/${ADDRESS}`, "Search address, transaction, block"],
     ["/explorer/block/42", "Search address, transaction, block"],
+    ["/explorer/tokens", "Open a token"],
+    [`/explorer/token/${ADDRESS}/cash`, "Search address, transaction, block"],
+    ["/explorer/token/nobody/cash", "Token not found"],
+    ["/explorer/nfts", "Find an NFT"],
+    [`/explorer/nfts/${ADDRESS}`, "Not an address"],
+    ["/explorer/nft/not-an-asset-id", "NFT not found"],
+    ["/explorer/collection/3", "Search address, transaction, block"],
+    ["/explorer/collection/0", "Collection not found"],
+    ["/explorer/contracts", "Open a contract or a code"],
+    ["/explorer/code/abc", "Code not found"],
+    ["/explorer/contract/nope", "Contract not found"],
+    ["/explorer/market", "Open a listing"],
+    ["/explorer/listing/0", "Listing not found"],
+    ["/explorer/governance", "Open a proposal"],
+    ["/explorer/proposal/abc", "Proposal not found"],
+    ["/explorer/shielded", "What is public and what is private"],
     ["/explorer/no-such-page", "not in the explorer"],
   ])("TestExplorerRender_%s", async (path, text) => {
     const html = await render(path);
@@ -33,7 +53,23 @@ describe("explorer routes render on the server", () => {
   }, 20_000);
 
   it("TestExplorerRender_says_it_shows_live_data_and_never_demo_data", async () => {
-    for (const path of ["/explorer", "/explorer/validators", "/explorer/block/1", "/explorer/epochs", "/explorer/emission", "/explorer/economics"]) {
+    for (const path of [
+      "/explorer",
+      "/explorer/validators",
+      "/explorer/block/1",
+      "/explorer/epochs",
+      "/explorer/emission",
+      "/explorer/economics",
+      "/explorer/nodes",
+      "/explorer/storage",
+      "/explorer/tor",
+      "/explorer/tokens",
+      "/explorer/nfts",
+      "/explorer/contracts",
+      "/explorer/market",
+      "/explorer/governance",
+      "/explorer/shielded",
+    ]) {
       const html = await render(path);
       expect(html).toContain("Live data from");
       expect(html).not.toContain("demo");

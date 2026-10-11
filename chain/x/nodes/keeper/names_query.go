@@ -3,7 +3,6 @@ package keeper
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"cosmossdk.io/collections"
 
@@ -12,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/DeBrosOfficial/network/chain/x/internal/pagebound"
 	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
 )
 
@@ -32,24 +32,6 @@ func (k Keeper) namedNode(ctx sdk.Context, claim types.NodeName) (types.NamedNod
 
 // MaxNodeNamesPerPage bounds one NodeNames page: a public query must not walk every name in one call.
 const MaxNodeNamesPerPage = 1000
-
-// boundedPage turns a caller's page request into one that cannot walk the whole map: the limit is
-// clamped to MaxNodeNamesPerPage, a total count (which walks every key) is not computed, and an
-// offset (which skips keys one by one) is refused in favour of the page key the previous page returned.
-func boundedPage(in *query.PageRequest) (*query.PageRequest, error) {
-	if in == nil {
-		return &query.PageRequest{}, nil
-	}
-	if in.Offset != 0 {
-		return nil, fmt.Errorf("pagination.offset is not supported: page with the key of the previous page")
-	}
-	out := *in
-	out.CountTotal = false
-	if out.Limit > MaxNodeNamesPerPage {
-		out.Limit = MaxNodeNamesPerPage
-	}
-	return &out, nil
-}
 
 func (q queryServer) NodeByName(goCtx context.Context, req *types.QueryNodeByNameRequest) (*types.QueryNodeByNameResponse, error) {
 	if req == nil || req.Name == "" {
@@ -96,7 +78,7 @@ func (q queryServer) NodeNames(goCtx context.Context, req *types.QueryNodeNamesR
 		req = &types.QueryNodeNamesRequest{}
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	pagination, err := boundedPage(req.Pagination)
+	pagination, err := pagebound.Clamp(req.Pagination, MaxNodeNamesPerPage)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

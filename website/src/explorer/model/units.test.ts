@@ -3,6 +3,7 @@ import {
   MAX_NORAMA_DIGITS,
   MINUS,
   NORAMA_PER_ORAMA,
+  formatBytes,
   formatCompact,
   formatNorama,
   formatNoramaFixed,
@@ -105,5 +106,22 @@ describe("misc", () => {
     expect(shortAddress("orama1q8w9k3v5r2m4x7h6d0n8c1p3t5y9j2u4l6e7x2")).toBe("orama1q8w9…e7x2");
     expect(shortHash("ABCDEF")).toBe("ABCDEF");
     expect(shortHash("A91F3C0000000000000000000000000000000000000000000000000000BC03BC")).toBe("A91F3C…03BC");
+  });
+});
+
+describe("formatBytes", () => {
+  it("TestFormatBytes_steps_by_1024_and_truncates_to_a_tenth", () => {
+    expect(formatBytes("0")).toBe("0 B");
+    expect(formatBytes("1023")).toBe("1,023 B");
+    expect(formatBytes("1024")).toBe("1 KiB");
+    expect(formatBytes("1536")).toBe("1.5 KiB");
+    expect(formatBytes(String(1024n ** 3n * 5n + 1024n ** 3n / 2n))).toBe("5.5 GiB");
+    expect(formatBytes(String(1024n ** 3n - 1n))).toBe("1,023.9 MiB");
+  });
+
+  it("TestFormatBytes_stops_at_the_largest_unit_and_refuses_what_is_not_a_count", () => {
+    expect(formatBytes(String(1024n ** 6n * 3000n))).toBe("3,000 EiB");
+    expect(() => formatBytes("-1")).toThrow();
+    expect(() => formatBytes("1.5")).toThrow();
   });
 });

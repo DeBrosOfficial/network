@@ -1,4 +1,4 @@
-import { CUSTOM_NETWORK, PAGE_KINDS } from "../model/routes";
+import { CUSTOM_NETWORK, isPageKind } from "../model/routes";
 import { ManifestError, gatewayOrigin, isCreated, parseManifest } from "./manifest";
 import type { NetworkManifest } from "./manifest";
 
@@ -35,7 +35,7 @@ export function buildRegistry(files: Readonly<Record<string, unknown>>): Registr
     if (dir === undefined) throw new ManifestError(`${path}: not a networks/<name>/manifest.json`);
     const manifest = parseManifest(raw, path);
     if (manifest.name !== dir) throw new ManifestError(`${path}: the manifest names the network "${manifest.name}"`);
-    if (manifest.name === CUSTOM_NETWORK || (PAGE_KINDS as readonly string[]).includes(manifest.name)) {
+    if (manifest.name === CUSTOM_NETWORK || isPageKind(manifest.name)) {
       throw new ManifestError(`${path}: "${manifest.name}" is a page of the explorer and cannot name a network`);
     }
     if (!isCreated(manifest)) continue;

@@ -3,6 +3,7 @@ package orama.relay.v1;
 
 option go_package = "github.com/DeBrosOfficial/network/chain/x/relay/types";
 
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";
 import "gogoproto/gogo.proto";
 import "orama/relay/v1/relay.proto";
@@ -17,6 +18,9 @@ service Query {
   }
   rpc Relay(QueryRelayRequest) returns (QueryRelayResponse) {
     option (google.api.http).get = "/orama/relay/v1/relay/{rsa_fingerprint_hex}";
+  }
+  rpc Relays(QueryRelaysRequest) returns (QueryRelaysResponse) {
+    option (google.api.http).get = "/orama/relay/v1/relays";
   }
   rpc EpochResult(QueryEpochResultRequest) returns (QueryEpochResultResponse) {
     option (google.api.http).get = "/orama/relay/v1/epoch-result/{epoch}";
@@ -45,6 +49,16 @@ message QueryRelayRequest {
 
 message QueryRelayResponse {
   Relay relay = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryRelaysRequest pages through every registered relay in RSA fingerprint order.
+message QueryRelaysRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryRelaysResponse {
+  repeated Relay relays = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 message QueryEpochResultRequest {

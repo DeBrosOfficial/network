@@ -9,7 +9,18 @@
 # validator and delegator, the head stream and the aggregates the indexer keeps for the explorer's
 # epoch, supply and validator pages (the epochs, the supply per epoch, each
 # validator's epochs, slashes and jail periods, and the hourly, daily and weekly
-# series), checked for their order, their bounds and their refusals. The REST routes are checked against the run's own
+# series), checked for their order, their bounds and their refusals. The list queries the
+# nodes, storage and Tor pages read (x/nodes Nodes, x/storage Deals, x/relay Relays) are
+# checked through the gateway for the node and the relay a test registers, the deal order
+# (newest first descends and oldest first ascends), each entry against the point query
+# of the same record, and the page cap of 100; the archive numbers the storage page shows are
+# checked for the invariant that the retain height is never above the last archived height.
+# The token, NFT, contract,
+# market, governance and shielded pages' reads (assets_test.go) are checked the same way: the bank's
+# denom list and a denom's holders, wasmd's codes, a code's contracts, a contract's state, the houses,
+# market, cnft and token queries, the shielded pool's parameters, tree and account, each with its page
+# cap and its 404, and the queries that run a contract or are withheld (the shielded Pools, wasmd's
+# SmartContractState and Code) are refused. The REST routes are checked against the run's own
 # validators (the bank balance equals `orama chain balance`'s answer, the
 # validator set holds the run's validators bonded) and every refusal (a
 # malformed address, a caller query, another method) is checked for its status.
@@ -30,7 +41,29 @@ requires:
 covers:
   routes:
     - /v1/chain/
+  queries:
+    - orama.nodes.v1.Nodes
+    - orama.storage.v1.Deals
+    - orama.relay.v1.Relays
+    - orama.token.v1.Params
+    - orama.token.v1.Token
+    - orama.token.v1.Frozen
+    - orama.cnft.v1.Collection
+    - orama.cnft.v1.Tree
+    - orama.market.v1.Listing
+    - orama.market.v1.Bid
+    - orama.houses.v1.Params
+    - orama.houses.v1.Proposal
+    - orama.houses.v1.Vote
+    - orama.houses.v1.HouseBond
+    - orama.houses.v1.Enacted
+    - orama.shielded.v1.Params
+    - orama.shielded.v1.TreeState
   claims:
+    - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: the explorer list adds bank TotalSupply and DenomOwners and wasmd Codes, CodeInfo, ContractsByCode, ContractsByCreator, ContractHistory and AllContractState to the served queries, each paginated one capped at 100 entries a page"
+    - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: wasmd's SmartContractState and Code, and x/shielded's Pools, are not served"
+    - "website/src/docs/blockchain/reading-the-chain.mdx#explorer-queries: a code id that is not stored and an address that is no contract are a 404 on CodeInfo and AllContractState, as on ContractInfo"
+    - "website/src/docs/blockchain/shielded.mdx#what-the-chain-shows: the pool account's balance, the note tree's size and the transactions that name the pool's account are public through the gateway, and a private transfer shows only its fee"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: AllBalances, DelegatorDelegations and DelegatorUnbondingDelegations of /v1/chain/query/ answer an address's balances, delegations and unbonding, at most 100 entries"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: GET /v1/chain/staking/validators is the node's REST staking validators, at most 200"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#how-core-reads-and-writes-the-chain: the validator list route takes no query and a page limit above 100 on a wallet query is a 400"
@@ -48,3 +81,6 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: /index/v1/epochs/{n}/rewards, /validators/{operator}/rewards and /accounts/{address}/rewards say what an epoch paid each validator and what an account was credited; the validators' amounts add up to what x/power credited and force-bonded, and an epoch from before the chain emitted the events is not recorded"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-explorer: GET /v1/chain/head/stream is the chain's head as server-sent events, opening with the current head, needing no indexer, with no cache and no query"
     - "website/src/docs/blockchain/reading-the-chain.mdx#the-explorer: each gateway answers the explorer's origin, https://orama.network, on a GET (and its preflight) under /v1/chain/ and refuses it on every other route"
+    - "website/src/docs/blockchain/reading-the-chain.mdx#list-queries: Nodes, Deals and Relays page by key, at most 100 entries a page, and a limit above 100 is a 400"
+    - "docs/whitepaper/technical-reference/vol2/41-storage-deals.md: Deals pages in id order, or newest first with pagination.reverse, and the highest id is the number of deals made"
+    - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md: Relays lists every relay in fingerprint order, at most 100 a page by the page key"

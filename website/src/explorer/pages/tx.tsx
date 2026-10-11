@@ -7,6 +7,8 @@ import { Page } from "../ui/page";
 import { useDocumentTitle } from "../ui/use-document-title";
 import { BalancesCard } from "./tx/tx-balances";
 import { FlowCard } from "./tx/tx-flow";
+import { PrivacyCard } from "./tx/privacy-card";
+import { privacyNotes } from "./tx/privacy-notes";
 import { TX_HASH_LENGTH, normalizeTxHash } from "./tx/tx-params";
 import { InvestigateCard, NormalCard } from "./tx/tx-rail";
 import { TxSkeleton } from "./tx/tx-skeleton";
@@ -35,12 +37,15 @@ function tabsFor(tx: TxDetail): TabSpec[] {
 
 function TxBody({ tx }: { tx: TxDetail }) {
   const message = firstMessage(tx.messages);
+  // A private transfer has no parties or amount to draw, and its fee is paid from the pool, not by a signer, so the card says what is public instead.
+  const notes = privacyNotes(tx);
   return (
     <div className="space-y-4">
       <TxVerdict tx={tx} />
+      {notes && <PrivacyCard notes={notes} />}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-          <FlowCard message={message} fee={tx.fee} failed={!tx.status.ok} />
+          {notes?.privacy !== "private" && <FlowCard message={message} fee={tx.fee} failed={!tx.status.ok} />}
           <BalancesCard changes={tx.balanceChanges} />
           <TabsCard tabs={tabsFor(tx)} label="Transaction information" idPrefix={TABS_ID} />
         </div>

@@ -37,6 +37,9 @@ service Query {
   rpc NodeNames(QueryNodeNamesRequest) returns (QueryNodeNamesResponse) {
     option (google.api.http).get = "/orama/nodes/v1/node-names";
   }
+  rpc Nodes(QueryNodesRequest) returns (QueryNodesResponse) {
+    option (google.api.http).get = "/orama/nodes/v1/nodes";
+  }
 }
 
 message QueryParamsRequest {}
@@ -119,5 +122,15 @@ message QueryNodeNamesRequest {
 
 message QueryNodeNamesResponse {
   repeated NamedNode nodes = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// QueryNodesRequest pages through every registered node in node id order, whatever its status.
+message QueryNodesRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryNodesResponse {
+  repeated Node nodes = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

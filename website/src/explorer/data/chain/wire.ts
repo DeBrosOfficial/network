@@ -68,6 +68,26 @@ export function uint(value: unknown, what: string): number {
   return n;
 }
 
+/** An enum protojson writes by its proto name ("ROLE_STORAGE"), as the lower-case word after `prefix`, which must be one of `allowed`. */
+export function enumName<T extends string>(value: unknown, prefix: string, allowed: readonly T[], what: string): T {
+  const text = str(value, what, 64);
+  const name = text.startsWith(prefix) ? text.slice(prefix.length).toLowerCase() : "";
+  const found = allowed.find((a) => a === name);
+  if (found === undefined) throw malformed(what);
+  return found;
+}
+
+const INT = /^-?(0|[1-9][0-9]*)$/;
+
+/** A protojson int64: a safe integer, possibly negative, from a JSON string or number. */
+export function int(value: unknown, what: string): number {
+  const text = typeof value === "number" ? String(value) : value;
+  if (typeof text !== "string" || text.length > MAX_DIGITS || !INT.test(text)) throw malformed(what);
+  const n = Number(text);
+  if (!Number.isSafeInteger(n)) throw malformed(what);
+  return n;
+}
+
 export function optUint(value: unknown, what: string): number {
   return value === undefined || value === null ? 0 : uint(value, what);
 }

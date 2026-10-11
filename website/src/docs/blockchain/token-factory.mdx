@@ -45,4 +45,4 @@ Because the hook and the transfer fee run only inside `Transfer`, a bank send of
 
 ## Queries
 
-`Params`, `Token` and `Frozen` are public. The invariants tie each token's `issued` to the bank supply and each deposit to its `token/{denom}` entry.
+`Params`, `Token` and `Frozen` are public. The invariants tie each token's `issued` to the bank supply and each deposit to its `token/{denom}` entry. There is no list query: the [explorer](/docs/blockchain/reading-the-chain#tokens-nfts-contracts-the-market-and-governance) lists tokens from the bank's denoms (`TotalSupply`) and their holders from `DenomOwners`.

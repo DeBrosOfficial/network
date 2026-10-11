@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { amountOf, tagOf } from "../../model/describe";
+import { bundleOf, privacyOf } from "../../model/shielded";
 import type { TxDetail } from "../../model/types";
 import { formatInt, parseNorama } from "../../model/units";
 import { Amount } from "../../ui/amount";
@@ -42,10 +43,32 @@ function ActionList({ tx }: { tx: TxDetail }) {
   );
 }
 
+/** What the transaction cost. A private transfer has no signer to charge: its fee is the bundle's value balance, paid from the pool. */
+function FeeCell({ tx }: { tx: TxDetail }) {
+  const bundle = privacyOf(tx.messages) === "private" && tx.status.ok ? bundleOf(tx.events) : null;
+  if (bundle !== null) {
+    return (
+      <>
+        <Amount norama={bundle.amount} />, paid from the shielded pool
+      </>
+    );
+  }
+  return (
+    <>
+      <Amount norama={tx.fee.burned} />, burned
+    </>
+  );
+}
+
+/** The amount a shield or an unshield moved across the pool's edge, from the module's event; null for any other transaction, whose messages state their own. */
+function edgeAmount(tx: TxDetail): string | null {
+  return privacyOf(tx.messages) === "boundary" && tx.status.ok ? (bundleOf(tx.events)?.amount ?? null) : null;
+}
+
 /** The plain facts: what kind of transaction, how much, what it cost, what the sender wrote. */
 export function DetailsPanel({ tx }: { tx: TxDetail }) {
   const first = firstMessage(tx.messages);
-  const amount = first ? amountOf(first) : null;
+  const amount = first ? (amountOf(first) ?? edgeAmount(tx)) : null;
   return (
     <Rows
       rows={[
@@ -62,7 +85,7 @@ export function DetailsPanel({ tx }: { tx: TxDetail }) {
             </>
           ),
         ],
-        ["Fee", <><Amount norama={tx.fee.burned} />, burned</>],
+        ["Fee", <FeeCell tx={tx} />],
         ["Memo", tx.memo === "" ? <span className="text-muted">{NONE}</span> : tx.memo],
       ]}
     />

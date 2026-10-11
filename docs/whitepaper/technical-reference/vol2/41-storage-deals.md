@@ -65,7 +65,7 @@ The module accounts are three: `storage` (the reserve for queued mint payments, 
 
 There is no `MsgUpdateParams`. The 21 parameters (`chain/x/storage/types/params.go`) are fixed at genesis.
 
-The queries are `Params`, `Deal`, `Slot`, `Authorization`, `Challenges`, `EpochMint`, `Queue`, `NodeFailures` and `Invariants`. The gateway's public chain route serves all but `Invariants`, which walks every deal and is withheld (`core/pkg/gateway/handlers/chainread/query.go`).
+The queries are `Params`, `Deal`, `Deals`, `Slot`, `Authorization`, `Challenges`, `EpochMint`, `Queue`, `NodeFailures` and `Invariants`. `Deals` pages through the deals in id order, or newest first with `pagination.reverse`, at most 100 a page by the page key; deals are never removed and ids count up from 1, so the highest id is the number of deals made. The gateway's public chain route serves all but `Invariants`, which walks every deal and is withheld (`core/pkg/gateway/handlers/chainread/query.go`).
 
 ## How it works
 

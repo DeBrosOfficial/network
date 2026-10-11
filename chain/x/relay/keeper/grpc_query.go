@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/DeBrosOfficial/network/chain/x/internal/pagebound"
 	"github.com/DeBrosOfficial/network/chain/x/relay/types"
 )
 
@@ -66,6 +68,30 @@ func (q queryServer) Relay(goCtx context.Context, req *types.QueryRelayRequest) 
 		return nil, status.Error(codes.NotFound, "relay not found")
 	}
 	return &types.QueryRelayResponse{Relay: relay}, nil
+}
+
+// MaxRelaysPerPage bounds one Relays page.
+const MaxRelaysPerPage = 100
+
+// Relays pages through every registered relay in RSA fingerprint order. A page key resumes after
+// the last relay of the previous page.
+func (q queryServer) Relays(goCtx context.Context, req *types.QueryRelaysRequest) (*types.QueryRelaysResponse, error) {
+	if req == nil {
+		req = &types.QueryRelaysRequest{}
+	}
+	pagination, err := pagebound.Clamp(req.Pagination, MaxRelaysPerPage)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	relays, page, err := query.CollectionPaginate(sdk.UnwrapSDKContext(goCtx), q.Keeper.Relays, pagination,
+		func(_ []byte, relay types.Relay) (types.Relay, error) { return relay, nil })
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if relays == nil {
+		relays = []types.Relay{}
+	}
+	return &types.QueryRelaysResponse{Relays: relays, Pagination: page}, nil
 }
 
 func (q queryServer) EpochResult(goCtx context.Context, req *types.QueryEpochResultRequest) (*types.QueryEpochResultResponse, error) {

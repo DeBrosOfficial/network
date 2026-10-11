@@ -73,4 +73,4 @@ The emission schedule and tail, the burn rule, privacy by default, and the absen
 
 ## Messages and queries
 
-Messages: `SubmitProposal`, `VoteToken`, `VoteOperator`, `LockHouseBond`, `UnlockHouseBond`, `ExecuteProposal`. Queries: `params`, `proposal`, `tiers`, `invariants`, `vote`, `house-bond`, `enacted`. The gateway's chain proxy withholds `tiers` and every `invariants` query.
+Messages: `SubmitProposal`, `VoteToken`, `VoteOperator`, `LockHouseBond`, `UnlockHouseBond`, `ExecuteProposal`. Queries: `params`, `proposal`, `tiers`, `invariants`, `vote`, `house-bond`, `enacted`. The gateway's chain proxy withholds `tiers` and every `invariants` query. Proposals are numbered from 1 and never deleted, so the [explorer](/docs/blockchain/reading-the-chain#tokens-nfts-contracts-the-market-and-governance) lists them newest first by finding the newest number and reading the ones below it.

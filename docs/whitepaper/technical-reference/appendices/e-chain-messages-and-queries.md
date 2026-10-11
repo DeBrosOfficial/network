@@ -194,6 +194,7 @@ Source: `chain/proto/orama/nodes/v1/query.proto`
 | `NodeByName` `/orama/nodes/v1/node-by-name/{name}` | `name string` |  |
 | `NameOfNode` `/orama/nodes/v1/name-of-node/{node_id}` | `node_id string` |  |
 | `NodeNames` `/orama/nodes/v1/node-names` | `pagination cosmos.base.query.v1beta1.PageRequest` | QueryNodeNamesRequest pages through every claimed name in name order. |
+| `Nodes` `/orama/nodes/v1/nodes` | `pagination cosmos.base.query.v1beta1.PageRequest` | QueryNodesRequest pages through every registered node in node id order, whatever its status. |
 
 ## x/power
 
@@ -234,6 +235,7 @@ Source: `chain/proto/orama/relay/v1/query.proto`
 | `Params` `/orama/relay/v1/params` | none |  |
 | `Reporters` `/orama/relay/v1/reporters` | none |  |
 | `Relay` `/orama/relay/v1/relay/{rsa_fingerprint_hex}` | `rsa_fingerprint_hex string` |  |
+| `Relays` `/orama/relay/v1/relays` | `pagination cosmos.base.query.v1beta1.PageRequest` | QueryRelaysRequest pages through every registered relay in RSA fingerprint order. |
 | `EpochResult` `/orama/relay/v1/epoch-result/{epoch}` | `epoch uint64` |  |
 | `Invariants` `/orama/relay/v1/invariants` | none |  |
 
@@ -287,6 +289,7 @@ Source: `chain/proto/orama/storage/v1/query.proto`
 |---|---|---|
 | `Params` `/orama/storage/v1/params` | none |  |
 | `Deal` `/orama/storage/v1/deal/{deal_id}` | `deal_id uint64` |  |
+| `Deals` `/orama/storage/v1/deals` | `pagination cosmos.base.query.v1beta1.PageRequest` | QueryDealsRequest pages through every deal in id order; pagination.reverse lists the newest first. |
 | `Slot` `/orama/storage/v1/slot/{deal_id}/{slot}` | `deal_id uint64`, `slot uint32` |  |
 | `Authorization` `/orama/storage/v1/authorization/{granter}/{grantee}` | `granter string`, `grantee string` |  |
 | `Challenges` `/orama/storage/v1/challenges/{epoch}/{node_id}` | `epoch uint64`, `node_id string` |  |

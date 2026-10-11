@@ -2,9 +2,11 @@ import { Badge } from "../../ui/badge";
 import { BlockLink } from "../../ui/links";
 import { CopyChip } from "../../ui/copy";
 import { Help } from "../../ui/help";
+import { PrivacyBadge } from "../../ui/privacy-badge";
 import { RelTime } from "../../ui/rel-time";
 import { Sentence } from "../../ui/sentence";
 import { formatUtc } from "../../model/time";
+import { privacyOf } from "../../model/shielded";
 import { shortHash } from "../../model/units";
 import type { TxDetail } from "../../model/types";
 import { firstMessage, moreActionsText } from "./tx-messages";
@@ -38,6 +40,7 @@ function StatusLine({ tx }: { tx: TxDetail }) {
 export function TxVerdict({ tx }: { tx: TxDetail }) {
   const message = firstMessage(tx.messages);
   const more = moreActionsText(tx.messages);
+  const privacy = privacyOf(tx.messages);
   return (
     <header className="flex flex-wrap items-start gap-4">
       <div className="min-w-0 flex-1 basis-64">
@@ -48,6 +51,7 @@ export function TxVerdict({ tx }: { tx: TxDetail }) {
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <StatusLine tx={tx} />
+          <PrivacyBadge privacy={privacy} showPublic={message?.type === "send"} />
           {more && (
             <span>
               <Badge tone="signal">{more}</Badge>

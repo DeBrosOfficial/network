@@ -151,9 +151,10 @@ func TestQuery_refusesEverythingThatIsNotAnEmbeddedQuery(t *testing.T) {
 		{"unknown service", http.MethodGet, "/v1/chain/query/orama.nope.v1.Query/Node", 404},
 		{"unknown method", http.MethodGet, "/v1/chain/query/orama.nodes.v1.Query/Nope", 404},
 		{"msg service", http.MethodGet, "/v1/chain/query/orama.nodes.v1.Msg/RegisterNode", 404},
-		{"cosmos method not on the wallet list", http.MethodGet, "/v1/chain/query/cosmos.bank.v1beta1.Query/TotalSupply", 404},
+		{"cosmos method on no list", http.MethodGet, "/v1/chain/query/cosmos.bank.v1beta1.Query/Params", 404},
 		{"staking walk of every validator", http.MethodGet, "/v1/chain/query/cosmos.staking.v1beta1.Query/Validators", 404},
-		{"wasm walk of a contract's state", http.MethodGet, "/v1/chain/query/cosmwasm.wasm.v1.Query/AllContractState", 404},
+		{"wasm run of a contract", http.MethodGet, "/v1/chain/query/cosmwasm.wasm.v1.Query/SmartContractState", 404},
+		{"wasm binary of a code", http.MethodGet, "/v1/chain/query/cosmwasm.wasm.v1.Query/Code", 404},
 		{"tx path", http.MethodGet, "/v1/chain/query/cosmos.tx.v1beta1.Service/BroadcastTx", 404},
 		{"bare service", http.MethodGet, "/v1/chain/query/orama.nodes.v1.Query", 404},
 		{"extra segment", http.MethodGet, nodeQuery + "/extra", 404},
@@ -221,8 +222,9 @@ func TestQuery_onlyQueryServicesAreAllowed(t *testing.T) {
 	for name := range allowed {
 		service, _, _ := strings.Cut(name, "/")
 		_, wallet := walletQuery[name]
-		if !wallet && !strings.HasPrefix(service, "orama.") || !strings.HasSuffix(service, ".Query") {
-			t.Errorf("%s is served but is neither an Orama Query service nor on the wallet list", name)
+		_, explorer := explorerQuery[name]
+		if !wallet && !explorer && !strings.HasPrefix(service, "orama.") || !strings.HasSuffix(service, ".Query") {
+			t.Errorf("%s is served but is neither an Orama Query service nor on the wallet or explorer list", name)
 		}
 	}
 }

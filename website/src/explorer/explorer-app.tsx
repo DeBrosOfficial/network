@@ -17,6 +17,7 @@ import { TrailProvider } from "./shell/trail";
 import { ErrorBoundary } from "./ui/error-boundary";
 import { NotFoundBox } from "./ui/query-states";
 import { Page } from "./ui/page";
+import { ASSET_ROUTES } from "./pages/asset-routes";
 import { BlockPage } from "./pages/block";
 import { EconomicsPage } from "./pages/economics";
 import { EmissionPage } from "./pages/emission";
@@ -24,6 +25,10 @@ import { EpochPage } from "./pages/epoch";
 import { EpochsPage } from "./pages/epochs";
 import { HomePage } from "./pages/home";
 import { RewardsPage } from "./pages/rewards";
+import { NodePage } from "./pages/node";
+import { NodesPage } from "./pages/nodes";
+import { StoragePage } from "./pages/storage";
+import { TorPage } from "./pages/tor";
 import { TxPage } from "./pages/tx";
 import { ValidatorPage } from "./pages/validator";
 import { ValidatorsPage } from "./pages/validators";
@@ -51,7 +56,12 @@ function Pages({ routePath }: { routePath: string }) {
         <Route path="emission" element={<EmissionPage />} />
         <Route path="economics" element={<EconomicsPage />} />
         <Route path="rewards" element={<RewardsPage />} />
+        <Route path="nodes" element={<NodesPage />} />
+        <Route path="node/:id" element={<NodePage />} />
+        <Route path="storage" element={<StoragePage />} />
+        <Route path="tor" element={<TorPage />} />
         <Route path="validator/:address" element={<ValidatorPage />} />
+        {ASSET_ROUTES}
         <Route
           path="*"
           element={

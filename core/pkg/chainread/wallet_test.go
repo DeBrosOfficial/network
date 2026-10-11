@@ -50,6 +50,34 @@ func TestDecodeRPC_contractInfoOfANonContractIsErrNotFound(t *testing.T) {
 	}
 }
 
+// The same wasmd error reaches the explorer through AllContractState (an address that is no
+// contract) and CodeInfo (a code id that is not stored, ErrNoSuchCode); each is a 404 for its own
+// phrase, and the other phrase on the wrong method is not.
+func TestDecodeRPC_noSuchContractAndNoSuchCodeAreErrNotFoundForTheirQueries(t *testing.T) {
+	contract := []byte(`{"result":{"response":{"code":6,"codespace":"sdk","log":"no such contract: address orama1qq: unknown request"}}}`)
+	code := []byte(`{"result":{"response":{"code":6,"codespace":"sdk","log":"no such code: code id 9: unknown request"}}}`)
+	for name, tc := range map[string]struct {
+		method string
+		body   []byte
+		want   bool
+	}{
+		"state of a non-contract":    {"cosmwasm.wasm.v1.Query/AllContractState", contract, true},
+		"info of a missing code":     {"cosmwasm.wasm.v1.Query/CodeInfo", code, true},
+		"code phrase on contract":    {"cosmwasm.wasm.v1.Query/ContractInfo", code, false},
+		"contract phrase on code":    {"cosmwasm.wasm.v1.Query/CodeInfo", contract, false},
+		"contract phrase on history": {"cosmwasm.wasm.v1.Query/ContractHistory", contract, false},
+	} {
+		m, err := Lookup(tc.method)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		_, err = m.DecodeRPC(tc.body)
+		if got := errors.Is(err, ErrNotFound); got != tc.want {
+			t.Errorf("%s: not found = %v (err %v), want %v", name, got, err, tc.want)
+		}
+	}
+}
+
 func TestDecodeRPC_noSuchContractIsOnlyANotFoundForContractInfo(t *testing.T) {
 	body := []byte(`{"result":{"response":{"code":6,"codespace":"sdk","log":"no such contract: unknown request"}}}`)
 	m, err := Lookup("cosmos.bank.v1beta1.Query/Balance")

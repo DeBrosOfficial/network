@@ -20,6 +20,15 @@ export function nextTrail(trail: readonly string[], path: string): string[] {
   return next.length > MAX_TRAIL ? next.slice(next.length - MAX_TRAIL) : next;
 }
 
+/** A path segment as the reader would type it; the segment as it is when it is not valid percent-encoding. */
+function readableSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 /** A short crumb label derived from the path alone. */
 export function crumbLabel(path: string): string {
   const { kind, id } = parseExplorerPath(path);
@@ -34,12 +43,54 @@ export function crumbLabel(path: string): string {
       return `Block ${id}`;
     case "validators":
       return "Validators";
+    case "nodes":
+      return "Nodes";
+    case "node":
+      return `Node ${readableSegment(id)}`;
+    case "storage":
+      return "Storage";
+    case "tor":
+      return "Tor";
     default:
-      return "Explorer";
+      return assetCrumbLabel(kind, id) ?? "Explorer";
   }
 }
 
-const KNOWN_PATH = /^\/explorer(\/[a-z][a-z0-9-]{0,31})?\/(validators|(tx|wallet|block|validator)\/[A-Za-z0-9]+)$/;
+const ASSET_LISTS: Readonly<Record<string, string>> = {
+  tokens: "Tokens",
+  nfts: "NFTs",
+  contracts: "Contracts",
+  market: "Market",
+  governance: "Governance",
+  shielded: "Shielded pool",
+};
+
+/** The crumb of a token, NFT, contract, market, governance or shielded page; null for any other kind. */
+function assetCrumbLabel(kind: string, id: string): string | null {
+  const list = ASSET_LISTS[kind];
+  if (list !== undefined) return list;
+  switch (kind) {
+    case "token":
+      return "Token";
+    case "nft":
+      return `NFT ${shortHash(id)}`;
+    case "collection":
+      return `Collection ${id}`;
+    case "code":
+      return `Code ${id}`;
+    case "contract":
+      return `Contract ${shortAddress(id)}`;
+    case "listing":
+      return `Listing ${id}`;
+    case "proposal":
+      return `Proposal ${id}`;
+    default:
+      return null;
+  }
+}
+
+const KNOWN_PATH =
+  /^\/explorer(\/[a-z][a-z0-9-]{0,31})?\/(validators|nodes|storage|tor|tokens|nfts|contracts|market|governance|shielded|(tx|wallet|block|validator|nfts|nft|collection|code|contract|listing|proposal)\/[A-Za-z0-9]+|node\/[A-Za-z0-9%][A-Za-z0-9._:%-]{0,191}|token\/[A-Za-z0-9]+\/[a-z0-9]+)$/;
 
 /** True for a path this explorer serves. Used to reject a hostile shared trail. */
 export function isTrailPath(path: string): boolean {

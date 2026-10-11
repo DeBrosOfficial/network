@@ -1,5 +1,9 @@
 import type { EpochListQuery } from "../../model/epochs";
 import type { AccountRewards, Earnings, EpochRewards, RewardListQuery, ValidatorRewardHistory } from "../../model/rewards";
+import { SHIELDED_POOL_ADDRESS, SHIELDED_POOL_LABEL } from "../../model/shielded";
+import type { NodeDetail, NodeSet } from "../../model/nodes";
+import type { ArchiveHealth, DealList, DealReplica, SettlementQueue } from "../../model/storage";
+import type { TorRelays } from "../../model/tor";
 import type {
   ActivityFilter,
   ActivityItem,
@@ -36,6 +40,11 @@ import type { EventSourceFactory } from "./head-feed";
 import { HOME_BLOCKS, HOME_TXS, loadBlockPage, loadHome, loadIndexStatus, networkOf } from "./home";
 import type { Home } from "./home";
 import { loadAccountRewards, loadEarnings, loadEpochRewards, loadValidatorRewards } from "./rewards";
+import { loadArchiveHealth } from "./archive";
+import { createAssetsSource } from "./assets-source";
+import { loadNodeDetail, loadNodeSet } from "./nodes";
+import { loadDeals, loadReplicas, loadSettlementQueue } from "./storage";
+import { loadTorRelays } from "./tor";
 import { detailOf, readIndexTx, summaryOf, walletRef } from "./tx";
 import type { Context, IndexTx } from "./tx";
 import { loadHistory, loadOperatorGroups, loadSigning, loadValidator } from "./validator-detail";
@@ -51,6 +60,8 @@ const DIRECTORY_TTL_MS = 30_000;
  * once per block, so this is only the time the readers of one page share a request.
  */
 const HOME_REUSE_MS = 1_000;
+/** How long a read node list is reused: the nodes, storage and Tor pages each read it, and nodes change in registrations, not in blocks. */
+const NODE_SET_TTL_MS = 30_000;
 /** The previous transaction from a signer is looked for among their newest transactions. */
 const PREVIOUS_WINDOW = 100;
 /** Where the data comes from, shown in the footer, when the caller names no network. */
@@ -121,10 +132,23 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     return cached.directory;
   };
 
+  let nodeSet: { at: number; nodes: Promise<NodeSet> } | null = null;
+
+  const nodes = (): Promise<NodeSet> => {
+    if (nodeSet === null || now() - nodeSet.at > NODE_SET_TTL_MS) {
+      const pending = loadNodeSet(client);
+      nodeSet = { at: now(), nodes: pending };
+      pending.catch(() => {
+        if (nodeSet?.nodes === pending) nodeSet = null;
+      });
+    }
+    return nodeSet.nodes;
+  };
+
   const context = async (): Promise<Context> => {
     const dir = await directory();
     return {
-      label: (address) => dir.byOperator.get(address)?.ref.moniker,
+      label: (address) => (address === SHIELDED_POOL_ADDRESS ? SHIELDED_POOL_LABEL : dir.byOperator.get(address)?.ref.moniker),
       validator: (operator): ValidatorRef => dir.byOperator.get(operator)?.ref ?? { moniker: operator, operator },
     };
   };
@@ -154,6 +178,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
 
   return {
     origin: { label: options.label ?? DEFAULT_ORIGIN_LABEL },
+    assets: createAssetsSource(client, now),
 
     async getNetwork(): Promise<NetworkSnapshot> {
       const [snapshot, head] = await Promise.all([home(), feed.current()]);
@@ -263,6 +288,14 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     async getOperatorGroups(): Promise<OperatorGroups> {
       return loadOperatorGroups(client, await directory());
     },
+
+    getNetworkNodes: nodes,
+    getNode: (id: string): Promise<NodeDetail | null> => loadNodeDetail(client, id),
+    getDeals: (): Promise<DealList> => loadDeals(client),
+    getDealReplicas: (dealId: number, replicas: number): Promise<DealReplica[]> => loadReplicas(client, dealId, replicas),
+    getSettlementQueue: (): Promise<SettlementQueue> => loadSettlementQueue(client),
+    getArchiveHealth: (): Promise<ArchiveHealth> => loadArchiveHealth(client),
+    getTorRelays: (): Promise<TorRelays> => loadTorRelays(client),
 
     async searchLabels(query: string, limit: number): Promise<WalletRef[]> {
       const wanted = clampLimit(limit);

@@ -76,17 +76,22 @@ const (
 	sdkInvalidRequest = 18
 	sdkUnknownRequest = 6
 
-	// contractInfoPath is wasmd's ContractInfo query. For an address that is not a contract wasmd
-	// returns its ErrNoSuchContract, and baseapp turns any error that is not a gRPC status into an
-	// SDK unknown-request error (code 6, codespace sdk), which drops the wasm code; the only thing
-	// left to tell it from another failure is the message wasmd gives that error.
-	contractInfoPath     = "/cosmwasm.wasm.v1.Query/ContractInfo"
-	noSuchContractPhrase = "no such contract"
-
 	// paginationField and limitField name the cosmos-sdk PageRequest of a paginated query.
 	paginationField = "pagination"
 	limitField      = "limit"
 )
+
+// wasmNotFoundPhrase maps the wasmd queries that can find nothing to the message wasmd gives then:
+// ContractInfo and AllContractState of an address that is not a contract (ErrNoSuchContract), and
+// CodeInfo of a code id that is not stored (ErrNoSuchCode). wasmd returns those as errors that are
+// not gRPC statuses, and baseapp turns any such error into an SDK unknown-request error (code 6,
+// codespace sdk), which drops the wasm code; the only thing left to tell it from another failure
+// is the message.
+var wasmNotFoundPhrase = map[string]string{
+	"/cosmwasm.wasm.v1.Query/ContractInfo":     "no such contract",
+	"/cosmwasm.wasm.v1.Query/AllContractState": "no such contract",
+	"/cosmwasm.wasm.v1.Query/CodeInfo":         "no such code",
+}
 
 // Method is one gRPC query method, resolved from the embedded descriptors.
 type Method struct {
@@ -277,8 +282,8 @@ func (m *Method) abciResponse(result json.RawMessage) (json.RawMessage, error) {
 	if res.Response.Code == sdkInvalidRequest && res.Response.Codespace == sdkCodespace {
 		return nil, fmt.Errorf("%w: %s: %s", ErrInvalidRequest, m.Path, truncate(res.Response.Log))
 	}
-	if m.Path == contractInfoPath && res.Response.Code == sdkUnknownRequest && res.Response.Codespace == sdkCodespace &&
-		strings.Contains(res.Response.Log, noSuchContractPhrase) {
+	if phrase, ok := wasmNotFoundPhrase[m.Path]; ok && res.Response.Code == sdkUnknownRequest && res.Response.Codespace == sdkCodespace &&
+		strings.Contains(res.Response.Log, phrase) {
 		return nil, fmt.Errorf("%w: %s: %s", ErrNotFound, m.Path, truncate(res.Response.Log))
 	}
 	if res.Response.Code != 0 {
