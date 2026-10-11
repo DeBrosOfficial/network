@@ -56,7 +56,7 @@ The split can move, but only through governance and only within bounds: each sha
 | Storage service payments and the PRIVATE-deal subsidy | `x/storage` at epoch close | The epoch's storage ceiling |
 | Relay rewards | `x/relay` end block | The epoch's relay ceiling. Of each operator's total, 5% is burned and 5% goes to the archive fund |
 | Development spend | A passed `x/houses` proposal | The epoch's development ceiling minus what was already minted |
-| Test-network faucet | `MsgFaucet` | Only on a chain id that is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>` (a production id that merely contains one of those words is not a test network). Off by default. Max drip 1,000 ORAMA, 100,000 ORAMA per epoch, 24 hour recipient cooldown |
+| Test-network faucet | `MsgFaucet` | Only on a chain id that is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>` (a production id that merely contains one of those words is not a test network, and `<name>` is never itself `localnet`, `devnet` or `stagenet`). Off by default. Max drip 1,000 ORAMA, 100,000 ORAMA per epoch, 24 hour recipient cooldown |
 | Token factory | `x/token` | Mints only its own `factory/…` denoms. A mint of `norama` is refused |
 
 ## The supply identity

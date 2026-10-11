@@ -12,7 +12,7 @@ import (
 
 const (
 	// DefaultChainID names a localnet chain: x/power's bootstrap-committee gate allows a committee
-	// of one only on a chain id with "-localnet-" in it.
+	// of one only on a localnet chain id (params.ClassOfChainID: orama-[<name>-]localnet-<id>).
 	DefaultChainID = "orama-localnet-bench-1"
 	denom          = "norama"
 	keyName        = "validator"

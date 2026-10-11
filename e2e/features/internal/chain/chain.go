@@ -51,9 +51,6 @@ const (
 	Denom        = "norama"
 	// NoramaPerOrama is chain/app/params.NoramaPerOrama (9 decimals).
 	NoramaPerOrama = 1_000_000_000
-	// DevnetMarker must be in every chain id a fleet run talks to (the stagenet
-	// target pins its own chain id: config.CheckStagenetChainID).
-	DevnetMarker = "-devnet-"
 )
 
 // Budgets.

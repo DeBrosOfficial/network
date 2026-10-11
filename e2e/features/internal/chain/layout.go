@@ -4,12 +4,12 @@ package chain
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/DeBrosOfficial/network/e2e/harness"
 	"github.com/DeBrosOfficial/network/e2e/harness/config"
 	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/DeBrosOfficial/network/pkg/netclass"
 )
 
 // FleetHost is where a fleet run's validator serves RPC, REST and gRPC:
@@ -58,8 +58,8 @@ func checkChainID(st *fleet.State, id string) error {
 	if st.IsStagenet() {
 		return config.CheckStagenetChainID(id)
 	}
-	if !strings.Contains(id, DevnetMarker) {
-		return fmt.Errorf("every run chain is a devnet chain (id contains %s)", DevnetMarker)
+	if !netclass.IsDevnet(id) {
+		return fmt.Errorf("every run chain is a devnet chain (an id of the form orama-[<name>-]devnet-<id>), got %q", id)
 	}
 	return nil
 }

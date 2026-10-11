@@ -24,7 +24,15 @@ func TestClassOfChainID(t *testing.T) {
 		"orama-x-devnet-1":        params.ChainDevnet,
 		"orama-x-localnet-1":      params.ChainLocalnet,
 		"orama-1x-stagenet-1":     params.ChainProduction,
-		"orama-a-b-stagenet-1":    params.ChainProduction,
+		// A class word is never the name word: these are ambiguous, so they are production.
+		"orama-devnet-localnet-1":   params.ChainProduction,
+		"orama-localnet-devnet-1":   params.ChainProduction,
+		"orama-stagenet-stagenet-1": params.ChainProduction,
+		"orama-devnet-devnet-1":     params.ChainProduction,
+		"orama-pubnet-localnet-1":   params.ChainLocalnet,
+		"orama-localnet-devnet2-1":  params.ChainLocalnet,
+		"orama-devnet-localnetx-1":  params.ChainDevnet,
+		"orama-a-b-stagenet-1":      params.ChainProduction,
 		// Production, and ids that only look like a test chain.
 		"orama-1":               params.ChainProduction,
 		"orama-mainnet-1":       params.ChainProduction,

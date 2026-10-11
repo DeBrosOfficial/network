@@ -31,10 +31,17 @@ CHAIN_ID="${CHAIN_ID:-}"
 if ! [[ "$CHAIN_ID" =~ ^[a-z0-9-]{1,48}$ ]]; then
 	die "invalid CHAIN_ID (expected [a-z0-9-]{1,48}): '$CHAIN_ID'"
 fi
-case "$CHAIN_ID" in
-*-devnet-*) ;;
-*) die "refusing to run: CHAIN_ID must contain -devnet-, got: $CHAIN_ID" ;;
-esac
+# The exact rule of the chain (params.ClassOfChainID): this pattern is that one, and a test keeps the
+# text equal. A class word anywhere else in the id, or as the name word, names nothing.
+TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$'
+chain_name=""
+chain_class=""
+if [[ "$CHAIN_ID" =~ $TEST_CHAIN_ID_RE ]]; then
+	chain_name="${BASH_REMATCH[2]}"
+	chain_class="${BASH_REMATCH[3]}"
+fi
+case "$chain_name" in localnet | devnet | stagenet) chain_class="" ;; esac
+[ "$chain_class" = "devnet" ] || die "refusing to run: CHAIN_ID must be orama-[<name>-]devnet-<id> exactly, got: $CHAIN_ID"
 
 DENOM="norama"
 P2P_PORT=31000

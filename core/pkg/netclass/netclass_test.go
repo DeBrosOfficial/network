@@ -34,6 +34,18 @@ func TestIsLocalnet(t *testing.T) {
 	}
 }
 
+func TestIsDevnet(t *testing.T) {
+	for id, want := range map[string]bool{
+		"orama-devnet-e2e-ab12": true, "orama-devnet-9": true, "orama-x-devnet-1": true,
+		"orama-stagenet-4": false, "orama-localnet-1": false, "orama-1-devnet-x": false,
+		"foo-devnet-bar": false, "orama-devnet-localnet-1": false, "": false,
+	} {
+		if got := IsDevnet(id); got != want {
+			t.Errorf("IsDevnet(%q) = %v, want %v", id, got, want)
+		}
+	}
+}
+
 func TestValidChainID(t *testing.T) {
 	for id, want := range map[string]bool{
 		"orama-stagenet-5": true, "a": true, "orama-1": true, strings.Repeat("a", MaxChainIDLen): true,
@@ -89,6 +101,33 @@ func chainFile(t *testing.T, rel string) string {
 	return string(data)
 }
 
+func sourceOf(t *testing.T, name string) string {
+	t.Helper()
+	data, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+// A class word is never the optional name word: "orama-devnet-localnet-1" would otherwise be a
+// devnet called localnet and a localnet called devnet at once.
+func TestIsProduction_classWordAsNameIsProduction(t *testing.T) {
+	for _, id := range []string{
+		"orama-devnet-localnet-1", "orama-localnet-devnet-1", "orama-stagenet-stagenet-1",
+		"orama-devnet-devnet-1", "orama-stagenet-localnet-x", "orama-localnet-stagenet-e2e",
+	} {
+		if !IsProduction(id) || IsLocalnet(id) {
+			t.Errorf("%q must be production (a class word as the name), IsProduction=%v IsLocalnet=%v", id, IsProduction(id), IsLocalnet(id))
+		}
+	}
+	for _, id := range []string{"orama-devnet-e2e-1", "orama-localnet-devnet2-1", "orama-pubnet-localnet-1"} {
+		if IsProduction(id) {
+			t.Errorf("%q must be a test network", id)
+		}
+	}
+}
+
 func TestNetclass_matchesChain(t *testing.T) {
 	pattern := regexp.MustCompile("testChainIDPattern = regexp.MustCompile\\(`([^`]*)`\\)")
 	m := pattern.FindStringSubmatch(chainFile(t, "app/params/chainid.go"))
@@ -97,6 +136,14 @@ func TestNetclass_matchesChain(t *testing.T) {
 	}
 	if m[1] != testChainIDPattern.String() {
 		t.Errorf("the chain's test chain id pattern is %s, pkg/netclass has %s", m[1], testChainIDPattern)
+	}
+	words := regexp.MustCompile(`classWords = \[\]string\{([^}]*)\}`).FindStringSubmatch(chainFile(t, "app/params/chainid.go"))
+	if words == nil {
+		t.Fatal("chain/app/params/chainid.go no longer declares classWords: update pkg/netclass")
+	}
+	own := regexp.MustCompile(`classWords = \[\]string\{([^}]*)\}`).FindStringSubmatch(sourceOf(t, "netclass.go"))
+	if own == nil || own[1] != words[1] {
+		t.Errorf("the chain's class words are {%s}, pkg/netclass has %v", words[1], own)
 	}
 	floor := regexp.MustCompile(`ProductionMinCommitteeSize uint64 = (\d+)`).FindStringSubmatch(chainFile(t, "x/power/types/params.go"))
 	if floor == nil || floor[1] != strconv.Itoa(ProductionMinCommittee) {

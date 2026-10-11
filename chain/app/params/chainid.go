@@ -25,18 +25,31 @@ const (
 // then one or more lowercase alphanumeric words joined by hyphens ("orama-stagenet-10",
 // "orama-devnet-e2e-run7", "orama-localnet-bench-1"). The match is anchored at both ends, so a
 // class word anywhere else in an id ("orama-1-stagenet-x", "mainnet-localnet-1", "orama-stagenet-")
-// names nothing. core/pkg/netclass holds the same pattern for the CLI, and its test reads this
+// names nothing. The pattern uses only capturing groups, so it is a valid POSIX ERE too and the shell
+// gates (chain/scripts/stagenet/deploy.sh, chain/scripts/localnet/localnet.sh, e2e/scripts/chain-deploy.sh)
+// carry this exact text; a test reads each script and keeps the text equal. Group 2 is the name word
+// and group 3 the class. core/pkg/netclass holds the same pattern for the CLI, and its test reads this
 // line to keep the two equal.
-var testChainIDPattern = regexp.MustCompile(`^orama-(?:[a-z][a-z0-9]*-)?(localnet|devnet|stagenet)-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var testChainIDPattern = regexp.MustCompile(`^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// classWords are the class names. None may be the optional name word, or "orama-devnet-localnet-1"
+// would be both a devnet called localnet and a localnet called devnet. A test keeps the list equal to
+// core/pkg/netclass's and to the shell gates' check.
+var classWords = []string{"localnet", "devnet", "stagenet"}
 
 // ClassOfChainID returns the class chainID names, or ChainProduction when it is not exactly a
-// localnet, devnet or stagenet id.
+// localnet, devnet or stagenet id, or when its name word is a class word.
 func ClassOfChainID(chainID string) ChainClass {
 	m := testChainIDPattern.FindStringSubmatch(chainID)
 	if m == nil {
 		return ChainProduction
 	}
-	switch m[1] {
+	for _, w := range classWords {
+		if m[2] == w {
+			return ChainProduction
+		}
+	}
+	switch m[3] {
 	case "localnet":
 		return ChainLocalnet
 	case "devnet":

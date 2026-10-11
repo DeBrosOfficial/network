@@ -69,7 +69,7 @@ func cmdPrepare(ctx context.Context, args []string, logf func(string, ...any)) (
 	var c common
 	fs := newFlags("prepare")
 	c.register(fs, false)
-	chainID := fs.String("chain-id", measure.DefaultChainID, "chain id; it must contain -localnet-")
+	chainID := fs.String("chain-id", measure.DefaultChainID, "chain id; it must be a localnet id, orama-[<name>-]localnet-<id>")
 	timeoutCommit := fs.String("timeout-commit", "", "CometBFT's wait between blocks, e.g. 50ms (default: oramad's 5s)")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
