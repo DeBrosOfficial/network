@@ -133,3 +133,34 @@ func TestRateLimit_aPreflightOfAChainReadIsStillAnswered(t *testing.T) {
 		t.Error("a preflight reached the handler")
 	}
 }
+
+// A preflight is answered before the limiter: one sent after the client's bucket is spent is still
+// a 204 with the CORS headers, and preflights spend nothing, so a GET after one still gets through.
+func TestRateLimit_preflightsNeitherNeedNorSpendTheBucket(t *testing.T) {
+	preflight := func(h http.Handler) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodOptions, "/v1/chain/status", nil)
+		req.RemoteAddr = "203.0.113.9:4444"
+		req.Header.Set("Origin", publicExplorerOrigin)
+		req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+
+	spent, _ := limitedGateway(t)
+	chainGet(spent, publicExplorerOrigin)
+	if rec := chainGet(spent, publicExplorerOrigin); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("the bucket is not spent after two GETs: HTTP %d", rec.Code)
+	}
+	if rec := preflight(spent); rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != publicExplorerOrigin {
+		t.Fatalf("a preflight after the bucket was spent: HTTP %d, Allow-Origin %q", rec.Code, rec.Header().Get("Access-Control-Allow-Origin"))
+	}
+
+	fresh, _ := limitedGateway(t)
+	for i := 0; i < 5; i++ {
+		preflight(fresh)
+	}
+	if rec := chainGet(fresh, publicExplorerOrigin); rec.Code == http.StatusTooManyRequests {
+		t.Fatal("preflights spent the bucket the GET needed")
+	}
+}
