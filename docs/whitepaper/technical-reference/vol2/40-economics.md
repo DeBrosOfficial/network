@@ -252,6 +252,7 @@ The `emission` module account holds nothing between blocks except development mi
 | Node's `minimum-gas-prices` above the offered price | `CheckTx` refuses; the transaction may still be valid on another node | "insufficient fees" from that node only |
 | Token created with no funds | `CreateToken` refuses before burning anything | "insufficient norama to create ...: need X, have Y spendable" |
 | Transfer hook errors or exceeds 100,000 gas | The transfer moves nothing; the hook's writes are dropped | `ErrHookGasCap` or "transfer hook rejected" |
+| Transfer hook changes the token (mints it, burns its own coins) | After the hook the transfer is checked again on the state it left; the move, the fee burn and the issued supply are computed from that state and commit with the hook's writes | "transfer of ... is no longer valid after its hook ran" if the balance or a flag no longer allows it |
 | Plain bank send of a paused, fee-bearing or hooked token | Refused by the send restriction | "moves only by x/token MsgTransfer" |
 | `ReleaseDeposit` of an unknown id | Returns not found | the message that called it fails |
 | Faucet on a production chain-id | `ErrFaucetProduction` before any mint | typed error `emission/1` |
