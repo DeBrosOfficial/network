@@ -408,6 +408,7 @@ func TestLockedGenesis_initChainRefusesChangedParameterOnProductionChainID(t *te
 	app.SetAddressPrefixes()
 	const prodChainID = "orama-1"
 	oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(prodChainID))
+	t.Cleanup(func() { require.NoError(t, oramaApp.Close()) })
 	gs := mutateParam(t, oramaApp.DefaultGenesis(), lockedRow{module: "fees", key: "min_base_fee"})
 	bz, err := json.Marshal(gs)
 	require.NoError(t, err)

@@ -34,6 +34,7 @@ func runRetainChain(t *testing.T, lastArchived int64) map[int64]int64 {
 	app.SetAddressPrefixes()
 	oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{},
 		baseapp.SetChainID(testChainID), baseapp.SetMinRetainBlocks(retainTestMinBlocks))
+	t.Cleanup(func() { require.NoError(t, oramaApp.Close()) })
 	genState, _ := buildGenesisState(t, oramaApp)
 	stateBytes, err := json.Marshal(genState)
 	require.NoError(t, err)
@@ -90,6 +91,7 @@ func TestCommit_nothingIsPrunedWhileNothingIsArchived(t *testing.T) {
 func TestCommit_pruningStaysOffWhenTheOperatorDidNotEnableIt(t *testing.T) {
 	app.SetAddressPrefixes()
 	oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(testChainID))
+	t.Cleanup(func() { require.NoError(t, oramaApp.Close()) })
 	genState, _ := buildGenesisState(t, oramaApp)
 	stateBytes, err := json.Marshal(genState)
 	require.NoError(t, err)

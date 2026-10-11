@@ -182,7 +182,9 @@ func TestInclusionHandlers_extensionCapFitsTheValidatorSet(t *testing.T) {
 func newBareApp(t *testing.T) *OramaApp {
 	t.Helper()
 	SetAddressPrefixes()
-	return NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID("orama-localnet-unit-1"))
+	a := NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID("orama-localnet-unit-1"))
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	return a
 }
 
 func bareContext(t *testing.T, maxBytes int64) sdk.Context {

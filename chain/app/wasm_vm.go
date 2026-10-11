@@ -57,8 +57,9 @@ func (app *OramaApp) installWasm(keys map[string]*storetypes.KVStoreKey, appOpts
 		var err error
 		home, err = os.MkdirTemp("", "oramad-wasm-*")
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("create a directory for the wasm VM of an app with no home: %w", err))
 		}
+		app.wasmTempHome = home
 	}
 	nodeConfig, err := wasm.ReadNodeConfig(appOpts)
 	if err != nil {

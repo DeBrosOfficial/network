@@ -19,6 +19,7 @@ import (
 func TestHouseOperators_networksComeFromActiveNodesWithEndpointAndASN(t *testing.T) {
 	SetAddressPrefixes()
 	a := NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{})
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	const now = 2_000_000_000
 	ctx := sdk.NewContext(a.CommitMultiStore().CacheMultiStore(), cmtproto.Header{Height: 1, Time: time.Unix(now, 0)}, false, log.NewNopLogger())
 	lock := nodestypes.DefaultParams()

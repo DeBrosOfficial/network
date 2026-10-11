@@ -3,6 +3,8 @@ package app_test
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -53,7 +55,9 @@ const epoch1ValidatorShareNorama = 8_908_800_000_000
 func buildTestApp(t testing.TB) *app.OramaApp {
 	t.Helper()
 	app.SetAddressPrefixes()
-	return app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(testChainID))
+	a := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(testChainID))
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	return a
 }
 
 // buildGenesisState returns a default genesis that starts at exactly zero norama supply, with a
@@ -331,10 +335,29 @@ func TestOramaApp_shieldedVerifiersAreTwoAndAnUnconfiguredNodeAcceptsNothing(t *
 func TestOramaApp_noChainIDBuildsNoShieldedVerifier(t *testing.T) {
 	app.SetAddressPrefixes()
 	a := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{})
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	if len(a.ShieldedVerifiers) != 0 {
 		t.Fatalf("expected no verifiers without a chain id, got %d", len(a.ShieldedVerifiers))
 	}
 	if err := verify.Check([]byte{1}, nil, a.ShieldedVerifiers...); err != verify.ErrVerifierNotLinked {
 		t.Fatalf("got %v, want ErrVerifierNotLinked", err)
 	}
+}
+
+// An app given no home makes a directory for the wasm VM, and closing the app removes it: test runs
+// left one per app behind, thousands of them in the temporary directory.
+func TestOramaApp_closeRemovesTheWasmDirectoryItMade(t *testing.T) {
+	if !app.WasmVMLinked() {
+		t.Skip("a nowasm build makes no wasm VM directory")
+	}
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	app.SetAddressPrefixes()
+	a := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(testChainID))
+	made, err := filepath.Glob(filepath.Join(tmp, "oramad-wasm-*"))
+	require.NoError(t, err)
+	require.Len(t, made, 1, "the app made one wasm VM directory")
+	require.NoError(t, a.Close())
+	_, err = os.Stat(made[0])
+	require.True(t, os.IsNotExist(err), "closing the app removes %s", made[0])
 }

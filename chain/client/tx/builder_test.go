@@ -44,6 +44,7 @@ var (
 	txConfigOnce sync.Once
 	sharedCfg    client.TxConfig
 	sharedReg    codectypes.InterfaceRegistry
+	closeErr     error
 )
 
 // oramaTxConfig is the chain app's encoder, the same TxConfig oramad builds.
@@ -55,7 +56,10 @@ func oramaTxConfig(t *testing.T) client.TxConfig {
 		oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), false, simtestutil.EmptyAppOptions{})
 		sharedCfg = oramaApp.TxConfig()
 		sharedReg = oramaApp.InterfaceRegistry()
+		// Only the codec is kept; closing removes the wasm VM directory the app made.
+		closeErr = oramaApp.Close()
 	})
+	require.NoError(t, closeErr)
 	require.NotNil(t, sharedCfg)
 	return sharedCfg
 }

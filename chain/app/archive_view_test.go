@@ -14,6 +14,7 @@ import (
 func TestArchiveViews_refuseUnknownNodesAndDeals(t *testing.T) {
 	SetAddressPrefixes()
 	a := NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{})
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	ctx := a.NewContext(true)
 	nodes := archiveNodes{nodes: a.NodesKeeper}
 	_, err := nodes.ArchiverOperator(ctx, "", "orama1qyqszqgpqyqszqgpqyqszqgpqyqszqgp6cszae")

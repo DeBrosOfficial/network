@@ -207,6 +207,10 @@ var (
 type OramaApp struct {
 	*baseapp.BaseApp
 
+	// wasmTempHome is the directory the app made for the wasm VM when it was given no home (a test,
+	// a throwaway instance); Close removes it. Empty when the VM lives under the node's home.
+	wasmTempHome string
+
 	legacyAmino       *codec.LegacyAmino
 	appCodec          codec.Codec
 	txConfig          client.TxConfig

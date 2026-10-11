@@ -174,11 +174,17 @@ func (app *OramaApp) registerShieldedSnapshot() {
 	}
 }
 
-// Close closes the nullifier database with the rest of the app.
+// Close closes the nullifier database with the rest of the app, and removes the wasm VM's
+// directory when the app made one for itself (an app with no home).
 func (app *OramaApp) Close() error {
 	err := app.BaseApp.Close()
 	if closeErr := app.nullifierStore.Close(); closeErr != nil && err == nil {
 		err = closeErr
+	}
+	if app.wasmTempHome != "" {
+		if rmErr := os.RemoveAll(app.wasmTempHome); rmErr != nil && err == nil {
+			err = fmt.Errorf("remove the wasm VM directory %s: %w", app.wasmTempHome, rmErr)
+		}
 	}
 	return err
 }
