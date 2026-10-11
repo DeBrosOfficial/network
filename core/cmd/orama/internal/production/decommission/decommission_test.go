@@ -1,9 +1,11 @@
 package decommission
 
 import (
+	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/install"
 	"github.com/DeBrosOfficial/network/pkg/releaseverify"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -194,5 +196,20 @@ func TestWipeScript_stopsTheAutoUpdateTimerAndForgetsTheReleaseState(t *testing.
 		if !strings.Contains(script, path) {
 			t.Errorf("the wipe script keeps %s", path)
 		}
+	}
+}
+
+// A Tor directory authority's keys (the identity key and its passphrase) live outside the global
+// state root; every wipe removes them and the leftover check reports them, so a wiped machine does
+// not keep the secret of a network it has left (the stagenet authorities kept theirs, 2026-10-11).
+func TestWipeScript_removesTheTorAuthorityKeys(t *testing.T) {
+	for _, nuclear := range []bool{false, true} {
+		script := wipeScript(nuclear)
+		if !strings.Contains(script, constants.GlobalTorAuthorityKeysDir) {
+			t.Errorf("nuclear=%v: the wipe does not remove %s", nuclear, constants.GlobalTorAuthorityKeysDir)
+		}
+	}
+	if !slices.Contains(globalPaths(), constants.GlobalTorAuthorityKeysDir) {
+		t.Error("the leftover check does not look for the authority keys")
 	}
 }

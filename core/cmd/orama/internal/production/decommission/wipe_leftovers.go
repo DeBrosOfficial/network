@@ -34,13 +34,16 @@ func wipedPaths() []string {
 // globalPaths are what `orama global install` writes outside the unit directory: its
 // own binaries (the CLI the chain unit runs, oramad, cosmovisor, Kubo), the state of
 // the chain (its keys among it), public storage and the relay, and the configuration
-// and sysctl file of its network namespace. Every wipe removes them: a machine that
-// kept them was set up again on the old chain's binaries and keys, and orama global
-// install refused it (live stagenet create run, 2026-10-10).
+// and sysctl file of its network namespace, and a Tor directory authority's keys (the
+// identity key and its passphrase, which `orama maint global tor authority-keys` keeps
+// outside the global state root). Every wipe removes them: a machine that kept them was
+// set up again on the old chain's binaries and keys, and orama global install refused it
+// (live stagenet create run, 2026-10-10); a wiped machine that kept an authority's
+// identity key would still hold the secret of a network it has left (stagenet, 2026-10-11).
 func globalPaths() []string {
 	return []string{
 		constants.GlobalStateRoot, filepath.Dir(constants.GlobalBinDir),
-		globalnetns.ConfigDir, globalnetns.SysctlFile,
+		globalnetns.ConfigDir, globalnetns.SysctlFile, constants.GlobalTorAuthorityKeysDir,
 	}
 }
 
