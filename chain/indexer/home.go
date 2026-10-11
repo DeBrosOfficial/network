@@ -133,7 +133,7 @@ func (s *Store) homeFromIndex(earliest, tip int64) (Home, error) {
 	if h.Blocks, err = blockPage(snap, 1, HomeBlocks); err != nil {
 		return Home{}, err
 	}
-	recent, err := txPageFrom(snap, []byte(pfxLatest), 1, homeExamplesWindow, "the transaction list")
+	recent, err := txPageFrom(snap, []byte(pfxLatest), listPos{page: 1}, homeExamplesWindow, "the transaction list")
 	if err != nil {
 		return Home{}, err
 	}

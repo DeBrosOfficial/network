@@ -26,6 +26,8 @@ const (
 	benchBatchBlocks  = 1000
 	benchBlockSeconds = 2
 	benchFailedEvery  = 50
+	// benchDeepRows is how far from the newest row the deep reads start (page 1000, 100 a page).
+	benchDeepRows = 99_900
 )
 
 // BenchmarkIndexAtScale reads a large index through the API: the routes the explorer calls for a
@@ -37,22 +39,29 @@ func BenchmarkIndexAtScale(b *testing.B) {
 	b.Logf("index of %d transactions in %d blocks, %d accounts, %d epochs of %d validators: built in %s, %.0f MB on disk",
 		idx.txs, idx.blocks, benchAccounts, idx.epochs, benchValidators, idx.buildTime.Round(time.Second), float64(idx.onDiskSize)/(1<<20))
 	api := NewAPI(idx.store, benchChain{tip: idx.blocks})
-	deepest := fmt.Sprintf("page=%d&limit=%d", MaxPage, MaxLimit)
+	deepest := fmt.Sprintf("page=%d&limit=%d", MaxListPage, MaxLimit)
+	// deep and deepBlocks are the rows the old page 1000 at 100 a page read, 99,900 rows from the
+	// newest, which a cursor reaches by seeking: ten transactions to a block, one block to a row.
+	deep := fmt.Sprintf("cursor=%s&limit=%d", Cursor{Height: max(2, idx.blocks-int64(benchDeepRows/benchTxsPerBlock)+1)}.String(), MaxLimit)
+	deepBlocks := fmt.Sprintf("cursor=%s&limit=%d", Cursor{Height: max(2, idx.blocks-int64(benchDeepRows)+1)}.String(), MaxLimit)
 	lastEpoch := idx.epochs
 
 	routes := []struct{ name, target string }{
 		{"status", "/index/v1/status"},
 		{"txs_latest_20", "/index/v1/txs?limit=20"},
-		{"txs_page1000_limit100", "/index/v1/txs?" + deepest},
+		{"txs_page10_limit100", "/index/v1/txs?" + deepest},
+		{"txs_deep_cursor_limit100", "/index/v1/txs?" + deep},
 		{"txs_failed_page1", "/index/v1/txs?filter=failed&limit=20"},
-		{"txs_transfers_page1000", "/index/v1/txs?filter=transfers&" + deepest},
+		{"txs_transfers_deep_cursor", "/index/v1/txs?filter=transfers&" + deep},
 		{"txs_storage_page1", "/index/v1/txs?filter=storage&limit=20"},
 		{"account_txs_busy_page1", "/index/v1/accounts/" + idx.busy + "/txs?limit=20"},
+		{"account_txs_busy_deep_cursor", "/index/v1/accounts/" + idx.busy + "/txs?" + deep},
 		{"account_txs_busy_staking", "/index/v1/accounts/" + idx.busy + "/txs?filter=staking&limit=20"},
 		{"account_summary", "/index/v1/accounts/" + idx.busy},
 		{"tx_by_hash", "/index/v1/txs/" + idx.firstHash},
 		{"blocks_page1_limit24", "/index/v1/blocks?limit=24"},
-		{"blocks_page1000_limit100", "/index/v1/blocks?" + deepest},
+		{"blocks_page10_limit100", "/index/v1/blocks?" + deepest},
+		{"blocks_deep_cursor_limit100", "/index/v1/blocks?" + deepBlocks},
 		{"block_by_height", "/index/v1/blocks/" + strconv.FormatInt(idx.blocks/2, 10)},
 		{"stats_hourly_48h", "/index/v1/stats"},
 		{"stats_daily", "/index/v1/stats/daily?limit=30"},

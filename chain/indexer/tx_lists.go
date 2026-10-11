@@ -35,36 +35,66 @@ func (w *writer) addAccountKinds(addr string, kinds []string, height int64, inde
 	return nil
 }
 
+// listPos is where a page of a long list starts: at a numbered page (page, from 1, which makes the
+// index skip every row before it) or strictly after the position a cursor names (cursor.go).
+type listPos struct {
+	page  int
+	after *Cursor
+}
+
+func txListPrefix(filter string) []byte {
+	if filter == FilterAll {
+		return []byte(pfxLatest)
+	}
+	return kindTxPrefix(filter)
+}
+
+func accountListPrefix(addr, filter string) []byte {
+	if filter == FilterAll {
+		return accountPrefix(addr)
+	}
+	return kindAcctPrefix(addr, filter)
+}
+
 // TxsFiltered returns one page of the transactions that match filter, newest first. page starts at 1.
 func (s *Store) TxsFiltered(filter string, page, limit int) ([]Tx, error) {
-	prefix := []byte(pfxLatest)
-	if filter != FilterAll {
-		prefix = kindTxPrefix(filter)
-	}
-	return s.txPage(prefix, page, limit, "the transaction list")
+	return s.txPage(txListPrefix(filter), listPos{page: page}, limit, "the transaction list")
+}
+
+// TxsFilteredAfter returns one page of the transactions that match filter, newest first, that are
+// older than the position of after.
+func (s *Store) TxsFilteredAfter(filter string, after Cursor, limit int) ([]Tx, error) {
+	return s.txPage(txListPrefix(filter), listPos{after: &after}, limit, "the transaction list")
 }
 
 // AccountTxsFiltered returns one page of the transactions whose events name addr and that match
 // filter, newest first.
 func (s *Store) AccountTxsFiltered(addr, filter string, page, limit int) ([]Tx, error) {
-	prefix := accountPrefix(addr)
-	if filter != FilterAll {
-		prefix = kindAcctPrefix(addr, filter)
-	}
-	return s.txPage(prefix, page, limit, addr)
+	return s.txPage(accountListPrefix(addr, filter), listPos{page: page}, limit, addr)
+}
+
+// AccountTxsFilteredAfter is AccountTxsFiltered from the position of after on.
+func (s *Store) AccountTxsFilteredAfter(addr, filter string, after Cursor, limit int) ([]Tx, error) {
+	return s.txPage(accountListPrefix(addr, filter), listPos{after: &after}, limit, addr)
 }
 
 // txPage reads one page of the hashes listed under prefix, newest first, and the transactions they
 // name, from one snapshot so a block committed between the two cannot tear the page.
-func (s *Store) txPage(prefix []byte, page, limit int, what string) ([]Tx, error) {
+func (s *Store) txPage(prefix []byte, pos listPos, limit int, what string) ([]Tx, error) {
 	snap := s.db.NewSnapshot()
 	defer snap.Close()
-	return txPageFrom(snap, prefix, page, limit, what)
+	return txPageFrom(snap, prefix, pos, limit, what)
 }
 
 // txPageFrom is txPage over a snapshot the caller holds.
-func txPageFrom(snap iterable, prefix []byte, page, limit int, what string) ([]Tx, error) {
-	rows, err := scan(snap, prefix, true, page, limit)
+func txPageFrom(snap iterable, prefix []byte, pos listPos, limit int, what string) ([]Tx, error) {
+	var rows []entry
+	var err error
+	if pos.after != nil {
+		rows, err = scanBefore(snap, prefix, pos.after.bound(), limit)
+	} else {
+		rows, err = scan(snap, prefix, true, pos.page, limit)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addr, CHAIN_ID, chainFixture, FakeGateway, FakeStream, HEAD, HEAD_TIME, hashOf, homeJson, indexTx, rpc, stakingValidator, valoper } from "./fake-gateway";
+import { addr, CHAIN_ID, chainFixture, CURSOR_A, CURSOR_B, FakeGateway, FakeStream, HEAD, HEAD_TIME, hashOf, homeJson, indexTx, rpc, stakingValidator, valoper } from "./fake-gateway";
 import { createChainSource } from "./source";
 import { addressQuery } from "./wallet";
 
@@ -256,12 +256,20 @@ describe("blocks", () => {
     const page = (from: number, count: number) => ({
       blocks: Array.from({ length: count }, (_, i) => ({ height: from - i, hash: "cd".repeat(32), time: HEAD_TIME, proposer: "ab".repeat(20), tx_count: 0, gas_used: 0, burned: "0", commit_signed: 0, commit_size: 0 })),
     });
-    gw.on("index/blocks?page=1&limit=100", page(1000, 100));
-    gw.on("index/blocks?page=2&limit=100", page(900, 20));
+    gw.on("index/blocks?page=1&limit=100", { ...page(1000, 100), next_cursor: CURSOR_A });
+    gw.on(`index/blocks?cursor=${CURSOR_A}&limit=100`, page(900, 20));
     const blocks = await source.getRecentBlocks(150);
     expect(blocks).toHaveLength(120);
     expect(blocks[119]?.height).toBe(900 - 19);
-    expect(gw.asked).toEqual(["index/blocks?page=1&limit=100", "index/blocks?page=2&limit=100"]);
+    expect(gw.asked).toEqual(["index/blocks?page=1&limit=100", `index/blocks?cursor=${CURSOR_A}&limit=100`]);
+  });
+
+  it("TestGetRecentBlocks_a_full_page_without_a_cursor_is_refused_not_paged_by_number", async () => {
+    const { gw, source } = await setup();
+    const full = Array.from({ length: 100 }, (_, i) => ({ height: 1000 - i, hash: "cd".repeat(32), time: HEAD_TIME, proposer: "ab".repeat(20), tx_count: 0, gas_used: 0, burned: "0", commit_signed: 0, commit_size: 0 }));
+    gw.on("index/blocks?page=1&limit=100", { blocks: full });
+    await expect(source.getRecentBlocks(150)).rejects.toThrow(/needs its cursor/);
+    expect(gw.asked).not.toContain("index/blocks?page=2&limit=100");
   });
 });
 
@@ -381,7 +389,7 @@ describe("wallets", () => {
     gw.on(`index/accounts/${a}/txs?page=1&limit=100`, { txs: [mine[0], incoming, mine[1], mine[2]] });
     const first = await source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: null, limit: 2 });
     expect(first.items.map((i) => [i.direction, i.amount])).toEqual([["out", "-5000000000"], ["in", "7"]]);
-    expect(first.nextCursor).toBe("1:2");
+    expect(first.nextCursor).toBe(":2");
     const rest = await source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: first.nextCursor, limit: 5 });
     expect(rest.items).toHaveLength(2);
     expect(rest.nextCursor).toBeNull();
@@ -418,16 +426,37 @@ describe("wallets", () => {
   it("TestGetWalletActivity_a_cursor_this_source_never_issued_is_refused", async () => {
     const { source } = await setup();
     await expect(source.getWalletActivity(addr(1), { filter: "all", counterparty: null, cursor: "bogus", limit: 5 })).rejects.toThrow(/not issued/);
-    await expect(source.getWalletActivity(addr(1), { filter: "all", counterparty: null, cursor: "0:0", limit: 5 })).rejects.toThrow(/not issued/);
+    await expect(source.getWalletActivity(addr(1), { filter: "all", counterparty: null, cursor: "2:0", limit: 5 })).rejects.toThrow(/not issued/);
+    await expect(source.getWalletActivity(addr(1), { filter: "all", counterparty: null, cursor: `${CURSOR_A}:x`, limit: 5 })).rejects.toThrow(/not issued/);
   });
 
-  it("TestGetWalletActivity_a_full_page_of_a_hundred_has_a_next_page", async () => {
+  it("TestGetWalletActivity_a_full_page_of_a_hundred_has_a_next_page_named_by_the_indexers_cursor", async () => {
+    const { gw, source } = await setup();
+    const a = addr(1);
+    gw.on(`index/accounts/${a}/txs?page=1&limit=100`, { txs: Array.from({ length: 100 }, (_, i) => indexTx(i + 1)), next_cursor: CURSOR_A });
+    const page = await source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: null, limit: 100 });
+    expect(page.items).toHaveLength(100);
+    expect(page.nextCursor).toBe(`${CURSOR_A}:0`);
+  });
+
+  it("TestGetWalletActivity_a_deep_page_follows_the_cursor_and_resumes_inside_it", async () => {
+    const { gw, source } = await setup();
+    const a = addr(1);
+    gw.on(`index/accounts/${a}/txs?cursor=${CURSOR_A}&limit=100`, { txs: Array.from({ length: 100 }, (_, i) => indexTx(i + 1)), next_cursor: CURSOR_B });
+    const page = await source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: `${CURSOR_A}:97`, limit: 3 });
+    expect(page.items).toHaveLength(3);
+    expect(page.nextCursor).toBe(`${CURSOR_B}:0`);
+    const middle = await source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: `${CURSOR_A}:10`, limit: 2 });
+    expect(middle.nextCursor).toBe(`${CURSOR_A}:12`);
+    const asked = `index/accounts/${a}/txs?cursor=${CURSOR_A}&limit=100`;
+    expect(gw.asked.filter((p) => p.includes("/txs"))).toEqual([asked, asked]);
+  });
+
+  it("TestGetWalletActivity_a_full_page_without_a_cursor_is_refused", async () => {
     const { gw, source } = await setup();
     const a = addr(1);
     gw.on(`index/accounts/${a}/txs?page=1&limit=100`, { txs: Array.from({ length: 100 }, (_, i) => indexTx(i + 1)) });
-    const page = await source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: null, limit: 100 });
-    expect(page.items).toHaveLength(100);
-    expect(page.nextCursor).toBe("2:0");
+    await expect(source.getWalletActivity(a, { filter: "all", counterparty: null, cursor: null, limit: 100 })).rejects.toThrow(/needs its cursor/);
   });
 
   it("TestGetCounterparties_net_and_volume_from_the_newest_transactions", async () => {

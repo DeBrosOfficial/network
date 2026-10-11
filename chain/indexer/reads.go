@@ -23,10 +23,31 @@ func (s *Store) Blocks(page, limit int) ([]BlockSummary, error) {
 	return blockPage(snap, page, limit)
 }
 
+// BlocksAfter returns one page of the indexed blocks older than the height of after, newest first,
+// without their transaction hashes.
+func (s *Store) BlocksAfter(after Cursor, limit int) ([]BlockSummary, error) {
+	snap := s.db.NewSnapshot()
+	defer snap.Close()
+	cursor, _, err := getUint(snap, []byte(keyCursor))
+	if err != nil {
+		return nil, err
+	}
+	return blocksFrom(snap, min(after.Height-1, int64(cursor)), limit)
+}
+
 // blockPage reads a page of blocks by height. The index holds every block from its start height to
 // its cursor, so the page begins at a height worked out from the page number and is read by seeking
 // there, not by skipping the blocks before it: the cost of the last page is that of the first.
 func blockPage(db iterable, page, limit int) ([]BlockSummary, error) {
+	cursor, _, err := getUint(db, []byte(keyCursor))
+	if err != nil {
+		return nil, err
+	}
+	return blocksFrom(db, int64(cursor)-int64(page-1)*int64(limit), limit)
+}
+
+// blocksFrom reads up to limit blocks, newest first, from height top down.
+func blocksFrom(db iterable, top int64, limit int) ([]BlockSummary, error) {
 	start, _, err := getUint(db, []byte(keyStart))
 	if err != nil {
 		return nil, err
@@ -35,7 +56,6 @@ func blockPage(db iterable, page, limit int) ([]BlockSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	top := int64(cursor) - int64(page-1)*int64(limit)
 	out := make([]BlockSummary, 0, limit)
 	if top < int64(start) || top < 1 {
 		return out, nil
@@ -149,6 +169,23 @@ func scan(db iterable, prefix []byte, reverse bool, page, limit int) ([]entry, e
 			skip--
 			continue
 		}
+		out = append(out, entry{
+			suffix: append([]byte(nil), it.Key()[len(prefix):]...),
+			value:  append([]byte(nil), it.Value()...),
+		})
+	}
+	return out, closeIter(it)
+}
+
+// scanBefore returns up to limit rows under prefix, in reverse key order, whose key after the prefix
+// is below bound: the page that follows a cursor, found by seeking, not by skipping the rows before.
+func scanBefore(db iterable, prefix, bound []byte, limit int) ([]entry, error) {
+	it, err := db.NewIter(&pebble.IterOptions{LowerBound: prefix, UpperBound: join(prefix, bound)})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open index iterator: %w", err)
+	}
+	var out []entry
+	for ok := it.Last(); ok && len(out) < limit; ok = it.Prev() {
 		out = append(out, entry{
 			suffix: append([]byte(nil), it.Key()[len(prefix):]...),
 			value:  append([]byte(nil), it.Value()...),

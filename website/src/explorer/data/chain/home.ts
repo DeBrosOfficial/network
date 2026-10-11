@@ -1,8 +1,9 @@
 import type { Head, IndexStatus, NetworkSnapshot, BlockSummary } from "../../model/types";
-import { ChainReadError, chainPath } from "./client";
+import { ChainReadError, chainPath, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import { blockTimeSeconds, readHours, transactionTotals } from "./network";
 import type { Hourly } from "./network";
+import { nextCursor } from "./paging";
 import { clean } from "./text";
 import { readIndexTx } from "./tx";
 import type { IndexTx } from "./tx";
@@ -139,8 +140,13 @@ export async function loadIndexStatus(client: ChainClient): Promise<IndexStatus>
   return readIndexStatus(await client.get(chainPath("index", "status")));
 }
 
-/** The newest blocks, a page at a time, as the block list route serves them. */
-export async function loadBlockPage(client: ChainClient, page: number, limit: number): Promise<BlockSummary[]> {
-  const raw = rec(await client.get(`${chainPath("index", "blocks")}?page=${page}&limit=${limit}`), "block list");
-  return arr(raw.blocks, "block list").map((b) => readBlock(b).block);
+/**
+ * The newest blocks, a page at a time, as the block list route serves them: the first page by
+ * number, each next one by the cursor the page before it named (`after`).
+ */
+export async function loadBlockPage(client: ChainClient, after: string | null, limit: number): Promise<{ blocks: BlockSummary[]; next: string | null }> {
+  const where = after === null ? { page: 1, limit } : { cursor: after, limit };
+  const raw = rec(await client.get(withQuery(chainPath("index", "blocks"), where)), "block list");
+  const blocks = arr(raw.blocks, "block list").map((b) => readBlock(b).block);
+  return { blocks, next: nextCursor(raw, blocks.length, limit) };
 }

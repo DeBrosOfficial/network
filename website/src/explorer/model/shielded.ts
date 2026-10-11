@@ -1,4 +1,4 @@
-import type { IndexPage } from "./epochs";
+import type { KeyPage } from "./paging";
 import type { Norama, TxEvent, TxMessage, WalletRef } from "./types";
 
 /**
@@ -113,8 +113,5 @@ export interface ShieldedPool {
   params: ShieldedParams;
 }
 
-/** A page of the transactions that touched the pool, newest first, with how many the index holds in all. */
-export interface ShieldedActivity extends IndexPage<ShieldedTx> {
-  /** Transactions that named the pool's account since the index began; null when the index has none for it. */
-  total: number | null;
-}
+/** A page of the transactions that touched the pool, newest first. `nextKey` is the indexer's cursor for the page after it. */
+export type ShieldedActivity = KeyPage<ShieldedTx>;

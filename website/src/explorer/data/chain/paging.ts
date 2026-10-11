@@ -2,6 +2,21 @@ import { ChainNotFound, ChainReadError, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import { optArr, optStr, rec } from "./wire";
 
+/** The shape of an indexer cursor (chain/indexer/cursor.go): 16 characters of the URL-safe alphabet. */
+const INDEX_CURSOR = /^[A-Za-z0-9_-]{16}$/;
+
+/**
+ * The indexer's cursor for the page after the one just read. A full page names it (`next_cursor`) and
+ * a short page is the last, so there is none. A full page without one means a gateway whose indexer
+ * pages by number only, which the explorer does not fall back to: that would skip rows.
+ */
+export function nextCursor(answer: Record<string, unknown>, rows: number, limit: number): string | null {
+  if (rows < limit) return null;
+  const next = optStr(answer.next_cursor, "next page cursor");
+  if (!INDEX_CURSOR.test(next)) throw new ChainReadError("This gateway's chain indexer pages its lists by number only; the explorer needs its cursor.");
+  return next;
+}
+
 /** The most entries one list query answers: the gateway refuses a larger page (core/pkg/gateway/handlers/chainread, queryMaxPageLimit). */
 const LIST_PAGE_SIZE = 100;
 

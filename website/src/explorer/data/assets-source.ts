@@ -53,5 +53,7 @@ export interface AssetsSource {
 
   getShieldedPool(): Promise<ShieldedPool>;
   /** The transactions that touched the pool, newest first, from the chain indexer. */
-  getShieldedActivity(query: EpochListQuery): Promise<ShieldedActivity>;
+  getShieldedActivity(query: KeyQuery): Promise<ShieldedActivity>;
+  /** Transactions that named the pool's account since the index began; null when the index has none for it. */
+  getShieldedActivityTotal(): Promise<number | null>;
 }

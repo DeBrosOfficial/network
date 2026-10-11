@@ -1,24 +1,20 @@
-import { useSearchParams } from "react-router";
 import { useQuery } from "../data/use-query";
-import { IndexQuery } from "../ui/index-query";
 import { Page } from "../ui/page";
 import { Query, Skeleton } from "../ui/query-states";
 import { useDocumentTitle } from "../ui/use-document-title";
-import { parsePageParam } from "./epochs/logic";
+import { useKeyPaged } from "../ui/use-key-paged";
 import { ActivityCard } from "./shielded/activity-card";
 import { PoolStats, RulesCard } from "./shielded/pool-cards";
 import { VisibilityCard } from "./shielded/visibility-card";
 
 const PER_PAGE = 20;
-const PAGE_PARAM = "page";
 
 /** `/explorer/shielded` */
 export function ShieldedPage() {
   useDocumentTitle("Shielded pool");
-  const [params] = useSearchParams();
-  const page = parsePageParam(params.get(PAGE_PARAM));
   const pool = useQuery((s) => s.assets.getShieldedPool(), []);
-  const activity = useQuery((s) => s.assets.getShieldedActivity({ page, limit: PER_PAGE }), [page]);
+  const total = useQuery((s) => s.assets.getShieldedActivityTotal(), []);
+  const paged = useKeyPaged((s, q) => s.assets.getShieldedActivity(q), [], PER_PAGE);
   return (
     <Page>
       <div>
@@ -37,9 +33,7 @@ export function ShieldedPage() {
           </>
         )}
       </Query>
-      <IndexQuery state={activity.state} onRetry={activity.refetch} loading={<Skeleton className="h-64 w-full" />}>
-        {(a) => <ActivityCard activity={a} page={page} />}
-      </IndexQuery>
+      <ActivityCard paged={paged} total={total.state.status === "ready" ? total.state.data : null} />
     </Page>
   );
 }

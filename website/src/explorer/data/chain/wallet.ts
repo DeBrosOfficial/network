@@ -13,6 +13,7 @@ import type {
 import { ChainNotFound, ChainReadError, chainPath, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import type { Directory } from "./directory";
+import { nextCursor } from "./paging";
 import { readIndexTx, summaryOf, walletRef } from "./tx";
 import type { Context, IndexTx } from "./tx";
 import { arr, digits, iso, optArr, optDigits, rec, uint } from "./wire";
@@ -24,7 +25,7 @@ const STAKING_UNBONDING = "cosmos.staking.v1beta1.Query/DelegatorUnbondingDelega
 /** The indexer's page size for an account's transactions, and the most pages one activity call reads. */
 const INDEX_PAGE_SIZE = 100;
 const MAX_SCAN_PAGES = 5;
-const CURSOR = /^([1-9][0-9]{0,3}):([0-9]{1,3})$/;
+const CURSOR = /^([A-Za-z0-9_-]{16})?:([0-9]{1,3})$/;
 /** Counterparties are read from this many of the wallet's newest transactions. */
 const COUNTERPARTY_WINDOW = 100;
 
@@ -168,19 +169,33 @@ function matches(item: ActivityItem, query: ActivityQuery): boolean {
   }
 }
 
-function parseCursor(cursor: string | null): { page: number; skip: number } {
-  if (cursor === null) return { page: 1, skip: 0 };
+/** Where a read of an account's list starts: the indexer's cursor of the page (null for the newest) and the rows of that page to skip. */
+interface Position {
+  after: string | null;
+  skip: number;
+}
+
+function parseCursor(cursor: string | null): Position {
+  if (cursor === null) return { after: null, skip: 0 };
   const m = CURSOR.exec(cursor);
   if (!m) throw new ChainReadError("That page of activity was not issued by this explorer.");
-  return { page: Number(m[1]), skip: Number(m[2]) };
+  return { after: m[1] === "" ? null : (m[1] ?? null), skip: Number(m[2]) };
+}
+
+function cursorText(after: string | null, skip: number): string {
+  return `${after ?? ""}:${skip}`;
 }
 
 /** The filters the index narrows an account's list by; the others (direction, counterparty) are read off each row here. */
 const INDEX_FILTERS: ReadonlySet<string> = new Set(["staking", "storage", "failed"]);
 
-async function accountTxs(client: ChainClient, address: string, page: number, limit: number, filter: string): Promise<IndexTx[]> {
-  const path = withQuery(chainPath("index", "accounts", address, "txs"), { page, limit, filter: INDEX_FILTERS.has(filter) ? filter : undefined });
-  return arr(rec(await client.get(path), "account transactions").txs, "account transactions").map(readIndexTx);
+/** One page of an account's list: the newest when `after` is null, else the rows older than the page whose cursor `after` is. */
+async function accountTxs(client: ChainClient, address: string, after: string | null, limit: number, filter: string): Promise<{ txs: IndexTx[]; next: string | null }> {
+  const where = after === null ? { page: 1, limit } : { cursor: after, limit };
+  const path = withQuery(chainPath("index", "accounts", address, "txs"), { ...where, filter: INDEX_FILTERS.has(filter) ? filter : undefined });
+  const body = rec(await client.get(path), "account transactions");
+  const txs = arr(body.txs, "account transactions").map(readIndexTx);
+  return { txs, next: nextCursor(body, txs.length, limit) };
 }
 
 /**
@@ -188,38 +203,41 @@ async function accountTxs(client: ChainClient, address: string, page: number, li
  * is read a page of 100 at a time. Staking, storage and failed are lists of
  * its own, so those filters read only the rows that can match; the others
  * (received, sent, one counterparty) are decided here, row by row, so they can
- * read several pages for one answer. The cursor is "page:position".
+ * read several pages for one answer. The pages follow the indexer's cursor, so
+ * a deep page costs what the first does. The cursor is "indexer cursor:position"
+ * (the indexer's cursor of the page being read, empty for the newest, and the
+ * row of that page to resume at).
  */
 export async function loadActivity(client: ChainClient, ctx: Context, address: string, query: ActivityQuery): Promise<Page<ActivityItem>> {
   const wanted = query.limit;
   const items: ActivityItem[] = [];
-  let { page, skip } = parseCursor(query.cursor);
+  let { after, skip } = parseCursor(query.cursor);
   for (let scanned = 0; scanned < MAX_SCAN_PAGES; scanned++) {
-    const txs = await accountTxs(client, address, page, INDEX_PAGE_SIZE, query.filter);
+    const { txs, next } = await accountTxs(client, address, after, INDEX_PAGE_SIZE, query.filter);
     for (let i = skip; i < txs.length; i++) {
       const tx = txs[i];
       if (tx === undefined) continue;
       const item = itemFor(tx, ctx, address);
       if (!matches(item, query)) continue;
       items.push(item);
-      if (items.length === wanted) return { items, nextCursor: positionAfter(page, i, txs.length) };
+      if (items.length === wanted) return { items, nextCursor: positionAfter(after, i, txs.length, next) };
     }
-    if (txs.length < INDEX_PAGE_SIZE) return { items, nextCursor: null };
-    page += 1;
+    if (next === null) return { items, nextCursor: null };
+    after = next;
     skip = 0;
   }
-  return { items, nextCursor: `${page}:0` };
+  return { items, nextCursor: cursorText(after, 0) };
 }
 
-/** The cursor of the row after the one at `index` of a page of `length`, or null at the end of the account's history. */
-function positionAfter(page: number, index: number, length: number): string | null {
-  if (index + 1 < length) return `${page}:${index + 1}`;
-  return length < INDEX_PAGE_SIZE ? null : `${page + 1}:0`;
+/** The cursor of the row after the one at `index` of the page read from `after`, or null at the end of the account's history. */
+function positionAfter(after: string | null, index: number, length: number, next: string | null): string | null {
+  if (index + 1 < length) return cursorText(after, index + 1);
+  return next === null ? null : cursorText(next, 0);
 }
 
 /** The wallets this one sent to or received from most, by volume, from its newest transactions. */
 export async function loadCounterparties(client: ChainClient, ctx: Context, address: string, limit: number): Promise<Counterparty[]> {
-  const txs = await accountTxs(client, address, 1, COUNTERPARTY_WINDOW, "all");
+  const { txs } = await accountTxs(client, address, null, COUNTERPARTY_WINDOW, "all");
   const byWallet = new Map<string, { ref: WalletRef; txCount: number; net: bigint; volume: bigint }>();
   for (const tx of txs) {
     const item = itemFor(tx, ctx, address);

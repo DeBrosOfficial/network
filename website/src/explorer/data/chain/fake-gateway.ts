@@ -54,6 +54,10 @@ export const POWER_PARAMS = {
   },
 };
 
+/** Two indexer cursors (chain/indexer/cursor.go): 16 characters of the URL-safe alphabet naming a position in a list. */
+export const CURSOR_A = "AAAAAAAAAAAAA-Dk";
+export const CURSOR_B = "AAAAAAAAAAAAA_Fw";
+
 export const hashOf = (n: number) => n.toString(16).padStart(64, "0");
 
 export const rpc = (result: unknown) => ({ jsonrpc: "2.0", id: -1, result });

@@ -6,7 +6,7 @@ import { loadGovernance, loadProposal, loadVote } from "./governance";
 import { loadBid, loadListing } from "./market";
 import { idsDescending, newestId } from "./newest-id";
 import { loadAsset, loadCollection, loadOwnerAssets, loadSnapshots, loadTree } from "./nfts";
-import { loadShieldedActivity, loadShieldedPool } from "./shielded";
+import { loadShieldedActivity, loadShieldedActivityTotal, loadShieldedPool } from "./shielded";
 import { loadFrozen, loadHolders, loadToken, loadTokenParams, loadTokens } from "./tokens";
 
 /**
@@ -86,5 +86,6 @@ export function createAssetsSource(client: ChainClient, now: () => number = Date
 
     getShieldedPool: () => loadShieldedPool(client),
     getShieldedActivity: (query) => loadShieldedActivity(client, query),
+    getShieldedActivityTotal: () => loadShieldedActivityTotal(client),
   };
 }

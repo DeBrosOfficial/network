@@ -7,15 +7,17 @@ import (
 	"net/url"
 )
 
-// listParams are the parameters of a paged list: page and limit, and, for the transaction lists, a
-// filter.
+// listParams are the parameters of a paged list: page or cursor, limit, and, for the transaction
+// lists, a filter. cursor is nil when the list is read by page number.
 type listParams struct {
 	page, limit int
 	filter      string
+	cursor      *Cursor
 }
 
-// listQuery accepts page, limit and, if filtered, filter, each at most once. page is 1 to MaxPage,
-// limit 1 to MaxLimit, filter one of the list filters.
+// listQuery accepts page, cursor, limit and, if filtered, filter, each at most once, and not page
+// with cursor. page is 1 to MaxListPage, cursor one that ParseCursor accepts, limit 1 to MaxLimit,
+// filter one of the list filters.
 func listQuery(w http.ResponseWriter, r *http.Request, filtered bool) (listParams, bool) {
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
@@ -33,6 +35,10 @@ func listQuery(w http.ResponseWriter, r *http.Request, filtered bool) (listParam
 			return listParams{}, false
 		}
 	}
+	if _, paged := q["page"]; paged && p.cursor != nil {
+		writeError(w, http.StatusBadRequest, "page and cursor cannot be used together")
+		return listParams{}, false
+	}
 	return p, true
 }
 
@@ -42,8 +48,16 @@ func (p *listParams) set(key, value string, filtered bool) bool {
 	case key == "filter" && filtered:
 		p.filter = value
 		return IsListFilter(value)
+	case key == CursorParam:
+		c, err := ParseCursor(value)
+		p.cursor = &c
+		return err == nil
 	case key == "page" || key == "limit":
-		n, ok := boundedInt(value, pageBounds[key])
+		max := MaxLimit
+		if key == "page" {
+			max = MaxListPage
+		}
+		n, ok := boundedInt(value, max)
 		if key == "page" {
 			p.page = n
 		} else {
@@ -61,12 +75,18 @@ func (a *API) serveLatestTxs(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	txs, err := a.store.TxsFiltered(p.filter, p.page, p.limit)
+	var txs []Tx
+	var err error
+	if p.cursor != nil {
+		txs, err = a.store.TxsFilteredAfter(p.filter, *p.cursor, p.limit)
+	} else {
+		txs, err = a.store.TxsFiltered(p.filter, p.page, p.limit)
+	}
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"page": p.page, "limit": p.limit, "filter": p.filter, "txs": txs})
+	writeJSON(w, p.answer("txs", txs, txNext(txs, p.limit)))
 }
 
 func (a *API) serveAccountTxs(w http.ResponseWriter, r *http.Request, addr string) {
@@ -78,12 +98,18 @@ func (a *API) serveAccountTxs(w http.ResponseWriter, r *http.Request, addr strin
 		writeError(w, http.StatusBadRequest, "address must be a lowercase orama account address")
 		return
 	}
-	txs, err := a.store.AccountTxsFiltered(addr, p.filter, p.page, p.limit)
+	var txs []Tx
+	var err error
+	if p.cursor != nil {
+		txs, err = a.store.AccountTxsFilteredAfter(addr, p.filter, *p.cursor, p.limit)
+	} else {
+		txs, err = a.store.AccountTxsFiltered(addr, p.filter, p.page, p.limit)
+	}
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"page": p.page, "limit": p.limit, "filter": p.filter, "txs": txs})
+	writeJSON(w, p.answer("txs", txs, txNext(txs, p.limit)))
 }
 
 // serveBlocks answers a page of the blocks, newest first, without their transaction hashes.
@@ -92,12 +118,50 @@ func (a *API) serveBlocks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	blocks, err := a.store.Blocks(p.page, p.limit)
+	if p.cursor != nil && p.cursor.Index != 0 {
+		writeError(w, http.StatusBadRequest, "bad query parameter cursor")
+		return
+	}
+	var blocks []BlockSummary
+	var err error
+	if p.cursor != nil {
+		blocks, err = a.store.BlocksAfter(*p.cursor, p.limit)
+	} else {
+		blocks, err = a.store.Blocks(p.page, p.limit)
+	}
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"page": p.page, "limit": p.limit, "blocks": blocks})
+	next := ""
+	if len(blocks) == p.limit {
+		next = Cursor{Height: blocks[len(blocks)-1].Height}.String()
+	}
+	body := p.answer("blocks", blocks, next)
+	delete(body, "filter")
+	writeJSON(w, body)
+}
+
+// txNext is the cursor of the page after txs, or "" when the page is short and so the last.
+func txNext(txs []Tx, limit int) string {
+	if len(txs) == 0 || len(txs) != limit {
+		return ""
+	}
+	last := txs[len(txs)-1]
+	return Cursor{Height: last.Height, Index: last.Index}.String()
+}
+
+// answer is the body of a list: the rows under name, how they were asked for (page, or nothing for
+// a cursor), the filter, and next_cursor when a full page may be followed by more.
+func (p listParams) answer(name string, rows any, next string) map[string]any {
+	body := map[string]any{"limit": p.limit, "filter": p.filter, name: rows}
+	if p.cursor == nil {
+		body["page"] = p.page
+	}
+	if next != "" {
+		body["next_cursor"] = next
+	}
+	return body
 }
 
 // serveHome answers the snapshot the home page shows, built at most once per block.

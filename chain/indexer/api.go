@@ -22,8 +22,11 @@ const (
 	APIPrefix    = "/index/v1/"
 	DefaultLimit = 20
 	MaxLimit     = 100
-	MaxPage      = 1000
-	defaultPage  = 1
+	// MaxPage bounds page on the lists that stay short (epochs, supply, validators, rewards, the
+	// statistics, an owner's assets). The lists that grow with the chain take MaxListPage and a
+	// cursor (cursor.go).
+	MaxPage     = 1000
+	defaultPage = 1
 )
 
 // TipSource reports the node's earliest and latest heights. *node.Client

@@ -210,10 +210,12 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
       if (count === 0) return [];
       if (count <= HOME_BLOCKS) return (await home()).blocks.slice(0, count);
       const out: BlockSummary[] = [];
-      for (let page = 1; out.length < count; page++) {
-        const blocks = await loadBlockPage(client, page, INDEX_MAX_LIMIT);
+      let after: string | null = null;
+      while (out.length < count) {
+        const { blocks, next } = await loadBlockPage(client, after, INDEX_MAX_LIMIT);
         out.push(...blocks);
-        if (blocks.length < INDEX_MAX_LIMIT) break;
+        if (next === null) break;
+        after = next;
       }
       return out.slice(0, count);
     },

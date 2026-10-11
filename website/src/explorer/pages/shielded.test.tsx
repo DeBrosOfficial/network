@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { addr } from "../data/chain/fake-gateway";
-import type { ShieldedActivity, ShieldedPool, ShieldedTx } from "../model/shielded";
+import type { ShieldedPool, ShieldedTx } from "../model/shielded";
 import { SHIELDED_POOL_ADDRESS } from "../model/shielded";
 import type { TxSummary } from "../model/types";
 import { ActivityRows } from "../ui/module-activity";
+import type { KeyPaged } from "../ui/use-key-paged";
 import { IdPager } from "../ui/id-pager";
 import { LookupForm } from "../ui/lookup-form";
 import { render } from "./asset-fixtures";
@@ -78,11 +79,19 @@ describe("pool figures", () => {
   });
 });
 
-const activity = (items: ShieldedTx[], over: Partial<ShieldedActivity> = {}): ShieldedActivity => ({ items, page: 1, limit: 20, hasMore: false, total: 42, ...over });
+const activity = (items: ShieldedTx[], over: { hasMore?: boolean } = {}): KeyPaged<ShieldedTx> => ({
+  first: { status: "ready", data: { items, nextKey: over.hasMore ? "AAAAAAAAAAAAA-Dk" : null }, error: null },
+  items,
+  hasMore: over.hasMore ?? false,
+  loadingMore: false,
+  moreError: null,
+  loadMore: () => {},
+  retry: () => {},
+});
 
 describe("pool activity", () => {
   it("TestActivityCard_a_private_transfer_row_has_no_signer_and_only_its_fee", () => {
-    const html = render(<ActivityCard activity={activity([transfer(1), unshield(2, "2000000000")])} page={1} />);
+    const html = render(<ActivityCard paged={activity([transfer(1), unshield(2, "2000000000")])} total={42} />);
     expect(html).toContain("Private transfer");
     expect(html).toContain("none: private");
     expect(html).toContain("0.0004 ORAMA");
@@ -94,14 +103,15 @@ describe("pool activity", () => {
   });
 
   it("TestActivityCard_a_failed_row_says_nothing_moved_and_shows_no_amount", () => {
-    const html = render(<ActivityCard activity={activity([tx(1, { ok: false, bundle: null })])} page={1} />);
+    const html = render(<ActivityCard paged={activity([tx(1, { ok: false, bundle: null })])} total={42} />);
     expect(html).toContain("Failed");
     expect(html).toContain("nothing moved");
   });
 
-  it("TestActivityCard_no_activity_and_a_page_past_the_oldest_say_so", () => {
-    expect(render(<ActivityCard activity={activity([], { total: null })} page={1} />)).toContain("No transaction has touched the shielded pool in this index.");
-    expect(render(<ActivityCard activity={activity([], { total: null })} page={4} />)).toContain("no older transactions");
+  it("TestActivityCard_no_activity_says_so_and_claims_no_total", () => {
+    const html = render(<ActivityCard paged={activity([])} total={null} />);
+    expect(html).toContain("No transaction has touched the shielded pool in this index.");
+    expect(html).not.toContain("transactions in all");
   });
 
   it("TestPageTotals_say_the_amounts_of_private_transfers_are_not_on_chain_and_stay_quiet_for_none", () => {
@@ -110,7 +120,10 @@ describe("pool activity", () => {
   });
 
   it("TestActivityCard_a_full_page_offers_an_older_one", () => {
-    expect(render(<ActivityCard activity={activity([tx(1)], { hasMore: true })} page={1} />)).toContain("?page=2");
+    const html = render(<ActivityCard paged={activity([tx(1)], { hasMore: true })} total={42} />);
+    expect(html).toContain("Show more transactions");
+    expect(html).not.toContain("?page=");
+    expect(render(<ActivityCard paged={activity([tx(1)])} total={42} />)).not.toContain("Show more transactions");
   });
 });
 

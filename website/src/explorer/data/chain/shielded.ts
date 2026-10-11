@@ -1,10 +1,11 @@
-import type { EpochListQuery } from "../../model/epochs";
+import type { KeyQuery } from "../../model/paging";
 import { SHIELDED_POOL_ADDRESS, bundleOf } from "../../model/shielded";
 import type { ShieldedActivity, ShieldedParams, ShieldedPool, ShieldedTx } from "../../model/shielded";
-import { INDEX_MAX_LIMIT, INDEX_MAX_PAGE } from "./aggregates";
+import { INDEX_MAX_LIMIT } from "./aggregates";
 import { ChainNotFound, chainPath, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import { queryPath } from "./module-query";
+import { nextCursor } from "./paging";
 import { readIndexTx } from "./tx";
 import { digits, optArr, optUint, rec, uint } from "./wire";
 
@@ -55,7 +56,8 @@ function readShieldedTx(raw: unknown): ShieldedTx {
   };
 }
 
-async function poolTxCount(client: ChainClient): Promise<number | null> {
+/** How many transactions named the pool's account since the index began; null when the index has none for it. */
+export async function loadShieldedActivityTotal(client: ChainClient): Promise<number | null> {
   try {
     return optUint(rec(await client.get(chainPath("index", "accounts", SHIELDED_POOL_ADDRESS)), "pool account").tx_count, "pool transaction count");
   } catch (err) {
@@ -69,11 +71,12 @@ async function poolTxCount(client: ChainClient): Promise<number | null> {
  * shield-earnings and unshield, and every private transfer (which burns its fee from the pool). The
  * index lists the transactions whose events name an account, and these name the pool's.
  */
-export async function loadShieldedActivity(client: ChainClient, query: EpochListQuery): Promise<ShieldedActivity> {
-  const page = Math.min(INDEX_MAX_PAGE, Math.max(1, Math.floor(query.page)));
+export async function loadShieldedActivity(client: ChainClient, query: KeyQuery): Promise<ShieldedActivity> {
   const limit = Math.min(INDEX_MAX_LIMIT, Math.max(1, Math.floor(query.limit)));
-  const path = withQuery(chainPath("index", "accounts", SHIELDED_POOL_ADDRESS, "txs"), { page, limit });
-  const [body, total] = await Promise.all([client.get(path), poolTxCount(client)]);
-  const items = optArr(rec(body, "pool transactions").txs, "pool transactions").map(readShieldedTx);
-  return { items, page, limit, hasMore: items.length === limit, total };
+  const where = query.key === null ? { page: 1, limit } : { cursor: query.key, limit };
+  const path = withQuery(chainPath("index", "accounts", SHIELDED_POOL_ADDRESS, "txs"), where);
+  const answer = rec(await client.get(path), "pool transactions");
+  const items = optArr(answer.txs, "pool transactions").map(readShieldedTx);
+  return { items, nextKey: nextCursor(answer, items.length, limit) };
 }
+
