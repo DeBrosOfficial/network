@@ -99,6 +99,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama global stop`](#orama-global-stop) - Stop the installed global services, chain last (run as root)
   - [`orama global tor`](#orama-global-tor) - This node's Tor identities and the consensus it holds
     - [`orama global tor info`](#orama-global-tor-info) - Show this node's Tor identities and the consensus it holds (run as root)
+    - [`orama global tor relay-identity`](#orama-global-tor-relay-identity) - Sign what registering this node's Tor relay on the chain needs (run as root, on the relay's node)
   - [`orama global unbond`](#orama-global-unbond) - Start unbonding norama from one role
 - [`orama maint`](#orama-maint) - Maintainer commands: build, release, inspect, install and repair
   - [`orama maint build`](#orama-maint-build) - Build pre-compiled binary archive for deployment
@@ -2111,7 +2112,7 @@ archive, the relay monitor and the onion list are maintainer commands: see
 'orama maint global tor'.
 ```
 
-Subcommands: `info`
+Subcommands: `info`, `relay-identity`
 
 ## orama global tor info
 
@@ -2129,6 +2130,33 @@ summary of the consensus the process holds: when it is valid, how many relays
 it lists, and whether it lists this relay. A role that has not started yet shows
 no identity. The root's --json prints the same as a JSON array.
 ```
+
+
+## orama global tor relay-identity
+
+Sign what registering this node's Tor relay on the chain needs (run as root, on the relay's node)
+
+```text
+orama global tor relay-identity [flags]
+```
+
+```text
+Print the relay's RSA fingerprint, the binding that makes its ed25519 master identity the
+operator's service key "relay", and the cross-certificate that ties the fingerprint to the node.
+x/relay pays the relay that a directory authority's vote names by that ed25519 identity and that
+fingerprint, so the chain needs both, signed by the relay's own key.
+
+The signatures are made here with the relay's key in its DataDirectory
+(/var/lib/orama-global/tor-relay); the key is never printed or copied. 'orama setup' runs this on the
+node and sends the registration; nothing is submitted by this command.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--chain-id` | — | Chain id the binding is for [required] |
+| `--home` | `/var/lib/orama-global/tor-relay` | The relay's tor DataDirectory |
+| `--node-id` | — | The chain id of the node the relay runs on [required] |
+| `--operator` | — | Operator account (orama1...) [required] |
 
 
 ## orama global unbond

@@ -115,3 +115,36 @@ func TestStatusTable_chainColumnVerdictAndOperator(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteOperator_listsTheRelaysAndWhatEachWasLastPaid(t *testing.T) {
+	op := &operatorview.Summary{Address: "orama1x", Earnings: "5", Relays: []operatorview.Relay{
+		{NodeID: "alice", Fingerprint: "AB", Exit: true, LastPayoutEpoch: 12, LastPayout: "4000"},
+		{NodeID: "bob", Fingerprint: "CD"},
+		{NodeID: "carol", Fingerprint: "EF", Jailed: true, LastPayoutEpoch: 3, LastPayout: "9"},
+	}, RelaysMore: true}
+	var buf bytes.Buffer
+	WriteOperator(&buf, op)
+	out := buf.String()
+	for _, want := range []string{"3 registered", "AB  node alice  exit relay  last paid 4000 norama in epoch 12",
+		"CD  node bob  relay  never paid", "EF  node carol  relay, jailed: earns nothing", "more relays than listed"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the operator section misses %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteOperator_anOperatorWithNoRelayPrintsNoRelaySection(t *testing.T) {
+	var buf bytes.Buffer
+	WriteOperator(&buf, &operatorview.Summary{Address: "orama1x", Earnings: "5", Relays: []operatorview.Relay{}})
+	if strings.Contains(buf.String(), "Relays") {
+		t.Errorf("a relay section for an operator with none:\n%s", buf.String())
+	}
+}
+
+func TestStatusJSON_carriesTheRelays(t *testing.T) {
+	op := &operatorview.Summary{Address: "orama1x", Relays: []operatorview.Relay{{NodeID: "alice", Fingerprint: "AB", LastPayoutEpoch: 2, LastPayout: "7"}}}
+	got := statusOf(t, contractSnapshot(), op).Operator
+	if got == nil || len(got.Relays) != 1 || got.Relays[0].LastPayout != "7" {
+		t.Fatalf("operator %+v", got)
+	}
+}

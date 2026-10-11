@@ -48,6 +48,8 @@ func (r *runner) bindConsensus(ctx context.Context, sess ChainSession, n *nodeRu
 	if _, err := sess.UpdateNodeBindings(ctx, update); err != nil {
 		return fmt.Errorf("bind the consensus key to node %q: %w", n.plan.Name, err)
 	}
+	// The update replaced the node's whole set: the next one starts from this one.
+	node.Bindings = update.Bindings
 	return nil
 }
 

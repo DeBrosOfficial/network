@@ -50,6 +50,33 @@ func WriteOperator(w io.Writer, op *operatorview.Summary) {
 			fmt.Fprintf(w, "  %-10s %s norama\n", row[0], row[1])
 		}
 	}
+	writeRelays(w, op)
+}
+
+// writeRelays prints the Tor relays registered on the operator's nodes and what each was last paid.
+// A relay's pay is part of the earnings above: x/relay credits it there, 90% of what it settled.
+func writeRelays(w io.Writer, op *operatorview.Summary) {
+	if len(op.Relays) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "  Relays     %d registered; their pay is part of the earnings (90%% of each payout, after the burn and the archive share)\n", len(op.Relays))
+	for _, r := range op.Relays {
+		kind := "relay"
+		switch {
+		case r.Jailed:
+			kind = "relay, jailed: earns nothing"
+		case r.Exit:
+			kind = "exit relay"
+		}
+		paid := "never paid"
+		if r.LastPayoutEpoch > 0 {
+			paid = fmt.Sprintf("last paid %s norama in epoch %d", r.LastPayout, r.LastPayoutEpoch)
+		}
+		fmt.Fprintf(w, "    %s  node %s  %s  %s\n", r.Fingerprint, r.NodeID, kind, paid)
+	}
+	if op.RelaysMore {
+		fmt.Fprintln(w, "    (more relays than listed here: orama chain query orama.relay.v1.Query/OperatorRelays shows the rest)")
+	}
 }
 
 func nodeChain(cs cluster.CollectionStatus) *report.ChainReport {

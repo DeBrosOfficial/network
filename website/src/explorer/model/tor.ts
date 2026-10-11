@@ -44,6 +44,8 @@ export interface TorRelays {
   reporters: string[];
   /** The settlement of the newest epoch past its report window, or null when the chain holds none for it. */
   lastSettlement: RelayEpoch | null;
+  /** What that settlement paid each relay, by fingerprint, gross of its operator's 90/5/5 split. Empty when it paid none. */
+  payouts: ReadonlyMap<string, Norama>;
   /** The epoch the lookup was for (0 or less before any epoch is past its window), so the page can name it when nothing was settled. */
   settlementEpoch: number;
 }
@@ -52,12 +54,14 @@ export interface RelayRow {
   relay: TorRelay;
   /** The node the relay is registered on; null when the node list did not hold it. */
   node: ChainNode | null;
+  /** What the newest settled epoch paid the relay; null when it paid it nothing. */
+  paid: Norama | null;
 }
 
-/** Each registered relay with its node. */
-export function relayRows(relays: readonly TorRelay[], nodes: readonly ChainNode[]): RelayRow[] {
+/** Each registered relay with its node and what the newest settled epoch paid it. */
+export function relayRows(relays: readonly TorRelay[], nodes: readonly ChainNode[], payouts: ReadonlyMap<string, Norama> = new Map()): RelayRow[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  return relays.map((relay) => ({ relay, node: byId.get(relay.nodeId) ?? null }));
+  return relays.map((relay) => ({ relay, node: byId.get(relay.nodeId) ?? null, paid: payouts.get(relay.fingerprint) ?? null }));
 }
 
 /** Live nodes that hold one of the Tor roles, by role. */

@@ -194,6 +194,10 @@ type IdentityRequest struct {
 	// BindConsensus asks the node to sign, with its consensus key, the binding of
 	// that key to Operator. The key signs on the node and never leaves it.
 	BindConsensus bool
+	// RelayNodeID, when set, asks the node to sign, with its Tor relay's ed25519 identity, the binding
+	// of that key to Operator as the service key "relay" and the cross-certificate of its RSA
+	// fingerprint for the chain node with this id. The relay key signs on the node and never leaves it.
+	RelayNodeID string
 }
 
 // NodeIdentity is what registering a node on the chain needs from the node.
@@ -208,6 +212,10 @@ type NodeIdentity struct {
 	// ConsensusBinding is the consensus key's binding, signed on the node for the
 	// operator; nil unless the request asked for it.
 	ConsensusBinding *clusterreg.NodeBinding
+	// RelayIdentity is the relay's identity exactly as the node printed it, to be checked by
+	// globalbind.ParseRelayIdentity against the chain, the operator and the node it is registered
+	// for; nil unless the request asked for it.
+	RelayIdentity []byte
 }
 
 // ChainSession is a node's chain, readable and writable from here.
@@ -234,6 +242,10 @@ type Transactor interface {
 	FundHotKey(ctx context.Context, f clusterreg.HotKeyFunding) (*onchain.Receipt, error)
 	CreateValidator(ctx context.Context, spec onchain.ValidatorSpec) (*onchain.Receipt, error)
 	ClaimNodeName(ctx context.Context, nodeID, name string) (*onchain.Receipt, error)
+	// RegisterRelay registers the Tor relay of a node of the operator (MsgRegisterRelay).
+	RegisterRelay(ctx context.Context, r clusterreg.RelayRegistration) (*onchain.Receipt, error)
+	// UpdateRelay replaces the fingerprint and key of a node's registered relay (MsgUpdateRelay).
+	UpdateRelay(ctx context.Context, r clusterreg.RelayRegistration) (*onchain.Receipt, error)
 }
 
 // ChainReader reads what setup needs to know before it sends a transaction.
@@ -253,6 +265,17 @@ type ChainReader interface {
 	NodeName(ctx context.Context, nodeID string) (string, error)
 	// NameHolder is the node and operator that hold name, or nil when the name is free.
 	NameHolder(ctx context.Context, name string) (*NameHolder, error)
+	// RelayOfNode is the relay registered on the operator's node, or nil when the node has none.
+	RelayOfNode(ctx context.Context, operator, nodeID string) (*RegisteredRelay, error)
+}
+
+// RegisteredRelay is a relay as x/relay holds it.
+type RegisteredRelay struct {
+	// Fingerprint is the 20-byte RSA identity digest.
+	Fingerprint []byte
+	// Ed25519ID is the relay's ed25519 identity the chain took from the node's "relay" binding.
+	Ed25519ID []byte
+	Exit      bool
 }
 
 // NameHolder is who holds a node name on the chain.

@@ -15,6 +15,12 @@ describe("relayRows", () => {
     expect(rows[1]?.node).toBeNull();
   });
 
+  it("TestRelayRows_attaches_what_each_relay_was_paid_and_null_for_one_that_was_not", () => {
+    const rows = relayRows([relay("a")], [node("a")], new Map([["AB".repeat(20), "400"]]));
+    expect(rows[0]?.paid).toBe("400");
+    expect(relayRows([relay("a")], [node("a")])[0]?.paid).toBeNull();
+  });
+
   it("TestRelayRows_no_relays_is_empty", () => {
     expect(relayRows([], [node("a")])).toEqual([]);
   });

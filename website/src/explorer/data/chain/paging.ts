@@ -37,12 +37,20 @@ interface ListOptions {
   maxPages: number;
   /** Newest first, for a list keyed by an increasing id. */
   reverse?: boolean;
+  /** Fields of the request besides its pagination, for a list that is asked about one thing (an epoch's payouts). */
+  request?: Record<string, unknown>;
 }
 
 /** One page. A 404 on a list query is a gateway that does not serve it (an older version), not an empty list. */
-async function getPage(client: ChainClient, method: string, field: string, pagination: Record<string, unknown>): Promise<unknown> {
+async function getPage(
+  client: ChainClient,
+  method: string,
+  field: string,
+  pagination: Record<string, unknown>,
+  request: Record<string, unknown>,
+): Promise<unknown> {
   try {
-    return await client.get(withQuery(method, { json: JSON.stringify({ pagination }) }));
+    return await client.get(withQuery(method, { json: JSON.stringify({ ...request, pagination }) }));
   } catch (err) {
     if (err instanceof ChainNotFound) throw new ChainReadError(`This gateway does not serve the list of ${field} yet; it runs an older version.`);
     throw err;
@@ -66,7 +74,7 @@ export async function listAll<T>(
     const pagination: Record<string, unknown> = { limit: LIST_PAGE_SIZE };
     if (key !== "") pagination.key = key;
     if (options.reverse) pagination.reverse = true;
-    const body = rec(await getPage(client, method, field, pagination), method);
+    const body = rec(await getPage(client, method, field, pagination, options.request ?? {}), method);
     items.push(...optArr(body[field], field).map(read));
     key = body.pagination === null || body.pagination === undefined ? "" : optStr(rec(body.pagination, "page").next_key, "page key");
     if (key === "") return { items, more: false };

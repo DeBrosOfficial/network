@@ -1,4 +1,5 @@
 import type { RelayEpoch, RelayParams, TorRelay, TorRelays } from "../../model/tor";
+import type { Norama } from "../../model/types";
 import { ChainNotFound, ChainReadError, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import { listAll } from "./paging";
@@ -10,6 +11,7 @@ const RELAYS = "query/orama.relay.v1.Query/Relays";
 const RELAY_PARAMS = "query/orama.relay.v1.Query/Params";
 const REPORTERS = "query/orama.relay.v1.Query/Reporters";
 const EPOCH_RESULT = "query/orama.relay.v1.Query/EpochResult";
+const RELAY_PAYOUTS = "query/orama.relay.v1.Query/RelayPayouts";
 const CURRENT_EPOCH = "query/orama.emission.v1.Query/CurrentEpoch";
 
 const RELAY_PAGES = 5;
@@ -77,6 +79,18 @@ async function readSettlement(client: ChainClient, epoch: number): Promise<Relay
   }
 }
 
+function readPayout(raw: unknown): [string, Norama] {
+  const r = rec(raw, "relay payout");
+  return [fingerprintHex(r.rsa_fingerprint), digits(r.amount, "relay payout")];
+}
+
+/** What a settled epoch paid each relay, by fingerprint; empty when it minted nothing. */
+async function readPayouts(client: ChainClient, settlement: RelayEpoch | null): Promise<ReadonlyMap<string, Norama>> {
+  if (settlement === null || settlement.minted === "0") return new Map();
+  const listed = await listAll(client, RELAY_PAYOUTS, "payouts", readPayout, { maxPages: RELAY_PAGES, request: { epoch: String(settlement.epoch) } });
+  return new Map(listed.items);
+}
+
 /** Every relay x/relay holds, its parameters and reporters, and the settlement of the newest epoch past its report window. */
 export async function loadTorRelays(client: ChainClient): Promise<TorRelays> {
   const [listed, paramsRaw, reportersRaw, epochRaw] = await Promise.all([
@@ -87,12 +101,14 @@ export async function loadTorRelays(client: ChainClient): Promise<TorRelays> {
   ]);
   const current = uint(rec(rec(epochRaw, "epoch").epoch_state, "epoch").current_epoch, "epoch number");
   const settlementEpoch = current - 1 - REPORT_WINDOW_EPOCHS;
+  const lastSettlement = await readSettlement(client, settlementEpoch);
   return {
     relays: listed.items,
     truncated: listed.more,
     params: readRelayParams(paramsRaw),
     reporters: optArr(rec(reportersRaw, "relay reporters").reporters, "relay reporters").map((r) => account(r, "relay reporter")),
-    lastSettlement: await readSettlement(client, settlementEpoch),
+    lastSettlement,
+    payouts: await readPayouts(client, lastSettlement),
     settlementEpoch,
   };
 }

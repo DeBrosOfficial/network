@@ -43,6 +43,7 @@ const tor = (relays: TorRelay[], over: Partial<TorRelays> = {}): TorRelays => ({
   },
   reporters: [OPERATOR],
   lastSettlement: null,
+  payouts: new Map(),
   settlementEpoch: 10,
   ...over,
 });
@@ -62,6 +63,15 @@ describe("RelayTable", () => {
     expect(out).toContain("jailed");
     expect(out).toContain(`title="${"01".repeat(20)}"`);
     expect(out).toContain("010101010101…");
+  });
+
+  it("TestRelayTable_shows_what_the_newest_settled_epoch_paid_each_relay", () => {
+    const paid = tor(relays, { lastSettlement: settled, payouts: new Map([[relays[1]!.fingerprint, "7770000000"]]) });
+    const out = html(<RelayTable tor={paid} nodes={nodes} />);
+    expect(out).toContain(">Paid</th>");
+    expect(out).toContain("7.77");
+    const unpaid = html(<RelayTable tor={tor(relays)} nodes={nodes} />);
+    expect(unpaid).not.toContain("7.77");
   });
 
   it("TestRelayTable_without_the_node_list_it_still_shows_relays_and_makes_no_claim_about_nodes", () => {
