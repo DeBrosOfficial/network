@@ -58,11 +58,22 @@ func LoadMsg(valoper string) Msg {
 // directory on k's node. It returns that directory.
 func (c *Chain) PrepareLoad(t testing.TB, k Key, perKey int) string {
 	t.Helper()
+	return c.PrepareSigned(t, k, TxOptions{Gas: LoadGas}, []Msg{LoadMsg(c.Valoper(t, k))}, perKey)
+}
+
+// PrepareSigned signs n copies of msgs for k offline, with consecutive
+// sequences from the account's current one, each paying exactly base_fee*gas
+// at today's base fee (opts.Gas, DefaultGas when zero), and leaves their
+// encoded bytes as tx00000.b64, tx00001.b64, ... in a directory on k's node,
+// removed at cleanup. It returns that directory. It takes no key lock between
+// signing and the broadcast, so only a package that runs alone may use it.
+func (c *Chain) PrepareSigned(t testing.TB, k Key, opts TxOptions, msgs []Msg, n int) string {
+	t.Helper()
 	acc, ok := c.AccountOf(t, k.Node, k.Address)
 	if !ok {
 		t.Fatalf("%s has no account", k.Address)
 	}
-	raw := c.checkedTx(t, TxOptions{Gas: LoadGas}, []Msg{LoadMsg(c.Valoper(t, k))})
+	raw := c.checkedTx(t, opts, msgs)
 	dir, err := c.stageDir(t, k.Node, "u.json", raw)
 	if err != nil {
 		t.Fatal(err)
@@ -70,17 +81,18 @@ func (c *Chain) PrepareLoad(t testing.TB, k Key, perKey int) string {
 	t.Cleanup(func() { c.cleanupDir(t, k.Node, dir) })
 	var script strings.Builder
 	script.WriteString("D=" + fleet.ShellQuote(dir) + "\nset -e\n")
-	script.WriteString(c.feeScript(TxOptions{Gas: LoadGas}))
-	for i := 0; i < perKey; i++ {
-		opts := TxOptions{Offline: true, AccountNumber: acc.Number, Sequence: acc.Sequence + uint64(i)}
-		sign := strings.Replace(signScript(c, k, opts), `"$D"'/s.json'`, fmt.Sprintf(`"$D"'/s%02d.json'`, i), 1)
+	script.WriteString(c.feeScript(opts))
+	for i := 0; i < n; i++ {
+		signed := opts
+		signed.Offline, signed.AccountNumber, signed.Sequence = true, acc.Number, acc.Sequence+uint64(i)
+		sign := strings.Replace(signScript(c, k, signed), `"$D"'/s.json'`, fmt.Sprintf(`"$D"'/s%05d.json'`, i), 1)
 		sign = sign[:strings.Index(sign, " 2> ")]
-		enc := strings.ReplaceAll(c.OramadCmd("tx", "encode", fmt.Sprintf("$D/s%02d.json", i)), "'$D/", `"$D"'/`)
-		fmt.Fprintf(&script, "%s\n%s > \"$D\"/tx%02d.b64\n", sign, enc, i)
+		enc := strings.ReplaceAll(c.OramadCmd("tx", "encode", fmt.Sprintf("$D/s%05d.json", i)), "'$D/", `"$D"'/`)
+		fmt.Fprintf(&script, "%s\n%s > \"$D\"/tx%05d.b64\n", sign, enc, i)
 	}
 	out := c.Run(t, k.Node, TxBudget, script.String())
 	if out.Exit != 0 {
-		t.Fatal(c.F.Redact(fmt.Sprintf("%s: preparing the load exited %d: %s", k.Node.Name, out.Exit, out.Stderr)))
+		t.Fatal(c.F.Redact(fmt.Sprintf("%s: preparing the transactions exited %d: %s", k.Node.Name, out.Exit, out.Stderr)))
 	}
 	return dir
 }

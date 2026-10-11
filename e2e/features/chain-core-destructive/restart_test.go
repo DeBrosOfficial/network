@@ -18,9 +18,9 @@ const (
 	// observeBlocks is how many block intervals the survivors are watched
 	// while one validator is down.
 	observeBlocks = 10
-	// blockInterval is CometBFT's default timeout_commit plus slack; the run
-	// chain keeps the default config (chain-deploy.sh edits no consensus
-	// timeouts).
+	// blockInterval paces the poll for the survivors' next block. The run chain
+	// keeps the config oramad init writes (chain-deploy.sh edits no consensus
+	// timeouts): timeout_commit 5s, so blocks come about every 5 s.
 	blockInterval = 3 * time.Second
 	// catchUpBudget bounds the restarted validator's return to the head.
 	catchUpBudget = 5 * time.Minute
