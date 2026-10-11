@@ -52,6 +52,7 @@ Third, most failures that matter cannot be seen on one machine. Raft quorum, Wir
 | Book gates | `core/tools/whitepaper/` | Go and git | `make test` |
 | Older suites | `core/e2e/` behind build tags | an existing environment | by hand |
 | Fleet suite | `e2e/features/` | Hetzner and Cloudflare credentials | the owner, `make e2e-fleet` |
+| Chain load and saturation | `chain/cmd/oramad-bench/`, `chain/scripts/localnet/` | the toolchain, a free port range, optionally Rust and libwasmvm | developer, `make -C chain bench-load` |
 
 The sections below take each layer in turn and then say precisely which of them `make test` and CI run.
 
@@ -270,6 +271,22 @@ The modules that build the binaries of the release archive are scanned like `cor
 
 The same runner can test an existing cluster. `e2e-fleet target stagenet --out FILE` writes a state describing the five stagenet nodes from local files and `ssh-keyscan`; `test` then runs stages against it. On that target the runner only tests: it never creates, sweeps or destroys a server, holds no cloud credential, starts no broker, and tests that need an extra server, a probe, the DNS broker or a release archive skip with `SkipNotApplicable`. The state is accepted only if it matches the pins in `e2e/harness/config/stagenet.go` exactly (environment, base domain, chain id pattern, the five addresses, agent socket and paths). The live-namespace cap there defaults to 4 (`ns.StagenetMaxLive`), because sixteen starved the shared nodes on 2026-09-30. Stages 10 and 11 disturb a live cluster and run only on purpose.
 
+### The chain load generator
+
+`chain/cmd/oramad-bench` (`chain/cmd/oramad-bench/main.go`) is the load and saturation tester of the L1 chain. It is a development tool, not a service: it runs on one machine against `chain/scripts/localnet/localnet.sh`, which starts N validators on loopback, and it never reaches devnet, testnet or stagenet: `chain/cmd/oramad-bench/internal/runner/cluster.go:requireLocalnet` refuses a node whose chain id does not contain `-localnet-`, because the bench accounts' keys are derived from a public seed. `make -C chain bench-load` runs `chain/scripts/localnet/bench-load.sh`, which refuses to start when a localnet already exists, starts a fresh one with the faucet on and `TIMEOUT_COMMIT` 1 s (CometBFT's default is 5 s), waits until every validator is at height 3, writes the faucet signer's key (`localnet.sh funder-key`), builds the shielded bundle cache when `cargo` is installed, runs the profile and tears the localnet down. `VOTE_EXTENSIONS_ENABLE_HEIGHT` is the localnet's existing genesis switch for C13 inclusion lists, so a run is repeated with and without them by setting it to 0 or to a height.
+
+**Signing and sending.** All transactions of a step are signed before it starts. `chain/cmd/oramad-bench/internal/runner/sign.go` reloads each account's number and sequence from the chain, then takes consecutive sequences from `chain/cmd/oramad-bench/internal/account/sequence.go:Sequencer`, so the n-th transaction of an account carries its committed sequence plus n. The fee is the base fee times `fee-multiple` (32 by default) per gas, because the fee is fixed at signing while the base fee moves up to 12.5% a block; the gas limit is 150% of one simulated transaction of the type, the only simulation a type needs (`chain/cmd/oramad-bench/internal/runner/types.go:calibrate`). A tip above the base fee is taken only from a public bank balance, so the faucet signer, which holds only earnings, offers exactly the base fee (`chain/cmd/oramad-bench/internal/ops/batch.go:BatchPriced`). Sending uses `broadcast_tx_sync` (or `_async`) on the CometBFT RPC through `chain/client/node` (`Client.RPC`), never the client's `Submit`, which simulates and polls per transaction. A dispatcher (`chain/cmd/oramad-bench/internal/broadcast/dispatch.go:Dispatcher`) pins each account to one worker and so to one node, which keeps an account's sequences in order. When CheckTx refuses a transaction the rest of that account's step is held back, because every later transaction would fail with a sequence mismatch.
+
+**Open and closed loop.** `chain/cmd/oramad-bench/internal/broadcast/drive.go:Open` offers jobs at a fixed rate: the n-th is due at start plus n over the rate, and a sender that falls behind sends at once (`chain/cmd/oramad-bench/internal/ratelimit/pacer.go:Pacer`), so a slow chain cannot lower the offered rate. The latency of a transaction runs from the moment it was due. `Closed` keeps a window of transactions in flight and offers the next when one is included or refused. Between steps the run waits for every node's mempool to empty (60 s at most), so one step's backlog does not load the next.
+
+**Observing.** A follower polls one node every 50 ms and matches each block's transactions, by SHA-256 hash, to the step's ledger (`chain/cmd/oramad-bench/internal/watch/follower.go:Follower`, `chain/cmd/oramad-bench/internal/watch/ledger.go:Ledger`). A sampler reads every node's mempool size every 500 ms, and the base fee is read after every block. `chain/cmd/oramad-bench/internal/report/step.go:BuildStep` turns a step into the numbers of the report. A step is *sustained* when at least 90% of the offered rate was included while the load was on, in a window shifted by the median latency, and at most 5% of its transactions were refused or failed. Steps whose send window holds fewer than 20 block intervals, or in which the sender's own queue passed 64 transactions for one worker, are not judged (`chain/cmd/oramad-bench/internal/report/analyze.go:Analyze`). After the last step, `chain/cmd/oramad-bench/internal/apphash/compare.go:CompareRange` fetches every node's header at every height of the run, through the block after the last, and compares the app hash, last results hash, validators hash and block hash. A mismatch makes the run exit 3 and is printed before any number.
+
+**The types.** `chain/cmd/oramad-bench/internal/gen/` has one file per type: a public bank send, a token transfer, a CW20 call, a storage deal, a node registration, a cNFT mint, a market listing, a shield, an unshield and shielded transfers of 2, 4, 8 and 16 actions. Each prepares its own chain state (a token, a contract, trees and assets, operators) outside the measured part and returns a `SkipError` with the reason when it cannot, so a type that cannot run on the chain at hand is reported skipped and never replaced.
+
+**Shielded bundles.** A spend can only be proved against notes the chain already holds, and a nullifier is spendable once. `chain/cmd/oramad-bench/internal/shielded/prepare.go:Build` proves shield bundles that create the notes, submits them, rebuilds the note tree from the chain's blocks (`chain/cmd/oramad-bench/internal/shielded/leaves.go:ScanLeaves`), proves the transfers and unshields against that tree in `chain/x/shielded/wallet/src/bench.rs` (which refuses a leaf list that does not root to the chain's own root), and writes the cache. The cache names the chain id, the hash of block 1, the height its anchor is valid from and the anchor window (`chain/cmd/oramad-bench/internal/shielded/cache.go:Cache`); `Validate` refuses it when the chain id or the genesis differs, when the chain is below the cache's height or its note tree is smaller, when the anchor is within 600 blocks of leaving the window, or when no unused bundle is left. A bundle a run sends is marked used and never offered again.
+
+The numbers it produces are numbers of the machine that ran them: the validators and the generator share it, the network is loopback, and the block interval is whatever `TIMEOUT_COMMIT` was. The report states that, and the documented ladders (`website/src/docs/contributor/testing.mdx`, "Load and saturation tests (chain)") are the way to take a number.
+
 ### The book gates
 
 The book you are reading is tested like code. `core/tools/whitepaper check` (run by `make whitepaper-check`, part of `make test`) loads `docs/whitepaper/technical-reference/book.yaml`, lists tracked files with `git ls-files`, and runs these gates (`docs/whitepaper/technical-reference/README.md`):
@@ -311,6 +328,7 @@ The book you are reading is tested like code. `core/tools/whitepaper check` (run
 | E2E coverage gate | yes (enforcing) | no |
 | Book gates | yes | no |
 | `chain` tests | no | no |
+| Chain load generator (`make -C chain bench-load`), unit tests aside | no | no |
 | Website tests | no | no |
 | `govulncheck` on `core`, `pnpm audit --prod` on `sdk` | no | `security.yml`: pull requests and pushes to `main`, and Mondays 08:00 UTC |
 | `/VERSION` against the two `package.json` files | no (a core test checks `version.txt`) | warns only |
@@ -459,7 +477,15 @@ cd sdk && pnpm test:unit                               # TypeScript halves
 make whitepaper-check                                  # the book gates
 ```
 
-Tests that exercise this subsystem: `e2e/lint/lint_test.go`, the `coverage` and `manifest` packages under `e2e/harness/`, `core/pkg/contracttest` through its five callers, `core/pkg/srcscan/srcscan_test.go`, `core/tools/whitepaper/gates_test.go`, `core/e2e/clusterguide/`, and `core/e2e/lifecycle/` predicates.
+The chain load generator, on this machine only (it starts and removes a localnet on ports 31000 to 31099):
+
+```bash
+make -C chain bench-load                               # the smoke profile, a report in chain/build/bench-report.json
+cd chain && go test ./cmd/oramad-bench/...             # its unit tests; no localnet needed
+cd chain/x/shielded/wallet && cargo test --release --test bench   # the bundle factory against the chain's verifier
+```
+
+Tests that exercise this subsystem: `chain/cmd/oramad-bench/internal/report/report_test.go`, `chain/cmd/oramad-bench/internal/shielded/cache_test.go`, `chain/cmd/oramad-bench/internal/apphash/compare_test.go`, `e2e/lint/lint_test.go`, the `coverage` and `manifest` packages under `e2e/harness/`, `core/pkg/contracttest` through its five callers, `core/pkg/srcscan/srcscan_test.go`, `core/tools/whitepaper/gates_test.go`, `core/e2e/clusterguide/`, and `core/e2e/lifecycle/` predicates.
 
 Fleet features that test the test tooling itself: `smoke` (stage 1, the pipeline end to end), `contracts-live`, `docs-claims`, `docs-examples` and `scanners`. The owner runs the whole suite with `make e2e-fleet E2E_RUNNER_CIDR=a.b.c.d/32`; do not start it as part of an agent task.
 
