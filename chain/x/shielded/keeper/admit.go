@@ -109,8 +109,12 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 // in a block every node must reach the same one: a node whose verifier process was killed during
 // the check refused a transaction its peers accepted and computed another state (the chain-chaos
 // verifier test). The out-of-process verifier starts a fresh process for the next request, so the
-// bundle is asked again. A fault the bundle itself causes repeats on every attempt on every node
-// and the bundle is refused everywhere alike. CheckTx is not retried: a mempool refusal is local.
+// bundle is asked again, and a transient fault no longer splits the node from its peers. A fault
+// the bundle itself causes repeats on every attempt on every node and refuses it everywhere alike.
+// A node whose verifier keeps faulting while its peers' answer (a host out of memory, a starved
+// machine timing out every attempt) still refuses alone; its next block's app hash then differs
+// and the node halts rather than run on another state. Gas is charged once; each attempt is bounded
+// by the verifier's request timeout. CheckTx is not retried: a mempool refusal is local.
 const blockVerifyAttempts = 3
 
 // checkInBlock is check for a bundle in a block (see blockVerifyAttempts).

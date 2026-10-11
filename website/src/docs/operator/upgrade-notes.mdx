@@ -151,6 +151,12 @@ On a node with the indexer installed, the upgrade (`orama maint global refresh`,
 
 A node whose indexer is already failing on an old index (an earlier upgrade did not move it) is put right by running the upgrade again: the refresh stops the failing unit, moves the index aside and starts it. An indexer stopped on purpose has its index moved aside and stays stopped. The moved-aside index is not read again; remove it (`rm -r`) when you no longer need it, since it can be as large as the index was.
 
+### The chain indexer expects the market, cNFT and emission events once it has seen them (global nodes)
+
+This release's chain emits `market_settle` for a settle, `cnft_compress` for a compress and `emission_epoch_closed` when an epoch closes, and the indexer reads what a settle, a compress and an epoch close did from them instead of from the chain's state, which a node prunes. The indexer records the first height at which it saw each kind and, from then on, treats a settle, a compress or an epoch close without its event as an error: it stops at that block, and `orama status` shows it stuck ([Epochs the index could not read](/docs/blockchain/reading-the-chain#epochs-the-index-could-not-read)). Blocks from before the first event are read the old way.
+
+So if you put a node's chain back to a release without these events after the network has run this one (the rule "pin the component back and continue" for a failed upgrade), that node's indexer stops at the first such block the older binary produced, and nothing else on the node is affected. Upgrade the chain again, or move the index aside and let it begin anew: stop the indexer, rename `/var/lib/orama-global/indexer/index`, start it.
+
 ## Mixed-version windows and cutovers
 
 **Crossing migration 069 (pending-cleanup claim).** Migration 069 gives
