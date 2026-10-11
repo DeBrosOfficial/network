@@ -273,3 +273,19 @@ func TestRun_aRefusedCertificateStopsBeforeTheJoinAndSaysWhy(t *testing.T) {
 		t.Errorf("the domain is delegated; the error must not say it is not:\n%v", err)
 	}
 }
+
+// A node's answer is not trusted to be clean: control characters in any of its strings (the type,
+// the message, the CA) do not reach the operator's terminal through the reason.
+func TestClusterDomain_aNodesControlCharactersDoNotReachTheReason(t *testing.T) {
+	status := rateLimited(issuanceNow.Add(15 * time.Hour))
+	e := status.Names[1].LastError
+	e.Type, e.Message, e.CA = "\x1b[2Jdns", "\x1b]0;owned\x07refused", "https://ca\x1b[31m.example"
+	m, c, _ := issuanceCluster(status, nil)
+	_, err := c.ready(context.Background(), m, issuanceDomain)
+	if err == nil {
+		t.Fatal("no reason")
+	}
+	if strings.ContainsAny(err.Error(), "\x1b\x07") {
+		t.Fatalf("control characters reached the reason: %q", err.Error())
+	}
+}

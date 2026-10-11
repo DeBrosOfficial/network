@@ -138,3 +138,12 @@ func TestTimeline_roundTripsThroughJSON(t *testing.T) {
 		t.Fatalf("round trip lost data: %+v", back.Samples[1])
 	}
 }
+
+func TestGrowing_aSeriesOfOneSampleIsNotJudged(t *testing.T) {
+	if _, _, _, ok := growing([]int{100}, Limits{}); ok {
+		t.Fatal("one sample was judged growing")
+	}
+	if _, _, _, ok := growing(nil, Limits{}); ok {
+		t.Fatal("no sample was judged growing")
+	}
+}

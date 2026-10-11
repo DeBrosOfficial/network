@@ -73,6 +73,10 @@ func memoryGrowth(tl Timeline, lim Limits) []Finding {
 // growing reports whether seg rises steadily by more than the limits, with the medians of its first
 // and last thirds and the share of steps that did not fall.
 func growing(seg []int, lim Limits) (early, late int, share float64, ok bool) {
+	// One sample has no step to judge, whatever MemoryMinSamples a caller set.
+	if len(seg) < 2 {
+		return 0, 0, 0, false
+	}
 	third := max(len(seg)/3, 1)
 	early, late = median(seg[:third]), median(seg[len(seg)-third:])
 	steps, kept := len(seg)-1, 0

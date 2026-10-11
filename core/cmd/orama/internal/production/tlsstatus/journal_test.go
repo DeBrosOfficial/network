@@ -1,6 +1,7 @@
 package tlsstatus
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -158,5 +159,21 @@ func TestLastObtainErrors_anEscapeSequenceInTheCAsWordsIsCleaned(t *testing.T) {
 	}
 	if !strings.Contains(e.Message, "?]0;owned?too many certificates") {
 		t.Fatalf("the message lost its text: %q", e.Message)
+	}
+}
+
+// The journal is filtered by certificateLoggerPattern before lastObtainErrors reads it: the pattern
+// must take every line of the loggers the parser reads and none of another logger.
+func TestCertificateLoggerPattern_selectsTheParsersLoggers(t *testing.T) {
+	re := regexp.MustCompile(certificateLoggerPattern)
+	for _, line := range []string{rateLimitedLine, `{"logger":"` + loggerRenew + `","msg":"x"}`, `{"logger":"` + loggerObtain + `"}`} {
+		if !re.MatchString(line) {
+			t.Errorf("the journal filter drops %.80s", line)
+		}
+	}
+	for _, line := range []string{`{"logger":"http.log","msg":"http: TLS handshake error"}`, `{"logger":"tlsXobtain"}`} {
+		if re.MatchString(line) {
+			t.Errorf("the journal filter keeps %s", line)
+		}
 	}
 }

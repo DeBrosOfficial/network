@@ -58,9 +58,9 @@ func (c clusterDomain) whyNoCertificate(ctx context.Context, via Machine, domain
 	if last == nil {
 		return why
 	}
-	// The message is the node's text, from a CA's answer: it cannot drive the terminal.
+	// Every string is the node's, from a CA's answer: none of them can drive the terminal.
 	refusal := *last
-	refusal.Message = CleanTerminal(refusal.Message)
+	refusal.Message, refusal.Type, refusal.CA = CleanTerminal(refusal.Message), CleanTerminal(refusal.Type), CleanTerminal(refusal.CA)
 	return fmt.Errorf("%w: %w", why, &issuanceRefused{Domain: domain, Name: CleanTerminal(name), Err: refusal, Now: c.now()})
 }
 

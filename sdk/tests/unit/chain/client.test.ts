@@ -69,7 +69,20 @@ describe("gateway reads", () => {
     await expect(chain.indexAccountTxs("cosmos1abc")).rejects.toThrow(/not an orama address/);
     await expect(chain.indexAccountTxs(`${ADDRESS}/../x`)).rejects.toThrow(/not an orama address/);
     await expect(chain.cnftAsset("../../etc")).rejects.toThrow(/64 hex/);
+    await expect(chain.indexAccountTxs(ADDRESS, { page: 2, cursor: "AAAAAAAAAAoAAAAB" })).rejects.toThrow(/together/);
+    await expect(chain.cnftOwnerAssets(ADDRESS, { cursor: "not/a=cursor" })).rejects.toThrow(/next_cursor/);
     expect(calls).toHaveLength(0);
+  });
+
+  it("follows a list past page 10 by the cursor the previous page gave", async () => {
+    const { fn, calls } = fakeFetch(() => ({ body: { ok: true } }));
+    const chain = new OramaChainClient({ gatewayURL: gw, fetch: fn });
+    await chain.indexAccountTxs(ADDRESS, { cursor: "AAAAAAAAAAoAAAAB", limit: 50 });
+    await chain.cnftOwnerAssets(ADDRESS, { cursor: "A".repeat(59) });
+    expect(calls.map((c) => c.url)).toEqual([
+      `https://gw.example/v1/chain/index/accounts/${ADDRESS}/txs?cursor=AAAAAAAAAAoAAAAB&limit=50`,
+      `https://gw.example/v1/chain/index/cnft/owners/${ADDRESS}/assets?cursor=${"A".repeat(59)}`,
+    ]);
   });
 
   it("names the config a read is missing", async () => {

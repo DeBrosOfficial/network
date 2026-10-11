@@ -9,6 +9,7 @@
 package tlsstatus
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -158,16 +159,32 @@ func handshake(ctx context.Context, addr, serverName string) (*tls.ConnectionSta
 	return &state, nil
 }
 
-// readJournal reads the last lines of unit's journal as the message alone,
-// which for Caddy is its JSON log line. It needs root, like `orama node logs`.
+// readJournal reads the last lines of unit's journal that the certificate loggers wrote, as the
+// message alone, which for Caddy is its JSON log line. journalctl filters (--grep) before it counts
+// (-n), so the window holds the CA's answers however many other lines the unit logs: a node with no
+// certificate logs a handshake error per client, which pushed the last failed order out of a window
+// of the unit's last lines. It needs root, like `orama node logs`.
 func readJournal(ctx context.Context, unit string, lines int) (string, error) {
-	out, err := exec.CommandContext(ctx, "journalctl", "-u", unit, "--no-pager", "-o", "cat", "-n", strconv.Itoa(lines)).Output()
+	out, err := exec.CommandContext(ctx, "journalctl", "-u", unit, "--no-pager", "-o", "cat",
+		"--grep", certificateLoggerPattern, "-n", strconv.Itoa(lines)).Output()
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
+			// journalctl exits 1 with nothing on either stream when no entry matches: no answer
+			// from the CA is in the journal, which is a result, not a failure.
+			if exit.ExitCode() == journalNoMatchExit && len(out) == 0 && len(bytes.TrimSpace(exit.Stderr)) == 0 {
+				return "", nil
+			}
 			return "", fmt.Errorf("journalctl -u %s: %w: %s", unit, err, strings.TrimSpace(string(exit.Stderr)))
 		}
 		return "", fmt.Errorf("journalctl -u %s: %w", unit, err)
 	}
 	return string(out), nil
 }
+
+// certificateLoggerPattern selects the lines of the loggers that obtain and renew certificates
+// (journal.go loggerObtain, loggerRenew) in the journal's message field.
+const certificateLoggerPattern = `"logger":"tls\.(obtain|renew)"`
+
+// journalNoMatchExit is journalctl's exit status when --grep matches no entry.
+const journalNoMatchExit = 1

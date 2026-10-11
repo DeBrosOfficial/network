@@ -96,9 +96,30 @@ export interface SignAndBroadcastOptions {
   memo?: string;
 }
 
+/**
+ * A page of an index list. The lists that grow with the chain (an account's transactions, an
+ * owner's assets) answer `page` 1 to 10 only; past that, pass the `next_cursor` of the previous
+ * page as `cursor`. A page and a cursor together are refused.
+ */
 export interface PageOptions {
   page?: number;
   limit?: number;
+  cursor?: string;
+}
+
+/** A list cursor as the indexer gives it: unpadded base64url, at most this long. */
+const CURSOR_MAX_LEN = 580;
+const CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+/** The query of a page of an index list, checked before it is sent. */
+function listQuery(options: PageOptions): string {
+  if (options.cursor !== undefined) {
+    if (options.page !== undefined) throw new Error("a page and a cursor cannot be asked for together");
+    if (options.cursor.length > CURSOR_MAX_LEN || !CURSOR_PATTERN.test(options.cursor)) {
+      throw new Error("cursor is not one the indexer gave (next_cursor)");
+    }
+  }
+  return query({ page: options.page, cursor: options.cursor, limit: options.limit });
 }
 
 /** What a module query answers: the decoded response, with the proto field names. uint64 fields are decimal strings. */
@@ -279,7 +300,7 @@ export class OramaChainClient {
   /** An account's transactions, newest first. */
   async indexAccountTxs(address: string, options: PageOptions = {}): Promise<unknown> {
     return this.gateway(
-      `index/accounts/${assertAddress(address)}/txs${query({ page: options.page, limit: options.limit })}`,
+      `index/accounts/${assertAddress(address)}/txs${listQuery(options)}`,
     );
   }
 
@@ -291,7 +312,7 @@ export class OramaChainClient {
   /** The compressed NFTs an address owns. */
   async cnftOwnerAssets(owner: string, options: PageOptions = {}): Promise<unknown> {
     return this.gateway(
-      `index/cnft/owners/${assertAddress(owner)}/assets${query({ page: options.page, limit: options.limit })}`,
+      `index/cnft/owners/${assertAddress(owner)}/assets${listQuery(options)}`,
     );
   }
 

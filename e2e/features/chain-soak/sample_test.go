@@ -5,6 +5,7 @@ package chainsoak
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/DeBrosOfficial/network/pkg/constants"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,7 +22,6 @@ const (
 	// (e2e/scripts/chain-deploy.sh).
 	indexerUnit = "orama-global-indexer.service"
 	indexerHome = "/var/lib/orama-global/indexer"
-	indexerPort = 31015
 	// duBudget bounds measuring a state directory.
 	duBudget = 5 * time.Minute
 )
@@ -103,7 +103,7 @@ func (r *soak) service(t testing.TB, n fleet.Node, d watched) chainsoak.Service 
 // sees.
 func (r *soak) indexer(t testing.TB, n fleet.Node) (cursor, lag int64) {
 	t.Helper()
-	url := fmt.Sprintf("http://%s:%d/index/v1/status", r.c.Host(), indexerPort)
+	url := fmt.Sprintf("http://%s:%d/index/v1/status", r.c.Host(), constants.GlobalIndexerPort)
 	out := r.c.Run(t, n, chain.QueryBudget, "curl -sS --max-time 10 "+fleet.ShellQuote(url))
 	var st struct {
 		Cursor int64 `json:"cursor"`
