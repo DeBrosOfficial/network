@@ -66,7 +66,11 @@ MUTATION_EXCLUDE_STORAGE := -E '(^|/)(abci|assign|boundary|challenge|deals|genes
 # first full run measured, so a regression trips it and noise does not; raise it as survivors are
 # killed. MUTATION_EFFICACY=<n> overrides every package (0 measures without failing).
 MUTATION_EFFICACY ?=
-# package=percent, space separated; a package not listed uses MUTATION_DEFAULT_MIN.
+# package=percent, space separated; a package not listed uses MUTATION_DEFAULT_MIN. Measured on a
+# local machine: emission/keeper 96, fees/keeper 98, power/keeper 100, emission/types 85 (before
+# params_bounds_test.go pinned the edges of Params.Validate), power/types 69. x/storage/keeper (settlement.go
+# only) has not been measured: its bar is 0, so the first nightly run only reports. Set it from that
+# run, then raise every bar as survivors are killed.
 MUTATION_MIN := x/emission/types=80 x/power/types=65 x/storage/keeper=0
 MUTATION_DEFAULT_MIN := 90
 
