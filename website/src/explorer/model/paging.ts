@@ -1,7 +1,8 @@
 /**
  * The paging of the cosmos-sdk and wasmd queries: a page is asked for with a limit and the key the
  * last page ended at, and the answer says where the next one starts. A key is opaque to the page
- * that holds it. The indexer's lists are paged by number instead (IndexPage, epochs.ts).
+ * that holds it. The indexer's long lists (blocks, transactions, an owner's assets, an account's
+ * rewards) are paged the same way, by the cursor they name; its short ones by number (IndexPage, epochs.ts).
  */
 export interface KeyQuery {
   /** 1 to 100, the most the gateway serves in one page. */

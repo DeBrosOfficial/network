@@ -66,7 +66,7 @@ export function createAssetsSource(client: ChainClient, now: () => number = Date
     getTree: (id) => loadTree(client, id),
     getTreeSnapshots: (id) => loadSnapshots(client, id),
     getNftRecords: (assetId) => loadAsset(client, assetId),
-    getOwnedNfts: (owner, query) => loadOwnerAssets(client, owner, query.page, query.limit),
+    getOwnedNfts: (owner, query) => loadOwnerAssets(client, owner, query),
 
     getCodes: (query) => loadCodes(client, query),
     getCode: (codeId) => loadCode(client, codeId),

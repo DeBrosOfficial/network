@@ -164,6 +164,67 @@ func (p listParams) answer(name string, rows any, next string) map[string]any {
 	return body
 }
 
+// keyedQuery is listQuery for the lists paged by the key of their last row (cursor_keys.go): it
+// accepts page, cursor and limit, each at most once, and not page with cursor. page is 1 to
+// MaxListPage, limit 1 to MaxLimit, and cursor one that parse accepts; cursor is nil when the list
+// is read by page number.
+func keyedQuery[C any](w http.ResponseWriter, r *http.Request, parse func(string) (C, error)) (page, limit int, cursor *C, ok bool) {
+	q, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad query")
+		return 0, 0, nil, false
+	}
+	page, limit = defaultPage, DefaultLimit
+	for k, vs := range q {
+		if len(vs) != 1 {
+			writeError(w, http.StatusBadRequest, "repeated query parameter "+k)
+			return 0, 0, nil, false
+		}
+		if !setKeyed(k, vs[0], parse, &page, &limit, &cursor) {
+			writeError(w, http.StatusBadRequest, "bad query parameter "+k)
+			return 0, 0, nil, false
+		}
+	}
+	if _, paged := q["page"]; paged && cursor != nil {
+		writeError(w, http.StatusBadRequest, "page and cursor cannot be used together")
+		return 0, 0, nil, false
+	}
+	return page, limit, cursor, true
+}
+
+// setKeyed takes one parameter of keyedQuery; it reports false for a name the list does not take or
+// a value out of range.
+func setKeyed[C any](key, value string, parse func(string) (C, error), page, limit *int, cursor **C) bool {
+	switch key {
+	case CursorParam:
+		c, err := parse(value)
+		*cursor = &c
+		return err == nil
+	case "page":
+		n, good := boundedInt(value, MaxListPage)
+		*page = n
+		return good
+	case "limit":
+		n, good := boundedInt(value, MaxLimit)
+		*limit = n
+		return good
+	}
+	return false
+}
+
+// keyedAnswer is the body of a keyed list: body, plus the rows under name, the limit, the page when
+// the list was read by page number, and next_cursor when a full page may be followed by more.
+func keyedAnswer(body map[string]any, name string, rows any, page, limit int, byCursor bool, next string) map[string]any {
+	body[name], body["limit"] = rows, limit
+	if !byCursor {
+		body["page"] = page
+	}
+	if next != "" {
+		body["next_cursor"] = next
+	}
+	return body
+}
+
 // serveHome answers the snapshot the home page shows, built at most once per block.
 func (a *API) serveHome(w http.ResponseWriter, r *http.Request) {
 	if !noQuery(w, r) {

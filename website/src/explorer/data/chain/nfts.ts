@@ -1,10 +1,11 @@
-import type { IndexPage } from "../../model/epochs";
 import { parseAssetId } from "../../model/lookup";
 import type { Collection, NftRecord, TreeInfo, TreeSnapshot } from "../../model/nfts";
+import type { KeyPage, KeyQuery } from "../../model/paging";
 import { ChainNotFound, ChainReadError, chainPath, withQuery } from "./client";
 import type { ChainClient } from "./client";
-import { INDEX_MAX_LIMIT, INDEX_MAX_PAGE } from "./aggregates";
+import { INDEX_MAX_LIMIT } from "./aggregates";
 import { lookup } from "./module-query";
+import { ASSET_CURSOR, nextCursor } from "./paging";
 import { clean } from "./text";
 import { account, arr, digits, hash64, optArr, optStr, optUint, rec, str, uint } from "./wire";
 import type { Rec } from "./wire";
@@ -114,11 +115,14 @@ export async function loadAsset(client: ChainClient, id: string): Promise<NftRec
   }
 }
 
-/** The assets an address holds, in asset id order, from the index. */
-export async function loadOwnerAssets(client: ChainClient, owner: string, page: number, limit: number): Promise<IndexPage<NftRecord>> {
-  const at = Math.min(INDEX_MAX_PAGE, Math.max(1, Math.floor(page)));
-  const size = Math.min(INDEX_MAX_LIMIT, Math.max(1, Math.floor(limit)));
-  const path = withQuery(chainPath("index", "cnft", "owners", owner, "assets"), { page: at, limit: size });
-  const items = optArr(rec(await client.get(path), "owner assets").assets, "owner assets").map(readNftRecord);
-  return { items, page: at, limit: size, hasMore: items.length === size };
+/**
+ * The assets an address holds, in asset id order, from the index: the first page by number, each next
+ * one by the cursor the page before it named (`query.key`), so a deep page costs what the first does.
+ */
+export async function loadOwnerAssets(client: ChainClient, owner: string, query: KeyQuery): Promise<KeyPage<NftRecord>> {
+  const limit = Math.min(INDEX_MAX_LIMIT, Math.max(1, Math.floor(query.limit)));
+  const where = query.key === null ? { page: 1, limit } : { cursor: query.key, limit };
+  const answer = rec(await client.get(withQuery(chainPath("index", "cnft", "owners", owner, "assets"), where)), "owner assets");
+  const items = optArr(answer.assets, "owner assets").map(readNftRecord);
+  return { items, nextKey: nextCursor(answer, items.length, limit, ASSET_CURSOR) };
 }

@@ -1,4 +1,5 @@
 import type { EpochListQuery } from "../../model/epochs";
+import type { KeyQuery } from "../../model/paging";
 import type { AccountRewards, Earnings, EpochRewards, RewardListQuery, ValidatorRewardHistory } from "../../model/rewards";
 import { SHIELDED_POOL_ADDRESS, SHIELDED_POOL_LABEL } from "../../model/shielded";
 import type { NodeDetail, NodeSet } from "../../model/nodes";
@@ -268,7 +269,7 @@ export function createChainSource(options: ChainSourceOptions = {}): ExplorerDat
     async getValidatorRewards(address: string, query: RewardListQuery): Promise<ValidatorRewardHistory | null> {
       return loadValidatorRewards(client, await directory(), address.toLowerCase(), query);
     },
-    async getAccountRewards(address: string, query: RewardListQuery): Promise<AccountRewards> {
+    async getAccountRewards(address: string, query: KeyQuery): Promise<AccountRewards> {
       return loadAccountRewards(client, await directory(), address.toLowerCase(), query);
     },
     getEarnings: (address: string): Promise<Earnings> => loadEarnings(client, address.toLowerCase()),

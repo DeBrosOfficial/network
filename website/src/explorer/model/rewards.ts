@@ -1,3 +1,4 @@
+import type { KeyPage } from "./paging";
 import type { Norama, ValidatorRef } from "./types";
 
 /**
@@ -59,14 +60,14 @@ export interface AccountReward {
   forceBonded: Norama;
 }
 
-/** What an account was credited by x/power, newest epoch first. Epochs before `recordedFromEpoch` (all of them while it is 0) were not recorded. */
-export interface AccountRewards {
+/**
+ * A page of what an account was credited by x/power, newest epoch first. Epochs before
+ * `recordedFromEpoch` (all of them while it is 0) were not recorded. `nextKey` is the indexer's
+ * cursor for the page after it.
+ */
+export interface AccountRewards extends KeyPage<AccountReward> {
   address: string;
   recordedFromEpoch: number;
-  items: AccountReward[];
-  page: number;
-  limit: number;
-  hasMore: boolean;
 }
 
 /** The balance of an account's earnings: what the protocol has paid it that it has not yet moved to its public balance. */

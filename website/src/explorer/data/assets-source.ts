@@ -1,5 +1,4 @@
 import type { CodeInfo, ContractInfo, HistoryEntry, StateEntry } from "../model/contracts";
-import type { EpochListQuery, IndexPage } from "../model/epochs";
 import type { Governance, Proposal, Vote } from "../model/governance";
 import type { Bid, Listing } from "../model/market";
 import type { Collection, NftRecord, TreeInfo, TreeSnapshot } from "../model/nfts";
@@ -29,8 +28,8 @@ export interface AssetsSource {
   getTreeSnapshots(id: number): Promise<TreeSnapshot[]>;
   /** Every record of an asset id from the chain indexer; null when the index holds none. Rejects when the node has no indexer. */
   getNftRecords(assetId: string): Promise<NftRecord[] | null>;
-  /** The assets an address holds, from the chain indexer. */
-  getOwnedNfts(owner: string, query: EpochListQuery): Promise<IndexPage<NftRecord>>;
+  /** The assets an address holds in asset id order, from the chain indexer; `key` is the indexer cursor of the page before. */
+  getOwnedNfts(owner: string, query: KeyQuery): Promise<KeyPage<NftRecord>>;
 
   getCodes(query: KeyQuery): Promise<KeyPage<CodeInfo>>;
   getCode(codeId: number): Promise<CodeInfo | null>;

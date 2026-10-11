@@ -15,6 +15,13 @@ const testAccount = "orama1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqmg3rhc"
 // checksum.
 const testOperator = "oramavaloper1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
 
+// A cursor of an owner's assets (an asset id of the bytes 0 to 31, tree 3, leaf 12: 44 bytes, 59
+// characters) and of an account's rewards (epoch 7 and testOperator).
+const (
+	testAssetCursor  = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8AAAAAAAAAAwAAAAw"
+	testRewardCursor = "AAAAAAAAAAdvcmFtYXZhbG9wZXIxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFx"
+)
+
 // indexUpstream records every request URI the indexer receives.
 type indexUpstream struct {
 	mu   sync.Mutex
@@ -72,6 +79,11 @@ func TestIndexProxy_buildsEachUpstreamURL(t *testing.T) {
 		{"/v1/chain/index/blocks?cursor=AAAAAAAAAGQAAAAA&limit=24", "/index/v1/blocks?cursor=AAAAAAAAAGQAAAAA&limit=24"},
 		{"/v1/chain/index/cnft/assets/" + hash, "/index/v1/cnft/assets/" + strings.ToLower(hash)},
 		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?page=2", "/index/v1/cnft/owners/" + testAccount + "/assets?page=2"},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?page=10&limit=100", "/index/v1/cnft/owners/" + testAccount + "/assets?limit=100&page=10"},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=" + testAssetCursor + "&limit=7", "/index/v1/cnft/owners/" + testAccount + "/assets?cursor=" + testAssetCursor + "&limit=7"},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=" + testRewardCursor, "/index/v1/accounts/" + testAccount + "/rewards?cursor=" + testRewardCursor},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=" + testRewardCursor[:39], "/index/v1/accounts/" + testAccount + "/rewards?cursor=" + testRewardCursor[:39]},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=" + strings.Repeat("A", 580), "/index/v1/accounts/" + testAccount + "/rewards?cursor=" + strings.Repeat("A", 580)},
 		{"/v1/chain/index/epochs", "/index/v1/epochs"},
 		{"/v1/chain/index/epochs?page=1000&limit=100", "/index/v1/epochs?limit=100&page=1000"},
 		{"/v1/chain/index/epochs/12", "/index/v1/epochs/12"},
@@ -159,6 +171,26 @@ func TestIndexProxy_refusesBadParamsWithoutCallingTheIndexer(t *testing.T) {
 		{"/v1/chain/index/validators/" + testOperator + "/rewards?page=0", http.StatusBadRequest},
 		{"/v1/chain/index/validators/" + testAccount + "/rewards", http.StatusNotFound},
 		{"/v1/chain/index/accounts/" + testAccount + "/rewards?x=1", http.StatusBadRequest},
+		// An owner's assets and an account's rewards stop numbered pages at 10 like the other long
+		// lists, and take a cursor of their own shape, never with page.
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?page=11", http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?page=1000&limit=100", http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?page=1&cursor=" + testAssetCursor, http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=" + testAssetCursor + "&cursor=" + testAssetCursor, http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=" + testAssetCursor + "A", http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=" + testAssetCursor[:58], http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=" + testAssetCursor[:58] + "%2B", http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=AAAAAAAAAAoAAAAB", http.StatusBadRequest},
+		{"/v1/chain/index/cnft/owners/" + testAccount + "/assets?cursor=", http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?page=11", http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?page=1000&limit=100", http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?page=1&cursor=" + testRewardCursor, http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=" + testRewardCursor + "&cursor=" + testRewardCursor, http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=" + testRewardCursor[:38], http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=" + strings.Repeat("A", 581), http.StatusBadRequest},
+		{"/v1/chain/index/accounts/" + testAccount + "/rewards?cursor=AAAAAAAAAAoAAAAB", http.StatusBadRequest},
+		{"/v1/chain/index/validators/" + testOperator + "/rewards?cursor=" + testRewardCursor, http.StatusBadRequest},
+		{"/v1/chain/index/epochs/3/rewards?cursor=" + testRewardCursor, http.StatusBadRequest},
 		{"/v1/chain/index/accounts/notanaddress/rewards", http.StatusNotFound},
 		{"/v1/chain/index/home/1", http.StatusNotFound},
 		{"/v1/chain/index/accounts/" + testAccount + "?x=1", http.StatusBadRequest},

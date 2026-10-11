@@ -2,18 +2,24 @@ import { ChainNotFound, ChainReadError, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import { optArr, optStr, rec } from "./wire";
 
-/** The shape of an indexer cursor (chain/indexer/cursor.go): 16 characters of the URL-safe alphabet. */
+/** The shape of an indexer cursor of the block and transaction lists (chain/indexer/cursor.go): 16 characters of the URL-safe alphabet. */
 const INDEX_CURSOR = /^[A-Za-z0-9_-]{16}$/;
+/** The shape of the cursor of an owner's assets (chain/indexer/cursor_keys.go): the 44 bytes of an asset's location, 59 characters. */
+export const ASSET_CURSOR = /^[A-Za-z0-9_-]{59}$/;
+/** The shape of the cursor of an account's rewards (chain/indexer/cursor_keys.go): an epoch and a validator operator address, 39 to 580 characters. */
+export const REWARD_CURSOR = /^[A-Za-z0-9_-]{39,580}$/;
+/** The longest cursor any list names (REWARD_CURSOR). */
+const MAX_CURSOR = 580;
 
 /**
  * The indexer's cursor for the page after the one just read. A full page names it (`next_cursor`) and
  * a short page is the last, so there is none. A full page without one means a gateway whose indexer
  * pages by number only, which the explorer does not fall back to: that would skip rows.
  */
-export function nextCursor(answer: Record<string, unknown>, rows: number, limit: number): string | null {
+export function nextCursor(answer: Record<string, unknown>, rows: number, limit: number, shape: RegExp = INDEX_CURSOR): string | null {
   if (rows < limit) return null;
-  const next = optStr(answer.next_cursor, "next page cursor");
-  if (!INDEX_CURSOR.test(next)) throw new ChainReadError("This gateway's chain indexer pages its lists by number only; the explorer needs its cursor.");
+  const next = optStr(answer.next_cursor, "next page cursor", MAX_CURSOR);
+  if (!shape.test(next)) throw new ChainReadError("This gateway's chain indexer pages its lists by number only; the explorer needs its cursor.");
   return next;
 }
 

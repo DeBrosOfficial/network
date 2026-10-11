@@ -25,13 +25,14 @@ const (
 	indexMaxLimit = 100
 	indexMaxPage  = 1000
 	// indexMaxListPage is the deepest numbered page of the long lists (blocks, transactions, an
-	// account's transactions), chain/indexer MaxListPage; past it they are read by cursor.
+	// account's transactions, an owner's assets, an account's rewards), chain/indexer MaxListPage;
+	// past it they are read by cursor.
 	indexMaxListPage = 10
 
 	// indexMaxConcurrent bounds the index reads in flight on one gateway. A numbered page makes the
 	// indexer skip the rows before it (up to 900 on the long lists, which go deeper by cursor, and up
-	// to 99,900 on the short ones), so the work of one read is not constant; the reads beyond this
-	// get a 503 and ask again, as the module queries do.
+	// to 99,900 on the short ones, which no account can grow), so the work of one read is not
+	// constant; the reads beyond this get a 503 and ask again, as the module queries do.
 	indexMaxConcurrent = 32
 	// indexBusyRetryAfter is the Retry-After, in seconds, of that answer.
 	indexBusyRetryAfter = "2"
@@ -70,7 +71,11 @@ func (p *Proxy) serveIndex(w http.ResponseWriter, r *http.Request, rest string) 
 	case queryPaged:
 		q, ok = pageQuery(r)
 	case queryBlockList:
-		q, ok = blockListQuery(r)
+		q, ok = cursorListQuery(r, cursorPattern)
+	case queryAssetList:
+		q, ok = cursorListQuery(r, assetCursorPattern)
+	case queryRewardList:
+		q, ok = cursorListQuery(r, rewardCursorPattern)
 	case queryTxList:
 		q, ok = txListQuery(r)
 	default:
@@ -130,12 +135,15 @@ func (p *Proxy) forwardIndex(w http.ResponseWriter, r *http.Request, path string
 	p.relay(w, r, p.index, path, q, indexCacheControl)
 }
 
-// What query an index route takes: none; page and limit; the block list's page or cursor and
-// limit; or the transaction lists' page or cursor, limit and a filter.
+// What query an index route takes: none; page and limit; page or cursor and limit (the block list,
+// an owner's assets, an account's rewards, each with its own cursor); or the transaction lists'
+// page or cursor, limit and a filter.
 const (
 	queryNone = iota
 	queryPaged
 	queryBlockList
+	queryAssetList
+	queryRewardList
 	queryTxList
 )
 
@@ -164,11 +172,11 @@ func indexRoute(segs []string) (string, int, bool) {
 	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "txs":
 		return "accounts/" + segs[1] + "/txs", queryTxList, accountPattern.MatchString(segs[1])
 	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "rewards":
-		return "accounts/" + segs[1] + "/rewards", queryPaged, accountPattern.MatchString(segs[1])
+		return "accounts/" + segs[1] + "/rewards", queryRewardList, accountPattern.MatchString(segs[1])
 	case len(segs) == 3 && segs[0] == "cnft" && segs[1] == "assets":
 		return "cnft/assets/" + strings.ToLower(segs[2]), queryNone, hash32Pattern.MatchString(segs[2])
 	case len(segs) == 4 && segs[0] == "cnft" && segs[1] == "owners" && segs[3] == "assets":
-		return "cnft/owners/" + segs[2] + "/assets", queryPaged, accountPattern.MatchString(segs[2])
+		return "cnft/owners/" + segs[2] + "/assets", queryAssetList, accountPattern.MatchString(segs[2])
 	default:
 		return aggregateRoute(segs)
 	}
@@ -212,6 +220,15 @@ var txListFilters = map[string]bool{"all": true, "failed": true, "transfers": tr
 // position in its block (chain/indexer/cursor.go). The indexer decodes and checks it again.
 var cursorPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16}$`)
 
+// assetCursorPattern is the form of an owner-assets cursor: unpadded base64url of the 44 bytes of an
+// asset's location, the asset id, the tree and the leaf (chain/indexer/cursor_keys.go).
+var assetCursorPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{59}$`)
+
+// rewardCursorPattern is the form of an account-rewards cursor: unpadded base64url of the epoch, 8
+// bytes, and a validator operator address of 21 to 427 characters, so 39 to 580 characters
+// (chain/indexer/cursor_keys.go). The indexer decodes and checks it again.
+var rewardCursorPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{39,580}$`)
+
 // txListQuery accepts the block list's query and filter, each at most once, and nothing else.
 func txListQuery(r *http.Request) (url.Values, bool) {
 	q, ok := singleQuery(r, "page", "cursor", "limit", "filter")
@@ -222,7 +239,7 @@ func txListQuery(r *http.Request) (url.Values, bool) {
 	if filter != "" && !txListFilters[filter] {
 		return nil, false
 	}
-	out, ok := listValues(q)
+	out, ok := listValues(q, cursorPattern)
 	if !ok {
 		return nil, false
 	}
@@ -232,20 +249,21 @@ func txListQuery(r *http.Request) (url.Values, bool) {
 	return out, true
 }
 
-// blockListQuery accepts page (1 to indexMaxListPage) or cursor, and limit, each at most once.
-func blockListQuery(r *http.Request) (url.Values, bool) {
+// cursorListQuery accepts page (1 to indexMaxListPage) or a cursor of the given shape, and limit,
+// each at most once, and nothing else.
+func cursorListQuery(r *http.Request, shape *regexp.Regexp) (url.Values, bool) {
 	q, ok := singleQuery(r, "page", "cursor", "limit")
 	if !ok {
 		return nil, false
 	}
-	return listValues(q)
+	return listValues(q, shape)
 }
 
 // listValues checks a long list's page, cursor and limit: a page up to indexMaxListPage or a
 // cursor, never both, so no read makes the indexer skip more than indexMaxListPage pages of rows.
-func listValues(q url.Values) (url.Values, bool) {
+func listValues(q url.Values, shape *regexp.Regexp) (url.Values, bool) {
 	cursor := q.Get("cursor")
-	if cursor != "" && (q.Get("page") != "" || !cursorPattern.MatchString(cursor)) {
+	if cursor != "" && (q.Get("page") != "" || !shape.MatchString(cursor)) {
 		return nil, false
 	}
 	out, ok := boundedValues(q, indexMaxListPage)

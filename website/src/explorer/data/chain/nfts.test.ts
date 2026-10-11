@@ -97,17 +97,40 @@ describe("assets from the indexer", () => {
     await expect(loadAsset(client(gw), ASSET)).rejects.toThrow("The chain sent a malformed asset state.");
   });
 
-  it("TestLoadOwnerAssets_pages_by_number_and_says_when_the_page_was_full", async () => {
-    const path = withQuery(chainPath("index", "cnft", "owners", addr(1), "assets"), { page: 2, limit: 2 });
-    const gw = new FakeGateway().on(path, { page: 2, limit: 2, assets: [das(), das({ id: "cd".repeat(32) })] });
-    const page = await loadOwnerAssets(client(gw), addr(1), 2, 2);
-    expect(page).toMatchObject({ page: 2, limit: 2, hasMore: true });
-    expect(page.items.map((r) => r.id)).toEqual([ASSET, "cd".repeat(32)]);
+  const owners = chainPath("index", "cnft", "owners", addr(1), "assets");
+  /** A cursor of the indexer's owner list: the 44 bytes of an asset location, 59 characters. */
+  const CURSOR = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8AAAAAAAAAAwAAAAw";
+  const OTHER = "cd".repeat(32);
+
+  it("TestLoadOwnerAssets_the_first_page_is_read_by_number_and_a_full_one_names_the_cursor_of_the_next", async () => {
+    const gw = new FakeGateway().on(withQuery(owners, { page: 1, limit: 2 }), { page: 1, limit: 2, assets: [das(), das({ id: OTHER })], next_cursor: CURSOR });
+    const page = await loadOwnerAssets(client(gw), addr(1), { limit: 2, key: null });
+    expect(page.nextKey).toBe(CURSOR);
+    expect(page.items.map((r) => r.id)).toEqual([ASSET, OTHER]);
+  });
+
+  it("TestLoadOwnerAssets_follows_the_cursor_to_a_short_page_and_never_asks_for_a_page_number_again", async () => {
+    const gw = new FakeGateway()
+      .on(withQuery(owners, { page: 1, limit: 2 }), { assets: [das(), das({ id: OTHER })], next_cursor: CURSOR })
+      .on(withQuery(owners, { cursor: CURSOR, limit: 2 }), { limit: 2, assets: [das({ id: "ef".repeat(32) })] });
+    const first = await loadOwnerAssets(client(gw), addr(1), { limit: 2, key: null });
+    const rest = await loadOwnerAssets(client(gw), addr(1), { limit: 2, key: first.nextKey });
+    expect(rest.items.map((r) => r.id)).toEqual(["ef".repeat(32)]);
+    expect(rest.nextKey).toBeNull();
+    expect(gw.asked).toEqual([withQuery(owners, { page: 1, limit: 2 }), withQuery(owners, { cursor: CURSOR, limit: 2 })]);
   });
 
   it("TestLoadOwnerAssets_an_owner_with_nothing_is_an_empty_last_page", async () => {
-    const gw = new FakeGateway().on(withQuery(chainPath("index", "cnft", "owners", addr(1), "assets"), { page: 1, limit: 20 }), { page: 1, limit: 20, assets: [] });
-    expect(await loadOwnerAssets(client(gw), addr(1), 1, 20)).toEqual({ items: [], page: 1, limit: 20, hasMore: false });
+    const gw = new FakeGateway().on(withQuery(owners, { page: 1, limit: 20 }), { page: 1, limit: 20, assets: [] });
+    expect(await loadOwnerAssets(client(gw), addr(1), { limit: 20, key: null })).toEqual({ items: [], nextKey: null });
+  });
+
+  it("TestLoadOwnerAssets_a_full_page_without_a_usable_cursor_is_refused_not_paged_by_number", async () => {
+    const full = [das(), das({ id: OTHER })];
+    for (const next of [{}, { next_cursor: "AAAAAAAAAAoAAAAB" }, { next_cursor: `${CURSOR}A` }, { next_cursor: `${CURSOR.slice(0, 58)}+` }]) {
+      const gw = new FakeGateway().on(withQuery(owners, { page: 1, limit: 2 }), { assets: full, ...next });
+      await expect(loadOwnerAssets(client(gw), addr(1), { limit: 2, key: null })).rejects.toThrow(ChainReadError);
+    }
   });
 });
 

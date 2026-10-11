@@ -9,12 +9,14 @@ import type {
   ValidatorRewardHistory,
   ValidatorRewardEpoch,
 } from "../../model/rewards";
+import type { KeyQuery } from "../../model/paging";
 import type { ValidatorRef } from "../../model/types";
 import { shortAddress } from "../../model/units";
 import { pageLimit, pageNumber } from "./aggregates";
 import { ChainNotFound, ChainReadError, chainPath, withQuery } from "./client";
 import type { ChainClient } from "./client";
 import type { Directory } from "./directory";
+import { REWARD_CURSOR, nextCursor } from "./paging";
 import { addressQuery } from "./wallet";
 import { bool, digits, optArr, optDigits, optUint, rec, str, uint } from "./wire";
 
@@ -119,17 +121,27 @@ function readAccountReward(raw: unknown, directory: Directory): AccountReward {
   };
 }
 
-/** What an account was credited by x/power, newest epoch first. An account nothing named has an empty list. */
+/**
+ * What an account was credited by x/power, newest epoch first. An account nothing named has an empty
+ * list. The first page is read by number, each next one by the cursor the page before it named
+ * (`query.key`), so a deep page costs what the first does.
+ */
 export async function loadAccountRewards(
   client: ChainClient,
   directory: Directory,
   address: string,
-  query: RewardListQuery,
+  query: KeyQuery,
 ): Promise<AccountRewards> {
-  const paged = pagedPath(chainPath("index", "accounts", address, "rewards"), query);
-  const b = rec(await client.get(paged.path), "account rewards");
+  const limit = pageLimit(query.limit);
+  const where = query.key === null ? { page: 1, limit } : { cursor: query.key, limit };
+  const b = rec(await client.get(withQuery(chainPath("index", "accounts", address, "rewards"), where)), "account rewards");
   const items = optArr(b.rewards, "account rewards").map((row) => readAccountReward(row, directory));
-  return { address, recordedFromEpoch: optUint(b.recorded_from_epoch, "first recorded epoch"), items, page: paged.page, limit: paged.limit, hasMore: items.length === paged.limit };
+  return {
+    address,
+    recordedFromEpoch: optUint(b.recorded_from_epoch, "first recorded epoch"),
+    items,
+    nextKey: nextCursor(b, items.length, limit, REWARD_CURSOR),
+  };
 }
 
 /** The balance of an account's earnings, from x/fees: a live read of the chain, not of the index. */

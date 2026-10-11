@@ -144,6 +144,9 @@ describe("getValidatorRewards", () => {
 
 describe("getAccountRewards", () => {
   const path = (a: string) => `index/accounts/${a}/rewards?page=1&limit=20`;
+  const FIRST = { limit: 20, key: null };
+  /** A cursor of the indexer's rewards list: epoch 7 and an operator address, 79 characters. */
+  const CURSOR = "AAAAAAAAAAdvcmFtYXZhbG9wZXIxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFx";
 
   it("TestGetAccountRewards_lists_what_an_account_was_credited_and_from_which_epoch_that_is_known", async () => {
     const { gw, source } = await setup();
@@ -154,7 +157,7 @@ describe("getAccountRewards", () => {
         { epoch: 8, validator: valoper(8), role: "operator", amount: "500", force_bonded: "100" },
       ],
     });
-    const rewards = await source.getAccountRewards(addr(1), { page: 1, limit: 20 });
+    const rewards = await source.getAccountRewards(addr(1), FIRST);
     expect(rewards.recordedFromEpoch).toBe(5);
     expect(rewards.items.map((i) => [i.epoch, i.validator.moniker, i.role, i.amount, i.forceBonded])).toEqual([
       [9, "Alpha", "delegator", "270", "0"],
@@ -165,19 +168,44 @@ describe("getAccountRewards", () => {
   it("TestGetAccountRewards_an_account_nothing_credited_is_an_empty_list_not_an_error", async () => {
     const { gw, source } = await setup();
     gw.on(path(addr(1)), { recorded_from_epoch: 0, rewards: [] });
-    expect(await source.getAccountRewards(addr(1), { page: 1, limit: 20 })).toMatchObject({ recordedFromEpoch: 0, items: [], hasMore: false });
+    expect(await source.getAccountRewards(addr(1), FIRST)).toMatchObject({ recordedFromEpoch: 0, items: [], nextKey: null });
   });
 
   it("TestGetAccountRewards_refuses_a_role_it_does_not_know", async () => {
     const { gw, source } = await setup();
     gw.on(path(addr(1)), { rewards: [{ epoch: 9, validator: valoper(7), role: "admin", amount: "1", force_bonded: "0" }] });
-    await expect(source.getAccountRewards(addr(1), { page: 1, limit: 20 })).rejects.toThrow("The chain sent a malformed reward role.");
+    await expect(source.getAccountRewards(addr(1), FIRST)).rejects.toThrow("The chain sent a malformed reward role.");
   });
 
   it("TestGetAccountRewards_a_node_with_no_answer_is_a_readable_error", async () => {
     const { gw, source } = await setup();
     gw.failing.add(path(addr(1)));
-    await expect(source.getAccountRewards(addr(1), { page: 1, limit: 20 })).rejects.toThrow("The chain could not be read (HTTP 500).");
+    await expect(source.getAccountRewards(addr(1), FIRST)).rejects.toThrow("The chain could not be read (HTTP 500).");
+  });
+
+  it("TestGetAccountRewards_follows_the_cursor_of_a_full_page_to_a_short_one_and_never_asks_for_a_page_number_again", async () => {
+    const { gw, source } = await setup();
+    const credit = (epoch: number) => ({ epoch, validator: valoper(7), role: "delegator", amount: "270", force_bonded: "0" });
+    gw.on(`index/accounts/${addr(1)}/rewards?page=1&limit=2`, { recorded_from_epoch: 5, rewards: [credit(9), credit(8)], next_cursor: CURSOR });
+    gw.on(`index/accounts/${addr(1)}/rewards?cursor=${CURSOR}&limit=2`, { recorded_from_epoch: 5, limit: 2, rewards: [credit(7)] });
+    const first = await source.getAccountRewards(addr(1), { limit: 2, key: null });
+    expect(first.nextKey).toBe(CURSOR);
+    const rest = await source.getAccountRewards(addr(1), { limit: 2, key: first.nextKey });
+    expect(rest.items.map((i) => i.epoch)).toEqual([7]);
+    expect(rest).toMatchObject({ recordedFromEpoch: 5, nextKey: null });
+    expect(gw.asked.filter((p) => p.includes("/rewards"))).toEqual([
+      `index/accounts/${addr(1)}/rewards?page=1&limit=2`,
+      `index/accounts/${addr(1)}/rewards?cursor=${CURSOR}&limit=2`,
+    ]);
+  });
+
+  it("TestGetAccountRewards_a_full_page_without_a_usable_cursor_is_refused_not_paged_by_number", async () => {
+    const credit = (epoch: number) => ({ epoch, validator: valoper(7), role: "delegator", amount: "270", force_bonded: "0" });
+    for (const next of [{}, { next_cursor: "AAAAAAAAAAoAAAAB" }, { next_cursor: CURSOR.slice(0, 38) }, { next_cursor: "A".repeat(581) }, { next_cursor: `${CURSOR.slice(0, 78)}+` }]) {
+      const { gw, source } = await setup();
+      gw.on(`index/accounts/${addr(1)}/rewards?page=1&limit=2`, { rewards: [credit(9), credit(8)], ...next });
+      await expect(source.getAccountRewards(addr(1), { limit: 2, key: null })).rejects.toThrow(/cursor|number only|string/i);
+    }
   });
 });
 

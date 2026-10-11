@@ -11,9 +11,9 @@ import type { Appended } from "./key-pages";
 /** Entries a list asks for at a time. */
 export const KEY_PAGE_SIZE = 20;
 
-export interface KeyPaged<T> {
+export interface KeyPaged<T, Extra = unknown> {
   /** The first page's state; the list shows once it is ready. */
-  first: QueryState<KeyPage<T>>;
+  first: QueryState<KeyPage<T> & Extra>;
   /** The first page and every page loaded after it. */
   items: T[];
   /** Whether the chain has more entries after the last one loaded. */
@@ -28,13 +28,14 @@ export interface KeyPaged<T> {
 /**
  * A list read a page at a time with the key the chain gives. The first page is an ordinary query
  * (loading, error, ready); "show more" appends the page after the last one, and asking again for
- * the first page (a new `deps`, or a retry) starts the list over.
+ * the first page (a new `deps`, or a retry) starts the list over. `Extra` is what the first page
+ * carries besides the entries (an account's first recorded epoch, say).
  */
-export function useKeyPaged<T>(
-  read: (source: ExplorerDataSource, query: KeyQuery) => Promise<KeyPage<T>>,
+export function useKeyPaged<T, Extra = unknown>(
+  read: (source: ExplorerDataSource, query: KeyQuery) => Promise<KeyPage<T> & Extra>,
   deps: readonly unknown[],
   limit: number = KEY_PAGE_SIZE,
-): KeyPaged<T> {
+): KeyPaged<T, Extra> {
   const source = useSource();
   const { state, refetch } = useQuery((s) => read(s, { limit, key: null }), deps);
   const [appended, setAppended] = useState<Appended<T> | null>(null);

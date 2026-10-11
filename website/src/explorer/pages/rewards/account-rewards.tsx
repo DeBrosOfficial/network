@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useQuery } from "../../data/use-query";
 import type { QueryState } from "../../data/use-query";
-import type { AccountRewards, Earnings } from "../../model/rewards";
+import type { AccountReward, AccountRewards, Earnings } from "../../model/rewards";
 import { useExplorerPaths } from "../../network/active";
 import { formatInt } from "../../model/units";
 import { Amount } from "../../ui/amount";
@@ -10,7 +10,10 @@ import { Card } from "../../ui/card";
 import { Help } from "../../ui/help";
 import { IndexQuery } from "../../ui/index-query";
 import { ValidatorLink } from "../../ui/links";
+import { LoadMore } from "../../ui/load-more";
 import { Query, Skeleton } from "../../ui/query-states";
+import { useKeyPaged } from "../../ui/use-key-paged";
+import type { KeyPaged } from "../../ui/use-key-paged";
 import { recordedFrom } from "./logic";
 
 const REWARDS_SHOWN = 20;
@@ -51,7 +54,7 @@ export function EarningsCard({ address }: { address: string }) {
   return <EarningsView state={state} onRetry={refetch} />;
 }
 
-function Rows({ data }: { data: AccountRewards }) {
+function Rows({ items }: { items: AccountReward[] }) {
   const paths = useExplorerPaths();
   return (
     <div className="overflow-x-auto">
@@ -65,7 +68,7 @@ function Rows({ data }: { data: AccountRewards }) {
           </tr>
         </thead>
         <tbody>
-          {data.items.map((r) => (
+          {items.map((r) => (
             <tr key={`${r.epoch}-${r.validator.operator}`} className="border-t border-border/60">
               <th scope="row" className="py-2 pr-3 text-left font-mono font-normal tabular-nums">
                 <Link to={paths.epoch(r.epoch)} className="underline decoration-dotted underline-offset-4">
@@ -88,28 +91,32 @@ function Rows({ data }: { data: AccountRewards }) {
   );
 }
 
-/** The ready state: the rows, or that there are none and from which epoch that is known. */
-export function AccountRewardsBody({ data }: { data: AccountRewards }) {
+/** The ready state: the rows loaded so far, or that there are none and from which epoch that is known. */
+export function AccountRewardsBody({ paged, recordedFromEpoch }: { paged: KeyPaged<AccountReward, AccountRewards>; recordedFromEpoch: number }) {
   return (
     <>
-      {data.items.length === 0 ? <p className="text-sm text-muted">{NO_REWARDS}</p> : <Rows data={data} />}
-      <p className="mt-3 text-[13px] text-muted">{recordedFrom(data.recordedFromEpoch)}</p>
+      {paged.items.length === 0 ? <p className="text-sm text-muted">{NO_REWARDS}</p> : <Rows items={paged.items} />}
+      <LoadMore paged={paged} what="rewards" />
+      <p className="mt-3 text-[13px] text-muted">{recordedFrom(recordedFromEpoch)}</p>
     </>
   );
 }
 
-export function AccountRewardsView({ state, onRetry }: { state: QueryState<AccountRewards>; onRetry: () => void }) {
+export function AccountRewardsView({ paged }: { paged: KeyPaged<AccountReward, AccountRewards> }) {
   return (
     <Card title="Staking rewards">
-      <IndexQuery state={state} onRetry={onRetry} loading={<Skeleton className="h-32 w-full" />}>
-        {(data) => <AccountRewardsBody data={data} />}
+      <IndexQuery state={paged.first} onRetry={paged.retry} loading={<Skeleton className="h-32 w-full" />}>
+        {(first) => <AccountRewardsBody paged={paged} recordedFromEpoch={first.recordedFromEpoch} />}
       </IndexQuery>
     </Card>
   );
 }
 
-/** What the validators it stakes with (or runs) credited to this account, newest epoch first. */
+/**
+ * What the validators it stakes with (or runs) credited to this account, newest epoch first. More
+ * are read from the indexer's cursor on request, so a deep page costs what the first does.
+ */
 export function AccountRewardsCard({ address }: { address: string }) {
-  const { state, refetch } = useQuery((s) => s.getAccountRewards(address, { page: 1, limit: REWARDS_SHOWN }), [address]);
-  return <AccountRewardsView state={state} onRetry={refetch} />;
+  const paged = useKeyPaged((s, q) => s.getAccountRewards(address, q), [address], REWARDS_SHOWN);
+  return <AccountRewardsView paged={paged} />;
 }

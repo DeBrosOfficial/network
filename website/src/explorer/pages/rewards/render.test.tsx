@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { ChainIndexUnavailable, ChainReadError } from "../../data/chain/client";
 import type { QueryState } from "../../data/use-query";
 import type { EpochRow, IndexPage, RecordedEpochRow } from "../../model/epochs";
-import type { AccountRewards, Earnings, EpochRewards, ValidatorReward, ValidatorRewardHistory } from "../../model/rewards";
+import type { AccountReward, AccountRewards, Earnings, EpochRewards, ValidatorReward, ValidatorRewardHistory } from "../../model/rewards";
+import type { KeyPaged } from "../../ui/use-key-paged";
 import { AccountRewardsView, EarningsView, NO_REWARDS } from "./account-rewards";
 import { EpochRewardsView, NOT_RECORDED_EPOCH, NOTHING_PAID } from "./epoch-rewards";
 import { RewardList } from "../rewards";
@@ -146,39 +147,59 @@ describe("ValidatorRewardsView", () => {
 });
 
 describe("AccountRewardsView", () => {
-  const data = (over: Partial<AccountRewards> = {}): AccountRewards => ({ address: "orama1x", recordedFromEpoch: 5, items: [], page: 1, limit: 20, hasMore: false, ...over });
+  const data = (over: Partial<AccountRewards> = {}): AccountRewards => ({ address: "orama1x", recordedFromEpoch: 5, items: [], nextKey: null, ...over });
+  const paged = (first: QueryState<AccountRewards>, over: Partial<KeyPaged<AccountReward, AccountRewards>> = {}): KeyPaged<AccountReward, AccountRewards> => ({
+    first,
+    items: first.status === "ready" ? first.data.items : [],
+    hasMore: first.status === "ready" && first.data.nextKey !== null,
+    loadingMore: false,
+    moreError: null,
+    loadMore: noop,
+    retry: noop,
+    ...over,
+  });
 
   it("TestAccountRewardsView_lists_credits_by_epoch_and_validator_and_marks_an_operator", () => {
     const out = html(
       <AccountRewardsView
-        onRetry={noop}
-        state={ready(data({
+        paged={paged(ready(data({
           items: [
             { epoch: 9, validator: alpha, role: "delegator", amount: (3n * ORAMA).toString(), forceBonded: "0" },
             { epoch: 8, validator: alpha, role: "operator", amount: (7n * ORAMA).toString(), forceBonded: (2n * ORAMA).toString() },
           ],
-        }))}
+        })))}
       />,
     );
     expect(out).toContain("Alpha");
     expect(out).toContain("its operator");
     expect(out).toContain("(2");
     expect(out).toContain("Payouts are recorded from epoch 5");
+    expect(out).not.toContain("Show more rewards");
+  });
+
+  it("TestAccountRewardsView_a_full_page_offers_more_by_the_indexer_cursor_and_loaded_pages_stay_on_screen", () => {
+    const credit = (epoch: number): AccountReward => ({ epoch, validator: alpha, role: "delegator", amount: ORAMA.toString(), forceBonded: "0" });
+    const first = data({ items: [credit(9)], nextKey: "AAAAAAAAAAdvcmFtYXZhbG9wZXIxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFx" });
+    const out = html(<AccountRewardsView paged={paged(ready(first), { items: [credit(9), credit(8)] })} />);
+    expect(out).toContain("Show more rewards");
+    expect(out).not.toContain("?page=");
+    expect(out).toContain("/epoch/8");
+    expect(out).toContain("/epoch/9");
   });
 
   it("TestAccountRewardsView_an_account_with_none_says_so_and_from_when_that_is_known", () => {
-    const out = html(<AccountRewardsView onRetry={noop} state={ready(data())} />);
+    const out = html(<AccountRewardsView paged={paged(ready(data()))} />);
     expect(out).toContain(NO_REWARDS);
     expect(out).toContain("from epoch 5");
   });
 
   it("TestAccountRewardsView_before_any_epoch_is_recorded_it_says_none_can_be_shown", () => {
-    expect(html(<AccountRewardsView onRetry={noop} state={ready(data({ recordedFromEpoch: 0 }))} />)).toContain("No epoch&#x27;s payout has been recorded yet");
+    expect(html(<AccountRewardsView paged={paged(ready(data({ recordedFromEpoch: 0 })))} />)).toContain("No epoch&#x27;s payout has been recorded yet");
   });
 
   it("TestAccountRewardsView_error_and_loading", () => {
-    expect(html(<AccountRewardsView onRetry={noop} state={failed(new ChainReadError("nope"))} />)).toContain("nope");
-    expect(html(<AccountRewardsView onRetry={noop} state={loading()} />)).toContain('aria-label="Loading"');
+    expect(html(<AccountRewardsView paged={paged(failed(new ChainReadError("nope")))} />)).toContain("nope");
+    expect(html(<AccountRewardsView paged={paged(loading())} />)).toContain('aria-label="Loading"');
   });
 });
 

@@ -84,13 +84,27 @@ func missingEpoch(epoch uint64, err error) error {
 // and the first epoch whose payout the index recorded (0 when none yet): an epoch before it, or any
 // epoch while it is 0, was not recorded, so its absence from the page says nothing.
 func (s *Store) AccountRewards(addr string, page, limit int) (from uint64, rows []AccountReward, err error) {
+	return s.accountRewards(func(snap iterable) ([]entry, error) {
+		return scan(snap, rewardAcctPrefix(addr), true, page, limit)
+	})
+}
+
+// AccountRewardsAfter is AccountRewards from the rewards after the position of after.
+func (s *Store) AccountRewardsAfter(addr string, after RewardCursor, limit int) (from uint64, rows []AccountReward, err error) {
+	return s.accountRewards(func(snap iterable) ([]entry, error) {
+		return scanBefore(snap, rewardAcctPrefix(addr), after.bound(), limit)
+	})
+}
+
+// accountRewards reads the rewards that read selects, and the first recorded epoch, from one snapshot.
+func (s *Store) accountRewards(read func(snap iterable) ([]entry, error)) (from uint64, rows []AccountReward, err error) {
 	snap := s.db.NewSnapshot()
 	defer snap.Close()
 	from, _, err = getUint(snap, []byte(keyRewardsFrom))
 	if err != nil {
 		return 0, nil, err
 	}
-	entries, err := scan(snap, rewardAcctPrefix(addr), true, page, limit)
+	entries, err := read(snap)
 	if err != nil {
 		return 0, nil, err
 	}

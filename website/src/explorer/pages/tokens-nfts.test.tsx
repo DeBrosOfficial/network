@@ -164,10 +164,12 @@ describe("NFT records", () => {
     expect(html).toContain("Decompressed");
   });
 
-  it("TestOwnedList_pages_and_says_when_an_owner_holds_nothing", () => {
-    expect(render(<OwnedList data={{ items: [record()], page: 1, limit: 20, hasMore: true }} page={1} />)).toContain("?page=2");
-    expect(render(<OwnedList data={{ items: [], page: 1, limit: 20, hasMore: false }} page={1} />)).toContain("lists no NFT held by this address");
-    expect(render(<OwnedList data={{ items: [], page: 3, limit: 20, hasMore: false }} page={3} />)).toContain("no more assets");
+  it("TestOwnedList_follows_the_indexer_cursor_and_says_when_an_owner_holds_nothing", () => {
+    const full = render(<OwnedList paged={readyPaged([record()], "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8AAAAAAAAAAwAAAAw")} />);
+    expect(full).toContain("Show more assets");
+    expect(full).not.toContain("?page=");
+    expect(render(<OwnedList paged={readyPaged([record()])} />)).not.toContain("Show more assets");
+    expect(render(<OwnedList paged={readyPaged<NftRecord>([])} />)).toContain("lists no NFT held by this address");
   });
 
   it("TestTreeView_shows_capacity_progress_and_snapshots_or_none", () => {

@@ -1,6 +1,7 @@
 import type { EpochClock, EpochListQuery, EpochRow, EpochValidator, IndexPage, SupplyPoint } from "../model/epochs";
 import type { AccountRewards, Earnings, EpochRewards, RewardListQuery, ValidatorRewardHistory } from "../model/rewards";
 import type { NodeDetail, NodeSet } from "../model/nodes";
+import type { KeyQuery } from "../model/paging";
 import type { ArchiveHealth, DealList, DealReplica, SettlementQueue } from "../model/storage";
 import type { TorRelays } from "../model/tor";
 import type { AssetsSource } from "./assets-source";
@@ -133,7 +134,7 @@ export interface ExplorerDataSource {
   /** A validator's closed epochs, newest first, each with what it was paid or "not recorded"; null when the index has not seen the validator. */
   getValidatorRewards(address: string, query: RewardListQuery): Promise<ValidatorRewardHistory | null>;
   /** What an account was credited by x/power as a delegator or as an operator, newest epoch first. */
-  getAccountRewards(address: string, query: RewardListQuery): Promise<AccountRewards>;
+  getAccountRewards(address: string, query: KeyQuery): Promise<AccountRewards>;
   /** The balance of an account's earnings, read from the chain (x/fees), not from the index. */
   getEarnings(address: string): Promise<Earnings>;
   /** The supply breakdown after each of the newest `limit` closed epochs (at most 100), newest first. */

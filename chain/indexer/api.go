@@ -22,9 +22,10 @@ const (
 	APIPrefix    = "/index/v1/"
 	DefaultLimit = 20
 	MaxLimit     = 100
-	// MaxPage bounds page on the lists that stay short (epochs, supply, validators, rewards, the
-	// statistics, an owner's assets). The lists that grow with the chain take MaxListPage and a
-	// cursor (cursor.go).
+	// MaxPage bounds page on the lists that stay short (epochs, supply, validators, the statistics,
+	// the rewards of an epoch and of a validator). The lists that grow with the chain or that one
+	// account can grow (the transactions, the blocks, an owner's assets, an account's rewards) take
+	// MaxListPage and a cursor (cursor.go, cursor_keys.go).
 	MaxPage     = 1000
 	defaultPage = 1
 )
@@ -237,8 +238,10 @@ func (a *API) serveAsset(w http.ResponseWriter, r *http.Request, raw string) {
 	answer(w, map[string]any{"id": hex.EncodeToString(id), "records": toDASList(recs)}, len(recs) > 0, nil)
 }
 
+// serveOwnerAssets answers a page of the assets an owner holds, by asset id. The list is an owner's
+// to grow, so it is read by page number only up to MaxListPage and past that by cursor (AssetCursor).
 func (a *API) serveOwnerAssets(w http.ResponseWriter, r *http.Request, addr string) {
-	page, limit, ok := pageQuery(w, r)
+	page, limit, after, ok := keyedQuery(w, r, ParseAssetCursor)
 	if !ok {
 		return
 	}
@@ -246,12 +249,32 @@ func (a *API) serveOwnerAssets(w http.ResponseWriter, r *http.Request, addr stri
 		writeError(w, http.StatusBadRequest, "address must be a lowercase orama account address")
 		return
 	}
-	assets, err := a.store.OwnerAssets(addr, page, limit)
+	var assets []Asset
+	var err error
+	if after != nil {
+		assets, err = a.store.OwnerAssetsAfter(addr, *after, limit)
+	} else {
+		assets, err = a.store.OwnerAssets(addr, page, limit)
+	}
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"page": page, "limit": limit, "assets": toDASList(assets)})
+	next, err := assetNext(assets, limit)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, keyedAnswer(map[string]any{}, "assets", toDASList(assets), page, limit, after != nil, next))
+}
+
+// assetNext is the cursor of the page after assets, or "" when the page is short and so the last.
+func assetNext(assets []Asset, limit int) (string, error) {
+	if len(assets) == 0 || len(assets) != limit {
+		return "", nil
+	}
+	c, err := assetCursorOf(assets[len(assets)-1])
+	return c.String(), err
 }
 
 func parseHash32(raw string) ([]byte, bool) {

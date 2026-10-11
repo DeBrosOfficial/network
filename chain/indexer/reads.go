@@ -119,6 +119,22 @@ func (s *Store) OwnerAssets(addr string, page, limit int) ([]Asset, error) {
 	if err != nil {
 		return nil, err
 	}
+	return heldAssets(snap, addr, rows)
+}
+
+// OwnerAssetsAfter is OwnerAssets from the assets after the position of after.
+func (s *Store) OwnerAssetsAfter(addr string, after AssetCursor, limit int) ([]Asset, error) {
+	snap := s.db.NewSnapshot()
+	defer snap.Close()
+	rows, err := scanAfter(snap, ownerPrefix(addr), after.bound(), limit)
+	if err != nil {
+		return nil, err
+	}
+	return heldAssets(snap, addr, rows)
+}
+
+// heldAssets reads the records the owner index rows name, from the snapshot the rows came from.
+func heldAssets(snap iterable, addr string, rows []entry) ([]Asset, error) {
 	out := make([]Asset, 0, len(rows))
 	for _, row := range rows {
 		loc := row.suffix
@@ -183,6 +199,23 @@ func scanBefore(db iterable, prefix, bound []byte, limit int) ([]entry, error) {
 	}
 	var out []entry
 	for ok := it.Last(); ok && len(out) < limit; ok = it.Prev() {
+		out = append(out, entry{
+			suffix: append([]byte(nil), it.Key()[len(prefix):]...),
+			value:  append([]byte(nil), it.Value()...),
+		})
+	}
+	return out, closeIter(it)
+}
+
+// scanAfter returns up to limit rows under prefix, in key order, whose key after the prefix is above
+// bound: the page that follows a cursor, found by seeking, not by skipping the rows before.
+func scanAfter(db iterable, prefix, bound []byte, limit int) ([]entry, error) {
+	it, err := db.NewIter(&pebble.IterOptions{LowerBound: join(prefix, bound, []byte{0}), UpperBound: prefixEnd(prefix)})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open index iterator: %w", err)
+	}
+	var out []entry
+	for ok := it.First(); ok && len(out) < limit; ok = it.Next() {
 		out = append(out, entry{
 			suffix: append([]byte(nil), it.Key()[len(prefix):]...),
 			value:  append([]byte(nil), it.Value()...),
