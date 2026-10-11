@@ -60,6 +60,7 @@ area: auth                        # groups failures under "bugs found" in the re
 subtasks: [2830, 2831]            # bugboard ids this feature verifies
 stage: 3                          # 1..11, see stages/stages.yaml
 destructive: false                # true: runs alone, after the stage's other packages
+opt_in: E2E_CHAIN_SOAK            # optional, see "Opt-in features"; omit it for every ordinary feature
 requires:
   extra_nodes: 0                  # 0..3 servers created on demand with harness.ExtraNode
   probe: false                    # needs state.probes (a vantage point in another location)
@@ -88,6 +89,21 @@ covers:                           # what the tests exercise; unknown keys are re
 
 An entry of an enumerated kind that matches nothing that ships fails the gate
 ("unknown covers"): a typo cannot cover anything.
+
+### Opt-in features
+
+A feature whose manifest has `opt_in: E2E_<NAME>` is part of a run only when
+the runner's environment sets that variable to a positive Go duration
+(`E2E_CHAIN_SOAK=24h`; the name is in the feature environment allowlist, and a
+mistyped `24` is an error, not a silent omission). Then the package is planned
+in its stage, its budget is the stage's timeout plus the duration (and so is
+its share of the fleet's e2e-ttl), and the test reads the same variable for how
+long to run. Without the variable the feature is neither planned nor reported:
+the run is as long as before and its verdict does not change (a skipped
+package would make every ordinary run INCOMPLETE). Its `covers` still count
+for the coverage gate, and a failure of an opt-in package is not re-run (the
+re-run would take as long as the run). The only opt-in feature today is
+`chain-soak`.
 
 ### TestMain
 
@@ -950,6 +966,7 @@ stale waivers).
   `E2E_EVIDENCE_DIR`, `E2E_BROKER_SOCK`, `E2E_PACE_*` (the four),
   `E2E_MAX_LIVE_NAMESPACES`, `E2E_REPO_ROOT`, `E2E_SOAK_MINUTES`,
   `E2E_PERF_REGRESSION_PCT`, `E2E_BASELINE_FILE`, `E2E_CHAIN_BASELINE_FILE`,
+  `E2E_CHAIN_SOAK`,
   `E2E_INSTALL_PREVIOUS`,
   `E2E_ORAMA_TX_SIGNING`, `E2E_ORAMAOS_IMAGE`, `E2E_ORAMAOS_OVMF`. `GOFLAGS`,
   `GOPROXY`, `GOSUMDB`, `GONOSUMDB`, `GOPRIVATE`, `GONOPROXY` and

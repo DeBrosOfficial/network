@@ -48,7 +48,7 @@ func planStages(lay layout) ([]stages.Step, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stages.Plan(st, ms)
+	return stages.PlanWith(st, ms, os.LookupEnv)
 }
 
 // rerunFailures re-runs each failed test once, alone, to label it. The results
@@ -58,9 +58,18 @@ func rerunFailures(ctx context.Context, r *stages.Runner, lay layout) error {
 	if err != nil {
 		return err
 	}
+	optIn := map[string]bool{}
+	for _, m := range in.Manifests {
+		optIn[m.ID] = m.OptIn != ""
+	}
 	var failed []stages.FailedTest
 	for _, f := range gotest.Failed(in.Results) {
-		failed = append(failed, stages.FailedTest{Feature: filepath.Base(f.Package), Test: f.Test})
+		feature := filepath.Base(f.Package)
+		if optIn[feature] {
+			// A re-run of a soak takes as long as the soak: its failure keeps the label it has.
+			continue
+		}
+		failed = append(failed, stages.FailedTest{Feature: feature, Test: f.Test})
 	}
 	if len(failed) == 0 {
 		return nil

@@ -210,6 +210,11 @@ type OramaApp struct {
 	// wasmTempHome is the directory the app made for the wasm VM when it was given no home (a test,
 	// a throwaway instance); Close removes it. Empty when the VM lives under the node's home.
 	wasmTempHome string
+	// wasmVM is the VM wasmd built for the app, kept so Close can release it: it holds an exclusive
+	// lock on <home>/wasm until it is cleaned up, so an app reopened on the same home (an offline
+	// tool resuming, a test) failed "could not lock exclusive.lock" whenever the old VM had not yet
+	// been collected. Nil in a build without the VM.
+	wasmVM interface{ Cleanup() }
 
 	legacyAmino       *codec.LegacyAmino
 	appCodec          codec.Codec

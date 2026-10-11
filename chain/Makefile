@@ -344,3 +344,77 @@ bench-compare:
 	$(BENCHSTAT) $(BASE) $(NEW)
 	$(BENCHSTAT) -format csv $(BASE) $(NEW) > $(BENCH_DIR)/compare.csv
 	$(BENCHGATE) compare -base $(BASE) -new $(NEW) $(if $(BENCH_REGRESSION_PERCENT),-threshold $(BENCH_REGRESSION_PERCENT)) $(BENCH_UNSTABLE_FLAG) < $(BENCH_DIR)/compare.csv
+
+# 10x state and long history (website/src/docs/contributor/performance.mdx, "10x state and soak").
+#
+#   make state-gen                  write the large state into $(STATE_DIR)/home (resumable: run it again after a stop)
+#   make state-snapshot             snapshot create, dump, load and restore of that home
+#   make state-export               genesis export of that home
+#   make state-boot                 boot a single-node chain on that home, to its first block (adds blocks: run it last)
+#   make state-indexer              the indexer's catch-up over STATE_HISTORY_BLOCKS blocks of a fresh localnet
+#   make state-prune                block-store pruning at x/archive's retain height
+#   make state-measure              all of the above in that order, one JSON file each in $(STATE_DIR)/results
+#
+# The defaults are the full-scale targets (10M nullifiers, 1M cNFT assets, 100M filler keys) and need the
+# disk and time the page names; STATE_NULLIFIERS=100k STATE_ASSETS=10k STATE_KEYS=1M is a laptop run. oramad
+# is built without cgo (nowasm), like every static node build; the tool drives that oramad for everything a node does.
+STATE_DIR ?= $(BUILD_DIR)/state
+STATE_HOME ?= $(STATE_DIR)/home
+STATE_HISTORY_HOME ?= $(STATE_DIR)/history
+STATE_RESULTS ?= $(STATE_DIR)/results
+STATE_NULLIFIERS ?= 10M
+STATE_ASSETS ?= 1M
+STATE_KEYS ?= 100M
+STATE_SEED ?= 1
+STATE_HISTORY_BLOCKS ?= 100000
+STATE_HISTORY_TIMEOUT_COMMIT ?= 50ms
+STATE_PRUNE_BLOCKS ?= 403200
+STATE_PRUNE_WINDOW ?= 201600
+ORAMAD_BENCH := $(BUILD_DIR)/oramad-state
+ORAMAD_BENCH_NODE := $(BUILD_DIR)/oramad-state-oramad
+STATE_FLAGS := --oramad $(ORAMAD_BENCH_NODE)
+.PHONY: build-oramad-state state-prepare state-gen state-snapshot state-export state-boot state-indexer state-prune state-measure
+
+## build-oramad-state: the measurement tool and the oramad it drives (build/oramad-state, build/oramad-state-oramad).
+build-oramad-state:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 go build -tags nowasm $(BUILD_FLAGS) -o $(ORAMAD_BENCH) ./cmd/oramad-state
+	CGO_ENABLED=0 go build -tags nowasm $(BUILD_FLAGS) -o $(ORAMAD_BENCH_NODE) $(PKG)
+
+## state-prepare: a node home for a chain of one validator (skipped when $(STATE_HOME) exists).
+state-prepare: build-oramad-state
+	@test -d $(STATE_HOME)/config || $(ORAMAD_BENCH) prepare $(STATE_FLAGS) --home $(STATE_HOME)
+
+## state-gen: write the state into $(STATE_HOME), through the chain's own keepers and stores.
+state-gen: state-prepare
+	mkdir -p $(STATE_RESULTS)
+	bash -o pipefail -c '$(ORAMAD_BENCH) stategen --home $(STATE_HOME) --seed $(STATE_SEED) --nullifiers $(STATE_NULLIFIERS) --assets $(STATE_ASSETS) --keys $(STATE_KEYS) | tee $(STATE_RESULTS)/stategen.json'
+
+## state-snapshot: snapshot create, dump, load into a fresh home and restore there.
+state-snapshot: build-oramad-state
+	mkdir -p $(STATE_RESULTS)
+	bash -o pipefail -c '$(ORAMAD_BENCH) snapshot $(STATE_FLAGS) --home $(STATE_HOME) | tee $(STATE_RESULTS)/snapshot.json'
+
+## state-export: oramad export of the home.
+state-export: build-oramad-state
+	mkdir -p $(STATE_RESULTS)
+	bash -o pipefail -c '$(ORAMAD_BENCH) export $(STATE_FLAGS) --home $(STATE_HOME) | tee $(STATE_RESULTS)/export.json'
+
+## state-boot: start a single-node chain on the home and time it to its first block. The node adds blocks to the home.
+state-boot: build-oramad-state
+	mkdir -p $(STATE_RESULTS)
+	bash -o pipefail -c '$(ORAMAD_BENCH) boot $(STATE_FLAGS) --home $(STATE_HOME) | tee $(STATE_RESULTS)/boot.json'
+
+## state-indexer: a fresh localnet with a short block wait, STATE_HISTORY_BLOCKS blocks of history, and the indexer's follower over them.
+state-indexer: build-oramad-state
+	mkdir -p $(STATE_RESULTS)
+	@test -d $(STATE_HISTORY_HOME)/config || $(ORAMAD_BENCH) prepare $(STATE_FLAGS) --home $(STATE_HISTORY_HOME) --timeout-commit $(STATE_HISTORY_TIMEOUT_COMMIT)
+	bash -o pipefail -c '$(ORAMAD_BENCH) indexer $(STATE_FLAGS) --home $(STATE_HISTORY_HOME) --blocks $(STATE_HISTORY_BLOCKS) | tee $(STATE_RESULTS)/indexer.json'
+
+## state-prune: a synthetic block store of STATE_PRUNE_BLOCKS blocks pruned at the height x/archive's rule allows.
+state-prune: build-oramad-state
+	mkdir -p $(STATE_RESULTS)
+	bash -o pipefail -c '$(ORAMAD_BENCH) prune --work $(STATE_DIR)/prune --blocks $(STATE_PRUNE_BLOCKS) --window $(STATE_PRUNE_WINDOW) | tee $(STATE_RESULTS)/prune.json'
+
+## state-measure: generate the state, then measure it (snapshot, export, boot), then the history and the prune.
+state-measure: state-gen state-snapshot state-export state-boot state-indexer state-prune

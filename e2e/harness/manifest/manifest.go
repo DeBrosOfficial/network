@@ -67,6 +67,12 @@ type Manifest struct {
 	Destructive bool     `yaml:"destructive"`
 	Requires    Requires `yaml:"requires"`
 	Covers      Covers   `yaml:"covers"`
+	// OptIn names a runner environment variable that holds a Go duration (E2E_CHAIN_SOAK=24h). The
+	// feature is part of a run only when the variable is set: it is planned, reported and given a
+	// budget of the stage's plus that duration then, and is left out of the plan and the report
+	// otherwise, so a run that did not ask for it is neither longer nor incomplete. Its covers
+	// still count for the coverage gate.
+	OptIn string `yaml:"opt_in"`
 
 	// Dir is the feature directory's base name, set by the loader.
 	Dir string `yaml:"-"`

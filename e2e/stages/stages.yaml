@@ -30,7 +30,9 @@
 #                   kill ~14m, verifier ~21m, full disk ~21m, two clock skews
 #                   ~42m, state sync ~20m worst) ~145m with their setup, each
 #                   fault refused when the rest of the budget cannot hold it:
-#                   180m.
+#                   180m; chain-soak is planned only when E2E_CHAIN_SOAK holds
+#                   a duration (manifest opt_in) and then runs for the stage's
+#                   timeout plus that duration.
 # The other stages' packages are well inside their timeouts.
 stages:
   - id: 1

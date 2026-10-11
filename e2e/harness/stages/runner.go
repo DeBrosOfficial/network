@@ -135,13 +135,13 @@ func (r *Runner) runStep(ctx context.Context, step Step) StageRun {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results[i] = r.runPackage(ctx, step.Stage, feature)
+			results[i] = r.runPackage(ctx, step, feature)
 		}()
 	}
 	wg.Wait()
 	run.Packages = results
 	for _, feature := range step.Destructive {
-		pr := r.runPackage(ctx, step.Stage, feature)
+		pr := r.runPackage(ctx, step, feature)
 		if err := r.restoreAfter(ctx, feature); err != nil {
 			pr.Error = strings.Join(slices.DeleteFunc([]string{pr.Error, err.Error()}, func(s string) bool { return s == "" }), "; ")
 		}
@@ -167,15 +167,16 @@ func (r *Runner) restoreAfter(ctx context.Context, feature string) error {
 
 // runPackage runs one feature package once. It is never re-run here: a failure
 // stays a failure (see Rerun for the separate flakiness label).
-func (r *Runner) runPackage(ctx context.Context, stage Stage, feature string) PackageRun {
+func (r *Runner) runPackage(ctx context.Context, step Step, feature string) PackageRun {
+	stage, budget := step.Stage, step.Budget(feature)
 	name := fmt.Sprintf("stage-%02d-%s", stage.ID, feature)
 	rel := filepath.Join(GoTestDir, name+".json")
 	pr := PackageRun{Feature: feature, Output: rel, Evidence: filepath.Join(evidence.DirName, name), Start: r.Now()}
-	args := append(r.goTestArgs(binaryTimeout(stage.Timeout)), "./features/"+feature)
+	args := append(r.goTestArgs(binaryTimeout(budget)), "./features/"+feature)
 	// time.Now, not r.Now: only a reading with the monotonic clock can tell
 	// the host's sleep apart from the package's own time.
 	awake := time.Now()
-	pr.Exit, pr.Error = r.execTo(ctx, rel, pr.Evidence, args, time.Duration(stage.Timeout))
+	pr.Exit, pr.Error = r.execTo(ctx, rel, pr.Evidence, args, time.Duration(budget))
 	pr.End = r.Now()
 	if slept := suspendedError(hostSuspended(awake, time.Now())); slept != "" {
 		pr.Error = strings.Join(slices.DeleteFunc([]string{pr.Error, slept}, func(s string) bool { return s == "" }), "; ")

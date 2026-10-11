@@ -158,6 +158,10 @@ func Build(in Input) Report {
 	byID := map[string]manifest.Manifest{}
 	for _, m := range sortedManifests(in.Manifests) {
 		byID[m.ID] = m
+		if m.OptIn != "" && len(byFeature[m.ID]) == 0 {
+			// An opt-in feature the run was not asked for is not a gap of the run.
+			continue
+		}
 		fr := buildFeature(m, byFeature[m.ID], labels)
 		r.Features = append(r.Features, fr)
 		r.Failures = append(r.Failures, failuresOf(m, fr, byFeature[m.ID], in.Evidence)...)

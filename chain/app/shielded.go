@@ -174,12 +174,22 @@ func (app *OramaApp) registerShieldedSnapshot() {
 	}
 }
 
-// Close closes the nullifier database with the rest of the app, and removes the wasm VM's
-// directory when the app made one for itself (an app with no home).
+// NullifierStore is the node's nullifier database. Offline tooling that writes a chain's state
+// without blocks (cmd/oramad-state's state generator) records nullifiers through it; consensus code
+// never reads it from here.
+func (app *OramaApp) NullifierStore() *nullifier.Store { return app.nullifierStore }
+
+// Close closes the nullifier database with the rest of the app, releases the wasm VM (and its lock
+// on <home>/wasm), and removes the VM's directory when the app made one for itself (an app with no
+// home).
 func (app *OramaApp) Close() error {
 	err := app.BaseApp.Close()
 	if closeErr := app.nullifierStore.Close(); closeErr != nil && err == nil {
 		err = closeErr
+	}
+	if app.wasmVM != nil {
+		app.wasmVM.Cleanup()
+		app.wasmVM = nil
 	}
 	if app.wasmTempHome != "" {
 		if rmErr := os.RemoveAll(app.wasmTempHome); rmErr != nil && err == nil {

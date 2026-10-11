@@ -196,3 +196,26 @@ func TestHTML_selfContained(t *testing.T) {
 		t.Error("evidence is not HTML-escaped")
 	}
 }
+
+func TestBuild_optInFeatureThatWasNotAskedForIsNotAGap(t *testing.T) {
+	in := fixture()
+	in.RunErrors = nil
+	in.Manifests = in.Manifests[:1]
+	in.Timeline = &stages.Timeline{Stages: in.Timeline.Stages[:1]}
+	in.Results = []gotest.Result{{Package: pkg + "smoke", Test: "TestA", Action: "pass"}, {Package: pkg + "smoke", Action: "pass"}}
+	soak := manifest.Manifest{ID: "soak", Title: "Soak", Area: "quality", Stage: 11, Destructive: true, OptIn: "E2E_CHAIN_SOAK",
+		Covers: manifest.Covers{CLI: []string{"orama node remove"}}}
+	in.Manifests = append(in.Manifests, soak)
+	cov := coverage.Evaluate([]coverage.Item{{ID: "route:/health", Kind: "route"}, {ID: "cli:orama node remove", Kind: "cli"}}, in.Manifests, nil)
+	in.Coverage = &cov
+
+	r := Build(in)
+	if r.Verdict != VerdictPass || len(r.Features) != 1 || r.Totals.NotCovered != 0 {
+		t.Fatalf("an opt-in feature left out of the run changed the verdict: %s %v, %d features", r.Verdict, r.VerdictReasons, len(r.Features))
+	}
+
+	in.Results = append(in.Results, gotest.Result{Package: pkg + "soak", Test: "TestSoak", Action: "skip", Output: "    x_test.go:1: not applicable: nothing\n"})
+	if r := Build(in); len(r.Features) != 2 || r.Verdict != VerdictIncomplete {
+		t.Fatalf("an opt-in feature that ran and skipped is reported like any other: %s %d features", r.Verdict, len(r.Features))
+	}
+}

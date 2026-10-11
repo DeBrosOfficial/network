@@ -110,6 +110,8 @@ func TestValidate_problems(t *testing.T) {
 		"config no key":   strings.Replace(validYAML, "node.yaml:gateway.base_domain", "node.yaml", 1),
 		"claim not doc":   strings.Replace(validYAML, "docs/whitepaper/technical-reference/vol1/14-authorization.md#signing-in", "it works", 1),
 		"duplicate route": strings.Replace(validYAML, `"/v1/status"`, `"/health"`, 1),
+		"opt in not env":  strings.Replace(validYAML, "stage: 1", "stage: 1\nopt_in: chain_soak", 1),
+		"opt in not e2e":  strings.Replace(validYAML, "stage: 1", "stage: 1\nopt_in: SOAK_HOURS", 1),
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -170,5 +172,17 @@ func TestClaimShape_forms(t *testing.T) {
 		if claimShape.MatchString(c) {
 			t.Errorf("claim %q was accepted", c)
 		}
+	}
+}
+
+func TestValidate_optIn(t *testing.T) {
+	root := t.TempDir()
+	writeFeature(t, root, "smoke", strings.Replace(validYAML, "stage: 1", "stage: 1\nopt_in: E2E_CHAIN_SOAK", 1))
+	ms, err := LoadAll(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ms[0].OptIn != "E2E_CHAIN_SOAK" {
+		t.Fatalf("opt_in %q", ms[0].OptIn)
 	}
 }

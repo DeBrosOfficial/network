@@ -99,6 +99,7 @@ func (app *OramaApp) installWasm(keys map[string]*storetypes.KVStoreKey, appOpts
 		}),
 		wasmkeeper.WithQueryPlugins(&wasmkeeper.QueryPlugins{Custom: querier.Query}),
 		wasmkeeper.WithWasmEngineDecorator(func(old wasmtypes.WasmEngine) wasmtypes.WasmEngine {
+			app.wasmVM = old
 			return newDepositEngine(old, app.WasmPolicyKeeper, isContract)
 		}),
 	)

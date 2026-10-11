@@ -108,6 +108,15 @@ type Step struct {
 	Stage       Stage    `json:"stage"`
 	Parallel    []string `json:"parallel"`
 	Destructive []string `json:"destructive"`
+	// Extra is the time an opt-in feature (manifest.Manifest.OptIn) asked for on top of the stage's
+	// budget.
+	Extra map[string]Duration `json:"extra_budget,omitempty"`
+}
+
+// Budget is how long a package of this step may run: the stage's timeout, and for an opt-in feature
+// the duration it was asked to run for.
+func (s Step) Budget(feature string) Duration {
+	return s.Stage.Timeout + s.Extra[feature]
 }
 
 // Features returns every feature of the step, parallel ones first.
@@ -115,9 +124,20 @@ func (s Step) Features() []string {
 	return append(append([]string{}, s.Parallel...), s.Destructive...)
 }
 
-// Plan assigns manifests to stages. Stages with no features are kept so the
-// timeline shows them as empty rather than silently absent.
+// EnvLookup reads the runner's environment (os.LookupEnv).
+type EnvLookup func(name string) (string, bool)
+
+// Plan assigns manifests to stages, with no opt-in feature (see PlanWith). Stages with no features
+// are kept so the timeline shows them as empty rather than silently absent.
 func Plan(stages []Stage, manifests []manifest.Manifest) ([]Step, error) {
+	return PlanWith(stages, manifests, func(string) (string, bool) { return "", false })
+}
+
+// PlanWith is Plan for a runner whose environment is env: a feature with an opt_in variable is
+// planned only when the variable holds a positive Go duration, and its package then gets that
+// duration on top of the stage's timeout. A value that is no duration is an error, so a mistyped
+// "24" does not quietly leave the soak out.
+func PlanWith(stages []Stage, manifests []manifest.Manifest, env EnvLookup) ([]Step, error) {
 	byStage := map[int]*Step{}
 	steps := make([]Step, len(stages))
 	for i, s := range stages {
@@ -128,6 +148,19 @@ func Plan(stages []Stage, manifests []manifest.Manifest) ([]Step, error) {
 		step := byStage[m.Stage]
 		if step == nil {
 			return nil, fmt.Errorf("feature %s names stage %d, which stages.yaml does not define", m.ID, m.Stage)
+		}
+		if m.OptIn != "" {
+			extra, asked, err := optInBudget(m, env)
+			if err != nil {
+				return nil, err
+			}
+			if !asked {
+				continue
+			}
+			if step.Extra == nil {
+				step.Extra = map[string]Duration{}
+			}
+			step.Extra[m.ID] = extra
 		}
 		if m.Destructive {
 			step.Destructive = append(step.Destructive, m.ID)
@@ -142,6 +175,19 @@ func Plan(stages []Stage, manifests []manifest.Manifest) ([]Step, error) {
 	return steps, nil
 }
 
+// optInBudget reads an opt-in feature's variable: asked is false when it is unset or empty.
+func optInBudget(m manifest.Manifest, env EnvLookup) (extra Duration, asked bool, err error) {
+	raw, ok := env(m.OptIn)
+	if !ok || raw == "" {
+		return 0, false, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, false, fmt.Errorf("%s=%q is not a positive duration such as 24h (feature %s)", m.OptIn, raw, m.ID)
+	}
+	return Duration(d), true, nil
+}
+
 // WorstCase is the longest steps can run: in each stage the parallel
 // packages together within its timeout, then each destructive package alone
 // within it. The provisioner's e2e-ttl label is derived from it, so the
@@ -154,6 +200,9 @@ func WorstCase(steps []Step) time.Duration {
 			n++
 		}
 		d += time.Duration(n) * (time.Duration(s.Stage.Timeout) + StopGrace)
+		for _, extra := range s.Extra {
+			d += time.Duration(extra)
+		}
 	}
 	return d
 }

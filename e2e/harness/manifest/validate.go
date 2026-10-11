@@ -13,6 +13,7 @@ import (
 var (
 	idShape     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 	areaShape   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+	optInShape  = regexp.MustCompile(`^E2E_[A-Z0-9_]+$`)
 	cliShape    = regexp.MustCompile(`^orama( [a-z0-9][a-z0-9-]*)+$`)
 	routeShape  = regexp.MustCompile(`^/[A-Za-z0-9._~/{}-]*$`)
 	msgShape    = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*\.Msg[A-Z][A-Za-z0-9]*$`)
@@ -43,6 +44,9 @@ func (m *Manifest) Validate() error {
 	}
 	if m.Stage < MinStage || m.Stage > MaxStage {
 		bad("stage %d is outside %d..%d", m.Stage, MinStage, MaxStage)
+	}
+	if m.OptIn != "" && !optInShape.MatchString(m.OptIn) {
+		bad("opt_in %q must name an E2E_ environment variable (capital letters, digits and underscores)", m.OptIn)
 	}
 	if m.Requires.ExtraNodes < 0 || m.Requires.ExtraNodes > MaxExtraNodes {
 		bad("requires.extra_nodes %d is outside 0..%d", m.Requires.ExtraNodes, MaxExtraNodes)

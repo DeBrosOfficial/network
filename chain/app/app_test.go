@@ -3,8 +3,10 @@ package app_test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"testing"
 	"time"
 
@@ -360,4 +362,22 @@ func TestOramaApp_closeRemovesTheWasmDirectoryItMade(t *testing.T) {
 	require.NoError(t, a.Close())
 	_, err = os.Stat(made[0])
 	require.True(t, os.IsNotExist(err), "closing the app removes %s", made[0])
+}
+
+// Closing an app releases its wasm VM's lock on <home>/wasm, so an app opened on the same home
+// right after (an offline tool resuming, a node restarted in process) does not fail
+// "could not lock exclusive.lock" while the old VM waits for the garbage collector.
+func TestOramaApp_anAppReopenedOnTheSameHomeAfterCloseStarts(t *testing.T) {
+	if !app.WasmVMLinked() {
+		t.Skip("a nowasm build has no wasm VM")
+	}
+	// With the collector off no finalizer can release an old VM's lock, so the test does not
+	// depend on when the garbage collector last ran.
+	defer debug.SetGCPercent(debug.SetGCPercent(-1))
+	app.SetAddressPrefixes()
+	opts := simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir()}
+	for i := 0; i < 3; i++ {
+		a := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, opts, baseapp.SetChainID(testChainID))
+		require.NoError(t, a.Close(), "close %d", i)
+	}
 }
