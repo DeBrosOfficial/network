@@ -115,14 +115,16 @@ func TestCheckImage_aRegistryThatCannotAnswerIsNotARefusal(t *testing.T) {
 }
 
 func TestSpool_leavesNoFileBehindAnError(t *testing.T) {
-	before, _ := os.ReadDir(os.TempDir())
+	// A temporary directory of the test's own: counting the shared one counted whatever else the
+	// machine was writing there, and the test failed when another process made a file meanwhile.
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
 	_, _, _, err := Spool(errReader{})
 	if err == nil {
 		t.Fatal("a failing reader was spooled")
 	}
-	after, _ := os.ReadDir(os.TempDir())
-	if len(after) > len(before) {
-		t.Fatalf("a spool file was left behind: %d entries before, %d after", len(before), len(after))
+	if left, _ := os.ReadDir(tmp); len(left) != 0 {
+		t.Fatalf("a spool file was left behind: %v", left)
 	}
 	path, size, cleanup, err := Spool(strings.NewReader("abc"))
 	if err != nil || size != 3 {
