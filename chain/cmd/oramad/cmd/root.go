@@ -39,11 +39,6 @@ func NewRootCmd() *cobra.Command {
 	if err != nil {
 		panic(fmt.Errorf("failed to create the temporary app home: %w", err))
 	}
-	cobra.OnFinalize(func() {
-		if err := os.RemoveAll(tempHome); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to remove the temporary app home %s: %v\n", tempHome, err)
-		}
-	})
 	tempApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.NewAppOptionsWithFlagHome(tempHome))
 	encodingConfig := EncodingConfig{
 		InterfaceRegistry: tempApp.InterfaceRegistry(),
@@ -117,6 +112,16 @@ func NewRootCmd() *cobra.Command {
 		panic(err)
 	}
 
+	// The temporary app only lends the command tree its codecs and module metadata, which are in
+	// memory; its home (the wasm VM's directory) is not needed once the tree is built. Removed here
+	// and not when a command finishes, since a root command that is built but never executed (a test,
+	// a docs generator) would otherwise leave it behind.
+	if err := tempApp.Close(); err != nil {
+		panic(fmt.Errorf("failed to close the temporary app: %w", err))
+	}
+	if err := os.RemoveAll(tempHome); err != nil {
+		panic(fmt.Errorf("failed to remove the temporary app home %s: %w", tempHome, err))
+	}
 	return rootCmd
 }
 
