@@ -78,11 +78,36 @@ paths = [
   '''(^|/)e2e/harness/secrets/patterns\.go$''',
 ]
 
+# The generic-api-key rule takes the values below for secrets. Each is public and is allowed for its
+# own file only (condition = "AND": the path and the value must both match), so a real credential
+# added to one of these files is still found. Reviewed with the chain CI gate (bugboard 3381).
 [[allowlists]]
-description = "Public values the generic-api-key rule takes for a secret: public keys in test fixtures (a base64 ed25519 key counting 0 to 31, a base64 secp256k1 account key), a systemd flag line, and base64 collection keys in the stagenet genesis ('lastCodeId', 'lastContractId'). Reviewed with the chain CI gate (bugboard 3381); none is a credential"
-paths = [
-  '''(^|/)core/cmd/orama/internal/setup/create_genesis_test\.go$''',
-  '''(^|/)core/pkg/install/global_netns_test\.go$''',
-  '''(^|/)core/pkg/onchain/gateway_test\.go$''',
-  '''(^|/)networks/stagenet/genesis\.json$''',
+description = "create_genesis_test.go: two base64 ed25519 public keys, the bytes 0..31 and 32..63"
+condition = "AND"
+paths = ['''(^|/)core/cmd/orama/internal/setup/create_genesis_test\.go$''']
+regexes = [
+  '''^AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=$''',
+  '''^ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=$''',
 ]
+
+[[allowlists]]
+description = "global_netns_test.go: a systemd flag line (--api.enable=true), not a key"
+condition = "AND"
+paths = ['''(^|/)core/pkg/install/global_netns_test\.go$''']
+regexes = ['''^--api\.enable=true$''']
+
+[[allowlists]]
+description = "gateway_test.go: the base64 secp256k1 account public key of a REST fixture"
+condition = "AND"
+paths = ['''(^|/)core/pkg/onchain/gateway_test\.go$''']
+regexes = ['''^Ak9OKtmcNNYLm6Yog8lDGoQY\+GcyEpYfl6d7Y3f80Fti[A-Za-z0-9+/=]{0,2}$''']
+
+[[allowlists]]
+description = "networks/stagenet/genesis.json: base64 collection keys ('lastCodeId', 'lastContractId') of the genesis, which the id_key field name makes look like a secret"
+condition = "AND"
+paths = ['''(^|/)networks/stagenet/genesis\.json$''']
+regexes = [
+  '''^BGxhc3RDb2RlSWQ=$''',
+  '''^BGxhc3RDb250cmFjdElk$''',
+]
+
