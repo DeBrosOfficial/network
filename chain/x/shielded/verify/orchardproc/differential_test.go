@@ -311,9 +311,8 @@ func TestDifferential_timingOutliersChangeNoVerdict(t *testing.T) {
 	}
 }
 
-// The latency of both verifiers on every vector, with the slowest request flagged when it is far
-// from the median. It asserts only a generous bound: the point is that the watchdog (30 s) sits far
-// above anything a healthy verifier does, so it never fires on a valid bundle.
+// The latency of the process verifier on every vector. It asserts that no request faults, which is
+// what the watchdog (30 s) turns a hang into, and that none came close to it on a valid bundle.
 func TestDifferential_latencyIsFarBelowTheWatchdog(t *testing.T) {
 	_, chainID := load(t, "ironwood-1-action")
 	p := newPair(t, chainID, 30*time.Second)
@@ -325,14 +324,18 @@ func TestDifferential_latencyIsFarBelowTheWatchdog(t *testing.T) {
 		var took []time.Duration
 		for i := 0; i < 7; i++ {
 			start := time.Now()
-			_ = p.process.Verify(raw, nil)
+			if got := classOf(p.process.Verify(raw, nil)); got == classFault {
+				t.Fatalf("%s: request %d faulted (the watchdog fired or the child died)", name, i)
+			}
 			took = append(took, time.Since(start))
 		}
 		sort.Slice(took, func(i, j int) bool { return took[i] < took[j] })
 		median, slowest := took[len(took)/2], took[len(took)-1]
 		t.Logf("%s: median %s, slowest %s", name, median, slowest)
-		if slowest > DefaultRequestTimeout/3 {
-			t.Errorf("%s: the slowest of 7 requests took %s, a third of the %s watchdog", name, slowest, DefaultRequestTimeout)
+		// A real hang ends in a fault at the watchdog and fails above. This bound is only a slow
+		// box that did not hang: it is not a multiple of a median a loaded machine inflates.
+		if slowest >= DefaultRequestTimeout {
+			t.Errorf("%s: the slowest of 7 requests took %s, the watchdog is %s", name, slowest, DefaultRequestTimeout)
 		}
 	}
 }

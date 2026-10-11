@@ -157,6 +157,19 @@ func (e *Env) KeeperWith(verifiers ...verify.Verifier) keeper.Keeper {
 	)
 }
 
+// KeeperWithMempool is KeeperWith with a separate verifier set for CheckTx (Dependencies.MempoolVerifiers).
+func (e *Env) KeeperWithMempool(block, mempool []verify.Verifier) keeper.Keeper {
+	return keeper.NewKeeper(
+		codec.NewProtoCodec(codectypes.NewInterfaceRegistry()),
+		runtime.NewKVStoreService(e.key),
+		keeper.TransientKVService(runtime.NewTransientStoreService(e.tkey)),
+		keeper.Dependencies{
+			Bank: e.Bank, Fees: e.Fees, Bonder: e.Bonder, NodeBonder: e.Nodes,
+			Tree: Tree{}, Nullifiers: e.Store, Verifiers: block, MempoolVerifiers: mempool,
+		},
+	)
+}
+
 // KeeperRequiring is KeeperWith for a chain that must verify (Dependencies.RequireVerifiers): a
 // verifier that is missing is a fault of the node and halts it in a block.
 func (e *Env) KeeperRequiring(verifiers ...verify.Verifier) keeper.Keeper {

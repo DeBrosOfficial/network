@@ -42,6 +42,11 @@ type Dependencies struct {
 	// halts (checkInBlock). A localnet or a scripted devnet runs without verifiers on purpose, on
 	// every node alike, and leaves it false so every bundle is refused there.
 	RequireVerifiers bool
+	// MempoolVerifiers check the bundles of CheckTx and a simulation. They are a separate set from
+	// Verifiers, with their own child process, so work the mempool hands the node (a bundle that
+	// hangs the child for its whole watchdog, sent again and again) never holds up the verifiers a
+	// block runs on. Empty means the mempool shares Verifiers.
+	MempoolVerifiers []verify.Verifier
 }
 
 // Keeper is x/shielded's keeper.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
 )
@@ -18,6 +19,10 @@ const (
 	// stream of bundles that fail only the Halo 2 proof costs every node one verification each. It is
 	// local admission policy: it never runs in a block and never affects state.
 	MaxCheckVerificationsPerBlock = 256
+	// FaultMemory is how long the mempool refuses to put a bundle to the verifier again after its
+	// check ended in a fault; MaxRememberedFaults bounds the table. Local admission policy only.
+	FaultMemory         = time.Minute
+	MaxRememberedFaults = 1024
 )
 
 // ErrMempoolBusy means this node has verified its share of proofs since the last block and refuses
@@ -32,6 +37,11 @@ type admission struct {
 	failed map[[sha256.Size]byte]*list.Element
 	order  *list.List // front is the newest
 	budget atomic.Int64
+	// faults remembers, for FaultMemory, the bundles whose check ended in a verifier fault. It is
+	// not a verdict: it only keeps the mempool from putting the same hanging bundle to the verifier
+	// again and again. A block never reads it.
+	faults map[[sha256.Size]byte]time.Time
+	now    func() time.Time
 }
 
 type failedEntry struct {
@@ -40,7 +50,48 @@ type failedEntry struct {
 }
 
 func newAdmission() *admission {
-	return &admission{failed: map[[sha256.Size]byte]*list.Element{}, order: list.New()}
+	return &admission{failed: map[[sha256.Size]byte]*list.Element{}, order: list.New(),
+		faults: map[[sha256.Size]byte]time.Time{}, now: time.Now}
+}
+
+// faultRecalled reports a check of these exact bytes that ended in a fault less than FaultMemory ago.
+func (a *admission) faultRecalled(key [sha256.Size]byte) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	until, ok := a.faults[key]
+	if !ok {
+		return false
+	}
+	if !a.now().Before(until) {
+		delete(a.faults, key)
+		return false
+	}
+	return true
+}
+
+// rememberFault records a fault for FaultMemory. The table is bounded: when it is full the expired
+// entries go first, then the oldest, so a stream of distinct hanging bundles cannot grow it.
+func (a *admission) rememberFault(key [sha256.Size]byte) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	now := a.now()
+	if len(a.faults) >= MaxRememberedFaults {
+		var oldest [sha256.Size]byte
+		var oldestAt time.Time
+		for k, until := range a.faults {
+			if !now.Before(until) {
+				delete(a.faults, k)
+				continue
+			}
+			if oldestAt.IsZero() || until.Before(oldestAt) {
+				oldest, oldestAt = k, until
+			}
+		}
+		if len(a.faults) >= MaxRememberedFaults {
+			delete(a.faults, oldest)
+		}
+	}
+	a.faults[key] = now.Add(FaultMemory)
 }
 
 // key is the hash of the exact bytes: a different byte, however small, is a different bundle, so

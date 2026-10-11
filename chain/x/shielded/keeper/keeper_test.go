@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -675,4 +677,95 @@ func TestTransfer_missingVerifiersHaltOnlyAChainThatMustVerify(t *testing.T) {
 		})
 		require.ErrorIs(t, err, verify.ErrVerifierNotLinked, name)
 	}
+}
+
+// Mempool work has verifiers of its own: a bundle that holds the mempool's child never holds up the
+// verifiers a block runs on.
+func TestVerify_aHungMempoolCheckDoesNotHoldUpBlockExecution(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	shield(t, e, 1, 1000)
+	e.EndBlock()
+	release := make(chan struct{})
+	var entered atomic.Int32
+	mempoolHung := &testutil.Verifier{Name: "mempool-b", Reject: func([]byte) error { entered.Add(1); <-release; return nil }}
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, mempoolHung})
+
+	raw := transferBundle(3, 20, rootAfter(1))
+	ctx := e.CheckCtx()
+	adm, err := k.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	checked := make(chan error, 1)
+	go func() { checked <- k.Verify(ctx, raw, nil, adm) }()
+	require.Eventually(t, func() bool { return entered.Load() == 1 }, 5*time.Second, time.Millisecond)
+
+	blockDone := make(chan error, 1)
+	go func() {
+		blockDone <- e.Tx(func(ctx sdk.Context) error {
+			_, err := keeper.NewMsgServerImpl(k).ShieldedTransfer(ctx, &types.MsgShieldedTransfer{
+				Signer: types.SignerlessAddress().String(), Bundle: transferBundle(4, 20, rootAfter(1)),
+			})
+			return err
+		})
+	}()
+	select {
+	case err := <-blockDone:
+		require.NoError(t, err, "the block's verifiers are not the mempool's")
+	case <-time.After(5 * time.Second):
+		t.Fatal("block execution waited on a mempool check")
+	}
+	close(release)
+	require.NoError(t, <-checked)
+}
+
+// A bundle whose check ended in a fault is not put to the mempool's verifier again for a while, so
+// resending it cannot keep a child busy. The memory is the mempool's alone: a block asks anyway.
+func TestVerify_aFaultingBundleIsNotAskedAgainByTheMempoolButAlwaysByABlock(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return fmt.Errorf("%w: hung for 30s", verify.ErrVerifierFault) }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.Equal(t, 1, e.V2.Calls, "the mempool asked once and remembered the fault")
+
+	haltOf(t, func() { _ = e.Keeper.Verify(e.Ctx.WithExecMode(sdk.ExecModeFinalize), raw, nil, adm) })
+	require.Equal(t, 2, e.V2.Calls, "a block never reads the mempool's memory of faults")
+
+	e.V2.Reject = nil
+	other := transferBundle(5, 20, emptyAnchor(t))
+	adm2, err := e.Keeper.Admit(ctx, other, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.NoError(t, e.Keeper.Verify(ctx, other, nil, adm2), "another bundle is not refused for the first one's fault")
+}
+
+// With the verifier fixed and the memory expired, the same bundle is checked again.
+func TestVerify_aRememberedFaultExpires(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	e.V2.Reject = nil
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault, "still remembered")
+	keeper.AdvanceFaultMemoryForTest(e.Keeper, 2*keeper.FaultMemory)
+	require.NoError(t, e.Keeper.Verify(ctx, raw, nil, adm), "the memory expired")
+}
+
+// On a devnet, verifiers that are not linked refuse a bundle in a block, and the transaction's log
+// carries no path or pin.
+func TestTransfer_notLinkedInABlockLeaksNothingToTheLog(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error {
+		return fmt.Errorf("%w: binary %q has sha256 deadbeef", verify.ErrVerifierNotLinked, "/var/lib/orama-global/chain/bin/orama-orchard-verifier")
+	}
+	err := transfer(e, transferBundle(2, 20, emptyAnchor(t)))
+	require.ErrorIs(t, err, verify.ErrVerifierNotLinked)
+	require.NotContains(t, err.Error(), "deadbeef")
+	require.NotContains(t, err.Error(), "/var/lib")
 }

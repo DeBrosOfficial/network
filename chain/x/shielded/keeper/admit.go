@@ -96,14 +96,33 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 	if err, failed := k.admission.recalled(key); failed {
 		return fmt.Errorf("shielded bundle refused (already rejected): %w", err)
 	}
+	if k.admission.faultRecalled(key) {
+		return unavailable(ctx, ErrRecentVerifierFault)
+	}
 	if !k.admission.spend() {
 		return ErrMempoolBusy
 	}
-	err := k.check(raw, binding)
+	err := verifyWith(k.mempoolVerifiers(), raw, binding)
 	if err != nil {
 		k.admission.remember(key, err)
+		if localFault(err) {
+			k.admission.rememberFault(key)
+		}
 	}
 	return unavailable(ctx, err)
+}
+
+// ErrRecentVerifierFault is what the mempool answers for a bundle whose last check, a moment ago,
+// ended in a verifier fault: the verifier is not asked again until the memory of it expires. It is
+// not a verdict on the bundle, it is kept only by the mempool and never consulted in a block.
+var ErrRecentVerifierFault = fmt.Errorf("%w: this bundle's check recently failed on this node", verify.ErrVerifierFault)
+
+// mempoolVerifiers are the verifiers CheckTx and a simulation use.
+func (k Keeper) mempoolVerifiers() []verify.Verifier {
+	if len(k.deps.MempoolVerifiers) > 0 {
+		return k.deps.MempoolVerifiers
+	}
+	return k.deps.Verifiers
 }
 
 // unavailable is what the mempool tells a submitter whose transaction this node could not check
@@ -149,11 +168,15 @@ func (k Keeper) checkInBlock(ctx sdk.Context, raw, binding []byte) error {
 		hash := sha256.Sum256(raw)
 		panic(VerifierHalt{Height: ctx.BlockHeight(), BundleHash: hex.EncodeToString(hash[:]), Err: err})
 	}
-	return err
+	// Verifiers that are not linked on a localnet or a devnet: the same refusal on every node, with
+	// the node's paths and pins kept out of the transaction's log.
+	return unavailable(ctx, err)
 }
 
-func (k Keeper) check(raw, binding []byte) error {
-	if err := verify.Check(raw, binding, k.deps.Verifiers...); err != nil {
+func (k Keeper) check(raw, binding []byte) error { return verifyWith(k.deps.Verifiers, raw, binding) }
+
+func verifyWith(verifiers []verify.Verifier, raw, binding []byte) error {
+	if err := verify.Check(raw, binding, verifiers...); err != nil {
 		return fmt.Errorf("shielded bundle refused: %w", err)
 	}
 	return nil

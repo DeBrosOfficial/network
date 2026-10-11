@@ -226,19 +226,27 @@ func start(cfg Config) (*process, error) {
 		return nil, fmt.Errorf("%w: %w", verify.ErrVerifierFault, err)
 	}
 	defer bin.Close()
-	cmd := exec.Command(cfg.Path)
+	// The command is built by hand so a path without a slash is not looked up on PATH.
+	cmd := &exec.Cmd{Path: cfg.Path, Args: []string{cfg.Path}}
 	bin.configure(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("%w: verifier stdin: %w", verify.ErrVerifierFault, err)
 	}
-	stdout, err := cmd.StdoutPipe()
+	// The child's answers come through a pipe this side owns. cmd.StdoutPipe would close its read
+	// end when the child exits, and a child that exits right after answering a panic (code 5) would
+	// then lose its answer to "file already closed": a verdict turned into a fault.
+	stdout, childOut, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("%w: verifier stdout: %w", verify.ErrVerifierFault, err)
 	}
+	cmd.Stdout = childOut
 	if err := cmd.Start(); err != nil {
+		_ = stdout.Close()
+		_ = childOut.Close()
 		return nil, fmt.Errorf("%w: start %q: %w", verify.ErrVerifierFault, cfg.Path, err)
 	}
+	_ = childOut.Close() // the child holds the write end; this side reads until it ends
 	p := &process{cmd: cmd, stdin: stdin, stdout: stdout, done: make(chan struct{})}
 	go func() {
 		_ = cmd.Wait()

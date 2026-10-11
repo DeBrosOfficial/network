@@ -140,6 +140,7 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 	app.nullifierStore = store
 
 	app.ShieldedVerifiers = app.newShieldedVerifiers(appOpts)
+	app.ShieldedMempoolVerifiers = app.newMempoolVerifiers(app.ShieldedVerifiers, appOpts)
 	app.AddRunTxRecoveryHandler(verifierHaltHandler(app.Logger(), func(code int) { VerifierHaltExit(code) }))
 	app.ShieldedKeeper = shieldedkeeper.NewKeeper(
 		app.appCodec,
@@ -153,6 +154,8 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 			Tree:       orchardverify.NewTree(),
 			Nullifiers: store,
 			Verifiers:  app.ShieldedVerifiers,
+			// CheckTx and simulations have a verifier process of their own (see newMempoolVerifiers).
+			MempoolVerifiers: app.ShieldedMempoolVerifiers,
 			// A chain that is not a localnet or a scripted devnet must verify, so a verifier that
 			// is missing at run time halts the node instead of refusing bundles on it alone.
 			RequireVerifiers: !verifiersOptional(app.ChainID()),

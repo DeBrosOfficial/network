@@ -71,6 +71,7 @@ func runFake(modeFile string) int {
 			writeFrame(os.Stdout, id, 99)
 		case modePanicCode:
 			writeFrame(os.Stdout, id, codePanic)
+			return 0 // like the real child, which ends after answering a panic
 		}
 	}
 }
@@ -562,5 +563,54 @@ func TestVerify_afterAPanicTheNextRequestRunsOnAFreshProcess(t *testing.T) {
 	f.mode(modeAccept)
 	if err := f.v.Verify(fakeBundle(), nil); err != nil {
 		t.Fatalf("the request after a panic must run on a fresh process: %v", err)
+	}
+}
+
+// The answer of a child that exits right after writing it must always be read: a panic is a
+// verdict, and losing the frame to a closed pipe would turn it into a fault that halts the node.
+// Many rounds, the exit racing the read as hard as the scheduler allows.
+func TestVerify_aPanicAnswerIsNeverLostToTheChildExiting(t *testing.T) {
+	f := newFixture(t, 10*time.Second)
+	rounds := 150
+	if testing.Short() {
+		rounds = 20
+	}
+	for i := 0; i < rounds; i++ {
+		f.mode(modeAccept)
+		if err := f.v.Verify(fakeBundle(), nil); err != nil {
+			t.Fatalf("round %d: %v", i, err)
+		}
+		f.mode(modePanicCode)
+		runtime.Gosched()
+		err := f.v.Verify(fakeBundle(), nil)
+		if !errors.Is(err, verify.ErrVerifierPanic) || errors.Is(err, verify.ErrVerifierFault) {
+			t.Fatalf("round %d: got %v, want the verdict ErrVerifierPanic every time", i, err)
+		}
+	}
+}
+
+// A relative path with no slash is the file in the working directory, not a PATH lookup.
+func TestStart_aPathWithoutASlashIsNotLookedUpOnPATH(t *testing.T) {
+	dir := t.TempDir()
+	copyTo := filepath.Join(dir, "verifier")
+	raw, err := os.ReadFile(copyOfTestBinary(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(copyTo, raw, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	t.Setenv(fakeModeFileEnv, filepath.Join(t.TempDir(), "mode"))
+	if err := os.WriteFile(os.Getenv(fakeModeFileEnv), []byte(modeAccept), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	v, err := New(Config{Path: "verifier", ChainID: "c", SHA256: hashOf(t, copyTo), StartTimeout: 10 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = v.Close() })
+	if err := v.Warm(); err != nil {
+		t.Fatalf("a relative path must start the file in the working directory: %v", err)
 	}
 }

@@ -98,6 +98,23 @@ func FileSHA256(path string) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// newMempoolVerifiers is the verifier set CheckTx and simulations use: the same linked library
+// (stateless, safe for concurrent use) and a second out-of-process verifier over the same pinned
+// binary, with a child process of its own. Mempool work, which anyone can send, then never queues
+// behind or holds up the verifiers a block executes on: a bundle that hangs the mempool's child for
+// its whole watchdog stalls only the mempool. The child starts on its first use, not at construction,
+// so the node holds a second verifying key only once the mempool has checked a bundle.
+func (app *OramaApp) newMempoolVerifiers(block []verify.Verifier, appOpts servertypes.AppOptions) []verify.Verifier {
+	if len(block) != verify.MinVerifiers {
+		return nil
+	}
+	process, err := orchardproc.New(orchardproc.Config{Path: shieldedVerifierPath(appOpts), ChainID: app.ChainID(), SHA256: ShieldedVerifierSHA256})
+	if err != nil {
+		panic(fmt.Errorf("failed to build the mempool's out-of-process verifier for chain %q: %w", app.ChainID(), err))
+	}
+	return []verify.Verifier{block[0], process}
+}
+
 // newShieldedVerifiers builds the two verifiers a shielded bundle must pass: the orchard library
 // linked through cgo and the pinned binary run out of process. Both are bound to the chain id.
 //
