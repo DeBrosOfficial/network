@@ -161,26 +161,44 @@ func handshake(ctx context.Context, addr, serverName string) (*tls.ConnectionSta
 
 // readJournal reads the last lines of unit's journal that the certificate loggers wrote, as the
 // message alone, which for Caddy is its JSON log line. journalctl filters (--grep) before it counts
-// (-n), so the window holds the CA's answers however many other lines the unit logs: a node with no
-// certificate logs a handshake error per client, which pushed the last failed order out of a window
-// of the unit's last lines. It needs root, like `orama node logs`.
+// (-n): on the systemd 255 of the nodes, `-n 1` with a --grep returns the newest matching entry
+// however many entries the unit wrote after it. So the window holds the CA's answers however many
+// other lines the unit logs: a node with no certificate logs a handshake error per client, which
+// pushed the last failed order out of a window of the unit's last lines. It needs root, like
+// `orama node logs`.
 func readJournal(ctx context.Context, unit string, lines int) (string, error) {
-	out, err := exec.CommandContext(ctx, "journalctl", "-u", unit, "--no-pager", "-o", "cat",
-		"--grep", certificateLoggerPattern, "-n", strconv.Itoa(lines)).Output()
-	if err != nil {
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			// journalctl exits 1 with nothing on either stream when no entry matches: no answer
-			// from the CA is in the journal, which is a result, not a failure.
-			if exit.ExitCode() == journalNoMatchExit && len(out) == 0 && len(bytes.TrimSpace(exit.Stderr)) == 0 {
-				return "", nil
-			}
-			return "", fmt.Errorf("journalctl -u %s: %w: %s", unit, err, strings.TrimSpace(string(exit.Stderr)))
-		}
+	cmd := exec.CommandContext(ctx, "journalctl", journalArgs(unit, lines)...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	return journalResult(unit, out, stderr.Bytes(), err)
+}
+
+// journalArgs are journalctl's arguments for the certificate loggers' last lines of unit.
+func journalArgs(unit string, lines int) []string {
+	return []string{"-u", unit, "--no-pager", "-o", "cat", "--grep", certificateLoggerPattern, "-n", strconv.Itoa(lines)}
+}
+
+// journalResult reads journalctl's answer. It exits 1 when no entry matches, with nothing on
+// stderr and on stdout nothing or, on a terminal and some versions, "-- No entries --": no answer
+// from the CA is in the journal, which is a result, not a failure. Any other failure is one.
+func journalResult(unit string, out, stderr []byte, err error) (string, error) {
+	if err == nil {
+		return string(out), nil
+	}
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) {
 		return "", fmt.Errorf("journalctl -u %s: %w", unit, err)
 	}
-	return string(out), nil
+	stdout := strings.TrimSpace(string(out))
+	if exit.ExitCode() == journalNoMatchExit && len(bytes.TrimSpace(stderr)) == 0 && (stdout == "" || stdout == journalNoEntries) {
+		return "", nil
+	}
+	return "", fmt.Errorf("journalctl -u %s: %w: %s", unit, err, strings.TrimSpace(string(stderr)))
 }
+
+// journalNoEntries is what journalctl prints in place of entries when none match.
+const journalNoEntries = "-- No entries --"
 
 // certificateLoggerPattern selects the lines of the loggers that obtain and renew certificates
 // (journal.go loggerObtain, loggerRenew) in the journal's message field.
