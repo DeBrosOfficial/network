@@ -205,8 +205,8 @@ func checkCommitteeSizeChainIDGate(ctx sdk.Context, p types.Params, committeeSiz
 	}
 	if uint64(committeeSize) < types.ProductionMinCommitteeSize {
 		return fmt.Errorf(
-			"chain-id %q is a production chain-id (not of the form orama-(localnet|devnet|stagenet)-<name>) but only declares %d bootstrap committee members, want at least %d",
-			ctx.ChainID(), committeeSize, types.ProductionMinCommitteeSize,
+			"chain-id %q is a production chain-id (not of the form %s) but only declares %d bootstrap committee members, want at least %d",
+			ctx.ChainID(), params.TestChainIDForm, committeeSize, types.ProductionMinCommitteeSize,
 		)
 	}
 	return nil

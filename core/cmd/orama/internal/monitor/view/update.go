@@ -71,6 +71,10 @@ func orUnknown(s string) string {
 	return s
 }
 
+// maxUpgradeETA is the longest time to an upgrade worth showing; a height a governance proposal
+// set further out (or one that would overflow a Duration) shows its block count only.
+const maxUpgradeETA = 10 * 365 * 24 * time.Hour
+
 // UpgradeCountdown is how far a node's chain is from the height of the upgrade scheduled for it.
 type UpgradeCountdown struct {
 	// BlocksLeft is how many blocks remain; zero or negative once the height is reached.
@@ -87,8 +91,11 @@ func CountdownTo(c *report.ChainReport, u *report.ChainUpgrade) UpgradeCountdown
 	left := u.Height - c.LatestHeight
 	cd := UpgradeCountdown{BlocksLeft: left}
 	if left > 0 && c.AvgBlockTimeSec > 0 {
-		cd.ETA = time.Duration(float64(left) * c.AvgBlockTimeSec * float64(time.Second))
-		cd.HasETA = true
+		eta := float64(left) * c.AvgBlockTimeSec * float64(time.Second)
+		if eta < float64(maxUpgradeETA) {
+			cd.ETA = time.Duration(eta)
+			cd.HasETA = true
+		}
 	}
 	return cd
 }

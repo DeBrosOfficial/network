@@ -23,13 +23,14 @@ func StatusTable(snap *cluster.ClusterSnapshot, op *operatorview.Summary, w io.W
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	fmt.Fprintf(tw, "IP\tROLE\tSTATUS\tCHAIN\tUPDATE\tDETAILS\n")
 	healthy := 0
+	theme := view.NewTheme(false)
 	for _, cs := range snap.Nodes {
 		health := cs.Health()
 		if health == cluster.HealthHealthy {
 			healthy++
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", cs.Node.Host, cs.Node.Role, health, chainCell(nodeChain(cs)),
-			view.UpdateCell(view.NewTheme(false), nodeUpdate(cs)), cs.Detail())
+			view.UpdateCell(theme, nodeUpdate(cs)), cs.Detail())
 	}
 	if err := tw.Flush(); err != nil {
 		return fmt.Errorf("write status table: %w", err)

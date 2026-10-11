@@ -14,7 +14,7 @@ const (
 	// chainParams defines BlockIntervalSeconds, the chain's block interval:
 	// oramad init writes it as timeout_commit, and every block-counted time
 	// window is computed from it.
-	chainParams = "chain/app/params/params.go"
+	chainParams    = "chain/app/params/params.go"
 	performanceDoc = "website/src/docs/contributor/performance.mdx"
 )
 

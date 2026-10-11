@@ -145,6 +145,10 @@ func TestNetclass_matchesChain(t *testing.T) {
 	if own == nil || own[1] != words[1] {
 		t.Errorf("the chain's class words are {%s}, pkg/netclass has %v", words[1], own)
 	}
+	form := regexp.MustCompile(`TestChainIDForm = "([^"]*)"`).FindStringSubmatch(chainFile(t, "app/params/chainid.go"))
+	if form == nil || form[1] != TestChainIDForm {
+		t.Errorf("the chain's TestChainIDForm is %v, pkg/netclass has %q", form, TestChainIDForm)
+	}
 	floor := regexp.MustCompile(`ProductionMinCommitteeSize uint64 = (\d+)`).FindStringSubmatch(chainFile(t, "x/power/types/params.go"))
 	if floor == nil || floor[1] != strconv.Itoa(ProductionMinCommittee) {
 		t.Errorf("the chain's production committee floor is %v, pkg/netclass has %d", floor, ProductionMinCommittee)

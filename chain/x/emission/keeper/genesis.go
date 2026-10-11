@@ -14,7 +14,7 @@ import (
 // testChainIDForm names, in error messages, the chain ids the bootstrap-stake and faucet gates
 // accept: exactly params.ClassOfChainID's localnet, devnet and stagenet ids. A mainnet chain-id
 // ("orama-1") is none of them, and neither is an id that only contains a class word.
-const testChainIDForm = "orama-(localnet|devnet|stagenet)-<name>"
+const testChainIDForm = params.TestChainIDForm
 
 // InitGenesis sets x/emission's state from a GenesisState. It must run after x/bank's InitGenesis
 // so that, on a true fresh genesis, it can observe whatever norama supply genesis accounts

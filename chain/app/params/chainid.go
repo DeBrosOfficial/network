@@ -8,6 +8,10 @@ import "regexp"
 // one rule and it is exact.
 type ChainClass int
 
+// TestChainIDForm names, in messages, the chain ids of a test network (core/pkg/netclass has the
+// same text).
+const TestChainIDForm = "orama-[<name>-](localnet|devnet|stagenet)-<id>"
+
 const (
 	// ChainProduction is every chain id that is not one of the test classes. It is the default
 	// and the safe answer: an id that is not recognised exactly is production.

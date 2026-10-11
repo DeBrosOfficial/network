@@ -120,3 +120,12 @@ func TestUpdateRendering_stripsWhatActsOnATerminal(t *testing.T) {
 		t.Errorf("no finding renders %q, want %q", got, noUpdateCell)
 	}
 }
+
+// A height set far beyond any real schedule shows its blocks only: its time would overflow.
+func TestCountdownTo_aHeightFarAwayHasNoETA(t *testing.T) {
+	c := &report.ChainReport{LatestHeight: 1, AvgBlockTimeSec: 5}
+	cd := CountdownTo(c, &report.ChainUpgrade{Height: 1 << 62})
+	if cd.HasETA || cd.BlocksLeft != (1<<62)-1 {
+		t.Fatalf("countdown = %+v, want blocks only", cd)
+	}
+}
