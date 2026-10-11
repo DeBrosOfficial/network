@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/DeBrosOfficial/network/pkg/httputil"
 	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
 	"github.com/DeBrosOfficial/network/pkg/updatenotice"
 )
@@ -11,13 +12,24 @@ import (
 // noUpdateCell fills the UPDATE cell of a node whose auto-update agent has nothing to report.
 const noUpdateCell = "-"
 
+// maxReportedRunes bounds one field a node reports about an update or a chain upgrade.
+const maxReportedRunes = 200
+
+// reported is text a node reported (a release name, a refusal reason, an upgrade plan's name)
+// made safe for the operator's terminal: on one line, without the characters that act on a
+// terminal, and bounded. A node, a release repository or a governance proposal wrote it, so it is
+// untrusted.
+func reported(s string) string {
+	return httputil.PrintableMax(httputil.OneLine(s), maxReportedRunes)
+}
+
 // UpdateCell is a node's auto-update finding in a few words: the release and what the policy does
 // with it ("0.3.1 (notify)"), or that it was refused or rolled back.
 func UpdateCell(t Theme, n *updatenotice.Notice) string {
 	if n == nil {
 		return noUpdateCell
 	}
-	candidate := n.Candidate
+	candidate := reported(n.Candidate)
 	if candidate == "" {
 		candidate = unknownCell
 	}
@@ -41,13 +53,13 @@ func UpdateSentence(n *updatenotice.Notice) string {
 	switch n.State {
 	case updatenotice.StateAvailable:
 		return fmt.Sprintf("release %s is available on the %s channel (running %s); the policy (%s) will %s: %s",
-			n.Candidate, n.Channel, n.Current, n.Mode, n.Policy(), n.Reason)
+			reported(n.Candidate), reported(n.Channel), reported(n.Current), reported(n.Mode), n.Policy(), reported(n.Reason))
 	case updatenotice.StateRefused:
 		return fmt.Sprintf("release %s was refused on the %s channel (running %s): %s",
-			orUnknown(n.Candidate), n.Channel, n.Current, n.Reason)
+			orUnknown(reported(n.Candidate)), reported(n.Channel), reported(n.Current), reported(n.Reason))
 	case updatenotice.StateFailed:
 		return fmt.Sprintf("installing release %s failed and was rolled back (running %s): %s",
-			orUnknown(n.Candidate), n.Current, n.Reason)
+			orUnknown(reported(n.Candidate)), reported(n.Current), reported(n.Reason))
 	}
 	return ""
 }
@@ -89,7 +101,7 @@ func UpgradeSentence(c *report.ChainReport) string {
 		return ""
 	}
 	if c.UpgradeError != "" {
-		return "the scheduled upgrade could not be read: " + c.UpgradeError
+		return "the scheduled upgrade could not be read: " + reported(c.UpgradeError)
 	}
 	u := c.Upgrade
 	if u == nil {
@@ -108,9 +120,9 @@ func UpgradeSentence(c *report.ChainReport) string {
 	staged := "binary staged on this node"
 	switch {
 	case u.StageError != "":
-		staged = "binary cannot be staged: " + u.StageError
+		staged = "binary cannot be staged: " + reported(u.StageError)
 	case !u.Staged:
 		staged = "binary NOT staged on this node"
 	}
-	return fmt.Sprintf("%s at height %d (%s); %s", u.Name, u.Height, when, staged)
+	return fmt.Sprintf("%s at height %d (%s); %s", reported(u.Name), u.Height, when, staged)
 }

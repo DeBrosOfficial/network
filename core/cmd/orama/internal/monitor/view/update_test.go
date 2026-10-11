@@ -92,3 +92,31 @@ func TestCountdownTo(t *testing.T) {
 		t.Fatalf("a height already passed: %+v", cd)
 	}
 }
+
+// A node, a release repository or a governance proposal writes these fields: none of them may
+// put an escape sequence, a line break or an unbounded text on the operator's terminal.
+func TestUpdateRendering_stripsWhatActsOnATerminal(t *testing.T) {
+	const hostile = "evil\x1b[2J\x1b]0;owned\x07\nsecond line‮"
+	n := &updatenotice.Notice{State: updatenotice.StateRefused, Mode: hostile, Candidate: hostile, Channel: hostile, Current: hostile, Reason: hostile}
+	c := &report.ChainReport{LatestHeight: 10, Upgrade: &report.ChainUpgrade{Name: hostile, Height: 20, StageError: hostile}}
+	for name, got := range map[string]string{
+		"cell":            UpdateCell(NewTheme(false), n),
+		"update sentence": UpdateSentence(n),
+		"upgrade":         UpgradeSentence(c),
+		"upgrade error":   UpgradeSentence(&report.ChainReport{UpgradeError: hostile}),
+	} {
+		if strings.ContainsAny(got, "\x1b\x07\n‮") {
+			t.Errorf("%s keeps a terminal control character: %q", name, got)
+		}
+		if !strings.Contains(got, "evil[2J]0;owned | second line") {
+			t.Errorf("%s lost the printable text: %q", name, got)
+		}
+	}
+	long := &updatenotice.Notice{State: updatenotice.StateFailed, Candidate: "1", Current: "0", Reason: strings.Repeat("x", 5000)}
+	if got := UpdateSentence(long); len(got) > 2*maxReportedRunes {
+		t.Errorf("an unbounded reason reached the terminal: %d bytes", len(got))
+	}
+	if got := UpdateCell(NewTheme(false), nil); got != noUpdateCell {
+		t.Errorf("no finding renders %q, want %q", got, noUpdateCell)
+	}
+}
