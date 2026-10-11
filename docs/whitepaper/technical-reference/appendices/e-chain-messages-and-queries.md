@@ -222,7 +222,8 @@ Source: `chain/proto/orama/relay/v1/tx.proto`
 
 | Msg | Request fields | Description |
 |---|---|---|
-| `RegisterRelay` | `operator string`, `node_id string`, `rsa_fingerprint bytes`, `exit bool`, `ed25519_signature bytes` | RegisterRelay records a relay's RSA identity digest, cross-signed by the ed25519 identity bound to node_id. The per-relay bond is not escrowed here (that is x/nodes). |
+| `RegisterRelay` | `operator string`, `node_id string`, `rsa_fingerprint bytes`, `exit bool`, `ed25519_signature bytes`, `rsa_public_key bytes`, `rsa_signature bytes` | RegisterRelay records a relay's RSA identity digest, cross-signed by the ed25519 identity bound to node_id. The per-relay bond is not escrowed here (that is x/nodes). |
+| `UpdateRelay` | `operator string`, `node_id string`, `rsa_fingerprint bytes`, `exit bool`, `ed25519_signature bytes`, `rsa_public_key bytes`, `rsa_signature bytes` | UpdateRelay replaces the RSA fingerprint (and the exit declaration) of the relay already registered on node_id, cross-signed again by the ed25519 identity the node binds now. It is the rotation path for a relay's RSA key and for the ed25519 key a MsgUpdateNode on x/nodes rebinds. |
 | `ReportEpoch` | `reporter string`, `epoch uint64`, `chunk_index uint32`, `chunk_count uint32`, `entries repeated RelayObservation`, `inputs_root bytes` | ReportEpoch submits one chunk of an epoch report. The report counts once every chunk is present and inputs_root matches the canonical entries. |
 | `UpdateReporters` | `signer string`, `reporters repeated string` | UpdateReporters replaces the reporter set. It is rejected unless the caller has set AllowReporterChange on the context. x/houses must do that only while executing a passed structural proposal. This module never sets the flag. signer is not an authority. |
 
@@ -236,6 +237,8 @@ Source: `chain/proto/orama/relay/v1/query.proto`
 | `Reporters` `/orama/relay/v1/reporters` | none |  |
 | `Relay` `/orama/relay/v1/relay/{rsa_fingerprint_hex}` | `rsa_fingerprint_hex string` |  |
 | `Relays` `/orama/relay/v1/relays` | `pagination cosmos.base.query.v1beta1.PageRequest` | QueryRelaysRequest pages through every registered relay in RSA fingerprint order. |
+| `OperatorRelays` `/orama/relay/v1/operator-relays/{operator}` | `operator string`, `pagination cosmos.base.query.v1beta1.PageRequest` |  |
+| `RelayPayouts` `/orama/relay/v1/payouts/{epoch}` | `epoch uint64`, `pagination cosmos.base.query.v1beta1.PageRequest` |  |
 | `EpochResult` `/orama/relay/v1/epoch-result/{epoch}` | `epoch uint64` |  |
 | `Invariants` `/orama/relay/v1/invariants` | none |  |
 

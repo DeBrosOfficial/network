@@ -8,7 +8,8 @@
 # active-ARCHIVER refusals; the pinning, quorum and overlap paths need three
 # bonded ARCHIVER nodes whose hot keys sign, which a run chain cannot have:
 # a bond is a bank balance and a hot key has no account; retain height), and x/relay (cross-certified
-# relay registration and its refusals; the reporter set closed to messages).
+# relay registration, rotation and their refusals; the operator's relay list and an epoch's payouts;
+# the reporter set closed to messages).
 # Deal escrow, bonds and bids come from a BANK balance no run account holds
 # (features/internal/chain funds.go), so an accepted slot, a real proof and
 # the release rate limit are reported blocked. orama-global (provider,
@@ -36,6 +37,7 @@ covers:
     - orama.archive.v1.MsgAttest
     - orama.archive.v1.MsgAttachReplicas
     - orama.relay.v1.MsgRegisterRelay
+    - orama.relay.v1.MsgUpdateRelay
     - orama.relay.v1.MsgReportEpoch
     - orama.relay.v1.MsgUpdateReporters
   queries:
@@ -54,6 +56,8 @@ covers:
     - orama.relay.v1.Params
     - orama.relay.v1.Reporters
     - orama.relay.v1.Relay
+    - orama.relay.v1.OperatorRelays
+    - orama.relay.v1.RelayPayouts
     - orama.relay.v1.EpochResult
     - orama.relay.v1.Invariants
   claims:
@@ -71,6 +75,9 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/41-storage-deals.md#storage-deals: REFUSAL PATHS ONLY: orama.storage.v1.MsgDeclineDeal; the success path needs a funded bank balance (trigger: a funding path exists)"
     - "docs/whitepaper/technical-reference/vol2/41-storage-deals.md#storage-deals: REFUSAL PATHS ONLY: orama.storage.v1.MsgSubmitProofs; the success path needs a funded bank balance (trigger: a funding path exists)"
     - "docs/whitepaper/technical-reference/vol2/41-storage-deals.md#storage-deals: REFUSAL PATHS ONLY: orama.storage.v1.MsgReleaseReplica; the success path needs a funded bank balance (trigger: a funding path exists)"
+    - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md#registration: a node without ROLE_RELAY, or one that binds no ed25519 key under the service relay, cannot register a relay, and no other key of the node is taken for it"
+    - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md#rotation: MsgUpdateRelay replaces the fingerprint of a node's relay and is refused for a node with no relay, a fingerprint another relay holds, another key's cross-certificate or an operator that does not own the node; the operator's relay list follows the rotation"
+    - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md#settlement: an epoch nobody reported on pays nobody and its payouts are empty"
     - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md#relay-rewards: settlement is by the relay end block, never a message; an epoch nobody reported on has no result"
     - "docs/whitepaper/technical-reference/vol2/46-relay-rewards.md#relay-rewards: REFUSAL PATHS ONLY: relay pay goes through the 90/5/5 service split; a paid epoch needs three reporters, which a run chain does not have (trigger: a reporter set in the run genesis)"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#the-module-set: REFUSAL PATHS ONLY: orama.relay.v1.MsgReportEpoch; the success path needs a funded bank balance (trigger: a funding path exists)"

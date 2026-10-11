@@ -104,7 +104,7 @@ The full reference, including the ceremony, exits and the abuse-complaint proced
 - **Independent authorities.** Orama runs all of them, so while it holds a majority it could sign a consensus that lists only its own relays. The public launch needs a majority of independent authorities, 100 relays from 40 operators and 15 exits in 5 countries, and the gate is off.
 - **Bandwidth measurement.** `sbws` is not built, so authorities weight relays by what they claim.
 - **Publication of the vote archive**, a signed fallback list, and IPv6.
-- **Registering a relay on chain** with a command: `MsgRegisterRelay` is a separate transaction and no `orama` command sends it. See [Relay rewards](/docs/blockchain/relay-rewards).
+- **Registering a relay installed by hand:** `orama setup` registers the relay of every node it sets up; for a relay installed with `orama global install` alone, send `MsgRegisterRelay` yourself. See [Relay rewards](/docs/blockchain/relay-rewards).
 - **A CLI command for the proxy routes**, and an SDK wrapper for the tunnel.
 
 ## Operating it

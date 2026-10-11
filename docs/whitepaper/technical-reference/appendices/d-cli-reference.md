@@ -2142,9 +2142,10 @@ orama global tor relay-identity [flags]
 
 ```text
 Print the relay's RSA fingerprint, the binding that makes its ed25519 master identity the
-operator's service key "relay", and the cross-certificate that ties the fingerprint to the node.
-x/relay pays the relay that a directory authority's vote names by that ed25519 identity and that
-fingerprint, so the chain needs both, signed by the relay's own key.
+operator's service key "relay", the cross-certificate that ties the fingerprint to the node, and the RSA
+identity's own proof of the fingerprint. x/relay pays the relay that a directory authority's vote names
+by that ed25519 identity and that fingerprint, so the chain needs both, signed by the relay's own keys;
+a fingerprint is public, so the RSA proof is what shows the registrant holds the key behind it.
 
 The signatures are made here with the relay's key in its DataDirectory
 (/var/lib/orama-global/tor-relay); the key is never printed or copied. 'orama setup' runs this on the
@@ -5624,7 +5625,8 @@ orama status [flags]
 ```text
 Show everything about your nodes in one place: each node's cluster health and chain
 (height, syncing, validator), the verdict with what to do, and your account on the chain (earnings,
-spendable balance, bond): the one 'orama setup' registered your nodes under, or the one --operator names.
+spendable balance, bond, and each Tor relay registered on your nodes with the last payout it received):
+the one 'orama setup' registered your nodes under, or the one --operator names.
 
 In a terminal this is the live view (tab/1-0 switch tabs, ? help, q quit). Piped or with --once it
 prints one table; --json prints a document whose "healthy" is true only when the verdict is
@@ -5642,7 +5644,7 @@ aspect at a time.
 | `--interval` | `5s` | How often the live view refreshes |
 | `--node` | — | Show only this node (public IP or WireGuard IP) |
 | `--once` | `false` | Print one table and exit, even in a terminal |
-| `--operator` | — | Your operator account (orama1...), to show its earnings, balance and bond |
+| `--operator` | — | Your operator account (orama1...), to show its earnings, balance, bond and relays |
 | `--ssh` | `false` | Collect over SSH from every node instead of the gateway API (break-glass) |
 
 Subcommands: `alerts`, `chain`, `cluster`, `dns`, `mesh`, `namespaces`, `node`, `report`, `service`, `traffic`
