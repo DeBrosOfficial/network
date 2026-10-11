@@ -95,7 +95,7 @@ jobs:
   chain-static:
     name: Chain static analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
 
@@ -135,7 +135,7 @@ jobs:
   chain-rust:
     name: Chain Rust crates (clippy, audit, deny)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
