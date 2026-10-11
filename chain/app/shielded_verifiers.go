@@ -22,10 +22,6 @@ const (
 	// FlagShieldedVerifier names the out-of-process verifier binary, the second verifier of
 	// x/shielded. It is a flag of `oramad start` and a key of the app options.
 	FlagShieldedVerifier = "shielded-verifier"
-	// FlagShieldedVerifierSHA256 is the hex SHA-256 the verifier binary must have. The node refuses
-	// to start a binary with any other hash, so two nodes cannot reach different verdicts because
-	// one runs a different file.
-	FlagShieldedVerifierSHA256 = "shielded-verifier-sha256"
 
 	// ShieldedVerifierBinary is the file name the release ships, and the default under
 	// <home>/bin/ when the flag is not given.
@@ -62,8 +58,12 @@ func CheckNodeCanVerify(chainID string, appOpts servertypes.AppOptions) error {
 }
 
 // ShieldedVerifierSHA256 is the hex SHA-256 of the verifier binary this oramad was built for. A
-// release sets it at link time (-ldflags "-X .../app.ShieldedVerifierSHA256=<hex>"); the flag
-// overrides it. Empty means the operator must give the flag.
+// release sets it at link time (-ldflags "-X .../app.ShieldedVerifierSHA256=<hex>"). It is the only
+// source of the pin: there is no flag, config key or environment variable that sets it, because a
+// pin an operator can choose lets two nodes run different verifiers and reach different verdicts on
+// the same bundle. Changing the pinned binary means changing oramad, which is a chain upgrade. Empty
+// means this build can start no verifier binary (a localnet or devnet build; a build for any other
+// chain refuses to start, CheckNodeCanVerify). Tests set it directly.
 var ShieldedVerifierSHA256 = ""
 
 // shieldedVerifierPath is where the node looks for the out-of-process verifier: the flag, else
@@ -79,14 +79,7 @@ func shieldedVerifierPath(appOpts servertypes.AppOptions) string {
 	return filepath.Join(home, "bin", ShieldedVerifierBinary)
 }
 
-func shieldedVerifierPin(appOpts servertypes.AppOptions) string {
-	if pin := cast.ToString(appOpts.Get(FlagShieldedVerifierSHA256)); pin != "" {
-		return pin
-	}
-	return ShieldedVerifierSHA256
-}
-
-// FileSHA256 is the hex SHA-256 of a file, the value to give --shielded-verifier-sha256.
+// FileSHA256 is the hex SHA-256 of a file, the value to link into oramad as ShieldedVerifierSHA256.
 func FileSHA256(path string) (string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -117,7 +110,7 @@ func (app *OramaApp) newShieldedVerifiers(appOpts servertypes.AppOptions) []veri
 	if err != nil {
 		panic(fmt.Errorf("failed to build the Orchard verifier for chain %q: %w", chainID, err))
 	}
-	path, pin := shieldedVerifierPath(appOpts), shieldedVerifierPin(appOpts)
+	path, pin := shieldedVerifierPath(appOpts), ShieldedVerifierSHA256
 	process, err := orchardproc.New(orchardproc.Config{Path: path, ChainID: chainID, SHA256: pin})
 	if err != nil {
 		panic(fmt.Errorf("failed to build the out-of-process verifier for chain %q: %w", chainID, err))
@@ -136,8 +129,8 @@ func (app *OramaApp) newShieldedVerifiers(appOpts servertypes.AppOptions) []veri
 	// default path). A configured verifier that will not start stops the node.
 	if present || cast.ToString(appOpts.Get(FlagShieldedVerifier)) != "" {
 		if err := process.Warm(); err != nil {
-			panic(fmt.Errorf("the out-of-process shielded verifier %q will not start (check --%s and --%s): %w",
-				path, FlagShieldedVerifier, FlagShieldedVerifierSHA256, err))
+			panic(fmt.Errorf("the out-of-process shielded verifier %q will not start (check --%s: the file must be the release's %s that this oramad pins): %w",
+				path, FlagShieldedVerifier, ShieldedVerifierBinary, err))
 		}
 	}
 	if !orchardverify.Linked || !present {

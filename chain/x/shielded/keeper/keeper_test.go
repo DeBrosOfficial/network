@@ -349,40 +349,97 @@ func TestTransfer_oneVerifierFailsClosed(t *testing.T) {
 	}
 }
 
-// A fault every time is the bundle's own: in a block it is asked blockVerifyAttempts times and
-// refused, the same verdict on every node.
-func TestTransfer_verifierFaultRejectsTheBundle(t *testing.T) {
-	e := testutil.NewEnv(t, nil)
-	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
-	require.ErrorIs(t, transfer(e, transferBundle(2, 20, emptyAnchor(t))), verify.ErrVerifierFault)
-	require.Equal(t, 3, e.V2.Calls, "the bundle is asked again while the verifier faults")
+// haltOf runs fn and returns the VerifierHalt it panicked with, or fails the test when it did not
+// panic or panicked with anything else.
+func haltOf(t *testing.T, fn func()) (halt keeper.VerifierHalt) {
+	t.Helper()
+	defer func() {
+		r := recover()
+		require.NotNil(t, r, "a verifier fault in a block must stop the node, not return")
+		var ok bool
+		halt, ok = r.(keeper.VerifierHalt)
+		require.True(t, ok, "the panic is a VerifierHalt, got %T: %v", r, r)
+	}()
+	fn()
+	return halt
 }
 
-// A verifier process killed during the check is no verdict: in a block the bundle is asked again,
-// so the node reaches its peers' verdict instead of refusing a transaction they accepted.
-func TestTransfer_aVerifierThatFaultsOnceInABlockGivesItsVerdictOnTheNextAsk(t *testing.T) {
+// A verifier fault in a block is no verdict on the bundle, so it records no result: the node
+// stops with a message that names the verifier and what to do, and nothing of the transaction is
+// kept. The test verifier faults the way the out-of-process one does when its child is killed.
+func TestTransfer_aVerifierFaultInABlockHaltsTheNodeAndRecordsNoResult(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
-	shield(t, e, 1, 1000)
-	e.EndBlock()
-	asked := 0
 	e.V2.Reject = func([]byte) error {
-		if asked++; asked == 1 {
-			return fmt.Errorf("%w: out-of-process verifier: the process died", verify.ErrVerifierFault)
-		}
-		return nil
+		return fmt.Errorf("%w: out-of-process verifier: the process died", verify.ErrVerifierFault)
 	}
-	require.NoError(t, transfer(e, transferBundle(2, 20, rootAfter(1))))
-	require.Equal(t, 2, asked)
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	halt := haltOf(t, func() { _ = transfer(e, raw) })
+	require.ErrorIs(t, halt, verify.ErrVerifierFault)
+	require.Contains(t, halt.Error(), "orama-orchard-verifier")
+	require.Contains(t, halt.Error(), "--shielded-verifier")
+	require.Contains(t, halt.Error(), "executes the block again")
+	require.Equal(t, 1, e.V2.Calls, "a fault is not asked again")
+	_, count, err := e.Keeper.NullifierState(e.Ctx)
+	require.NoError(t, err)
+	require.Zero(t, count, "the halted transaction recorded nothing")
 }
 
-// A verdict is never asked again, and neither is a fault in the mempool, whose refusal is local.
-func TestVerify_aVerdictInABlockAndAFaultInCheckTxAreNotAskedAgain(t *testing.T) {
-	e := testutil.NewEnv(t, nil)
-	e.V2.Reject = func([]byte) error { return verify.ErrProofRejected }
-	require.ErrorIs(t, transfer(e, transferBundle(2, 20, emptyAnchor(t))), verify.ErrProofRejected)
-	require.Equal(t, 1, e.V2.Calls, "a rejection is a verdict")
+// The property the halt exists for: a node that lost its verifier mid-block does not record a
+// result its healthy peer did not. After the restart it executes the same block and reaches the
+// peer's result and state exactly.
+func TestTransfer_aNodeThatFaultedReachesItsPeersStateAfterTheRestart(t *testing.T) {
+	healthy := testutil.NewEnv(t, nil)
+	faulty := testutil.NewEnv(t, nil)
+	for _, e := range []*testutil.Env{healthy, faulty} {
+		shield(t, e, 1, 1000)
+		e.EndBlock()
+	}
+	raw := transferBundle(2, 20, rootAfter(1))
+	require.NoError(t, transfer(healthy, raw))
 
-	e = testutil.NewEnv(t, nil)
+	faulty.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	haltOf(t, func() { _ = transfer(faulty, raw) })
+	faulty.V2.Reject = nil // the verifier is fixed and the node restarted
+	require.NoError(t, transfer(faulty, raw), "the restarted node accepts what its peer accepted")
+
+	accH, countH, err := healthy.Keeper.NullifierState(healthy.Ctx)
+	require.NoError(t, err)
+	accF, countF, err := faulty.Keeper.NullifierState(faulty.Ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), countH)
+	require.Equal(t, countH, countF)
+	require.NotEqual(t, [bundle.NodeLen]byte{}, accH)
+	require.Equal(t, accH, accF, "same block, same nullifier accumulator")
+	require.Equal(t, healthy.Bank.Burned.String(), faulty.Bank.Burned.String())
+}
+
+// A bundle the verifier rejects, or panics on, is rejected the same way on every node: both are
+// verdicts that depend on the bytes alone, and neither halts a node.
+func TestTransfer_aVerdictIsTheSameOnEveryNodeAndNeverHalts(t *testing.T) {
+	for name, verdict := range map[string]error{
+		"proof rejected":     verify.ErrProofRejected,
+		"signature rejected": verify.ErrSignatureRejected,
+		"verifier panicked":  verify.ErrVerifierPanic,
+	} {
+		var results []string
+		for node := 0; node < 3; node++ {
+			e := testutil.NewEnv(t, nil)
+			e.V2.Reject = func([]byte) error { return verdict }
+			err := transfer(e, transferBundle(2, 20, emptyAnchor(t)))
+			require.ErrorIs(t, err, verdict, name)
+			require.ErrorIs(t, err, verify.ErrTampered, name)
+			require.Equal(t, 1, e.V2.Calls, "%s: a verdict is asked once", name)
+			results = append(results, err.Error())
+		}
+		require.Equal(t, results[0], results[1], name)
+		require.Equal(t, results[0], results[2], name)
+	}
+}
+
+// The mempool and a simulation are local: a fault there refuses the transaction on this node and
+// is asked once.
+func TestVerify_aFaultInCheckTxRefusesLocallyAndIsAskedOnce(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
 	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
 	raw := transferBundle(3, 20, emptyAnchor(t))
 	ctx := e.CheckCtx()
@@ -390,6 +447,23 @@ func TestVerify_aVerdictInABlockAndAFaultInCheckTxAreNotAskedAgain(t *testing.T)
 	require.NoError(t, err)
 	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
 	require.Equal(t, 1, e.V2.Calls, "CheckTx asks once")
+
+	sim := e.Ctx.WithIsCheckTx(true).WithExecMode(sdk.ExecModeSimulate)
+	require.ErrorIs(t, e.Keeper.Verify(sim, raw, nil, adm), verify.ErrVerifierFault, "a simulation refuses, it does not halt")
+}
+
+// Only FinalizeBlock halts on a fault. The proposal modes never verify a bundle today, but if one
+// ever did, halting there would stop a node on a proposal it merely votes on.
+func TestVerify_onlyFinalizeBlockHaltsOnAFault(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	adm, err := e.Keeper.Admit(e.Ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	for _, mode := range []sdk.ExecMode{sdk.ExecModePrepareProposal, sdk.ExecModeProcessProposal, sdk.ExecModeVoteExtension} {
+		require.ErrorIs(t, e.Keeper.Verify(e.Ctx.WithExecMode(mode), raw, nil, adm), verify.ErrVerifierFault, "mode %d", mode)
+	}
+	haltOf(t, func() { _ = e.Keeper.Verify(e.Ctx.WithExecMode(sdk.ExecModeFinalize), raw, nil, adm) })
 }
 
 func TestTransfer_signerMustBeTheProtocolAddress(t *testing.T) {

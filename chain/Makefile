@@ -105,13 +105,13 @@ VERIFIER_NAME := orama-orchard-verifier
 VERIFIER_PIN_LDFLAG = -X github.com/DeBrosOfficial/network/chain/app.ShieldedVerifierSHA256=$$(cat $(BUILD_DIR)/$(VERIFIER_NAME)-linux-amd64.sha256)
 orchard-verifier:
 	cd $(VERIFIER_CRATE) && cargo build --release --locked
-	@echo "sha256 (give it to oramad as --shielded-verifier-sha256):"
+	@echo "sha256 (link it into oramad: -X .../app.ShieldedVerifierSHA256=<hex>; there is no flag for it):"
 	@shasum -a 256 $(VERIFIER_CRATE)/target/release/$(VERIFIER_NAME) | cut -d' ' -f1
 
 ## orchard-verifier-linux-amd64: the same binary for linux/amd64, static (musl, C parts via zig).
 ## It lands in build/ next to oramad-linux-amd64-orchard; oramad finds it with --shielded-verifier or
-## at <home>/bin/$(VERIFIER_NAME). The .sha256 file beside it is the pin: pass it as
-## --shielded-verifier-sha256 (or link it in with -X .../app.ShieldedVerifierSHA256=<hex>).
+## at <home>/bin/$(VERIFIER_NAME). The .sha256 file beside it is the pin: it is linked into oramad
+## with -X .../app.ShieldedVerifierSHA256=<hex> (VERIFIER_PIN_LDFLAG), and is the only way to set it.
 orchard-verifier-linux-amd64:
 	cd $(VERIFIER_CRATE) && \
 		ORAMA_ZIG="$(ORAMA_ZIG)" ZIG_TARGET=$(ORCHARD_LINUX_AMD64_ZIG_TARGET) \

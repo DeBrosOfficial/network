@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -127,8 +128,8 @@ func TestVerify_acceptAndRejectionMapping(t *testing.T) {
 		t.Fatalf("reject: %v", err)
 	}
 	f.mode(modePanicCode)
-	if err := f.v.Verify(fakeBundle(), nil); !errors.Is(err, verify.ErrVerifierFault) {
-		t.Fatalf("panic code: %v", err)
+	if err := f.v.Verify(fakeBundle(), nil); !errors.Is(err, verify.ErrVerifierPanic) || !errors.Is(err, verify.ErrTampered) || errors.Is(err, verify.ErrVerifierFault) {
+		t.Fatalf("panic code: got %v, want a verdict on the bundle (every node's verifier panics on the same bytes), not a fault", err)
 	}
 	f.mode(modeBadCode)
 	if err := f.v.Verify(fakeBundle(), nil); !errors.Is(err, verify.ErrVerifierFault) {
@@ -155,6 +156,26 @@ func TestVerify_missingBinaryIsNotLinked(t *testing.T) {
 		if !errors.Is(err, verify.ErrVerifierNotLinked) {
 			t.Errorf("%s: got %v, want ErrVerifierNotLinked", name, err)
 		}
+	}
+}
+
+// A binary that is not there says where it looked and what to do. Once the node runs, a binary that
+// disappeared is a fault of this machine (a block halts on it), while a node never configured with
+// one stays "not linked" alone.
+func TestVerify_missingBinaryMessageIsActionable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	err := mustNew(t, Config{Path: path, ChainID: "c"}).Verify(fakeBundle(), nil)
+	if !errors.Is(err, verify.ErrVerifierNotLinked) || !errors.Is(err, verify.ErrVerifierFault) {
+		t.Fatalf("got %v, want ErrVerifierNotLinked and ErrVerifierFault", err)
+	}
+	for _, want := range []string{path, "--shielded-verifier", "install"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the message %q does not mention %q", err, want)
+		}
+	}
+	err = mustNew(t, Config{ChainID: "c"}).Verify(fakeBundle(), nil)
+	if !errors.Is(err, verify.ErrVerifierNotLinked) || errors.Is(err, verify.ErrVerifierFault) {
+		t.Fatalf("an unconfigured verifier is not linked, and no fault: got %v", err)
 	}
 }
 
@@ -324,6 +345,113 @@ func TestPin_aWrongOrMissingPinRefusesToStart(t *testing.T) {
 		if err := v.Verify(fakeBundle(), nil); !errors.Is(err, verify.ErrVerifierNotLinked) {
 			t.Errorf("%s pin: Verify got %v, want ErrVerifierNotLinked", name, err)
 		}
+	}
+}
+
+// copyOfTestBinary copies this test binary (which speaks the fake protocol) to a file of its own
+// that a test can pin and swap.
+func copyOfTestBinary(t *testing.T) string {
+	t.Helper()
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	if err := os.WriteFile(path, raw, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func hashOf(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+// The pin is checked on the file that is then started. A file swapped in at the path between the
+// check and the start (the old check-then-exec window) is not what runs: the pinned file is.
+func TestPin_aBinarySwappedAfterTheCheckIsNotTheOneThatRuns(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("starting the process from the checked file is Linux's /proc/self/fd; elsewhere the window is documented (exec_other.go)")
+	}
+	path := copyOfTestBinary(t)
+	pin := hashOf(t, path)
+	marker := filepath.Join(t.TempDir(), "intruder-ran")
+	intruder := filepath.Join(t.TempDir(), "intruder")
+	script := "#!/bin/sh\ntouch " + marker + "\nexit 1\n"
+	if err := os.WriteFile(intruder, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	afterPinCheck = func() {
+		if err := os.Rename(intruder, path); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(func() { afterPinCheck = nil })
+	t.Setenv(fakeModeFileEnv, filepath.Join(t.TempDir(), "mode"))
+	if err := os.WriteFile(os.Getenv(fakeModeFileEnv), []byte(modeAccept), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	v, err := New(Config{Path: path, ChainID: "c", SHA256: pin, StartTimeout: 10 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = v.Close() })
+	if err := v.Warm(); err != nil {
+		t.Fatalf("the pinned file must start even though the path now holds another file: %v", err)
+	}
+	if err := v.Verify(fakeBundle(), nil); err != nil {
+		t.Fatalf("the pinned verifier answers: %v", err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("the file swapped in after the pin check was executed")
+	}
+	if hashOf(t, path) == pin {
+		t.Fatal("the test did not swap the file at the path")
+	}
+}
+
+// A binary that does not match the pin is refused, whatever sits at the path, and nothing starts.
+func TestPin_aMismatchedBinaryIsRefusedAndNothingStarts(t *testing.T) {
+	path := copyOfTestBinary(t)
+	marker := filepath.Join(t.TempDir(), "ran")
+	script := "#!/bin/sh\ntouch " + marker + "\nexit 1\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	v, err := New(Config{Path: path, ChainID: "c", SHA256: strings.Repeat("ab", 32)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = v.Warm()
+	if !errors.Is(err, ErrBinaryPin) || !errors.Is(err, verify.ErrVerifierFault) {
+		t.Fatalf("got %v, want ErrBinaryPin", err)
+	}
+	for _, want := range []string{path, hashOf(t, path), strings.Repeat("ab", 32)} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the message %q does not mention %q", err, want)
+		}
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("a binary that failed the pin was executed")
+	}
+}
+
+// Only a regular file is a verifier: a directory at the path is refused with the pin error.
+func TestPin_aDirectoryIsRefused(t *testing.T) {
+	v := mustNew(t, Config{Path: t.TempDir(), ChainID: "c", SHA256: strings.Repeat("0", 64)})
+	if err := v.Warm(); err == nil {
+		t.Fatal("a directory started")
 	}
 }
 

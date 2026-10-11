@@ -93,7 +93,7 @@ func NewEnvWithTree(t *testing.T, mutate func(*types.GenesisState), tree types.T
 	e.Bonder = NewBonder(e.Bank)
 	e.Nodes = &NodeBonder{Bank: e.Bank}
 	e.Keeper = e.KeeperWith(e.V1, e.V2)
-	e.Ctx = sdk.NewContext(cms, cmtproto.Header{}, false, log.NewNopLogger()).WithBlockHeader(e.header())
+	e.Ctx = sdk.NewContext(cms, cmtproto.Header{}, false, log.NewNopLogger()).WithBlockHeader(e.header()).WithExecMode(sdk.ExecModeFinalize)
 
 	gs := types.DefaultGenesisState()
 	gs.Params.NullifierFee = paramsInt(1)
@@ -170,7 +170,7 @@ func (e *Env) Crash() {
 	e.T.Helper()
 	require.NoError(e.T, e.CMS.LoadLatestVersion())
 	e.restore(e.committed)
-	e.Ctx = sdk.NewContext(e.CMS, cmtproto.Header{}, false, log.NewNopLogger()).WithBlockHeader(e.header())
+	e.Ctx = sdk.NewContext(e.CMS, cmtproto.Header{}, false, log.NewNopLogger()).WithBlockHeader(e.header()).WithExecMode(sdk.ExecModeFinalize)
 }
 
 // Advance moves the current block's time forward without ending it.

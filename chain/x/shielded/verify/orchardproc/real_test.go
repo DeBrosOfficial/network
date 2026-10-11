@@ -126,7 +126,7 @@ func TestReal_bothVerifiersAgreeOnEveryMutation(t *testing.T) {
 
 func sameKind(a, b error) bool {
 	for _, target := range []error{
-		verify.ErrMalformed, verify.ErrProofLength, verify.ErrProofRejected, verify.ErrSignatureRejected, verify.ErrVerifierFault,
+		verify.ErrMalformed, verify.ErrProofLength, verify.ErrProofRejected, verify.ErrSignatureRejected, verify.ErrVerifierPanic, verify.ErrVerifierFault,
 	} {
 		if errors.Is(a, target) != errors.Is(b, target) {
 			return false

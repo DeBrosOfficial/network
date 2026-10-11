@@ -138,6 +138,7 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 	app.nullifierStore = store
 
 	app.ShieldedVerifiers = app.newShieldedVerifiers(appOpts)
+	app.AddRunTxRecoveryHandler(letVerifierHaltThrough)
 	app.ShieldedKeeper = shieldedkeeper.NewKeeper(
 		app.appCodec,
 		runtime.NewKVStoreService(keys[shieldedtypes.StoreKey]),
@@ -152,6 +153,19 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 			Verifiers:  app.ShieldedVerifiers,
 		},
 	)
+}
+
+// letVerifierHaltThrough is the transaction runner's recovery handler for a shielded verifier
+// halt. The runner turns any panic in a transaction into that transaction's failed result, which is
+// right for a bug in a message and wrong here: a verifier fault is a fact about this node's machine,
+// and a result recorded from it would differ from its peers' (shieldedkeeper.VerifierHalt). The
+// handler panics again with the halt itself, which no recovery between here and the consensus
+// reactor catches, so the node stops before it commits the block.
+func letVerifierHaltThrough(recovered any) error {
+	if halt, ok := recovered.(shieldedkeeper.VerifierHalt); ok {
+		panic(halt)
+	}
+	return nil
 }
 
 // registerShieldedSnapshot adds the nullifier database to state-sync snapshots. The IAVL snapshot

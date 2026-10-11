@@ -490,9 +490,8 @@ func TestShieldedReal_aNodeRefusesToStartWithAVerifierBinaryThatIsNotItsPin(t *t
 	vectorChainIDFromFile(t)
 	path := realVerifierPath(t)
 	open := func(pin string) {
-		opts := simtestutil.AppOptionsMap{
-			flags.FlagHome: t.TempDir(), app.FlagShieldedVerifier: path, app.FlagShieldedVerifierSHA256: pin,
-		}
+		setVerifierPin(t, pin)
+		opts := simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir(), app.FlagShieldedVerifier: path}
 		a := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, opts, baseapp.SetChainID(vectorChainID))
 		_ = a.Close()
 	}

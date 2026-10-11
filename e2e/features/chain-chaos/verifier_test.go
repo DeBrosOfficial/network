@@ -64,8 +64,9 @@ func killVerifierScript() string {
 // oramad with CGO_ENABLED=0 and installs no verifier binary: a devnet id is
 // exempt, chain/app/shielded_verifiers.go verifiersOptional), so on it this
 // test is not applicable. By the code a child that dies during a verification
-// in FinalizeBlock is no verdict: the keeper asks again with a fresh process, up
-// to blockVerifyAttempts times, so every node reaches the verdict its peers do
+// in FinalizeBlock is no verdict and records no result: the keeper stops the node
+// with a VerifierHalt and the block is executed again after the restart, so no
+// node commits a result its peers did not
 // (chain/x/shielded/keeper/admit.go checkInBlock). The agreement check below is
 // the assertion that holds that property once shielded traffic can drive the
 // verifier during the kills; the fleet cannot produce it today.
