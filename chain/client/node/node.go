@@ -99,6 +99,25 @@ func DialWith(rpcAddr string, extra ...func(codectypes.InterfaceRegistry)) (*Cli
 	}, nil
 }
 
+// RPC returns the CometBFT RPC client, for a caller that broadcasts transactions it signed itself
+// (a load generator) and so must not take Submit's simulate-and-poll path.
+func (c *Client) RPC() *rpchttp.HTTP { return c.rpc }
+
+// TxBuilder returns the builder that signs with the client's codec.
+func (c *Client) TxBuilder() *tx.Builder { return c.builder }
+
+// TxConfig returns the client's transaction config, which decodes the transactions of a block.
+func (c *Client) TxConfig() client.TxConfig { return c.txConfig }
+
+// Account returns the account number and sequence of addr. An account that does not exist yet is an
+// error that says it must be funded first.
+func (c *Client) Account(ctx context.Context, addr string) (number, sequence uint64, err error) {
+	return c.account(ctx, addr)
+}
+
+// BaseFee returns x/fees' current base fee per gas unit.
+func (c *Client) BaseFee(ctx context.Context) (math.Int, error) { return c.baseFee(ctx) }
+
 // Query runs one gRPC query method as an ABCI query at the latest height.
 // method is the full gRPC name, for example /orama.storage.v1.Query/Slot.
 func (c *Client) Query(ctx context.Context, method string, req, resp gogoproto.Message) error {

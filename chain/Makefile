@@ -23,7 +23,7 @@ BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 WASMVM_DIR := $(shell go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3 2>/dev/null)
 LIBWASMVM := $(firstword $(wildcard $(WASMVM_DIR)/internal/api/libwasmvm.dylib $(WASMVM_DIR)/internal/api/libwasmvm.aarch64.so $(WASMVM_DIR)/internal/api/libwasmvm.x86_64.so))
 
-.PHONY: build build-wasm contracts-verify test chain-test lint chain-sim localnet localnet-stop localnet-clean orchard-lib orchard-lib-linux-amd64 proto-shielded proto-emission proto-fees proto-power proto-nodes orchard-verifier orchard-verifier-linux-amd64 orchard-test build-linux-amd64-orchard orchard-smoke orchard-smoke-linux-amd64 native-lib-linux-amd64 build-linux-amd64-full build-linux-amd64-global bench bench-baseline bench-compare
+.PHONY: bench bench-baseline bench-compare bench-load build build-linux-amd64-full build-linux-amd64-global build-linux-amd64-orchard build-wasm chain-sim chain-test contracts-verify lint localnet localnet-clean localnet-stop native-lib-linux-amd64 orchard-lib orchard-lib-linux-amd64 orchard-smoke orchard-smoke-linux-amd64 orchard-test orchard-verifier orchard-verifier-linux-amd64 proto-emission proto-fees proto-nodes proto-power proto-shielded test
 
 ## build: cross-compile oramad for linux/amd64, darwin/amd64 and darwin/arm64.
 ## CGO_ENABLED=0 and -tags nowasm: these binaries are static and do not include CosmWasm.
@@ -204,6 +204,15 @@ lint:
 N ?= 4
 localnet:
 	./scripts/localnet/localnet.sh start $(N)
+
+## bench-load: run the oramad-bench load generator against a fresh local 4-validator localnet and tear
+## it down. BENCH_PROFILE=smoke (default) is a short run of every transaction type; BENCH_PROFILE=full
+## looks for saturation and takes a long time. It starts the localnet with 1s blocks, the faucet on,
+## CosmWasm when libwasmvm is installed and the shielded verifiers when cargo is. Env: BENCH_TYPES,
+## N, TIMEOUT_COMMIT, VOTE_EXTENSIONS_ENABLE_HEIGHT, KEEP_LOCALNET (see scripts/localnet/bench-load.sh).
+## Local only: it never touches devnet, testnet or stagenet. The report lands in build/bench-report.json.
+bench-load:
+	./scripts/localnet/bench-load.sh
 
 ## localnet-stop: stop every running localnet node without deleting chain data.
 localnet-stop:
