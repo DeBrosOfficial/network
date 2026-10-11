@@ -19,7 +19,7 @@ It burns a **10 ORAMA** creation fee and locks a **metadata deposit** of 68,359 
 |---|---|
 | `Mint` | The creator, while it still holds the mint capability |
 | `Burn` | Burns from the signer's own bank balance |
-| `Transfer` | A bank send with the pause, non-transferable, freeze and transfer-fee checks. `from` must be the signer unless the signer is the permanent delegate |
+| `Transfer` | A bank send with the pause, non-transferable, freeze and transfer-fee checks. `from` must be the signer unless the signer is the permanent delegate. `to` must not be a module account (the same blocked list `MsgSend` enforces) |
 | `SetFrozen`, `SetPaused` | The creator, while it holds those capabilities |
 | `Renounce` | Gives a capability up for good. The permanent delegate alone renounces its own |
 | `SetShieldable` | A one-way flag. Refused while freeze, permanent delegate or pause is held. The shielded pool moves ORAMA only, so this does not shield tokens |

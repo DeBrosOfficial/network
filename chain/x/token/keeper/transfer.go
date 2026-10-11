@@ -40,6 +40,12 @@ func (k Keeper) Transfer(ctx sdk.Context, msg *types.MsgTransfer) error {
 	if err := requirePositive(msg.Amount, "transfer amount"); err != nil {
 		return err
 	}
+	// The keeper sends with bank.SendCoins, which does not look at the blocked-address list that
+	// x/bank's own MsgSend enforces; without this check a transfer could pay a module account,
+	// whose coins no ledger of the module accounts for.
+	if k.bank.BlockedAddr(to) {
+		return fmt.Errorf("transfer to %s refused: it is a module account, which cannot receive a direct send", msg.To)
+	}
 	if from.Equals(to) {
 		return fmt.Errorf("transfer from and to must differ")
 	}

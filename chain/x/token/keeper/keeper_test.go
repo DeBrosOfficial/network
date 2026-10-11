@@ -51,6 +51,13 @@ type fakeBank struct {
 	balances map[string]map[string]math.Int
 	supply   map[string]math.Int
 	burned   map[string]math.Int
+	blocked  map[string]bool
+}
+
+// BlockedAddr stands in for x/bank's blocked-address list: the module accounts the fake knows, and
+// any address a test blocked.
+func (b *fakeBank) BlockedAddr(addr sdk.AccAddress) bool {
+	return b.blocked[addr.String()] || b.keyOf(addr) != addr.String()
 }
 
 func newFakeBank() *fakeBank {
@@ -58,6 +65,7 @@ func newFakeBank() *fakeBank {
 		balances: map[string]map[string]math.Int{},
 		supply:   map[string]math.Int{},
 		burned:   map[string]math.Int{},
+		blocked:  map[string]bool{},
 	}
 }
 

@@ -22,6 +22,8 @@ type BankKeeper interface {
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	SpendableCoin(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	GetSupply(ctx context.Context, denom string) sdk.Coin
+	// BlockedAddr reports whether addr (a module account) may not receive a direct send.
+	BlockedAddr(addr sdk.AccAddress) bool
 }
 
 // FeesKeeper is the subset of x/fees used to lock and release the metadata
