@@ -37,7 +37,7 @@ fn sighash(chain_id: &str, bundle: &[u8]) -> [u8; 32] {
     h.finalize().into()
 }
 
-fn build(pk: &ProvingKey, bundle_type: BundleType, name: &str, out: &PathBuf) {
+fn build(pk: &ProvingKey, bundle_type: BundleType, name: &str, out: &std::path::Path) {
     let mut rng = OsRng;
     let sk = SpendingKey::from_bytes([7; 32]).unwrap();
     let fvk = FullViewingKey::from(&sk);
@@ -61,7 +61,7 @@ fn build(pk: &ProvingKey, bundle_type: BundleType, name: &str, out: &PathBuf) {
     // yields the prefix the real sighash covers.
     let probe = proven
         .clone()
-        .apply_signatures(&mut rng, [0u8; 32], &[])
+        .apply_signatures(rng, [0u8; 32], &[])
         .unwrap();
     let mut probe_bytes = Vec::new();
     let probe = probe
@@ -73,7 +73,7 @@ fn build(pk: &ProvingKey, bundle_type: BundleType, name: &str, out: &PathBuf) {
     let hash = sighash(CHAIN_ID, &probe_bytes);
 
     let bundle = proven
-        .apply_signatures(&mut rng, hash, &[])
+        .apply_signatures(rng, hash, &[])
         .unwrap()
         .try_map_value_balance::<_, (), _>(|v| {
             zcash_protocol::value::ZatBalance::from_i64(v).map_err(|_| ())
