@@ -46,8 +46,7 @@ it belongs to. Run it on the node, as root.
 
 The faucet gives test ORAMA to whoever asks (POST /v1/chain/faucet): the gateway
 signs MsgFaucet for the recipient with this key and the chain mints the drip.
-It exists only on a test network (a chain id with -stagenet-, -devnet- or
--localnet-; the gateway refuses to sign anywhere else), the chain keeps its own
+It exists only on a test network (a chain id of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
 limits (a maximum drip, a cooldown per recipient, a cap per epoch), and it must
 be on in the genesis (faucet_enabled).
 

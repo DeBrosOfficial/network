@@ -3,7 +3,7 @@
 // The chain refuses, at its genesis, what only a test network may do: a
 // bootstrap committee smaller than ProductionMinCommitteeSize, a faucet, a
 // genesis supply and short epochs. It decides by the chain id alone (a test
-// network's carries one of NonProductionMarkers), and the CLI makes the same
+// network's is exactly a localnet, devnet or stagenet id), and the CLI makes the same
 // decision before it builds a genesis the chain would refuse, so the mistake is
 // found before any machine is touched. TestNetclass_matchesChain keeps the
 // constants equal to the chain's.
@@ -12,7 +12,6 @@ package netclass
 import (
 	"fmt"
 	"regexp"
-	"strings"
 )
 
 // MaxChainIDLen is the longest chain id any part of the system takes.
@@ -29,16 +28,15 @@ var chainIDPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,` + fmt.Sprint(Ma
 // a-z, 0-9 and '-', not starting or ending with '-'.
 func ValidChainID(id string) bool { return chainIDPattern.MatchString(id) }
 
-// The chain id fragments of the networks that are not production.
-const (
-	MarkerStagenet = "-stagenet-"
-	MarkerDevnet   = "-devnet-"
-	MarkerLocalnet = "-localnet-"
-)
+// TestChainIDForm names, in messages, the chain ids of a test network.
+const TestChainIDForm = "orama-[<name>-](localnet|devnet|stagenet)-<id>"
 
-// NonProductionMarkers are the fragments a test network's chain id carries:
-// chain/x/power/keeper and chain/x/emission/keeper nonProductionChainIDMarkers.
-var NonProductionMarkers = []string{MarkerStagenet, MarkerDevnet, MarkerLocalnet}
+// testChainIDPattern is the chain's own rule for a test network's chain id, the same pattern as
+// chain/app/params testChainIDPattern (TestNetclass_matchesChain keeps them equal): "orama-",
+// optionally one name word that starts with a letter, the class, then one or more lowercase
+// alphanumeric words joined by hyphens. It is anchored at both ends, so an id that only contains a
+// class word ("orama-1-stagenet-x") is a production id.
+var testChainIDPattern = regexp.MustCompile(`^orama-(?:[a-z][a-z0-9]*-)?(localnet|devnet|stagenet)-[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // ProductionMinCommittee is the smallest bootstrap committee a production
 // chain id may start with (chain/x/power/types ProductionMinCommitteeSize).
@@ -48,16 +46,15 @@ const ProductionMinCommittee = 30
 // a faucet runs on.
 func IsTestNetwork(chainID string) bool { return !IsProduction(chainID) }
 
-// IsProduction reports whether chainID names a production network: one that
-// carries none of NonProductionMarkers.
-func IsProduction(chainID string) bool {
-	for _, m := range NonProductionMarkers {
-		if strings.Contains(chainID, m) {
-			return false
-		}
-	}
-	return true
+// IsLocalnet reports whether chainID names a localnet, the class on which the chain locks no parameter.
+func IsLocalnet(chainID string) bool {
+	m := testChainIDPattern.FindStringSubmatch(chainID)
+	return m != nil && m[1] == "localnet"
 }
+
+// IsProduction reports whether chainID names a production network: one that is not exactly a
+// localnet, devnet or stagenet id.
+func IsProduction(chainID string) bool { return !testChainIDPattern.MatchString(chainID) }
 
 // CheckCommittee refuses a production chain id whose bootstrap committee is
 // smaller than the floor. A test network may have any size of at least one.
@@ -66,9 +63,9 @@ func CheckCommittee(chainID string, size int) error {
 		return fmt.Errorf("a bootstrap committee needs at least one member")
 	}
 	if IsProduction(chainID) && size < ProductionMinCommittee {
-		return fmt.Errorf("chain id %q has none of %s, so it is a production network, and a production network starts with at least %d bootstrap validators, not %d: "+
+		return fmt.Errorf("chain id %q is not of the form %s, so it is a production network, and a production network starts with at least %d bootstrap validators, not %d: "+
 			"use a chain id such as orama-<name>-stagenet-1 for a test network",
-			chainID, strings.Join(NonProductionMarkers, ", "), ProductionMinCommittee, size)
+			chainID, TestChainIDForm, ProductionMinCommittee, size)
 	}
 	return nil
 }

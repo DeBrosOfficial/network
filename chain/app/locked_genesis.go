@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"cosmossdk.io/math"
+
+	"github.com/DeBrosOfficial/network/chain/app/params"
 )
 
 // G1 locks every genesis parameter at the value the plan signs off
@@ -17,19 +19,14 @@ import (
 // its plan literal and citation, and fails when a module gains a parameter that
 // has no row there.
 //
-// Chain-id classes:
-//   - "-localnet-": nothing is locked. Local tests and scripts/localnet need short
-//     epochs and one-seat committees.
-//   - "-devnet-" and "-stagenet-": everything is locked except the keys in
-//     testnetRelaxedParams. Those are the shortened epoch clock and the small
+// Chain-id classes (params.ClassOfChainID: an exact pattern, never a substring):
+//   - orama-localnet-<name>: nothing is locked. Local tests and scripts/localnet need
+//     short epochs and one-seat committees.
+//   - orama-devnet-<name> and orama-stagenet-<name>: everything is locked except the
+//     keys in testnetRelaxedParams. Those are the shortened epoch clock and the small
 //     committee that chain/scripts/stagenet/deploy.sh sets on purpose.
-//   - anything else (a production chain-id): every locked parameter must equal its
-//     plan value.
-const (
-	localnetMarker = "-localnet-"
-)
-
-var testnetChainIDMarkers = []string{"-devnet-", "-stagenet-"}
+//   - anything else (a production chain-id, including one that merely contains a class
+//     word such as "orama-1-stagenet-x"): every locked parameter must equal its plan value.
 
 // lockedModules are the genesis modules whose "params" are locked. Each name is
 // the module's genesis key.
@@ -70,7 +67,7 @@ var testnetRelaxedParams = map[string]bool{
 // IsLocalnetChainID reports whether chainID names a localnet, the chain class where nothing is locked
 // and node safeguards meant for a public chain (an unbounded query gas limit is refused) do not apply.
 func IsLocalnetChainID(chainID string) bool {
-	return strings.Contains(chainID, localnetMarker)
+	return params.ClassOfChainID(chainID) == params.ChainLocalnet
 }
 
 // ValidateLockedGenesis returns an error naming every locked parameter in gs
@@ -80,12 +77,8 @@ func ValidateLockedGenesis(chainID string, defaults, gs GenesisState) error {
 	if IsLocalnetChainID(chainID) {
 		return nil
 	}
-	relaxed := false
-	for _, marker := range testnetChainIDMarkers {
-		if strings.Contains(chainID, marker) {
-			relaxed = true
-		}
-	}
+	class := params.ClassOfChainID(chainID)
+	relaxed := class == params.ChainDevnet || class == params.ChainStagenet
 
 	var diffs []string
 	for _, module := range lockedModules {

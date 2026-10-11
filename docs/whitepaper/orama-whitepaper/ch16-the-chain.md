@@ -96,6 +96,6 @@ The gateway serves a public `/v1/chain/` proxy, with no credential, since a wall
 
 ## Trust and limits
 
-Validators trust the compiled rules. There is no admin key, no pause and no parameter-change message, so the cost of a mistake in a stock module is a new genesis. Two consequences follow. The invariants of every module are queries, not block-time assertions, since no crisis module is wired. And a coordinated upgrade is a restart, not a migration.
+Validators trust the compiled rules. There is no admin key, no pause and no parameter-change message, so the cost of a mistake in a stock module is a new genesis. Two consequences follow. The app halts the chain if the supply or a module ledger breaks its invariant. And a coordinated upgrade is a restart, not a migration.
 
 The single most important limit is that last one: with no upgrade handler or migration, a state-breaking release cannot be applied to a running chain, so every such release restarts from a new genesis. Confidential nodes, the TEE-attestation boundary in `chain/x/confidential/`, accept no attestation and are imported by nothing.

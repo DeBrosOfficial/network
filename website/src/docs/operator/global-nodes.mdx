@@ -171,7 +171,7 @@ Run it on a machine where `orama node setup` has already installed the cluster n
 
 ## Run a faucet
 
-On a test network (a chain id with `-stagenet-`, `-devnet-` or `-localnet-`) a gateway can fund newcomers. They have no account, no node and no SSH access, so the gateway signs the faucet transaction (`MsgFaucet`) for them with a key of its own, and `orama setup` asks the network's seeds for it. It is off unless you turn it on, and the gateway signs on no other kind of network. The chain keeps its own limits: a maximum drip, a cooldown per recipient (a day by default) and a cap per epoch.
+On a test network (a chain id that is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>`) a gateway can fund newcomers. They have no account, no node and no SSH access, so the gateway signs the faucet transaction (`MsgFaucet`) for them with a key of its own, and `orama setup` asks the network's seeds for it. It is off unless you turn it on, and the gateway signs on no other kind of network. The chain keeps its own limits: a maximum drip, a cooldown per recipient (a day by default) and a cap per epoch.
 
 Do this on each gateway that should serve it, one at a time:
 

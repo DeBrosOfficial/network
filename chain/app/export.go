@@ -20,6 +20,11 @@ import (
 func (app *OramaApp) ExportAppStateAndValidators(forZeroHeight bool, jailAllowedAddrs, modulesToExport []string) (servertypes.ExportedApp, error) {
 	ctx := app.NewContextLegacy(true, cmtproto.Header{Height: app.LastBlockHeight()})
 
+	// A state that breaks conservation is not written out as the start of a new chain.
+	if err := app.CheckConservationFull(ctx); err != nil {
+		return servertypes.ExportedApp{}, fmt.Errorf("refusing to export a state that breaks conservation: %w", err)
+	}
+
 	// CometBFT starts InitChain at last height + 1.
 	height := app.LastBlockHeight() + 1
 	if forZeroHeight {

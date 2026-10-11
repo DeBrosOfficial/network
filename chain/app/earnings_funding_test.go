@@ -49,7 +49,7 @@ func newEarningsOnlyChain(t *testing.T, earnings int64) earningsOnlyChain {
 	ctx := sdk.NewContext(oramaApp.CommitMultiStore(), cmtprototypes.Header{Height: 2, Time: genesisTime.Add(2 * time.Second)}, false, oramaApp.Logger())
 	addr := sdk.AccAddress(bytes.Repeat([]byte{0x42}, 20))
 	coin := sdk.NewCoin(params.BaseDenom, math.NewInt(earnings))
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, sdk.NewCoins(coin)))
+	require.NoError(t, mintNoramaForTest(oramaApp, ctx, sdk.NewCoins(coin)))
 	require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(ctx, emissiontypes.ModuleName, addr, coin))
 	require.True(t, oramaApp.BankKeeper.GetBalance(ctx, addr, params.BaseDenom).Amount.IsZero())
 	return earningsOnlyChain{app: oramaApp, ctx: ctx, addr: addr}

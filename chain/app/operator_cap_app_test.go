@@ -41,7 +41,7 @@ func TestApp_aValidatorCountsTowardTheOperatorOfTheNodeThatBindsItsConsensusKey(
 	gas := uint64(300_000)
 	credit := bond.Add(math.NewInt(int64(gas))).MulRaw(2)
 	fundCtx := oramaApp.NewNextBlockContext(cmtproto.Header{Height: 2, Time: genesisTime.Add(4 * time.Second)})
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(fundCtx, emissiontypes.ModuleName, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit.MulRaw(2)))))
+	require.NoError(t, mintNoramaForTest(oramaApp, fundCtx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit.MulRaw(2)))))
 	for _, addr := range []sdk.AccAddress{validatorAcc, operator} {
 		require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(fundCtx, emissiontypes.ModuleName, addr, sdk.NewCoin(params.BaseDenom, credit)))
 	}

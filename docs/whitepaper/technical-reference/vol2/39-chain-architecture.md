@@ -35,7 +35,7 @@ Fifth, there is no admin. The authority address of every stock module is the has
 
 **Authority.** The address that may sign a module's parameter-change message. For every stock module it is `UnreachableAuthority()`, the address of the module name `orama/no-authority`.
 
-**Chain-id class.** A chain-id containing `-localnet-`, `-devnet-` or `-stagenet-` is a test network; anything else is production. Several checks (the faucet, the short epochs, the small committee, the locked parameters) read this and nothing else.
+**Chain-id class.** A chain-id is a test network only when it matches one anchored pattern, `^orama-(?:[a-z][a-z0-9]*-)?(localnet|devnet|stagenet)-[a-z0-9]+(?:-[a-z0-9]+)*$` (`chain/app/params/chainid.go:ClassOfChainID`): `orama-stagenet-10`, `orama-devnet-e2e-run7`, `orama-pubnet-stagenet-1`. Anything else is production, including an id that only contains a class word such as `orama-1-stagenet-x`. Several checks (the faucet, the bootstrap stake, the short epochs, the small committee, the locked parameters, the optional shielded verifier) call that one function and read nothing else; the CLI keeps a copy of the pattern in `core/pkg/netclass`, and a test fails when the two differ.
 
 **Bootstrap committee.** The genesis list of validators in `x/power`. Each has an equal bootstrap share B_i of 1/n and needs no stake. A seat counts only while its staking record is bonded, not jailed and not tombstoned.
 
@@ -404,6 +404,8 @@ No module has a pause, a freeze or an admin key, so every response to a chain fa
 
 Every module that holds or moves norama checks its own books through `oramad query <module> invariants`. `chain/scripts/stagenet/deploy.sh` lists them in `INVARIANT_MODULES` (`emission fees storage nodes relay houses token market power shielded`), and `deploy.sh invariants` fails when any node reports a broken check.
 
+**In-block conservation.** At the end of every block the chain asserts that nobody created or lost a coin (`chain/app/conservation.go`). After every module has finished its end-blocker it checks that the norama supply equals what `x/emission` recorded, which means no module but `x/emission` has minted norama and every drop has been booked as a burn, and that `cumulative_minted` is the schedule's. Every `min_blocks_per_epoch` blocks (14,400 on a production chain, about a day) it also runs a full pass: for every denom the supply is the sum of all balances, every denom with a supply is norama or a token `x/token` has a record of, the staking pools hold exactly the tokens of the validators and unbonding entries, and the ledger invariants of `x/token`, `x/power`, `x/fees`, `x/nodes`, `x/shielded` (without the nullifier-database fold), `x/houses`, `x/storage`, `x/market`, `x/relay` and `x/wasmpolicy` hold. A failed check is an error from the end-blocker, so the block does not commit and the chain halts on every validator at that height; `oramad export` runs the full pass first and refuses a state that fails it. The checks read only committed state, in key order, with integers, so every validator reaches the same verdict. The full pass visits every balance once: about 0.7 microseconds per account in memory (`BenchmarkConservationFull`), so its cost grows linearly with accounts and the block that runs it takes that long. Tests: `chain/app/conservation_test.go` (each class of damage halts the next block), `chain/app/sim_test.go` (the seeded simulation, `make -C chain chain-sim`) and `TestModuleAccountPermissions_exactSet`, which pins the full set of module accounts and their Minter and Burner permissions.
+
 | Module | What the check asserts |
 |---|---|
 | `x/emission` | minted equals the schedule; bank supply equals genesis supply plus validator, development and service mints minus burns |
@@ -588,7 +590,7 @@ All three are part of cutting a release (`website/src/docs/contributor/performan
 - A comment in `chain/x/inclusion/params.go` sizes the embedded cap for a 150-validator active set; `staking.max_validators` is 100 and `x/power` does not change it.
 - Vote extensions are a genesis-only switch; a chain that started without them cannot turn them on without a new genesis (`chain/app/inclusion_handlers.go:voteExtensionActive`).
 - Disk-full and write-failure handling are not part of the application; they are whatever CometBFT and the store do.
-- The invariant queries of every module are the only runtime check of ledger consistency; none is asserted in a block after genesis (see [economics](40-economics.md#known-gaps)).
+- The conservation check halts the chain on a supply above the emission ledger and, once per epoch floor, on a broken ledger; a drop in supply is still booked as a burn (see [economics](40-economics.md#known-gaps)). The shielded nullifier-database fold is checked when a node starts, not in a block.
 - `chain/x/confidential` and `chain/spikes/` carry no operational role; they are listed here because the manifest assigns them to this chapter.
 
 ## Verify it yourself

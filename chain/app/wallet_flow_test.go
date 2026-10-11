@@ -85,7 +85,7 @@ func (f *flow) fundEarnings(w wallet, orama int64) {
 	f.t.Helper()
 	coin := sdk.NewCoin(params.BaseDenom, math.NewInt(orama).MulRaw(oneOrama))
 	f.write(func(ctx sdk.Context) {
-		require.NoError(f.t, f.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, sdk.NewCoins(coin)))
+		require.NoError(f.t, mintNoramaForTest(f.app, ctx, sdk.NewCoins(coin)))
 		require.NoError(f.t, f.app.FeesKeeper.CreditEarnings(ctx, emissiontypes.ModuleName, w.addr, coin))
 	})
 }
@@ -95,7 +95,7 @@ func (f *flow) fundBank(w wallet, orama int64) {
 	f.t.Helper()
 	coins := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, math.NewInt(orama).MulRaw(oneOrama)))
 	f.write(func(ctx sdk.Context) {
-		require.NoError(f.t, f.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, coins))
+		require.NoError(f.t, mintNoramaForTest(f.app, ctx, coins))
 		require.NoError(f.t, f.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, w.addr, coins))
 	})
 }

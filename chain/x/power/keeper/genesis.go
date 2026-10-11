@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	"strings"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
@@ -12,12 +11,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
+	"github.com/DeBrosOfficial/network/chain/app/params"
 	"github.com/DeBrosOfficial/network/chain/x/power/types"
 )
-
-// nonProductionChainIDMarkers mirrors x/emission's own gate (keeper.checkBootstrapChainID there):
-// a mainnet chain-id contains none of these.
-var nonProductionChainIDMarkers = []string{"-stagenet-", "-devnet-", "-localnet-"}
 
 // InitGenesis sets x/power's state from a GenesisState and returns the genesis CometBFT
 // validator set.
@@ -199,18 +195,18 @@ func validatorUpdatesFromPowerRecords(records []types.ValidatorPowerRecord) ([]a
 }
 
 // checkCommitteeSizeChainIDGate mirrors x/emission's checkBootstrapChainID: a production chain-id
-// (one containing none of nonProductionChainIDMarkers) must declare at least
+// (one that is not exactly a localnet, devnet or stagenet id, params.ClassOfChainID) must declare at least
 // types.ProductionMinCommitteeSize bootstrap committee members; a devnet/stagenet/localnet
 // chain-id may declare as few as params.MinCommitteeSize (checked separately by
 // GenesisState.Validate).
 func checkCommitteeSizeChainIDGate(ctx sdk.Context, p types.Params, committeeSize int) error {
-	if isNonProductionChainID(ctx.ChainID()) {
+	if params.IsNonProductionChainID(ctx.ChainID()) {
 		return nil
 	}
 	if uint64(committeeSize) < types.ProductionMinCommitteeSize {
 		return fmt.Errorf(
-			"chain-id %q looks like a production chain-id (contains none of %v) but only declares %d bootstrap committee members, want at least %d",
-			ctx.ChainID(), nonProductionChainIDMarkers, committeeSize, types.ProductionMinCommitteeSize,
+			"chain-id %q is a production chain-id (not of the form orama-(localnet|devnet|stagenet)-<name>) but only declares %d bootstrap committee members, want at least %d",
+			ctx.ChainID(), committeeSize, types.ProductionMinCommitteeSize,
 		)
 	}
 	return nil
@@ -229,15 +225,6 @@ func valoperFromAccountBech32(accBech32 string) (string, error) {
 		return "", err
 	}
 	return sdk.ValAddress(accAddr).String(), nil
-}
-
-func isNonProductionChainID(chainID string) bool {
-	for _, marker := range nonProductionChainIDMarkers {
-		if strings.Contains(chainID, marker) {
-			return true
-		}
-	}
-	return false
 }
 
 // ExportGenesis reads x/power's current state back into a GenesisState, with Exported set so a

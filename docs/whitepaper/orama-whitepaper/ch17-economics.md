@@ -53,7 +53,7 @@ Storage, relay and development shares are claimed by the modules that can prove 
 
 ### Accounting for burns
 
-`x/emission` has no burn path; fees, deposits, tokens, service splits, shielded fees and slashing burn on their own. A reconciliation in the last end-blocker compares the bank supply with genesis supply plus mints minus recorded burns, and attributes any shortfall to burning. It never raises the counter on a surplus, so a mint that bypasses the counters shows up as a broken invariant.
+`x/emission` has no burn path; fees, deposits, tokens, service splits, shielded fees and slashing burn on their own. A reconciliation in the last end-blocker compares the bank supply with genesis supply plus mints minus recorded burns, and attributes any shortfall to burning. It never raises the counter on a surplus, so a mint that bypasses the counters shows up as a broken invariant, and the conservation check at the end of the block halts the chain on it (below).
 
 ## The base fee
 
@@ -87,4 +87,4 @@ Anyone can create a denom `factory/creator/subdenom` in `x/bank` for 10 ORAMA pl
 
 ## Limits
 
-The ledger invariants are not asserted after genesis, since no crisis module is wired; a break is visible only through queries. And commission is uncapped: a validator can take all of an epoch's reward from its delegators.
+The supply identity and the module ledgers are asserted in the chain itself: the end-blocker halts the block on a norama supply above the emission ledger, and a full pass over every balance and every module ledger runs once per epoch floor. A drop in supply is still booked as a burn, so a bug that destroys coins through a module with the burn permission is recorded, not stopped. And commission is uncapped: a validator can take all of an epoch's reward from its delegators.

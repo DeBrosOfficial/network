@@ -201,7 +201,7 @@ func (c *shieldedChain) fund(t *testing.T, who cryptotypes.PrivKey, amount int64
 	t.Helper()
 	ctx := c.app.NewNextBlockContext(cmtproto.Header{Height: c.height + 1, Time: c.blockTime(c.height + 1)})
 	coins := sdk.NewCoins(sdk.NewInt64Coin(params.BaseDenom, amount))
-	require.NoError(t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, coins))
+	require.NoError(t, mintNoramaForTest(c.app, ctx, coins))
 	require.NoError(t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, addr(who), coins))
 	writeCache(t, ctx)
 	_, err := c.app.Commit()

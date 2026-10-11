@@ -117,7 +117,7 @@ func (c *wasmChain) fund(addr sdk.AccAddress, norama int64) {
 	c.t.Helper()
 	c.write(func(ctx sdk.Context) {
 		coins := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, math.NewInt(norama)))
-		require.NoError(c.t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, coins))
+		require.NoError(c.t, mintNoramaForTest(c.app, ctx, coins))
 		require.NoError(c.t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, addr, coins))
 	})
 }

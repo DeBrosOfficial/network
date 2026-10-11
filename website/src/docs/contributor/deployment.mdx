@@ -130,7 +130,7 @@ orama setup --create-network stagenet --chain-id orama-stagenet-N --release-root
   --host-key 161.97.184.202=SHA256:... --host-key 161.97.151.255=SHA256:...
 ```
 
-`chain/scripts/stagenet/deploy.sh` is what is left of the old deploy script: the maintenance of the stagenet that runs. It refuses to run for a `CHAIN_ID` that does not contain `-stagenet-` or `-devnet-`, and it never starts, stops or reconfigures a cluster service.
+`chain/scripts/stagenet/deploy.sh` is what is left of the old deploy script: the maintenance of the stagenet that runs. It refuses to run for a `CHAIN_ID` that does not contain `-stagenet-` or `-devnet-` (a script guard; the chain applies the exact rule), and it never starts, stops or reconfigures a cluster service.
 
 ```bash
 cd chain/scripts/stagenet

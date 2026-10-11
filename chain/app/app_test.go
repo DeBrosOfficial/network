@@ -136,7 +136,7 @@ func TestBankKeeper_userToUserNoramaSendIsAllowed(t *testing.T) {
 	from := sdk.AccAddress(bytes.Repeat([]byte{1}, 20))
 	to := sdk.AccAddress(bytes.Repeat([]byte{2}, 20))
 	one := sdk.NewCoins(sdk.NewInt64Coin(params.BaseDenom, 1))
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, one))
+	require.NoError(t, mintNoramaForTest(oramaApp, ctx, one))
 	require.NoError(t, oramaApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, from, one))
 
 	require.NoError(t, oramaApp.BankKeeper.SendCoins(ctx, from, to, one))

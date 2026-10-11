@@ -117,7 +117,7 @@ func TestApp_fullCapacityNodeThatMissesIsSlashedAndEvicted(t *testing.T) {
 	var dealID uint64
 	c.write(func(ctx sdk.Context) {
 		funds := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, math.NewInt(params.NoramaPerOrama).MulRaw(10)))
-		require.NoError(c.t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, funds))
+		require.NoError(c.t, mintNoramaForTest(c.app, ctx, funds))
 		require.NoError(c.t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, client, funds))
 		pieces := make([]storagetypes.PieceCommitment, 3)
 		for i := range pieces {

@@ -56,7 +56,7 @@ The split can move, but only through governance and only within bounds: each sha
 | Storage service payments and the PRIVATE-deal subsidy | `x/storage` at epoch close | The epoch's storage ceiling |
 | Relay rewards | `x/relay` end block | The epoch's relay ceiling. Of each operator's total, 5% is burned and 5% goes to the archive fund |
 | Development spend | A passed `x/houses` proposal | The epoch's development ceiling minus what was already minted |
-| Test-network faucet | `MsgFaucet` | Only on a chain id containing `-devnet-`, `-stagenet-` or `-localnet-`. Off by default. Max drip 1,000 ORAMA, 100,000 ORAMA per epoch, 24 hour recipient cooldown |
+| Test-network faucet | `MsgFaucet` | Only on a chain id that is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>` (a production id that merely contains one of those words is not a test network). Off by default. Max drip 1,000 ORAMA, 100,000 ORAMA per epoch, 24 hour recipient cooldown |
 | Token factory | `x/token` | Mints only its own `factory/…` denoms. A mint of `norama` is refused |
 
 ## The supply identity
@@ -73,6 +73,8 @@ bank supply = genesis supply
 ```
 
 Burns that happen in other modules are reconciled in `x/emission`'s EndBlock, so the identity holds even though fees, token creation, nullifiers and deals each burn something.
+
+The chain enforces the identity. At the end of every block each validator checks that the norama supply equals the right-hand side; a supply above it means norama was created outside `x/emission`, and the block does not commit, so the chain halts at that height instead of carrying on. Once per `min_blocks_per_epoch` blocks (14,400 on a production chain) a full pass also adds up every balance of every denom, checks the staking pools, and runs the ledger checks of the token, power, fees, nodes, shielded, houses, storage, market, relay and wasm-policy modules. `oramad export` runs the same pass and refuses a state that fails it. The only modules that can create coins are `x/emission` (norama) and `x/token` (its own `factory/…` denoms); a test pins that list.
 
 ## Where the coins land
 

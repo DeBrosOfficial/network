@@ -70,7 +70,7 @@ The transaction timings run on the validator's node against its loopback RPC, so
 
 ## Load and saturation tests
 
-`chain/cmd/oramad-bench` is the load generator of the L1 chain. It signs transactions offline, broadcasts them straight to the validators' CometBFT RPC, and reports how many the chain took, how long they waited for a block, how full the mempools got, what x/fees' base fee did, and whether every validator computed the same state at every height of the run. It runs on one machine against `chain/scripts/localnet`. It never touches devnet, testnet or stagenet and needs no SSH: it refuses any node whose chain id does not contain `-localnet-`, because its accounts are derived from a public seed. (There is no separate performance page yet; this section is where the tool is described.)
+`chain/cmd/oramad-bench` is the load generator of the L1 chain. It signs transactions offline, broadcasts them straight to the validators' CometBFT RPC, and reports how many the chain took, how long they waited for a block, how full the mempools got, what x/fees' base fee did, and whether every validator computed the same state at every height of the run. It runs on one machine against `chain/scripts/localnet`. It never touches devnet, testnet or stagenet and needs no SSH: it refuses any node whose chain id is not `orama-[<name>-]localnet-<id>`, because its accounts are derived from a public seed. (There is no separate performance page yet; this section is where the tool is described.)
 
 ### Running it
 

@@ -188,13 +188,21 @@ build-linux-amd64-global:
 ## chain-test: alias for test, matching plans/open-network/track-c-chain.md's `make chain-test`.
 chain-test: test
 
-## chain-sim: the model-based simulation of the chain (bugboard SA4, chain self-audit feat-876).
-## There is no simulation driver yet, so this fails instead of passing: it used to alias `test`,
-## and a green `chain-sim` that ran no simulation hid the gap. SA4 replaces this recipe.
+## chain-sim: the randomized, seeded simulation (app/sim_test.go). For each seed it runs a real app
+## through InitChain and SIM_BLOCKS blocks of random valid and invalid transactions across x/bank,
+## x/staking, the faucet and x/token, checks the conservation pass (app/conservation.go) and a model
+## of x/token after every block, and fails with the seed, so
+##   make chain-sim SIM_SEEDS=42 SIM_BLOCKS=500
+## reproduces a failure. The chain also halts itself on a violation, which fails the run too.
+## Runs under the race detector. Defaults are a few minutes.
+SIM_SEEDS ?= 1 2 3 4 5
+SIM_BLOCKS ?= 200
 chain-sim:
-	@echo "chain-sim: no simulation driver exists yet (bugboard SA4, the model-based simulation of the chain self-audit, feat-876)." >&2
-	@echo "           'make test' runs the unit tests, including the 4,000-epoch invariant run in x/emission/keeper." >&2
-	@exit 1
+	@for seed in $(SIM_SEEDS); do \
+		echo "chain-sim: seed=$$seed blocks=$(SIM_BLOCKS)"; \
+		go test -race -count=1 -timeout 30m -run '^TestSimulation$$' ./app -args -sim.seed=$$seed -sim.blocks=$(SIM_BLOCKS) || exit 1; \
+		go test -race -count=1 -timeout 30m -run '^(TestDeterminism_|TestApp_exportImportReproduces)' ./app -args -sim.seed=$$seed -sim.blocks=$(SIM_BLOCKS) || exit 1; \
+	done
 
 ## lint: go vet (the project's Go style rules - no magic numbers, wrapped errors, short
 ## functions/files - are enforced by review, not a separate linter here).

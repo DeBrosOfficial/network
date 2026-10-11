@@ -181,6 +181,10 @@ The rules the lint enforces:
 
 Test names are `Test{Function}_{scenario}`.
 
+## Chain simulation
+
+`make -C chain chain-sim` runs a seeded, randomized simulation of the chain (`chain/app/sim_test.go`): a real app driven through `InitChain` and `FinalizeBlock` with random valid and invalid transactions across x/bank, x/staking, the faucet and x/token. After every block it runs the full conservation pass and compares x/token's balances, issued supplies and flags with a model written from the documented rules. It fails with the seed, so `make -C chain chain-sim SIM_SEEDS=42 SIM_BLOCKS=500` reproduces a failure. For each seed it also runs, under the race detector, the determinism test (two apps fed the same genesis and blocks must agree on the app hash, every result and every event at every height) and the export/import round trip. `SIM_SEEDS` defaults to five seeds and `SIM_BLOCKS` to 200. The chain halts itself on a conservation violation, so a violation fails the run at the block that caused it.
+
 ## Lifecycle harness
 
 `make test` and `make test-e2e` never reboot a node, kill a voter, join one, or
@@ -291,7 +295,7 @@ Miri does not run the proof and Merkle-hashing tests: halo2 and Sinsemilla take 
 
 ### Simulation
 
-`make -C chain chain-sim` is reserved for the model-based simulation of the chain (bugboard SA4 of the chain self-audit). Until that driver exists the target fails with a message saying so. It used to run the unit tests under another name.
+`make -C chain chain-sim` runs the seeded, randomized simulation described above. CI does not run it on every push; run it before a change to a module's state machine.
 
 ### The pre-push hook
 

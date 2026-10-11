@@ -736,8 +736,7 @@ orama chain faucet <recipient> [flags]
 ```text
 Send test ORAMA to an account from the chain's faucet (MsgFaucet).
 
-The faucet exists only on a test network: a chain whose id contains -stagenet-,
--devnet- or -localnet- and whose genesis turned it on (faucet_enabled). This
+The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
 command reads the chain id from the node first and refuses any other chain
 before it signs anything. The chain refuses a drip over its maximum and a second
 drip to the same recipient inside its cooldown (24 hours by default).
@@ -2394,8 +2393,7 @@ it belongs to. Run it on the node, as root.
 
 The faucet gives test ORAMA to whoever asks (POST /v1/chain/faucet): the gateway
 signs MsgFaucet for the recipient with this key and the chain mints the drip.
-It exists only on a test network (a chain id with -stagenet-, -devnet- or
--localnet-; the gateway refuses to sign anywhere else), the chain keeps its own
+It exists only on a test network (a chain id of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
 limits (a maximum drip, a cooldown per recipient, a cap per epoch), and it must
 be on in the genesis (faucet_enabled).
 
@@ -5501,7 +5499,7 @@ machine's chain keys, builds the genesis on the first machine from all the keys,
 the others, starts the chains one after the other, waits for blocks, and then registers your
 operator and the nodes as it does for a join. It writes networks/<name>/ (manifest, genesis,
 release root) to --publish-dir and prints what to do to publish it. --chain-id is the chain's
-id: a test network's carries -stagenet-, -devnet- or -localnet-; any other is a production id, which
+id: a test network's is of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
 setup refuses: it creates test networks only, because it keeps each seat's key in an unencrypted test keyring
 (a production network needs seat accounts held by the RootWallet, which is not built). --release-root is the release-root.json the network's
 releases are verified against. A network that was announced in the registry before it was created (orama maint network announce)
@@ -5532,7 +5530,7 @@ machine until every machine passes.
 | `--allow-quorum-loss` | `false` | Restart a cluster of fewer than three voters with --force when the global layer is installed: the cluster is unavailable while the node restarts (without it, a run with --yes stops there) |
 | `--asn` | `0` | Autonomous system number to declare for the nodes (default: looked up from the address; 0 leaves it undeclared) |
 | `--bootstrap-key` | — | A private key that opens the machines today (key-only images); used once to install the RootWallet key, never stored |
-| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's carries -stagenet-, -devnet- or -localnet-; any other id is a production one, which setup refuses (it creates test networks only) |
+| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&lt;name>-]stagenet-&lt;id>, orama-[&lt;name>-]devnet-&lt;id> or orama-[&lt;name>-]localnet-&lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
 | `--channel` | — | With --create-network: the release channel, nightly, main or dev/&lt;branch> (default nightly, main for a production chain id) |
 | `--cluster-only` | `false` | Install the cluster node only, without the chain, storage or relay |
 | `--contact` | — | Where an abuse complaint about the relay goes (default: your operator account) |

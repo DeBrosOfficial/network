@@ -40,7 +40,7 @@ func (c *wiringChain) addRelayNode(id, endpoint string) relayNode {
 	n.priv = priv
 	c.write(func(ctx sdk.Context) {
 		funds := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, math.NewInt(params.NoramaPerOrama).MulRaw(20)))
-		require.NoError(c.t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, funds))
+		require.NoError(c.t, mintNoramaForTest(c.app, ctx, funds))
 		require.NoError(c.t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, n.operator, funds))
 		srv := nodeskeeper.NewMsgServerImpl(c.app.NodesKeeper)
 		_, err := srv.RegisterOperator(ctx, &nodestypes.MsgRegisterOperator{Operator: n.operator.String()})

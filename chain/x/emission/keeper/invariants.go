@@ -40,6 +40,34 @@ func (k Keeper) ReconcileBurns(ctx sdk.Context) error {
 	return nil
 }
 
+// AssertSupplyConserved is the per-block supply check that halts the chain. It runs after
+// ReconcileBurns, which has by then moved every drop in the norama supply into cumulative_burned.
+// What is left is exactly the direction ReconcileBurns cannot repair: a supply ABOVE the ledger
+// (genesis supply plus every mint x/emission recorded, minus burns) means norama was created by a
+// path that did not record itself with x/emission. It also refuses a cumulative_minted that is not
+// the schedule's. The check is O(1): two reads and a closed-form schedule sum.
+func (k Keeper) AssertSupplyConserved(ctx sdk.Context) error {
+	detail, mintedExact, supplyMatches := k.checkSupplyInvariantDetailed(ctx)
+	if mintedExact && supplyMatches {
+		return nil
+	}
+	state, err := k.EpochState.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load emission epoch state: %w", err)
+	}
+	actual := k.bankKeeper.GetSupply(ctx, params.BaseDenom).Amount
+	switch expected := expectedSupply(state); {
+	case actual.GT(expected):
+		return fmt.Errorf("%s supply %s is above what x/emission recorded (%s): %s was created outside x/emission\n%s",
+			params.BaseDenom, actual, expected, actual.Sub(expected), detail)
+	case actual.LT(expected):
+		return fmt.Errorf("%s supply %s is below what x/emission recorded (%s) after the block's burns were reconciled\n%s",
+			params.BaseDenom, actual, expected, detail)
+	default:
+		return fmt.Errorf("cumulative_minted is not the emission schedule's\n%s", detail)
+	}
+}
+
 // CheckSupplyInvariant checks the two invariants described in
 // plans/open-network/track-c-chain.md C3:
 //

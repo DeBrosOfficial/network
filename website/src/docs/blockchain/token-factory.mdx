@@ -39,6 +39,7 @@ A token can name a contract as its *transfer hook*. The address is checked when 
 - If the contract returns an error, the transfer is refused.
 - If it needs more than the cap, the transfer fails with "transfer hook exceeded gas cap".
 - Either way nothing moves, and whatever the contract wrote is dropped. Its writes are kept only when the transfer succeeds.
+- The contract runs before the coins move, and it can act on the chain like any contract (for example mint the token it created, or burn its own coins). After it returns, the chain checks the transfer again on the state the hook left (pause, freeze, the sender's balance, the fee) and moves the coins and burns the fee from that state. The hook's writes, the move and the fee burn commit together or not at all, so a hook cannot make the issued supply drift from the bank supply or spend coins twice.
 - A build without the contract VM ([Contracts](/docs/blockchain/contracts)) refuses to create a token with a hook.
 
 Because the hook and the transfer fee run only inside `Transfer`, a bank send of such a token (`MsgSend`, `MsgMultiSend`, a contract's `BankMsg`) is refused. Use `Transfer`.

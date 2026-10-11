@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cast"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 
+	"github.com/DeBrosOfficial/network/chain/app/params"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
 	orchardverify "github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchardproc"
@@ -32,26 +32,19 @@ const (
 	ShieldedVerifierBinary = "orama-orchard-verifier"
 )
 
-// verifierOptionalMarkers are the chain classes a node may run without the shielded verifiers:
+// verifiersOptional reports whether a node of chainID may start without the shielded verifiers:
 // localnets and the devnet a script builds for one e2e run (e2e/scripts/chain-deploy.sh), both
 // built without the orchard library. A node of any other chain (stagenet, testnet, mainnet) that
 // cannot verify votes on proposals it never checked and forks itself off at the first shielded
 // transaction it executes, so it refuses to start instead.
-var verifierOptionalMarkers = []string{localnetMarker, "-devnet-"}
-
-// verifiersOptional reports whether a node of chainID may start without the shielded verifiers.
 func verifiersOptional(chainID string) bool {
-	for _, marker := range verifierOptionalMarkers {
-		if strings.Contains(chainID, marker) {
-			return true
-		}
-	}
-	return false
+	class := params.ClassOfChainID(chainID)
+	return class == params.ChainLocalnet || class == params.ChainDevnet
 }
 
 // CheckNodeCanVerify is `oramad start`'s refusal to run a node of chainID that cannot verify
 // shielded bundles: one built without the orchard library, or with no verifier binary at the path
-// appOpts names. Localnets and scripted devnets are exempt (verifierOptionalMarkers).
+// appOpts names. Localnets and scripted devnets are exempt (verifiersOptional).
 func CheckNodeCanVerify(chainID string, appOpts servertypes.AppOptions) error {
 	if verifiersOptional(chainID) {
 		return nil
