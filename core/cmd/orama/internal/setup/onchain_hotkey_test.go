@@ -214,3 +214,32 @@ func TestRestSession_aNodeIsReadWithItsHotKey(t *testing.T) {
 		t.Fatalf("%+v, %v", n, err)
 	}
 }
+
+// x/nodes fixes a node's roles at registration. A run that gives a registered node a role it lacks
+// (the relay role, when a network's Tor step is added after its creation) says so before any bond:
+// the stagenet run that tried it was refused by the chain in simulation instead.
+func TestRun_aRoleARegisteredNodeLacksIsRefusedBeforeAnyBond(t *testing.T) {
+	h := newHarness()
+	h.w.operatorRegistered = true
+	h.w.nodes["alice"] = &RegisteredNode{Roles: []int{}, Bonds: map[int]*big.Int{}, HotKey: hotKeyOf(ip1)}
+	_, err := Run(context.Background(), h.opts(ip1), h.deps)
+	if err == nil || !strings.Contains(err.Error(), "does not add a role to a registered node") || !strings.Contains(err.Error(), "ROLE_STORAGE") {
+		t.Fatalf("err = %v, want the missing role named", err)
+	}
+	if h.w.index("tx bond") >= 0 {
+		t.Errorf("a bond was sent for a role the node lacks:\n%s", strings.Join(h.w.entries(), "\n"))
+	}
+}
+
+func TestMissingRoles(t *testing.T) {
+	if err := missingRoles("n", []int{clusterreg.RoleStorage}, []int{clusterreg.RoleStorage, clusterreg.RoleRelay}); err != nil {
+		t.Errorf("roles it has: %v", err)
+	}
+	if err := missingRoles("n", nil, nil); err != nil {
+		t.Errorf("no roles planned: %v", err)
+	}
+	err := missingRoles("n", []int{clusterreg.RoleRelay, clusterreg.RoleExit}, []int{clusterreg.RoleStorage})
+	if err == nil || !strings.Contains(err.Error(), "ROLE_RELAY, ROLE_EXIT") {
+		t.Errorf("err = %v, want both missing roles named", err)
+	}
+}

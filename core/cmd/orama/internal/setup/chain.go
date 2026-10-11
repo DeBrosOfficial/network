@@ -158,14 +158,26 @@ func parseAmount(s string) (*big.Int, bool) {
 	return new(big.Int).SetString(s, 10)
 }
 
+// roleNumbers are the chain's role names (without ROLE_) and clusterreg's numbers.
+var roleNumbers = map[string]int{
+	"VALIDATOR": clusterreg.RoleValidator, "STORAGE": clusterreg.RoleStorage, "RELAY": clusterreg.RoleRelay,
+	"EXIT": clusterreg.RoleExit, "DIRAUTH": clusterreg.RoleDirauth, "ARCHIVER": clusterreg.RoleArchiver,
+}
+
 // roleNumber maps the gateway's role name (ROLE_STORAGE) to clusterreg's number.
 func roleNumber(name string) (int, bool) {
-	roles := map[string]int{
-		"VALIDATOR": clusterreg.RoleValidator, "STORAGE": clusterreg.RoleStorage, "RELAY": clusterreg.RoleRelay,
-		"EXIT": clusterreg.RoleExit, "DIRAUTH": clusterreg.RoleDirauth, "ARCHIVER": clusterreg.RoleArchiver,
-	}
-	n, ok := roles[strings.TrimPrefix(name, roleNamePrefix)]
+	n, ok := roleNumbers[strings.TrimPrefix(name, roleNamePrefix)]
 	return n, ok
+}
+
+// roleName is the chain's name of a role number (ROLE_RELAY), or the number for one it does not name.
+func roleName(role int) string {
+	for name, n := range roleNumbers {
+		if n == role {
+			return roleNamePrefix + name
+		}
+	}
+	return fmt.Sprintf("role %d", role)
 }
 
 // Balance is the account's spendable norama. The bank module answers zero for an

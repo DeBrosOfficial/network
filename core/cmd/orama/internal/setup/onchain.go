@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/DeBrosOfficial/network/pkg/clusterreg"
 	"github.com/DeBrosOfficial/network/pkg/constants"
@@ -200,8 +202,13 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 			return err
 		}
 		node = &RegisteredNode{Bonds: map[int]*big.Int{}}
-	} else if err := r.bindConsensus(ctx, sess, n, node, consensus); err != nil {
-		return err
+	} else {
+		if err := missingRoles(n.plan.Name, n.plan.Roles, node.Roles); err != nil {
+			return err
+		}
+		if err := r.bindConsensus(ctx, sess, n, node, consensus); err != nil {
+			return err
+		}
 	}
 	if err := r.bondRoles(ctx, sess, n, node, bonds); err != nil {
 		return err
@@ -224,6 +231,24 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 	}
 	r.emit(ip, StepOnchain, StateDone, "node "+id)
 	return nil
+}
+
+// missingRoles refuses a plan that gives a registered node a role it was not registered with. x/nodes
+// fixes a node's roles at registration (MsgUpdateNode changes its keys, endpoints and region, not its
+// roles), so the bond of the new role would be refused by the chain; this says why first. A network
+// created with its Tor network from the start registers its relays with the relay role.
+func missingRoles(nodeID string, want, have []int) error {
+	var missing []string
+	for _, role := range want {
+		if !slices.Contains(have, role) {
+			missing = append(missing, roleName(role))
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf("node %q is registered without the role %s that this run gives it, and the chain does not add a role to a registered node: "+
+		"run it with the roles it was registered with, or retire the node and register it again", nodeID, strings.Join(missing, ", "))
 }
 
 // fundHotKey gives the node's hot key the fee-only balance its storage provider pays proof fees
