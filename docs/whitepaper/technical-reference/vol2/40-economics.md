@@ -106,7 +106,7 @@ The storage, relay and development shares are claimed by the modules that can pr
 
 `x/emission` has no burn path. Other modules burn: the fee decorator, the deposit release, the token creation fee, the service split, the shielded pool's fees, and `x/slashing` through the staking pools. To keep the supply equation true without importing any of them, `ReconcileBurns` runs in the last end-blocker and compares the bank supply of norama with `expectedSupply`: genesis supply plus cumulative validator, development, service and faucet mints, minus cumulative burned. Any shortfall is attributed to `cumulative_burned` (`chain/x/emission/keeper/invariants.go:ReconcileBurns`). It never raises the counter on a surplus, so a mint that bypasses the counters shows up as a broken invariant rather than being absorbed. In one line, `supply == emitted - burned`, where emitted is the genesis supply plus every epoch, development, service and faucet mint.
 
-`CheckSupplyInvariant` states the two invariants that hold after every block: `cumulative_minted` equals `CumulativeValidatorMinted` of the completed epochs plus `validator_split_delta`, exactly; and the bank supply equals `expectedSupply`. They are asserted at genesis (`InitGenesis` refuses a state that breaks them) and are readable through the `Invariants` query. No crisis module is wired, so a broken invariant after genesis does not halt the chain.
+`CheckSupplyInvariant` states the two invariants that hold after every block: `cumulative_minted` equals `CumulativeValidatorMinted` of the completed epochs plus `validator_split_delta`, exactly; and the bank supply equals `expectedSupply`. They are asserted at genesis (`InitGenesis` refuses a state that breaks them) and are readable through the `Invariants` query. After genesis the app asserts them itself: at the end of every block `AssertSupplyConserved` (`chain/x/emission/keeper/invariants.go`) returns an error, and so halts the block, when the norama supply is above `expectedSupply` (norama created outside `x/emission`) or `cumulative_minted` is off the schedule; the rest of the conservation pass is described in [the chain architecture](39-chain-architecture.md).
 
 ### The base fee
 
@@ -256,7 +256,7 @@ The `emission` module account holds nothing between blocks except development mi
 | Plain bank send of a paused, fee-bearing or hooked token | Refused by the send restriction | "moves only by x/token MsgTransfer" |
 | `ReleaseDeposit` of an unknown id | Returns not found | the message that called it fails |
 | Faucet on a production chain-id | `ErrFaucetProduction` before any mint | typed error `emission/1` |
-| Bank supply drifts from `expectedSupply` with no burn | `ReconcileBurns` does nothing on a surplus; the invariant reports broken | `Invariants` returns false for `supply_matches_minted` |
+| Bank supply rises above `expectedSupply` | `ReconcileBurns` does nothing on a surplus; the end-of-block check fails and the chain halts at that block | `conservation violated at height N: norama supply ... is above what x/emission recorded` |
 | Clock skew in block times | Block times are BFT time, a median of validator timestamps; the block floor still applies | epochs no shorter than 14,400 blocks |
 
 ## Trust and security
@@ -328,8 +328,8 @@ The `emission` module account holds nothing between blocks except development mi
 ## Known gaps
 
 - The comment on `LockDeposit` says no module consumes the deposit API yet (`chain/x/fees/keeper/deposits.go:LockDeposit`); `x/token`, `x/nodes`, `x/storage`, `x/cnft`, `x/market` and `x/wasmpolicy` all do. The comment on `defaultMinGasPriceNorama` says the base fee is not built (`chain/cmd/oramad/cmd/commands.go:defaultMinGasPriceNorama`); it is, and the value is a local mempool floor on top of it.
-- No invariant is asserted after genesis. `CheckSupplyInvariant` runs in `InitGenesis`; afterwards the invariants of emission, fees, token and the other modules are queries, and no crisis module or end-blocker halts the chain on a break (`chain/x/emission/keeper/invariants.go:CheckSupplyInvariant`). The fleet e2e suite reads them after every step.
-- `ReconcileBurns` attributes any supply shortfall to `cumulative_burned`, whatever its cause; a bug that destroyed coins outside a burn would be recorded as a burn and the invariants would still hold (`chain/x/emission/keeper/invariants.go:ReconcileBurns`).
+- The full conservation pass runs once per `min_blocks_per_epoch` blocks, not every block, so a ledger broken in between is caught at the next multiple; its cost is linear in the number of accounts (`chain/app/conservation.go`).
+- `ReconcileBurns` attributes any supply shortfall to `cumulative_burned`, whatever its cause; a bug that destroyed coins through a module holding the burn permission would be recorded as a burn and the supply check would still hold. Which modules can burn is pinned by `TestModuleAccountPermissions_exactSet` (`chain/x/emission/keeper/invariants.go:ReconcileBurns`).
 - The faucet's drip times are not part of genesis export, so a chain restarted from an exported genesis forgets recipient cooldowns (`chain/x/emission/keeper/keeper.go:Keeper`).
 - Epoch close walks every validator's delegations in one BeginBlock with no pagination or per-block budget (`chain/x/power/keeper/rewards.go:distributeValidatorReward`).
 - `MsgCreateToken` has no per-creator limit and no name uniqueness beyond the creator's own subdenoms; spam is priced only by the 10 ORAMA fee and the deposit (`chain/x/token/keeper/create.go:CreateToken`).

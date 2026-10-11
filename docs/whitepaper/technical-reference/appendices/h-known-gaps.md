@@ -733,7 +733,7 @@ From [Chain architecture](../vol2/39-chain-architecture.md#known-gaps).
 - A comment in `chain/x/inclusion/params.go` sizes the embedded cap for a 150-validator active set; `staking.max_validators` is 100 and `x/power` does not change it.
 - Vote extensions are a genesis-only switch; a chain that started without them cannot turn them on without a new genesis (`chain/app/inclusion_handlers.go:voteExtensionActive`).
 - Disk-full and write-failure handling are not part of the application; they are whatever CometBFT and the store do.
-- The invariant queries of every module are the only runtime check of ledger consistency; none is asserted in a block after genesis (see [economics](../vol2/40-economics.md#known-gaps)).
+- The conservation check halts the chain on a supply above the emission ledger and, once per epoch floor, on a broken ledger; a drop in supply is still booked as a burn (see [economics](../vol2/40-economics.md#known-gaps)). The shielded nullifier-database fold is checked when a node starts, not in a block.
 - `chain/x/confidential` and `chain/spikes/` carry no operational role; they are listed here because the manifest assigns them to this chapter.
 
 ## 40. Economics
@@ -741,8 +741,8 @@ From [Chain architecture](../vol2/39-chain-architecture.md#known-gaps).
 From [Economics](../vol2/40-economics.md#known-gaps).
 
 - The comment on `LockDeposit` says no module consumes the deposit API yet (`chain/x/fees/keeper/deposits.go:LockDeposit`); `x/token`, `x/nodes`, `x/storage`, `x/cnft`, `x/market` and `x/wasmpolicy` all do. The comment on `defaultMinGasPriceNorama` says the base fee is not built (`chain/cmd/oramad/cmd/commands.go:defaultMinGasPriceNorama`); it is, and the value is a local mempool floor on top of it.
-- No invariant is asserted after genesis. `CheckSupplyInvariant` runs in `InitGenesis`; afterwards the invariants of emission, fees, token and the other modules are queries, and no crisis module or end-blocker halts the chain on a break (`chain/x/emission/keeper/invariants.go:CheckSupplyInvariant`). The fleet e2e suite reads them after every step.
-- `ReconcileBurns` attributes any supply shortfall to `cumulative_burned`, whatever its cause; a bug that destroyed coins outside a burn would be recorded as a burn and the invariants would still hold (`chain/x/emission/keeper/invariants.go:ReconcileBurns`).
+- The full conservation pass runs once per `min_blocks_per_epoch` blocks, not every block, so a ledger broken in between is caught at the next multiple; its cost is linear in the number of accounts (`chain/app/conservation.go`).
+- `ReconcileBurns` attributes any supply shortfall to `cumulative_burned`, whatever its cause; a bug that destroyed coins through a module holding the burn permission would be recorded as a burn and the supply check would still hold. Which modules can burn is pinned by `TestModuleAccountPermissions_exactSet` (`chain/x/emission/keeper/invariants.go:ReconcileBurns`).
 - The faucet's drip times are not part of genesis export, so a chain restarted from an exported genesis forgets recipient cooldowns (`chain/x/emission/keeper/keeper.go:Keeper`).
 - Epoch close walks every validator's delegations in one BeginBlock with no pagination or per-block budget (`chain/x/power/keeper/rewards.go:distributeValidatorReward`).
 - `MsgCreateToken` has no per-creator limit and no name uniqueness beyond the creator's own subdenoms; spam is priced only by the 10 ORAMA fee and the deposit (`chain/x/token/keeper/create.go:CreateToken`).

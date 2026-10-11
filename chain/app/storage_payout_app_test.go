@@ -41,7 +41,7 @@ func TestApp_aStorageProviderIsPaidForEveryEpochItProvesACustomersDeal(t *testin
 	var dealID uint64
 	c.write(func(ctx sdk.Context) {
 		funds := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, math.NewInt(params.NoramaPerOrama).MulRaw(10)))
-		require.NoError(t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, funds))
+		require.NoError(t, mintNoramaForTest(c.app, ctx, funds))
 		require.NoError(t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, client, funds))
 		commitment, err := piece.Commit(data)
 		require.NoError(t, err)

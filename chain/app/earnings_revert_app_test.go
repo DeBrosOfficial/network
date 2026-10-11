@@ -54,7 +54,7 @@ func newEarningsFixture(t *testing.T, credit int64) *earningsFixture {
 		height: 2, credit: math.NewInt(credit), gas: 300_000, cons: &ed25519.PubKey{Key: keys[0].cons.PubKey().Bytes()},
 	}
 	fundCtx := oramaApp.NewNextBlockContext(cmtproto.Header{Height: 2, Time: genesisTime.Add(4 * time.Second)})
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(fundCtx, emissiontypes.ModuleName, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, f.credit))))
+	require.NoError(t, mintNoramaForTest(oramaApp, fundCtx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, f.credit))))
 	require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(fundCtx, emissiontypes.ModuleName, f.addr, sdk.NewCoin(params.BaseDenom, f.credit)))
 	writeCache(t, fundCtx)
 	_, err := oramaApp.Commit()

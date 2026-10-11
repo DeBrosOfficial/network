@@ -817,8 +817,18 @@ func (app *OramaApp) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
 }
 
 // EndBlocker application updates every end block.
+//
+// After every module's EndBlock it checks that no coin was created or lost (conservation.go). A
+// failed check is an error here, so the block does not commit and the chain halts.
 func (app *OramaApp) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
-	return app.ModuleManager.EndBlock(ctx)
+	res, err := app.ModuleManager.EndBlock(ctx)
+	if err != nil {
+		return res, err
+	}
+	if err := app.checkConservation(ctx); err != nil {
+		return sdk.EndBlock{}, err
+	}
+	return res, nil
 }
 
 func (app *OramaApp) Configurator() module.Configurator {

@@ -133,7 +133,7 @@ oramad query fees base-fee              --node tcp://127.0.0.1:31001
 oramad query fees earnings <address>    --node tcp://127.0.0.1:31001
 ```
 
-Every module has an `invariants` query. They return false if the module's accounting is off (supply identity, deposits, escrow). Operators run them as health checks; the stagenet script runs them on every node.
+Every module has an `invariants` query. They return false if the module's accounting is off (supply identity, deposits, escrow). Operators run them as health checks; the stagenet script runs them on every node. The chain also runs them itself (the supply identity at the end of every block, the module ledgers once per `min_blocks_per_epoch` blocks) and halts at the first block that breaks one, so a false answer here means the chain has already stopped or the query ran on a node that is behind.
 
 ## The chain indexer
 

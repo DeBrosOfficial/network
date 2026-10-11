@@ -375,7 +375,7 @@ func TestApp_outsiderBondsFromEarnings(t *testing.T) {
 	credit := bond.Add(feeAmt)
 
 	fundCtx := oramaApp.NewNextBlockContext(cmtproto.Header{Height: 2, Time: genesisTime.Add(4 * time.Second)})
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(fundCtx, emissiontypes.ModuleName, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
+	require.NoError(t, mintNoramaForTest(oramaApp, fundCtx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
 	require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(fundCtx, emissiontypes.ModuleName, outsider, sdk.NewCoin(params.BaseDenom, credit)))
 	writeCache(t, fundCtx)
 	_, err := oramaApp.Commit()
@@ -472,7 +472,7 @@ func TestApp_operatorBondsNodeFromEarnings(t *testing.T) {
 	// the two bonds, plus headroom for the fees and the node-registration charge taken from the same earnings
 	credit := bond.MulRaw(2).Add(math.NewInt(200_000_000))
 	fundCtx := oramaApp.NewNextBlockContext(cmtproto.Header{Height: 2, Time: genesisTime.Add(4 * time.Second)})
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(fundCtx, emissiontypes.ModuleName, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
+	require.NoError(t, mintNoramaForTest(oramaApp, fundCtx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
 	require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(fundCtx, emissiontypes.ModuleName, op, sdk.NewCoin(params.BaseDenom, credit)))
 	writeCache(t, fundCtx)
 	_, err := oramaApp.Commit()

@@ -128,7 +128,7 @@ func (c *wiringChain) registerStorageNode(id, endpoint string, asn uint32, bonde
 	}
 	c.write(func(ctx sdk.Context) {
 		funds := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, math.NewInt(params.NoramaPerOrama).MulRaw(20)))
-		require.NoError(c.t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, funds))
+		require.NoError(c.t, mintNoramaForTest(c.app, ctx, funds))
 		require.NoError(c.t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, n.operator, funds))
 		srv := nodeskeeper.NewMsgServerImpl(c.app.NodesKeeper)
 		_, err := srv.RegisterOperator(ctx, &nodestypes.MsgRegisterOperator{Operator: n.operator.String()})
@@ -172,7 +172,7 @@ func (c *wiringChain) privateDeal() uint64 {
 	c.write(func(ctx sdk.Context) {
 		credit := math.NewInt(params.NoramaPerOrama).MulRaw(10)
 		funds := sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))
-		require.NoError(c.t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, funds))
+		require.NoError(c.t, mintNoramaForTest(c.app, ctx, funds))
 		require.NoError(c.t, c.app.BankKeeper.SendCoinsFromModuleToAccount(ctx, emissiontypes.ModuleName, client, funds))
 		pieces := make([]storagetypes.PieceCommitment, 3)
 		for i := range pieces {
@@ -335,7 +335,7 @@ func TestApp_operatorFundsOwnNodesHotKeyFromEarnings(t *testing.T) {
 
 	credit := math.NewInt(2_000_000_000)
 	fundCtx := oramaApp.NewNextBlockContext(cmtproto.Header{Height: 2, Time: genesisTime.Add(4 * time.Second)})
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(fundCtx, emissiontypes.ModuleName, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
+	require.NoError(t, mintNoramaForTest(oramaApp, fundCtx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
 	require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(fundCtx, emissiontypes.ModuleName, op, sdk.NewCoin(params.BaseDenom, credit)))
 	writeCache(t, fundCtx)
 	_, err := oramaApp.Commit()
@@ -406,7 +406,7 @@ func TestApp_bondNodeForAnUnknownNodeDoesNotMoveEarningsToTheBankBalance(t *test
 
 	credit := math.NewInt(2_000_000_000)
 	fundCtx := oramaApp.NewNextBlockContext(cmtproto.Header{Height: 2, Time: genesisTime.Add(4 * time.Second)})
-	require.NoError(t, oramaApp.BankKeeper.MintCoins(fundCtx, emissiontypes.ModuleName, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
+	require.NoError(t, mintNoramaForTest(oramaApp, fundCtx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
 	require.NoError(t, oramaApp.FeesKeeper.CreditEarnings(fundCtx, emissiontypes.ModuleName, op, sdk.NewCoin(params.BaseDenom, credit)))
 	writeCache(t, fundCtx)
 	_, err := oramaApp.Commit()

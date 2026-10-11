@@ -30,6 +30,20 @@ type Invariants struct {
 //   - no pool balance is negative, no queued amount is not positive
 //   - the nullifier database folds, in insertion order, to the accumulator in state
 func (k Keeper) CheckInvariants(ctx sdk.Context) (Invariants, error) {
+	inv, err := k.CheckLedgers(ctx)
+	if err != nil {
+		return inv, err
+	}
+	if err := k.checkAccumulator(ctx, &inv); err != nil {
+		return inv, err
+	}
+	return inv, nil
+}
+
+// CheckLedgers is CheckInvariants without the nullifier-database fold: the module account against
+// the pools and the queue, and the signs of both. It reads only committed state, so the chain can
+// run it inside a block; the fold reads a database outside the state and costs O(nullifiers).
+func (k Keeper) CheckLedgers(ctx sdk.Context) (Invariants, error) {
 	inv := Invariants{BalanceMatches: true, PoolsNonNegative: true, AccumulatorMatches: true}
 	held := math.ZeroInt()
 	err := k.Pools.Walk(ctx, nil, func(key collections.Pair[uint32, []byte], bal math.Int) (bool, error) {
@@ -58,9 +72,6 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) (Invariants, error) {
 	if !module.Equal(held) {
 		inv.BalanceMatches = false
 		inv.Detail += fmt.Sprintf("module holds %s but pools and queue account for %s; ", module, held)
-	}
-	if err := k.checkAccumulator(ctx, &inv); err != nil {
-		return inv, err
 	}
 	return inv, nil
 }

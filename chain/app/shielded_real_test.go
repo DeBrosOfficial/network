@@ -344,7 +344,7 @@ func TestShieldedReal_shieldingFromEarningsAndTheTwoActionVector(t *testing.T) {
 	c := realChain(t, nil)
 	ctx := c.app.NewNextBlockContext(cmtprotoHeader(c.height+1, c.blockTime(c.height+1)))
 	credit := math.NewInt(shieldAmount + 2)
-	require.NoError(t, c.app.BankKeeper.MintCoins(ctx, "emission", sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
+	require.NoError(t, mintNoramaForTest(c.app, ctx, sdk.NewCoins(sdk.NewCoin(params.BaseDenom, credit))))
 	require.NoError(t, c.app.FeesKeeper.CreditEarnings(ctx, "emission", c.aliceAddr(), sdk.NewCoin(params.BaseDenom, credit)))
 	writeCache(t, ctx)
 	_, err := c.app.Commit()

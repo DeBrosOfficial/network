@@ -59,7 +59,7 @@ func (c *shieldedChain) grantEarnings(t *testing.T, who sdk.AccAddress, amount i
 	t.Helper()
 	ctx := c.app.NewNextBlockContext(cmtproto.Header{Height: c.height + 1, Time: c.blockTime(c.height + 1)})
 	coin := sdk.NewInt64Coin(params.BaseDenom, amount)
-	require.NoError(t, c.app.BankKeeper.MintCoins(ctx, emissiontypes.ModuleName, sdk.NewCoins(coin)))
+	require.NoError(t, mintNoramaForTest(c.app, ctx, sdk.NewCoins(coin)))
 	require.NoError(t, c.app.FeesKeeper.CreditEarnings(ctx, emissiontypes.ModuleName, who, coin))
 	writeCache(t, ctx)
 	_, err := c.app.Commit()
