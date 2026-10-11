@@ -49,7 +49,7 @@ func TestChainExport_stoppedNodeExportsValidGenesis(t *testing.T) {
 	c := chain.New(t)
 	victim := c.Node(t, len(c.Nodes())-1)
 	live := c.Epoch(t, victim, 0)
-	chainAdvancesAtCleanup(t, c)
+	c.AdvanceAtCleanup(t)
 	c.F.StopService(t, victim, chain.Unit)
 	dir := "/tmp/e2e-chainexport"
 	t.Cleanup(func() { c.CleanupExec(t, victim, "rm -rf -- "+dir) })
@@ -89,7 +89,7 @@ func TestChainExport_stoppedNodeExportsValidGenesis(t *testing.T) {
 		t.Errorf("export has %d validators, want %d", sum.Validators, len(c.Nodes()))
 	}
 	c.F.MustExec(t, victim, "systemctl start "+chain.Unit)
-	requireCaughtUp(t, c, victim)
+	c.RequireSameChain(t, c.Nodes(), catchUpBudget, "after the export")
 }
 
 func summariseExport(t *testing.T, c *chain.Chain, n fleet.Node, dir string) exportSummary {

@@ -136,7 +136,7 @@ echo ` + markResult + `; cat "$D/r.json"; echo
 // can submit transactions too.
 func (c *Chain) stageDir(t testing.TB, n fleet.Node, name string, data []byte) (string, error) {
 	t.Helper()
-	dir := "/tmp/e2e-chaintx-" + randomHex(t, 8)
+	dir := "/tmp/e2e-chaintx-" + c.F.State.RunID + "-" + randomHex(t, 8)
 	mk, err := c.run(t, n, QueryBudget, fmt.Sprintf("install -d -o %s -g %s -m 0700 %s", ServiceUser, ServiceUser, dir))
 	if err != nil || mk.Exit != 0 {
 		return "", fmt.Errorf("%s: failed to create %s (exit %d): %v %s", n.Name, dir, mk.Exit, err, mk.Stderr)

@@ -137,6 +137,23 @@ make e2e-test-unit                                   # the harness's own unit te
 
 Destructive packages run alone at the end of their stage. A skipped test counts as **not covered**, a re-run only labels a failure deterministic or flaky and never turns it green, and the exit code is 0 for PASS, 1 for FAIL and 3 for INCOMPLETE. The report (`report.html`, `report.json`, JUnit, optional Bugboard drafts) lands in the run's artifact directory next to the collected journals and node state.
 
+### Chain chaos
+
+`chain-chaos` is a destructive package of stage 11 that breaks one validator of the chain at a time, restores it at cleanup, and ends each test on a chain that moves on every validator with the same blocks and app hash on all of them:
+
+| Test | What it does | What it asserts |
+|---|---|---|
+| `TestChainPartition_isolatedValidatorCatchesUpAfterHeal` | drops the validator's p2p TCP in both directions while public transfers keep arriving at a survivor | the others commit if and only if they hold more than 2/3 of the voting power (three equal seats halt, five commit); the isolated validator never gets ahead; after the heal it catches up and every transfer is delivered once |
+| `TestChainKill_oramadKilledUnderLoadRestartsAndAgrees` | `kill -9` of the chain process under load | systemd restarts it, it replays to the head, it keeps its voting power |
+| `TestShieldedVerifier_killedChildDoesNotMoveConsensus` | kills the shielded verifier child process while public transfers arrive | `oramad` keeps its process and the node stays on the same blocks |
+| `TestChainDisk_fullVolumeHaltsWithALogLineAndRecovers` | fills the chain home's filesystem until no non-root user can write (root keeps 64 MiB); only where the chain home is a filesystem of its own, so the node's rqlite, ipfs, olric and gateway are never starved | the validator stops committing and its journal says `no space left on device`; it recovers when the space is freed |
+| `TestChainClock_skewedValidatorDoesNotMoveBlockTime` | moves one clock two minutes ahead, then two behind | BFT time keeps block times at real time; an early clock shows in the validator's own precommit times, a late one is held at the block's time |
+| `TestChainStateSync_wipedValidatorRestoresASnapshotAndAgrees` | wipes a validator's data (its sign state stays) and starts it | it restores a snapshot, reaches the head and agrees |
+
+If the runner interrupts the package mid-fault, the sweep after every destructive package removes the run's tagged firewall rules (IPv4 and IPv6), restores NTP, and deletes the disk filler and the throwaway keyrings named for the run; a state-sync backup of a validator's old data (`data.e2e-<run>` in the chain home) is never deleted, the sweep fails and prints the steps to put it back.
+
+Three tests apply only where the node was set up for them, and report not applicable (not covered) otherwise. The verifier test needs validators that run the verifier child process, which a run chain does not (`chain-deploy.sh` builds `oramad` without the Orchard library and ships no verifier binary). The disk test needs the chain home on a filesystem of its own, because filling the root filesystem would starve the node's rqlite, ipfs, olric and gateway too; a node that keeps the chain on the root filesystem skips it. The state-sync test needs a validator whose `config.toml` has `[statesync] enable = true`, which the installer writes only for a joiner, and other nodes that hold snapshots on disk; `chain-deploy.sh` configures neither, and the test never configures state sync itself. A shielded bundle being verified at the moment the child dies is not reached either: only the Rust wallet builds a bundle with a valid proof, so the retry of a verifier fault in a block (`checkInBlock`, three attempts) is proven by the keeper's unit tests, and the fleet test only shows that the node stays on the same blocks as its peers.
+
 ### The coverage gate
 
 `make test` runs `make e2e-coverage`. It fails on any CLI command, gateway route, chain message or query, or systemd unit that no feature package claims under `covers:` in its `feature.yaml`, and on any entry that matches nothing that ships (a typo cannot cover anything). What has no test yet needs a waiver in `e2e/waivers.yaml` with a reason and a trigger.

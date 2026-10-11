@@ -128,7 +128,7 @@ func (c *Chain) NewKey(t testing.TB, n fleet.Node, name string) Key {
 	if !keyNamePattern.MatchString(name) {
 		t.Fatalf("key name %q must match %s", name, keyNamePattern)
 	}
-	dir := "/tmp/e2e-chainkeys-" + randomHex(t, 8)
+	dir := "/tmp/e2e-chainkeys-" + c.F.State.RunID + "-" + randomHex(t, 8)
 	t.Cleanup(func() { c.cleanupDir(t, n, dir) })
 	mk := c.Run(t, n, QueryBudget, fmt.Sprintf("install -d -o %s -g %s -m 0700 %s", ServiceUser, ServiceUser, dir))
 	if mk.Exit != 0 {

@@ -21,6 +21,8 @@ type Status struct {
 	AppHash    string
 	CatchingUp bool
 	VotingPow  int64
+	// ValidatorAddr is the node's consensus address (hex), the one its votes carry.
+	ValidatorAddr string
 }
 
 // Comet fetches a CometBFT RPC path on n's loopback and decodes result.
@@ -61,7 +63,8 @@ func (c *Chain) NodeStatus(t testing.TB, n fleet.Node) (Status, error) {
 			CatchingUp bool   `json:"catching_up"`
 		} `json:"sync_info"`
 		ValidatorInfo struct {
-			VotingPower Int `json:"voting_power"`
+			Address     string `json:"address"`
+			VotingPower Int    `json:"voting_power"`
 		} `json:"validator_info"`
 	}
 	if err := c.Comet(t, n, "/status", &r); err != nil {
@@ -69,7 +72,7 @@ func (c *Chain) NodeStatus(t testing.TB, n fleet.Node) (Status, error) {
 	}
 	return Status{Network: r.NodeInfo.Network, NodeID: r.NodeInfo.ID, ListenAddr: r.NodeInfo.ListenAddr,
 		Height: r.SyncInfo.Height.Int64(), AppHash: r.SyncInfo.AppHash, CatchingUp: r.SyncInfo.CatchingUp,
-		VotingPow: r.ValidatorInfo.VotingPower.Int64()}, nil
+		VotingPow: r.ValidatorInfo.VotingPower.Int64(), ValidatorAddr: r.ValidatorInfo.Address}, nil
 }
 
 // MustStatus is NodeStatus that fails the test on error.

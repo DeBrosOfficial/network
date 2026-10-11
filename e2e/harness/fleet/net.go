@@ -172,8 +172,15 @@ type blockRule struct {
 
 // removeAll deletes every copy of the rule, then proves it is gone.
 func (r blockRule) removeAll() string {
-	check := r.tool + " -C " + r.spec + " 2>/dev/null"
-	return fmt.Sprintf("while %s; do %s -D %s || exit 1; done; %s; test $? -eq %d", check, r.tool, r.spec, check, ruleAbsent)
+	return RemoveRuleCommand(r.tool, r.spec)
+}
+
+// RemoveRuleCommand is the shell command that deletes every copy of the rule
+// (tool is "iptables -w" or "ip6tables -w", spec the rule without -I/-C/-D) and
+// then proves none is left: a cleanup for a rule a test inserted.
+func RemoveRuleCommand(tool, spec string) string {
+	check := tool + " -C " + spec + " 2>/dev/null"
+	return fmt.Sprintf("while %s; do %s -D %s || exit 1; done; %s; test $? -eq %d", check, tool, spec, check, ruleAbsent)
 }
 
 // blockRules are the rules that isolate to, tagged with the run and tag. An

@@ -25,7 +25,12 @@
 #                   caps E2E_SOAK_MINUTES at what fits); chaos: 7 service
 #                   classes + 6 faults at up to 26m each, >150m worst, each
 #                   fault refused when the rest of the budget cannot hold it;
-#                   chaos-lifecycle: an interrupted upgrade 145m worst: 180m.
+#                   chaos-lifecycle: an interrupted upgrade 145m worst;
+#                   chain-chaos: six faults on the chain (partition ~26m,
+#                   kill ~14m, verifier ~21m, full disk ~21m, two clock skews
+#                   ~42m, state sync ~20m worst) ~145m with their setup, each
+#                   fault refused when the rest of the budget cannot hold it:
+#                   180m.
 # The other stages' packages are well inside their timeouts.
 stages:
   - id: 1

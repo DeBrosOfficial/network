@@ -37,3 +37,29 @@ func TestRestoreNodes_failuresJoinedAndBadRunIDRefused(t *testing.T) {
 		t.Fatal("an unsafe run id reached a root shell")
 	}
 }
+
+// TestRestoreNodes_removesTheChainFilesOfThisRunAndReportsAnUnrestoredBackup:
+// an interrupted chain package leaves its disk filler and throwaway keyrings;
+// the sweep deletes exactly those named for this run, and an old chain data
+// directory a state-sync test set aside is reported with the steps to put it
+// back, never deleted.
+func TestRestoreNodes_removesTheChainFilesOfThisRunAndReportsAnUnrestoredBackup(t *testing.T) {
+	sh := &fakeShell{}
+	f := newFake(t, sh)
+	if err := f.RestoreNodes(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	run := f.State.RunID
+	c := sh.cmds[0]
+	for _, want := range []string{
+		"-name 'e2e-chaindisk-" + run + "-*'", "-name 'e2e-chainkeys-" + run + "-*'", "-name 'e2e-chaintx-" + run + "-*'",
+		"-xdev -maxdepth 1", "/var/lib/orama-global/chain/data.e2e-" + run, "UNRESTORED STATE-SYNC BACKUP", "mv /var/lib/orama-global/chain/data.e2e-" + run,
+	} {
+		if !strings.Contains(c, want) {
+			t.Errorf("restore script lacks %q:\n%s", want, c)
+		}
+	}
+	if strings.Contains(c, "rm -rf /var/lib/orama-global/chain/data.e2e") {
+		t.Error("the sweep deletes the state-sync backup")
+	}
+}
