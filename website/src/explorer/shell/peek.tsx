@@ -15,6 +15,7 @@ import { moreActionsNote } from "../ui/message-text";
 import { Query, Skeleton } from "../ui/query-states";
 import { RelTime } from "../ui/rel-time";
 import { Sentence } from "../ui/sentence";
+import { useRestoreFocus } from "./restore-focus";
 
 interface PeekContextValue {
   /** Open a side preview of a transaction without leaving the page. */
@@ -31,7 +32,14 @@ export function usePeek(): PeekContextValue {
 
 export function PeekProvider({ children }: { children: ReactNode }) {
   const [hash, setHash] = useState<string | null>(null);
-  const openTx = useCallback((h: string) => setHash(h), []);
+  const { remember, onCloseAutoFocus } = useRestoreFocus();
+  const openTx = useCallback(
+    (h: string) => {
+      remember();
+      setHash(h);
+    },
+    [remember],
+  );
   const value = useMemo(() => ({ openTx }), [openTx]);
   return (
     <PeekContext.Provider value={value}>
@@ -41,6 +49,7 @@ export function PeekProvider({ children }: { children: ReactNode }) {
           <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/60" />
           <Dialog.Content
             aria-describedby={undefined}
+            onCloseAutoFocus={onCloseAutoFocus}
             className="explorer fixed inset-y-0 right-0 z-[61] w-[min(420px,100vw)] overflow-y-auto border-l border-fg/20 bg-[#0c0c0f] p-5 shadow-2xl"
           >
             <div className="mb-4 flex items-center justify-between">

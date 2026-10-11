@@ -47,6 +47,16 @@ export function crumbLabel(path: string): string {
       return "Nodes";
     case "node":
       return `Node ${readableSegment(id)}`;
+    case "epochs":
+      return "Epochs";
+    case "epoch":
+      return `Epoch ${readableSegment(id)}`;
+    case "emission":
+      return "Emission";
+    case "economics":
+      return "Supply";
+    case "rewards":
+      return "Rewards";
     case "storage":
       return "Storage";
     case "tor":

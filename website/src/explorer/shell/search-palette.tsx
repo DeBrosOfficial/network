@@ -54,13 +54,20 @@ function PaletteInput({ inputRef, listId, value, onChange, onKeyDown, activeInde
         aria-label="Search"
         autoComplete="off"
         spellCheck={false}
-        className="w-full bg-transparent py-4 text-[15px] text-fg focus-visible:outline-none! placeholder:text-muted/70"
+        className="w-full bg-transparent py-4 text-[15px] text-fg focus-visible:outline-none! placeholder:text-muted"
       />
     </div>
   );
 }
 
-export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export interface SearchPaletteProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Gives focus back to whatever opened the palette (see restore-focus.ts). */
+  onCloseAutoFocus: (event: Event) => void;
+}
+
+export function SearchPalette({ open, onOpenChange, onCloseAutoFocus }: SearchPaletteProps) {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -79,6 +86,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
             e.preventDefault();
             inputRef.current?.focus();
           }}
+          onCloseAutoFocus={onCloseAutoFocus}
           className="explorer fixed left-1/2 top-[12vh] z-[71] w-[min(640px,calc(100vw-24px))] -translate-x-1/2 overflow-hidden rounded-2xl border border-fg/20 bg-[#0e0e11] shadow-2xl"
         >
           <Dialog.Title className="sr-only">Search the explorer</Dialog.Title>
@@ -96,7 +104,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
             <PaletteList listId={listId} rows={rows} selected={selected} onSelect={setSelected} onChoose={go} />
             <PaletteStatus search={search} />
           </div>
-          <div className="flex gap-4 border-t border-border px-4 py-2 text-xs text-muted/80">
+          <div className="flex gap-4 border-t border-border px-4 py-2 text-xs text-muted">
             <span>↑ ↓ move</span>
             <span>↵ open</span>
             <span>esc close</span>

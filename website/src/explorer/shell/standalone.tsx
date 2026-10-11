@@ -7,11 +7,13 @@ import { Card } from "../ui/card";
 import { Page } from "../ui/page";
 import oramaIcon from "../../assets/orama-icon.png";
 import { NetworkSwitcher } from "./network-switcher";
+import { MAIN_FOCUS, MAIN_ID, SkipLink } from "./skip-link";
 
 /** The explorer's frame for a page that has no source to read yet: a custom gateway nobody has named, or not yet agreed to. */
 function Frame({ children }: { children: ReactNode }) {
   return (
     <div className="explorer min-h-screen bg-bg text-fg">
+      <SkipLink />
       <header className="border-b border-border bg-surface/90">
         <div className="mx-auto flex h-14 max-w-[1140px] items-center gap-3 px-4 sm:px-6">
           <Link to="/" className="flex shrink-0 items-center gap-2" aria-label="Orama home">
@@ -26,7 +28,7 @@ function Frame({ children }: { children: ReactNode }) {
           <NetworkSwitcher />
         </div>
       </div>
-      <main>
+      <main id={MAIN_ID} tabIndex={-1} className={MAIN_FOCUS}>
         <Page>{children}</Page>
       </main>
     </div>

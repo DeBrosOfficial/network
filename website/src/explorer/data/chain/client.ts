@@ -3,10 +3,41 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 const HTTP_NOT_FOUND = 404;
 const HTTP_UNAVAILABLE = 503;
+const HTTP_RATE_LIMITED = 429;
+/** The statuses by which a gateway says its own node, not this reader's request, is the trouble. */
+const HTTP_UPSTREAM = new Set([502, 503, 504]);
 /** The gateway's words for an index route on a node with no indexer (core/pkg/gateway/handlers/chainread/index.go, msgNoIndexer). */
 const NO_INDEXER_MARKER = "runs no chain indexer";
 /** A 503 body is read only this far to tell the no-indexer answer from any other. */
 const NO_INDEXER_BODY_MAX = 512;
+
+/** The gateway named in a message to the reader: the host of the address, or a stand-in for an address that is not one. */
+export function gatewayHost(address: string): string {
+  try {
+    return new URL(address).host;
+  } catch {
+    return "the gateway";
+  }
+}
+
+/**
+ * What a reader is told when the browser got no answer from the gateway at `address` (the chain proxy's
+ * base, or any URL on that gateway). A script cannot tell why: a gateway that is down, a TLS certificate
+ * this browser does not trust (a staging certificate, for one) and a gateway that does not allow this
+ * site to read it (CORS) all end in the same failed request. The message names the gateway and the three
+ * likely causes and says how to tell them apart; it never carries what the browser reported.
+ */
+export function unreachableMessage(address: string, timedOut = false): string {
+  const host = gatewayHost(address);
+  const what = timedOut
+    ? `The gateway at ${host} did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds.`
+    : `This browser could not read the gateway at ${host}.`;
+  return (
+    `The chain could not be reached. ${what} Likely causes: the gateway is down or cannot be reached from here, its TLS certificate is not one ` +
+    `this browser trusts (a staging certificate, for example), or it does not allow reads from this site (CORS). Open ` +
+    `https://${host}/v1/chain/status in a new tab: a certificate warning there points to the second cause, no answer at all to the first.`
+  );
+}
 
 /** A read that failed. The message is written for the reader: it never carries what the node said. */
 export class ChainReadError extends Error {
@@ -111,11 +142,21 @@ export function createClient(fetcher: ChainFetch = (input, init) => fetch(input,
           credentials: "omit",
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
-      } catch {
-        throw new ChainReadError("The chain could not be reached.");
+      } catch (err) {
+        throw new ChainReadError(unreachableMessage(base, err instanceof DOMException && err.name === "TimeoutError"));
       }
       if (response.status === HTTP_NOT_FOUND) throw new ChainNotFound();
       if (response.status === HTTP_UNAVAILABLE && (await saysNoIndexer(response))) throw new ChainIndexUnavailable();
+      if (response.status === HTTP_RATE_LIMITED) {
+        throw new ChainReadError(
+          `The chain could not be read (HTTP 429). ${gatewayHost(base)} is limiting how fast this browser may read; wait a minute and try again.`,
+        );
+      }
+      if (HTTP_UPSTREAM.has(response.status)) {
+        throw new ChainReadError(
+          `The chain could not be read (HTTP ${response.status}). ${gatewayHost(base)} could not get an answer from its chain node; try again in a minute.`,
+        );
+      }
       if (!response.ok) throw new ChainReadError(`The chain could not be read (HTTP ${response.status}).`);
       try {
         return await response.json();

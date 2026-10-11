@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import type { Plugin } from "vite";
 import { blogPostsPlugin } from "./src/blog/vite-plugin";
 import { docMeta } from "./src/lib/doc-meta";
+import { explorerDevGatewayPlugin } from "./src/explorer/dev/vite-plugin";
 
 /**
  * Repository facts shown on the site (commit count, first commit date). Read
@@ -220,6 +221,8 @@ export default defineConfig({
       publicDir: path.resolve(import.meta.dirname, "public"),
     }),
     pageSourcesPlugin(),
+    // Dev only, and only with ORAMA_EXPLORER_DEV_GATEWAY=1: an invented chain for the explorer (src/explorer/dev).
+    ...explorerDevGatewayPlugin(),
     {
       enforce: 'pre' as const,
       ...mdx({

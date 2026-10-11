@@ -88,7 +88,7 @@ export function NetworkSwitcher() {
             placeholder={GATEWAY_EXAMPLE}
             aria-invalid={error !== null}
             aria-describedby={error ? errorId : undefined}
-            className="w-64 max-w-full rounded-md border border-border bg-bg px-2 py-1 font-mono text-fg placeholder:text-muted/60"
+            className="w-64 max-w-full rounded-md border border-border bg-bg px-2 py-1 font-mono text-fg placeholder:text-muted"
           />
           <button type="submit" className="cursor-pointer rounded-md border border-border bg-surface-2 px-2.5 py-1 hover:border-fg/30">
             Read this gateway

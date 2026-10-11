@@ -31,7 +31,7 @@ function TokenLoader({ denom }: { denom: string }) {
   const { state, refetch } = useQuery((s) => s.assets.getToken(denom), [denom]);
   useDocumentTitle(state.status === "ready" && state.data ? state.data.name : "Token");
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-80 w-full" />}>
+    <Query state={state} subject="this token" onRetry={refetch} loading={<Skeleton className="h-80 w-full" />}>
       {(token) =>
         token === null ? (
           <NotFoundBox title={NOT_FOUND_TITLE} hint="x/token has no token with this denom. It may be a typo, or the token may be on a different chain." />

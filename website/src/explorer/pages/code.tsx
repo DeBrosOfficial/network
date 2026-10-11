@@ -61,7 +61,7 @@ function CodeLoader({ id }: { id: number }) {
   const { state, refetch } = useQuery((s) => s.assets.getCode(id), [id]);
   useDocumentTitle(`Code ${id}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
+    <Query state={state} subject={`code ${id}`} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
       {(code) =>
         code === null ? (
           <NotFoundBox title={NOT_FOUND_TITLE} hint={`No code ${id} is stored on this chain. Codes are numbered from 1 in the order they were stored.`} />

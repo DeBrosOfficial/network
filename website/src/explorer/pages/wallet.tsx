@@ -73,7 +73,7 @@ function WalletLoader({ address }: { address: string }) {
   const profile = state.status === "ready" && state.data?.ref.address === address ? state.data : null;
   useDocumentTitle(profile?.ref.label ?? `Wallet ${shortAddress(address)}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<WalletSkeleton />}>
+    <Query state={state} subject="this wallet" onRetry={refetch} loading={<WalletSkeleton />}>
       {(loaded) =>
         loaded === null ? (
           <NotFoundBox title={NOT_FOUND_TITLE} hint={NOT_FOUND_HINT} />

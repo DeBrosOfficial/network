@@ -81,7 +81,7 @@ function ContractLoader({ address }: { address: string }) {
   const { state, refetch } = useQuery((s) => s.assets.getContract(address), [address]);
   useDocumentTitle(state.status === "ready" && state.data ? `Contract ${shortAddress(address)}` : "Contract");
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
+    <Query state={state} subject="this contract" onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
       {(contract) => (contract === null ? <NotAContract address={address} /> : <ContractView contract={contract} />)}
     </Query>
   );

@@ -164,6 +164,19 @@ describe("createHeadFeed", () => {
     expect(heads).toEqual([HEAD + 1]);
   });
 
+  it("TestHeadFeed_a_gateway_never_reached_is_unreachable_not_a_lost_connection", () => {
+    // A TLS error or a dead gateway: the browser retries on its own, and nothing was ever connected to lose.
+    const listeners = new Map<string, (event: { data?: unknown }) => void>();
+    const never = { onerror: null as ((e: Event) => unknown) | null, readyState: 0, addEventListener: (t: string, l: (event: { data?: unknown }) => void) => listeners.set(t, l), close: vi.fn() };
+    const feed = createHeadFeed(URL, () => never);
+    const errors: string[] = [];
+    feed.subscribe(() => undefined, (e) => errors.push(e.message));
+    never.onerror?.(new Event("error"));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("The chain could not be reached. This browser could not read the gateway at gw.example.");
+    expect(errors[0]).not.toContain("lost");
+  });
+
   describe("a stream the gateway refuses", () => {
     it("TestHeadFeed_a_refused_stream_is_reported_and_opened_again_later", async () => {
       vi.useFakeTimers();
@@ -175,7 +188,9 @@ describe("createHeadFeed", () => {
       await vi.advanceTimersByTimeAsync(0);
 
       stream.refuse();
-      expect(errors).toEqual(["The gateway has too many live connections open; trying again shortly."]);
+      expect(errors).toEqual([
+        "The gateway at gw.example refused the live connection: it may have too many open, or it may not allow reads from this site (CORS). Trying again shortly.",
+      ]);
       expect(stream.open).toBe(0);
 
       await vi.advanceTimersByTimeAsync(4_999);
@@ -266,7 +281,7 @@ describe("createHeadFeed", () => {
       const refused = { onerror: null as ((e: Event) => unknown) | null, readyState: 1, addEventListener: (t: string, l: (event: { data?: unknown }) => void) => listeners.set(t, l), close: vi.fn() };
       const feed = createHeadFeed(URL, () => refused);
       const pending = feed.current();
-      const assertion = expect(pending).rejects.toThrow("too many live connections");
+      const assertion = expect(pending).rejects.toThrow("The gateway at gw.example refused the live connection");
       refused.readyState = 2;
       refused.onerror?.(new Event("error"));
       await assertion;

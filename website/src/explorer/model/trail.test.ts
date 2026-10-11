@@ -38,6 +38,15 @@ describe("crumbLabel", () => {
     expect(crumbLabel("/explorer/block/1284410")).toBe("Block 1284410");
     expect(crumbLabel("/explorer/validators")).toBe("Validators");
   });
+
+  it("TestCrumbLabel_every_page_of_the_header_has_its_own_name_not_a_generic_one", () => {
+    expect(crumbLabel("/explorer/epochs")).toBe("Epochs");
+    expect(crumbLabel("/explorer/epoch/731")).toBe("Epoch 731");
+    expect(crumbLabel("/explorer/emission")).toBe("Emission");
+    expect(crumbLabel("/explorer/economics")).toBe("Supply");
+    expect(crumbLabel("/explorer/rewards")).toBe("Rewards");
+    expect(crumbLabel("/explorer/testnet/epoch/9")).toBe("Epoch 9");
+  });
 });
 
 describe("shared trails", () => {

@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { mismatchGuard } from "./mismatch-guard.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE_ROOT = resolve(HERE, "..");
@@ -29,15 +30,6 @@ const NOT_FOUND_TEXT = "This page doesn&#x27;t exist.";
 const STREAMING_MARKERS = ["<!--$?-->", '<template id="B:'];
 /** Builds run on the day they run; a file with uncommitted changes changed today. */
 const TODAY = new Date().toISOString().slice(0, 10);
-
-// Served one page's HTML for a path it wasn't rendered for (a 404, a deep
-// explorer link), clear it before first paint instead of flashing the wrong
-// page; the app then renders the right page from scratch. It inlines
-// normalizePath from src/content/routes.ts, the same function src/main.tsx uses.
-const mismatchGuard = (normalizePath) =>
-  `<script>(function(){var n=${normalizePath.toString()};` +
-  'var r=document.getElementById("root");' +
-  'if(r.getAttribute("data-prerendered")!==n(location.pathname))r.replaceChildren()})()</script>';
 
 const escapeAttr = (s) =>
   s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -198,7 +190,7 @@ async function main() {
   const pageSources = JSON.parse(readFileSync(PAGE_SOURCES, "utf-8"));
   const server = await import(pathToFileURL(join(SERVER_DIR, "entry-server.js")).href);
   const template = readFileSync(join(DIST, "index.html"), "utf-8");
-  const guard = mismatchGuard(server.normalizePath);
+  const guard = mismatchGuard(server.normalizePath, server.ROBOTS_NOINDEX);
 
   const sources = contentSources(pageSources, server.PAGES);
   const lastmods = new Map();

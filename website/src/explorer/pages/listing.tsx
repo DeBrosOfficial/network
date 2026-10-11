@@ -70,7 +70,7 @@ function ListingLoader({ id }: { id: number }) {
   const { state, refetch } = useQuery((s) => s.assets.getListing(id), [id]);
   useDocumentTitle(`Listing ${id}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
+    <Query state={state} subject={`listing ${id}`} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
       {(listing) =>
         listing === null ? (
           <NotFoundBox

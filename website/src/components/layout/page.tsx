@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useNavigationType } from "react-router";
 import type { ReactNode } from "react";
-import { documentTitle } from "../../content/routes";
+import { documentTitle, normalizePath } from "../../content/routes";
 import type { RouteMeta } from "../../content/routes";
 import { DEFAULT_IMAGE, pageFor } from "../../content/pages";
 import type { PageMeta } from "../../content/pages";
@@ -71,12 +71,23 @@ function isPrerenderedPage(path: string): boolean {
   return wasPrerendered;
 }
 
+/**
+ * The path a page names as its canonical address. A page kept out of search names its own address,
+ * never another page's: a deep explorer link is rendered by the explorer page's component, and a
+ * canonical pointing at /explorer would tell a crawler that this noindex page is a copy of the one
+ * that is indexed.
+ */
+export function canonicalPath(pagePath: string, keptOut: boolean, locationPath: string): string {
+  return keptOut ? normalizePath(locationPath) : pagePath;
+}
+
 function syncHead(page: PageMeta, noindex: boolean) {
-  const url = absoluteUrl(page.path);
+  const keptOut = noindex || Boolean(page.noindex);
+  const url = absoluteUrl(canonicalPath(page.path, keptOut, window.location.pathname));
   const image = absoluteUrl(page.image.path);
   document.title = page.title;
   setAttr('meta[name="description"]', "content", page.description);
-  setAttr('meta[name="robots"]', "content", noindex || page.noindex ? ROBOTS_NOINDEX : ROBOTS_INDEX);
+  setAttr('meta[name="robots"]', "content", keptOut ? ROBOTS_NOINDEX : ROBOTS_INDEX);
   setAttr('meta[property="og:type"]', "content", page.post ? "article" : "website");
   setAttr('meta[property="og:title"]', "content", page.title);
   setAttr('meta[property="og:description"]', "content", page.description);

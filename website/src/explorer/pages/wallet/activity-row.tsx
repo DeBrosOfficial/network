@@ -37,7 +37,7 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
             <Amount norama={item.amount} signed bare maxFraction={ROW_AMOUNT_FRACTION} />
           </div>
         )}
-        <RelTime iso={item.time} className="text-xs text-muted/80" />
+        <RelTime iso={item.time} className="text-xs text-muted" />
       </div>
     </li>
   );

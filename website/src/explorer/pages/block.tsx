@@ -32,7 +32,7 @@ function BlockView({ height }: { height: number }) {
   const { state, refetch } = useQuery((s) => s.getBlock(height), [height]);
   useDocumentTitle(`Block ${formatInt(height)}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<BlockSkeleton />}>
+    <Query state={state} subject={`block ${formatInt(height)}`} onRetry={refetch} loading={<BlockSkeleton />}>
       {(block) =>
         block ? (
           <BlockBody block={block} head={head} />

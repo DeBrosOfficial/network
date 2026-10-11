@@ -57,7 +57,7 @@ function ProposalLoader({ id }: { id: number }) {
   const { state, refetch } = useQuery((s) => s.assets.getProposal(id), [id]);
   useDocumentTitle(`Proposal ${id}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-72 w-full" />}>
+    <Query state={state} subject={`proposal ${id}`} onRetry={refetch} loading={<Skeleton className="h-72 w-full" />}>
       {(proposal) =>
         proposal === null ? (
           <NotFoundBox title={NOT_FOUND_TITLE} hint={`x/houses has no proposal ${id}. Proposals are numbered from 1 in the order they were submitted.`} />

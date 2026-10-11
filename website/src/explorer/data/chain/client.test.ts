@@ -97,11 +97,43 @@ describe("createClient", () => {
     expect((error as Error).message).toContain("HTTP 503");
   });
 
-  it("TestCreateClient_a_blocked_or_unreachable_gateway_says_so_without_the_cause", async () => {
-    // A CORS refusal and a dead gateway are the same to a script: fetch rejects.
+  it("TestCreateClient_a_blocked_or_unreachable_gateway_names_the_gateway_and_the_likely_causes", async () => {
+    // A CORS refusal, an untrusted certificate and a dead gateway are the same to a script: fetch rejects.
+    const client = createClient(
+      async () => {
+        throw new TypeError("net::ERR_CERT_AUTHORITY_INVALID");
+      },
+      "https://stagenet.orama.network/v1/chain",
+    );
+    const error = (await client.get("status").catch((e: unknown) => e)) as Error;
+    expect(error).toBeInstanceOf(ChainReadError);
+    expect(error.message).toContain("The chain could not be reached.");
+    expect(error.message).toContain("the gateway at stagenet.orama.network");
+    expect(error.message).toMatch(/down/);
+    expect(error.message).toMatch(/TLS certificate .* staging certificate/);
+    expect(error.message).toMatch(/CORS/);
+    expect(error.message).toContain("https://stagenet.orama.network/v1/chain/status");
+    // What the browser reported stays out of the reader's message.
+    expect(error.message).not.toContain("ERR_CERT");
+  });
+
+  it("TestCreateClient_a_gateway_that_does_not_answer_in_time_says_how_long_it_waited", async () => {
     const client = createClient(async () => {
-      throw new TypeError("Failed to fetch");
-    });
-    await expect(client.get("status")).rejects.toThrow("The chain could not be reached.");
+      throw new DOMException("signal timed out", "TimeoutError");
+    }, "https://gw.example.org:8443/v1/chain");
+    await expect(client.get("status")).rejects.toThrow("The gateway at gw.example.org:8443 did not answer within 15 seconds.");
+  });
+
+  it("TestCreateClient_a_rate_limited_read_says_to_wait_and_a_gateway_with_no_node_says_so", async () => {
+    const base = "https://stagenet.orama.network/v1/chain";
+    await expect(createClient(async () => new Response("slow down", { status: 429 }), base).get("status")).rejects.toThrow(
+      "The chain could not be read (HTTP 429). stagenet.orama.network is limiting how fast this browser may read; wait a minute and try again.",
+    );
+    for (const status of [502, 504]) {
+      await expect(createClient(async () => new Response("bad gateway", { status }), base).get("status")).rejects.toThrow(
+        `The chain could not be read (HTTP ${status}). stagenet.orama.network could not get an answer from its chain node; try again in a minute.`,
+      );
+    }
+    await expect(createClient(async () => new Response("boom", { status: 500 }), base).get("status")).rejects.toThrow(/^The chain could not be read \(HTTP 500\)\.$/);
   });
 });

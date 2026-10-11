@@ -17,6 +17,7 @@ import { TrailProvider } from "./shell/trail";
 import { ErrorBoundary } from "./ui/error-boundary";
 import { NotFoundBox } from "./ui/query-states";
 import { Page } from "./ui/page";
+import { useDocumentTitle } from "./ui/use-document-title";
 import { ASSET_ROUTES } from "./pages/asset-routes";
 import { BlockPage } from "./pages/block";
 import { EconomicsPage } from "./pages/economics";
@@ -41,6 +42,15 @@ export interface ExplorerAppProps {
   registry?: Registry;
 }
 
+function NotInExplorer() {
+  useDocumentTitle("Page not found");
+  return (
+    <Page>
+      <NotFoundBox title="That page is not in the explorer" hint="Use the search box to find a wallet, transaction or block." />
+    </Page>
+  );
+}
+
 /** The explorer's pages, routed by the URL without its network segment. */
 function Pages({ routePath }: { routePath: string }) {
   return (
@@ -62,14 +72,7 @@ function Pages({ routePath }: { routePath: string }) {
         <Route path="tor" element={<TorPage />} />
         <Route path="validator/:address" element={<ValidatorPage />} />
         {ASSET_ROUTES}
-        <Route
-          path="*"
-          element={
-            <Page>
-              <NotFoundBox title="That page is not in the explorer" hint="Use the search box to find a wallet, transaction or block." />
-            </Page>
-          }
-        />
+        <Route path="*" element={<NotInExplorer />} />
       </Routes>
     </ErrorBoundary>
   );

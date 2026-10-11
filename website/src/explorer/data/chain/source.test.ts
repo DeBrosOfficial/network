@@ -109,7 +109,9 @@ describe("subscribeHead", () => {
 
     stream.unavailable();
     stream.drop();
-    expect(errors).toEqual(["The chain could not be reached.", "The live connection to the chain was lost; it reconnects by itself."]);
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toContain("The chain could not be reached. This browser could not read the gateway at stagenet.orama.network.");
+    expect(errors[1]).toBe("The live connection to the chain was lost; it reconnects by itself.");
 
     stop();
     expect(stream.open).toBe(0);

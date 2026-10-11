@@ -90,6 +90,19 @@ orama network use dev
 orama auth login
 ```
 
+## The explorer against a made-up chain
+
+To work on the explorer's pages without a network, start the dev server with the dev gateway:
+
+```bash
+cd website
+ORAMA_EXPLORER_DEV_GATEWAY=1 pnpm dev --host 127.0.0.1
+```
+
+It serves a small invented chain (the fixtures of the explorer's own tests, extended so that every page has data) at `/v1/chain/` on the dev server. Open `/explorer/custom?gateway=http%3A%2F%2Flocalhost%3A5173` (the port is the dev server's) and confirm the gateway when the explorer asks. The host in the address picks the behaviour: `localhost` is a node with the chain indexer, `http://127.0.0.1:5173` is a node without one (every `index/…` route answers `503` "runs no chain indexer"), which shows the explorer's no-indexer states; a gateway address nothing listens on (`http://127.0.0.1:1`) shows the unreachable-gateway error. The head moves every four seconds so the live parts can be watched.
+
+It is a development tool and nothing else. The plugin (`website/src/explorer/dev/vite-plugin.ts`) applies to `vite dev` only, is added to the configuration only when the variable is `1`, refuses to start in production mode, and nothing under `src/` imports `src/explorer/dev`, so the built site cannot contain it; a test builds the explorer and checks.
+
 ## IDE
 
 VS Code with the Go extension, or GoLand. `core/`, `chain/` and `e2e/` are separate Go modules; open each as its own module.

@@ -40,7 +40,7 @@ export function NetworkBar() {
   const { id, live } = useShownChainId();
   useChainPin();
   return (
-    <div className="border-b border-border bg-surface/60 text-xs">
+    <div role="group" aria-label="Network and chain" className="border-b border-border bg-surface/60 text-xs">
       <div className="mx-auto flex max-w-[1140px] flex-wrap items-center gap-x-5 gap-y-1.5 px-4 py-2 sm:px-6">
         <NetworkSwitcher />
         <span className="inline-flex items-center gap-2">

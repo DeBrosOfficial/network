@@ -44,7 +44,7 @@ export function TxRow({ tx }: { tx: TxSummary }) {
             <Amount norama={amount} bare />
           </div>
         )}
-        <RelTime iso={tx.time} className="text-xs text-muted/80" />
+        <RelTime iso={tx.time} className="text-xs text-muted" />
       </div>
     </div>
   );

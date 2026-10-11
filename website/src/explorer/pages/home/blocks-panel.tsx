@@ -14,7 +14,7 @@ const TIP_BLOCK = "A block is a batch of transactions. Darker squares carry more
 
 const SHADE_CLASS: Record<BlockShade, string> = {
   0: "bg-surface-2 text-muted",
-  1: "bg-border text-muted",
+  1: "bg-border text-fg",
   2: "bg-muted/60 text-fg",
   3: "bg-muted text-bg",
 };

@@ -51,18 +51,21 @@ export function TrailBar() {
   if (trail.length === 0) return null;
   return (
     <nav aria-label="Investigation trail" className="border-b border-border bg-surface/80">
-      <div className="mx-auto flex max-w-[1140px] items-center gap-1.5 overflow-x-auto px-4 py-2 text-[13px] [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
-        <span className="mr-1 shrink-0 font-semibold text-signal">{shared ? "Shared trail" : "Trail"}</span>
-        <Crumb to={paths.home} label="Home" />
-        {trail.map((p) => (
-          <span key={p} className="flex shrink-0 items-center gap-1.5">
-            <ChevronRight size={12} className="text-muted/60" aria-hidden="true" />
-            <Crumb to={paths.keep(p)} label={crumbLabel(p)} current={p === pathname} />
-          </span>
-        ))}
-        <span className="ml-auto flex shrink-0 items-center gap-2 pl-4">
+      <div className="mx-auto flex max-w-[1140px] items-center gap-3 px-4 py-2 text-[13px] sm:px-6">
+        {/* Only the pages scroll: a long trail must never push Share and Clear out of reach. */}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="mr-1 shrink-0 font-semibold text-signal">{shared ? "Shared trail" : "Trail"}</span>
+          <Crumb to={paths.home} label="Home" />
+          {trail.map((p) => (
+            <span key={p} className="flex shrink-0 items-center gap-1.5">
+              <ChevronRight size={12} className="text-muted/60" aria-hidden="true" />
+              <Crumb to={paths.keep(p)} label={crumbLabel(p)} current={p === pathname} />
+            </span>
+          ))}
+        </div>
+        <span className="flex shrink-0 items-center gap-2">
           <TrailShare getLink={shareLink} />
-          <button type="button" onClick={clear} className="text-xs text-muted underline underline-offset-4 hover:text-fg cursor-pointer">
+          <button type="button" onClick={clear} className="min-h-6 text-xs text-muted underline underline-offset-4 hover:text-fg cursor-pointer">
             Clear
           </button>
         </span>

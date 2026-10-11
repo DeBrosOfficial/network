@@ -51,7 +51,7 @@ function ValidatorLoader({ address }: { address: string }) {
   const { state, refetch } = useQuery((s) => s.getValidator(address), [address]);
   useDocumentTitle(state.status === "ready" && state.data ? state.data.validator.ref.moniker : `Validator ${shortAddress(address)}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-80 w-full" />}>
+    <Query state={state} subject="this validator" onRetry={refetch} loading={<Skeleton className="h-80 w-full" />}>
       {(detail) =>
         detail === null ? (
           <>

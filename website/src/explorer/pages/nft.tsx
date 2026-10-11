@@ -47,7 +47,7 @@ function AssetLoader({ id }: { id: string }) {
   const { state, refetch } = useQuery((s) => s.assets.getNftRecords(id), [id]);
   useDocumentTitle(`NFT ${shortHash(id)}`);
   return (
-    <IndexQuery state={state} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
+    <IndexQuery state={state} subject={`NFT ${shortHash(id)}`} onRetry={refetch} loading={<Skeleton className="h-64 w-full" />}>
       {(records) =>
         records === null ? (
           <NotFoundBox

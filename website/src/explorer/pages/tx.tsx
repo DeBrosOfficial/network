@@ -62,7 +62,7 @@ function TxView({ hash }: { hash: string }) {
   const { state, refetch } = useQuery((s) => s.getTx(hash), [hash]);
   useDocumentTitle(`Transaction ${shortHash(hash)}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<TxSkeleton />}>
+    <Query state={state} subject="this transaction" onRetry={refetch} loading={<TxSkeleton />}>
       {(tx) =>
         tx ? (
           <TxBody tx={tx} />

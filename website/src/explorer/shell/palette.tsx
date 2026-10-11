@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { isTypingTarget } from "../ui/dom";
+import { useRestoreFocus } from "./restore-focus";
 import { SearchPalette } from "./search-palette";
 
 interface PaletteContextValue {
@@ -17,25 +18,29 @@ export function usePalette(): PaletteContextValue {
 
 export function PaletteProvider({ children }: { children: ReactNode }) {
   const [isOpen, setOpen] = useState(false);
-  const open = useCallback(() => setOpen(true), []);
+  const { remember, onCloseAutoFocus } = useRestoreFocus();
+  const open = useCallback(() => {
+    remember();
+    setOpen(true);
+  }, [remember]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const cmdK = e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey);
       if (cmdK || (e.key === "/" && !isTypingTarget(e.target))) {
         e.preventDefault();
-        setOpen(true);
+        open();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [open]);
 
   const value = useMemo(() => ({ open }), [open]);
   return (
     <PaletteContext.Provider value={value}>
       {children}
-      <SearchPalette open={isOpen} onOpenChange={setOpen} />
+      <SearchPalette open={isOpen} onOpenChange={setOpen} onCloseAutoFocus={onCloseAutoFocus} />
     </PaletteContext.Provider>
   );
 }

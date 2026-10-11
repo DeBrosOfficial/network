@@ -42,7 +42,7 @@ function CollectionLoader({ id }: { id: number }) {
   const { state, refetch } = useQuery((s) => s.assets.getCollection(id), [id]);
   useDocumentTitle(state.status === "ready" && state.data && state.data.name !== "" ? state.data.name : `Collection ${id}`);
   return (
-    <Query state={state} onRetry={refetch} loading={<Skeleton className="h-48 w-full" />}>
+    <Query state={state} subject={`collection ${id}`} onRetry={refetch} loading={<Skeleton className="h-48 w-full" />}>
       {(collection) =>
         collection === null ? (
           <NotFoundBox title={NOT_FOUND_TITLE} hint={`x/cnft has no collection ${id}. Collections are numbered from 1 in the order they were made.`} />

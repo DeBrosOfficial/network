@@ -9,40 +9,52 @@ import oramaIcon from "../../assets/orama-icon.png";
 import { AssetsMenu } from "./assets-menu";
 import { usePalette } from "./palette";
 
+const PILL = "rounded-full px-3 py-1.5 text-[13px] transition-colors";
+const ON = "bg-white/[0.07] text-fg";
+const OFF = "text-muted hover:text-fg";
+
+interface NavItem {
+  label: string;
+  to: string;
+  end: boolean;
+  /** A page inside this section (a validator's own page) keeps the section lit without being the section's own address. */
+  inside: boolean;
+}
+
+export function navItems(paths: ReturnType<typeof useExplorerPaths>, kind: string): NavItem[] {
+  return [
+    { label: "Explore", to: paths.home, end: true, inside: false },
+    { label: "Validators", to: paths.validators, end: false, inside: kind === "validator" },
+    { label: "Nodes", to: paths.nodes, end: false, inside: kind === "node" },
+    { label: "Storage", to: paths.storage, end: false, inside: false },
+    { label: "Tor", to: paths.tor, end: false, inside: false },
+    { label: "Epochs", to: paths.epochs, end: false, inside: false },
+    { label: "Rewards", to: paths.rewards, end: false, inside: false },
+    { label: "Emission", to: paths.emission, end: false, inside: false },
+    { label: "Supply", to: paths.economics, end: false, inside: false },
+  ];
+}
+
+/** The explorer's sections as one navigation landmark; `aria-current` says which page the reader is on. */
 function NavLinks({ className, narrow = false }: { className?: string; narrow?: boolean }) {
   const paths = useExplorerPaths();
   const { pathname } = useLocation();
-  // A validator's own page is part of the Validators section.
   const kind = parseExplorerPath(pathname).kind;
-  const inValidators = kind === "validator";
-  const inNodes = kind === "node";
-  const nav = [
-    { label: "Explore", to: paths.home, end: true, current: false },
-    { label: "Validators", to: paths.validators, end: false, current: inValidators },
-    { label: "Nodes", to: paths.nodes, end: false, current: inNodes },
-    { label: "Storage", to: paths.storage, end: false, current: false },
-    { label: "Tor", to: paths.tor, end: false, current: false },
-    { label: "Epochs", to: paths.epochs, end: false, current: false },
-    { label: "Rewards", to: paths.rewards, end: false, current: false },
-    { label: "Emission", to: paths.emission, end: false, current: false },
-    { label: "Supply", to: paths.economics, end: false, current: false },
-  ];
   return (
-    <div className={cn("flex items-center gap-1", className)}>
-      {nav.map((n) => (
-        <NavLink
-          key={n.to}
-          to={n.to}
-          end={n.end}
-          className={({ isActive }) =>
-            cn("rounded-full px-3 py-1.5 text-[13px] transition-colors", isActive || n.current ? "bg-white/[0.07] text-fg" : "text-muted hover:text-fg")
-          }
-        >
-          {n.label}
-        </NavLink>
-      ))}
+    <nav aria-label="Explorer sections" className={cn("flex items-center gap-1", className)}>
+      {navItems(paths, kind).map((n) =>
+        n.inside ? (
+          <Link key={n.to} to={n.to} aria-current="true" className={cn(PILL, ON)}>
+            {n.label}
+          </Link>
+        ) : (
+          <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => cn(PILL, isActive ? ON : OFF)}>
+            {n.label}
+          </NavLink>
+        ),
+      )}
       <AssetsMenu inline={narrow} />
-    </div>
+    </nav>
   );
 }
 
@@ -61,10 +73,13 @@ export function ExplorerHeader() {
         <button
           type="button"
           onClick={open}
-          className="mx-auto flex min-w-0 max-w-md flex-1 items-center gap-2.5 rounded-lg border border-border bg-bg px-3 py-2 text-left text-[13px] text-muted hover:border-fg/30 cursor-pointer"
+          aria-keyshortcuts="Control+K Meta+K /"
+          className="mx-auto flex min-w-0 max-w-md flex-1 items-center gap-2.5 rounded-lg border border-border bg-bg px-3 py-2 text-left text-[13px] text-muted hover:border-fg/30 cursor-pointer xl:mx-0 xl:ml-auto xl:w-40 xl:flex-none"
         >
           <Search size={15} aria-hidden="true" className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">Search address, transaction, block…</span>
+          {/* With the sections beside it the button has no room for the long text. */}
+          <span className="min-w-0 flex-1 truncate xl:hidden">Search address, transaction, block…</span>
+          <span className="hidden min-w-0 flex-1 truncate xl:inline">Search</span>
           <kbd className="hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:block">⌘K</kbd>
         </button>
         <div className="hidden shrink-0 items-center gap-2 text-xs text-muted lg:flex">

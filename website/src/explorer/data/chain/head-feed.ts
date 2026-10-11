@@ -1,6 +1,6 @@
 import type { Head } from "../../model/types";
 import { nextHead } from "../head";
-import { ChainReadError } from "./client";
+import { ChainReadError, gatewayHost, unreachableMessage } from "./client";
 import { iso, rec, str, uint } from "./wire";
 
 /**
@@ -37,8 +37,9 @@ const REOPEN_MAX_MS = 60_000;
 const MAX_CHAIN_ID = 64;
 
 const CONNECTION_LOST = "The live connection to the chain was lost; it reconnects by itself.";
-const CONNECTION_REFUSED = "The gateway has too many live connections open; trying again shortly.";
-const UNREACHABLE = "The chain could not be reached.";
+/** A stream the browser gave up on without a head: the gateway answered an error status, or the browser refused the answer. EventSource says no more than that. */
+const refusedMessage = (streamUrl: string) =>
+  `The gateway at ${gatewayHost(streamUrl)} refused the live connection: it may have too many open, or it may not allow reads from this site (CORS). Trying again shortly.`;
 const NO_EVENT_SOURCE = "This browser cannot follow the chain live.";
 
 /** The browser's EventSource, or null where there is none (a server render, an old browser). */
@@ -74,6 +75,7 @@ export interface HeadFeed {
 
 /** One stream shared by every reader, opened when the first needs it and closed when the last is done. */
 export function createHeadFeed(streamUrl: string, open: EventSourceFactory | null): HeadFeed {
+  const unreachable = () => new ChainReadError(unreachableMessage(streamUrl));
   const subscribers = new Set<Subscriber>();
   const waiting = new Set<{ resolve: (h: Head) => void; reject: (e: Error) => void }>();
   let source: EventSourceLike | null = null;
@@ -116,20 +118,21 @@ export function createHeadFeed(streamUrl: string, open: EventSourceFactory | nul
     const opened = open(streamUrl);
     opened.addEventListener("head", onHead);
     opened.addEventListener("unavailable", () => {
-      const error = new ChainReadError(UNREACHABLE);
+      const error = unreachable();
       failWaiting(error);
       fail(error);
     });
     opened.onerror = () => {
       if (source !== opened) return;
       if (opened.readyState !== SOURCE_CLOSED) {
-        fail(new ChainReadError(CONNECTION_LOST));
+        // Nothing has ever been received: there was no connection to lose, the gateway cannot be reached.
+        fail(last === null ? unreachable() : new ChainReadError(CONNECTION_LOST));
         return;
       }
       // The browser does not retry a stream the gateway refused. Let go of it, say so, and open it again later.
       opened.close();
       source = null;
-      const error = new ChainReadError(CONNECTION_REFUSED);
+      const error = new ChainReadError(refusedMessage(streamUrl));
       failWaiting(error);
       fail(error);
       scheduleReopen();
@@ -172,7 +175,7 @@ export function createHeadFeed(streamUrl: string, open: EventSourceFactory | nul
         }
         const timer = setTimeout(() => {
           waiting.delete(entry);
-          entry.reject(new ChainReadError(UNREACHABLE));
+          entry.reject(unreachable());
           release();
         }, FIRST_HEAD_TIMEOUT_MS);
         const entry = {

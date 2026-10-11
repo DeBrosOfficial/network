@@ -11,6 +11,11 @@ export function Skeleton({ className }: { className?: string }) {
 
 export interface QueryProps<T> {
   state: QueryState<T>;
+  /**
+   * Set on a query that is the whole page ("block 100"): until the data arrives, and when it cannot,
+   * the page has no title of its own, so the page's one h1 says what it is loading or could not load.
+   */
+  subject?: string;
   /** Shown while loading. Defaults to a plain block. */
   loading?: ReactNode;
   onRetry?: () => void;
@@ -18,19 +23,38 @@ export interface QueryProps<T> {
 }
 
 /** Renders the loading, error or ready state of a query; `children` only ever sees data. */
-export function Query<T>({ state, loading, onRetry, children }: QueryProps<T>) {
+export function Query<T>({ state, subject, loading, onRetry, children }: QueryProps<T>) {
   if (state.status === "loading") {
-    return <div role="status" aria-label="Loading">{loading ?? <Skeleton className="h-40 w-full" />}</div>;
+    return (
+      <>
+        {subject && <h1 className="sr-only">Loading {subject}</h1>}
+        <div role="status" aria-label="Loading">
+          {loading ?? <Skeleton className="h-40 w-full" />}
+        </div>
+      </>
+    );
   }
-  if (state.status === "error") return <ErrorBox message={state.error.message} onRetry={onRetry} />;
+  if (state.status === "error") {
+    return <ErrorBox message={state.error.message} onRetry={onRetry} title={subject ? `Could not load ${subject}.` : undefined} asPageTitle={subject !== undefined} />;
+  }
   return <>{children(state.data)}</>;
 }
 
-export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export interface ErrorBoxProps {
+  message: string;
+  onRetry?: () => void;
+  /** What could not be loaded; "Could not load this." when the box sits among other cards. */
+  title?: string;
+  /** The box is the whole page: its title is the page's h1. */
+  asPageTitle?: boolean;
+}
+
+export function ErrorBox({ message, onRetry, title = "Could not load this.", asPageTitle = false }: ErrorBoxProps) {
+  const Title = asPageTitle ? "h1" : "p";
   return (
     <Card>
       <div role="alert" className="space-y-3">
-        <p className="font-medium text-loss">Could not load this.</p>
+        <Title className="font-medium text-loss">{title}</Title>
         <p className="text-sm text-muted">{message}</p>
         {onRetry && (
           <button type="button" onClick={onRetry} className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm hover:border-fg/30 cursor-pointer">

@@ -9,6 +9,17 @@ export interface LagNote {
 }
 
 /**
+ * What a screen reader is told about the indexer, apart from the visible line. The visible line carries
+ * block numbers that change with every block, and a live region that repeats it would speak every two
+ * seconds; this changes only when the indexer's state does. Nothing is said while it is current.
+ */
+export function lagAnnouncement(index: IndexStatus): string {
+  if (index.stuck !== null) return `The indexer is stuck at block ${formatInt(index.stuck.height)}; history stops at block ${formatInt(index.cursor)}.`;
+  if (index.cursor === 0) return "The indexer has not indexed a block yet.";
+  return index.lag === 0 ? "" : "The indexed history is behind the chain.";
+}
+
+/**
  * What a reader should know about how current the history on a page is. The lists that come from the
  * chain indexer (transactions, epochs, rewards) end at its cursor; the chain's head may be ahead.
  * A stuck indexer is said so with its reason, because its lag then does not close by itself.

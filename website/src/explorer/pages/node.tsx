@@ -23,7 +23,7 @@ export function NodePage() {
   const { state, refetch } = useQuery((s) => s.getNode(id), [id]);
   return (
     <Page>
-      <Query state={state} onRetry={refetch} loading={<Loading />}>
+      <Query state={state} subject={`node ${id}`} onRetry={refetch} loading={<Loading />}>
         {(detail) =>
           detail === null ? (
             <NotFoundBox title="No such node" hint="The chain holds no node with that id. Open the node list to see the registered nodes." />

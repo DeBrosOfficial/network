@@ -40,7 +40,7 @@ export function CopyChip({ value, label, className, withText = false }: CopyButt
       onClick={copy}
       aria-label={label}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-muted hover:text-fg hover:border-fg/30 transition-colors cursor-pointer",
+        "inline-flex min-h-6 min-w-6 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-muted hover:text-fg hover:border-fg/30 transition-colors cursor-pointer",
         className,
       )}
     >
