@@ -145,6 +145,7 @@ var (
 	alice     = sdk.AccAddress("alice________________")
 	bob       = sdk.AccAddress("bob__________________")
 	carol     = sdk.AccAddress("carol________________")
+	frank     = sdk.AccAddress("frank_______________")
 )
 
 func TestApplyStateDelta_growthLocksBytesTimesPrice(t *testing.T) {
@@ -158,7 +159,7 @@ func TestApplyStateDelta_growthLocksBytesTimesPrice(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, alice.String(), dep.Owner)
 	require.True(t, dep.Amount.Equal(math.NewInt(100*perByte)))
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 }
@@ -175,14 +176,14 @@ func TestApplyStateDelta_shrinkReleasesNewestChunkFirstToItsPayer(t *testing.T) 
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 100, 0))
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, bob, 40, 0))
 
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 40))
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, carol, 0, 40))
 
 	require.True(t, f.fees.refundedOf(bob.String()).Equal(math.NewInt(40*perByte*99/100)))
 	require.True(t, f.fees.refundedOf(alice.String()).IsZero(), "alice's older chunk is untouched")
 	held, err := f.k.ChargedBytes(f.ctx, contractA)
 	require.NoError(t, err)
 	require.Equal(t, uint64(100), held)
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 }
@@ -198,7 +199,7 @@ func TestApplyStateDelta_partialShrinkKeepsTheRemainderOfAChunk(t *testing.T) {
 	held, err := f.k.ChargedBytes(f.ctx, contractA)
 	require.NoError(t, err)
 	require.Equal(t, uint64(70), held)
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 }
@@ -208,7 +209,7 @@ func TestApplyStateDelta_shrinkAcrossChunksAndToZero(t *testing.T) {
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 100, 0))
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, bob, 40, 0))
 
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 60))
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, carol, 0, 60))
 	require.Len(t, f.fees.deposits, 1, "bob's chunk is gone and alice's is trimmed by 20")
 	dep, err := f.fees.GetDeposit(f.ctx, types.DepositID(contractA.String(), 0))
 	require.NoError(t, err)
@@ -251,13 +252,13 @@ func TestCheckInvariants_detectsADepositThatDrifted(t *testing.T) {
 	dep.Amount = dep.Amount.SubRaw(1)
 	f.fees.deposits[id] = dep
 
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.False(t, inv.DepositsMatch)
 	require.Contains(t, inv.Detail, id)
 
 	delete(f.fees.deposits, id)
-	inv, err = f.k.CheckInvariants(f.ctx)
+	inv, err = f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.False(t, inv.DepositsMatch)
 }
@@ -325,7 +326,7 @@ func TestApplyStateDelta_samePayerGrowthTopsUpOneChunk(t *testing.T) {
 	dep, err := f.fees.GetDeposit(f.ctx, types.DepositID(contractA.String(), 0))
 	require.NoError(t, err)
 	require.True(t, dep.Amount.Equal(math.NewInt(50*perByte)))
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 }
@@ -346,7 +347,7 @@ func TestApplyStateDelta_aNewPayerLocksTheChunkOverhead(t *testing.T) {
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 5))
 	dep, _ = f.fees.GetDeposit(f.ctx, types.DepositID(contractA.String(), 0))
 	require.True(t, dep.Amount.Equal(math.NewInt((10+overhead)*perByte)))
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 10))
@@ -363,7 +364,7 @@ func TestApplyStateDelta_anyNumberOfStrangersCanPayWithoutLockingOthersOut(t *te
 	held, err := f.k.ChargedBytes(f.ctx, contractA)
 	require.NoError(t, err)
 	require.Equal(t, uint64(45), held)
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 }
@@ -374,7 +375,7 @@ func TestApplyStateDelta_aShrinkPastTheRowLimitCarriesTheRestToTheNextCalls(t *t
 	for _, p := range payers {
 		require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, p, 10, 0))
 	}
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 50))
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, frank, 0, 50))
 	held, err := f.k.ChargedBytes(f.ctx, contractA)
 	require.NoError(t, err)
 	require.Equal(t, uint64(30), held, "only two rows were released by the shrink")
@@ -391,7 +392,7 @@ func TestApplyStateDelta_aShrinkPastTheRowLimitCarriesTheRestToTheNextCalls(t *t
 	has, err := f.k.ReleaseCarry.Has(f.ctx, contractA.Bytes())
 	require.NoError(t, err)
 	require.False(t, has)
-	inv, err := f.k.CheckInvariants(f.ctx)
+	inv, err := f.k.CheckInvariantsExact(f.ctx)
 	require.NoError(t, err)
 	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
 }
@@ -414,7 +415,7 @@ func TestGenesis_exportsAndImportsTheReleaseCarry(t *testing.T) {
 	f := newFixtureWith(t, 0, 1)
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 10, 0))
 	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, bob, 10, 0))
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 20))
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, carol, 0, 20))
 	gs, err := f.k.ExportGenesis(f.ctx)
 	require.NoError(t, err)
 	require.Len(t, gs.ReleaseCarry, 1)

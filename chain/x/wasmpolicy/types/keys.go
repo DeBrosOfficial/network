@@ -75,4 +75,10 @@ var (
 	ReleaseCarryPrefix = collections.NewPrefix(7)
 	// NextChunkPrefix stores the next chunk sequence.
 	NextChunkPrefix = collections.NewPrefix(5)
+	// PayerChunkPrefix indexes a contract's chunk by (contract, payer): one payer is one chunk.
+	PayerChunkPrefix = collections.NewPrefix(8)
+	// ContractTotalsPrefix stores the running rows and locked norama of each contract.
+	ContractTotalsPrefix = collections.NewPrefix(9)
+	// TotalsPrefix stores the single running total over every contract.
+	TotalsPrefix = collections.NewPrefix(10)
 )

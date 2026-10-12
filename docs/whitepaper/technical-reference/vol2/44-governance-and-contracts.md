@@ -183,11 +183,11 @@ wasmd has no price on storage, so Orama prices it in a wrapper around wasmd's VM
 
 **Growth.** `charge` locks `growth x deposit_per_byte` (68,359 norama, about 0.07 ORAMA per KB; the price `x/token` and `x/nodes` ship) from the payer through `x/fees`. The ledger keeps one *chunk* per payer per contract, keyed by (contract, sequence):
 
-- If the payer already has a chunk on this contract, it is topped up.
+- If the payer already has a chunk on this contract, it is topped up. The chunk is found through a `(contract, payer)` index, so charging costs the same however many other payers the contract has.
 - If not, a new chunk is created, which also locks `chunk_overhead_bytes` (512) for its own ledger rows. There is no limit on payers per contract, so a stranger cannot take a slot another account needs.
 - Every lock adds to the transaction's `DepositBudget`, which lives in the context for the whole transaction and counts submessages that later revert, which only makes the cap stricter. The sum may not pass `max_deposit_per_tx` (10 ORAMA, about 146 KB of new state at the default price): `ErrDepositCap`.
 
-**Shrink.** `refund` releases chunks newest first, each refunded to the payer who locked it; a partial release leaves the remainder of a chunk. One call releases at most `max_release_rows` (32) rows; the bytes it did not reach are kept as the contract's *release carry*, and the contract's next calls work the carry off before they charge anything new (a call that changes nothing does too), so a shrink fits in a block however many payers a contract has and the deposits are released late, never lost. The carry is part of genesis. `x/fees` returns 99% to the payer's earnings and burns 1% (`chain/x/wasmpolicy/keeper/deposit.go:FeesKeeper`). Only charged bytes can be refunded: a contract's genesis state or first bytes that were never charged are not, so a shrink past the charged total releases the charged total and no more. The overhead is released with its whole chunk.
+**Shrink.** `refund` first releases the shrinking payer's own chunk (through the same index, up to the bytes it freed), so payers who added chunks later cannot delay that payer's refund. The ledger does not know whose entry a contract deleted, only who signed the call: the signer pays for growth and is refunded first for shrink, so a signer who deletes someone else's entry is refunded its own deposit before the rest goes to the newest chunks. The rest is released chunks newest first, each refunded to the payer who locked it; a partial release leaves the remainder of a chunk. One call releases at most `max_release_rows` (32) rows of that newest-first walk; the bytes it did not reach are kept as the contract's *release carry*, and the contract's next calls work the carry off before they charge anything new (a call that changes nothing does too), so a shrink fits in a block however many payers a contract has and the deposits are released late, never lost. The carry is part of genesis. `x/fees` returns 99% to the payer's earnings and burns 1% (`chain/x/wasmpolicy/keeper/deposit.go:FeesKeeper`). Only charged bytes can be refunded: a contract's genesis state or first bytes that were never charged are not, so a shrink past the charged total releases the charged total and no more. The overhead is released with its whole chunk.
 
 **Failure.** A deposit that cannot be paid, a payer with no balance or earnings, or a missing payer turns the call into a contract error `state deposit: ...`, which wasmd treats as any failed execution. Outside a transaction (a block hook, a genesis call) there is no payer and growth fails.
 
@@ -233,6 +233,7 @@ They are built from pinned upstream commits with Rust 1.81 and `wasm-opt -Os --s
 | module account `houses` | locked bonds | bank | invariant | `x/bank` |
 | wasmpolicy sunset, genesis codes, price, limits | write-once policy | `InitGenesis` only | ante, ledger | `wasmpolicy` store, prefixes 0, 1, 2, 6 |
 | deposit chunks, contract bytes, next chunk | the state-deposit ledger | `ApplyStateDelta` | refunds, invariants | prefixes 3, 4, 5 (JSON values) |
+| payer index, contract totals, global totals | `(contract, payer)` to chunk; running rows and locked norama per contract and in all; charged bytes in all | `ApplyStateDelta`, genesis import | charge, refund, epoch invariant | prefixes 8, 9, 10 (JSON values) |
 | `x/fees` deposits `wasm/<contract>/<seq>` | the locked norama | `x/fees` | release | `x/fees`, module `fees_deposits` |
 | deposit budget, deposit payer | per-transaction context values | `DepositPayerDecorator` | `charge` | context only |
 | `x/wasm` store | codes, contracts, contract state | wasmd | wasmd | `wasm` store key, with `<home>/wasm` for compiled modules |
@@ -272,7 +273,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 | One transaction would lock more than 10 ORAMA | `ErrDepositCap` | the call fails; the transaction budget counts reverted submessages too |
 | A shrink reaches more than 32 deposit rows | the first 32 are released, the rest become the release carry | the carry drains over the contract's next calls (`release_carry` in genesis) |
 | Binary built with `nowasm` joins a chain with wasm state | refuses to start | start-up error naming libwasmvm |
-| Ledger and `x/fees` disagree | `Keeper.CheckInvariants` reports `DepositsMatch` false; the module registers no query to read it | only the keeper tests exercise it |
+| Ledger totals drift from their parts | `Keeper.CheckInvariants`, which the epoch conservation pass runs, sums the per-contract running totals and compares them with the global ones: its cost grows with contracts, not chunks. `CheckInvariantsExact` walks every chunk and compares it with its `x/fees` deposit, the totals and the payer index; the module registers no query to read either | the epoch pass halts the chain on the cheap check; the keeper tests exercise the exact one |
 
 ## Trust and security
 

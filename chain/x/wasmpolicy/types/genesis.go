@@ -87,10 +87,16 @@ func (gs GenesisState) Validate() error {
 		}
 	}
 	chunks := make(map[string]struct{}, len(gs.DepositChunks))
+	payers := make(map[string]struct{}, len(gs.DepositChunks))
 	for _, c := range gs.DepositChunks {
 		if err := c.Validate(); err != nil {
 			return err
 		}
+		payerKey := c.Contract + "/" + c.Payer
+		if _, ok := payers[payerKey]; ok {
+			return fmt.Errorf("payer %s has two deposit chunks of contract %s: one payer is one chunk", c.Payer, c.Contract)
+		}
+		payers[payerKey] = struct{}{}
 		key := fmt.Sprintf("%s/%d", c.Contract, c.Seq)
 		if _, ok := chunks[key]; ok {
 			return fmt.Errorf("duplicate deposit chunk %s", key)

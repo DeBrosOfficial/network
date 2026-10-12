@@ -33,6 +33,13 @@ type Keeper struct {
 	// ReleaseCarry is, per contract, the bytes freed by shrinks whose deposits are still to release.
 	ReleaseCarry collections.Map[[]byte, uint64]
 	NextChunk    collections.Sequence
+	// PayerChunk is keyed by (contract, payer address bytes) and holds that payer's chunk sequence, so
+	// charging a payer finds its chunk without walking the contract's chunks.
+	PayerChunk collections.Map[collections.Pair[[]byte, []byte], uint64]
+	// ContractTotals and Totals are running totals of the ledger, kept by every write to it: the
+	// epoch invariant sums these instead of walking every chunk.
+	ContractTotals collections.Map[[]byte, types.ContractTotals]
+	Totals         collections.Item[types.Totals]
 
 	uploads UploadAllowList
 }
@@ -70,6 +77,12 @@ func NewKeeper(storeService storetypes.KVStoreService, fees FeesKeeper) Keeper {
 		ContractBytes: collections.NewMap(sb, types.ContractBytesPrefix, "contract_bytes", collections.BytesKey, collections.Uint64Value),
 		ReleaseCarry:  collections.NewMap(sb, types.ReleaseCarryPrefix, "release_carry", collections.BytesKey, collections.Uint64Value),
 		NextChunk:     collections.NewSequence(sb, types.NextChunkPrefix, "next_deposit_chunk"),
+		PayerChunk: collections.NewMap(
+			sb, types.PayerChunkPrefix, "deposit_payer_chunks",
+			collections.PairKeyCodec(collections.BytesKey, collections.BytesKey), collections.Uint64Value,
+		),
+		ContractTotals: collections.NewMap(sb, types.ContractTotalsPrefix, "contract_totals", collections.BytesKey, types.JSONValue[types.ContractTotals]{}),
+		Totals:         collections.NewItem(sb, types.TotalsPrefix, "deposit_totals", types.JSONValue[types.Totals]{}),
 	}
 	schema, err := sb.Build()
 	if err != nil {

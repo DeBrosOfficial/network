@@ -100,7 +100,7 @@ func TestDeposit_growthIsChargedToTheCallerAndDeletionRefunds(t *testing.T) {
 	r.requireInvariants()
 }
 
-func TestDeposit_eachPayerGetsTheirOwnRefund(t *testing.T) {
+func TestDeposit_aShrinkRefundsTheSignersOwnChunkFirstThenTheNewest(t *testing.T) {
 	r := newRelayChain(t, wasmChainOptions{})
 	require.Zero(t, r.store(r.alice, r.relay, "a", 10).Code)
 	require.Zero(t, r.store(r.bob, r.relay, "b", 30).Code)
@@ -116,9 +116,9 @@ func TestDeposit_eachPayerGetsTheirOwnRefund(t *testing.T) {
 	require.NoError(t, err)
 	bobAfter, err := r.app.FeesKeeper.GetEarnings(r.ctx(), r.bob.addr)
 	require.NoError(t, err)
-	require.True(t, aliceAfter.Equal(aliceBefore), "alice deleted bob's entry and is not refunded for it")
-	require.True(t, bobAfter.GT(bobBefore), "bob is")
-	require.Equal(t, uint64(1+10), r.charged(r.relay), "alice's own entry is still charged")
+	require.True(t, aliceAfter.GT(aliceBefore), "the signer's own chunk is released first, up to the bytes the call freed")
+	require.True(t, bobAfter.GT(bobBefore), "and the rest of what the call freed goes to the newest chunk, bob's")
+	require.Equal(t, uint64(1+10), r.charged(r.relay), "what is still charged is what is still stored")
 	r.requireInvariants()
 }
 
