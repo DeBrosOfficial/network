@@ -3,8 +3,6 @@
 package chainexplorer
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -23,10 +21,6 @@ const (
 	smallPage = 2
 	// maxListPages bounds how far a test follows a page key.
 	maxListPages = 200
-
-	rsaFingerprintLen = 20
-	// crossCertDomain is the domain of a relay's cross-certificate (x/relay/types/crosscert.go).
-	crossCertDomain = "orama/relay/rsa-cross-cert/v2"
 )
 
 func atoi(t *testing.T, s string) int64 {
@@ -185,17 +179,6 @@ func TestExplorerLists_dealsPagesNewestFirstAndEveryEntryIsTheDealQueryAnswer(t 
 	requirePageCap(t, "orama.storage.v1.Query/Deals")
 }
 
-// registerRelayMsg is MsgRegisterRelay with the relay's ed25519 cross-certificate over the node id
-// and the RSA fingerprint.
-func registerRelayMsg(operator, nodeID string, fp []byte, priv ed25519.PrivateKey) chain.Msg {
-	signed := append(append(append(append([]byte(crossCertDomain), 0), nodeID...), 0), fp...)
-	signed = append(signed, 0, 1) // the registration below declares exit
-	return chain.NewMsg("/orama.relay.v1.MsgRegisterRelay", map[string]any{
-		"operator": operator, "node_id": nodeID, "rsa_fingerprint": base64.StdEncoding.EncodeToString(fp),
-		"exit": true, "ed25519_signature": base64.StdEncoding.EncodeToString(ed25519.Sign(priv, signed)),
-	})
-}
-
 // TestExplorerLists_relaysHoldsARegisteredRelayAsTheRelayQueryAnswersIt: a relay an operator
 // registers is in the Relays list, with the fingerprint, node, operator and exit flag the Relay
 // query answers. A page above 100 is refused.
@@ -205,11 +188,9 @@ func TestExplorerLists_relaysHoldsARegisteredRelayAsTheRelayQueryAnswersIt(t *te
 	op := c.FundedValidator(t, chain.OperatorNode, chain.Orama(1))
 	c.EnsureOperator(t, op)
 	id, bindings := c.RegisterTestNode(t, op, []string{chain.RoleRelay}, "relay")
-	fp := make([]byte, rsaFingerprintLen)
-	if _, err := rand.Read(fp); err != nil {
-		t.Fatal(err)
-	}
-	chain.RequireOK(t, "register a relay", c.Submit(t, op, chain.TxOptions{}, registerRelayMsg(op.Address, id, fp, bindings[0].Priv)))
+	rsaID := chain.NewRelayRSAIdentity(t)
+	reg := chain.ValidRelayExit(t, op.Address, id, rsaID, bindings[0].Priv, true)
+	chain.RequireOK(t, "register a relay", c.Submit(t, op, chain.TxOptions{}, reg.Register()))
 
 	type relay struct {
 		NodeID      string `json:"node_id"`
@@ -218,7 +199,7 @@ func TestExplorerLists_relaysHoldsARegisteredRelayAsTheRelayQueryAnswersIt(t *te
 		Exit        bool   `json:"exit"`
 		Jailed      bool   `json:"jailed"`
 	}
-	want := base64.StdEncoding.EncodeToString(fp)
+	want := base64.StdEncoding.EncodeToString(rsaID.Fingerprint)
 	var listed *relay
 	for _, raw := range listPages(t, "orama.relay.v1.Query/Relays", "relays", smallPage, false) {
 		var r relay
@@ -235,7 +216,7 @@ func TestExplorerLists_relaysHoldsARegisteredRelayAsTheRelayQueryAnswersIt(t *te
 	var point struct {
 		Relay relay `json:"relay"`
 	}
-	decode(t, read(t, "/query/orama.relay.v1.Query/Relay", url.Values{"json": {addressJSON("rsa_fingerprint_hex", hex.EncodeToString(fp))}}), &point)
+	decode(t, read(t, "/query/orama.relay.v1.Query/Relay", url.Values{"json": {addressJSON("rsa_fingerprint_hex", hex.EncodeToString(rsaID.Fingerprint))}}), &point)
 	if *listed != point.Relay || listed.NodeID != id || listed.Operator != op.Address || !listed.Exit {
 		t.Errorf("the list holds %+v, the Relay query %+v, for node %s of %s", *listed, point.Relay, id, op.Address)
 	}
