@@ -31,13 +31,10 @@ var (
 // sanitizeLog makes a node's log of a refused transaction safe to hand to any caller: a stack
 // trace, source locations, filesystem paths and network addresses are replaced, control characters
 // and invalid UTF-8 are dropped, and the result is cut to logMaxRunes. What is left is the SDK's
-// own reason ("insufficient fees; got ... required ..."), which a wallet shows.
+// own reason ("insufficient fees; got ... required ..."), which a wallet shows. The log is made
+// plain text first: bytes dropped after the patterns ran would join the halves of an address or a
+// path that the patterns had not matched.
 func sanitizeLog(log string) string {
-	log = stackTrace.ReplaceAllString(log, redacted)
-	log = sourceLocation.ReplaceAllString(log, redacted)
-	log = filesystemPath.ReplaceAllString(log, redacted)
-	log = ipv4Address.ReplaceAllString(log, redacted)
-	log = ipv6Address.ReplaceAllString(log, redacted)
 	var b strings.Builder
 	for _, r := range strings.ToValidUTF8(log, "") {
 		if unicode.IsControl(r) {
@@ -45,7 +42,13 @@ func sanitizeLog(log string) string {
 		}
 		b.WriteRune(r)
 	}
-	out := []rune(strings.TrimSpace(b.String()))
+	log = b.String()
+	log = stackTrace.ReplaceAllString(log, redacted)
+	log = sourceLocation.ReplaceAllString(log, redacted)
+	log = filesystemPath.ReplaceAllString(log, redacted)
+	log = ipv4Address.ReplaceAllString(log, redacted)
+	log = ipv6Address.ReplaceAllString(log, redacted)
+	out := []rune(strings.TrimSpace(log))
 	if len(out) > logMaxRunes {
 		out = out[:logMaxRunes]
 	}
