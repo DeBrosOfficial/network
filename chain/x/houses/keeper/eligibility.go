@@ -2,12 +2,12 @@ package keeper
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 
-	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/houses/types"
 )
@@ -88,33 +88,37 @@ func (k Keeper) eligibleSet(ctx context.Context) (map[string]eligibleOperator, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to load houses params: %w", err)
 	}
-	operators, err := k.operators.Operators(ctx)
-	if err != nil {
-		return nil, rejectAdvance(fmt.Errorf("failed to load operators: %w", err))
-	}
 	type candidate struct {
 		eligibleOperator
 		lockedAt int64
 	}
 	var cands []candidate
-	for _, op := range operators {
-		if op.Address == nil || op.ServiceDays < types.MinServiceDays || op.Prefix16 == "" || op.ASN == 0 {
-			continue
-		}
-		bond, err := k.Bonds.Get(ctx, op.Address.String())
-		if err != nil {
-			if errors.Is(err, collections.ErrNotFound) {
-				continue
-			}
-			return nil, fmt.Errorf("failed to load house bond for %s: %w", op.Address, err)
-		}
+	// The walk is over the house bonds, not over the operators: an operator is eligible only with a
+	// bond of at least HouseBond locked, so the walk is bounded by the stake locked in the house and
+	// not by how many accounts registered as operators.
+	err = k.Bonds.Walk(ctx, nil, func(address string, bond types.HouseBond) (bool, error) {
 		if types.IntOrZero(bond.Amount).LT(p.HouseBond) {
-			continue
+			return false, nil
+		}
+		acc, err := sdk.AccAddressFromBech32(address)
+		if err != nil {
+			return true, fmt.Errorf("house bond address %s: %w", address, err)
+		}
+		op, found, err := k.operators.Operator(ctx, acc)
+		if err != nil {
+			return true, rejectAdvance(fmt.Errorf("failed to load operator %s: %w", address, err))
+		}
+		if !found || op.ServiceDays < types.MinServiceDays || op.Prefix16 == "" || op.ASN == 0 {
+			return false, nil
 		}
 		cands = append(cands, candidate{
-			eligibleOperator: eligibleOperator{Address: op.Address.String(), Prefix16: op.Prefix16, ASN: op.ASN},
+			eligibleOperator: eligibleOperator{Address: address, Prefix16: op.Prefix16, ASN: op.ASN},
 			lockedAt:         bond.LockedAtHeight,
 		})
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list eligible operators: %w", err)
 	}
 	sort.Slice(cands, func(i, j int) bool {
 		if cands[i].lockedAt != cands[j].lockedAt {

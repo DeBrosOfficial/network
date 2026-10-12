@@ -61,6 +61,7 @@ func openStructuralTier(t *testing.T, ctx sdk.Context, a *app.OramaApp) {
 			Asn: uint32(i%5 + 1), Endpoints: []string{fmt.Sprintf("https://%d.%d.0.1:443", 40+i/3, 100+i/3)},
 		}
 		require.NoError(t, a.NodesKeeper.Nodes.Set(ctx, node.NodeId, node))
+		require.NoError(t, a.NodesKeeper.NodesByOperator.Set(ctx, collections.Join(addr, node.NodeId)))
 		for day := uint64(0); day < housetypes.MinServiceDays; day++ {
 			require.NoError(t, a.NodesKeeper.ServiceDays.Set(ctx, collections.Join(canonical, day), nodestypes.ServiceDay{Operator: canonical, DayIndex: day}))
 		}

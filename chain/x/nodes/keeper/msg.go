@@ -149,6 +149,9 @@ func (k Keeper) RegisterNode(ctx sdk.Context, msg *types.MsgRegisterNode) error 
 		if err := k.indexIPs(ctx, nil, types.LiteralIPs(node.Endpoints), node.NodeId); err != nil {
 			return err
 		}
+		if err := k.NodesByOperator.Set(ctx, collections.Join(node.Operator, node.NodeId)); err != nil {
+			return fmt.Errorf("index node %s under operator %s: %w", node.NodeId, node.Operator, err)
+		}
 		if err := k.saveNode(ctx, node); err != nil {
 			return err
 		}

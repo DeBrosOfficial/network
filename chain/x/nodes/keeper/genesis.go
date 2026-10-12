@@ -57,6 +57,9 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 				return err
 			}
 		}
+		if err := k.NodesByOperator.Set(ctx, collections.Join(node.Operator, node.NodeId)); err != nil {
+			return fmt.Errorf("index node %s under operator %s: %w", node.NodeId, node.Operator, err)
+		}
 		if err := k.saveNode(ctx, node); err != nil {
 			return err
 		}

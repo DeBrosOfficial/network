@@ -363,6 +363,62 @@ func TestCapacityBuckets_indexByClassAndOperator(t *testing.T) {
 	f.requireInvariants(t)
 }
 
+func TestOperatorServiceDaysUpTo_stopsAtTheLimit(t *testing.T) {
+	f := newTestFixture(t)
+	op := newAccount(t)
+	f.fund(op, 100)
+	f.registerOperator(t, op)
+	f.registerNode(t, op, newAccount(t), "store", []types.Role{types.RoleStorage}, []types.Binding{
+		edBinding(t, testChainID, op.String(), "ipfs"),
+	})
+	_, err := f.Msg.BondNode(f.Ctx, &types.MsgBondNode{Operator: op.String(), NodeId: "store", Role: types.RoleStorage, Amount: orama(1)})
+	require.NoError(t, err)
+	_, err = f.Msg.DeclareCapacity(f.Ctx, &types.MsgDeclareCapacity{Operator: op.String(), NodeId: "store", CapacityBytes: types.GiB})
+	require.NoError(t, err)
+	for day := 0; day < 5; day++ {
+		require.NoError(t, f.Keeper.EndBlock(f.Ctx))
+		f.Ctx = f.Ctx.WithBlockTime(f.Ctx.BlockTime().Add(24 * time.Hour))
+	}
+
+	all, err := f.Keeper.OperatorServiceDays(f.Ctx, op.String())
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), all)
+	capped, err := f.Keeper.OperatorServiceDaysUpTo(f.Ctx, op.String(), 3)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), capped, "it stops counting at the limit")
+	short, err := f.Keeper.OperatorServiceDaysUpTo(f.Ctx, op.String(), 9)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), short, "under the limit it is the full count")
+	none, err := f.Keeper.OperatorServiceDaysUpTo(f.Ctx, newAccount(t).String(), 3)
+	require.NoError(t, err)
+	require.Zero(t, none, "an operator that never served has no days")
+}
+
+func TestRegisterNode_indexesTheNodeUnderItsOperator(t *testing.T) {
+	f := newTestFixture(t)
+	op, other := newAccount(t), newAccount(t)
+	f.fund(op, 100)
+	f.fund(other, 100)
+	f.registerOperator(t, op)
+	f.registerOperator(t, other)
+	f.registerNode(t, op, newAccount(t), "mine-a", []types.Role{types.RoleStorage}, []types.Binding{edBinding(t, testChainID, op.String(), "ipfs")})
+	f.registerNode(t, op, newAccount(t), "mine-b", []types.Role{types.RoleStorage}, []types.Binding{edBinding(t, testChainID, op.String(), "ipfs")})
+	f.registerNode(t, other, newAccount(t), "theirs", []types.Role{types.RoleStorage}, []types.Binding{edBinding(t, testChainID, other.String(), "ipfs")})
+
+	var mine []string
+	rng := collections.NewPrefixedPairRange[string, string](op.String())
+	require.NoError(t, f.Keeper.NodesByOperator.Walk(f.Ctx, rng, func(key collections.Pair[string, string]) (bool, error) {
+		mine = append(mine, key.K2())
+		return false, nil
+	}))
+	require.Equal(t, []string{"mine-a", "mine-b"}, mine)
+
+	prefix, asn, err := f.Keeper.OperatorNetwork(f.Ctx, newAccount(t).String())
+	require.NoError(t, err)
+	require.Empty(t, prefix)
+	require.Zero(t, asn, "an address that is not an operator has no network")
+}
+
 func TestJailSlashAndServiceDays(t *testing.T) {
 	f := newTestFixture(t)
 	op, hot := newAccount(t), newAccount(t)

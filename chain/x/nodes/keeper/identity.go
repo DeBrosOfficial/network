@@ -115,6 +115,39 @@ func (k Keeper) effectiveIdentity(ctx sdk.Context, node types.Node) (string, uin
 	return types.NetworkOf(node.Endpoints), node.Asn, nil
 }
 
+// OperatorNetwork returns the network group and ASN of an operator's lowest-id active node that
+// has a declared ASN and a derivable /16 in effect (past the identity lock), or ("", 0) when it has
+// none. It reads only that operator's nodes, through NodesByOperator, in node-id order.
+func (k Keeper) OperatorNetwork(ctx sdk.Context, operator string) (string, uint32, error) {
+	var (
+		prefix string
+		asn    uint32
+	)
+	rng := collections.NewPrefixedPairRange[string, string](operator)
+	err := k.NodesByOperator.Walk(ctx, rng, func(key collections.Pair[string, string]) (bool, error) {
+		node, err := k.Nodes.Get(ctx, key.K2())
+		if err != nil {
+			return true, fmt.Errorf("load node %s of operator %s: %w", key.K2(), operator, err)
+		}
+		if node.Status != types.NodeStatusActive || node.Asn == 0 {
+			return false, nil
+		}
+		p, a, err := k.effectiveIdentity(ctx, node)
+		if err != nil {
+			return true, err
+		}
+		if p == "" || a == 0 {
+			return false, nil
+		}
+		prefix, asn = p, a
+		return true, nil
+	})
+	if err != nil {
+		return "", 0, fmt.Errorf("read network of operator %s: %w", operator, err)
+	}
+	return prefix, asn, nil
+}
+
 // EffectiveNetwork is effectiveIdentity for callers outside the module (the operator house view).
 func (k Keeper) EffectiveNetwork(ctx sdk.Context, node types.Node) (string, uint32, error) {
 	return k.effectiveIdentity(ctx, node)

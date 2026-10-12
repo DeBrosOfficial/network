@@ -62,3 +62,21 @@ func TestStructuralProposalIsNotExecutedWhenTheHouseFellBelowTheOpeningRuleInIts
 	require.Equal(t, types.ProposalStatus_FAILED, got.Status)
 	require.Contains(t, got.FailReason, types.ErrTierClosed.Error())
 }
+
+// Eligibility is read from the house bonds: an operator that holds no bond is never looked up, so the
+// cost of reading the house does not grow with the operators that registered and bonded nothing.
+func TestEligibleSetLooksUpOnlyTheOperatorsThatHoldABond(t *testing.T) {
+	f := openStructural(t)
+	registered := f.Operators.ops
+	for i := 1000; i < 1500; i++ {
+		registered = append(registered, types.OperatorInfo{
+			Address: acc(i), Prefix16: "10.99.0.0/16", ASN: 99, ServiceDays: types.MinServiceDays,
+		})
+	}
+	f.Operators.ops = registered
+	f.Operators.lookups = 0
+
+	view := mustTiers(t, f)
+	require.Equal(t, 21, view.Eligible)
+	require.Equal(t, 21, f.Operators.lookups, "one lookup per house bond, none for the 500 operators with no bond")
+}

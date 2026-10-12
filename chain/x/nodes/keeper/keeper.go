@@ -49,6 +49,10 @@ type Keeper struct {
 	// the name it holds. Both are exported through the genesis node_names list.
 	Names     collections.Map[string, types.NodeName]
 	NodeNames collections.Map[string, string]
+	// NodesByOperator holds (operator, node id) for every node ever registered, retired ones
+	// included. It is derived from Nodes, rebuilt from genesis and not exported, and lets a caller
+	// reach one operator's nodes without walking every node.
+	NodesByOperator collections.KeySet[collections.Pair[string, string]]
 }
 
 // NewKeeper builds a keeper. bankKeeper escrows bonds; depositKeeper locks
@@ -115,6 +119,10 @@ func NewKeeper(
 		LiveIPs:      collections.NewMap(sb, types.LiveIPPrefix, "live_ips", collections.StringKey, collections.StringValue),
 		Names:        collections.NewMap(sb, types.NameOwnerPrefix, "node_names", collections.StringKey, codec.CollValue[types.NodeName](cdc)),
 		NodeNames:    collections.NewMap(sb, types.NodeNamePrefix, "node_name_of", collections.StringKey, collections.StringValue),
+		NodesByOperator: collections.NewKeySet(
+			sb, types.NodeByOperatorPrefix, "node_by_operator",
+			collections.PairKeyCodec(collections.StringKey, collections.StringKey),
+		),
 	}
 	schema, err := sb.Build()
 	if err != nil {

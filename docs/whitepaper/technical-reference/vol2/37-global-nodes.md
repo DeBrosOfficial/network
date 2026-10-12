@@ -346,6 +346,7 @@ Two storage and governance rules need to know a node's network and ASN: protocol
 
 - **Network.** Derived, not stored: the first endpoint whose host is a literal public IPv4 address gives its `/16` (`a.b.0.0/16`); a literal IPv6 address gives its `/32`. Hostnames are skipped, because the chain cannot resolve DNS deterministically. A node with no literal-IP endpoint has no network (`chain/x/nodes/types/network.go:NetworkOf`).
 - **ASN.** Declared at registration or by update. Zero means undeclared. `AS_TRANS` (23456), documentation ranges (64496 to 64511, 65536 to 65551) and private-use ranges (64512 to 65535, 4200000000 and above) are refused in the message and in genesis (`ValidateASN`).
+- **Nodes by operator.** `NodesByOperator` holds `(operator, node id)` for every node ever registered, retired ones included. It is derived from the nodes, rebuilt at genesis and not exported, and lets the operator house read one operator's nodes (`OperatorNetwork`) without walking every node.
 - **Address uniqueness.** `LiveIPs` maps every normalised literal IP among live nodes' endpoints to its node, so two nodes of one or many operators cannot claim the same address. It does not prove control of the address, and hostnames are not indexed. Retiring a node releases its addresses.
 - **Lock.** Each node records `identity_since_unix`, the time it registered or its ASN or derived /16 last changed. `NodeNetwork` and the operator-house view report the identity only after `network_identity_lock_seconds` (14 days) have passed; inside the lock the node counts as unidentified, cannot fill a protocol-deal slot and does not count toward a house's caps (`chain/x/nodes/keeper/identity.go:effectiveIdentity`). The lock is a rolling snapshot: an identity moved to fit a slot draw or a vote does not count for 14 days, which matches the parameter-change timelock. A lock of 0 turns it off, and genesis nodes keep the timestamp the genesis gives them.
 
@@ -401,7 +402,7 @@ Bring-up follows from that. The first start of the provider creates `hot-key`, l
 | Co-location files | `/etc/orama-global/netns-host.nft`, `netns.nft`, `resolv.conf`, `/etc/sysctl.d/60-orama-global-netns.conf` | rulesets and resolver | the installer | `orama-global-netns.service` |
 | Co-location state | `netns-prior-ip-forward`, `netns-chain-clients` | the earlier `ip_forward`, extra allowed accounts | the installer | the installer |
 | Preferences | `/opt/orama/.orama/preferences.yaml` | `role`, `global_netns` | the installer | `orama-node` |
-| `x/nodes` collections | the `nodes` store key | params, operators, nodes, clusters, unbondings (with time and node indexes), revoked and live pubkeys, service days, free-capacity index, storage queue, hot keys, live IPs | the module | the module and its consumers |
+| `x/nodes` collections | the `nodes` store key | params, operators, nodes, clusters, unbondings (with time and node indexes), revoked and live pubkeys, service days, free-capacity index, storage queue, hot keys, live IPs, nodes by operator | the module | the module and its consumers |
 | Bond escrow | the `nodes` module account | bonds plus unbonding | `x/nodes` | `CheckInvariants` |
 
 ## Lifecycle

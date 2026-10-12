@@ -31,7 +31,7 @@ type PowerKeeper interface {
 
 // OperatorInfo is one operator identity. Prefix16 and ASN are compared as the
 // operator keeper normalized them. ServiceDays counts only proven service
-// above that keeper's minimum volume.
+// above that keeper's minimum volume, and counts no further than MinServiceDays.
 type OperatorInfo struct {
 	Address     sdk.AccAddress
 	Prefix16    string
@@ -39,9 +39,12 @@ type OperatorInfo struct {
 	ServiceDays uint64
 }
 
-// OperatorKeeper lists operators. x/houses does not import x/nodes.
+// OperatorKeeper looks up one operator. x/houses does not import x/nodes. It is asked about the
+// operators that hold a house bond and no others, because registering an operator is free and the
+// number of operators is not bounded by anything. found is false for an address that is not a
+// registered operator.
 type OperatorKeeper interface {
-	Operators(ctx context.Context) ([]OperatorInfo, error)
+	Operator(ctx context.Context, address sdk.AccAddress) (info OperatorInfo, found bool, err error)
 }
 
 // BankKeeper moves house bonds into and out of the houses module account and

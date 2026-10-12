@@ -138,15 +138,23 @@ func (p *fakePower) Lambda(context.Context) (math.LegacyDec, error) {
 
 type fakeOperators struct {
 	ops []types.OperatorInfo
-	// failWith, when set, is the error Operators fails with.
+	// failWith, when set, is the error Operator fails with.
 	failWith error
+	// lookups counts the operators asked about.
+	lookups int
 }
 
-func (o *fakeOperators) Operators(context.Context) ([]types.OperatorInfo, error) {
+func (o *fakeOperators) Operator(_ context.Context, address sdk.AccAddress) (types.OperatorInfo, bool, error) {
+	o.lookups++
 	if o.failWith != nil {
-		return nil, o.failWith
+		return types.OperatorInfo{}, false, o.failWith
 	}
-	return o.ops, nil
+	for _, op := range o.ops {
+		if op.Address.Equals(address) {
+			return op, true, nil
+		}
+	}
+	return types.OperatorInfo{}, false, nil
 }
 
 type fakeEmission struct {

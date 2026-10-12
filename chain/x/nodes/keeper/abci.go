@@ -175,6 +175,13 @@ func (k Keeper) recordServiceDays(ctx sdk.Context) error {
 // role at or above the volume floor, or an active RELAY role, in a block on
 // that UTC day.
 func (k Keeper) OperatorServiceDays(ctx sdk.Context, operator string) (uint64, error) {
+	return k.OperatorServiceDaysUpTo(ctx, operator, ^uint64(0))
+}
+
+// OperatorServiceDaysUpTo is OperatorServiceDays, but it stops counting at limit and returns limit
+// when the operator has at least that many: a caller that only compares the count with a minimum
+// reads at most that many rows, however long the operator has served.
+func (k Keeper) OperatorServiceDaysUpTo(ctx sdk.Context, operator string, limit uint64) (uint64, error) {
 	addr, err := types.CanonicalAddress(operator)
 	if err != nil {
 		return 0, err
@@ -182,7 +189,7 @@ func (k Keeper) OperatorServiceDays(ctx sdk.Context, operator string) (uint64, e
 	var days uint64
 	err = k.ServiceDays.Walk(ctx, collections.NewPrefixedPairRange[string, uint64](addr), func(collections.Pair[string, uint64], types.ServiceDay) (bool, error) {
 		days++
-		return false, nil
+		return days >= limit, nil
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count service days for %s: %w", addr, err)

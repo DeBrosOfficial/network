@@ -7,6 +7,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 
+	"cosmossdk.io/collections"
 	"cosmossdk.io/log/v2"
 	dbm "github.com/cosmos/cosmos-db"
 
@@ -16,7 +17,7 @@ import (
 	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
 )
 
-func TestHouseOperators_networksComeFromActiveNodesWithEndpointAndASN(t *testing.T) {
+func TestOperatorNetwork_comesFromActiveNodesWithEndpointAndASN(t *testing.T) {
 	SetAddressPrefixes()
 	a := NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{})
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -40,11 +41,22 @@ func TestHouseOperators_networksComeFromActiveNodesWithEndpointAndASN(t *testing
 	}
 	for _, n := range nodes {
 		require.NoError(t, a.NodesKeeper.Nodes.Set(ctx, n.NodeId, n))
+		require.NoError(t, a.NodesKeeper.NodesByOperator.Set(ctx, collections.Join(n.Operator, n.NodeId)))
 	}
 
-	got, err := houseOperators{nodes: a.NodesKeeper}.networks(ctx)
-	require.NoError(t, err)
-	require.Equal(t, map[string]operatorNetwork{
+	type network struct {
+		prefix16 string
+		asn      uint32
+	}
+	got := map[string]network{}
+	for _, op := range []string{"op-full", "op-no-asn", "op-hostname", "op-jailed", "op-second-node", "op-fresh", "op-settled", "op-unknown"} {
+		prefix, asn, err := a.NodesKeeper.OperatorNetwork(ctx, op)
+		require.NoError(t, err)
+		if prefix != "" || asn != 0 {
+			got[op] = network{prefix16: prefix, asn: asn}
+		}
+	}
+	require.Equal(t, map[string]network{
 		"op-full":        {prefix16: "45.33.0.0/16", asn: 15169},
 		"op-second-node": {prefix16: "151.101.0.0/16", asn: 16509},
 		"op-settled":     {prefix16: "45.33.0.0/16", asn: 15169},

@@ -13,7 +13,6 @@ import (
 	"github.com/DeBrosOfficial/network/chain/app/params"
 	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
 	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
 	powerkeeper "github.com/DeBrosOfficial/network/chain/x/power/keeper"
 )
 
@@ -75,7 +74,7 @@ func (h housePower) Lambda(ctx context.Context) (math.LegacyDec, error) {
 	return h.power.Lambda.Get(ctx)
 }
 
-// houseOperators lists x/nodes operators. An operator's Prefix16 and ASN come from
+// houseOperators looks up x/nodes operators. An operator's Prefix16 and ASN come from
 // its lowest-id ACTIVE node that has both (a /16 derivable from its endpoints and a
 // declared ASN) and whose identity has stood unchanged for the network identity lock
 // (x/nodes network_identity_lock_seconds); an operator with no such node keeps an
@@ -84,72 +83,31 @@ func (h housePower) Lambda(ctx context.Context) (math.LegacyDec, error) {
 // registered or changed its ASN or endpoints is not counted until the lock has
 // passed, so identity cannot be moved to fit a vote. Both values are operator
 // declarations, not verified on chain (docs/whitepaper/technical-reference/vol2/44-governance-and-contracts.md, "Node network identity").
+//
+// x/houses asks about the operators that hold a house bond only, and every read here is of that
+// one operator: its record, its nodes through the by-operator index, and its service days up to the
+// minimum the house requires.
 type houseOperators struct {
 	nodes nodeskeeper.Keeper
 }
 
-type operatorNetwork struct {
-	prefix16 string
-	asn      uint32
-}
-
-// networks maps each operator to the network identity of its lowest-id active node
-// that has both a derivable /16 and a declared ASN, both in effect (past the lock).
-func (h houseOperators) networks(ctx context.Context) (map[string]operatorNetwork, error) {
-	out := map[string]operatorNetwork{}
+func (h houseOperators) Operator(ctx context.Context, address sdk.AccAddress) (housetypes.OperatorInfo, bool, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	err := h.nodes.Nodes.Walk(ctx, nil, func(_ string, node nodestypes.Node) (bool, error) {
-		if node.Status != nodestypes.NodeStatusActive || node.Asn == 0 {
-			return false, nil
-		}
-		if _, taken := out[node.Operator]; taken {
-			return false, nil
-		}
-		prefix, asn, err := h.nodes.EffectiveNetwork(sdkCtx, node)
-		if err != nil {
-			return true, err
-		}
-		if prefix != "" && asn != 0 {
-			out[node.Operator] = operatorNetwork{prefix16: prefix, asn: asn}
-		}
-		return false, nil
-	})
+	addr := address.String()
+	registered, err := h.nodes.Operators.Has(ctx, addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read operator networks: %w", err)
+		return housetypes.OperatorInfo{}, false, fmt.Errorf("failed to read operator %s: %w", addr, err)
 	}
-	return out, nil
-}
-
-func (h houseOperators) Operators(ctx context.Context) ([]housetypes.OperatorInfo, error) {
-	networks, err := h.networks(ctx)
+	if !registered {
+		return housetypes.OperatorInfo{}, false, nil
+	}
+	days, err := h.nodes.OperatorServiceDaysUpTo(sdkCtx, addr, housetypes.MinServiceDays)
 	if err != nil {
-		return nil, err
+		return housetypes.OperatorInfo{}, false, err
 	}
-	var out []housetypes.OperatorInfo
-	err = h.nodes.Operators.Walk(ctx, nil, func(key string, op nodestypes.Operator) (bool, error) {
-		addr := op.Address
-		if addr == "" {
-			addr = key
-		}
-		acc, err := sdk.AccAddressFromBech32(addr)
-		if err != nil {
-			return false, err
-		}
-		days, err := h.nodes.OperatorServiceDays(sdk.UnwrapSDKContext(ctx), addr)
-		if err != nil {
-			return false, err
-		}
-		net := networks[addr]
-		out = append(out, housetypes.OperatorInfo{
-			Address:     acc,
-			Prefix16:    net.prefix16,
-			ASN:         net.asn,
-			ServiceDays: days,
-		})
-		return false, nil
-	})
+	prefix, asn, err := h.nodes.OperatorNetwork(sdkCtx, addr)
 	if err != nil {
-		return nil, err
+		return housetypes.OperatorInfo{}, false, err
 	}
-	return out, nil
+	return housetypes.OperatorInfo{Address: address, Prefix16: prefix, ASN: asn, ServiceDays: days}, true, nil
 }
