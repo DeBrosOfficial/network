@@ -17,9 +17,13 @@
 #     (public transfers never ask it, and the next verification starts it
 #     again); a verification in flight needs a bundle with a valid proof, which
 #     only the Rust wallet builds, so it is not reached. By the code a child
-#     that dies during FinalizeBlock is no verdict and is asked again with a fresh
-#     process (keeper checkInBlock, 3 attempts); the agreement check is the
-#     assertion that holds that once a bundle in flight can be driven.
+#     that dies during FinalizeBlock is no verdict and records no result: the
+#     node stops with a VerifierHalt (keeper checkInBlock) and executes the same
+#     block after the restart, so it never commits a result its peers did not.
+#     The halt itself is proven in chain/x/shielded/keeper and, through the real
+#     app and a verifier that dies, in chain/app (shielded_halt_test.go); the
+#     agreement check here is the assertion that holds the property on the fleet
+#     once a bundle in flight can be driven.
 #   - a full disk: where the chain home is a filesystem of its own (on the root
 #     filesystem the test is not applicable, so rqlite, ipfs, olric and the
 #     gateway are never starved), it is filled until no non-root user can write
@@ -53,4 +57,4 @@ covers:
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#failure-modes: a full disk is not handled by the application, the node stops and says no space left on device in its journal, and it recovers when space is freed (tested only where the chain home is its own filesystem)"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#failure-modes: BFT time is a median of validator timestamps and one skewed clock moves nothing: block times stay at real time, a validator ahead stamps its precommits with its own clock and one behind is held at the block's time"
     - "docs/whitepaper/technical-reference/vol2/39-chain-architecture.md#lifecycle: state sync carries the nullifier database through a snapshot extension, so a validator that restored a snapshot holds the same blocks and app hash as the others"
-    - "docs/whitepaper/technical-reference/vol2/43-the-shielded-pool.md#failure-modes: Verifier process hangs for 30 s, crashes or answers out of protocol: killing the out-of-process verifier child leaves oramad running and the node on the same blocks and app hash as its peers; in a block a fault is asked again, so no node reaches another verdict than its peers (the retry itself is proven in chain/x/shielded/keeper; a verification in flight is not reached on the fleet: it needs a proven bundle)"
+    - "docs/whitepaper/technical-reference/vol2/43-the-shielded-pool.md#failure-modes: Verifier process hangs for 30 s, crashes or answers out of protocol: killing the out-of-process verifier child leaves oramad running and the node on the same blocks and app hash as its peers; in a block a fault records no result and stops the node, which executes the block again after the restart, so no node reaches another verdict than its peers (the halt itself is proven in chain/x/shielded/keeper and chain/app; a verification in flight is not reached on the fleet: it needs a proven bundle)"

@@ -3,8 +3,11 @@ package keeper
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
@@ -78,7 +81,8 @@ func (k Keeper) Admit(ctx sdk.Context, raw, binding []byte, kind Kind, verifyPro
 	return adm, nil
 }
 
-// Verify charges the bundle's gas and runs every verifier on it. All must accept.
+// Verify charges the bundle's gas and runs every verifier on it. All must accept. A verifier fault
+// in a block does not return: it halts the node (checkInBlock).
 //
 // In the mempool (CheckTx) a bundle that already failed is refused from memory, and each node
 // verifies at most MaxCheckVerificationsPerBlock proofs between blocks, so a stream of bundles
@@ -87,49 +91,183 @@ func (k Keeper) Admit(ctx sdk.Context, raw, binding []byte, kind Kind, verifyPro
 func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) error {
 	ctx.GasMeter().ConsumeGas(adm.Gas, "shielded proof verification")
 	if !ctx.IsCheckTx() {
-		return k.checkInBlock(raw, binding)
+		return k.checkInBlock(ctx, raw, binding)
 	}
 	key := admissionKey(raw, binding)
 	if err, failed := k.admission.recalled(key); failed {
 		return fmt.Errorf("shielded bundle refused (already rejected): %w", err)
 	}
-	if !k.admission.spend() {
-		return ErrMempoolBusy
+	hash := hex.EncodeToString(key[:])
+	if k.admission.faultRecalled(key) {
+		return unavailable(ctx, ErrRecentVerifierFault, hash, true)
 	}
-	err := k.check(raw, binding)
-	if err != nil {
-		k.admission.remember(key, err)
+	if !ready(k.mempoolVerifiers()) {
+		ctx.Logger().Debug("the mempool's shielded verifier is not ready", "module", "x/shielded", "bundle_sha256", hash)
+		return fmt.Errorf("%w: %s", verify.ErrVerifierStarting, GenericRefusal)
 	}
-	return err
-}
-
-// blockVerifyAttempts is how many times a bundle in a block is put to the verifiers while they
-// fault. A fault (verify.ErrVerifierFault: the out-of-process verifier died, hung past its timeout
-// or answered out of protocol, or a verifier caught a panic) is not a verdict on the bundle, and
-// in a block every node must reach the same one: a node whose verifier process was killed during
-// the check refused a transaction its peers accepted and computed another state (the chain-chaos
-// verifier test). The out-of-process verifier starts a fresh process for the next request, so the
-// bundle is asked again, and a transient fault no longer splits the node from its peers. A fault
-// the bundle itself causes repeats on every attempt on every node and refuses it everywhere alike.
-// A node whose verifier keeps faulting while its peers' answer (a host out of memory, a starved
-// machine timing out every attempt) still refuses alone; its next block's app hash then differs
-// and the node halts rather than run on another state. Gas is charged once; each attempt is bounded
-// by the verifier's request timeout. CheckTx is not retried: a mempool refusal is local.
-const blockVerifyAttempts = 3
-
-// checkInBlock is check for a bundle in a block (see blockVerifyAttempts).
-func (k Keeper) checkInBlock(raw, binding []byte) error {
-	var err error
-	for attempt := 0; attempt < blockVerifyAttempts; attempt++ {
-		if err = k.check(raw, binding); !errors.Is(err, verify.ErrVerifierFault) {
-			return err
+	if ctx.ExecMode() == sdk.ExecModeSimulate {
+		select {
+		case k.admission.simulations <- struct{}{}:
+			defer func() { <-k.admission.simulations }()
+		default:
+			ctx.Logger().Debug("too many simulations are verifying shielded bundles", "module", "x/shielded")
+			return ErrMempoolBusy
 		}
 	}
+	if !k.admission.spend() {
+		ctx.Logger().Debug("the per-block verification budget of the mempool is spent", "module", "x/shielded")
+		return ErrMempoolBusy
+	}
+	err := verifyWith(k.mempoolVerifiers(), raw, binding)
+	if err == nil {
+		k.admission.rememberValid(key)
+	}
+	if err != nil {
+		k.admission.remember(key, err)
+		if localFault(err) {
+			k.admission.rememberFault(key)
+		}
+	}
+	return unavailable(ctx, err, hash, false)
+}
+
+// ErrRecentVerifierFault is what the mempool answers for a bundle whose last check, a moment ago,
+// ended in a verifier fault: the verifier is not asked again until the memory of it expires. It is
+// not a verdict on the bundle, it is kept only by the mempool and never consulted in a block.
+var ErrRecentVerifierFault = fmt.Errorf("%w: this bundle's check recently failed on this node", verify.ErrVerifierFault)
+
+// readier is a verifier that can say whether it is ready to be asked without being asked.
+type readier interface{ Ready() bool }
+
+// ready reports whether every verifier of the set that can say so is ready. A node whose verifier
+// process is still being started refuses at once, before it spends any verification budget on a
+// request nothing would answer. Asking also starts a process that is not ready (in the background).
+func ready(set []verify.Verifier) bool {
+	for _, v := range set {
+		if r, ok := v.(readier); ok && !r.Ready() {
+			return false
+		}
+	}
+	return true
+}
+
+// proposalVerifiers are the verifiers block proposals use.
+func (k Keeper) proposalVerifiers() []verify.Verifier {
+	if len(k.deps.ProposalVerifiers) > 0 {
+		return k.deps.ProposalVerifiers
+	}
+	return k.mempoolVerifiers()
+}
+
+// withDeadline gives a verifier the time one request may take, when it can be given one.
+type withDeadline struct {
+	verify.Verifier
+	d time.Duration
+}
+
+func (w withDeadline) Verify(bundle, binding []byte) error {
+	if dv, ok := w.Verifier.(verify.DeadlineVerifier); ok {
+		return dv.VerifyWithin(bundle, binding, w.d)
+	}
+	return w.Verifier.Verify(bundle, binding)
+}
+
+// CheckProposalProof runs the proposal verifiers over one bundle of a block proposal, within the
+// time left (within). It is what ProcessProposal and PrepareProposal ask: a verdict, a fault, a
+// verifier that is starting or busy, or the time running out all mean the proposal is not voted for,
+// and none ever halts the node (a halt is for FinalizeBlock, where the block is already decided). It
+// changes no state and spends none of the mempool's budget.
+func (k Keeper) CheckProposalProof(raw, binding []byte, within time.Duration) error {
+	key := admissionKey(raw, binding)
+	if k.admission.validRecalled(key) {
+		return nil
+	}
+	set := k.proposalVerifiers()
+	if !ready(set) {
+		return verify.ErrVerifierStarting
+	}
+	if within <= 0 {
+		return ErrProposalBudget
+	}
+	bounded := make([]verify.Verifier, len(set))
+	for i, v := range set {
+		bounded[i] = withDeadline{Verifier: v, d: within}
+	}
+	err := verifyWith(bounded, raw, binding)
+	if err == nil {
+		k.admission.rememberValid(key)
+	}
 	return err
 }
 
-func (k Keeper) check(raw, binding []byte) error {
-	if err := verify.Check(raw, binding, k.deps.Verifiers...); err != nil {
+// mempoolVerifiers are the verifiers CheckTx and a simulation use.
+func (k Keeper) mempoolVerifiers() []verify.Verifier {
+	if len(k.deps.MempoolVerifiers) > 0 {
+		return k.deps.MempoolVerifiers
+	}
+	return k.deps.Verifiers
+}
+
+// unavailable is what the mempool tells a submitter whose transaction this node could not check
+// because of the node itself: a generic refusal. The detail (paths, hashes, the child's state) goes
+// to this node's log only, so a remote client learns nothing about the machine.
+//
+// A fault is logged at Error the first time a bundle causes it and at Debug when the same bundle
+// comes back (repeat), so a bundle sent in a loop cannot flood the log.
+func unavailable(ctx sdk.Context, err error, bundleHash string, repeat bool) error {
+	if !localFault(err) {
+		return err
+	}
+	if repeat {
+		ctx.Logger().Debug("the shielded verifier could not check a bundle again", "module", "x/shielded", "bundle_sha256", bundleHash, "err", err)
+	} else {
+		ctx.Logger().Error("the shielded verifier could not check a bundle", "module", "x/shielded", "bundle_sha256", bundleHash, "err", err)
+	}
+	class := verify.ErrVerifierFault
+	if !errors.Is(err, verify.ErrVerifierFault) {
+		class = verify.ErrVerifierNotLinked
+	}
+	return fmt.Errorf("%w: %s", class, GenericRefusal)
+}
+
+// localFault reports an error that is a fact about this node and not about the bundle: a verifier
+// fault, or verifiers that are not linked or not distinct.
+func localFault(err error) bool {
+	return errors.Is(err, verify.ErrVerifierFault) || errors.Is(err, verify.ErrVerifierNotLinked)
+}
+
+// checkInBlock is check for a bundle in a block.
+//
+// What the verifiers say about a bundle depends on the bundle's bytes alone, so every node reaches
+// the same verdict. A verifier FAULT (verify.ErrVerifierFault: its process died, hung past its
+// watchdog, answered out of protocol or would not start) says nothing about the bundle; it is a
+// fact about this machine. Turning it into a transaction result would give this node a result its
+// peers do not have, a different results hash and a different app hash, and the node would halt
+// later on a state of its own making. So in FinalizeBlock a fault records no result at all: the node
+// stops with a VerifierHalt, nothing of the block is committed, and on restart it executes the same
+// block again against a verifier that works and reaches its peers' verdict. Everywhere else (the
+// mempool, a simulation) a fault only refuses the transaction on this node, which is local.
+func (k Keeper) checkInBlock(ctx sdk.Context, raw, binding []byte) error {
+	err := k.check(raw, binding)
+	sum := sha256.Sum256(raw)
+	hash := hex.EncodeToString(sum[:])
+	if ctx.ExecMode() != sdk.ExecModeFinalize {
+		return unavailable(ctx, err, hash, false)
+	}
+	// Not linked and not distinct count as faults only on a chain that must verify: there they
+	// mean this node lost a verifier, while on a localnet or a devnet every node refuses alike.
+	if errors.Is(err, verify.ErrVerifierFault) || (k.deps.RequireVerifiers && localFault(err)) {
+		panic(VerifierHalt{Height: ctx.BlockHeight(), BundleHash: hash, Err: err})
+	}
+	// Verifiers that are not linked on a localnet or a devnet: the same refusal on every node, with
+	// the node's paths and pins kept out of the transaction's log.
+	return unavailable(ctx, err, hash, false)
+}
+
+func (k Keeper) check(raw, binding []byte) error { return verifyWith(k.deps.Verifiers, raw, binding) }
+
+func verifyWith(verifiers []verify.Verifier, raw, binding []byte) error {
+	if err := verify.Check(raw, binding, verifiers...); err != nil {
 		return fmt.Errorf("shielded bundle refused: %w", err)
 	}
 	return nil

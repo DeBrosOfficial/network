@@ -332,6 +332,34 @@ func TestOramaApp_shieldedVerifiersAreTwoAndAnUnconfiguredNodeAcceptsNothing(t *
 	require.ErrorIs(t, a.ShieldedVerifiers[1].Verify(shieldedTestBundle(), nil), verify.ErrVerifierNotLinked)
 }
 
+// CheckTx and simulations verify on a child process of their own, so mempool work never holds up
+// block execution; the library, which is stateless, is shared.
+func TestOramaApp_theMempoolHasItsOwnProcessVerifier(t *testing.T) {
+	a := buildTestApp(t)
+	require.Len(t, a.ShieldedMempoolVerifiers, verify.MinVerifiers)
+	require.Equal(t, a.ShieldedVerifiers[0], a.ShieldedMempoolVerifiers[1], "the library is shared, and last: the killable child goes first")
+	require.NotSame(t, a.ShieldedVerifiers[1], a.ShieldedMempoolVerifiers[0], "the process verifier is not")
+	require.Equal(t, a.ShieldedVerifiers[1].ID(), a.ShieldedMempoolVerifiers[0].ID())
+
+	// Block proposals have a child of their own, apart from the mempool's.
+	require.Len(t, a.ShieldedProposalVerifiers, verify.MinVerifiers)
+	require.NotSame(t, a.ShieldedMempoolVerifiers[0], a.ShieldedProposalVerifiers[0])
+	require.Equal(t, a.ShieldedVerifiers[0], a.ShieldedProposalVerifiers[1])
+}
+
+// A verifier halt (shieldedkeeper.VerifierHalt) ends the process only when it comes out of the
+// transaction runner, whose recovery handler the app extends. A module that can run Msgs outside
+// that runner would turn a verifier fault into an ordinary error of the dispatching message on
+// this node alone. None is wired today; if one is, a shielded Msg reachable through it needs its
+// own halt path before this test is changed.
+func TestOramaApp_noModuleDispatchesMsgsOutsideTheTransactionRunner(t *testing.T) {
+	a := buildTestApp(t)
+	for _, name := range []string{"gov", "authz", "group"} {
+		_, wired := a.ModuleManager.Modules[name]
+		require.False(t, wired, "module %q can dispatch Msgs outside baseapp's runTx, where a shielded verifier halt would not end the process", name)
+	}
+}
+
 // An app with no chain id is the CLI's throwaway metadata instance, not a node. It builds no
 // verifier bound to the empty chain id, and every bundle is refused.
 func TestOramaApp_noChainIDBuildsNoShieldedVerifier(t *testing.T) {

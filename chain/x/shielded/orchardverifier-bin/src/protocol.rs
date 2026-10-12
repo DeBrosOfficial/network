@@ -73,6 +73,11 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> io::Result<()> {
     while let Some(body) = read_frame(&mut input)? {
         let (id, code) = answer(&body)?;
         write_response(&mut output, id, code)?;
+        if code == PANIC {
+            // A request that panicked is answered, then this process ends: the node starts a
+            // fresh one for the next request, so nothing a panic left behind can touch a verdict.
+            break;
+        }
     }
     Ok(())
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cast"
 
@@ -22,10 +23,10 @@ const (
 	// FlagShieldedVerifier names the out-of-process verifier binary, the second verifier of
 	// x/shielded. It is a flag of `oramad start` and a key of the app options.
 	FlagShieldedVerifier = "shielded-verifier"
-	// FlagShieldedVerifierSHA256 is the hex SHA-256 the verifier binary must have. The node refuses
-	// to start a binary with any other hash, so two nodes cannot reach different verdicts because
-	// one runs a different file.
-	FlagShieldedVerifierSHA256 = "shielded-verifier-sha256"
+
+	// removedPinOption was a setting for the pin until the pin became link-time only. A node that
+	// still has it set is told it is ignored.
+	removedPinOption = "shielded-verifier-sha256"
 
 	// ShieldedVerifierBinary is the file name the release ships, and the default under
 	// <home>/bin/ when the flag is not given.
@@ -50,9 +51,12 @@ func CheckNodeCanVerify(chainID string, appOpts servertypes.AppOptions) error {
 		return nil
 	}
 	path := shieldedVerifierPath(appOpts)
-	_, statErr := os.Stat(path)
-	present := path != "" && statErr == nil
+	present := regularFile(path)
 	if orchardverify.Linked && present {
+		if !orchardproc.StartsFromCheckedFile {
+			return fmt.Errorf("a node of chain %q must start its shielded verifier from the file whose hash it checked, which only Linux can do (this host is %s): "+
+				"run oramad on Linux; only a localnet or a scripted devnet may run elsewhere", chainID, runtime.GOOS)
+		}
 		return nil
 	}
 	return fmt.Errorf("a node of chain %q must verify shielded bundles and this one cannot "+
@@ -61,9 +65,23 @@ func CheckNodeCanVerify(chainID string, appOpts servertypes.AppOptions) error {
 		chainID, orchardverify.Linked, path, present, ShieldedVerifierBinary, FlagShieldedVerifier)
 }
 
+// regularFile reports a regular file at path, not followed through a link at the file itself: the
+// same rule the pin check applies when it opens the binary (orchardproc openPinned).
+func regularFile(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode().IsRegular()
+}
+
 // ShieldedVerifierSHA256 is the hex SHA-256 of the verifier binary this oramad was built for. A
-// release sets it at link time (-ldflags "-X .../app.ShieldedVerifierSHA256=<hex>"); the flag
-// overrides it. Empty means the operator must give the flag.
+// release sets it at link time (-ldflags "-X .../app.ShieldedVerifierSHA256=<hex>"). It is the only
+// source of the pin: there is no flag, config key or environment variable that sets it, because a
+// pin an operator can choose lets two nodes run different verifiers and reach different verdicts on
+// the same bundle. Changing the pinned binary means changing oramad, which is a chain upgrade. Empty
+// means this build can start no verifier binary (a localnet or devnet build; a build for any other
+// chain refuses to start, CheckNodeCanVerify). Tests set it directly.
 var ShieldedVerifierSHA256 = ""
 
 // shieldedVerifierPath is where the node looks for the out-of-process verifier: the flag, else
@@ -79,14 +97,7 @@ func shieldedVerifierPath(appOpts servertypes.AppOptions) string {
 	return filepath.Join(home, "bin", ShieldedVerifierBinary)
 }
 
-func shieldedVerifierPin(appOpts servertypes.AppOptions) string {
-	if pin := cast.ToString(appOpts.Get(FlagShieldedVerifierSHA256)); pin != "" {
-		return pin
-	}
-	return ShieldedVerifierSHA256
-}
-
-// FileSHA256 is the hex SHA-256 of a file, the value to give --shielded-verifier-sha256.
+// FileSHA256 is the hex SHA-256 of a file, the value to link into oramad as ShieldedVerifierSHA256.
 func FileSHA256(path string) (string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -94,6 +105,45 @@ func FileSHA256(path string) (string, error) {
 	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// newChildVerifiers builds the two verifier sets that are not the block's. Each is a second
+// out-of-process verifier over the same pinned binary, with a child process of its own and a short
+// request timeout (mempoolRequestTimeout), and then the same linked library (stateless, safe for
+// concurrent use). The mempool set serves CheckTx, ReCheck and gRPC simulations, which anyone can
+// send; the proposal set serves ProcessProposal and PrepareProposal and is never touched by the
+// mempool's work, so a flood of CheckTx or simulations cannot make a proposal wait or fail. Neither
+// shares the block's verifier mutex, and a bundle that hangs one of these children stalls it for at
+// most that timeout. They do not isolate consensus from the mempool: CometBFT's local ABCI client
+// takes one lock for CheckTx and FinalizeBlock, so a CheckTx waiting on its child delays a block by
+// the same bounded time. Each child is started at construction in the background, and again in the
+// background after a fault or when found gone (the readiness check starts it, at most once per
+// back-off), so none builds the Halo 2 key under that lock: until it is ready the answer is
+// verify.ErrVerifierStarting, which is neither a verdict nor a fault. The child goes first in a set
+// because it can be killed and replaced: a bundle that makes it fault is stopped there. A bundle
+// that aborts or hangs the in-process library has nothing in front of it, and still stops the node
+// (see the shielded chapter).
+func (app *OramaApp) newChildVerifiers(block []verify.Verifier, appOpts servertypes.AppOptions) (mempool, proposal []verify.Verifier) {
+	if len(block) != verify.MinVerifiers {
+		return nil, nil
+	}
+	path := shieldedVerifierPath(appOpts)
+	build := func(role string) []verify.Verifier {
+		process, err := orchardproc.New(orchardproc.Config{
+			Path: path, ChainID: app.ChainID(), SHA256: ShieldedVerifierSHA256, RequestTimeout: mempoolRequestTimeout,
+		})
+		if err != nil {
+			panic(fmt.Errorf("failed to build the %s out-of-process verifier for chain %q: %w", role, app.ChainID(), err))
+		}
+		m := newMempoolVerifier(process, app.Logger().With("module", "x/shielded"))
+		m.role = role
+		if regularFile(path) || cast.ToString(appOpts.Get(FlagShieldedVerifier)) != "" {
+			m.configured = true
+			m.warm()
+		}
+		return []verify.Verifier{m, block[0]}
+	}
+	return build("mempool"), build("proposal")
 }
 
 // newShieldedVerifiers builds the two verifiers a shielded bundle must pass: the orchard library
@@ -117,14 +167,16 @@ func (app *OramaApp) newShieldedVerifiers(appOpts servertypes.AppOptions) []veri
 	if err != nil {
 		panic(fmt.Errorf("failed to build the Orchard verifier for chain %q: %w", chainID, err))
 	}
-	path, pin := shieldedVerifierPath(appOpts), shieldedVerifierPin(appOpts)
+	path, pin := shieldedVerifierPath(appOpts), ShieldedVerifierSHA256
+	if stray := cast.ToString(appOpts.Get(removedPinOption)); stray != "" {
+		app.Logger().Error("ignoring "+removedPinOption+": the verifier pin is linked into oramad and no setting changes it; remove it from app.toml and the environment", "module", "x/shielded")
+	}
 	process, err := orchardproc.New(orchardproc.Config{Path: path, ChainID: chainID, SHA256: pin})
 	if err != nil {
 		panic(fmt.Errorf("failed to build the out-of-process verifier for chain %q: %w", chainID, err))
 	}
 	logger := app.Logger().With("module", "x/shielded")
-	_, statErr := os.Stat(path)
-	present := path != "" && statErr == nil
+	present := regularFile(path)
 	logger.Info("shielded verifiers", "library_linked", orchardverify.Linked,
 		"process_binary", path, "process_binary_present", present, "process_binary_pinned", pin != "")
 	if orchardverify.Linked {
@@ -136,8 +188,8 @@ func (app *OramaApp) newShieldedVerifiers(appOpts servertypes.AppOptions) []veri
 	// default path). A configured verifier that will not start stops the node.
 	if present || cast.ToString(appOpts.Get(FlagShieldedVerifier)) != "" {
 		if err := process.Warm(); err != nil {
-			panic(fmt.Errorf("the out-of-process shielded verifier %q will not start (check --%s and --%s): %w",
-				path, FlagShieldedVerifier, FlagShieldedVerifierSHA256, err))
+			panic(fmt.Errorf("the out-of-process shielded verifier %q will not start (check --%s: the file must be the release's %s that this oramad pins): %w",
+				path, FlagShieldedVerifier, ShieldedVerifierBinary, err))
 		}
 	}
 	if !orchardverify.Linked || !present {

@@ -251,7 +251,13 @@ type OramaApp struct {
 	// (verify.Check): the Rust library linked through cgo and the separately built Rust binary
 	// run out of process. A build or a node that lacks either one accepts no bundle.
 	ShieldedVerifiers []verify.Verifier
-	nullifierStore    *nullifier.Store
+	// ShieldedMempoolVerifiers are the verifiers CheckTx and simulations use: the same library and
+	// a second child process, so mempool work never holds up block execution.
+	ShieldedMempoolVerifiers []verify.Verifier
+	// ShieldedProposalVerifiers are the verifiers ProcessProposal and PrepareProposal use: a child
+	// process of their own, so mempool work cannot make a proposal wait.
+	ShieldedProposalVerifiers []verify.Verifier
+	nullifierStore            *nullifier.Store
 
 	// tokenHook is x/token's transfer hook; installWasm binds it to the wasm keeper.
 	tokenHook *contractTransferHook

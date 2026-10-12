@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -15,6 +16,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
 )
 
 // inclusionHandlers connects x/inclusion to BaseApp: the four ABCI handlers
@@ -32,6 +34,9 @@ type inclusionHandlers struct {
 	now       func() time.Time
 	// signerlessMax is x/shielded's max_signerless_per_block, read from state.
 	signerlessMax func(ctx sdk.Context) (uint32, error)
+	// newProofChecker builds the shielded proof check of one proposal; it returns nil on a node
+	// with nothing to check with (proposal_proofs.go).
+	newProofChecker func(ctx sdk.Context) (*shieldedkeeper.ProposalChecker, error)
 }
 
 // stakingParams is the one staking read the extension budget needs: the size of
@@ -246,8 +251,11 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 		return nil, err
 	}
 	if !commitInjected(ctx, req.Height) {
+		// A transaction whose shielded bundle fails the proof check is left out (after the
+		// signer-less cap, so only transactions that can be in the block count): its peers would
+		// refuse the block (ProcessProposal).
 		capped := *req
-		capped.Txs = h.capSignerless(req.Txs, limit)
+		capped.Txs = h.dropFailingProofs(ctx, h.capSignerless(req.Txs, limit))
 		return def(ctx, &capped)
 	}
 	if err := baseapp.ValidateVoteExtensions(ctx, h.valStore, req.Height, "", req.LocalLastCommit); err != nil {
@@ -284,6 +292,7 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 		}
 	}
 	rest.Txs = h.capSignerless(rest.Txs, limit-h.countSignerless(prefix))
+	rest.Txs = h.dropFailingProofs(ctx, rest.Txs)
 	if rest.MaxTxBytes <= 0 || len(rest.Txs) == 0 {
 		return &abci.ResponsePrepareProposal{Txs: block}, nil
 	}
@@ -315,6 +324,9 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 				return reject, nil
 			}
 		}
+		if !h.allProofsOK(ctx, req.Txs) {
+			return reject, nil
+		}
 		return def(ctx, req)
 	}
 	if len(req.Txs) == 0 {
@@ -341,7 +353,20 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 		return nil, err
 	}
 	commit, total := commitOf(h.listView(p), req.Height, ec)
-	if err := inclusion.Process(h.walkView(ctx, p, req.Height, ec, commit, total), commit, block); err != nil {
+	// What the inclusion rules require must be the front of the block, in order (inclusion.Process,
+	// with Required computed once because the proof check needs its length).
+	need, err := inclusion.Required(h.walkView(ctx, p, req.Height, ec, commit, total), commit)
+	if err != nil {
+		return reject, nil
+	}
+	for i := range need {
+		if i >= len(block) || !bytes.Equal(block[i], need[i]) {
+			return reject, nil
+		}
+	}
+	// Only the proposer's own part of the block is gated: the forced prefix is what the inclusion
+	// rules require, whatever its proofs (see proposal_proofs.go).
+	if !h.allProofsOK(ctx, block[len(need):]) {
 		return reject, nil
 	}
 	rest := *req

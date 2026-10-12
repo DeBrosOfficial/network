@@ -51,7 +51,9 @@ func TestAdmission_aVerifierFaultIsNeverRemembered(t *testing.T) {
 	raw := transferBundle(2, 20, emptyAnchor(t))
 	require.ErrorIs(t, checkVerify(e, raw), verify.ErrVerifierFault)
 	e.V2.Reject = nil
-	require.NoError(t, checkVerify(e, raw), "a fault says nothing about the bundle")
+	require.ErrorIs(t, checkVerify(e, raw), verify.ErrVerifierFault, "not asked again for a minute: the mempool keeps the hung bundle from the verifier")
+	keeper.AdvanceFaultMemoryForTest(e.Keeper, 2*keeper.FaultMemory)
+	require.NoError(t, checkVerify(e, raw), "a fault says nothing about the bundle, and is forgotten")
 }
 
 func TestAdmission_aBlockNeverReadsTheMempoolsMemory(t *testing.T) {

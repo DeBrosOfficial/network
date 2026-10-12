@@ -30,3 +30,9 @@ func DecodeInjectedCommitForTest(tx []byte) (abci.ExtendedCommitInfo, error) {
 
 // InclusionPoolLen is the number of transactions the seen-set tracks.
 func (app *OramaApp) InclusionPoolLen() int { return app.inclusion.pool.Len() }
+
+// SeedInclusionPoolForTest puts a transaction in the seen-set as if CheckTx had accepted it: the
+// shielded tests list transactions whose bundles CheckTx would refuse.
+func (app *OramaApp) SeedInclusionPoolForTest(tx []byte) {
+	app.inclusion.pool.Add(tx, app.inclusion.now())
+}

@@ -78,7 +78,7 @@ func codeToError(code int32) error {
 	case C.ORAMA_ORCHARD_SIGNATURE_REJECTED:
 		return verify.ErrSignatureRejected
 	case C.ORAMA_ORCHARD_PANIC:
-		return fmt.Errorf("%w: the Rust verifier panicked", verify.ErrVerifierFault)
+		return verify.ErrVerifierPanic
 	default:
 		return fmt.Errorf("%w: result code %d", verify.ErrVerifierFault, code)
 	}

@@ -27,12 +27,14 @@ func (app *OramaApp) setInclusionHandlers() {
 			accounts:  app.AccountKeeper,
 			signModes: app.txConfig.SignModeHandler(),
 		},
-		accounts:  app.AccountKeeper,
-		staking:   app.StakingKeeper,
-		valStore:  app.StakingKeeper,
-		proposals: baseapp.NewDefaultProposalHandler(app.Mempool(), app.BaseApp),
-		pool:      pool,
-		now:       time.Now,
+		accounts: app.AccountKeeper,
+		staking:  app.StakingKeeper,
+		valStore: app.StakingKeeper,
+		// The proposal proof check; nil-returning on a node with nothing to check with.
+		newProofChecker: app.newProofChecker,
+		proposals:       baseapp.NewDefaultProposalHandler(app.Mempool(), app.BaseApp),
+		pool:            pool,
+		now:             time.Now,
 		signerlessMax: func(ctx sdk.Context) (uint32, error) {
 			p, err := app.ShieldedKeeper.Params.Get(ctx)
 			return p.MaxSignerlessPerBlock, err

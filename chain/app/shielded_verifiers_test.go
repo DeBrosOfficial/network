@@ -3,6 +3,7 @@ package app_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -45,7 +46,11 @@ func TestCheckNodeCanVerify_binaryAloneIsNotEnough(t *testing.T) {
 	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755))
 	err := app.CheckNodeCanVerify("orama-stagenet-6", simtestutil.AppOptionsMap{flags.FlagHome: home})
 	if orchardverify.Linked {
-		require.NoError(t, err)
+		if runtime.GOOS == "linux" {
+			require.NoError(t, err)
+		} else {
+			require.ErrorContains(t, err, "only Linux can do") // see shielded_halt_test.go
+		}
 		return
 	}
 	require.ErrorContains(t, err, "orchard library linked: false")

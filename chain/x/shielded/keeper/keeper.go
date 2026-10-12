@@ -37,6 +37,22 @@ type Dependencies struct {
 	// Verifiers must all accept a bundle (verify.Check). Fewer than verify.MinVerifiers, or a
 	// verifier that is not linked, means no bundle is ever accepted.
 	Verifiers []verify.Verifier
+	// RequireVerifiers says this node's chain accepts shielded bundles, so verifiers that are not
+	// linked or not distinct are a fault of this node, not a uniform refusal: in a block it
+	// halts (checkInBlock). A localnet or a scripted devnet runs without verifiers on purpose, on
+	// every node alike, and leaves it false so every bundle is refused there.
+	RequireVerifiers bool
+	// MempoolVerifiers check the bundles of CheckTx and a simulation. They are a separate set from
+	// Verifiers, with their own child process and a short request timeout, so a bundle that hangs
+	// the mempool's child never holds the block's verifier, and a stall costs at most that timeout.
+	// It does not make CheckTx and FinalizeBlock independent: CometBFT's local ABCI client takes one
+	// lock for both, so a CheckTx that is waiting on its child delays a block by the same time.
+	// Empty means the mempool shares Verifiers.
+	MempoolVerifiers []verify.Verifier
+	// ProposalVerifiers check the bundles of block proposals (ProcessProposal, PrepareProposal).
+	// They have a child process of their own, so CheckTx, ReCheck and simulations (the mempool's
+	// child) cannot make a proposal wait or fail. Empty means proposals share MempoolVerifiers.
+	ProposalVerifiers []verify.Verifier
 }
 
 // Keeper is x/shielded's keeper.

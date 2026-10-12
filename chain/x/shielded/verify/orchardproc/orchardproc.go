@@ -2,9 +2,10 @@
 // 0.15.5 checks, run by a separately built and separately pinned Rust binary
 // (chain/x/shielded/orchardverifier-bin) that the node keeps running out of process.
 //
-// What the split gives: a memory-corruption bug, a link problem or a hang in one verifier cannot
+// What the split gives: a memory-corruption bug, a link problem or a hang in one build cannot
 // silently pass a bundle in the other. What it does not give: independence of the verification
-// logic, because both binaries call the same upstream crate. See docs/whitepaper/technical-reference/vol2/43-the-shielded-pool.md.
+// logic. Both builds are one implementation (the same upstream crate and a near copy of the same
+// wrapper), so a logic bug in either is accepted by both. See docs/whitepaper/technical-reference/vol2/43-the-shielded-pool.md.
 //
 // Protocol (every frame length-prefixed, u32 big-endian):
 //
@@ -13,10 +14,15 @@
 //	ready    = a response with id ReadyID and code 0, sent once after the verifying key is built
 //
 // The process is started on first use and kept. Requests are serialized. A request that times
-// out, or whose process dies or answers out of protocol, kills the process and is rejected with
+// out, or whose process dies or answers out of protocol, kills the process and fails with
 // verify.ErrVerifierFault; the next request starts a fresh process. Fail closed: a fault is
-// never turned into an accept and this package never retries a request. The keeper asks again in
-// a block, where a fault is no verdict (x/shielded/keeper blockVerifyAttempts).
+// never turned into an accept and this package never retries a request.
+//
+// A fault is a fact about this machine, not a verdict on the bundle, so the caller must not turn
+// it into a transaction result. In a block the keeper stops the node instead (x/shielded/keeper
+// VerifierHalt) and the block is executed again after the restart. The request timeout therefore
+// never decides a bundle: it only turns a hung child into that stop. What the child says about a
+// bundle (an accept, a rejection, a caught panic) depends on the bundle's bytes alone.
 package orchardproc
 
 import (
@@ -29,7 +35,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
+	"syscall"
 	"time"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
@@ -57,6 +63,9 @@ const (
 	codeSignatureRejected = 4
 	codePanic             = 5
 
+	// maxBinaryBytes bounds the verifier binary the pin check reads.
+	maxBinaryBytes = 512 << 20
+
 	idLen       = 8
 	responseLen = idLen + 1
 )
@@ -69,11 +78,17 @@ type Config struct {
 	ChainID string
 	// SHA256 is the hex SHA-256 the binary must have. The verifier refuses to start a file with
 	// another hash, and refuses to start at all without a pin: two nodes must not disagree about a
-	// bundle because one has a different binary.
+	// bundle because one has a different binary. The node takes it from the value linked into
+	// oramad at build time (chain/app ShieldedVerifierSHA256), never from an operator setting.
 	SHA256 string
-	// RequestTimeout and StartTimeout default to the package constants when zero.
+	// Env is the child's whole environment. It is empty by default: the verifier needs nothing from
+	// the node's environment, and must not inherit its secrets. Tests that speak through a variable
+	// set it here.
+	Env []string
+	// RequestTimeout, StartTimeout and BusyWait default to the package constants when zero.
 	RequestTimeout time.Duration
 	StartTimeout   time.Duration
+	BusyWait       time.Duration
 }
 
 // Verifier is a verify.Verifier backed by the out-of-process binary. It is safe for concurrent
@@ -81,7 +96,7 @@ type Config struct {
 type Verifier struct {
 	cfg Config
 
-	mu     sync.Mutex
+	mu     *timedMutex
 	proc   *process
 	nextID uint64
 }
@@ -106,7 +121,10 @@ func New(cfg Config) (*Verifier, error) {
 	if cfg.StartTimeout <= 0 {
 		cfg.StartTimeout = DefaultStartTimeout
 	}
-	return &Verifier{cfg: cfg}, nil
+	if cfg.BusyWait <= 0 {
+		cfg.BusyWait = DefaultBusyWait
+	}
+	return &Verifier{cfg: cfg, mu: newTimedMutex()}, nil
 }
 
 // Warm starts the process and waits for its ready frame, so the verifying key is built before the
@@ -126,28 +144,120 @@ func (v *Verifier) Close() error {
 	return nil
 }
 
-// Verify accepts a bundle only when the binary says every check passed.
+// ErrNotRunning is what VerifyRunning answers when there is no live process to ask: it never
+// starts one.
+var ErrNotRunning = errors.New("the out-of-process verifier is not running")
+
+// ErrBusy is what VerifyRunning answers when another request or a start holds the verifier for
+// longer than BusyWait. The process may be perfectly alive: the caller must not treat it as gone.
+var ErrBusy = errors.New("the out-of-process verifier is busy")
+
+// DefaultBusyWait is how long VerifyRunning waits for a request in flight before it answers ErrBusy.
+const DefaultBusyWait = 250 * time.Millisecond
+
+// Verify accepts a bundle only when the binary says every check passed. It starts the process when
+// there is none, which builds the Halo 2 verifying key: seconds of work.
 func (v *Verifier) Verify(b, binding []byte) error {
-	if len(b) == 0 || len(b) > bundle.MaxBytes {
-		return fmt.Errorf("%w: %d bytes", verify.ErrMalformed, len(b))
-	}
-	sighash, err := orchard.Sighash(v.cfg.ChainID, binding, b)
+	sighash, err := v.prepare(b, binding)
 	if err != nil {
 		return err
 	}
-
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	p, err := v.running()
 	if err != nil {
 		return err
 	}
+	return v.ask(p, sighash[:], b, v.cfg.RequestTimeout)
+}
+
+// VerifyRunning is Verify for a caller that cannot afford to wait for a start (the mempool, which
+// runs under CometBFT's ABCI lock): it never starts a process. When there is none, or it has
+// exited, it answers ErrNotRunning without asking anything, and the caller starts the process
+// elsewhere (Warm). A request in flight (a gRPC simulation runs outside the ABCI lock) or a start
+// under way is waited for at most Config.BusyWait; if the verifier is still held it answers
+// ErrBusy, which says nothing about whether the process is alive.
+func (v *Verifier) VerifyRunning(b, binding []byte) error {
+	return v.VerifyRunningWithin(b, binding, v.cfg.RequestTimeout+v.cfg.BusyWait)
+}
+
+// minRequest is the least time a request is worth asking for: below it the answer cannot be
+// expected, so a caller whose deadline is that near is told ErrBusy without the process being asked.
+const minRequest = 250 * time.Millisecond
+
+// VerifyRunningWithin is VerifyRunning for a caller with a deadline: the caller is answered within
+// d. The wait for the verifier is at most BusyWait, cut to d. A caller whose deadline is nearer than
+// minRequest (or than RequestTimeout, if that is smaller) is answered ErrBusy at once and the process
+// is not asked. A request the process is given runs for the process's own RequestTimeout whatever d
+// is: a caller whose deadline falls first is answered ErrBusy and leaves the request running, which
+// keeps the verifier busy until it ends. Only exceeding RequestTimeout is a fault that stops the
+// process; a caller's deadline never is, so a healthy process is never killed (and made to build its
+// verifying key again) for being asked too late.
+func (v *Verifier) VerifyRunningWithin(b, binding []byte, d time.Duration) error {
+	sighash, err := v.prepare(b, binding)
+	if err != nil {
+		return err
+	}
+	floor := min(v.cfg.RequestTimeout, minRequest)
+	if d < floor {
+		return ErrBusy
+	}
+	start := time.Now()
+	if !v.mu.LockWithin(min(v.cfg.BusyWait, d)) {
+		return ErrBusy
+	}
+	if v.proc == nil || v.proc.exited() {
+		v.mu.Unlock()
+		return ErrNotRunning
+	}
+	left := d - time.Since(start)
+	if left < floor {
+		v.mu.Unlock()
+		return ErrBusy
+	}
+	if left >= v.cfg.RequestTimeout {
+		defer v.mu.Unlock()
+		return v.ask(v.proc, sighash[:], b, v.cfg.RequestTimeout)
+	}
+	result := make(chan error, 1)
+	p := v.proc
+	go func() {
+		defer v.mu.Unlock()
+		result <- v.ask(p, sighash[:], b, v.cfg.RequestTimeout)
+	}()
+	t := time.NewTimer(left)
+	defer t.Stop()
+	select {
+	case err := <-result:
+		return err
+	case <-t.C:
+		return ErrBusy
+	}
+}
+
+// prepare checks the bundle's size and computes the sighash the child is handed.
+func (v *Verifier) prepare(b, binding []byte) ([32]byte, error) {
+	if len(b) == 0 || len(b) > bundle.MaxBytes {
+		return [32]byte{}, fmt.Errorf("%w: %d bytes", verify.ErrMalformed, len(b))
+	}
+	return orchard.Sighash(v.cfg.ChainID, binding, b)
+}
+
+// ask puts one request to p. The caller holds v.mu.
+func (v *Verifier) ask(p *process, sighash, b []byte, timeout time.Duration) error {
 	v.nextID++
 	id := v.nextID
-	code, err := p.exchange(id, sighash[:], b, v.cfg.RequestTimeout)
+	code, err := p.exchange(id, sighash, b, timeout)
 	if err != nil {
 		v.stop()
 		return fmt.Errorf("%w: out-of-process verifier: %w", verify.ErrVerifierFault, err)
+	}
+	if code == codePanic {
+		// A verifier that panicked is not trusted with the next request: the child exits after
+		// answering (orchardverifier-bin main.rs) and this side stops it, so the next bundle is
+		// asked of a fresh process and a panic can never leave state behind that changes a later
+		// verdict on this node alone.
+		v.stop()
 	}
 	return codeToError(code)
 }
@@ -165,7 +275,7 @@ func codeToError(code byte) error {
 	case codeSignatureRejected:
 		return verify.ErrSignatureRejected
 	case codePanic:
-		return fmt.Errorf("%w: the out-of-process verifier panicked", verify.ErrVerifierFault)
+		return verify.ErrVerifierPanic
 	default:
 		return fmt.Errorf("%w: out-of-process verifier result code %d", verify.ErrVerifierFault, code)
 	}
@@ -203,21 +313,32 @@ func start(cfg Config) (*process, error) {
 	if cfg.Path == "" {
 		return nil, fmt.Errorf("%w: no out-of-process verifier binary configured (flag --shielded-verifier)", verify.ErrVerifierNotLinked)
 	}
-	if err := checkPin(cfg); err != nil {
-		return nil, err
+	bin, err := openPinned(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", verify.ErrVerifierFault, err)
 	}
-	cmd := exec.Command(cfg.Path)
+	defer bin.Close()
+	// The command is built by hand so a path without a slash is not looked up on PATH.
+	cmd := &exec.Cmd{Path: cfg.Path, Args: []string{cfg.Path}, Env: append([]string{}, cfg.Env...)}
+	bin.configure(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("%w: verifier stdin: %w", verify.ErrVerifierFault, err)
 	}
-	stdout, err := cmd.StdoutPipe()
+	// The child's answers come through a pipe this side owns. cmd.StdoutPipe would close its read
+	// end when the child exits, and a child that exits right after answering a panic (code 5) would
+	// then lose its answer to "file already closed": a verdict turned into a fault.
+	stdout, childOut, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("%w: verifier stdout: %w", verify.ErrVerifierFault, err)
 	}
-	if err := cmd.Start(); err != nil {
+	cmd.Stdout = childOut
+	if err := startCommand(cmd); err != nil {
+		_ = stdout.Close()
+		_ = childOut.Close()
 		return nil, fmt.Errorf("%w: start %q: %w", verify.ErrVerifierFault, cfg.Path, err)
 	}
+	_ = childOut.Close() // the child holds the write end; this side reads until it ends
 	p := &process{cmd: cmd, stdin: stdin, stdout: stdout, done: make(chan struct{})}
 	go func() {
 		_ = cmd.Wait()
@@ -237,18 +358,67 @@ func start(cfg Config) (*process, error) {
 // ErrBinaryPin means the verifier binary is not the one the node is pinned to.
 var ErrBinaryPin = fmt.Errorf("%w: the verifier binary does not match its pin", verify.ErrVerifierNotLinked)
 
-// checkPin reads the binary and compares its SHA-256 with the pin. There is a window between the
-// check and the exec; the binary's directory must not be writable by anyone but the node's owner.
-func checkPin(cfg Config) error {
-	raw, err := os.ReadFile(cfg.Path)
+// pinnedBinary is the verifier binary, opened once and hashed from that open file. The process is
+// started from the same open file where the platform allows it (execPath), so the bytes that were
+// hashed are the file that runs: replacing the path or repointing a symlink after the hash starts
+// nothing else.
+type pinnedBinary struct {
+	file *os.File
+	path string
+}
+
+func (b *pinnedBinary) Close() { _ = b.file.Close() }
+
+// afterPinCheck runs between the pin check and the start of the process. It is nil in production;
+// a test sets it to swap the file at the path and prove the swap changes nothing.
+var afterPinCheck func()
+
+// openPinned opens cfg.Path once, compares the SHA-256 of what it read from that open file with
+// the pin, and returns the open file with the path to start the process from.
+func openPinned(cfg Config) (*pinnedBinary, error) {
+	// A FIFO or a device at the path must not hang the open (and with it Warm or a block): look
+	// first, and open without blocking and without following a link at the file itself. Links in
+	// the directories above it are fine (cosmovisor's current is one).
+	info, err := os.Lstat(cfg.Path)
 	if err != nil {
-		return fmt.Errorf("%w: out-of-process verifier binary %q: %w", verify.ErrVerifierNotLinked, cfg.Path, err)
+		return nil, fmt.Errorf("%w: out-of-process verifier binary %q: %w; install the release's orama-orchard-verifier there or point --shielded-verifier at it",
+			verify.ErrVerifierNotLinked, cfg.Path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: %q is not a regular file (mode %s)", ErrBinaryPin, cfg.Path, info.Mode().Type())
+	}
+	f, err := os.OpenFile(cfg.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, fmt.Errorf("%w: out-of-process verifier binary %q: %w; install the release's orama-orchard-verifier there or point --shielded-verifier at it",
+			verify.ErrVerifierNotLinked, cfg.Path, err)
+	}
+	if err := checkPin(f, cfg); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if afterPinCheck != nil {
+		afterPinCheck()
+	}
+	return &pinnedBinary{file: f, path: cfg.Path}, nil
+}
+
+// checkPin compares the SHA-256 of the open file with the pin.
+func checkPin(f *os.File, cfg Config) error {
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("%w: stat the verifier binary %q: %w", verify.ErrVerifierNotLinked, cfg.Path, err)
+	}
+	if !info.Mode().IsRegular() || info.Size() > maxBinaryBytes {
+		return fmt.Errorf("%w: %q is not a regular file of at most %d bytes", ErrBinaryPin, cfg.Path, int64(maxBinaryBytes))
 	}
 	if cfg.SHA256 == "" {
-		return fmt.Errorf("%w: no sha256 pin is configured for %q (--shielded-verifier-sha256)", ErrBinaryPin, cfg.Path)
+		return fmt.Errorf("%w: no sha256 pin is linked into this oramad for %q (a release build links it: -X chain/app.ShieldedVerifierSHA256)", ErrBinaryPin, cfg.Path)
 	}
-	sum := sha256.Sum256(raw)
-	if got := hex.EncodeToString(sum[:]); !strings.EqualFold(got, cfg.SHA256) {
+	h := sha256.New()
+	if _, err := io.Copy(h, io.LimitReader(f, maxBinaryBytes+1)); err != nil {
+		return fmt.Errorf("%w: read the verifier binary %q: %w", verify.ErrVerifierNotLinked, cfg.Path, err)
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, cfg.SHA256) {
 		return fmt.Errorf("%w: %q has sha256 %s, the pin is %s", ErrBinaryPin, cfg.Path, got, cfg.SHA256)
 	}
 	return nil

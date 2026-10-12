@@ -43,6 +43,16 @@ const vectorChainID = "orama-localnet-orchard-vector-1"
 
 const shieldedTestCommittee = 30
 
+// setVerifierPin links the pin the way a release build does, for the length of the test. The pin is
+// a package variable of the app (there is no flag for it), so tests that build apps must not run in
+// parallel.
+func setVerifierPin(t *testing.T, pin string) {
+	t.Helper()
+	old := app.ShieldedVerifierSHA256
+	app.ShieldedVerifierSHA256 = pin
+	t.Cleanup(func() { app.ShieldedVerifierSHA256 = old })
+}
+
 func vectorPath(name string) string {
 	return filepath.Join("..", "x", "shielded", "orchardffi", "testdata", name)
 }
@@ -88,7 +98,7 @@ func shieldedAppFor(t *testing.T, chainID string, db dbm.DB, home, verifier stri
 		opts[app.FlagShieldedVerifier] = verifier
 		pin, err := app.FileSHA256(verifier)
 		require.NoError(t, err)
-		opts[app.FlagShieldedVerifierSHA256] = pin
+		setVerifierPin(t, pin)
 	}
 	oramaApp := app.NewOramaApp(log.NewNopLogger(), db, true, opts, baseapp.SetChainID(chainID))
 	t.Cleanup(func() { _ = oramaApp.Close() })

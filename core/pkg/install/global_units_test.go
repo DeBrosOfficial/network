@@ -355,3 +355,32 @@ func TestGlobalServiceSpecs_theIPFSRoleInstallsTheCLIItsGCUnitRuns(t *testing.T)
 		t.Error("the IPFS role does not install the orama CLI its GC unit runs")
 	}
 }
+
+// oramad ends its process with status 87 when its shielded verifier fails in a block
+// (chain/app ExitVerifierHalt), so that the block is executed again after a restart. The chain unit
+// must restart it on that status: Restart=always, and no setting that exempts a status or limits
+// the restarts.
+func TestRenderGlobalChainUnit_restartsOnAnyExitIncludingTheVerifierHalt(t *testing.T) {
+	unit := RenderGlobalChainUnit("")
+	if !strings.Contains(unit, "\nRestart=always\n") {
+		t.Errorf("the chain unit does not restart on every exit:\n%s", unit)
+	}
+	for _, forbidden := range []string{"RestartPreventExitStatus", "SuccessExitStatus", "RestartForceExitStatus"} {
+		if strings.Contains(unit, forbidden) {
+			t.Errorf("the chain unit sets %s, which could keep a halted node down", forbidden)
+		}
+	}
+	if !strings.Contains(unit, "StartLimitIntervalSec=0") {
+		t.Errorf("the chain unit limits its restarts:\n%s", unit)
+	}
+	if !strings.Contains(unit, "\nRestartSec=5\n") {
+		t.Errorf("the chain unit restarts at another pace than every 5 s:\n%s", unit)
+	}
+	// systemd's RestartSteps/RestartMaxDelaySec are deliberately not used: they need systemd 254, may
+	// never reset, and a node that stops on the same block is a crash loop for monitoring to flag.
+	for _, forbidden := range []string{"RestartSteps", "RestartMaxDelaySec"} {
+		if strings.Contains(unit, forbidden) {
+			t.Errorf("the chain unit sets %s", forbidden)
+		}
+	}
+}

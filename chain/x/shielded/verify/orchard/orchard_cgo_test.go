@@ -110,7 +110,7 @@ func TestVerify_malformedInputRefused(t *testing.T) {
 	}
 }
 
-// One linked verifier is not enough: the chain needs two independent ones.
+// One linked verifier is not enough: the chain needs two distinct builds.
 func TestCheck_oneRealVerifierStillFailsClosed(t *testing.T) {
 	bundle, _, chainID := loadVector(t, "ironwood-1-action")
 	if err := verify.Check(bundle, nil, mustNew(t, chainID)); !errors.Is(err, verify.ErrVerifierNotLinked) {

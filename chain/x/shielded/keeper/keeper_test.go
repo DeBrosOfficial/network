@@ -1,8 +1,12 @@
 package keeper_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -349,40 +353,97 @@ func TestTransfer_oneVerifierFailsClosed(t *testing.T) {
 	}
 }
 
-// A fault every time is the bundle's own: in a block it is asked blockVerifyAttempts times and
-// refused, the same verdict on every node.
-func TestTransfer_verifierFaultRejectsTheBundle(t *testing.T) {
-	e := testutil.NewEnv(t, nil)
-	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
-	require.ErrorIs(t, transfer(e, transferBundle(2, 20, emptyAnchor(t))), verify.ErrVerifierFault)
-	require.Equal(t, 3, e.V2.Calls, "the bundle is asked again while the verifier faults")
+// haltOf runs fn and returns the VerifierHalt it panicked with, or fails the test when it did not
+// panic or panicked with anything else.
+func haltOf(t *testing.T, fn func()) (halt keeper.VerifierHalt) {
+	t.Helper()
+	defer func() {
+		r := recover()
+		require.NotNil(t, r, "a verifier fault in a block must stop the node, not return")
+		var ok bool
+		halt, ok = r.(keeper.VerifierHalt)
+		require.True(t, ok, "the panic is a VerifierHalt, got %T: %v", r, r)
+	}()
+	fn()
+	return halt
 }
 
-// A verifier process killed during the check is no verdict: in a block the bundle is asked again,
-// so the node reaches its peers' verdict instead of refusing a transaction they accepted.
-func TestTransfer_aVerifierThatFaultsOnceInABlockGivesItsVerdictOnTheNextAsk(t *testing.T) {
+// A verifier fault in a block is no verdict on the bundle, so it records no result: the node
+// stops with a message that names the verifier and what to do, and nothing of the transaction is
+// kept. The test verifier faults the way the out-of-process one does when its child is killed.
+func TestTransfer_aVerifierFaultInABlockHaltsTheNodeAndRecordsNoResult(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
-	shield(t, e, 1, 1000)
-	e.EndBlock()
-	asked := 0
 	e.V2.Reject = func([]byte) error {
-		if asked++; asked == 1 {
-			return fmt.Errorf("%w: out-of-process verifier: the process died", verify.ErrVerifierFault)
-		}
-		return nil
+		return fmt.Errorf("%w: out-of-process verifier: the process died", verify.ErrVerifierFault)
 	}
-	require.NoError(t, transfer(e, transferBundle(2, 20, rootAfter(1))))
-	require.Equal(t, 2, asked)
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	halt := haltOf(t, func() { _ = transfer(e, raw) })
+	require.ErrorIs(t, halt, verify.ErrVerifierFault)
+	require.Contains(t, halt.Error(), "orama-orchard-verifier")
+	require.Contains(t, halt.Error(), "--shielded-verifier")
+	require.Contains(t, halt.Error(), "executes the block again")
+	require.Equal(t, 1, e.V2.Calls, "a fault is not asked again")
+	_, count, err := e.Keeper.NullifierState(e.Ctx)
+	require.NoError(t, err)
+	require.Zero(t, count, "the halted transaction recorded nothing")
 }
 
-// A verdict is never asked again, and neither is a fault in the mempool, whose refusal is local.
-func TestVerify_aVerdictInABlockAndAFaultInCheckTxAreNotAskedAgain(t *testing.T) {
-	e := testutil.NewEnv(t, nil)
-	e.V2.Reject = func([]byte) error { return verify.ErrProofRejected }
-	require.ErrorIs(t, transfer(e, transferBundle(2, 20, emptyAnchor(t))), verify.ErrProofRejected)
-	require.Equal(t, 1, e.V2.Calls, "a rejection is a verdict")
+// The property the halt exists for: a node that lost its verifier mid-block does not record a
+// result its healthy peer did not. After the restart it executes the same block and reaches the
+// peer's result and state exactly.
+func TestTransfer_aNodeThatFaultedReachesItsPeersStateAfterTheRestart(t *testing.T) {
+	healthy := testutil.NewEnv(t, nil)
+	faulty := testutil.NewEnv(t, nil)
+	for _, e := range []*testutil.Env{healthy, faulty} {
+		shield(t, e, 1, 1000)
+		e.EndBlock()
+	}
+	raw := transferBundle(2, 20, rootAfter(1))
+	require.NoError(t, transfer(healthy, raw))
 
-	e = testutil.NewEnv(t, nil)
+	faulty.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	haltOf(t, func() { _ = transfer(faulty, raw) })
+	faulty.V2.Reject = nil // the verifier is fixed and the node restarted
+	require.NoError(t, transfer(faulty, raw), "the restarted node accepts what its peer accepted")
+
+	accH, countH, err := healthy.Keeper.NullifierState(healthy.Ctx)
+	require.NoError(t, err)
+	accF, countF, err := faulty.Keeper.NullifierState(faulty.Ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), countH)
+	require.Equal(t, countH, countF)
+	require.NotEqual(t, [bundle.NodeLen]byte{}, accH)
+	require.Equal(t, accH, accF, "same block, same nullifier accumulator")
+	require.Equal(t, healthy.Bank.Burned.String(), faulty.Bank.Burned.String())
+}
+
+// A bundle the verifier rejects, or panics on, is rejected the same way on every node: both are
+// verdicts that depend on the bytes alone, and neither halts a node.
+func TestTransfer_aVerdictIsTheSameOnEveryNodeAndNeverHalts(t *testing.T) {
+	for name, verdict := range map[string]error{
+		"proof rejected":     verify.ErrProofRejected,
+		"signature rejected": verify.ErrSignatureRejected,
+		"verifier panicked":  verify.ErrVerifierPanic,
+	} {
+		var results []string
+		for node := 0; node < 3; node++ {
+			e := testutil.NewEnv(t, nil)
+			e.V2.Reject = func([]byte) error { return verdict }
+			err := transfer(e, transferBundle(2, 20, emptyAnchor(t)))
+			require.ErrorIs(t, err, verdict, name)
+			require.ErrorIs(t, err, verify.ErrTampered, name)
+			require.Equal(t, 1, e.V2.Calls, "%s: a verdict is asked once", name)
+			results = append(results, err.Error())
+		}
+		require.Equal(t, results[0], results[1], name)
+		require.Equal(t, results[0], results[2], name)
+	}
+}
+
+// The mempool and a simulation are local: a fault there refuses the transaction on this node and
+// is asked once.
+func TestVerify_aFaultInCheckTxRefusesLocallyAndIsAskedOnce(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
 	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
 	raw := transferBundle(3, 20, emptyAnchor(t))
 	ctx := e.CheckCtx()
@@ -390,6 +451,23 @@ func TestVerify_aVerdictInABlockAndAFaultInCheckTxAreNotAskedAgain(t *testing.T)
 	require.NoError(t, err)
 	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
 	require.Equal(t, 1, e.V2.Calls, "CheckTx asks once")
+
+	sim := e.Ctx.WithIsCheckTx(true).WithExecMode(sdk.ExecModeSimulate)
+	require.ErrorIs(t, e.Keeper.Verify(sim, raw, nil, adm), verify.ErrVerifierFault, "a simulation refuses, it does not halt")
+}
+
+// Only FinalizeBlock halts on a fault. The proposal modes never verify a bundle today, but if one
+// ever did, halting there would stop a node on a proposal it merely votes on.
+func TestVerify_onlyFinalizeBlockHaltsOnAFault(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	adm, err := e.Keeper.Admit(e.Ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	for _, mode := range []sdk.ExecMode{sdk.ExecModePrepareProposal, sdk.ExecModeProcessProposal, sdk.ExecModeVoteExtension} {
+		require.ErrorIs(t, e.Keeper.Verify(e.Ctx.WithExecMode(mode), raw, nil, adm), verify.ErrVerifierFault, "mode %d", mode)
+	}
+	haltOf(t, func() { _ = e.Keeper.Verify(e.Ctx.WithExecMode(sdk.ExecModeFinalize), raw, nil, adm) })
 }
 
 func TestTransfer_signerMustBeTheProtocolAddress(t *testing.T) {
@@ -530,4 +608,222 @@ func TestMultiAsset_isInert(t *testing.T) {
 	gs := types.DefaultGenesisState()
 	gs.Pools = []types.PoolBalance{{Vintage: 1, Asset: make([]byte, 32), Balance: math.OneInt()}}
 	require.Error(t, gs.Validate(), "genesis cannot name another asset")
+}
+
+// The halt names the height and the hash of the bundle that was in flight, so an operator can see
+// whether every node stopped on the same one.
+func TestTransfer_theHaltNamesTheBundleItStoppedOn(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	halt := haltOf(t, func() { _ = transfer(e, raw) })
+	sum := sha256.Sum256(raw)
+	require.Equal(t, hex.EncodeToString(sum[:]), halt.BundleHash)
+	require.Contains(t, halt.Error(), halt.BundleHash)
+	require.Equal(t, e.Ctx.BlockHeight(), halt.Height)
+	require.Contains(t, halt.Error(), fmt.Sprint(halt.Height))
+}
+
+// A remote submitter learns nothing about the node's verifier: the mempool's refusal is generic and
+// the detail (a path, a hash, the child's state) is only logged.
+func TestVerify_theMempoolRefusalOfAFaultIsGeneric(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	secret := "/var/lib/orama-global/chain/cosmovisor/current/bin/orama-orchard-verifier sha256 deadbeef"
+	e.V2.Reject = func([]byte) error { return fmt.Errorf("%w: start %q", verify.ErrVerifierFault, secret) }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	err = e.Keeper.Verify(ctx, raw, nil, adm)
+	require.ErrorIs(t, err, verify.ErrVerifierFault)
+	require.NotContains(t, err.Error(), "orama-orchard-verifier")
+	require.NotContains(t, err.Error(), "deadbeef")
+	require.Contains(t, err.Error(), "unavailable on this node")
+
+	e.V2.Reject = func([]byte) error { return fmt.Errorf("%w: %s", verify.ErrVerifierNotLinked, secret) }
+	err = e.Keeper.Verify(e.CheckCtx(), transferBundle(4, 20, emptyAnchor(t)), nil, adm)
+	require.ErrorIs(t, err, verify.ErrVerifierNotLinked)
+	require.NotContains(t, err.Error(), "deadbeef")
+}
+
+// On a chain that must verify, a verifier that is missing or not distinct is a fault of this node:
+// in a block it halts. On a localnet or a devnet, which run without verifiers on every node, it is
+// the same refusal everywhere and halts nothing.
+func TestTransfer_missingVerifiersHaltOnlyAChainThatMustVerify(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	raw := transferBundle(2, 20, emptyAnchor(t))
+	for name, vs := range map[string][]verify.Verifier{
+		"one verifier":   {e.V1},
+		"a nil verifier": {e.V1, nil},
+		"the same twice": {e.V1, e.V1},
+	} {
+		strict := e.KeeperRequiring(vs...)
+		halt := haltOf(t, func() {
+			_ = e.Tx(func(ctx sdk.Context) error {
+				_, err := keeper.NewMsgServerImpl(strict).ShieldedTransfer(ctx, &types.MsgShieldedTransfer{
+					Signer: types.SignerlessAddress().String(), Bundle: raw,
+				})
+				return err
+			})
+		})
+		require.ErrorIs(t, halt, verify.ErrVerifierNotLinked, name)
+
+		lax := e.KeeperWith(vs...)
+		err := e.Tx(func(ctx sdk.Context) error {
+			_, err := keeper.NewMsgServerImpl(lax).ShieldedTransfer(ctx, &types.MsgShieldedTransfer{
+				Signer: types.SignerlessAddress().String(), Bundle: raw,
+			})
+			return err
+		})
+		require.ErrorIs(t, err, verify.ErrVerifierNotLinked, name)
+	}
+}
+
+// Mempool work has verifiers of its own: a bundle that holds the mempool's child does not hold the
+// block's verifier. (This is the verifier's mutex, not CometBFT's ABCI lock, which the keeper does not
+// see; the mempool's short request timeout bounds that stall.)
+func TestVerify_theMempoolAndTheBlockDoNotShareAVerifier(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	shield(t, e, 1, 1000)
+	e.EndBlock()
+	release := make(chan struct{})
+	var entered atomic.Int32
+	mempoolHung := &testutil.Verifier{Name: "mempool-b", Reject: func([]byte) error { entered.Add(1); <-release; return nil }}
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, mempoolHung})
+
+	raw := transferBundle(3, 20, rootAfter(1))
+	ctx := e.CheckCtx()
+	adm, err := k.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	checked := make(chan error, 1)
+	go func() { checked <- k.Verify(ctx, raw, nil, adm) }()
+	require.Eventually(t, func() bool { return entered.Load() == 1 }, 5*time.Second, time.Millisecond)
+
+	blockDone := make(chan error, 1)
+	go func() {
+		blockDone <- e.Tx(func(ctx sdk.Context) error {
+			_, err := keeper.NewMsgServerImpl(k).ShieldedTransfer(ctx, &types.MsgShieldedTransfer{
+				Signer: types.SignerlessAddress().String(), Bundle: transferBundle(4, 20, rootAfter(1)),
+			})
+			return err
+		})
+	}()
+	select {
+	case err := <-blockDone:
+		require.NoError(t, err, "the block's verifiers are not the mempool's")
+	case <-time.After(5 * time.Second):
+		t.Fatal("block execution waited on a mempool check")
+	}
+	close(release)
+	require.NoError(t, <-checked)
+}
+
+// A bundle whose check ended in a fault is not put to the mempool's verifier again for a while, so
+// resending it cannot keep a child busy. The memory is the mempool's alone: a block asks anyway.
+func TestVerify_aFaultingBundleIsNotAskedAgainByTheMempoolButAlwaysByABlock(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return fmt.Errorf("%w: hung for 30s", verify.ErrVerifierFault) }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	require.Equal(t, 1, e.V2.Calls, "the mempool asked once and remembered the fault")
+
+	haltOf(t, func() { _ = e.Keeper.Verify(e.Ctx.WithExecMode(sdk.ExecModeFinalize), raw, nil, adm) })
+	require.Equal(t, 2, e.V2.Calls, "a block never reads the mempool's memory of faults")
+
+	e.V2.Reject = nil
+	other := transferBundle(5, 20, emptyAnchor(t))
+	adm2, err := e.Keeper.Admit(ctx, other, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.NoError(t, e.Keeper.Verify(ctx, other, nil, adm2), "another bundle is not refused for the first one's fault")
+}
+
+// With the verifier fixed and the memory expired, the same bundle is checked again.
+func TestVerify_aRememberedFaultExpires(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := e.Keeper.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault)
+	e.V2.Reject = nil
+	require.ErrorIs(t, e.Keeper.Verify(ctx, raw, nil, adm), verify.ErrVerifierFault, "still remembered")
+	keeper.AdvanceFaultMemoryForTest(e.Keeper, 2*keeper.FaultMemory)
+	require.NoError(t, e.Keeper.Verify(ctx, raw, nil, adm), "the memory expired")
+}
+
+// On a devnet, verifiers that are not linked refuse a bundle in a block, and the transaction's log
+// carries no path or pin.
+func TestTransfer_notLinkedInABlockLeaksNothingToTheLog(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	e.V2.Reject = func([]byte) error {
+		return fmt.Errorf("%w: binary %q has sha256 deadbeef", verify.ErrVerifierNotLinked, "/var/lib/orama-global/chain/bin/orama-orchard-verifier")
+	}
+	err := transfer(e, transferBundle(2, 20, emptyAnchor(t)))
+	require.ErrorIs(t, err, verify.ErrVerifierNotLinked)
+	require.NotContains(t, err.Error(), "deadbeef")
+	require.NotContains(t, err.Error(), "/var/lib")
+}
+
+// notReady is a mempool verifier that has not started its process yet.
+type notReady struct{ *testutil.Verifier }
+
+func (notReady) Ready() bool { return false }
+
+// A mempool verifier that is still starting is answered before the block's verification budget is
+// spent and before anything is asked of it, and the answer is neither a verdict nor a fault, so
+// nothing is remembered.
+func TestVerify_aStartingMempoolVerifierSpendsNothingAndIsNeverRemembered(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	starting := &testutil.Verifier{Name: "mempool-b"}
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{notReady{starting}, e.V1})
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := k.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
+		err = k.Verify(ctx, raw, nil, adm)
+		require.ErrorIs(t, err, verify.ErrVerifierStarting)
+		require.NotErrorIs(t, err, verify.ErrVerifierFault)
+	}
+	require.Zero(t, starting.Calls, "nothing was asked of the verifier")
+
+	// The budget was never spent, so a ready set still has all of it.
+	k2 := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{starting, e.V1})
+	require.NoError(t, k2.Verify(ctx, raw, nil, adm))
+}
+
+// A proposal's proof check asks the mempool's verifiers, says "starting" while they are not ready,
+// reports a rejection as one, and spends none of the mempool's budget.
+func TestCheckProposalProof(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	mp := &testutil.Verifier{Name: "mempool-b"}
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{mp, e.V1})
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	require.NoError(t, k.CheckProposalProof(raw, nil, time.Second))
+	require.Equal(t, 1, mp.Calls)
+
+	rejected, faulted := transferBundle(4, 20, emptyAnchor(t)), transferBundle(5, 20, emptyAnchor(t))
+	mp.Reject = func([]byte) error { return verify.ErrProofRejected }
+	require.ErrorIs(t, k.CheckProposalProof(rejected, nil, time.Second), verify.ErrProofRejected)
+	mp.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	require.ErrorIs(t, k.CheckProposalProof(faulted, nil, time.Second), verify.ErrVerifierFault)
+
+	starting := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{notReady{mp}, e.V1})
+	require.ErrorIs(t, starting.CheckProposalProof(transferBundle(6, 20, emptyAnchor(t)), nil, time.Second), verify.ErrVerifierStarting)
+
+	mp.Reject = nil
+	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
+		_ = k.CheckProposalProof(transferBundle(byte(10+i%100), 20, emptyAnchor(t)), nil, time.Second)
+	}
+	other := transferBundle(200, 20, emptyAnchor(t))
+	adm, err := k.Admit(e.CheckCtx(), other, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.NoError(t, k.Verify(e.CheckCtx(), other, nil, adm), "proposal checks spend none of the mempool's budget")
 }
