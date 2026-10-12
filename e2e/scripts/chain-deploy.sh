@@ -288,7 +288,10 @@ import json, os
 path = os.environ["GENESIS_PATH"]
 with open(path) as f:
     doc = json.load(f)
-doc.setdefault("consensus", {}).setdefault("params", {}).setdefault("block", {})["max_gas"] = "100000000"
+params = doc.setdefault("consensus", {}).setdefault("params", {})
+params.setdefault("block", {})["max_gas"] = "100000000"
+# oramad refuses a devnet genesis without vote extensions (chain/app/consensus_params.go).
+params.setdefault("abci", {})["vote_extensions_enable_height"] = "2"
 with open(path, "w") as f:
     json.dump(doc, f, indent=2)
 '

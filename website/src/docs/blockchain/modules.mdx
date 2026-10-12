@@ -19,7 +19,7 @@ Every module in `chain/x/`, what it does and whether it is live. "Live" means wi
 | `wasm` | CosmWasm contracts. | Live in cgo builds only. See [Contracts](/docs/blockchain/contracts) |
 | `wasmpolicy` | Rules around contracts: upload closed until a sunset height, state deposits. | Always wired |
 | `wasmbindings` | The Orama calls a contract may make (tokens, NFTs, market, storage deals, earnings). | Linked in cgo builds |
-| `inclusion` | Inclusion lists through vote extensions so a proposer cannot censor a transaction. | Wired, off until genesis sets a start height |
+| `inclusion` | Inclusion lists through vote extensions so a proposer cannot censor a transaction. | Wired; a created network turns it on at height 2, a localnet leaves it off unless set, and a devnet, stagenet or production genesis without a start height is refused |
 | `confidential` | Attestation boundary for confidential compute. | Fails closed on every input. Not wired |
 | `vpnlaunch` | A predicate that says when a public VPN beta could open. | No chain state, not linked into `oramad`. Its launch switch is off in every build |
 

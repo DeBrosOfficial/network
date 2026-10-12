@@ -46,7 +46,8 @@ type genesisFacts struct {
 	Consensus struct {
 		Params struct {
 			Block struct {
-				MaxGas string `json:"max_gas"`
+				MaxGas   string `json:"max_gas"`
+				MaxBytes string `json:"max_bytes"`
 			} `json:"block"`
 			Abci struct {
 				VoteExtensionsEnableHeight string `json:"vote_extensions_enable_height"`
@@ -87,8 +88,9 @@ func VerifyGenesis(genesis []byte, spec GenesisSpec) error {
 		add("x/power starts from an exported state (exported=%t gate_satisfied=%t lambda=%q): a new chain starts at lambda 0 from its committee", p.Exported, p.GateSatisfied, p.Lambda)
 	}
 	problems = append(problems, filledModuleLists(genesis)...)
-	if c := g.Consensus.Params; c.Block.MaxGas != consensusMaxGas || c.Abci.VoteExtensionsEnableHeight != voteExtensionsEnableHeight {
-		add("consensus max_gas=%q vote_extensions_enable_height=%q, want %q and %q", c.Block.MaxGas, c.Abci.VoteExtensionsEnableHeight, consensusMaxGas, voteExtensionsEnableHeight)
+	if c := g.Consensus.Params; c.Block.MaxGas != consensusMaxGas || c.Block.MaxBytes != consensusMaxBlockBytes || c.Abci.VoteExtensionsEnableHeight != voteExtensionsEnableHeight {
+		add("consensus max_gas=%q max_bytes=%q vote_extensions_enable_height=%q, want %q, %q and %q",
+			c.Block.MaxGas, c.Block.MaxBytes, c.Abci.VoteExtensionsEnableHeight, consensusMaxGas, consensusMaxBlockBytes, voteExtensionsEnableHeight)
 	}
 	if len(problems) > 0 {
 		return fmt.Errorf("the genesis is not the one this committee should start:\n  - %s\n"+

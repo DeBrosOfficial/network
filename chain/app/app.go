@@ -848,6 +848,9 @@ func (app *OramaApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*
 	if err := ValidateLockedGenesis(req.ChainId, app.DefaultGenesis(), genesisState); err != nil {
 		return nil, err
 	}
+	if err := ValidateConsensusParams(req.ChainId, req.ConsensusParams); err != nil {
+		return nil, err
+	}
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap()); err != nil {
 		return nil, err
 	}

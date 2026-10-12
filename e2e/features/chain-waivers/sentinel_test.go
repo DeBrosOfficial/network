@@ -168,14 +168,9 @@ func TestUnwired_noQueryServiceAndNoGenesisState(t *testing.T) {
 
 // voteExtensionsEnableHeight is the abci.vote_extensions_enable_height each
 // deploy writes into genesis (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "Inclusion lists (C13)"):
-// e2e/scripts/chain-deploy.sh leaves it 0 (off) on a run chain,
-// chain/scripts/stagenet/deploy.sh sets 2.
-func voteExtensionsEnableHeight(c *chain.Chain) string {
-	if c.F.State.IsStagenet() {
-		return "2"
-	}
-	return "0"
-}
+// e2e/scripts/chain-deploy.sh and chain/scripts/stagenet/deploy.sh both set 2, the
+// height oramad requires of a devnet or stagenet genesis (chain/app/consensus_params.go).
+func voteExtensionsEnableHeight(*chain.Chain) string { return "2" }
 
 // TestInclusion_voteExtensionsAreTheDeploysSwitch: x/inclusion is wired, and
 // its bytes ride on vote extensions only from the height the deploy's genesis

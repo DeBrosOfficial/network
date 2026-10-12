@@ -32,6 +32,10 @@ const (
 	// x/consensus has no genesis state of its own, so the top-level consensus
 	// field would otherwise keep CometBFT's unlimited default.
 	consensusMaxGas = "100000000"
+	// consensusMaxBlockBytes is the block size set in genesis, CometBFT's default of 21 MiB written
+	// out so the genesis does not depend on a default. chain/app/consensus_params.go refuses any
+	// other value on a production chain id (TestConsensusConstants_equalTheChainsPins).
+	consensusMaxBlockBytes = "22020096"
 	// voteExtensionsEnableHeight turns vote extensions on at height 2 (deploy.sh
 	// VOTE_EXTENSIONS_ENABLE_HEIGHT; docs/whitepaper/technical-reference/vol2/39-chain-architecture.md, C13 inclusion lists): they
 	// are a genesis-only switch, height 2 leaves block 1 an ordinary block and
@@ -109,9 +113,10 @@ func genesisScript(steps [][]string) string {
 	return b.String()
 }
 
-// ApplyConsensusParams sets the two consensus parameters no module owns in a
-// genesis built by oramad: a finite block max_gas, and the height vote extensions
-// turn on at. Everything else in the document is kept as it is; the result is
+// ApplyConsensusParams sets the consensus parameters no module owns in a
+// genesis built by oramad: a finite block max_gas, the block max_bytes, and the height
+// vote extensions turn on at. oramad refuses a genesis whose values differ on a
+// production chain id (chain/app/consensus_params.go). Everything else in the document is kept as it is; the result is
 // indented and its keys sorted, so applying it again changes nothing.
 func ApplyConsensusParams(genesis []byte) ([]byte, error) {
 	doc, err := objectOf(genesis, "genesis")
@@ -121,6 +126,9 @@ func ApplyConsensusParams(genesis []byte) ([]byte, error) {
 	err = editObject(doc, "consensus", func(consensus map[string]json.RawMessage) error {
 		return editObject(consensus, "params", func(params map[string]json.RawMessage) error {
 			if err := editObject(params, "block", func(block map[string]json.RawMessage) error {
+				if err := setString(block, "max_bytes", consensusMaxBlockBytes); err != nil {
+					return err
+				}
 				return setString(block, "max_gas", consensusMaxGas)
 			}); err != nil {
 				return err
