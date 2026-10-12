@@ -90,7 +90,7 @@ os-build:
 # === Fleet e2e (e2e/, see e2e/README.md) ===
 .PHONY: e2e-fleet e2e-coverage e2e-lint e2e-test-unit
 E2E_INFISICAL_PROJECT := cea224be-3999-4e8d-bd9b-f9a89c94e7fa
-E2E_INFISICAL_DOMAIN  := https://infisical.debros.io/api
+E2E_INFISICAL_DOMAIN  := https://infisical.icxcnika.io/api
 # The coverage gate blocks `make test`: every CLI command, gateway route, chain
 # Msg/Query and systemd unit needs an e2e feature or a waiver (e2e/README.md,
 # "Coverage gate").
