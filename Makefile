@@ -20,8 +20,9 @@ core-clean:
 	$(MAKE) -C core clean
 
 # === Chain (Orama L1: Go, plus the Rust Orchard verifier; see chain/Makefile and chain/ci.mk) ===
-# chain-test is the pure-Go unit tests (-tags nowasm, no cgo). CI additionally runs the race
-# detector with CosmWasm and the Orchard verifiers linked, and the static analysis: `make -C chain ci`.
+# chain-test is the pure-Go unit tests (-tags nowasm, no cgo), and the tests that need the Orchard
+# library and the verifier binary when those are built. CI always runs those, under the race detector
+# with CosmWasm linked, besides the static analysis: `make -C chain ci`.
 .PHONY: chain chain-build chain-test chain-lint chain-ci chain-upgrade-check
 chain: chain-build
 
