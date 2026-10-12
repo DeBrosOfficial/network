@@ -2569,8 +2569,10 @@ names: the sha256 of this platform's oramad and shielded verifier, which the
 SoftwareUpgrade proposal carried in its info and x/upgrade holds as the plan's
 info. The plan is read from the chain's REST API and has to be the one named
 --upgrade; --plan-info <file> reads the info JSON from a file instead, for a
-machine whose chain cannot be asked. A file the plan does not name, or a plan
-that names no checksums, is refused and nothing is staged.
+machine whose chain cannot be asked. The sha256 is taken of the staged copy, in
+the same pass that verifies it, so a file changed after the command started is
+the file that is checked. A file the plan does not name, or a plan that names no
+checksums, is refused and nothing is staged.
 
 The binary is copied into a root-only staging directory and verified there,
 through the descriptor that wrote it, as --release-target in the TUF metadata

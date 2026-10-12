@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -52,8 +53,10 @@ names: the sha256 of this platform's oramad and shielded verifier, which the
 SoftwareUpgrade proposal carried in its info and x/upgrade holds as the plan's
 info. The plan is read from the chain's REST API and has to be the one named
 --upgrade; --plan-info <file> reads the info JSON from a file instead, for a
-machine whose chain cannot be asked. A file the plan does not name, or a plan
-that names no checksums, is refused and nothing is staged.
+machine whose chain cannot be asked. The sha256 is taken of the staged copy, in
+the same pass that verifies it, so a file changed after the command started is
+the file that is checked. A file the plan does not name, or a plan that names no
+checksums, is refused and nothing is staged.
 
 The binary is copied into a root-only staging directory and verified there,
 through the descriptor that wrote it, as --release-target in the TUF metadata
@@ -112,18 +115,24 @@ func runStageOramad(cmd *cobra.Command, _ []string) error {
 	if err := checkVerifierPinned(stageFlags.binary, stageFlags.verifier); err != nil {
 		return clierr.Failure("%v", err)
 	}
+	verify := verifyAsTarget(stageFlags.target)
+	verifierVerify := verifyAsTarget(stageFlags.verifierTarget)
 	if stageFlags.upgrade != "" {
-		if err := checkStagedAgainstPlan(cmd.Context(), stageFlags.upgrade, stageFlags.planInfo, stageFlags.binary, stageFlags.verifier); err != nil {
+		digests, err := planDigests(cmd.Context(), stageFlags.upgrade, stageFlags.planInfo)
+		if err != nil {
 			return err
 		}
+		verify, verifierVerify = plannedVerifies(stageFlags.upgrade, digests, verify, verifierVerify)
 	}
-	verifier := cosmovisor.Companion{Name: constants.ChainVerifierBinary, Src: stageFlags.verifier, Verify: verifyAsTarget(stageFlags.verifierTarget)}
-	verify := verifyAsTarget(stageFlags.target)
+	verifier := cosmovisor.Companion{Name: constants.ChainVerifierBinary, Src: stageFlags.verifier, Verify: verifierVerify}
 	var dst string
 	if stageFlags.genesis {
 		dst, err = layout.StageGenesis(stageFlags.binary, verify, verifier)
 	} else {
 		dst, err = layout.StageUpgrade(stageFlags.upgrade, stageFlags.binary, verify, verifier)
+	}
+	if errors.Is(err, planinfo.ErrMismatch) {
+		return clierr.Conflict("%v", err)
 	}
 	if err != nil {
 		return clierr.Failure("%v", err)
@@ -171,29 +180,43 @@ func checkVerifierPinned(binary, verifier string) error {
 // planInfoLimit bounds a --plan-info file: the chain bounds the info it carries far below it.
 const planInfoLimit = 64 << 10
 
-// checkStagedAgainstPlan holds the oramad and the verifier about to be staged for the upgrade
-// name to the checksums its plan names, before either is staged.
-func checkStagedAgainstPlan(ctx context.Context, name, infoFile, binary, verifier string) error {
+// planDigests is the checksums the plan name's info names for this platform.
+func planDigests(ctx context.Context, name, infoFile string) (planinfo.Digests, error) {
 	plan, err := stagePlan(ctx, name, infoFile)
 	if err != nil {
-		return err
+		return planinfo.Digests{}, err
 	}
 	digests, err := planinfo.Parse(plan.Name, plan.Info, runtime.GOOS+"/"+runtime.GOARCH)
 	if err != nil {
-		return clierr.Conflict("%v, so nothing is staged for it", err)
+		return planinfo.Digests{}, clierr.Conflict("%v, so nothing is staged for it", err)
 	}
-	oramadSum, err := sha256File(binary)
-	if err != nil {
-		return clierr.Failure("%v", err)
+	return digests, nil
+}
+
+// plannedVerifies adds to the verification of the oramad and of the verifier the check that the
+// staged copy has the sha256 the plan names. The digest is of the file staging copied and linked
+// into place, read through the descriptor it wrote, never of the path the operator gave: a file
+// swapped after the plan was read is the file that is checked.
+func plannedVerifies(plan string, d planinfo.Digests, oramad, verifier cosmovisor.Verify) (cosmovisor.Verify, cosmovisor.Verify) {
+	return withDigest(oramad, func(sum string) error { return d.CheckOramad(plan, sum) }),
+		withDigest(verifier, func(sum string) error { return d.CheckVerifier(plan, sum) })
+}
+
+// withDigest is verify followed by check on the sha256 of the whole staged file.
+func withDigest(verify cosmovisor.Verify, check func(sum string) error) cosmovisor.Verify {
+	return func(f *os.File) error {
+		if err := verify(f); err != nil {
+			return err
+		}
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return fmt.Errorf("rewind %s: %w", f.Name(), err)
+		}
+		h := sha256.New()
+		if _, err := io.Copy(h, f); err != nil {
+			return fmt.Errorf("hash %s: %w", f.Name(), err)
+		}
+		return check(hex.EncodeToString(h.Sum(nil)))
 	}
-	verifierSum, err := sha256File(verifier)
-	if err != nil {
-		return clierr.Failure("%v", err)
-	}
-	if err := digests.Check(name, oramadSum, verifierSum); err != nil {
-		return clierr.Conflict("%v", err)
-	}
-	return nil
 }
 
 // stagePlan is the plan name's info: the file's content when infoFile is given, otherwise the

@@ -107,6 +107,17 @@ func (d Digests) Check(plan, oramadSHA256, verifierSHA256 string) error {
 	return nil
 }
 
+// CheckOramad is Check for the oramad alone. Staging calls it with the digest of the staged copy
+// itself, so what is checked is what is installed.
+func (d Digests) CheckOramad(plan, oramadSHA256 string) error {
+	return d.Check(plan, oramadSHA256, d.Verifier)
+}
+
+// CheckVerifier is Check for the shielded verifier alone.
+func (d Digests) CheckVerifier(plan, verifierSHA256 string) error {
+	return d.Check(plan, d.Oramad, verifierSHA256)
+}
+
 // Short is the first digits of a digest, enough to tell two binaries apart.
 func Short(sum string) string {
 	const digits = 12

@@ -83,6 +83,25 @@ func TestDigests_Check(t *testing.T) {
 	}
 }
 
+func TestDigests_CheckOneFile(t *testing.T) {
+	d := Digests{Oramad: digest("a"), Verifier: digest("b")}
+	if err := d.CheckOramad("v2", digest("a")); err != nil {
+		t.Errorf("the plan's oramad: %v", err)
+	}
+	if err := d.CheckVerifier("v2", digest("b")); err != nil {
+		t.Errorf("the plan's verifier: %v", err)
+	}
+	if err := d.CheckOramad("v2", digest("b")); !errors.Is(err, ErrMismatch) {
+		t.Errorf("the verifier's digest as the oramad: %v", err)
+	}
+	if err := d.CheckVerifier("v2", digest("a")); !errors.Is(err, ErrMismatch) {
+		t.Errorf("the oramad's digest as the verifier: %v", err)
+	}
+	if err := (Digests{}).CheckOramad("v2", digest("a")); !errors.Is(err, ErrMismatch) {
+		t.Errorf("a plan naming nothing: %v", err)
+	}
+}
+
 func TestShort(t *testing.T) {
 	if got := Short(digest("c")); got != strings.Repeat("c", 12) {
 		t.Errorf("Short = %q", got)
