@@ -23,7 +23,7 @@ BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 WASMVM_DIR := $(shell go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3 2>/dev/null)
 LIBWASMVM := $(firstword $(wildcard $(WASMVM_DIR)/internal/api/libwasmvm.dylib $(WASMVM_DIR)/internal/api/libwasmvm.aarch64.so $(WASMVM_DIR)/internal/api/libwasmvm.x86_64.so))
 
-.PHONY: bench bench-baseline bench-compare bench-load build build-linux-amd64-full build-linux-amd64-global build-linux-amd64-orchard build-wasm chain-sim chain-test contracts-verify lint localnet localnet-clean localnet-stop native-lib-linux-amd64 orchard-lib orchard-lib-linux-amd64 orchard-smoke orchard-smoke-linux-amd64 orchard-test orchard-verifier orchard-verifier-linux-amd64 proto-emission proto-fees proto-nodes proto-power proto-relay proto-shielded test
+.PHONY: bench bench-baseline bench-compare bench-load build build-linux-amd64-full build-linux-amd64-global build-linux-amd64-orchard build-wasm chain-sim chain-test contracts-verify lint localnet localnet-clean localnet-stop native-lib-linux-amd64 orchard-lib orchard-lib-linux-amd64 orchard-smoke orchard-smoke-linux-amd64 orchard-test orchard-verifier orchard-verifier-linux-amd64 proto-emission proto-fees proto-houses proto-nodes proto-power proto-relay proto-shielded test upgrade-check
 
 ## build: cross-compile oramad for linux/amd64, darwin/amd64 and darwin/arm64.
 ## CGO_ENABLED=0 and -tags nowasm: these binaries are static and do not include CosmWasm.
@@ -211,6 +211,13 @@ chain-sim:
 	@echo "chain-sim: the production cadence (14,400 blocks)"
 	go test -race -count=1 -timeout 30m -run '^TestConservation_productionCadence' ./app -args -sim.production-cadence
 
+## upgrade-check: the release gate for governed upgrades. The plan a release declares in
+## app/upgrades/CURRENT must have a handler registered in app/upgrades/registry.go, and the registry
+## must have no duplicate or invalid names; otherwise the release's oramad would halt the chain at
+## the plan's height with "UPGRADE NEEDED". core/scripts/release.sh runs it before it tags.
+upgrade-check:
+	go test -count=1 -run '^(TestRegistry_|TestRelease_)' ./app/upgrades/
+
 ## lint: go vet (the project's Go style rules - no magic numbers, wrapped errors, short
 ## functions/files - are enforced by review, not a separate linter here).
 lint:
@@ -303,6 +310,20 @@ proto-nodes:
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/nodes/v1/*.proto && \
 	cp $$out/github.com/DeBrosOfficial/network/chain/x/nodes/types/*.go x/nodes/types/ && rm -rf $$out
+
+## proto-houses: regenerate x/houses's gogoproto and grpc-gateway code from proto/orama/houses/v1.
+## Same toolchain as proto-nodes.
+proto-houses:
+	@out=$$(mktemp -d) && \
+	protoc -I proto \
+		-I $(GOPROTO_MOD)/cosmos-sdk@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-sdk)/proto \
+		-I $(GOPROTO_MOD)/gogoproto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/gogoproto) \
+		-I $(shell go list -m -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway)/third_party/googleapis \
+		-I $(GOPROTO_MOD)/cosmos-proto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-proto)/proto \
+		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
+		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
+		proto/orama/houses/v1/*.proto && \
+	cp $$out/github.com/DeBrosOfficial/network/chain/x/houses/types/*.go x/houses/types/ && rm -rf $$out
 
 ## proto-relay: regenerate x/relay's gogoproto and grpc-gateway code from proto/orama/relay/v1.
 ## Same toolchain as proto-nodes.

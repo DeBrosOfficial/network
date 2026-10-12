@@ -22,7 +22,7 @@ core-clean:
 # === Chain (Orama L1: Go, plus the Rust Orchard verifier; see chain/Makefile and chain/ci.mk) ===
 # chain-test is the pure-Go unit tests (-tags nowasm, no cgo). CI additionally runs the race
 # detector with CosmWasm and the Orchard verifiers linked, and the static analysis: `make -C chain ci`.
-.PHONY: chain chain-build chain-test chain-lint chain-ci
+.PHONY: chain chain-build chain-test chain-lint chain-ci chain-upgrade-check
 chain: chain-build
 
 chain-build:
@@ -36,6 +36,11 @@ chain-lint:
 
 chain-ci:
 	$(MAKE) -C chain ci
+
+# chain-upgrade-check fails when the release declares a governed upgrade plan (chain/app/upgrades/CURRENT)
+# that has no registered handler. core/scripts/release.sh runs it before it tags a release.
+chain-upgrade-check:
+	$(MAKE) -C chain upgrade-check
 
 # === Caddy modules (built into the node's Caddy by `orama maint build`) ===
 .PHONY: caddy-test

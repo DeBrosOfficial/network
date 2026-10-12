@@ -91,6 +91,7 @@ import (
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
 	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/DeBrosOfficial/network/chain/app/upgrades"
 	"github.com/DeBrosOfficial/network/chain/x/archive"
 	archivekeeper "github.com/DeBrosOfficial/network/chain/x/archive/keeper"
 	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
@@ -715,6 +716,8 @@ func NewOramaApp(
 	if err := app.ModuleManager.RegisterServices(app.configurator); err != nil {
 		panic(err)
 	}
+
+	app.setUpgrades(upgrades.Registered(), homePath)
 
 	autocliv1.RegisterQueryServer(app.GRPCQueryRouter(), runtimeservices.NewAutoCLIQueryService(app.ModuleManager.Modules))
 
