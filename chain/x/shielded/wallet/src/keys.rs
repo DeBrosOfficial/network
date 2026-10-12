@@ -80,7 +80,8 @@ pub fn shielded_seed(bip39_seed: &[u8]) -> Result<Zeroizing<[u8; 32]>, KeyError>
     Ok(out)
 }
 
-/// An extended key: a spending key and its chain code, at some depth of the tree.
+/// An extended key: a spending key and its chain code, at some depth of the tree. Neither `Debug`
+/// nor `Clone`, on purpose.
 ///
 /// zip32's `HardenedOnlyKey` does not wipe itself when dropped, and its fields are private, so the
 /// key held here lives in memory until it is overwritten. The bytes this crate copies out of it
@@ -137,12 +138,14 @@ pub fn account_key(bip39_seed: &[u8], account: u32) -> Result<ExtendedKey, KeyEr
         .derive_hardened(account)
 }
 
-/// Everything a wallet holds for one account. The spending key is kept as bytes that are wiped
-/// when the account is dropped (`SpendingKey` itself is `Copy` and cannot be wiped), and
-/// `spending_key` builds a value from them for the moment it is needed.
+/// Everything a wallet holds for one account. The zip32 key object is dropped as soon as the
+/// account is derived (it is not wiped and prints its secret through `Debug`); what stays is the
+/// spending key and chain code as bytes that are wiped when the account is dropped (`SpendingKey`
+/// itself is `Copy` and cannot be wiped), plus the full viewing key. `spending_key` builds a value
+/// from the bytes for the moment it is needed. The type is neither `Debug` nor `Clone`.
 pub struct Account {
-    pub extended: ExtendedKey,
     sk_bytes: Zeroizing<[u8; 32]>,
+    chain_code: Zeroizing<[u8; 32]>,
     pub fvk: FullViewingKey,
 }
 
@@ -151,7 +154,12 @@ impl Account {
         let extended = account_key(bip39_seed, account)?;
         let sk = extended.spending_key();
         let fvk = FullViewingKey::from(&sk);
-        Ok(Self { extended, sk_bytes: Zeroizing::new(*sk.to_bytes()), fvk })
+        Ok(Self { sk_bytes: Zeroizing::new(*sk.to_bytes()), chain_code: extended.chain_code(), fvk })
+    }
+
+    /// The account key's ZIP-32 chain code, as a copy that is wiped when dropped.
+    pub fn chain_code(&self) -> Zeroizing<[u8; 32]> {
+        Zeroizing::new(*self.chain_code)
     }
 
     /// The account's spending key. The returned value is a plain copy: drop it promptly.

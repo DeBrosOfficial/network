@@ -78,7 +78,7 @@ fn account_vector(seed: &[u8], account: u32) -> AccountVector {
     AccountVector {
         account,
         path: format!("m/{ZIP32_PURPOSE}'/{ORAMA_COIN_TYPE}'/{account}'"),
-        chain_code: hex(&*a.extended.chain_code()),
+        chain_code: hex(&*a.chain_code()),
         spending_key: hex(a.spending_key().to_bytes()),
         full_viewing_key: hex(&a.fvk.to_bytes()),
         external_ivk: hex(&a.fvk.to_ivk(Scope::External).to_bytes()),

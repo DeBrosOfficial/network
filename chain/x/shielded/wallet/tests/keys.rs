@@ -1,5 +1,5 @@
 use orama_shielded_wallet::keys::{
-    account_key, master_key, shielded_seed, Account, KeyError, MASTER_PERSONALIZATION, ORAMA_COIN_TYPE,
+    account_key, master_key, shielded_seed, Account, ExtendedKey, KeyError, MASTER_PERSONALIZATION, ORAMA_COIN_TYPE,
 };
 use orama_shielded_wallet::vectors::{abandon_seed, bip39_seed, hex, key_vectors, KeyVectors, MNEMONICS};
 use orchard::keys::{FullViewingKey, Scope, SpendingKey};
@@ -141,7 +141,31 @@ fn seeds_and_chain_codes_are_wiped_on_drop() {
     wiped(&shielded_seed(&seed).unwrap());
     wiped(&master_key(&seed).unwrap().chain_code());
     let a = Account::derive(&seed, 0).unwrap();
-    wiped(&a.extended.chain_code());
+    wiped(&a.chain_code());
     // The account keeps its spending key as bytes it wipes, and builds the key value on demand.
-    assert_eq!(a.spending_key().to_bytes(), a.extended.spending_key().to_bytes());
+    let ext = account_key(&seed, 0).unwrap();
+    assert_eq!(a.spending_key().to_bytes(), ext.spending_key().to_bytes());
+    assert_eq!(*a.chain_code(), *ext.chain_code());
+}
+
+// Key-holding types must not print or duplicate their secrets: a blanket impl is ambiguous (and the
+// call fails to compile) exactly when the type implements the trait.
+trait AmbiguousIfDebug<A> {
+    fn check() {}
+}
+impl<T> AmbiguousIfDebug<()> for T {}
+impl<T: std::fmt::Debug> AmbiguousIfDebug<u8> for T {}
+
+trait AmbiguousIfClone<A> {
+    fn check() {}
+}
+impl<T> AmbiguousIfClone<()> for T {}
+impl<T: Clone> AmbiguousIfClone<u8> for T {}
+
+#[test]
+fn key_holding_types_are_neither_debug_nor_clone() {
+    <Account as AmbiguousIfDebug<_>>::check();
+    <Account as AmbiguousIfClone<_>>::check();
+    <ExtendedKey as AmbiguousIfDebug<_>>::check();
+    <ExtendedKey as AmbiguousIfClone<_>>::check();
 }
