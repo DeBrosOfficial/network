@@ -174,8 +174,12 @@ func FuzzPrepareProposal(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
+	noAmount, err := inclusion.EncodeList([][]byte{txWithAnAmountlessFeeCoin(f)})
+	if err != nil {
+		f.Fatal(err)
+	}
 	f.Add(listed, listed, []byte(nil), c.signed, []byte(nil))
-	f.Add(listed, noFee, []byte("junk"), []byte(nil), c.signed)
+	f.Add(listed, noFee, noAmount, []byte(nil), c.signed)
 	f.Add([]byte(nil), []byte(nil), []byte(nil), []byte{1, 2, 3}, c.signed)
 	f.Fuzz(func(t *testing.T, e0, e1, e2, m0, m1 []byte) {
 		ec := c.signedCommit(t, [][]byte{e0, e1, e2})
@@ -227,6 +231,11 @@ func FuzzVerifyVoteExtension(f *testing.F) {
 		f.Fatal(err)
 	}
 	f.Add(noFee)
+	noAmount, err := inclusion.EncodeList([][]byte{txWithAnAmountlessFeeCoin(f)})
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(noAmount)
 	f.Add([]byte(nil))
 	f.Add(c.extend())
 	f.Add(append(bytes.Clone(good), 0))

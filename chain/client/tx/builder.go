@@ -202,18 +202,24 @@ func (b *Builder) Decode(txBytes []byte, chainID string, accountNumber uint64) (
 	return Decoded{Signer: signer, Fee: fee, MsgTypeURLs: urls}, nil
 }
 
-// statesAFee reports whether txBytes' auth info carries a fee. The SDK decoder accepts an auth info
-// without one, and GetFee on the decoded transaction then dereferences the missing field.
+// statesAFee reports whether txBytes' auth info carries a fee and every coin of it an amount. The SDK
+// decoder accepts an auth info without a fee, and GetFee on the decoded transaction then dereferences
+// the missing field; it accepts a fee coin without an amount, whose Int is nil and panics when read.
 func statesAFee(txBytes []byte) bool {
 	var raw sdktx.TxRaw
 	if err := raw.Unmarshal(txBytes); err != nil {
 		return false
 	}
 	var auth sdktx.AuthInfo
-	if err := auth.Unmarshal(raw.AuthInfoBytes); err != nil {
+	if err := auth.Unmarshal(raw.AuthInfoBytes); err != nil || auth.Fee == nil {
 		return false
 	}
-	return auth.Fee != nil
+	for _, coin := range auth.Fee.Amount {
+		if coin.Amount.IsNil() {
+			return false
+		}
+	}
+	return true
 }
 
 func (b *Builder) verifySigner(sdkTx sdk.Tx, chainID string, accountNumber uint64) (string, error) {

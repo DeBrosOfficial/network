@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"cosmossdk.io/log/v2"
 
@@ -298,30 +299,39 @@ func TestDecode_refusesFeeDenom(t *testing.T) {
 }
 
 // The SDK decoder accepts an auth info with no fee, and GetFee then dereferences the missing
-// field. A wallet that checks a transaction it was handed must refuse it, not crash. Found by
-// FuzzClientTxDecode.
-func TestDecode_refusesATransactionThatStatesNoFee(t *testing.T) {
-	b := newBuilder(t)
-	key := secp256k1.GenPrivKey()
-	from := sdk.AccAddress(key.PubKey().Address()).String()
-	msg, err := codectypes.NewAnyWithValue(&banktypes.MsgSend{FromAddress: from, ToAddress: from})
-	require.NoError(t, err)
-	pub, err := codectypes.NewAnyWithValue(key.PubKey())
-	require.NoError(t, err)
-	body, err := (&sdktx.TxBody{Messages: []*codectypes.Any{msg}}).Marshal()
-	require.NoError(t, err)
-	auth, err := (&sdktx.AuthInfo{SignerInfos: []*sdktx.SignerInfo{{
-		PublicKey: pub,
-		ModeInfo:  &sdktx.ModeInfo{Sum: &sdktx.ModeInfo_Single_{Single: &sdktx.ModeInfo_Single{Mode: signing.SignMode_SIGN_MODE_DIRECT}}},
-	}}}).Marshal()
-	require.NoError(t, err)
-	raw, err := (&sdktx.TxRaw{BodyBytes: body, AuthInfoBytes: auth, Signatures: [][]byte{make([]byte, 64)}}).Marshal()
-	require.NoError(t, err)
+// field; it accepts a fee coin with no amount, whose Int is nil. A wallet that checks a transaction
+// it was handed must refuse either, not crash. Found by FuzzClientTxDecode.
+func TestDecode_refusesATransactionWhoseFeeCannotBeRead(t *testing.T) {
+	coin := protowire.AppendBytes(protowire.AppendTag(nil, 1, protowire.BytesType), []byte(params.BaseDenom))
+	amountless := protowire.AppendBytes(protowire.AppendTag(nil, 1, protowire.BytesType), coin)
+	for name, fee := range map[string][]byte{"no fee": nil, "a fee coin with no amount": amountless} {
+		t.Run(name, func(t *testing.T) {
+			b := newBuilder(t)
+			key := secp256k1.GenPrivKey()
+			from := sdk.AccAddress(key.PubKey().Address()).String()
+			msg, err := codectypes.NewAnyWithValue(&banktypes.MsgSend{FromAddress: from, ToAddress: from})
+			require.NoError(t, err)
+			pub, err := codectypes.NewAnyWithValue(key.PubKey())
+			require.NoError(t, err)
+			body, err := (&sdktx.TxBody{Messages: []*codectypes.Any{msg}}).Marshal()
+			require.NoError(t, err)
+			auth, err := (&sdktx.AuthInfo{SignerInfos: []*sdktx.SignerInfo{{
+				PublicKey: pub,
+				ModeInfo:  &sdktx.ModeInfo{Sum: &sdktx.ModeInfo_Single_{Single: &sdktx.ModeInfo_Single{Mode: signing.SignMode_SIGN_MODE_DIRECT}}},
+			}}}).Marshal()
+			require.NoError(t, err)
+			if fee != nil {
+				auth = protowire.AppendBytes(protowire.AppendTag(auth, 2, protowire.BytesType), fee)
+			}
+			raw, err := (&sdktx.TxRaw{BodyBytes: body, AuthInfoBytes: auth, Signatures: [][]byte{make([]byte, 64)}}).Marshal()
+			require.NoError(t, err)
 
-	require.NotPanics(t, func() {
-		_, err = b.Decode(raw, "orama-localnet-txbuilder-1", 1)
-	})
-	require.Error(t, err)
+			require.NotPanics(t, func() {
+				_, err = b.Decode(raw, "orama-localnet-txbuilder-1", 1)
+			})
+			require.Error(t, err)
+		})
+	}
 }
 
 func TestDecode_refusesSignatureThatDoesNotMatchSigner(t *testing.T) {

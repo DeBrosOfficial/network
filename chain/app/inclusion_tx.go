@@ -33,13 +33,24 @@ type inclusionTxRules struct {
 // transaction with exactly one signer can be listed: the rules track one
 // sender and one sequence per transaction. Fee is the norama fee in whole
 // units, saturating at MaxUint64.
-func (r inclusionTxRules) meta(raw []byte) (inclusion.Meta, error) {
+func (r inclusionTxRules) meta(raw []byte) (meta inclusion.Meta, err error) {
+	// The SDK's transaction types are written for transactions that went through the ante chain, and
+	// this reads bytes a peer chose. statesAFee covers the panics known today; this keeps a further
+	// one (the same input panics the same way on every node, so the verdict is the same everywhere)
+	// from reaching CometBFT as an error from VerifyVoteExtension, which halts the node. The ante
+	// chain's admitter and verifier below guard their SDK calls the same way.
+	defer func() {
+		if rec := recover(); rec != nil {
+			r.logger.Error("reading a listed transaction panicked", "panic", rec)
+			meta, err = inclusion.Meta{}, fmt.Errorf("inclusion: the transaction cannot be read")
+		}
+	}()
 	tx, err := r.decode(raw)
 	if err != nil {
 		return inclusion.Meta{}, fmt.Errorf("inclusion: transaction does not decode: %w", err)
 	}
 	if !statesAFee(raw) {
-		return inclusion.Meta{}, fmt.Errorf("inclusion: the transaction states no fee")
+		return inclusion.Meta{}, fmt.Errorf("inclusion: the transaction states no fee, or a fee coin without an amount")
 	}
 	if u, ok := tx.(sdk.TxWithUnordered); ok && u.GetUnordered() {
 		return inclusion.Meta{}, fmt.Errorf("inclusion: unordered transactions cannot be listed")
@@ -68,21 +79,27 @@ func (r inclusionTxRules) meta(raw []byte) (inclusion.Meta, error) {
 	return inclusion.Meta{Sender: signers[0], Sequence: sigs[0].Sequence, Fee: feeAmount}, nil
 }
 
-// statesAFee reports whether raw's auth info carries a fee. The SDK decoder accepts an auth info
-// without one, and the decoded transaction's GetFee and GetGas then dereference the missing field.
-// Inside the ante chain that panic is recovered per transaction; here, in the checks every
-// validator runs on another validator's vote extension, a panic would reach CometBFT as an error
-// from VerifyVoteExtension, which halts the node.
+// statesAFee reports whether raw's auth info carries a fee and every coin of it an amount. The SDK
+// decoder accepts an auth info without a fee, and the decoded transaction's GetFee and GetGas then
+// dereference the missing field; it accepts a fee coin without an amount too, whose Int is nil and
+// panics when read. Inside the ante chain those panics are recovered per transaction; here, in the
+// checks every validator runs on another validator's vote extension, a panic would reach CometBFT as
+// an error from VerifyVoteExtension, which halts the node.
 func statesAFee(raw []byte) bool {
 	var txRaw txtypes.TxRaw
 	if err := txRaw.Unmarshal(raw); err != nil {
 		return false
 	}
 	var auth txtypes.AuthInfo
-	if err := auth.Unmarshal(txRaw.AuthInfoBytes); err != nil {
+	if err := auth.Unmarshal(txRaw.AuthInfoBytes); err != nil || auth.Fee == nil {
 		return false
 	}
-	return auth.Fee != nil
+	for _, coin := range auth.Fee.Amount {
+		if coin.Amount.IsNil() {
+			return false
+		}
+	}
+	return true
 }
 
 // admitter returns an inclusion.View.Admit that runs the full ante chain on
