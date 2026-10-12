@@ -813,6 +813,7 @@ dependencies = [
 name = "orama-shielded-wallet"
 version = "0.1.0"
 dependencies = [
+ "bech32",
  "blake2b_simd",
  "hex",
  "hkdf",

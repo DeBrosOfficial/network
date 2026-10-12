@@ -8,7 +8,9 @@ import (
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/DeBrosOfficial/network/pkg/clusterreg"
 	"github.com/DeBrosOfficial/network/pkg/onchain"
+	"github.com/DeBrosOfficial/network/pkg/shieldedaddr"
 )
 
 // sendFlags are the flags of `orama chain send`.
@@ -34,7 +36,8 @@ permanently. The command prints the payment and that warning and asks you to typ
 "yes"; --yes skips the question for scripts. The RootWallet then shows the
 transaction and asks you to approve it.
 
-<to> is an orama1... account for a public send. Withdraw earnings to your balance
+<to> is a shielded address (oramas1...) for a private send, and an orama1... account
+for a public send. Withdraw earnings to your balance
 first ('orama chain withdraw-earnings'); earnings cannot be sent directly.
 
 Transactions go through the gateway of the selected network, or --node (a chain
@@ -59,6 +62,19 @@ func init() {
 	Cmd.AddCommand(sendCmd)
 }
 
+// requireShieldedRecipient refuses a private send to anything but a shielded address, checksum
+// included, and says how to pay an orama1... account instead.
+func requireShieldedRecipient(to string) error {
+	if _, err := shieldedaddr.Decode(to); err != nil {
+		hint := ""
+		if _, aerr := clusterreg.CanonicalAccount(to); aerr == nil {
+			hint = "; this is a public account address, to pay it openly use --public"
+		}
+		return clierr.Usage("%q is not a shielded address (oramas1...): %v%s", to, err, hint)
+	}
+	return nil
+}
+
 // sendReport is what `orama chain send --public` prints in JSON.
 type sendReport struct {
 	txReceipt
@@ -72,7 +88,13 @@ type sendReport struct {
 func runSend(cmd *cobra.Command, args []string) error {
 	to := args[0]
 	if !sendFlags.public {
+		if err := requireShieldedRecipient(to); err != nil {
+			return err
+		}
 		return clierr.Failure("%v", onchain.ErrPrivateUnavailable)
+	}
+	if shieldedaddr.IsAddress(to) {
+		return clierr.Usage("%s is a shielded address (oramas1...); --public pays an orama1... account openly, and a shielded address is paid privately (drop --public)", to)
 	}
 	if err := requireRecipient(to); err != nil {
 		return err

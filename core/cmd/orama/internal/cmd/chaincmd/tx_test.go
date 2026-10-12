@@ -119,9 +119,12 @@ func runTx(t *testing.T, stdin string, args ...string) (stdout, stderr string, e
 	return out.String(), errw.String(), err
 }
 
+// A valid shielded address from the committed vectors (chain/x/shielded/wallet/testdata/addresses).
+const txShieldedRecipient = "oramas1u0rsk23eql6q3l5qyaclkpuzfmrwsf4l8478tph7vtewqnxm45ex0ranw9c69lguh7czufckn7s"
+
 func TestSend_withoutPublicIsPrivateAndNeverReachesTheWalletOrTheChain(t *testing.T) {
 	rig := newTxRig(t)
-	_, _, err := runTx(t, "", "send", txRecipient, "1")
+	_, _, err := runTx(t, "", "send", txShieldedRecipient, "1")
 	if err == nil || !strings.Contains(err.Error(), "a private transfer needs the RootWallet") {
 		t.Fatalf("err = %v, want the private transfer to be unavailable", err)
 	}
@@ -130,6 +133,41 @@ func TestSend_withoutPublicIsPrivateAndNeverReachesTheWalletOrTheChain(t *testin
 	}
 	if rig.opened != 0 || rig.wallet.signed != 0 || rig.chain.sent != 0 {
 		t.Fatalf("a private send opened %d clients, signed %d, sent %d", rig.opened, rig.wallet.signed, rig.chain.sent)
+	}
+}
+
+// A private send names a shielded address: an orama1... account, a typo and an empty string are
+// refused before anything else, with the way to pay an account openly.
+func TestSend_privateRefusesARecipientThatIsNotAShieldedAddress(t *testing.T) {
+	rig := newTxRig(t)
+	typo := txShieldedRecipient[:len(txShieldedRecipient)-1] + "q"
+	for _, to := range []string{txRecipient, typo, "nobody"} {
+		_, _, err := runTx(t, "", "send", to, "1")
+		if err == nil || !strings.Contains(err.Error(), "is not a shielded address (oramas1...)") {
+			t.Fatalf("send %q: err = %v", to, err)
+		}
+		if strings.Contains(err.Error(), "needs the RootWallet") {
+			t.Errorf("send %q was treated as a private send to a shielded address: %v", to, err)
+		}
+	}
+	_, _, err := runTx(t, "", "send", txRecipient, "1")
+	if err == nil || !strings.Contains(err.Error(), "use --public") {
+		t.Errorf("an account address is not told how to be paid openly: %v", err)
+	}
+	if rig.opened != 0 || rig.wallet.signed != 0 || rig.chain.sent != 0 {
+		t.Fatalf("a refused send opened %d clients, signed %d, sent %d", rig.opened, rig.wallet.signed, rig.chain.sent)
+	}
+}
+
+// --public pays an account; a shielded address under --public is refused, not paid openly to nobody.
+func TestSend_publicRefusesAShieldedAddress(t *testing.T) {
+	rig := newTxRig(t)
+	_, _, err := runTx(t, "", "send", txShieldedRecipient, "1", "--public", "--yes")
+	if err == nil || !strings.Contains(err.Error(), "is a shielded address (oramas1...)") {
+		t.Fatalf("err = %v", err)
+	}
+	if rig.opened != 0 || rig.wallet.signed != 0 || rig.chain.sent != 0 {
+		t.Fatalf("opened %d clients, signed %d, sent %d", rig.opened, rig.wallet.signed, rig.chain.sent)
 	}
 }
 

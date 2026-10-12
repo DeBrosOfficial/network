@@ -1,5 +1,6 @@
 import { SDKError } from "../errors";
 import { isOramaAddress } from "./address";
+import { decodeShieldedAddress } from "./shielded-address";
 import type { OramaChainClient, SignAndBroadcastOptions } from "./client";
 import { BASE_DENOM, formatAmount } from "./format";
 import { MSG } from "./messages";
@@ -93,6 +94,19 @@ function positiveAmount(value: bigint | number | string): bigint {
   return BigInt(text);
 }
 
+/**
+ * A private transfer pays a shielded address (oramas1...). An orama1... account is refused with the
+ * way to pay it openly rather than handed to the wallet, which would fail on it later.
+ */
+function requireShieldedRecipient(to: string): void {
+  try {
+    decodeShieldedAddress(to);
+  } catch (err) {
+    const hint = isOramaAddress(to) ? "; this is a public account address, to pay it openly pass public: true explicitly" : "";
+    throw new Error(`${to} is not a shielded address (oramas1...): ${(err as Error).message}${hint}`);
+  }
+}
+
 function requireBoolean(flag: unknown): boolean {
   if (flag === undefined) return false;
   if (typeof flag !== "boolean") {
@@ -144,6 +158,7 @@ async function transferPrivate(
   options: TransferOptions,
 ): Promise<PrivateTransferResult> {
   if (!options.shielded) throw new PrivateTransferUnavailableError();
+  requireShieldedRecipient(to);
   const txs = await options.shielded.build({ to, amount });
   if (txs.length === 0) throw new Error("the shielded wallet built no transaction");
   const txHashes: string[] = [];

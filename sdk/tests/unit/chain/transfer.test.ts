@@ -16,6 +16,7 @@ import { SDKError } from "../../../src/errors";
 
 const signer = new LocalSigner("22".repeat(32));
 const OTHER = addressFromPublicKey(new LocalSigner("33".repeat(32)).publicKey);
+const SHIELDED = "oramas1u0rsk23eql6q3l5qyaclkpuzfmrwsf4l8478tph7vtewqnxm45ex0ranw9c69lguh7czufckn7s";
 const TX = { chainId: "orama-test-1", gasLimit: 90_000, feeNorama: 5_000 };
 const rest = "https://node.example";
 const gw = "https://gw.example";
@@ -82,10 +83,24 @@ describe("transfer: private by default", () => {
     for (const flag of [undefined, false]) {
       const { chain, calls } = chainFor();
       const shielded = builder([new Uint8Array([1])]);
-      const result = await chain.transfer({ to: "shielded-address", amount: 5n, public: flag }, { shielded, signer, tx: TX });
+      const result = await chain.transfer({ to: SHIELDED, amount: 5n, public: flag }, { shielded, signer, tx: TX });
       expect(result.privacy).toBe("private");
       expect(calls.every((c) => c.url.endsWith("/v1/chain/broadcast"))).toBe(true);
     }
+  });
+
+  it("refuses a recipient that is not a shielded address before asking the wallet", async () => {
+    const { chain, calls } = chainFor();
+    const shielded = builder([new Uint8Array([1])]);
+    const account = await chain.transfer({ to: OTHER, amount: 1n }, { shielded }).catch((e) => e);
+    expect(account).toBeInstanceOf(Error);
+    expect(account.message).toContain("not a shielded address");
+    expect(account.message).toContain("public: true");
+    const typo = await chain.transfer({ to: SHIELDED.slice(0, -1) + "q", amount: 1n }, { shielded }).catch((e) => e);
+    expect(typo.message).toContain("checksum");
+    await expect(chain.transfer({ to: "", amount: 1n }, { shielded })).rejects.toThrow(/not a shielded address/);
+    expect(shielded.requests).toHaveLength(0);
+    expect(calls).toHaveLength(0);
   });
 
   it("refuses a public flag that is not a boolean instead of reading it as true", async () => {
@@ -101,8 +116,8 @@ describe("transfer: private by default", () => {
   it("builds a private transfer with the shielded wallet and broadcasts each transaction in order", async () => {
     const { chain, calls } = chainFor();
     const shielded = builder([new Uint8Array([1, 2]), new Uint8Array([3])]);
-    const result = await chain.transfer({ to: "shielded-address", amount: "250" }, { shielded });
-    expect(shielded.requests).toEqual([{ to: "shielded-address", amount: 250n }]);
+    const result = await chain.transfer({ to: SHIELDED, amount: "250" }, { shielded });
+    expect(shielded.requests).toEqual([{ to: SHIELDED, amount: 250n }]);
     expect(result).toEqual({ privacy: "private", txHashes: [txHashOf(new Uint8Array([1, 2])), txHashOf(new Uint8Array([3]))] });
     expect(calls.map((c) => c.url)).toEqual([`${gw}/v1/chain/broadcast`, `${gw}/v1/chain/broadcast`]);
     expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({ tx_bytes: "AQI=" });
@@ -111,7 +126,7 @@ describe("transfer: private by default", () => {
   it("names the transactions already broadcast when a later one fails", async () => {
     const { chain } = chainFor(1);
     const shielded = builder([new Uint8Array([1]), new Uint8Array([2]), new Uint8Array([3])]);
-    const err = await chain.transfer({ to: "x", amount: 1n }, { shielded }).catch((e) => e);
+    const err = await chain.transfer({ to: SHIELDED, amount: 1n }, { shielded }).catch((e) => e);
     expect(err).toBeInstanceOf(SDKError);
     expect(err.code).toBe("PRIVATE_TRANSFER_INCOMPLETE");
     expect(err.details.txHashes).toEqual([txHashOf(new Uint8Array([1]))]);
@@ -120,13 +135,13 @@ describe("transfer: private by default", () => {
 
   it("does not wrap the failure of the first transaction, which left nothing behind", async () => {
     const { chain } = chainFor(0);
-    const err = await chain.transfer({ to: "x", amount: 1n }, { shielded: builder([new Uint8Array([1])]) }).catch((e) => e);
+    const err = await chain.transfer({ to: SHIELDED, amount: 1n }, { shielded: builder([new Uint8Array([1])]) }).catch((e) => e);
     expect(err.code).not.toBe("PRIVATE_TRANSFER_INCOMPLETE");
   });
 
   it("fails when the shielded wallet builds nothing", async () => {
     const { chain } = chainFor();
-    await expect(chain.transfer({ to: "x", amount: 1n }, { shielded: builder([]) })).rejects.toThrow(/no transaction/);
+    await expect(chain.transfer({ to: SHIELDED, amount: 1n }, { shielded: builder([]) })).rejects.toThrow(/no transaction/);
   });
 });
 

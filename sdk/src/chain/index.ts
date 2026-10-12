@@ -37,6 +37,17 @@ export type { OramaSigner } from "./signer";
 
 export { addressFromPublicKey, addressToBytes, isOramaAddress } from "./address";
 
+export {
+  SHIELDED_ADDRESS_BYTES,
+  SHIELDED_ADDRESS_HRP,
+  SHIELDED_ADDRESS_LENGTH,
+  ShieldedAddressError,
+  decodeShieldedAddress,
+  encodeShieldedAddress,
+  isShieldedAddress,
+} from "./shielded-address";
+export type { ShieldedAddressErrorCode } from "./shielded-address";
+
 export { assembleTx, buildSignDoc, signTx, txHashOf, verifyTx, SECP256K1_PUBKEY_TYPE_URL } from "./tx";
 export type { SignDocument, SignedTx, UnsignedTx } from "./tx";
 
