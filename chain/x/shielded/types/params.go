@@ -6,6 +6,7 @@ import (
 	"cosmossdk.io/math"
 
 	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
 )
 
@@ -56,6 +57,9 @@ func (p Params) Validate() error {
 	}
 	if p.MaxSignerlessPerBlock == 0 {
 		return fmt.Errorf("max_signerless_per_block must be positive")
+	}
+	if p.MaxActionsPerBundle > bundle.MaxActions {
+		return fmt.Errorf("max_actions_per_bundle %d is over the protocol ceiling of %d actions", p.MaxActionsPerBundle, bundle.MaxActions)
 	}
 	if p.ActionGas > ^uint64(0)/uint64(p.MaxActionsPerBundle) {
 		return fmt.Errorf("action_gas x max_actions_per_bundle overflows uint64")

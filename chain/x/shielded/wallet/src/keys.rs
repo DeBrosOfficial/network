@@ -160,7 +160,7 @@ impl Account {
     }
 
     /// The raw 43-byte Orchard address (11-byte diversifier, 32-byte pk_d) at index `j`, external
-    /// scope. No text encoding is defined for Orama addresses yet.
+    /// scope. Its text form is [`crate::address::encode`].
     pub fn address(&self, j: u32) -> [u8; 43] {
         self.fvk.address_at(j, Scope::External).to_raw_address_bytes()
     }

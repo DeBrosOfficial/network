@@ -12,8 +12,21 @@ import (
 )
 
 const (
-	// MaxBytes bounds a bundle before any parsing or proving work.
-	MaxBytes = 1 << 20
+	// MaxActions is the protocol ceiling on the actions of one bundle, and so on the
+	// max_actions_per_bundle parameter (types.Params.Validate refuses a larger value). The default
+	// is 16; the ceiling leaves governance room to double it. Everything that bounds the size of a
+	// bundle or of a transaction carrying one is derived from this: MaxBytes here, the onion
+	// transaction gate in core/pkg/txgate.
+	MaxActions = 32
+	// MaxBytes bounds a bundle before any parsing or proving work: the exact size of a canonical
+	// bundle of MaxActions actions, Len(MaxActions) (103,823 bytes), since no bundle the parameter
+	// allows is larger. One of 16 actions, the default, is 53,325 bytes.
+	MaxBytes = maxCountLen + MaxActions*ActionLen + HeaderLen + maxProofLenLen + ProofBase + ProofPerAction*MaxActions + (MaxActions+1)*SigLen
+	// maxCountLen and maxProofLenLen are the CompactSize lengths of MaxActions (below 253: 1 byte)
+	// and of the proof size of MaxActions actions (75,424, from 2^16: 5 bytes). TestMaxBytes checks
+	// them against Len.
+	maxCountLen    = 1
+	maxProofLenLen = 5
 
 	// ActionLen is one serialized action: cv, nf, rk, cmx, epk (32 each), enc (580), out (80).
 	ActionLen = 5*32 + 580 + 80
