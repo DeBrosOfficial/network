@@ -30,6 +30,8 @@ type inclusionHandlers struct {
 	proposals *baseapp.DefaultProposalHandler
 	pool      *inclusionPool
 	now       func() time.Time
+	// signerlessMax is x/shielded's max_signerless_per_block, read from state.
+	signerlessMax func(ctx sdk.Context) (uint32, error)
 }
 
 // stakingParams is the one staking read the extension budget needs: the size of
@@ -239,8 +241,14 @@ func (h *inclusionHandlers) VerifyVoteExtension(ctx sdk.Context, req *abci.Reque
 // then rejects.
 func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
 	def := h.proposals.PrepareProposalHandler()
+	limit, err := h.signerlessLimit(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if !commitInjected(ctx, req.Height) {
-		return def(ctx, req)
+		capped := *req
+		capped.Txs = h.capSignerless(req.Txs, limit)
+		return def(ctx, &capped)
 	}
 	if err := baseapp.ValidateVoteExtensions(ctx, h.valStore, req.Height, "", req.LocalLastCommit); err != nil {
 		return nil, fmt.Errorf("local extended commit does not validate: %w", err)
@@ -275,6 +283,7 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 			rest.Txs = append(rest.Txs, tx)
 		}
 	}
+	rest.Txs = h.capSignerless(rest.Txs, limit-h.countSignerless(prefix))
 	if rest.MaxTxBytes <= 0 || len(rest.Txs) == 0 {
 		return &abci.ResponsePrepareProposal{Txs: block}, nil
 	}
@@ -293,6 +302,13 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestProcessProposal) (*abci.ResponseProcessProposal, error) {
 	def := h.proposals.ProcessProposalHandler()
 	reject := &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+	limit, err := h.signerlessLimit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h.countSignerless(req.Txs) > limit {
+		return reject, nil
+	}
 	if !commitInjected(ctx, req.Height) {
 		for _, tx := range req.Txs {
 			if isInjectedCommit(tx) {

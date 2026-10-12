@@ -6,6 +6,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // injectedCommitLog is the log line on the result of the injected commit
@@ -32,6 +33,10 @@ func (app *OramaApp) setInclusionHandlers() {
 		proposals: baseapp.NewDefaultProposalHandler(app.Mempool(), app.BaseApp),
 		pool:      pool,
 		now:       time.Now,
+		signerlessMax: func(ctx sdk.Context) (uint32, error) {
+			p, err := app.ShieldedKeeper.Params.Get(ctx)
+			return p.MaxSignerlessPerBlock, err
+		},
 	}
 	app.inclusion = h
 	app.SetExtendVoteHandler(h.ExtendVote)
