@@ -16,6 +16,7 @@ import (
 	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
 	"github.com/DeBrosOfficial/network/pkg/globalnetns"
+	"github.com/DeBrosOfficial/network/pkg/planinfo"
 	"github.com/DeBrosOfficial/network/pkg/rootfs"
 )
 
@@ -226,9 +227,10 @@ func sumHex(data []byte) string {
 
 // StageChainUpgrade stages the release's oramad, and the shielded verifier of
 // the same release, in the cosmovisor layout for the upgrade plan name, held to
-// the release manifest. Cosmovisor switches to it at the plan's height. An
-// oramad already staged for that name with other bytes is refused.
-func StageChainUpgrade(h GlobalHost, opts RefreshOptions, name string) (string, error) {
+// the release manifest and to the checksums the plan names (want). Cosmovisor
+// switches to it at the plan's height. An oramad already staged for that name
+// with other bytes, or an oramad or verifier the plan does not name, is refused.
+func StageChainUpgrade(h GlobalHost, opts RefreshOptions, name string, want planinfo.Digests) (string, error) {
 	manifest, err := readStagedManifest(opts.Manifest)
 	if err != nil {
 		return "", err
@@ -242,6 +244,9 @@ func StageChainUpgrade(h GlobalHost, opts RefreshOptions, name string) (string, 
 	}
 	verifierSum, err := verifyStagedVerifier(opts.StagedDir, manifest, oramad)
 	if err != nil {
+		return "", err
+	}
+	if err := want.Check(name, sumHex(oramad), verifierSum); err != nil {
 		return "", err
 	}
 	uid, gid, err := h.Lookup(constants.ChainUser)

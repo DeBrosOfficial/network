@@ -88,28 +88,3 @@ func TestCurrentUpgradePlan_carriesTheInfo(t *testing.T) {
 		t.Fatalf("plan = %+v, %v", got, err)
 	}
 }
-
-func TestUpgradePlan_BinaryChecksum(t *testing.T) {
-	sum := strings.Repeat("ab", 32)
-	tests := []struct {
-		name  string
-		info  string
-		want  string
-		named bool
-	}{
-		{"the platform's binary", `{"binaries":{"linux/amd64":"https://x.example/oramad?checksum=sha256:` + sum + `"}}`, sum, true},
-		{"any platform", `{"binaries":{"any":"https://x.example/oramad?checksum=sha256:` + strings.ToUpper(sum) + `"}}`, sum, true},
-		{"another platform only", `{"binaries":{"linux/arm64":"https://x.example/oramad?checksum=sha256:` + sum + `"}}`, "", false},
-		{"no checksum in the url", `{"binaries":{"linux/amd64":"https://x.example/oramad"}}`, "", false},
-		{"free text", `upgrade to 0.4.0`, "", false},
-		{"empty", ``, "", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, named := UpgradePlan{Info: tt.info}.BinaryChecksum("linux/amd64")
-			if got != tt.want || named != tt.named {
-				t.Errorf("BinaryChecksum = %q, %v; want %q, %v", got, named, tt.want, tt.named)
-			}
-		})
-	}
-}

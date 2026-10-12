@@ -122,6 +122,10 @@ func chainIssues(n Node, median int64, hasMedian bool) []Issue {
 	if u := c.Upgrade; u != nil && !u.Staged {
 		add(Warning, "chain.upgrade-unstaged", unstagedUpgradeMessage(u, c.LatestHeight))
 	}
+	if u := c.Upgrade; u != nil && u.Staged && u.Checksums == report.ChecksumsMismatch {
+		add(Critical, "chain.upgrade-mismatch", fmt.Sprintf("chain upgrade %q: %s; cosmovisor would switch this node to a binary the proposal did not name "+
+			"(stage the release the proposal names: orama upgrade, or orama maint global stage-oramad --upgrade %s)", u.Name, u.ChecksumProblem, u.Name))
+	}
 	return out
 }
 

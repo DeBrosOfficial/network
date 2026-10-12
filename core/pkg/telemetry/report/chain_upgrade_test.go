@@ -2,10 +2,15 @@ package report
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -120,5 +125,109 @@ func TestReadChainUpgrade(t *testing.T) {
 	readChainUpgrade(context.Background(), srv.URL, r)
 	if r.Upgrade != nil || r.UpgradeError == "" {
 		t.Fatalf("a failed query is not an absent plan: %+v / %q", r.Upgrade, r.UpgradeError)
+	}
+}
+
+func stageContent(t *testing.T, home, name, file, content string) {
+	t.Helper()
+	dir := filepath.Join(home, "cosmovisor", "upgrades", name, "bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func sumOf(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+func planInfoFor(oramad, verifier string) string {
+	platform := runtime.GOOS + "/" + runtime.GOARCH
+	return `{"binaries":{"` + platform + `":"https://x.example/oramad?checksum=sha256:` + oramad + `"},` +
+		`"verifiers":{"` + platform + `":"https://x.example/orama-orchard-verifier?checksum=sha256:` + verifier + `"}}`
+}
+
+func TestStagedChecksums(t *testing.T) {
+	home := t.TempDir()
+	stageContent(t, home, "v2", "oramad", "oramad v2")
+	stageContent(t, home, "v2", "orama-orchard-verifier", "verifier v2")
+	good, other := sumOf("oramad v2"), sumOf("something else")
+	goodVerifier := sumOf("verifier v2")
+
+	for name, tc := range map[string]struct {
+		info        string
+		want        string
+		wantProblem string
+	}{
+		"both match":       {planInfoFor(good, goodVerifier), ChecksumsMatch, ""},
+		"another oramad":   {planInfoFor(other, goodVerifier), ChecksumsMismatch, "the staged oramad is not the one the plan names"},
+		"another verifier": {planInfoFor(good, other), ChecksumsMismatch, "the staged verifier is not the one the plan names"},
+		"neither":          {planInfoFor(other, other), ChecksumsMismatch, "the staged oramad and verifier are not the ones the plan names"},
+		"no checksums":     {"upgrade to v2", ChecksumsUnnamed, "no upgrade-info JSON"},
+		"empty info":       {"", ChecksumsUnnamed, "no upgrade-info JSON"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, problem := stagedChecksums(home, "v2", tc.info)
+			if got != tc.want || !strings.Contains(problem, tc.wantProblem) {
+				t.Errorf("stagedChecksums = %q, %q; want %q, %q", got, problem, tc.want, tc.wantProblem)
+			}
+		})
+	}
+}
+
+func TestStagedChecksums_aChangedFileIsReadAgain(t *testing.T) {
+	home := t.TempDir()
+	stageContent(t, home, "v2", "oramad", "oramad v2")
+	stageContent(t, home, "v2", "orama-orchard-verifier", "verifier v2")
+	info := planInfoFor(sumOf("oramad v2"), sumOf("verifier v2"))
+	if got, _ := stagedChecksums(home, "v2", info); got != ChecksumsMatch {
+		t.Fatalf("first report: %q", got)
+	}
+	// Same path, different bytes and size: the cache must not answer for the old file.
+	stageContent(t, home, "v2", "oramad", "oramad v2, replaced")
+	if got, _ := stagedChecksums(home, "v2", info); got != ChecksumsMismatch {
+		t.Fatalf("after the file was replaced: %q, want a mismatch", got)
+	}
+}
+
+func TestStagedChecksums_anUnreadableFileIsUncheckedNotMatching(t *testing.T) {
+	home := t.TempDir()
+	info := planInfoFor(sumOf("a"), sumOf("b"))
+	got, problem := stagedChecksums(home, "v2", info)
+	if got != ChecksumsUnchecked || problem == "" {
+		t.Fatalf("stagedChecksums = %q, %q; want unchecked with a reason", got, problem)
+	}
+}
+
+func TestReadChainUpgrade_reportsWhetherTheStagedBinaryIsThePlans(t *testing.T) {
+	home := t.TempDir()
+	old := chainHome
+	chainHome = home
+	t.Cleanup(func() { chainHome = old })
+	stageContent(t, home, "v2", "oramad", "oramad v2")
+	stageContent(t, home, "v2", "orama-orchard-verifier", "verifier v2")
+
+	info := planInfoFor(sumOf("oramad v2"), sumOf("verifier v2"))
+	body, err := json.Marshal(map[string]any{"plan": map[string]string{"name": "v2", "height": "1500", "info": info}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(body) }))
+	t.Cleanup(srv.Close)
+
+	r := &ChainReport{}
+	readChainUpgrade(context.Background(), srv.URL, r)
+	if r.Upgrade == nil || !r.Upgrade.Staged || r.Upgrade.Checksums != ChecksumsMatch {
+		t.Fatalf("report = %+v", r.Upgrade)
+	}
+	wire, err := json.Marshal(r.Upgrade)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(wire), "x.example") {
+		t.Errorf("the plan's info URLs went into the report: %s", wire)
 	}
 }

@@ -124,12 +124,37 @@ func UpgradeSentence(c *report.ChainReport) string {
 	default:
 		when = fmt.Sprintf("%d blocks left", cd.BlocksLeft)
 	}
-	staged := "binary staged on this node"
+	staged := stagedSentence(u)
+	return fmt.Sprintf("%s at height %d (%s); %s", reported(u.Name), u.Height, when, staged)
+}
+
+// stagedSentence says whether this node holds the binary for the upgrade and, when it does,
+// whether it is the one the plan names. Everything a node reports is passed through reported.
+func stagedSentence(u *report.ChainUpgrade) string {
 	switch {
 	case u.StageError != "":
-		staged = "binary cannot be staged: " + reported(u.StageError)
+		return "binary cannot be staged: " + reported(u.StageError)
 	case !u.Staged:
-		staged = "binary NOT staged on this node"
+		return "binary NOT staged on this node"
 	}
-	return fmt.Sprintf("%s at height %d (%s); %s", reported(u.Name), u.Height, when, staged)
+	switch u.Checksums {
+	case report.ChecksumsMatch:
+		return "binary staged on this node and matches the plan"
+	case report.ChecksumsMismatch:
+		return "staged binary does NOT match the plan: " + reported(u.ChecksumProblem)
+	case report.ChecksumsUnnamed:
+		return "binary staged on this node, but the plan names no checksum to check it against: " + reported(u.ChecksumProblem)
+	case report.ChecksumsUnchecked:
+		return "binary staged on this node, but it could not be checked against the plan: " + reported(u.ChecksumProblem)
+	}
+	return "binary staged on this node"
+}
+
+// UpgradeNeedsAttention reports whether the upgrade's binary is missing on the node, cannot be
+// staged, or is not the one the plan names: the cases an operator has to act on before the height.
+func UpgradeNeedsAttention(u *report.ChainUpgrade) bool {
+	if u == nil {
+		return false
+	}
+	return !u.Staged || u.Checksums == report.ChecksumsMismatch || u.Checksums == report.ChecksumsUnnamed
 }

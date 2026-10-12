@@ -179,6 +179,9 @@ type statusUpgrade struct {
 	ETASeconds      *int64 `json:"eta_seconds,omitempty"`
 	Staged          bool   `json:"staged"`
 	StageError      string `json:"stage_error,omitempty"`
+	// Checksums is "matches", "mismatch", "unnamed" or "unchecked" once the binary is staged.
+	Checksums       string `json:"checksums,omitempty"`
+	ChecksumProblem string `json:"checksum_problem,omitempty"`
 }
 
 // statusDoc is `orama status --json`. Healthy is the one bit a script checks: the verdict is
@@ -219,7 +222,8 @@ func upgradeJSON(c *report.ChainReport) *statusUpgrade {
 		return nil
 	}
 	cd := view.CountdownTo(c, u)
-	out := &statusUpgrade{Name: u.Name, Height: u.Height, BlocksRemaining: cd.BlocksLeft, Staged: u.Staged, StageError: u.StageError}
+	out := &statusUpgrade{Name: u.Name, Height: u.Height, BlocksRemaining: cd.BlocksLeft, Staged: u.Staged, StageError: u.StageError,
+		Checksums: u.Checksums, ChecksumProblem: u.ChecksumProblem}
 	if cd.HasETA {
 		eta := int64(cd.ETA.Seconds())
 		out.ETASeconds = &eta

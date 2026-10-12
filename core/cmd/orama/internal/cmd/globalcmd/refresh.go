@@ -2,6 +2,7 @@ package globalcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/DeBrosOfficial/network/pkg/globalnetns"
 	"github.com/DeBrosOfficial/network/pkg/globalnode"
 	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/DeBrosOfficial/network/pkg/planinfo"
 	"github.com/spf13/cobra"
 )
 
@@ -49,9 +51,9 @@ oramad changes only through a governed upgrade. When the release carries an oram
 other than the one cosmovisor runs, the refresh reads the chain's scheduled
 upgrade plan: with one, it stages the release's oramad and shielded verifier for
 that plan, and cosmovisor switches to them at the plan's height; without one, it
-keeps the running oramad and says so. When the plan's info names a checksum for
-this platform's binary, the release's oramad has to be that one or it is not
-staged.
+keeps the running oramad and says so. The plan's info names the sha256 of this
+platform's oramad and of its shielded verifier; the release's two files have to be
+exactly those, or nothing is staged (and a plan that names none is not staged for).
 
 The chain indexer refuses an index written in an older layout than the new
 orama-global's. So when the indexer is installed, the refresh stops it, runs
@@ -99,8 +101,13 @@ func runRefresh(cmd *cobra.Command, _ []string) error {
 	if res.Chain == nil {
 		return nil
 	}
-	base := fmt.Sprintf("http://%s:%d", globalnetns.ChainHost(install.ChainColocated(life.UnitDir)), constants.ChainAPIPort)
-	return handleChainBinary(cmd.Context(), out, host, opts, *res.Chain, base)
+	return handleChainBinary(cmd.Context(), out, host, opts, *res.Chain, chainRESTBase(life.UnitDir))
+}
+
+// chainRESTBase is the REST address of this machine's chain, which listens in the
+// orama-global namespace when it shares the machine with a cluster node.
+func chainRESTBase(unitDir string) string {
+	return fmt.Sprintf("http://%s:%d", globalnetns.ChainHost(install.ChainColocated(unitDir)), constants.ChainAPIPort)
 }
 
 // handleChainBinary stages the release's oramad when the chain has a governed
@@ -116,49 +123,42 @@ func handleChainBinary(ctx context.Context, out io.Writer, host install.GlobalHo
 	plan, err := globalnode.CurrentUpgradePlan(ctx, restBase, &http.Client{Timeout: planQueryBudget})
 	if err != nil {
 		return clierr.Failure("the release carries a different oramad (%s) and the chain's scheduled upgrade could not be read, so the chain binary is undecided: %v",
-			short(chain.ReleaseSHA256), err)
+			planinfo.Short(chain.ReleaseSHA256), err)
 	}
 	if plan.Name == "" {
 		fmt.Fprintf(out, "  chain: oramad kept. The release carries another one (%s, the chain runs %s), but no governed upgrade is scheduled, "+
 			"and a chain binary changes only at a governed upgrade. When a proposal passes, run 'orama upgrade' again to stage it.\n",
-			short(chain.ReleaseSHA256), short(chain.CurrentSHA256))
+			planinfo.Short(chain.ReleaseSHA256), planinfo.Short(chain.CurrentSHA256))
 		return nil
 	}
-	named, err := checkPlanNamesThisBinary(out, plan, chain)
+	digests, err := checkPlanNamesThisBinary(plan, chain)
 	if err != nil {
 		return err
 	}
-	dst, err := install.StageChainUpgrade(host, opts, plan.Name)
+	dst, err := install.StageChainUpgrade(host, opts, plan.Name, digests)
+	if errors.Is(err, planinfo.ErrMismatch) {
+		return clierr.Conflict("%v", err)
+	}
 	if err != nil {
 		return clierr.Failure("%v", err)
 	}
-	fmt.Fprintf(out, "  chain: the release's oramad staged for the scheduled upgrade %q at %s; cosmovisor switches to it at the plan's height%s\n", plan.Name, dst, named)
+	fmt.Fprintf(out, "  chain: the release's oramad and verifier staged for the scheduled upgrade %q at %s (their checksums are the ones the plan names); cosmovisor switches to them at the plan's height\n", plan.Name, dst)
 	return nil
 }
 
 // checkPlanNamesThisBinary holds the release's oramad to the checksum the
-// scheduled plan names for this platform, when it names one: a binary the
-// proposal does not name is not staged, because cosmovisor would switch the
-// validator to it at the plan's height. A plan that names none is allowed, and
-// the output says it was not checked.
-func checkPlanNamesThisBinary(out io.Writer, plan globalnode.UpgradePlan, chain install.ChainBinaryState) (note string, err error) {
-	sum, named := plan.BinaryChecksum(runtime.GOOS + "/" + runtime.GOARCH)
-	switch {
-	case !named:
-		fmt.Fprintf(out, "  chain: the scheduled upgrade %q names no checksum for this platform's binary, so the release's oramad (%s) could not be checked against it\n", plan.Name, short(chain.ReleaseSHA256))
-		return "", nil
-	case sum != chain.ReleaseSHA256:
-		return "", clierr.Conflict("the scheduled upgrade %q names an oramad with sha256 %s, but the release carries %s: this release is not the one the proposal was for, so it is not staged",
-			plan.Name, short(sum), short(chain.ReleaseSHA256))
+// scheduled plan names for this platform: a binary the proposal does not name is
+// not staged, because cosmovisor would switch the validator to it at the plan's
+// height. A plan that names no checksum is refused too, since a proposal cannot
+// be submitted without them. It returns the digests the verifier is held to next.
+func checkPlanNamesThisBinary(plan globalnode.UpgradePlan, chain install.ChainBinaryState) (planinfo.Digests, error) {
+	digests, err := planinfo.Parse(plan.Name, plan.Info, runtime.GOOS+"/"+runtime.GOARCH)
+	if err != nil {
+		return planinfo.Digests{}, clierr.Conflict("%v, so the release is not staged", err)
 	}
-	return " (its checksum is the one the plan names)", nil
-}
-
-// short is the first digits of a digest, enough to tell two binaries apart.
-func short(sum string) string {
-	const digits = 12
-	if len(sum) > digits {
-		return sum[:digits]
+	if digests.Oramad != chain.ReleaseSHA256 {
+		return planinfo.Digests{}, clierr.Conflict("the scheduled upgrade %q names an oramad with sha256 %s, but the release carries %s: this release is not the one the proposal was for, so it is not staged",
+			plan.Name, planinfo.Short(digests.Oramad), planinfo.Short(chain.ReleaseSHA256))
 	}
-	return sum
+	return digests, nil
 }

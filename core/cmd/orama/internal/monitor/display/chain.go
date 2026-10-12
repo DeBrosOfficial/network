@@ -69,7 +69,7 @@ func upgradeLines(t view.Theme, s view.ChainSummary) string {
 		if b.Len() == 0 {
 			b.WriteString("\n" + tableIndent + t.Bold.Render("Scheduled chain upgrade") + "\n")
 		}
-		if u := n.Chain.Upgrade; n.Chain.UpgradeError != "" || (u != nil && !u.Staged) {
+		if n.Chain.UpgradeError != "" || view.UpgradeNeedsAttention(n.Chain.Upgrade) {
 			sentence = t.Warn.Render(sentence)
 		}
 		fmt.Fprintf(&b, "%s%s  %s\n", tableIndent, n.Host, sentence)
