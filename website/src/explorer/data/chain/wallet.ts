@@ -36,7 +36,7 @@ function noramaOf(coin: unknown, what: string): bigint {
 
 /** One address's read of a cosmos-sdk Query method, through the proxy's module-query route. */
 export function addressQuery(method: string, field: string, address: string): string {
-  return withQuery(`query/${method}`, { json: JSON.stringify({ [field]: address }) });
+  return withQuery(`query/${method}`, { json: JSON.stringify({ [field]: address, pagination: { limit: INDEX_PAGE_SIZE } }) });
 }
 
 async function bankBalance(client: ChainClient, address: string): Promise<bigint> {

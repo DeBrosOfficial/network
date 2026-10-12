@@ -209,7 +209,7 @@ func (p *Proxy) serveQuery(w http.ResponseWriter, r *http.Request, name string) 
 
 // queryUpstream validates the caller's query and builds the abci_query one. It reports false for
 // an unknown key, a repeated key, both request forms, an oversized or malformed request, a page
-// over the limit or with an offset or a total count, or a height that is not a positive integer or 0.
+// over the limit, without one, or with an offset or a total count, or a height that is not a positive integer or 0.
 func queryUpstream(r *http.Request, m *chainread.Method) (url.Values, bool) {
 	q, ok := singleQuery(r, "data", "json", "height")
 	if !ok || (q.Get("data") != "" && q.Get("json") != "") {
@@ -223,7 +223,9 @@ func queryUpstream(r *http.Request, m *chainread.Method) (url.Values, bool) {
 	// the whole store, so either costs a public caller up to the node's whole query gas: a page is
 	// asked for by the key the previous page returned, as the modules' own list queries require.
 	page, err := m.Page(req)
-	if err != nil || page.Limit > queryMaxPageLimit || page.Offset != 0 || page.CountTotal {
+	// A paginated query that leaves the limit out is answered by the SDK with count_total on, which
+	// walks the whole store prefix, so a limit is required.
+	if err != nil || page.Limit > queryMaxPageLimit || page.Offset != 0 || page.CountTotal || (m.Paginated() && page.Limit < 1) {
 		return nil, false
 	}
 	up := url.Values{}

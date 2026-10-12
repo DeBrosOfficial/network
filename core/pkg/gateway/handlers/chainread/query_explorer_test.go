@@ -131,7 +131,7 @@ func TestQuery_aMissingCodeOrContractIsA404OnTheExplorerMethods(t *testing.T) {
 		want             int
 	}{
 		"code info of a missing code": {codeInfoQuery, `{"code_id":9}`, "no such code: code id 9: unknown request", http.StatusNotFound},
-		"state of a non-contract":     {allStateQuery, `{"address":"` + walletAddr + `"}`, "no such contract: address x: unknown request", http.StatusNotFound},
+		"state of a non-contract":     {allStateQuery, `{"address":"` + walletAddr + `","pagination":{"limit":10}}`, "no such contract: address x: unknown request", http.StatusNotFound},
 		"another refusal":             {codeInfoQuery, `{"code_id":9}`, "out of gas", http.StatusBadGateway},
 	} {
 		p := queryProxy(t, &abciUpstream{code: 6, log: tc.log})

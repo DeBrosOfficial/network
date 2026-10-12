@@ -55,7 +55,7 @@ curl -s --get https://stagenet.orama.network/v1/chain/query/orama.storage.v1.Que
   --data-urlencode 'json={"pagination":{"limit":100,"reverse":true}}'
 ```
 
-**Bounds.** The request is at most 4 KiB as JSON text and as protobuf bytes. A message with `pagination` may ask for a `limit` of at most 100 and no more, and never an `offset` or `count_total` (an offset makes the node step over every entry before it and the count walks the whole store): page by the key the answer returns, `pagination.key` set to the last answer's `pagination.next_key`. The answer is at most 4 MiB. The node's query gas limit bounds each query; one that costs more is `422`. At most 16 module queries run at once on a gateway; the rest are `503`.
+**Bounds.** The request is at most 4 KiB as JSON text and as protobuf bytes. A method whose request has a `pagination` field must send a `limit` of 1 to 100 (a request without one, or with `limit` 0, is `400`: the node reads it as "count the whole store"), and never an `offset` or `count_total` (an offset makes the node step over every entry before it and the count walks the whole store): page by the key the answer returns, `pagination.key` set to the last answer's `pagination.next_key`. The answer is at most 4 MiB. The node's query gas limit bounds each query; one that costs more is `422`. At most 16 module queries run at once on a gateway; the rest are `503`.
 
 **Answers.** The field names are the proto names, every field is present (an empty one as its zero value), 64-bit integers are strings and enums are their names, such as `NODE_STATUS_ACTIVE`. A key that is not on the chain is `404`. All answers are `no-store`.
 

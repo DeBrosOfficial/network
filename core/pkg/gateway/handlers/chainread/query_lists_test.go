@@ -73,12 +73,19 @@ func TestQuery_listQueriesRefuseAPageOverTheCapBeforeTheChainIsAsked(t *testing.
 	}
 }
 
-func TestQuery_listQueriesTakeNoPaginationForTheFirstPage(t *testing.T) {
+func TestQuery_listQueriesNeedALimitEvenForTheFirstPage(t *testing.T) {
 	for _, c := range listQueries {
 		t.Run(c.name, func(t *testing.T) {
-			p := queryProxy(t, &abciUpstream{value: c.value})
-			if rr := getQuery(p, http.MethodGet, "/v1/chain/query/"+c.method); rr.Code != http.StatusOK {
-				t.Fatalf("status %d: %s", rr.Code, rr.Body)
+			up := &abciUpstream{value: c.value}
+			p := queryProxy(t, up)
+			if rr := getQuery(p, http.MethodGet, "/v1/chain/query/"+c.method); rr.Code != http.StatusBadRequest {
+				t.Fatalf("no pagination: status %d, want 400", rr.Code)
+			}
+			if len(up.calls) != 0 {
+				t.Fatalf("a refused page reached the chain: %v", up.calls)
+			}
+			if rr := getQuery(p, http.MethodGet, jsonTarget("/v1/chain/query/"+c.method, `{"pagination":{"limit":10}}`)); rr.Code != http.StatusOK {
+				t.Fatalf("limit 10: status %d: %s", rr.Code, rr.Body)
 			}
 		})
 	}

@@ -250,6 +250,11 @@ type Page struct {
 	CountTotal bool
 }
 
+// Paginated reports whether the method's request carries a cosmos-sdk PageRequest.
+func (m *Method) Paginated() bool {
+	return m.input.Fields().ByName(paginationField) != nil
+}
+
 // Page returns the pagination of an encoded request: the zero Page when the method takes none or
 // the request leaves it unset.
 func (m *Method) Page(data []byte) (Page, error) {

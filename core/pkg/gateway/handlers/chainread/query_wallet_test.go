@@ -112,6 +112,9 @@ func TestQuery_aPageOverTheCapIsRefusedBeforeTheChainIsAsked(t *testing.T) {
 	for name, doc := range map[string]string{
 		"an offset":     `{"address":"` + walletAddr + `","pagination":{"offset":5}}`,
 		"a total count": `{"address":"` + walletAddr + `","pagination":{"count_total":true}}`,
+		"no pagination": `{"address":"` + walletAddr + `"}`,
+		"limit unset":   `{"address":"` + walletAddr + `","pagination":{"key":"AQ=="}}`,
+		"limit zero":    `{"address":"` + walletAddr + `","pagination":{"limit":0}}`,
 	} {
 		if rr := getQuery(p, http.MethodGet, jsonTarget(allBalancesQuery, doc)); rr.Code != http.StatusBadRequest {
 			t.Errorf("%s: status %d, want 400", name, rr.Code)
@@ -122,8 +125,7 @@ func TestQuery_aPageOverTheCapIsRefusedBeforeTheChainIsAsked(t *testing.T) {
 	}
 	for name, doc := range map[string]string{
 		"limit at the cap": `{"address":"` + walletAddr + `","pagination":{"limit":100}}`,
-		"no pagination":    `{"address":"` + walletAddr + `"}`,
-		"limit unset":      `{"address":"` + walletAddr + `","pagination":{"key":"AQ=="}}`,
+		"limit and key":    `{"address":"` + walletAddr + `","pagination":{"limit":10,"key":"AQ=="}}`,
 	} {
 		if rr := getQuery(p, http.MethodGet, jsonTarget(allBalancesQuery, doc)); rr.Code != http.StatusOK {
 			t.Errorf("%s: status %d: %s", name, rr.Code, rr.Body)

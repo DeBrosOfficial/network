@@ -83,7 +83,7 @@ export class ChainTxRefusedError extends SDKError {
 
 /** A page of a listing: how many entries, and where to continue from. */
 export interface WalletPageOptions {
-  /** Entries per page, 1 to 100. Absent is the chain's default of 100. */
+  /** Entries per page, 1 to 100. Absent is 100: the gateway refuses a paginated query that sends no limit. */
   limit?: number;
   /** The `pagination.next_key` of the previous page (base64). */
   key?: string;
@@ -175,7 +175,7 @@ function assertDenom(denom: string): string {
 }
 
 function pagination(options: WalletPageOptions): Record<string, unknown> {
-  const page: Record<string, unknown> = {};
+  const page: Record<string, unknown> = { limit: WALLET_MAX_PAGE_LIMIT };
   if (options.limit !== undefined) {
     if (!Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > WALLET_MAX_PAGE_LIMIT) {
       throw new Error(`limit must be an integer from 1 to ${WALLET_MAX_PAGE_LIMIT}`);
@@ -186,7 +186,7 @@ function pagination(options: WalletPageOptions): Record<string, unknown> {
     if (!options.key || options.key.length > 1024 || !BASE64.test(options.key)) throw new Error("key must be a pagination next_key (base64)");
     page.key = options.key;
   }
-  return Object.keys(page).length === 0 ? {} : { pagination: page };
+  return { pagination: page };
 }
 
 function assertTxBytes(txBytes: Uint8Array): Uint8Array {
@@ -500,7 +500,7 @@ export class OramaChainClient {
 
   /** One page of every claimed node name, in name order. Pass the previous page's `next_key` to continue. */
   async nodeNames(pageKey?: string, options?: QueryOptions): Promise<ChainQueryResult> {
-    return this.moduleQuery(NODES, "NodeNames", pageKey ? { pagination: { key: pageKey } } : {}, options);
+    return this.moduleQuery(NODES, "NodeNames", { pagination: pageKey ? { limit: WALLET_MAX_PAGE_LIMIT, key: pageKey } : { limit: WALLET_MAX_PAGE_LIMIT } }, options);
   }
 
   /** x/storage parameters. */
