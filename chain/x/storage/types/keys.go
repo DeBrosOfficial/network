@@ -59,7 +59,6 @@ var (
 	ChallengesPrefix     = collections.NewPrefix(17)
 	QueuePrefix          = collections.NewPrefix(18)
 	QueuePendingPrefix   = collections.NewPrefix(19)
-	ReservedPrefix       = collections.NewPrefix(20)
 	EpochMintPrefix      = collections.NewPrefix(21)
 	OperatorMintPrefix   = collections.NewPrefix(22)
 	ReleasesPrefix       = collections.NewPrefix(23)

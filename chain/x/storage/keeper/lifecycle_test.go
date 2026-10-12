@@ -242,6 +242,33 @@ func TestReservedWithinDeclared(t *testing.T) {
 	f.requireInvariants(t)
 }
 
+func TestReservedMatchesReplicas_detectsAReservationThatDriftedFromTheReplicas(t *testing.T) {
+	f := newFixture(t)
+	f.init(t, nil)
+	nodes := f.threeNodes(t, uint64(piece.LeafSize)*4)
+	client := acc(9)
+	f.fund(client, 100_000)
+	f.createDeal(t, types.DealClass_DEAL_CLASS_PUBLIC_PIN, client, "", 3, 1000, 1, []types.PieceCommitment{commit(t, payload(1))})
+	f.end(t)
+	f.begin(t)
+	f.requireInvariants(t)
+
+	held, err := f.Nodes.ReservedCapacity(f.Ctx, nodes[0].id)
+	require.NoError(t, err)
+	require.NotZero(t, held, "the replica's bytes are reserved on x/nodes")
+
+	require.NoError(t, f.Nodes.ReleaseCapacity(f.Ctx, nodes[0].id, held))
+	got, err := f.Keeper.CheckInvariants(f.Ctx)
+	require.NoError(t, err)
+	require.False(t, got.ReservedWithinDeclared, "x/nodes reserves less than the node's replicas hold")
+
+	require.NoError(t, f.Nodes.ReserveCapacity(f.Ctx, nodes[0].id, held))
+	require.NoError(t, f.Nodes.ReserveCapacity(f.Ctx, nodes[1].id, 1))
+	got, err = f.Keeper.CheckInvariants(f.Ctx)
+	require.NoError(t, err)
+	require.False(t, got.ReservedWithinDeclared, "x/nodes reserves more than the node's replicas hold")
+}
+
 func TestRechallengeSlashAndEviction(t *testing.T) {
 	f := newFixture(t)
 	f.init(t, func(gs *types.GenesisState) {

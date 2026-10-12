@@ -197,7 +197,7 @@ func (k Keeper) candidates(ctx sdk.Context) ([]types.Candidate, error) {
 		if err != nil {
 			return false, err
 		}
-		reserved, err := k.reservedOf(ctx, id)
+		reserved, err := k.nodes.ReservedCapacity(ctx, id)
 		if err != nil {
 			return false, err
 		}
@@ -230,8 +230,10 @@ func (k Keeper) bindSlot(ctx sdk.Context, deal types.Deal, slot *types.Slot, c t
 	slot.Accepted = false
 	slot.AssignHeight = ctx.BlockHeight()
 	slot.ExcludedOperator = ""
-	if err := k.adjustReserved(ctx, c.ID, int64(slot.PieceBytes)); err != nil {
-		return err
+	if slot.PieceBytes > 0 {
+		if err := k.nodes.ReserveCapacity(ctx, c.ID, slot.PieceBytes); err != nil {
+			return fmt.Errorf("failed to reserve %d bytes on %s: %w", slot.PieceBytes, c.ID, err)
+		}
 	}
 	if err := k.addReplica(ctx, slot); err != nil {
 		return err
@@ -264,8 +266,8 @@ func (k Keeper) detachSlot(ctx sdk.Context, slot *types.Slot) error {
 		return err
 	}
 	if slot.PieceBytes > 0 {
-		if err := k.adjustReserved(ctx, nodeID, -int64(slot.PieceBytes)); err != nil {
-			return err
+		if err := k.nodes.ReleaseCapacity(ctx, nodeID, slot.PieceBytes); err != nil {
+			return fmt.Errorf("failed to release %d bytes on %s: %w", slot.PieceBytes, nodeID, err)
 		}
 	}
 	deal, err := k.loadDeal(ctx, slot.DealId)

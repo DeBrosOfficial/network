@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sort"
 	"testing"
@@ -341,9 +342,12 @@ type nodeInfo struct {
 	capacityAfterSlash uint64
 }
 
+// fakeNodes keeps the reservation in the store, as x/nodes does, so work an item's isolation branch
+// drops takes its reservations with it.
 type fakeNodes struct {
-	byID  map[string]*nodeInfo
-	dirty map[string]struct{}
+	byID     map[string]*nodeInfo
+	dirty    map[string]struct{}
+	reserved collections.Map[string, uint64]
 }
 
 // touch queues a node the way x/nodes does when it writes the node.
@@ -420,6 +424,43 @@ func (n *fakeNodes) DeclaredCapacity(_ context.Context, id string) (uint64, erro
 	return info.capacity, nil
 }
 
+func (n *fakeNodes) ReservedCapacity(ctx context.Context, id string) (uint64, error) {
+	if _, err := n.get(id); err != nil {
+		return 0, err
+	}
+	v, err := n.reserved.Get(ctx, id)
+	if errors.Is(err, collections.ErrNotFound) {
+		return 0, nil
+	}
+	return v, err
+}
+
+func (n *fakeNodes) ReserveCapacity(ctx context.Context, id string, bytes uint64) error {
+	info, err := n.get(id)
+	if err != nil {
+		return err
+	}
+	held, err := n.ReservedCapacity(ctx, id)
+	if err != nil {
+		return err
+	}
+	if held > info.capacity || bytes > info.capacity-held {
+		return fmt.Errorf("reserve %d exceeds free capacity on node %s", bytes, id)
+	}
+	return n.reserved.Set(ctx, id, held+bytes)
+}
+
+func (n *fakeNodes) ReleaseCapacity(ctx context.Context, id string, bytes uint64) error {
+	held, err := n.ReservedCapacity(ctx, id)
+	if err != nil {
+		return err
+	}
+	if bytes > held {
+		return fmt.Errorf("release %d exceeds reserved %d on node %s", bytes, held, id)
+	}
+	return n.reserved.Set(ctx, id, held-bytes)
+}
+
 func (n *fakeNodes) Slash(_ context.Context, id string, amount math.Int) error {
 	info, err := n.get(id)
 	if err != nil {
@@ -486,7 +527,10 @@ func newFixture(t *testing.T) *fixture {
 	earnings := &fakeEarnings{bank: bank, bal: map[string]math.Int{}}
 	deposits := &fakeDeposits{earnings: earnings, bank: bank, locked: map[string]math.Int{}, owner: map[string]string{}}
 	emission := &fakeEmission{epoch: 1, ceiling: map[uint64]math.Int{}, bank: bank, minted: map[uint64]math.Int{}}
-	nodes := &fakeNodes{byID: map[string]*nodeInfo{}, dirty: map[string]struct{}{}}
+	nodes := &fakeNodes{
+		byID: map[string]*nodeInfo{}, dirty: map[string]struct{}{},
+		reserved: collections.NewMap(collections.NewSchemaBuilder(runtime.NewKVStoreService(key)), collections.NewPrefix(250), "fake_reserved", collections.StringKey, collections.Uint64Value),
+	}
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(key), bank, earnings, deposits, emission, nodes)
 	f := &fixture{

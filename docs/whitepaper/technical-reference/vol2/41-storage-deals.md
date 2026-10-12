@@ -116,7 +116,7 @@ For each unassigned slot the seed is `SHA-256(previous block hash, deal id as 8 
 
 A node is eligible when it is active (STORAGE role bonded at its minimum, not jailed, retired or tombstoned), when its reserved bytes plus this piece fit its declared capacity, and, for a user deal, when it is not on probation. For a protocol deal the node must also have a known `/16` and a non-zero ASN, and neither may repeat within the deal; a probation node may be used only under the four probation caps.
 
-Binding a slot sets the node, copies its operator, `/16` and ASN onto the slot, resets the miss counter, adds the piece size to the node's reserved bytes and appends the slot to the node's replica index. It emits `storage_slot_assigned`. If any slot cannot be placed, every slot filled in this pass is detached again; if the deal holds no slot at all and is still `OPEN`, it is refunded: the escrow goes back to the client's earnings and the status becomes `REFUNDED`. A deal that already has some slots (a reassignment) stays pending and is tried again each block.
+Binding a slot sets the node, copies its operator, `/16` and ASN onto the slot, resets the miss counter, reserves the piece size on the node through `x/nodes` (`ReserveCapacity`; `x/nodes` owns the counter) and appends the slot to the node's replica index. It emits `storage_slot_assigned`. If any slot cannot be placed, every slot filled in this pass is detached again; if the deal holds no slot at all and is still `OPEN`, it is refunded: the escrow goes back to the client's earnings and the status becomes `REFUNDED`. A deal that already has some slots (a reassignment) stays pending and is tried again each block.
 
 ### Accept, decline and release
 
@@ -209,7 +209,7 @@ A payout or penalty that fails because of a collaborator's refusal (an unpayable
 `applyMiss` raises the slot's consecutive-miss counter.
 
 - From the **second** consecutive miss a penalty row is queued.
-- At `miss_threshold` (4) the slot is **evicted**: `detachSlot` frees the node's replica entry and reserved bytes, the operator is excluded for the slot, the slot returns to `UNASSIGNED`, and the deal goes back on the pending list for the next block.
+- At `miss_threshold` (4) the slot is **evicted**: `detachSlot` frees the node's replica entry and releases its reserved bytes on `x/nodes`, the operator is excluded for the slot, the slot returns to `UNASSIGNED`, and the deal goes back on the pending list for the next block.
 - Below the threshold the slot is added to the rechallenge set, so the node is challenged on it again next epoch.
 
 The penalty is `slash_fraction` (0.1) of one epoch's price of the missed deal. A bonded node is slashed through x/nodes, which lowers the capacity its bond backs and clamps the declared capacity; `trimReserved` then evicts replicas, highest replica index first, until reserved bytes fit the new declaration (the index is swap-removed, so "highest" is by current list order, not assignment age). A probation node has no bond: its record deposit is burned instead, and a node with no deposit yet has nothing to lose but its slot.
@@ -252,7 +252,6 @@ A block must never halt because one node cannot be paid. `isolate` (`chain/x/sto
 | `Nodes` | tracked nodes with probation state | `syncNodes`, settlement | pick, sync | x/storage store |
 | `Pending` | deal ids waiting for assignment | create, decline, eviction | `assignDue` | x/storage store |
 | `ReplicaCount`, `ReplicaAt` | per-node replica list (swap-remove) | bind, detach | sampling, trim | x/storage store |
-| `Reserved` | bytes reserved per node | bind, detach | pick | x/storage store |
 | `Challenges` | this epoch's leaf draws and proved flags | BeginBlock, `SubmitProofs` | proofs, `closeEpoch` | x/storage store |
 | `Rechallenge` | slots a node missed | `applyMiss`, payout | sampling | x/storage store |
 | `Queue`, `QueueHead`, `QueueTail`, `QueuePending` | settlement rows, drained in order | `closeEpoch`, retry | `SettleQueue`, expiry | x/storage store |

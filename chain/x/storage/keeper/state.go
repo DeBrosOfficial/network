@@ -109,40 +109,6 @@ func (k Keeper) moduleBalance(ctx sdk.Context, moduleName string) math.Int {
 	return k.bank.GetBalance(ctx, authtypes.NewModuleAddress(moduleName), params.BaseDenom).Amount
 }
 
-func (k Keeper) adjustReserved(ctx sdk.Context, nodeID string, delta int64) error {
-	cur, err := k.Reserved.Get(ctx, nodeID)
-	if err != nil && !errors.Is(err, collections.ErrNotFound) {
-		return fmt.Errorf("failed to load reserved capacity of %s: %w", nodeID, err)
-	}
-	if err != nil {
-		cur = 0
-	}
-	if delta >= 0 {
-		cur += uint64(delta)
-	} else {
-		sub := uint64(-delta)
-		if cur < sub {
-			return fmt.Errorf("node %s reserved %d cannot drop by %d", nodeID, cur, sub)
-		}
-		cur -= sub
-	}
-	if cur == 0 {
-		return k.Reserved.Remove(ctx, nodeID)
-	}
-	return k.Reserved.Set(ctx, nodeID, cur)
-}
-
-func (k Keeper) reservedOf(ctx sdk.Context, nodeID string) (uint64, error) {
-	v, err := k.Reserved.Get(ctx, nodeID)
-	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return 0, nil
-		}
-		return 0, err
-	}
-	return v, nil
-}
-
 // replicasHeld is how many replicas nodeID currently holds.
 func (k Keeper) replicasHeld(ctx sdk.Context, nodeID string) (uint64, error) {
 	n, err := k.ReplicaCount.Get(ctx, nodeID)

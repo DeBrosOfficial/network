@@ -152,9 +152,6 @@ func (k Keeper) rebuildFromSlots(ctx sdk.Context) error {
 		if slot.Status != types.SlotStatus_SLOT_STATUS_ASSIGNED && slot.Status != types.SlotStatus_SLOT_STATUS_ACTIVE {
 			continue
 		}
-		if err := k.adjustReserved(ctx, slot.NodeId, int64(slot.PieceBytes)); err != nil {
-			return err
-		}
 		if err := k.addReplica(ctx, &slot); err != nil {
 			return err
 		}
@@ -305,12 +302,6 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) (*types.GenesisState, error) {
 	}
 	if err := k.Releases.Walk(ctx, nil, func(key collections.Pair[uint64, string], count uint64) (bool, error) {
 		gs.ReleaseCounts = append(gs.ReleaseCounts, types.ReleaseCount{Epoch: key.K1(), NodeId: key.K2(), Count: count})
-		return false, nil
-	}); err != nil {
-		return nil, err
-	}
-	if err := k.Reserved.Walk(ctx, nil, func(nodeID string, bytes uint64) (bool, error) {
-		gs.Reserved = append(gs.Reserved, types.Reserved{NodeId: nodeID, Bytes: bytes})
 		return false, nil
 	}); err != nil {
 		return nil, err

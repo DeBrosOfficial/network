@@ -684,7 +684,7 @@ From [Global nodes](../vol2/37-global-nodes.md#known-gaps).
 - `MsgRegisterOperator` and `MsgUpdateNode` have no `orama` command. A new operator needs the Go client in `chain/client/node` or the stagenet helper, and an ASN, endpoints or hot key cannot be changed from the CLI (`core/cmd/orama/internal/cmd/globalcmd/register.go`).
 - The roles `VALIDATOR`, `EXIT` and `DIRAUTH` have no consumer on chain: no module reads them, so bonding them has no effect beyond making the node `active`. A `VALIDATOR` role bond does not feed `x/power` (`chain/x/nodes/keeper/lifecycle.go:IsRoleActive`).
 - `Unjail`, `Tombstone` and `CreditRoleBond` have no caller in the application. `x/storage` jails a node and nothing can un-jail it; the operator can only retire it. The comment on `CreditRoleBond` says `x/power`'s force-bond path uses it, but that path does not (`chain/x/nodes/keeper/lifecycle.go:CreditRoleBond`).
-- `ReserveCapacity`, `ReleaseCapacity` and the free-capacity iterators have no caller outside tests: `x/storage` keeps its own reservations and reads `DeclaredCapacityBytes`. The index and its maintenance on every node write are unused work, and `reserved_capacity_bytes` is always zero (`chain/x/nodes/keeper/capacity.go`).
+- The free-capacity iterators have no caller outside tests: `x/storage` picks nodes from its own tracked set. The index and its maintenance on every node write are unused work (`chain/x/nodes/keeper/capacity.go`).
 - The fee-free registration quota (C2) is not implemented. `MsgRegisterOperator` costs the transaction fee and nothing else.
 - `x/nodes` has no list queries.
 - A global node cannot be removed by the CLI. The installer has no uninstall for a service or for the co-located layout.

@@ -587,7 +587,7 @@ func (k Keeper) trimReserved(ctx sdk.Context, nodeID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read declared capacity of %s: %w", nodeID, err)
 	}
-	reserved, err := k.reservedOf(ctx, nodeID)
+	reserved, err := k.nodes.ReservedCapacity(ctx, nodeID)
 	if err != nil {
 		return err
 	}
@@ -617,7 +617,7 @@ func (k Keeper) trimReserved(ctx sdk.Context, nodeID string) error {
 		if err := k.evictSlot(ctx, deal, slot); err != nil {
 			return err
 		}
-		if reserved, err = k.reservedOf(ctx, nodeID); err != nil {
+		if reserved, err = k.nodes.ReservedCapacity(ctx, nodeID); err != nil {
 			return err
 		}
 	}

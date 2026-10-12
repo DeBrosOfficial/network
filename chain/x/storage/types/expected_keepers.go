@@ -64,6 +64,10 @@ type EmissionKeeper interface {
 // NodeView is the storage-relevant view of a node. x/storage does not import x/nodes.
 // Operator returns the operator's earnings address (bech32). DeclaredCapacity is bytes.
 //
+// x/nodes owns the reservation of a node's capacity: ReserveCapacity and ReleaseCapacity are the only
+// way bytes move in or out of ReservedCapacity, x/storage calls them as it binds and detaches a replica
+// slot, and x/nodes' own messages (declare capacity, unbond, retire) read the same counter.
+//
 // IsActive means the node's STORAGE role is bonded at its minimum and the node is not jailed,
 // retired or tombstoned. Network16 is "" when the node has no literal-IP endpoint and ASN is 0
 // when the operator declared none; neither is verified on chain (docs/whitepaper/technical-reference/vol2/37-global-nodes.md, "Node network
@@ -87,6 +91,9 @@ type NodeView interface {
 	Network16(ctx context.Context, nodeID string) (string, error)
 	ASN(ctx context.Context, nodeID string) (uint32, error)
 	DeclaredCapacity(ctx context.Context, nodeID string) (uint64, error)
+	ReservedCapacity(ctx context.Context, nodeID string) (uint64, error)
+	ReserveCapacity(ctx context.Context, nodeID string, bytes uint64) error
+	ReleaseCapacity(ctx context.Context, nodeID string, bytes uint64) error
 	Slash(ctx context.Context, nodeID string, amount math.Int) error
 	Jail(ctx context.Context, nodeID string) error
 }

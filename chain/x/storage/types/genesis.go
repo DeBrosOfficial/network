@@ -23,7 +23,6 @@ func DefaultGenesisState() *GenesisState {
 		EpochMints:     []EpochMint{},
 		OperatorMints:  []OperatorMint{},
 		ReleaseCounts:  []ReleaseCount{},
-		Reserved:       []Reserved{},
 		FailureCounts:  []FailureCount{},
 	}
 }

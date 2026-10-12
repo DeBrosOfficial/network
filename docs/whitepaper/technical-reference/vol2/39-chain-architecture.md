@@ -412,7 +412,7 @@ Every module that holds or moves norama checks its own books through `oramad que
 |---|---|
 | `x/emission` | minted equals the schedule; bank supply equals genesis supply plus validator, development and service mints minus burns |
 | `x/fees` | earnings total equals the fees account; open deposits equal the deposits account; burned plus distributed equals collected |
-| `x/storage` | escrow conserved; the module account holds exactly the queued mint payments; distinct operators; reserved within declared; the settlement queue is well formed |
+| `x/storage` | escrow conserved; the module account holds exactly the queued mint payments; distinct operators; the reserved bytes `x/nodes` holds for each node equal the piece bytes of its replicas and fit its declared capacity; the settlement queue is well formed |
 | `x/nodes` | module balance equals role bonds plus unbonding entries; active and capacity rules |
 | `x/relay` | each settled epoch minted within its ceiling and its payouts sum to what was minted |
 | `x/houses` | locked house bonds equal the houses account |

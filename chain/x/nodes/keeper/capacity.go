@@ -19,9 +19,6 @@ func (k Keeper) resyncCapacity(ctx sdk.Context, node *types.Node) error {
 		node.CapacityIndexed = false
 		node.CapacityClass = 0
 	}
-	if node.ReservedCapacityBytes > node.DeclaredCapacityBytes {
-		return fmt.Errorf("node %s reserved %d exceeds declared %d", node.NodeId, node.ReservedCapacityBytes, node.DeclaredCapacityBytes)
-	}
 	if !indexCapacity(node) {
 		return nil
 	}
@@ -52,7 +49,8 @@ func indexCapacity(node *types.Node) bool {
 }
 
 // ReserveCapacity reduces a STORAGE node's free capacity. The node must be
-// registered or active. Later modules (x/storage) call this when a slot is assigned.
+// registered or active. x/storage calls this when it binds a replica slot to the node, and it is the
+// only owner of the reservation: DeclareCapacity, UnbondNode and RetireNode read the same counter.
 func (k Keeper) ReserveCapacity(ctx sdk.Context, nodeID string, bytes uint64) error {
 	if bytes == 0 {
 		return fmt.Errorf("reserve capacity of zero on node %s", nodeID)
@@ -67,6 +65,9 @@ func (k Keeper) ReserveCapacity(ctx sdk.Context, nodeID string, bytes uint64) er
 		}
 		if !types.HasRole(node.Roles, types.RoleStorage) {
 			return fmt.Errorf("node %s does not have the STORAGE role", nodeID)
+		}
+		if node.ReservedCapacityBytes > node.DeclaredCapacityBytes {
+			return fmt.Errorf("node %s reserved %d exceeds declared %d and cannot reserve more", nodeID, node.ReservedCapacityBytes, node.DeclaredCapacityBytes)
 		}
 		free := node.DeclaredCapacityBytes - node.ReservedCapacityBytes
 		if bytes > free {

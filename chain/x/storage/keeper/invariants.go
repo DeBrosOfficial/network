@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 
+	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -22,7 +23,8 @@ type StorageInvariants struct {
 
 // CheckInvariants checks the C7 invariants:
 // escrow conservation, subsidy minted <= ceiling, distinct operators per deal,
-// reserved <= declared capacity, and a well-formed settlement queue.
+// reserved <= declared capacity with x/nodes' reservation equal to the bytes of the replicas
+// x/storage holds, and a well-formed settlement queue.
 func (k Keeper) CheckInvariants(ctx sdk.Context) (StorageInvariants, error) {
 	escrowSum := math.ZeroInt()
 	distinct := true
@@ -97,19 +99,7 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) (StorageInvariants, error) {
 		subsidyDetail = fmt.Sprintf("storage account holds %s but queued mint payments are %s", held, owed)
 	}
 
-	reservedOK := true
-	var reservedDetail string
-	err = k.Reserved.Walk(ctx, nil, func(nodeID string, reserved uint64) (bool, error) {
-		declared, err := k.nodes.DeclaredCapacity(ctx, nodeID)
-		if err != nil {
-			return false, err
-		}
-		if reserved > declared {
-			reservedOK = false
-			reservedDetail = fmt.Sprintf("node %s reserved %d exceeds declared %d", nodeID, reserved, declared)
-		}
-		return false, nil
-	})
+	reservedOK, reservedDetail, err := k.reservedMatchesReplicas(ctx)
 	if err != nil {
 		return StorageInvariants{}, err
 	}
@@ -169,4 +159,60 @@ func (k Keeper) queueWellFormed(ctx sdk.Context) (bool, string, error) {
 		return false, "queue contains a sequence outside [head, tail)", nil
 	}
 	return true, "", nil
+}
+
+// reservedMatchesReplicas checks, for every node, that the bytes x/nodes has reserved are exactly the
+// piece bytes of the replicas x/storage indexes on it, and that they fit the declared capacity. x/nodes
+// owns the counter and x/storage moves it only as it binds and detaches a slot, so a difference means
+// one of the two moved without the other.
+func (k Keeper) reservedMatchesReplicas(ctx sdk.Context) (bool, string, error) {
+	sums := map[string]uint64{}
+	var order []string
+	err := k.ReplicaAt.Walk(ctx, nil, func(key collections.Pair[string, uint64], ref types.SlotRef) (bool, error) {
+		slot, err := k.loadSlot(ctx, ref.DealId, ref.Slot)
+		if err != nil {
+			return false, err
+		}
+		if _, seen := sums[key.K1()]; !seen {
+			order = append(order, key.K1())
+		}
+		sums[key.K1()] += slot.PieceBytes
+		return false, nil
+	})
+	if err != nil {
+		return false, "", fmt.Errorf("failed to sum replica bytes: %w", err)
+	}
+	ok, detail := true, ""
+	check := func(nodeID string, held uint64) error {
+		reserved, err := k.nodes.ReservedCapacity(ctx, nodeID)
+		if err != nil {
+			return fmt.Errorf("failed to read reserved capacity of %s: %w", nodeID, err)
+		}
+		declared, err := k.nodes.DeclaredCapacity(ctx, nodeID)
+		if err != nil {
+			return fmt.Errorf("failed to read declared capacity of %s: %w", nodeID, err)
+		}
+		if reserved != held {
+			ok, detail = false, fmt.Sprintf("node %s reserved %d but its replicas hold %d", nodeID, reserved, held)
+		}
+		if reserved > declared {
+			ok, detail = false, fmt.Sprintf("node %s reserved %d exceeds declared %d", nodeID, reserved, declared)
+		}
+		return nil
+	}
+	for _, nodeID := range order {
+		if err := check(nodeID, sums[nodeID]); err != nil {
+			return false, "", err
+		}
+	}
+	err = k.Nodes.Walk(ctx, nil, func(nodeID string, _ types.NodeState) (bool, error) {
+		if _, held := sums[nodeID]; held {
+			return false, nil
+		}
+		return false, check(nodeID, 0)
+	})
+	if err != nil {
+		return false, "", err
+	}
+	return ok, detail, nil
 }

@@ -51,7 +51,6 @@ type Keeper struct {
 	Challenges     collections.Map[collections.Pair[uint64, string], types.ChallengeRecord]
 	Queue          collections.Map[uint64, types.Settlement]
 	QueuePending   collections.Map[uint64, uint64]
-	Reserved       collections.Map[string, uint64]
 	EpochMinted    collections.Map[uint64, math.Int]
 	OperatorMinted collections.Map[collections.Pair[uint64, string], math.Int]
 	Releases       collections.Map[collections.Pair[uint64, string], uint64]
@@ -101,7 +100,6 @@ func NewKeeper(
 		Challenges:        collections.NewMap(sb, types.ChallengesPrefix, "challenges", collections.PairKeyCodec(collections.Uint64Key, collections.StringKey), codec.CollValue[types.ChallengeRecord](cdc)),
 		Queue:             collections.NewMap(sb, types.QueuePrefix, "queue", collections.Uint64Key, codec.CollValue[types.Settlement](cdc)),
 		QueuePending:      collections.NewMap(sb, types.QueuePendingPrefix, "queue_pending", collections.Uint64Key, collections.Uint64Value),
-		Reserved:          collections.NewMap(sb, types.ReservedPrefix, "reserved", collections.StringKey, collections.Uint64Value),
 		EpochMinted:       collections.NewMap(sb, types.EpochMintPrefix, "epoch_minted", collections.Uint64Key, sdk.IntValue),
 		OperatorMinted:    collections.NewMap(sb, types.OperatorMintPrefix, "operator_minted", collections.PairKeyCodec(collections.Uint64Key, collections.StringKey), sdk.IntValue),
 		Releases:          collections.NewMap(sb, types.ReleasesPrefix, "releases", collections.PairKeyCodec(collections.Uint64Key, collections.StringKey), collections.Uint64Value),

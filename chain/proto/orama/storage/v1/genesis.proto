@@ -30,7 +30,8 @@ message GenesisState {
   int64 deal_count_height = 17;
   uint64 deals_created_in_block = 18;
   repeated ReleaseCount release_counts = 19 [(gogoproto.nullable) = false];
-  repeated Reserved reserved = 20 [(gogoproto.nullable) = false];
+  // Field 20 held x/storage's own per-node reserved bytes. x/nodes owns the reservation now.
+  reserved 20;
   repeated FailureCount failure_counts = 21 [(gogoproto.nullable) = false];
 }
 
@@ -55,10 +56,4 @@ message ReleaseCount {
   uint64 epoch = 1;
   string node_id = 2;
   uint64 count = 3;
-}
-
-// Reserved is the capacity a node currently has assigned, in bytes.
-message Reserved {
-  string node_id = 1;
-  uint64 bytes = 2;
 }

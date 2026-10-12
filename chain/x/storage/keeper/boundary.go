@@ -159,6 +159,19 @@ func (b boundNodes) DeclaredCapacity(ctx context.Context, id string) (uint64, er
 	return v, refuse(err)
 }
 
+func (b boundNodes) ReservedCapacity(ctx context.Context, id string) (uint64, error) {
+	v, err := b.NodeView.ReservedCapacity(ctx, id)
+	return v, refuse(err)
+}
+
+func (b boundNodes) ReserveCapacity(ctx context.Context, id string, bytes uint64) error {
+	return refuse(b.NodeView.ReserveCapacity(ctx, id, bytes))
+}
+
+func (b boundNodes) ReleaseCapacity(ctx context.Context, id string, bytes uint64) error {
+	return refuse(b.NodeView.ReleaseCapacity(ctx, id, bytes))
+}
+
 func (b boundNodes) Slash(ctx context.Context, id string, amount math.Int) error {
 	return refuse(b.NodeView.Slash(ctx, id, amount))
 }

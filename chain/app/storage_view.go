@@ -92,6 +92,22 @@ func (s storageNodes) DeclaredCapacity(ctx context.Context, nodeID string) (uint
 	return node.DeclaredCapacityBytes, nil
 }
 
+func (s storageNodes) ReservedCapacity(ctx context.Context, nodeID string) (uint64, error) {
+	node, err := s.nodes.GetNode(s.sdk(ctx), nodeID)
+	if err != nil {
+		return 0, refuseStorageNodeErr(err)
+	}
+	return node.ReservedCapacityBytes, nil
+}
+
+func (s storageNodes) ReserveCapacity(ctx context.Context, nodeID string, bytes uint64) error {
+	return refuseStorageNodeErr(s.nodes.ReserveCapacity(s.sdk(ctx), nodeID, bytes))
+}
+
+func (s storageNodes) ReleaseCapacity(ctx context.Context, nodeID string, bytes uint64) error {
+	return refuseStorageNodeErr(s.nodes.ReleaseCapacity(s.sdk(ctx), nodeID, bytes))
+}
+
 // Jail takes the node out of service. A node that is already jailed, retired or tombstoned is
 // already out of service, so jailing it again succeeds: x/storage jails a probation node that
 // proved nothing when its probation expires, and that must finish even when the node was jailed

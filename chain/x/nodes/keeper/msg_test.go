@@ -626,10 +626,41 @@ func TestEndBlock_anUnbondingStoreFaultStaysFatal(t *testing.T) {
 	require.ErrorIs(t, f.Keeper.EndBlock(f.Ctx), collections.ErrEncoding)
 }
 
+// The bond cannot shrink under the replicas a node holds: the unbond is refused while the declaration
+// exceeds what the remaining bond backs, and the declaration cannot drop below the reservation, so the
+// bond only shrinks after x/storage has released the replicas.
+func TestUnbondNode_cannotShrinkTheBondUnderReservedReplicas(t *testing.T) {
+	f := newTestFixture(t)
+	op := newAccount(t)
+	f.fund(op, 100)
+	f.registerOperator(t, op)
+	f.registerNode(t, op, newAccount(t), "held", []types.Role{types.RoleStorage}, []types.Binding{
+		edBinding(t, testChainID, op.String(), "ipfs"),
+	})
+	_, err := f.Msg.BondNode(f.Ctx, &types.MsgBondNode{Operator: op.String(), NodeId: "held", Role: types.RoleStorage, Amount: orama(1)})
+	require.NoError(t, err)
+	_, err = f.Msg.DeclareCapacity(f.Ctx, &types.MsgDeclareCapacity{Operator: op.String(), NodeId: "held", CapacityBytes: types.GiB})
+	require.NoError(t, err)
+	require.NoError(t, f.Keeper.ReserveCapacity(f.Ctx, "held", types.GiB))
+
+	half := &types.MsgUnbondNode{Operator: op.String(), NodeId: "held", Role: types.RoleStorage, Amount: orama(1).QuoRaw(2)}
+	_, err = f.Msg.UnbondNode(f.Ctx, half)
+	require.ErrorIs(t, err, types.ErrCapacity)
+	_, err = f.Msg.DeclareCapacity(f.Ctx, &types.MsgDeclareCapacity{Operator: op.String(), NodeId: "held", CapacityBytes: types.GiB / 2})
+	require.ErrorIs(t, err, types.ErrReserved)
+
+	require.NoError(t, f.Keeper.ReleaseCapacity(f.Ctx, "held", types.GiB/2))
+	_, err = f.Msg.DeclareCapacity(f.Ctx, &types.MsgDeclareCapacity{Operator: op.String(), NodeId: "held", CapacityBytes: types.GiB / 2})
+	require.NoError(t, err)
+	_, err = f.Msg.UnbondNode(f.Ctx, half)
+	require.NoError(t, err)
+	f.requireInvariants(t)
+}
+
 // A slash is a penalty and never fails because the node is busy: a slash that leaves the bond backing
-// less than the node has reserved clamps the declaration and the reservation down to the backing
-// and burns the bond.
-func TestSlash_clampsDeclaredAndReservedCapacityInsteadOfFailing(t *testing.T) {
+// less than the node has reserved clamps the declaration down to the backing and burns the bond. The
+// reservation stays with its owner, x/storage, which releases the replicas the declaration cannot hold.
+func TestSlash_clampsDeclaredCapacityAndLeavesTheReservationToItsOwner(t *testing.T) {
 	f := newTestFixture(t)
 	op := newAccount(t)
 	f.fund(op, 100)
@@ -649,7 +680,9 @@ func TestSlash_clampsDeclaredAndReservedCapacityInsteadOfFailing(t *testing.T) {
 	node, err := f.Keeper.GetNode(f.Ctx, "full")
 	require.NoError(t, err)
 	require.Equal(t, types.GiB/2, node.DeclaredCapacityBytes)
-	require.Equal(t, types.GiB/2, node.ReservedCapacityBytes, "the reservation cannot exceed the declaration")
+	require.Equal(t, types.GiB, node.ReservedCapacityBytes, "the slash leaves the reservation to its owner, which releases the replicas the smaller declaration cannot hold")
+	require.Error(t, f.Keeper.ReserveCapacity(f.Ctx, "full", 1), "a node whose reservation exceeds its declaration reserves nothing more")
+	require.NoError(t, f.Keeper.ReleaseCapacity(f.Ctx, "full", types.GiB/2))
 	f.requireInvariants(t)
 }
 
