@@ -25,8 +25,8 @@ var (
 	// ErrOwnSlot is a slot assigned to the delegate's own operator. x/storage
 	// must never do that; the delegate refuses rather than repair it.
 	ErrOwnSlot = errors.New("slot is assigned to the repair delegate's operator")
-	// ErrRootMismatch is a rewrapped replica whose root is not the slot's
-	// root: the repair seed is not this deal's.
+	// ErrRootMismatch is returned when the rewrapped replica of every source
+	// misses the slot's root: the repair seed is not this deal's.
 	ErrRootMismatch = errors.New("rewrapped replica does not match the slot root")
 	// ErrNoSource is a slot to repair with no surviving replica to copy.
 	ErrNoSource = errors.New("no surviving replica could be fetched")
@@ -130,12 +130,19 @@ func (d *Delegate) repairSlot(ctx context.Context, deal types.Deal, seed []byte,
 		return Repaired{}, err
 	}
 	var errs []error
+	mismatches := 0
 	for _, src := range sources {
 		body, err := d.rebuild(ctx, deal, seed, src, target)
-		if errors.Is(err, ErrRootMismatch) || errors.Is(err, storagekey.ErrSeed) {
+		if errors.Is(err, storagekey.ErrSeed) {
 			return Repaired{}, err
 		}
 		if err != nil {
+			// A rewrap that misses the root is that source's fault (a replica the root does not tell
+			// from its zero-padded variant, or one that is not the deal's), so the next source is tried.
+			// Only when every source misses it is the seed the likely cause.
+			if errors.Is(err, ErrRootMismatch) {
+				mismatches++
+			}
 			errs = append(errs, fmt.Errorf("from slot %d: %w", src.Index, err))
 			continue
 		}
@@ -152,6 +159,9 @@ func (d *Delegate) repairSlot(ctx context.Context, deal types.Deal, seed []byte,
 		}
 		return r, nil
 	}
+	if mismatches > 0 && mismatches == len(sources) {
+		return Repaired{}, errors.Join(errs...)
+	}
 	return Repaired{}, fmt.Errorf("%w: %w", ErrNoSource, errors.Join(errs...))
 }
 
@@ -163,6 +173,10 @@ func (d *Delegate) rebuild(ctx context.Context, deal types.Deal, seed []byte, sr
 	blob, err := d.net.Fetch(ctx, base, src.PieceRoot)
 	if err != nil {
 		return nil, err
+	}
+	// The root does not commit to the length, so a zero-padded copy passes checkRoot.
+	if uint64(len(blob)) != src.PieceBytes {
+		return nil, fmt.Errorf("source replica is %d bytes, the chain recorded %d", len(blob), src.PieceBytes)
 	}
 	if err := checkRoot(blob, src.PieceRoot); err != nil {
 		return nil, fmt.Errorf("source replica: %w", err)

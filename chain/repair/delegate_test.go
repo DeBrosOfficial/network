@@ -79,7 +79,7 @@ func fixture(t *testing.T, seed []byte) (stubChain, *memNet) {
 			t.Fatal(err)
 		}
 		root, _ := piece.Commit(b)
-		slot := types.Slot{DealId: 1, Index: j, NodeId: "n" + string(rune('0'+j)), Operator: "op", PieceRoot: root.Root,
+		slot := types.Slot{DealId: 1, Index: j, NodeId: "n" + string(rune('0'+j)), Operator: "op", PieceRoot: root.Root, PieceBytes: uint64(len(b)),
 			Status: types.SlotStatus_SLOT_STATUS_ACTIVE, Accepted: true}
 		if j == 2 {
 			slot.Status, slot.Accepted = types.SlotStatus_SLOT_STATUS_ASSIGNED, false
@@ -268,4 +268,73 @@ func TestPublicHTTPClient_refusesALoopbackEndpoint(t *testing.T) {
 	if !errors.Is(err, ErrNotPublic) {
 		t.Fatalf("got %v, want ErrNotPublic", err)
 	}
+}
+
+// A replica with zero bytes appended inside its last leaf has the same piece root as the real one
+// (piece.Commit pads the last leaf with zeros), so it passes the root check against the source
+// slot's root. A source that serves one must not end the repair: the next source is tried.
+func TestRepairDeal_aSourceServingAZeroPaddedReplicaDoesNotBlockRepairFromAnotherSource(t *testing.T) {
+	seed := bytes.Repeat([]byte{5}, 32)
+	c, net := fixture(t, seed)
+	honest := net.pieces["http://n0"]
+	padded := append(append([]byte{}, honest...), make([]byte, 100)...)
+	a, _ := piece.Commit(honest)
+	b, _ := piece.Commit(padded)
+	if !bytes.Equal(a.Root, b.Root) {
+		t.Fatalf("fixture: the padded variant must keep the root (%d leaves)", a.RealLeafCount)
+	}
+	net.pieces["http://n0"] = padded
+	d, err := New(c, net, "delegate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done, err := d.RepairDeal(context.Background(), 1, seed)
+	if err != nil || len(done) != 1 || done[0].From != 1 {
+		t.Fatalf("repair from the honest source n1 should succeed: done %+v err %v", done, err)
+	}
+}
+
+// A source whose rewrap misses the target's root is that source's fault, not the seed's, as long as
+// another source rewraps to it.
+func TestRepairDeal_aSourceWhoseRewrapMissesTheRootDoesNotBlockAnotherSource(t *testing.T) {
+	seed := bytes.Repeat([]byte{5}, 32)
+	c, net := fixture(t, seed)
+	bad := append([]byte{}, net.pieces["http://n0"]...)
+	bad[0] ^= 1
+	net.pieces["http://n0"] = bad
+	c.slots[0].PieceRoot = mustRoot(t, bad)
+	d, err := New(c, net, "delegate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done, err := d.RepairDeal(context.Background(), 1, seed)
+	if err != nil || len(done) != 1 || done[0].From != 1 {
+		t.Fatalf("done %+v err %v", done, err)
+	}
+}
+
+func TestRepairDeal_aWrongLengthSourceAloneIsNoSource(t *testing.T) {
+	seed := bytes.Repeat([]byte{5}, 32)
+	c, net := fixture(t, seed)
+	delete(net.pieces, "http://n1")
+	net.pieces["http://n0"] = append(append([]byte{}, net.pieces["http://n0"]...), 0)
+	d, err := New(c, net, "delegate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.RepairDeal(context.Background(), 1, seed); !errors.Is(err, ErrNoSource) {
+		t.Fatalf("err %v, want ErrNoSource", err)
+	}
+	if len(net.uploaded) != 0 {
+		t.Fatal("something was uploaded")
+	}
+}
+
+func mustRoot(t *testing.T, body []byte) []byte {
+	t.Helper()
+	c, err := piece.Commit(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.Root
 }
