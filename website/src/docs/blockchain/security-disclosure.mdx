@@ -4,7 +4,7 @@ This page sets out the scope, the severity ratings and the disclosure rules for 
 
 The project intends standing bounties on the chain, sized to pool value and staked value, and pre-mainnet costs, bounties included, are paid by the owner. No programme exists yet: there is no amount, no funding source, no schedule and no payer of record. So this page sets no amount and names no budget. It says what is in scope, how findings are rated and how to report one. The owner decides whether a given finding is paid and how much.
 
-No audit of the chain has been done. Reports are welcome before one.
+No independent audit of the chain has been done. An internal, AI-assisted self-audit ran from 2026-10-10 to 2026-10-12 against nightly. It covered the chain in CI and static analysis, six code-reading leads, 58 fuzz targets, a differential harness for the two shielded verifiers, a per-block conservation check with a seeded simulation, and review waves over the shielded pool, the app's own code, the money, token and contract modules, and the service modules with their off-chain parts. It found and fixed four bugs that could halt the chain or every node (a malformed vote extension, a contract burning a token behind the token module, a storage operator lowering capacity below what it holds, a verifier fault splitting one node from its peers) and a number of lower-severity ones. It was done by the same people who wrote the code. It does not replace an independent audit, and the economic-attack review is still open. Reports are welcome.
 
 ## How to report
 
