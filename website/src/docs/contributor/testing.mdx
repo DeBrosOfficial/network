@@ -297,6 +297,67 @@ staticcheck and govulncheck are judged the way the fleet `scanners` feature judg
 
 Miri does not run the proof and Merkle-hashing tests: halo2 and Sinsemilla take hours under an interpreter. Its Stacked Borrows check flags `bitvec` 1.1.1, inside the upstream `sinsemilla` crate, as soon as a frontier is hashed; that is upstream's finding and outside what the job runs.
 
+### Fuzzing
+
+There are 54 Go fuzz targets (`func FuzzX(f *testing.F)`) and 4 cargo-fuzz targets. Each takes the bytes or the inputs of one parser, decoder or verifier that handles data it does not trust, and checks a property that is more than "does not crash": a round trip, `verify(prove(x))`, refusal after a mutation, agreement between two implementations, determinism, or a model of what the code must do. `go test` replays every seed of a target as an ordinary test, so a seed that fails is a failing test.
+
+`make -C chain fuzz-list` prints the targets. `make -C chain fuzz-short` runs each Go target for `FUZZ_TIME_SHORT` (10 seconds), two targets at a time with two workers each, in `chain` (tags `nowasm orchardffi`, so the cgo and subprocess targets run) and in `core`. `make -C chain fuzz-long` does the same for `FUZZ_TIME_LONG` (5 minutes; `fuzz-long-chain` and `fuzz-long-core` run one module). `FUZZ_ONLY='netclass|piece'` picks targets by `package/FuzzName`. The runner is `chain/scripts/fuzzrun`: it finds the targets, runs them, prints one line per target (package, target, executions, time, verdict) and exits non-zero when one failed. A failing target leaves its input in the package's `testdata/fuzz/<Target>/`, where `go test` replays it from then on, and a copy under `chain/build/fuzz-crashers/` (CI uploads that directory). Commit the input with the fix.
+
+| Where | What it runs | Budget |
+|---|---|---|
+| `ci.yml`, job `chain-fuzz` (every pull request) | `fuzz-short`: all 54 Go targets | 10 seconds each plus start-up; job timeout 45 minutes |
+| `chain-nightly.yml`, job `fuzz-go` (nightly, one job per module) | `fuzz-long-chain` and `fuzz-long-core` | 5 minutes each: about 100 minutes for the 40 targets of `chain` and 35 for the 14 of `core` (counted from the budget, two targets at a time; job timeout 240 minutes) |
+| `chain-nightly.yml`, job `fuzz-rust` (nightly) | `rust-fuzz`: the four cargo-fuzz targets, 600 seconds each, on the dated nightly Rust of `RUST_NIGHTLY` | about 40 minutes plus the build |
+| The fleet `scanners` feature (owner runs it) | the `core` targets, 20 seconds each | |
+
+**Why 10 seconds.** A target pays its start-up before it fuzzes: the app targets build a whole chain in each worker, and the Orchard targets link the Rust library. Measured on a laptop with other jobs running (load average above 16), `fuzz-short` took 7 minutes 17 seconds for the 39 targets of `chain` known then, 1 minute 29 seconds for the 14 of `core`, and 4 minutes of Rust builds before them; a target took 11 to 20 seconds from start to verdict, and the app targets 44 to 124 seconds because of their start-up. Ten seconds is enough to replay every seed and to mutate them for tens of thousands of executions for the cheap targets (one million for `x/inclusion`, 300,000 for `netclass`) and for a few hundred for the heavy ones. The job runs on a four-core runner with two targets at a time and two workers each, and its timeout is 45 minutes. A longer budget belongs to the nightly run, which finds what ten seconds do not.
+
+**Seeds.** Every target starts from real data where the repository has it. The Ironwood bundles of `chain/x/shielded/orchardffi/testdata`, the signed transactions of `chain/client/tx/testdata/tx_vectors.json`, the piece vectors, the stagenet network manifest and Tor network file, and a Tor vote are committed as corpus entries in each target's `testdata/fuzz/<Target>/` (`make -C chain fuzz-corpus` rebuilds them with `chain/scripts/fuzzcorpus`). The other targets seed themselves with `f.Add` from objects their package builds (a TUF repository from fixed keys, a bundle from real blocks, a committee chain with a listed transaction). The cargo-fuzz seeds are in each crate's `fuzz/seeds/<target>/`; the corpus the fuzzer grows is ignored by git.
+
+**The Go targets in `chain`.**
+
+| Target (package) | Property |
+|---|---|
+| `FuzzBundleParse` (`x/shielded/bundle`) | an accepted bundle is exactly the canonical layout, with every field read from its offset; a refusal is a `verify.ErrTampered` |
+| `FuzzReadCompactSize` (`x/shielded/bundle`) | an accepted CompactSize re-encodes to the same bytes |
+| `FuzzNullifierStore`, `FuzzNullifierFold` (`x/shielded/nullifier`) | the store agrees with a model across commits, rollbacks and reads; a failed commit changes nothing; the fold is not symmetric |
+| `FuzzSnapshotRestore` (`x/shielded/snapshot`) | a refused state-sync restore leaves the store empty; an accepted one holds exactly the stream, in order, none below 0 or above the snapshot height |
+| `FuzzPoolServe`, `FuzzPoolAccounting` (`x/shielded/pool`) | the queue pays at most the capacity and each address at most its request and cap; a pool never goes negative and a move keeps the total; the limiter never passes its cap |
+| `FuzzOrchardSighash` (`x/shielded/verify/orchard`) | the sighash depends on chain id, binding and the effecting prefix only |
+| `FuzzOrchardTreeAppend` (same, cgo) | arbitrary frontiers and commitments across the FFI give a verdict; two-step append equals one step |
+| `FuzzOrchardVerifyDifferential` (`x/shielded/verify/orchardproc`) | the cgo library and the out-of-process binary give the same verdict class on every input, never a fault, and agree with `bundle.Parse` on what is malformed |
+| `FuzzInclusionDecodeList`, `FuzzInclusionUnmarshalExtension` (`x/inclusion`) | decoding is the inverse of encoding; a valid list is a fixed point of `SelectList` |
+| `FuzzInclusionProcess`, `FuzzInclusionHasQuorum` (`x/inclusion`) | the required transactions are sorted, decodable, within the caps; `Assemble` is accepted by `Process`; dropping or reordering the first required one is refused; `HasQuorum` equals exact big-integer arithmetic |
+| `FuzzProcessProposal`, `FuzzPrepareProposal`, `FuzzVerifyVoteExtension` (`app`) | the real app, with a panic-counting logger: no error and no panic (an error from `VerifyVoteExtension` halts the node), deterministic answers, and a block `PrepareProposal` built is accepted by `ProcessProposal` |
+| `FuzzAnteTxDecode`, `FuzzCheckTx` (`app`) | the SDK decoder re-encodes what it accepts; `CheckTx` never fails or panics on any bytes |
+| `FuzzWasmBindingsDecode`, `FuzzWasmBindingsQuery` (`x/wasmbindings`) | a contract's custom message is one action, signed by the contract, never touching norama; a shielded query is always NOT_LINKED |
+| `FuzzWasmPolicyCodeHash`, `FuzzWasmPolicyAllowStore`, `FuzzWasmPolicyClassify`, `FuzzWasmPolicyNoramaWrapper` (`x/wasmpolicy`) | the allow-list hash is the SHA-256 of the uncompressed code, raw or gzip, and a bomb is not hashed; the upload gate follows the sunset; the norama rule equals an independent pattern |
+| `FuzzPieceRoundTrip`, `FuzzPieceVerifyGarbage` (`piece`) | `Verify(Prove(x))` holds for every leaf; a changed leaf, sibling, index or root fails; garbage commitments are refused |
+| `FuzzProviderProofJSON` (`provider`) | the proof file written reads back to the proofs; a malformed proof writes nothing |
+| `FuzzCNFTLeafEncoding`, `FuzzCNFTMerkleTree` (`x/cnft/types`) | the leaf encoding is injective; the concurrent Merkle tree equals the full-tree root of a model, and stale proofs follow the changelog rule |
+| `FuzzConfidentialQuote`, `FuzzConfidentialReportData`, `FuzzConfidentialRoots` (`x/confidential`) | no quote is ever verified and no node registered; the report data binds its inputs unambiguously; no garbage is a vendor root |
+| `FuzzNetclassCheckHost`, `FuzzNetclassIsPublic` (`netclass`) | an accepted host is public by the standard library and by an `inet_aton` oracle; no special range is public |
+| `FuzzStorageKeyRewrap` (`storagekey`) | the keystream applied twice is the identity and a rewrap round trips |
+| `FuzzIndexerReadEnvelope` (`indexer`) | the explorer's decode of a transaction is deterministic, typed and has a valid signer |
+| `FuzzReporterParseVote` (`reporter`) | a Tor vote parses to distinct relays, with the digest of its bytes and a header that reads the same alone |
+| `FuzzClientTxDecode` (`client/tx`) | a transaction a wallet accepts is bound to the chain id and account number it was checked against |
+| `FuzzArchiverBundle` (`archiver`) | a bundle is the canonical encoding of its blocks and verifies only under its own range record |
+
+**The Go targets in `core`.**
+
+| Target (package) | Property |
+|---|---|
+| `FuzzReleaseVerify`, `FuzzReleaseArchiveName` (`pkg/releaseverify`) | for any mutation of the TUF metadata and archive, what is accepted is exactly the published release, at its snapshot, not frozen and not rolled back; a target name round trips |
+| `FuzzArchiveExtract`, `FuzzArchiveSigningMessage`, `FuzzArchiveAnchor` (`pkg/archivetrust`) | extraction writes only regular files below the archive's layout, nothing next to the destination and no unsafe mode; the signing message cannot gain a line or a character that is not printable; the anchor has one form |
+| `FuzzNetregistryManifest` (`pkg/netregistry`), `FuzzTornetNetwork` (`pkg/tornet`) | an accepted file is valid, survives a round trip, and renders no torrc line that can be split |
+| `FuzzClusterregRegistration`, `FuzzClusterregDirect`, `FuzzClusterregProofs`, `FuzzClusterregCanonicalAccount` (`pkg/clusterreg`) | the hand-written protobuf reads back to its inputs, canonically (the sign doc and the transaction share their body and auth info); an accepted endpoint is public |
+| `FuzzChainreadQuery` (`pkg/chainread`) | request encoding, response decoding and the RPC envelope never panic and an error code never becomes a result |
+| `FuzzGatewaySanitizeLog`, `FuzzGatewayTxProtobuf` (`pkg/gateway/handlers/chainread`) | the public refusal log keeps no address, path, source location or stack trace, and sanitising twice changes nothing; the gas numbers read from transaction and simulation bytes are the ones written |
+
+**The cargo-fuzz targets** (`chain/x/shielded/orchardffi/fuzz`, `chain/x/shielded/orchardverifier-bin/fuzz`): `ffi_verify` sends arbitrary bytes through `orama_orchard_verify`, the entry oramad calls, and treats a caught panic as a failure; `tree_append` sends arbitrary frontiers and commitments through `orama_orchard_tree_append` and checks the output capacity and the two-step rule; `stdin_frames` drives the verifier process's whole frame loop (`protocol::serve`) with arbitrary stdin and checks that every request that was read whole gets one well-formed answer with its id; `check_framing` compares the framing check of the out-of-process verifier with the library's on the same bytes, because two nodes with different verifiers must refuse the same bundles. The fuzz crates have their own `Cargo.lock`, seeded from the crate's pinned one, and are not built into oramad.
+
+**What the targets found.** Writing them found four defects, all fixed with a test that fails without the fix: a transaction whose auth info states no fee crashed `VerifyVoteExtension`, which makes CometBFT halt the node (`chain/app/inclusion_nofee_test.go`); a state-sync stream could store a record at a negative height (`chain/x/shielded/snapshot/snapshot_test.go:TestRestore_refusesARecordAtANegativeHeight`); the gateway's refusal log let invalid UTF-8 hide an address from the redaction patterns (`core/pkg/gateway/handlers/chainread/sanitize_utf8_test.go`); and `clusterreg.Validate` accepted endpoint hosts that the chain refuses (`core/pkg/clusterreg/validate_hosts_test.go`). The client's `Builder.Decode` had the same missing-fee panic as the first.
+
 ### Simulation
 
 `make -C chain chain-sim` runs the seeded, randomized simulation described above. CI does not run it on every push; run it before a change to a module's state machine.
@@ -307,4 +368,4 @@ Miri does not run the proof and Merkle-hashing tests: halo2 and Sinsemilla take 
 
 ### What CI does not run
 
-The fleet suite (`make e2e-fleet`) is run by the owner. Of the `scanners` feature, CI covers `govulncheck`, `staticcheck`, `gosec` and the secret scan for the chain module only (`core` has `security.yml`; the other modules, the scan of the built archive and the race run over the busiest core packages are fleet-only). There are no Go fuzz targets to run.
+The fleet suite (`make e2e-fleet`) is run by the owner. Of the `scanners` feature, CI covers `govulncheck`, `staticcheck`, `gosec` and the secret scan for the chain module only (`core` has `security.yml`; the other modules, the scan of the built archive and the race run over the busiest core packages are fleet-only). The fuzz targets of `core` run there too, 20 seconds each, as the fleet's fuzz smoke.
