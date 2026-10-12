@@ -28,8 +28,18 @@ const (
 	// NodeLen is a nullifier, a note commitment or an anchor.
 	NodeLen = 32
 
+	// EncCompactLen is the prefix of an action's encrypted note that a wallet trial-decrypts
+	// (ZIP-307 compact actions): the 52 bytes of version, diversifier, value and rseed that come
+	// before the memo.
+	EncCompactLen = 52
+	// OutLen is an action's outCiphertext.
+	OutLen = 80
+
 	nullifierAt = 32
 	cmxAt       = 96
+	epkAt       = 128
+	encAt       = 160
+	outAt       = encAt + 580
 )
 
 // Bundle is a parsed bundle. The slices alias the input; copy before keeping them.
@@ -130,4 +140,56 @@ func Parse(b []byte) (*Bundle, error) {
 	out.ValueBalance = int64(binary.LittleEndian.Uint64(b[header+1:]))
 	copy(out.Anchor[:], b[header+9:])
 	return out, nil
+}
+
+// CompactAction is what a wallet needs of one action to find the notes sent to it: the nullifier
+// (to see which of its notes were spent), the note commitment, the ephemeral key, the first
+// EncCompactLen bytes of the encrypted note and the outCiphertext.
+type CompactAction struct {
+	Nullifier    [NodeLen]byte
+	Cmx          [NodeLen]byte
+	EphemeralKey [NodeLen]byte
+	EncCompact   [EncCompactLen]byte
+	OutCipher    [OutLen]byte
+}
+
+// CompactActions parses a whole bundle (Parse's framing rules apply) and returns each action's
+// compact form, in bundle order.
+func CompactActions(b []byte) ([]CompactAction, error) {
+	parsed, err := Parse(b)
+	if err != nil {
+		return nil, err
+	}
+	_, used, _ := ReadCompactSize(b)
+	out := make([]CompactAction, parsed.Actions)
+	for i := range out {
+		base := used + i*ActionLen
+		copy(out[i].Nullifier[:], b[base+nullifierAt:])
+		copy(out[i].Cmx[:], b[base+cmxAt:])
+		copy(out[i].EphemeralKey[:], b[base+epkAt:])
+		copy(out[i].EncCompact[:], b[base+encAt:])
+		copy(out[i].OutCipher[:], b[base+outAt:])
+	}
+	return out, nil
+}
+
+// Len is the exact size of a canonical bundle of the given number of actions: the action count,
+// the actions, the header, the proof length, the proof, one spend-authorization signature per
+// action and the binding signature. Every canonical bundle of that many actions is this long.
+func Len(actions int) int {
+	return compactSizeLen(uint64(actions)) + actions*ActionLen + HeaderLen +
+		compactSizeLen(uint64(ProofLen(actions))) + ProofLen(actions) + (actions+1)*SigLen
+}
+
+// compactSizeLen is the length of the canonical CompactSize encoding of v.
+func compactSizeLen(v uint64) int {
+	switch {
+	case v < 253:
+		return 1
+	case v < 1<<16:
+		return 3
+	case v < 1<<32:
+		return 5
+	}
+	return 9
 }

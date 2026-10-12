@@ -54,6 +54,8 @@ type Follower struct {
 	// folding is whether the block being indexed is folded into the aggregates: they are running,
 	// or the node still keeps the state their baseline reads. It is set for each block.
 	folding bool
+	// shielded is what the block being indexed has put in the note-commitment tree.
+	shielded blockShielded
 }
 
 // NewFollower binds store to start. A store that was started from another
@@ -130,6 +132,7 @@ func (f *Follower) indexBlock(ctx context.Context, height int64) error {
 		return fmt.Errorf("block %d has %d transactions but %d results", height, len(txs), len(res.TxsResults))
 	}
 	w := f.store.newWriter()
+	f.shielded.reset()
 	if f.folding, err = f.canFold(ctx, w, height); err != nil {
 		return errors.Join(fmt.Errorf("block %d: %w", height, err), w.close())
 	}
@@ -156,6 +159,9 @@ func (f *Follower) indexBlock(ctx context.Context, height int64) error {
 		block.TxHashes = append(block.TxHashes, hash)
 		block.GasUsed += res.TxsResults[i].GasUsed
 		burned = burned.Add(txBurned)
+	}
+	if err := f.flushShielded(ctx, w, height); err != nil {
+		return errors.Join(fmt.Errorf("index the shielded actions of block %d: %w", height, err), w.close())
 	}
 	block.TxCount = len(block.TxHashes)
 	block.Burned = burned.String()
@@ -211,7 +217,13 @@ func (f *Follower) indexTx(ctx context.Context, w *writer, pos txPos, raw cmttyp
 	if res.Code != 0 {
 		return hashHex, burned, nil
 	}
-	return hashHex, burned, f.applyMessages(ctx, w, pos, hashHex, env.msgs, res)
+	if err := f.applyMessages(ctx, w, pos, hashHex, env.msgs, res); err != nil {
+		return "", math.Int{}, err
+	}
+	if err := f.shielded.noteSubtrees(res.Events); err != nil {
+		return "", math.Int{}, fmt.Errorf("transaction %s: %w", hashHex, err)
+	}
+	return hashHex, burned, nil
 }
 
 // writeTx stores the transaction and every index that points at it.
@@ -252,7 +264,7 @@ func (f *Follower) applyMessages(ctx context.Context, w *writer, pos txPos, hash
 	if len(resps) != len(msgs) {
 		return fmt.Errorf("transaction %s has %d messages but %d responses", hashHex, len(msgs), len(resps))
 	}
-	a := applier{ctx: ctx, chain: f.chain, w: w, height: pos.height, tx: hashHex, events: res.Events}
+	a := applier{ctx: ctx, chain: f.chain, w: w, height: pos.height, tx: hashHex, events: res.Events, txIndex: pos.index, shielded: &f.shielded}
 	for i := range msgs {
 		a.msgIndex = i
 		if err := a.apply(msgs[i], resps[i]); err != nil {

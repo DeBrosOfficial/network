@@ -13,6 +13,7 @@ import (
 
 	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
 	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
+	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
 )
 
 const queryTree = "/orama.cnft.v1.Query/Tree"
@@ -29,6 +30,10 @@ type applier struct {
 	// applied: the events that message emitted carry it (msgEvent).
 	events   []abci.Event
 	msgIndex int
+	// txIndex is the place of the transaction in its block, and shielded collects the actions of
+	// the shielded messages of the block (shielded.go).
+	txIndex  uint32
+	shielded *blockShielded
 }
 
 // handler decodes a message and its response into fresh values and applies them.
@@ -40,18 +45,22 @@ type handler struct {
 func typeURL(m gogoproto.Message) string { return "/" + gogoproto.MessageName(m) }
 
 var handlers = map[string]handler{
-	typeURL(&cnfttypes.MsgCreateTree{}):      {newMsg[cnfttypes.MsgCreateTree], newMsg[cnfttypes.MsgCreateTreeResponse], applyCreateTree},
-	typeURL(&cnfttypes.MsgMint{}):            {newMsg[cnfttypes.MsgMint], newMsg[cnfttypes.MsgMintResponse], applyMint},
-	typeURL(&cnfttypes.MsgTransfer{}):        {newMsg[cnfttypes.MsgTransfer], newMsg[cnfttypes.MsgTransferResponse], applyTransfer},
-	typeURL(&cnfttypes.MsgBurn{}):            {newMsg[cnfttypes.MsgBurn], newMsg[cnfttypes.MsgBurnResponse], applyBurn},
-	typeURL(&cnfttypes.MsgUpdateMetadata{}):  {newMsg[cnfttypes.MsgUpdateMetadata], newMsg[cnfttypes.MsgUpdateMetadataResponse], applyUpdateMetadata},
-	typeURL(&cnfttypes.MsgDecompress{}):      {newMsg[cnfttypes.MsgDecompress], newMsg[cnfttypes.MsgDecompressResponse], applyDecompress},
-	typeURL(&cnfttypes.MsgCompress{}):        {newMsg[cnfttypes.MsgCompress], newMsg[cnfttypes.MsgCompressResponse], applyCompress},
-	typeURL(&markettypes.MsgList{}):          {newMsg[markettypes.MsgList], newMsg[markettypes.MsgListResponse], applyList},
-	typeURL(&markettypes.MsgBid{}):           {newMsg[markettypes.MsgBid], newMsg[markettypes.MsgBidResponse], applyBid},
-	typeURL(&markettypes.MsgCancelListing{}): {newMsg[markettypes.MsgCancelListing], newMsg[markettypes.MsgCancelListingResponse], applyCancelListing},
-	typeURL(&markettypes.MsgCancelBid{}):     {newMsg[markettypes.MsgCancelBid], newMsg[markettypes.MsgCancelBidResponse], applyCancelBid},
-	typeURL(&markettypes.MsgSettle{}):        {newMsg[markettypes.MsgSettle], newMsg[markettypes.MsgSettleResponse], applySettle},
+	typeURL(&cnfttypes.MsgCreateTree{}):           {newMsg[cnfttypes.MsgCreateTree], newMsg[cnfttypes.MsgCreateTreeResponse], applyCreateTree},
+	typeURL(&cnfttypes.MsgMint{}):                 {newMsg[cnfttypes.MsgMint], newMsg[cnfttypes.MsgMintResponse], applyMint},
+	typeURL(&cnfttypes.MsgTransfer{}):             {newMsg[cnfttypes.MsgTransfer], newMsg[cnfttypes.MsgTransferResponse], applyTransfer},
+	typeURL(&cnfttypes.MsgBurn{}):                 {newMsg[cnfttypes.MsgBurn], newMsg[cnfttypes.MsgBurnResponse], applyBurn},
+	typeURL(&cnfttypes.MsgUpdateMetadata{}):       {newMsg[cnfttypes.MsgUpdateMetadata], newMsg[cnfttypes.MsgUpdateMetadataResponse], applyUpdateMetadata},
+	typeURL(&cnfttypes.MsgDecompress{}):           {newMsg[cnfttypes.MsgDecompress], newMsg[cnfttypes.MsgDecompressResponse], applyDecompress},
+	typeURL(&cnfttypes.MsgCompress{}):             {newMsg[cnfttypes.MsgCompress], newMsg[cnfttypes.MsgCompressResponse], applyCompress},
+	typeURL(&markettypes.MsgList{}):               {newMsg[markettypes.MsgList], newMsg[markettypes.MsgListResponse], applyList},
+	typeURL(&markettypes.MsgBid{}):                {newMsg[markettypes.MsgBid], newMsg[markettypes.MsgBidResponse], applyBid},
+	typeURL(&markettypes.MsgCancelListing{}):      {newMsg[markettypes.MsgCancelListing], newMsg[markettypes.MsgCancelListingResponse], applyCancelListing},
+	typeURL(&markettypes.MsgCancelBid{}):          {newMsg[markettypes.MsgCancelBid], newMsg[markettypes.MsgCancelBidResponse], applyCancelBid},
+	typeURL(&shieldedtypes.MsgShield{}):           {newMsg[shieldedtypes.MsgShield], newMsg[shieldedtypes.MsgShieldResponse], applyShielded},
+	typeURL(&shieldedtypes.MsgShieldEarnings{}):   {newMsg[shieldedtypes.MsgShieldEarnings], newMsg[shieldedtypes.MsgShieldEarningsResponse], applyShielded},
+	typeURL(&shieldedtypes.MsgShieldedTransfer{}): {newMsg[shieldedtypes.MsgShieldedTransfer], newMsg[shieldedtypes.MsgShieldedTransferResponse], applyShielded},
+	typeURL(&shieldedtypes.MsgUnshield{}):         {newMsg[shieldedtypes.MsgUnshield], newMsg[shieldedtypes.MsgUnshieldResponse], applyShielded},
+	typeURL(&markettypes.MsgSettle{}):             {newMsg[markettypes.MsgSettle], newMsg[markettypes.MsgSettleResponse], applySettle},
 }
 
 func newMsg[T any, P interface {

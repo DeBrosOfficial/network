@@ -60,9 +60,9 @@ const (
 // is refused rather than served with fields it never recorded: its aggregates
 // (epochs, supply, validators, daily and weekly statistics) are computed as blocks
 // are ingested, so an index that did not compute them cannot be completed later.
-// Version 3 added them; version 4 added what each epoch paid each validator and delegator. An index of an older version is not converted: MoveAsideStale
+// Version 3 added them; version 4 added what each epoch paid each validator and delegator; version 5 added the shielded actions and subtree roots a wallet scans (shielded.go). An index of an older version is not converted: MoveAsideStale
 // moves it aside, which the upgrade does, and the indexer starts a new one.
-const schemaVersion uint64 = 4
+const schemaVersion uint64 = 5
 
 // Store is the on-disk index. Reads are safe while the follower writes.
 type Store struct {
