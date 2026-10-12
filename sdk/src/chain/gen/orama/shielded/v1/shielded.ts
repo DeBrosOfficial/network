@@ -129,20 +129,26 @@ export interface PoolBalance {
   balance: string;
 }
 
-/** Limiter is the rolling 24h net-outflow window of one pool. */
+/**
+ * Limiter is the net-outflow leaky bucket of one pool: it holds at most one
+ * cap and drains one cap per 24 hours.
+ */
 export interface Limiter {
   vintage: number;
   asset: Uint8Array;
-  /** window_start is the Unix time (seconds) the current window opened. */
+  /**
+   * window_start is the Unix time (seconds) the drain of the bucket has been
+   * accounted up to.
+   */
   windowStart: bigint;
   /**
-   * counted is the norama that left the pool in this window and counts
-   * against the cap.
+   * counted is the level of the leaky bucket: the norama that left the pool and
+   * have not yet drained back under the cap.
    */
   counted: string;
   /**
-   * served_window_start is the window_start for which the queue was last
-   * served, so each window serves it once.
+   * served_window_start is the Unix time (seconds) the queue was last served;
+   * it is served at most once per 24 hours.
    */
   servedWindowStart: bigint;
 }
