@@ -214,17 +214,19 @@ func (m *PoolBalance) GetAsset() []byte {
 	return nil
 }
 
-// Limiter is the rolling 24h net-outflow window of one pool.
+// Limiter is the net-outflow leaky bucket of one pool: it holds at most one
+// cap and drains one cap per 24 hours.
 type Limiter struct {
 	Vintage uint32 `protobuf:"varint,1,opt,name=vintage,proto3" json:"vintage,omitempty"`
 	Asset   []byte `protobuf:"bytes,2,opt,name=asset,proto3" json:"asset,omitempty"`
-	// window_start is the Unix time (seconds) the current window opened.
+	// window_start is the Unix time (seconds) the drain of the bucket has been
+	// accounted up to.
 	WindowStart int64 `protobuf:"varint,3,opt,name=window_start,json=windowStart,proto3" json:"window_start,omitempty"`
-	// counted is the norama that left the pool in this window and counts
-	// against the cap.
+	// counted is the level of the leaky bucket: the norama that left the pool and
+	// have not yet drained back under the cap.
 	Counted cosmossdk_io_math.Int `protobuf:"bytes,4,opt,name=counted,proto3,customtype=cosmossdk.io/math.Int" json:"counted"`
-	// served_window_start is the window_start for which the queue was last
-	// served, so each window serves it once.
+	// served_window_start is the Unix time (seconds) the queue was last served;
+	// it is served at most once per 24 hours.
 	ServedWindowStart int64 `protobuf:"varint,5,opt,name=served_window_start,json=servedWindowStart,proto3" json:"served_window_start,omitempty"`
 }
 

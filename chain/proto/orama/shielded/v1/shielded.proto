@@ -76,20 +76,22 @@ message PoolBalance {
   ];
 }
 
-// Limiter is the rolling 24h net-outflow window of one pool.
+// Limiter is the net-outflow leaky bucket of one pool: it holds at most one
+// cap and drains one cap per 24 hours.
 message Limiter {
   uint32 vintage = 1;
   bytes asset = 2;
-  // window_start is the Unix time (seconds) the current window opened.
+  // window_start is the Unix time (seconds) the drain of the bucket has been
+  // accounted up to.
   int64 window_start = 3;
-  // counted is the norama that left the pool in this window and counts
-  // against the cap.
+  // counted is the level of the leaky bucket: the norama that left the pool and
+  // have not yet drained back under the cap.
   string counted = 4 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false
   ];
-  // served_window_start is the window_start for which the queue was last
-  // served, so each window serves it once.
+  // served_window_start is the Unix time (seconds) the queue was last served;
+  // it is served at most once per 24 hours.
   int64 served_window_start = 5;
 }
 

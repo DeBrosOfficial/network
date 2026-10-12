@@ -114,15 +114,32 @@ func TestUnshield_overTheCapFeeTopupFailsAtomically(t *testing.T) {
 	require.NoError(t, err, "the same nullifier is free again after the failed tx, and 10 fits under the cap")
 }
 
-func TestUnshield_theCapWindowRollsAfter24Hours(t *testing.T) {
+func TestUnshield_theCapDrainsBackGraduallyOver24Hours(t *testing.T) {
 	e := capEnv(t, nil)
 	_, err := unshield(t, e, topup(2, 51, alice))
 	require.NoError(t, err)
 	_, err = unshield(t, e, topup(3, 11, alice))
 	require.ErrorIs(t, err, pool.ErrCapExhausted)
+	e.Advance(pool.Window / 2) // half the cap, 25, has drained back
+	_, err = unshield(t, e, topup(3, 27, alice))
+	require.ErrorIs(t, err, pool.ErrCapExhausted, "26 net is more than the 25 that drained")
+	_, err = unshield(t, e, topup(3, 26, alice))
+	require.NoError(t, err, "25 net fits exactly in what drained")
 	nextWindow(e)
-	_, err = unshield(t, e, topup(3, 11, alice))
+	_, err = unshield(t, e, topup(4, 51, alice))
+	require.NoError(t, err, "a full 24 hours later the whole cap is back")
+}
+
+func TestUnshield_capHoldsAcrossTheWindowBoundary(t *testing.T) {
+	e := capEnv(t, nil)                          // cap 50 (the floor)
+	_, err := unshield(t, e, topup(2, 2, alice)) // net 1: opens the window
 	require.NoError(t, err)
+	e.Advance(pool.Window - time.Minute)
+	_, err = unshield(t, e, topup(3, 50, alice)) // net 49: the bucket is now full (50)
+	require.NoError(t, err)
+	e.Advance(2 * time.Minute)                   // 24h+1m after the first outflow
+	_, err = unshield(t, e, topup(4, 51, alice)) // net 50 more, 2 minutes after the 49
+	require.ErrorIs(t, err, pool.ErrCapExhausted, "99 net left the pool in 2 minutes against a cap of 50 per 24h")
 }
 
 func TestUnshield_burnedFeesAreExemptButATipCountsAgainstTheCap(t *testing.T) {

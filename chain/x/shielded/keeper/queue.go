@@ -57,10 +57,10 @@ func (k Keeper) queuedUpTo(ctx context.Context, limit int) ([]types.QueuedUnshie
 	return out, err
 }
 
-// serveQueue pays the queue once per 24h window. The window's capacity is what the cap leaves,
-// split pro rata by amount and capped per address, so no request at the head of the queue can
-// take the whole window. A request whose target refuses the payment stays queued and an event says
-// so; the other requests are still paid.
+// serveQueue pays the queue at most once per 24h. The capacity is what the cap leaves of the
+// drained bucket, split pro rata by amount and capped per address, so no request at the head of
+// the queue can take the whole window. A request whose target refuses the payment stays queued and
+// an event says so; the other requests are still paid.
 func (k Keeper) serveQueue(ctx sdk.Context) error {
 	waiting, err := k.queueHasEntries(ctx)
 	if err != nil || !waiting {
@@ -71,15 +71,11 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 	if err != nil {
 		return err
 	}
-	lim.Roll(ctx.BlockTime())
-	if stored.ServedWindowStart == lim.Start.Unix() {
-		return k.saveLimiter(ctx, key, lim, stored)
+	now := ctx.BlockTime().Unix()
+	if stored.ServedWindowStart != 0 && now < stored.ServedWindowStart+pool.WindowSeconds {
+		return nil
 	}
 	p, err := k.params(ctx)
-	if err != nil {
-		return err
-	}
-	reqs, err := k.queuedUpTo(ctx, MaxServedPerWindow)
 	if err != nil {
 		return err
 	}
@@ -87,8 +83,13 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 	if err != nil {
 		return err
 	}
-	capacity := pool.CapAmount(balance, p.UnshieldFloor).Sub(lim.Counted)
-	grants := grantsByOwner(capacity, p.QueuePerAddressCap, reqs)
+	limit := pool.CapAmount(balance, p.UnshieldFloor)
+	lim.Roll(ctx.BlockTime(), limit)
+	reqs, err := k.queuedUpTo(ctx, MaxServedPerWindow)
+	if err != nil {
+		return err
+	}
+	grants := grantsByOwner(lim.Remaining(limit), p.QueuePerAddressCap, reqs)
 	for _, q := range reqs {
 		grant := math.MinInt(grants[q.Owner], q.Amount)
 		if !grant.IsPositive() {
@@ -99,7 +100,7 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 			lim.Counted = lim.Counted.Add(grant)
 		}
 	}
-	stored.ServedWindowStart = lim.Start.Unix()
+	stored.ServedWindowStart = now
 	return k.saveLimiter(ctx, key, lim, stored)
 }
 

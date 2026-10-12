@@ -26,7 +26,7 @@ Because ORAMA leaves the pool only into the owner's own bond or fee balance, the
 ## Rules that protect the pool
 
 - **Turnstile.** The pool can never pay out more than went in.
-- **24 hour cap.** Net outflow is at most 2% of the pool (or 1 ORAMA if larger) per rolling 24 hours. The 2% is an ossified constant. Over-cap `BOND` and `NODE_BOND` unshields are queued and served once a window, pro rata, up to 1,000 payments per window. There is no cancel message.
+- **24 hour cap.** Net outflow is at most 2% of the pool (or 1 ORAMA if larger) per 24 hours, counted as a leaky bucket that holds one cap and drains one cap per 24 hours, so the cap never resets all at once. The 2% is an ossified constant. Over-cap `BOND` and `NODE_BOND` unshields are queued and served at most once per 24 hours, pro rata, up to 1,000 payments each time. There is no cancel message.
 - **Nullifiers.** Each spent note's nullifier is recorded in a separate append-only database next to the chain data. The app hash commits to a running SHA-256 of that set and a count, and the node refuses to start if the database does not match.
 - **One pool.** Only vintage 1 and the native asset exist. There is no migration message and no multi-asset mode.
 

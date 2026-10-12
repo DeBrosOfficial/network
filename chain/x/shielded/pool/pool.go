@@ -17,7 +17,7 @@ const (
 	// UnshieldFloor is the minimum 24h outflow when 2% of the pool is smaller
 	// than one ORAMA. Amounts are norama.
 	UnshieldFloor int64 = 1_000_000_000
-	// Window is the rolling cap period.
+	// Window is the period over which the cap drains back.
 	Window = 24 * time.Hour
 )
 
@@ -145,21 +145,54 @@ const (
 	OutcomeReject
 )
 
-// Limiter is the rolling 24h net-outflow counter for one pool.
+// WindowSeconds is Window in whole seconds, the unit the limiter counts time in.
+const WindowSeconds = int64(Window / time.Second)
+
+// Limiter is the net-outflow counter for one pool: a leaky bucket that holds at most one cap and
+// drains one cap per Window. Counted is the level and Start is the instant the drain has been
+// accounted up to, so the bucket never resets all at once.
 type Limiter struct {
 	Start   time.Time
 	Counted math.Int
 }
 
-// Roll opens a new window when there is none or the current one has run its 24 hours.
-func (l *Limiter) Roll(now time.Time) {
+// Roll drains the bucket for the time since Start at cap per Window, in whole norama. Start moves
+// forward only by the time the drained norama stand for, rounded up, so a short interval that
+// drains nothing is kept and added to the next one; a bucket that drains empty restarts at now.
+func (l *Limiter) Roll(now time.Time, cap math.Int) {
 	if l.Counted.IsNil() {
 		l.Counted = math.ZeroInt()
 	}
-	if l.Start.IsZero() || !now.Before(l.Start.Add(Window)) {
+	if l.Start.IsZero() || !l.Counted.IsPositive() {
 		l.Start = now
-		l.Counted = math.ZeroInt()
+		return
 	}
+	elapsed := now.Unix() - l.Start.Unix()
+	if elapsed <= 0 || !cap.IsPositive() {
+		return
+	}
+	drained := cap.MulRaw(elapsed).QuoRaw(WindowSeconds)
+	if !drained.IsPositive() {
+		return
+	}
+	if drained.GTE(l.Counted) {
+		l.Counted = math.ZeroInt()
+		l.Start = now
+		return
+	}
+	used := drained.MulRaw(WindowSeconds).Add(cap).SubRaw(1).Quo(cap) // ceil(drained * Window / cap)
+	l.Counted = l.Counted.Sub(drained)
+	l.Start = l.Start.Add(time.Duration(used.Int64()) * time.Second)
+}
+
+// Remaining is what the bucket still takes under cap right now; call Roll first. It is never
+// negative, even when the cap fell below the level because the pool shrank.
+func (l *Limiter) Remaining(cap math.Int) math.Int {
+	left := cap.Sub(l.Counted)
+	if left.IsNegative() {
+		return math.ZeroInt()
+	}
+	return left
 }
 
 // Apply updates the limiter. Fee burns are exempt. Adapter and fee top-ups
@@ -168,12 +201,12 @@ func (l *Limiter) Apply(now time.Time, poolBalance, floor, amount math.Int, kind
 	if !amount.IsPositive() {
 		return OutcomeReject, ErrAmount
 	}
-	l.Roll(now)
+	cap := CapAmount(poolBalance, floor)
+	l.Roll(now, cap)
 	if kind == KindFeeBurn {
 		return OutcomeAllow, nil
 	}
-	cap := CapAmount(poolBalance, floor)
-	if l.Counted.Add(amount).GT(cap) {
+	if amount.GT(l.Remaining(cap)) {
 		if kind == KindBond || kind == KindDeposit {
 			return OutcomeQueue, nil
 		}

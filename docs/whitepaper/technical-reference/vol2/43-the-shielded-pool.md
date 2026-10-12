@@ -42,7 +42,7 @@ Second, the private way to pay a person is the pool, and using it is optional. A
 
 **Two verifiers.** The cgo library `orchard` and the out-of-process binary `orchard-process` (`orama-orchard-verifier`). `verify.Check` needs `verify.MinVerifiers` (2) with distinct IDs, and all must accept.
 
-**Window and queue.** The unshield cap is counted in a rolling 24 hour window per pool. An unshield to a bond that does not fit, or that arrives behind a non-empty queue, waits in the queue; the end blocker pays the queue once per window.
+**Bucket and queue.** The unshield cap is a leaky bucket per pool: it holds at most one cap and drains one cap per 24 hours. An unshield to a bond that does not fit, or that arrives behind a non-empty queue, waits in the queue; the end blocker pays the queue at most once per 24 hours.
 
 ## How it works
 
@@ -163,7 +163,7 @@ Neither runs inside a block, and neither affects state: a block verifies every b
 
 ![MsgUnshield: targets, the 24 hour cap, the queue and the window](../diagrams/ch43-unshield.svg)
 
-The cap bounds what a counterfeiter can take out, whether through unshields or through tips. For a pool with balance B, the net outflow in a rolling 24 hour window may not exceed `max(2% of B, unshield_floor)`, with B read before the outflow (`chain/x/shielded/pool/pool.go:CapAmount`, `Limiter.Apply`). The fraction is a constant of the code (`UnshieldNumerator`, `UnshieldDenominator`), not a parameter. The window opens with the first outflow and rolls when 24 hours of block time have passed. Fee burns are exempt; anything that becomes spendable counts.
+The cap bounds what a counterfeiter can take out, whether through unshields or through tips. For a pool with balance B, the bucket level, the net outflow not yet drained, may not exceed `max(2% of B, unshield_floor)`, with B read before the outflow (`chain/x/shielded/pool/pool.go:CapAmount`, `Limiter.Apply`). The fraction is a constant of the code (`UnshieldNumerator`, `UnshieldDenominator`), not a parameter. The level drains by one cap per 24 hours of block time, in whole norama and exact integer arithmetic (`Limiter.Roll`): the limiter keeps the level and the instant the drain has been accounted up to, and moves that instant forward only by the time the drained norama stand for, rounded up, so blocks too short to drain a whole norama are not lost. There is no moment at which the counter resets, so two caps cannot leave the pool on either side of a boundary. What the bound is: a burst of at most one cap, and after it at most one cap per 24 hours, so any interval of length T carries at most one cap plus T/24h of a cap. Fee burns are exempt; anything that becomes spendable counts.
 
 `MsgUnshield` has a target, and the signer must own it. There is no beneficiary field, and a plain user bank account is never a target:
 
@@ -178,7 +178,7 @@ The flow of `ExecuteUnshield`: reject the unlinked targets; refuse a top-up over
 
 A bond that arrives while the queue is non-empty waits its turn and takes no cap. A top-up never waits.
 
-`serveQueue` runs in the end blocker once per window (the limiter records `served_window_start`). Capacity is what the cap leaves, `CapAmount(balance, floor) - counted`. It is split by `pool.Serve`: one request per address (the sum of that address's requests), pro rata by amount, capped per address at `queue_per_address_cap`, and never above what remains, so a request at the head cannot hold the window. Capacity left after the per-address cap is not redistributed. At most `MaxServedPerWindow` (1000) requests are read, oldest first, so the end blocker's work does not grow with the queue. A grant is paid FIFO across that address's requests. Each payment runs in a cache context; if the target refuses (a validator that no longer exists, a retired node, a delegation that would be dust) the cache is dropped, the request stays queued and the block emits `shielded_queue_payment_failed` with its id, owner and reason. The other requests are still paid.
+`serveQueue` runs in the end blocker at most once per 24 hours (the limiter records the time of the last service in `served_window_start`). Capacity is what the cap leaves of the drained bucket, `Limiter.Remaining(CapAmount(balance, floor))`. It is split by `pool.Serve`: one request per address (the sum of that address's requests), pro rata by amount, capped per address at `queue_per_address_cap`, and never above what remains, so a request at the head cannot hold the window. Capacity left after the per-address cap is not redistributed. At most `MaxServedPerWindow` (1000) requests are read, oldest first, so the end blocker's work does not grow with the queue. A grant is paid FIFO across that address's requests. Each payment runs in a cache context; if the target refuses (a validator that no longer exists, a retired node, a delegation that would be dust) the cache is dropped, the request stays queued and the block emits `shielded_queue_payment_failed` with its id, owner and reason. The other requests are still paid.
 
 ### Wallet side
 
@@ -194,7 +194,7 @@ Two details of the derivation: the coin type `0x4F52414D` is the ASCII "ORAM" (1
 |---|---|---|---|---|
 | `Params` | the eight parameters | genesis only | every check | IAVL, prefix 0 |
 | `Pools` | balance per (vintage, asset) | shield, transfer, unshield | cap, invariants, queries | IAVL, prefix 1 |
-| `Limiters` | window start, counted, served window start | unshield, tips, queue | cap, `serveQueue` | IAVL, prefix 2 |
+| `Limiters` | drain instant (`window_start`), bucket level (`counted`), time of last queue service | unshield, tips, queue | cap, `serveQueue` | IAVL, prefix 2 |
 | `Queue` | `QueuedUnshield` by id | unshield, `serveQueue` | end blocker, invariants | IAVL, prefix 3 |
 | `NextQueueID` | the queue sequence | `enqueue` | `enqueue` | IAVL, prefix 4 |
 | `Frontier`, `TreeSize`, `CurrentRoot` | the tree's right edge, its size and root | `appendCommitments` | `Append`, `recordAnchor` | IAVL, prefixes 5, 6, 7 |
@@ -215,7 +215,7 @@ Queries, all point lookups (`chain/x/shielded/keeper/grpc_query.go`): `Params`, 
 
 **Boot.** `buildShielded` opens the nullifier database and constructs the verifiers. On a node with a chain id, it builds the library and the process verifier and warms both, so neither verifying key is built inside a consensus handler. If the library is linked, the process verifier must start too: a node that cannot verify must not serve blocks. If the binary is absent or the library not linked, a node of a stagenet, testnet or mainnet chain refuses to start: it would vote on proposals it never verified and fork itself off at the first shielded transaction it executes. Only a localnet or a scripted devnet (a localnet or devnet chain id by `params.ClassOfChainID`, `chain/app/shielded_verifiers.go:verifiersOptional`) starts, logs that it accepts no shielded bundle, and refuses every bundle with `ErrVerifierNotLinked`. An app with no chain id, the throwaway instance the CLI builds to read module metadata, gets no verifiers. After the app is built, `checkShieldedStoreAtStart` folds the nullifier database against the committed state.
 
-**Normal operation.** Per block: transactions execute, each bundle marks its nullifiers pending and folds the accumulator; the end blocker (ordered before `x/staking`, so a bond the queue pays is seen by that block's validator set) refills the mempool budget, serves the queue if a window is due, writes the block's nullifiers and records the anchor.
+**Normal operation.** Per block: transactions execute, each bundle marks its nullifiers pending and folds the accumulator; the end blocker (ordered before `x/staking`, so a bond the queue pays is seen by that block's validator set) refills the mempool budget, serves the queue if 24 hours have passed since it last did, writes the block's nullifiers and records the anchor.
 
 **Rolling upgrade.** The module is at consensus version 1 and has no migration. A change to the tree, the sighash, the accumulator fold or the verification rules is state-breaking and has to ride a governed chain upgrade ([global nodes](37-global-nodes.md#cosmovisor-staging)). The verifier pin is linked into `oramad`, so a new verifier binary arrives with a new `oramad`; a node whose binary differs from the pin does not run it.
 
@@ -294,7 +294,7 @@ At 10x load the first bottleneck is verification, not storage. Every validator v
 
 ### The cap counts tips
 
-*Chosen:* a transfer's tip counts against the 24 hour cap and fails the transfer when it does not fit. *Rejected:* exempting fees from the cap. *Why:* the tip becomes a proposer's spendable earnings, so exempting it would turn the proposer role into a way around the cap.
+*Chosen:* a transfer's tip counts against the cap and fails the transfer when it does not fit. *Rejected:* exempting fees from the cap. *Why:* the tip becomes a proposer's spendable earnings, so exempting it would turn the proposer role into a way around the cap.
 
 ### Bonds queue; top-ups fail
 
@@ -322,7 +322,7 @@ At 10x load the first bottleneck is verification, not storage. Every validator v
 
 **Unit tests** (all in `make test`; those marked need an `orchardffi` build):
 
-- `chain/x/shielded/keeper/`: `TestShield_fundsThePoolAndBurnsTheNullifierFee`, `TestTransfer_replayIsRefused`, `TestTransfer_anchorMustBeInTheWindow`, `TestTransfer_emptyTreeAnchorIsAlwaysValid`, `TestTransfer_everyVerifierMustAccept`, `TestTransfer_aTipOverTheCapFailsSoAProposerCannotDrainThePoolThroughFees`, `TestUnshield_theTargetIsTheSignerAndNobodyElse`, `TestUnshield_bondOverTheCapQueuesAndKeepsTheCoinsInTheModule`, `TestQueue_nextWindowServesRequestsProRataByAmount`, `TestQueue_perAddressCapBindsAWhaleWithManyRequests`, `TestQueue_aRefusingTargetKeepsItsRequestAndOthersStillPay`, `TestNullifiers_aReplayedBlockDoesNotSeeItsOwnRecords`, `TestInvariants_detectADriftedAccumulator`, `TestAdmission_aBundleThatFailedItsProofCostsOneVerification`, `TestSignerless_aBlockHoldsAtMostTheParamsLimit`, `TestGenesis_aRestoredChainRefusesAReplayedNullifier`.
+- `chain/x/shielded/keeper/`: `TestShield_fundsThePoolAndBurnsTheNullifierFee`, `TestTransfer_replayIsRefused`, `TestTransfer_anchorMustBeInTheWindow`, `TestTransfer_emptyTreeAnchorIsAlwaysValid`, `TestTransfer_everyVerifierMustAccept`, `TestTransfer_aTipOverTheCapFailsSoAProposerCannotDrainThePoolThroughFees`, `TestUnshield_capHoldsAcrossTheWindowBoundary`, `TestUnshield_theCapDrainsBackGraduallyOver24Hours`, `TestUnshield_theTargetIsTheSignerAndNobodyElse`, `TestUnshield_bondOverTheCapQueuesAndKeepsTheCoinsInTheModule`, `TestQueue_nextWindowServesRequestsProRataByAmount`, `TestQueue_perAddressCapBindsAWhaleWithManyRequests`, `TestQueue_aRefusingTargetKeepsItsRequestAndOthersStillPay`, `TestNullifiers_aReplayedBlockDoesNotSeeItsOwnRecords`, `TestInvariants_detectADriftedAccumulator`, `TestAdmission_aBundleThatFailedItsProofCostsOneVerification`, `TestSignerless_aBlockHoldsAtMostTheParamsLimit`, `TestGenesis_aRestoredChainRefusesAReplayedNullifier`.
 - `chain/x/shielded/ante/`: `TestSignerless_refusesEverythingThatWouldIdentifyOrPaySomeone`, `TestSignerless_gasLimitMustBeExactlyTheBundlesGas`, `TestShape_shieldedMessagesMustBeAlone`, `TestProof_checkStateVerifiesAndMarksBlocksDoNot`.
 - `chain/x/shielded/nullifier/`, `snapshot/`, `verify/`, `pool/`, `bundle/`: `TestStore_replayOfAHeightReplacesItsRecords`, `TestStore_rollbackHidesAndThenDropsLaterHeights`, `TestRestore_refusesWhatDoesNotFoldToTheCommittedAccumulator`, `TestOneVerifierIsNotEnough`, `TestSameVerifierTwiceIsNotTwoVerifiers`, `TestTurnstileUnderflowAndMigration`, `TestServeCapsTheWhale`, `TestParse_refusesWhatTheVerifiersRefuse`.
 - `chain/app/` (real proofs, `orchardffi` build): `TestShieldedReal_shieldTransferUnshieldThroughFinalizeBlock`, `TestShieldedReal_anUnshieldCannotBeRedirected`, `TestShieldedReal_aBlockReplayedAfterACrashIsIdentical`, `TestShieldedReal_aKilledVerifierProcessIsRestartedForTheNextBlock`, `TestShieldedReal_aNodeRefusesToStartWithAVerifierBinaryThatIsNotItsPin`, `TestShieldedReal_aNodeRefusesToStartWithAMissingOrShortNullifierDatabase`, `TestShielded_buildWithoutTheVerifierAcceptsNoBundle`, `TestWalletFlow_publicUserToUserNoramaSendIsRefused`.
