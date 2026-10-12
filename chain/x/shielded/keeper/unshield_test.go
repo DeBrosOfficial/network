@@ -250,19 +250,54 @@ func queued(t *testing.T, e *testutil.Env) []types.QueuedUnshield {
 	return gs.Queue
 }
 
-func TestQueue_nextWindowServesRequestsProRataByAmount(t *testing.T) {
+func TestQueue_nextWindowServesRequestsOldestFirst(t *testing.T) {
 	e := capEnv(t, func(gs *types.GenesisState) { gs.Params.QueuePerAddressCap = math.NewInt(1000) })
 	queueTwo(t, e)
 	nextWindow(e)
 
-	// The cap is 50; alice and bob each asked for 40, so each is paid 50 x 40/80 = 25.
-	require.Equal(t, "25", delegated(e, alice))
-	require.Equal(t, "25", delegated(e, bob))
+	// The cap is 50; alice (first in line) asked 40 and is paid in full, bob gets the 10 left.
+	require.Equal(t, "40", delegated(e, alice))
+	require.Equal(t, "10", delegated(e, bob))
 	rest := queued(t, e)
-	require.Len(t, rest, 2)
-	for _, q := range rest {
-		require.Equal(t, "15", q.Amount.String(), "40 asked, 25 paid")
+	require.Len(t, rest, 1)
+	require.Equal(t, bob.String(), rest[0].Owner)
+	require.Equal(t, "30", rest[0].Amount.String(), "40 asked, 10 paid")
+	requireInvariants(t, e)
+}
+
+func TestQueue_aSmallBondIsNotStarvedByAWhale(t *testing.T) {
+	e := capEnv(t, func(gs *types.GenesisState) { gs.Params.QueuePerAddressCap = math.NewInt(1000) })
+	e.Bonder.Minimum = math.NewInt(10)
+	_, err := unshield(t, e, topup(2, 51, alice)) // spend the cap so both bonds queue
+	require.NoError(t, err)
+	resp, err := unshield(t, e, bond(3, 11, bob)) // bob: 10 net, first in line
+	require.NoError(t, err)
+	require.True(t, resp.Queued)
+	resp, err = unshield(t, e, bond(4, 901, alice)) // the whale: 900 net
+	require.NoError(t, err)
+	require.True(t, resp.Queued)
+	nextWindow(e)
+	require.Equal(t, "10", delegated(e, bob), "capacity 50 covers bob's 10; a pro rata share was 0")
+	require.Equal(t, "40", delegated(e, alice), "the whale gets what is left")
+}
+
+func TestQueue_aPartBelowTheDelegationMinimumIsNotIssued(t *testing.T) {
+	e := capEnv(t, func(gs *types.GenesisState) { gs.Params.QueuePerAddressCap = math.NewInt(1000) })
+	e.Bonder.Minimum = math.NewInt(10)
+	_, err := unshield(t, e, topup(2, 51, alice)) // spend the cap
+	require.NoError(t, err)
+	carol := sdk.AccAddress([]byte("carol_______________"))
+	for i, who := range []sdk.AccAddress{alice, bob, carol} {
+		amount := []int64{46, 21, 16}[i] // net 45, 20, 15
+		resp, err := unshield(t, e, bond(byte(3+i), amount, who))
+		require.NoError(t, err)
+		require.True(t, resp.Queued)
 	}
+	nextWindow(e)
+	require.Equal(t, "45", delegated(e, alice), "paid in full")
+	require.Equal(t, "0", delegated(e, bob), "the 5 left would be a part below the minimum of 10: not issued")
+	require.Equal(t, "0", delegated(e, carol), "the same for the next request")
+	require.Len(t, queued(t, e), 2, "both keep their whole request for the next window")
 	requireInvariants(t, e)
 }
 
@@ -271,9 +306,9 @@ func TestQueue_isServedOncePerWindow(t *testing.T) {
 	queueTwo(t, e)
 	nextWindow(e)
 	e.Blocks(5)
-	require.Equal(t, "25", delegated(e, alice), "more blocks in the same window pay nothing more")
+	require.Equal(t, "10", delegated(e, bob), "more blocks in the same window pay nothing more")
 	nextWindow(e)
-	require.Equal(t, "40", delegated(e, alice), "the next window pays the rest")
+	require.Equal(t, "40", delegated(e, bob), "the next window pays the rest")
 	require.Empty(t, queued(t, e))
 	requireInvariants(t, e)
 }
@@ -292,9 +327,9 @@ func TestQueue_perAddressCapBindsAWhaleWithManyRequests(t *testing.T) {
 	require.True(t, resp.Queued)
 	nextWindow(e)
 
-	// capacity 50 over 90 asked: the whale would get 44, so it is cut to 30; bob gets 5.
+	// capacity 50 over 90 asked, oldest first: the whale is cut to its per-address cap of 30, bob is paid in full.
 	require.Equal(t, "30", delegated(e, alice), "the per-address cap binds however many requests it queued")
-	require.Equal(t, "5", delegated(e, bob))
+	require.Equal(t, "10", delegated(e, bob))
 	var alices []string
 	for _, q := range queued(t, e) {
 		if q.Owner == alice.String() {

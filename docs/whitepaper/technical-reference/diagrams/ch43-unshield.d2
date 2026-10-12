@@ -5,11 +5,11 @@ target: "target?" {shape: diamond}
 topup: "fee top-up:\nnet at most max_fee_topup?" {shape: diamond}
 fail: "whole tx fails\nnothing is queued"
 waiting: "queue non-empty and target is a bond?" {shape: diamond}
-cap: "applyCap\nLimiter.Apply: counted + net at most\nmax(2% of pool, unshield_floor)?" {shape: diamond}
+cap: "applyCap\nLimiter.Apply: bucket level + net at most\nmax(2% of pool, unshield_floor)?" {shape: diamond}
 pay: "pay now\nmodule account to owner, then delegate or bond or credit fee balance"
 queue: "enqueue QueuedUnshield\ncoins stay in the module account"
-window: "EndBlock: serveQueue\nonce per 24 h window"
-grant: "pool.Serve\npro rata by amount, per address cap,\nat most 1000 requests"
+window: "EndBlock: serveQueue\nat most once per 24 h"
+grant: "pool.Serve\noldest first, per address cap,\nno part below the delegation minimum,\nat most 1000 requests"
 paid: "payQueued in a cache context\nrefusal keeps the request and emits an event"
 
 msg -> target

@@ -58,9 +58,9 @@ func (k Keeper) queuedUpTo(ctx context.Context, limit int) ([]types.QueuedUnshie
 }
 
 // serveQueue pays the queue at most once per 24h. The capacity is what the cap leaves of the
-// drained bucket, split pro rata by amount and capped per address, so no request at the head of
-// the queue can take the whole window. A request whose target refuses the payment stays queued and
-// an event says so; the other requests are still paid.
+// drained bucket, served oldest first and capped per address, so no address takes more than its
+// cap and a bond is never paid in a part the delegation minimum would refuse. A request whose
+// target refuses the payment stays queued and an event says so; the other requests are still paid.
 func (k Keeper) serveQueue(ctx sdk.Context) error {
 	waiting, err := k.queueHasEntries(ctx)
 	if err != nil || !waiting {
@@ -89,14 +89,16 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 	if err != nil {
 		return err
 	}
-	grants := grantsByOwner(lim.Remaining(limit), p.QueuePerAddressCap, reqs)
-	for _, q := range reqs {
-		grant := math.MinInt(grants[q.Owner], q.Amount)
-		if !grant.IsPositive() {
-			continue
-		}
-		grants[q.Owner] = grants[q.Owner].Sub(grant)
-		if k.payQueued(ctx, q, grant) {
+	poolReqs := make([]pool.Request, len(reqs))
+	for i, q := range reqs {
+		poolReqs[i] = pool.Request{Address: q.Owner, Amount: q.Amount}
+	}
+	grants := pool.Serve(lim.Remaining(limit), p.QueuePerAddressCap, poolReqs, func(i int, grant math.Int) bool {
+		return k.partPaymentFits(ctx, reqs[i], grant)
+	})
+	for i, q := range reqs {
+		grant := grants[i].Amount
+		if grant.IsPositive() && k.payQueued(ctx, q, grant) {
 			lim.Counted = lim.Counted.Add(grant)
 		}
 	}
@@ -104,27 +106,19 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 	return k.saveLimiter(ctx, key, lim, stored)
 }
 
-// grantsByOwner runs pool.Serve over one request per owner, so the per-address cap binds an
-// address however many requests it queued.
-func grantsByOwner(capacity, perAddress math.Int, reqs []types.QueuedUnshield) map[string]math.Int {
-	var owners []string
-	wanted := map[string]math.Int{}
-	for _, q := range reqs {
-		if _, ok := wanted[q.Owner]; !ok {
-			owners = append(owners, q.Owner)
-			wanted[q.Owner] = math.ZeroInt()
-		}
-		wanted[q.Owner] = wanted[q.Owner].Add(q.Amount)
+// partPaymentFits reports whether paying only grant of a queued bond would be accepted by its
+// target. A part payment below the delegation minimum would be refused when paid, and issuing it
+// would spend the window's capacity on nothing. The minimum of a node bond is checked by x/nodes
+// only when the bond is made.
+func (k Keeper) partPaymentFits(ctx sdk.Context, q types.QueuedUnshield, grant math.Int) bool {
+	if q.Target != types.UnshieldTargetBond {
+		return true
 	}
-	poolReqs := make([]pool.Request, len(owners))
-	for i, o := range owners {
-		poolReqs[i] = pool.Request{Address: o, Amount: wanted[o]}
+	owner, err := sdk.AccAddressFromBech32(q.Owner)
+	if err != nil {
+		return true
 	}
-	out := map[string]math.Int{}
-	for _, g := range pool.Serve(capacity, perAddress, poolReqs) {
-		out[g.Address] = g.Amount
-	}
-	return out
+	return k.deps.Bonder.CheckMinimum(ctx, owner, q.Validator, grant) == nil
 }
 
 // payQueued pays grant of one queued request in a cache context and reports whether it went out.

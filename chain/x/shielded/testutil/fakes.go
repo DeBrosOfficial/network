@@ -221,9 +221,14 @@ func NewBonder(bank *Bank) *Bonder {
 	return &Bonder{Bank: bank, Delegated: map[string]math.Int{}, Minimum: math.ZeroInt()}
 }
 
-// CheckMinimum implements the shielded Bonder.
-func (b *Bonder) CheckMinimum(_ sdk.Context, _ sdk.AccAddress, _ string, amount math.Int) error {
-	if amount.LT(b.Minimum) {
+// CheckMinimum implements the shielded Bonder: like the real bonder it judges the delegation the
+// amount would make together with what the delegator already holds with the validator.
+func (b *Bonder) CheckMinimum(_ sdk.Context, delegator sdk.AccAddress, validator string, amount math.Int) error {
+	total := amount
+	if cur, ok := b.Delegated[delegator.String()+"/"+validator]; ok {
+		total = total.Add(cur)
+	}
+	if total.LT(b.Minimum) {
 		return errors.New("delegation below the minimum")
 	}
 	return nil
@@ -233,6 +238,9 @@ func (b *Bonder) CheckMinimum(_ sdk.Context, _ sdk.AccAddress, _ string, amount 
 func (b *Bonder) Delegate(ctx sdk.Context, delegator sdk.AccAddress, validator string, amount math.Int) error {
 	if b.Fail != nil {
 		return b.Fail
+	}
+	if err := b.CheckMinimum(ctx, delegator, validator, amount); err != nil {
+		return err
 	}
 	if err := b.Bank.move(delegator.String(), "bonded", sdk.NewCoins(sdk.NewCoin(params.BaseDenom, amount))); err != nil {
 		return err
