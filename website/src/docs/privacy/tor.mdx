@@ -73,7 +73,7 @@ Reads (`orama chain`) do not go through Tor yet.
 
 Add `--onion-network <tor-network.json>` (or `ORAMA_ONION_NETWORK`) instead of `--onion` to have the command start a Tor client for the Orama Tor network for that one run, pick one of the file's `validator_onions` at random and stop the client afterwards. `--onion-socks` together with `--onion-network` is a usage error, since they are two Tor clients.
 
-The server side is an onion service on a validator, installed with `orama global install --services onion`. It forwards to `orama maint global txgate`, which serves three calls and nothing else of the chain's REST API: read the signer's account, broadcast, and look a transaction up. It logs no request. The wallet's proxy for it must be a client of the Orama Tor network, not the public one, which resolves none of its addresses.
+The server side is an onion service on a validator, installed with `orama global install --services onion`. It forwards to `orama maint global txgate`, which serves three calls and nothing else of the chain's REST API: read the signer's account, broadcast, and look a transaction up. It logs no request. A broadcast body is capped (`MaxBody`, 144,916 bytes) at what a shielded transaction needs, so only shielded-size transactions go over the onion; a larger one, such as a `MsgStoreCode` carrying a contract, is refused and has to be broadcast through a gateway. The wallet's proxy for it must be a client of the Orama Tor network, not the public one, which resolves none of its addresses.
 
 ## Orama's own Tor network
 

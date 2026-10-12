@@ -11,6 +11,16 @@ What a rolling upgrade does differently when it crosses a release that changes h
 - A new end-of-block conservation check that halts the chain on a violation.
 - The genesis defaults of the shielded anchor window (now 17,280 blocks a day, 24 hours) and the archive retention window (now 14 days of blocks, 241,920), which count blocks of the chain's one interval of 5 seconds.
 - The exact chain-id rule: a test network's id is `orama-[<name>-]<localnet|devnet|stagenet>-<id>` and nothing else.
+- Relay registration proofs use new (v2) signing domains, so a relay registered or rotated with the earlier proof is refused.
+- Storage deals are deleted once they finish (expired or refunded), and their expiry is read from new indexes instead of a walk of every deal and slot. Genesis refuses a deal in a terminal status and node reserved bytes that differ from the sum of the piece bytes of the node's replicas.
+- The shielded unshield cap is a leaky bucket (it holds half a cap and drains half a cap a day), a tip over the cap is burned instead of failing the transfer, and the queue behind the cap is served oldest first and never in a part below the delegation minimum. A queued request whose target refuses it no longer uses the window's capacity, and after three refusals in a row it is refunded to the signer's bank balance and removed.
+- Storing wasm code burns `deposit_per_byte` per uncompressed byte from the signer's bank balance (the code fee). Any number of accounts can pay a contract's state deposit; the ledger has new indexes and running totals (a payer index and per-contract and global totals), and a payer who shrinks a contract is refunded from its own chunk first.
+- `SoftwareUpgrade` carries an `info` field (field 3) naming the checksums of the `oramad` and the shielded verifier, and a URL with `checksum=` outside its query is refused.
+- Production genesis locks the `auth`, `bank` and `wasm` parameters, the validator key type and the evidence window, and `InitChain` validates the consensus parameters of every chain that is not a localnet.
+- The note-commitment subtree roots are chain state (new `Subtrees` store and the `SubtreeRoots` and `TreeFrontier` queries), genesis carries them, and every bundle event carries the size of the tree before its append. The transaction that fills a subtree is charged no gas for storing the root.
+- The Go cap on a shielded bundle (`bundle.MaxBytes`) is lower: it is the size of a bundle of 32 actions, 103,823 bytes, and not 1 MiB.
+
+**No upgrade handler exists for any of this, and none of the new indexes or stores is backfilled.** A chain that was running before this nightly has no payer index, no running deposit totals, no deal expiry index and no subtree roots, and the code does not build them: the first block that needs one fails or the validators disagree. This nightly must never run on existing state. Create the network fresh.
 
 `orama setup --create-network` writes the new network's manifest and defaults its `--min-version` to the version of the CLI that created it, so a node older than that CLI cannot join the new network. The manifest has no field that marks a release as requiring a chain created after a commit (`VERSION` did not change at this commit), so no tool stops you from staging this build over an old chain: this note is the guard.
 
