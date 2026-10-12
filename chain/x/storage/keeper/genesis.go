@@ -124,6 +124,15 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gen types.GenesisState) error {
 	if err := k.rebuildFromSlots(ctx); err != nil {
 		return err
 	}
+	// x/nodes initializes first and owns the reserved bytes: they must be exactly the piece bytes of
+	// the replicas this genesis binds, or the first detach would release bytes nobody reserved.
+	ok, detail, err := k.reservedMatchesReplicas(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check the nodes' reserved bytes against the genesis replicas: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("invalid storage genesis: %s", detail)
+	}
 	return nil
 }
 

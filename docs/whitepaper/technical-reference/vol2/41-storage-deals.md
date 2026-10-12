@@ -65,6 +65,8 @@ The module accounts are three: `storage` (the reserve for queued mint payments, 
 
 There is no `MsgUpdateParams`. The 21 parameters (`chain/x/storage/types/params.go`) are fixed at genesis.
 
+**Genesis checks.** `GenesisState.Validate` refuses a deal in a terminal status (`EXPIRED` or `REFUNDED`): a finished deal is deleted with its slots, so an export never carries one. `InitGenesis` runs after x/nodes and, once the replica index is rebuilt, runs the same check as the invariant `reservedMatchesReplicas`: the bytes x/nodes reserved on each node must equal the piece bytes of the replicas the genesis binds to it (a node with reserved bytes and no replica fails too), and fit its declared capacity. A mismatch refuses the genesis, because the first detach would release bytes nobody reserved.
+
 The queries are `Params`, `Deal`, `Deals`, `Slot`, `Authorization`, `Challenges`, `EpochMint`, `Queue`, `NodeFailures` and `Invariants`. `Deals` pages through the deals in id order, or newest first with `pagination.reverse`, at most 100 a page by the page key; a deal is deleted with its slots once it has ended and its settlement rows have drained, so the list holds only deals still running, a finished deal answers `Deal` and `Slot` with not found, and ids count up from 1 and are never reused. `storage_deal_finished` (deal id and `REFUNDED` or `EXPIRED`) is the record that a deal ended. The gateway's public chain route serves all but `Invariants`, which walks every deal and is withheld (`core/pkg/gateway/handlers/chainread/query.go`).
 
 ## How it works

@@ -64,6 +64,9 @@ func (gs GenesisState) Validate() error {
 		if d.PricePerEpoch.IsNil() || !d.PricePerEpoch.IsPositive() {
 			return fmt.Errorf("deal %d price must be positive", d.Id)
 		}
+		if d.Status == DealStatus_DEAL_STATUS_EXPIRED || d.Status == DealStatus_DEAL_STATUS_REFUNDED {
+			return fmt.Errorf("deal %d is %s: a finished deal is deleted, so a genesis does not carry one", d.Id, d.Status)
+		}
 	}
 	seenFailures := map[[2]string]bool{}
 	for _, f := range gs.FailureCounts {

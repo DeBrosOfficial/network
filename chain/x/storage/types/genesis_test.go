@@ -29,6 +29,23 @@ func TestGenesisValidate_penaltyRowMustPayNothing(t *testing.T) {
 	require.ErrorContains(t, genesisWithSettlement(types.Settlement{Seq: 0, PenaltyOnly: true, Proved: true}).Validate(), "must be a miss that pays nothing")
 }
 
+// A finished deal is deleted with its slots, so a genesis that carries one is not an export of this
+// chain: its slots would hold node capacity no deal is left to release.
+func TestGenesisValidate_refusesADealInATerminalStatus(t *testing.T) {
+	deal := func(status types.DealStatus) *types.GenesisState {
+		gs := types.DefaultGenesisState()
+		gs.NextDealId = 2
+		gs.Deals = []types.Deal{{Id: 1, Escrow: math.ZeroInt(), PricePerEpoch: math.NewInt(1), Status: status}}
+		return gs
+	}
+	for _, status := range []types.DealStatus{types.DealStatus_DEAL_STATUS_EXPIRED, types.DealStatus_DEAL_STATUS_REFUNDED} {
+		require.ErrorContains(t, deal(status).Validate(), "finished", status.String())
+	}
+	for _, status := range []types.DealStatus{types.DealStatus_DEAL_STATUS_OPEN, types.DealStatus_DEAL_STATUS_ACTIVE} {
+		require.NoError(t, deal(status).Validate(), status.String())
+	}
+}
+
 func TestGenesisValidate_retryFieldsAreAccepted(t *testing.T) {
 	gs := genesisWithSettlement(types.Settlement{Seq: 0, Proved: true, Attempts: 2, NotBeforeEpoch: 9})
 	require.NoError(t, gs.Validate())
