@@ -91,7 +91,7 @@ func messageJSON(cdc *codec.ProtoCodec, m *codectypes.Any) (json.RawMessage, err
 }
 
 // firstSigner is the account of the first signature's public key, or empty when
-// the transaction carries none.
+// the transaction carries none (or a public key with no type, which is none).
 func firstSigner(cdc *codec.ProtoCodec, auth txtypes.AuthInfo) (string, error) {
 	if len(auth.SignerInfos) == 0 || auth.SignerInfos[0].PublicKey == nil {
 		return "", nil
@@ -100,11 +100,31 @@ func firstSigner(cdc *codec.ProtoCodec, auth txtypes.AuthInfo) (string, error) {
 	if err := cdc.UnpackAny(auth.SignerInfos[0].PublicKey, &pk); err != nil {
 		return "", fmt.Errorf("unpack signer public key: %w", err)
 	}
-	signer, err := bech32.ConvertAndEncode(params.Bech32Prefix, pk.Address().Bytes())
+	if pk == nil {
+		// An Any with no type URL unpacks to no key and no error.
+		return "", nil
+	}
+	addr, err := addressOf(pk)
+	if err != nil {
+		return "", err
+	}
+	signer, err := bech32.ConvertAndEncode(params.Bech32Prefix, addr)
 	if err != nil {
 		return "", fmt.Errorf("encode signer address: %w", err)
 	}
 	return signer, nil
+}
+
+// addressOf is the key's address. A key type's Address panics on a key of the wrong length (the SDK
+// checks the length where it verifies a signature, not where it unpacks a key), and the bytes of a
+// transaction the chain refused are anyone's, so a panic here is a malformed key.
+func addressOf(pk cryptotypes.PubKey) (addr []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			addr, err = nil, fmt.Errorf("malformed signer public key: %v", r)
+		}
+	}()
+	return pk.Address().Bytes(), nil
 }
 
 func typeURLs(msgs []*codectypes.Any) []string {
