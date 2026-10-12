@@ -7,6 +7,7 @@ pub mod address;
 pub mod bench;
 pub mod bundle;
 pub mod keys;
+pub mod notes;
 pub mod scenario;
 pub mod sighash;
 pub mod tree;

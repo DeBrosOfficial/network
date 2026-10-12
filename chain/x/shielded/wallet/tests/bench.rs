@@ -2,7 +2,8 @@
 //! refuses must be refused for the right reason.
 
 use orama_orchard::{verify, OK};
-use orama_shielded_wallet::bench::{decode_note, encode_note, run, OutputSpec, Request, ShieldJob, SpendJob, SpendRef};
+use orama_shielded_wallet::notes::{decode_note, encode_note};
+use orama_shielded_wallet::bench::{run, OutputSpec, Request, ShieldJob, SpendJob, SpendRef};
 use orama_shielded_wallet::sighash::{sighash, unshield_binding, Target};
 
 const CHAIN: &str = "orama-localnet-bench-1";
