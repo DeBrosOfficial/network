@@ -52,7 +52,8 @@ func sanitizeLog(log string) string {
 	if len(out) > logMaxRunes {
 		out = out[:logMaxRunes]
 	}
-	return string(out)
+	// The cut can leave the whitespace that sat before the cut point at the end.
+	return strings.TrimSpace(string(out))
 }
 
 // sanitizeCodespace returns the codespace if it has the shape of one, and "" otherwise.
