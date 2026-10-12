@@ -47,6 +47,26 @@ func (t Tree) EmptyRoot() ([NodeLen]byte, error) {
 	return root, err
 }
 
+// SubtreeRoot is the root of the 2^16-leaf subtree that the last leaf of the frontier closes. It
+// refuses an empty frontier and one whose tree size is not a multiple of 2^16.
+func (Tree) SubtreeRoot(frontier []byte) ([NodeLen]byte, error) {
+	var root [NodeLen]byte
+	if len(frontier) == 0 {
+		return root, ErrTreeRejected
+	}
+	code := C.orama_orchard_tree_subtree_root(
+		bytePtr(frontier), C.size_t(len(frontier)), (*C.uint8_t)(unsafe.Pointer(&root[0])),
+	)
+	switch int32(code) {
+	case C.ORAMA_ORCHARD_OK:
+		return root, nil
+	case C.ORAMA_ORCHARD_MALFORMED:
+		return root, ErrTreeRejected
+	default:
+		return root, fmt.Errorf("%w: tree subtree root result code %d", verify.ErrVerifierFault, int32(code))
+	}
+}
+
 func bytePtr(b []byte) *C.uint8_t {
 	if len(b) == 0 {
 		return nil

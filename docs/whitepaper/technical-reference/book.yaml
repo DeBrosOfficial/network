@@ -500,6 +500,7 @@ volumes:
             verified: "0.3.0"
             owns:
               - chain/x/shielded/
+              - core/pkg/shieldedaddr/
           - file: vol2/44-governance-and-contracts.md
             title: Governance and contracts
             template: subsystem

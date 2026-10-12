@@ -100,6 +100,10 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.serveAccount(w, r, segs[1])
 	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "txs":
 		a.serveAccountTxs(w, r, segs[1])
+	case len(segs) == 2 && segs[0] == "shielded" && segs[1] == "actions":
+		a.serveShieldedActions(w, r)
+	case len(segs) == 2 && segs[0] == "shielded" && segs[1] == "subtree-roots":
+		a.serveSubtreeRoots(w, r)
 	case len(segs) == 3 && segs[0] == "cnft" && segs[1] == "assets":
 		a.serveAsset(w, r, segs[2])
 	case len(segs) == 4 && segs[0] == "cnft" && segs[1] == "owners" && segs[3] == "assets":

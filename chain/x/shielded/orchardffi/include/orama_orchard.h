@@ -51,6 +51,16 @@ int32_t orama_orchard_tree_append(const uint8_t *frontier, size_t frontier_len,
                                   uint8_t *out_frontier, size_t out_cap, size_t *out_len,
                                   uint8_t *out_root);
 
+/*
+ * The root of the 2^16-leaf subtree that the last leaf of a note-commitment tree frontier closes.
+ * `frontier` is non-empty and its position must have its low 16 bits all set (the tree size is a
+ * multiple of 65536); writes the 32-byte root to `out_root`. Returns ORAMA_ORCHARD_OK,
+ * ORAMA_ORCHARD_MALFORMED (bad frontier, or the last leaf does not close a subtree),
+ * ORAMA_ORCHARD_PANIC or ORAMA_ORCHARD_BAD_ARGUMENT.
+ */
+int32_t orama_orchard_tree_subtree_root(const uint8_t *frontier, size_t frontier_len,
+                                        uint8_t *out_root);
+
 #ifdef __cplusplus
 }
 #endif

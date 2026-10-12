@@ -32,9 +32,21 @@ const (
 	pathTxPrefix      = "/cosmos/tx/v1beta1/txs/"
 	pathBroadcast     = "/cosmos/tx/v1beta1/txs"
 
-	// MaxBody bounds a broadcast request. A transaction with a shielded proof
+	// maxShieldedBundle is the size of the largest shielded bundle the protocol allows, a canonical
+	// bundle of its ceiling of 32 actions (chain/x/shielded/bundle MaxBytes, which pins the same
+	// number; one of the default 16 actions is 53,325 bytes). A transaction with a shielded proof
 	// is the largest the chain accepts.
-	MaxBody = 512 << 10
+	maxShieldedBundle = 103_823
+	// txEnvelopeAllowance is what the transaction around a bundle may add: the message's signer and
+	// fields, the auth info with a public key and the signatures, a memo and a fee. A real one is
+	// well under a kilobyte; the allowance is four.
+	txEnvelopeAllowance = 4 << 10
+	// jsonAllowance is the JSON around the base64 of a transaction in a broadcast request:
+	// {"tx_bytes":"...","mode":"BROADCAST_MODE_SYNC"} is under 64 bytes.
+	jsonAllowance = 1 << 10
+	// MaxBody bounds a broadcast request: the base64 of the largest transaction the chain accepts,
+	// and the JSON around it. TestMaxBody_* pins the relations.
+	MaxBody = (maxShieldedBundle+txEnvelopeAllowance+2)/3*4 + jsonAllowance
 	// maxResponse bounds what the gate copies back from the chain API.
 	maxResponse = 1 << 20
 

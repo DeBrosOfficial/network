@@ -24,6 +24,19 @@ const (
 
 	// VintageOrchardV1 is the only circuit vintage today: orchard 0.15.5, PostNu6_3.
 	VintageOrchardV1 uint32 = 1
+
+	// SubtreeLeaves is the number of leaves in one subtree whose root the module reports when it
+	// fills: 2^16, the shard size of the Orchard note-commitment tree (lightwalletd's
+	// GetSubtreeRoots, zcash SHARD_HEIGHT 16). It is the SUBTREE_LEVEL of the Rust tree code.
+	SubtreeLeaves uint64 = 1 << 16
+
+	// EventTypeSubtreeComplete is emitted when an appended commitment fills a subtree. Its
+	// attributes are AttributeSubtreeIndex (the subtree's number, from 0) and AttributeSubtreeRoot
+	// (its root, lowercase hex). The event is not state: nothing in the app hash depends on it, and
+	// the indexer reads it to serve the subtree roots (chain/indexer).
+	EventTypeSubtreeComplete = "shielded_subtree_complete"
+	AttributeSubtreeIndex    = "index"
+	AttributeSubtreeRoot     = "root"
 )
 
 // The collections prefixes of the IAVL store.

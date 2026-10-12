@@ -29,6 +29,11 @@ func FuzzOrchardTreeAppend(f *testing.F) {
 	f.Add(good[:len(good)-1], []byte{}, uint8(0))
 	f.Add(bytes.Repeat([]byte{0xff}, MaxFrontierLen), bytes.Repeat([]byte{3}, NodeLen), uint8(0))
 	f.Fuzz(func(t *testing.T, frontier, flat []byte, split uint8) {
+		// Whatever the bytes, asking for a subtree root returns: a root, or ErrTreeRejected (a
+		// frontier that does not decode or does not close a subtree).
+		if _, err := tree.SubtreeRoot(frontier); err != nil && !errors.Is(err, ErrTreeRejected) {
+			t.Fatalf("SubtreeRoot answered bytes with %v", err)
+		}
 		n := len(flat) / NodeLen
 		if n > 8 {
 			n = 8

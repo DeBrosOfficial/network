@@ -84,6 +84,7 @@ var publicQuery = names(
 	"orama.relay.v1.Query/OperatorRelays", // an operator's relays with their last payout, paged like Relays
 	"orama.relay.v1.Query/RelayPayouts",   // one epoch's payouts, paged like Relays
 	"orama.shielded.v1.Query/Params", "orama.shielded.v1.Query/TreeState", "orama.shielded.v1.Query/NullifierSpent",
+	"orama.shielded.v1.Query/TreeFrontier", // a constant-size read: the stored frontier, at most 1,064 bytes
 	"orama.storage.v1.Query/Params", "orama.storage.v1.Query/Deal", "orama.storage.v1.Query/Slot",
 	"orama.storage.v1.Query/Authorization", "orama.storage.v1.Query/Challenges", "orama.storage.v1.Query/EpochMint",
 	"orama.storage.v1.Query/Queue", "orama.storage.v1.Query/NodeFailures",

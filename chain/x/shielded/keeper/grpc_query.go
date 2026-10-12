@@ -69,6 +69,26 @@ func (q queryServer) TreeState(ctx context.Context, _ *types.QueryTreeStateReque
 	}, nil
 }
 
+// TreeFrontier answers the right edge of the note-commitment tree with the size and root it
+// belongs to, read together so they describe one tree.
+func (q queryServer) TreeFrontier(ctx context.Context, _ *types.QueryTreeFrontierRequest) (*types.QueryTreeFrontierResponse, error) {
+	frontier, err := getBytes(ctx, q.Frontier)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	root, err := getBytes(ctx, q.CurrentRoot)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	size, err := getUint64(ctx, q.TreeSize)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &types.QueryTreeFrontierResponse{
+		Height: uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()), TreeSize: size, CurrentRoot: root, Frontier: frontier,
+	}, nil
+}
+
 func (q queryServer) NullifierSpent(ctx context.Context, req *types.QueryNullifierSpentRequest) (*types.QueryNullifierSpentResponse, error) {
 	var nf [bundle.NodeLen]byte
 	if copy(nf[:], req.Nullifier) != bundle.NodeLen || len(req.Nullifier) != bundle.NodeLen {

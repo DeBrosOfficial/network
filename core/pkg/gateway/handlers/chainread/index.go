@@ -24,6 +24,10 @@ const (
 
 	indexMaxLimit = 100
 	indexMaxPage  = 1000
+	// indexMaxActionsLimit and indexMaxSubtreesLimit are the most actions or subtree roots one
+	// page of the shielded scanning routes holds (chain/indexer ActionsMaxLimit, SubtreesMaxLimit).
+	indexMaxActionsLimit  = 1000
+	indexMaxSubtreesLimit = 1000
 	// indexMaxListPage is the deepest numbered page of the long lists (blocks, transactions, an
 	// account's transactions, an owner's assets, an account's rewards), chain/indexer MaxListPage;
 	// past it they are read by cursor.
@@ -78,6 +82,10 @@ func (p *Proxy) serveIndex(w http.ResponseWriter, r *http.Request, rest string) 
 		q, ok = cursorListQuery(r, rewardCursorPattern)
 	case queryTxList:
 		q, ok = txListQuery(r)
+	case queryShieldedActions:
+		q, ok = shieldedActionsQuery(r)
+	case queryShieldedSubtrees:
+		q, ok = shieldedSubtreesQuery(r)
 	default:
 		ok = r.URL.RawQuery == ""
 	}
@@ -145,6 +153,8 @@ const (
 	queryAssetList
 	queryRewardList
 	queryTxList
+	queryShieldedActions
+	queryShieldedSubtrees
 )
 
 // indexRoute returns the upstream path after /index/v1/ and the query the route
@@ -173,6 +183,10 @@ func indexRoute(segs []string) (string, int, bool) {
 		return "accounts/" + segs[1] + "/txs", queryTxList, accountPattern.MatchString(segs[1])
 	case len(segs) == 3 && segs[0] == "accounts" && segs[2] == "rewards":
 		return "accounts/" + segs[1] + "/rewards", queryRewardList, accountPattern.MatchString(segs[1])
+	case len(segs) == 2 && segs[0] == "shielded" && segs[1] == "actions":
+		return "shielded/actions", queryShieldedActions, true
+	case len(segs) == 2 && segs[0] == "shielded" && segs[1] == "subtree-roots":
+		return "shielded/subtree-roots", queryShieldedSubtrees, true
 	case len(segs) == 3 && segs[0] == "cnft" && segs[1] == "assets":
 		return "cnft/assets/" + strings.ToLower(segs[2]), queryNone, hash32Pattern.MatchString(segs[2])
 	case len(segs) == 4 && segs[0] == "cnft" && segs[1] == "owners" && segs[3] == "assets":
@@ -228,6 +242,58 @@ var assetCursorPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{59}$`)
 // bytes, and a validator operator address of 21 to 427 characters, so 39 to 580 characters
 // (chain/indexer/cursor_keys.go). The indexer decodes and checks it again.
 var rewardCursorPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{39,580}$`)
+
+// shieldedActionsQuery accepts from_height (a positive height) and limit (1 to indexMaxActionsLimit),
+// each at most once, and nothing else. The indexer checks them again.
+func shieldedActionsQuery(r *http.Request) (url.Values, bool) {
+	q, ok := singleQuery(r, "from_height", "limit")
+	if !ok {
+		return nil, false
+	}
+	out := url.Values{}
+	if raw := q.Get("from_height"); raw != "" {
+		n, good := parsePositive(raw)
+		if !good {
+			return nil, false
+		}
+		out.Set("from_height", strconv.FormatInt(n, 10))
+	}
+	if raw := q.Get("limit"); raw != "" {
+		n, good := parsePositive(raw)
+		if !good || n > indexMaxActionsLimit {
+			return nil, false
+		}
+		out.Set("limit", strconv.FormatInt(n, 10))
+	}
+	return out, true
+}
+
+// subtreeIndexPattern is a subtree index: a non-negative integer of at most 18 digits.
+var subtreeIndexPattern = regexp.MustCompile(`^(0|[1-9][0-9]{0,17})$`)
+
+// shieldedSubtreesQuery accepts start_index (from 0) and limit (1 to indexMaxSubtreesLimit), each at
+// most once, and nothing else.
+func shieldedSubtreesQuery(r *http.Request) (url.Values, bool) {
+	q, ok := singleQuery(r, "start_index", "limit")
+	if !ok {
+		return nil, false
+	}
+	out := url.Values{}
+	if raw := q.Get("start_index"); raw != "" {
+		if !subtreeIndexPattern.MatchString(raw) {
+			return nil, false
+		}
+		out.Set("start_index", raw)
+	}
+	if raw := q.Get("limit"); raw != "" {
+		n, good := parsePositive(raw)
+		if !good || n > indexMaxSubtreesLimit {
+			return nil, false
+		}
+		out.Set("limit", strconv.FormatInt(n, 10))
+	}
+	return out, true
+}
 
 // txListQuery accepts the block list's query and filter, each at most once, and nothing else.
 func txListQuery(r *http.Request) (url.Values, bool) {

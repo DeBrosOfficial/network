@@ -264,6 +264,7 @@ Source: `chain/proto/orama/shielded/v1/query.proto`
 | `Params` `/orama/shielded/v1/params` | none |  |
 | `Pools` `/orama/shielded/v1/pools` | none |  |
 | `TreeState` `/orama/shielded/v1/tree-state` | none |  |
+| `TreeFrontier` `/orama/shielded/v1/tree-frontier` | none |  |
 | `NullifierSpent` `/orama/shielded/v1/nullifier-spent` | `nullifier bytes` |  |
 | `Invariants` `/orama/shielded/v1/invariants` | none |  |
 

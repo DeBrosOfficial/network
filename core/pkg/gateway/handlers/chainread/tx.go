@@ -29,7 +29,9 @@ const (
 	broadcastPath = "broadcast"
 
 	// txMaxBytes is the largest transaction either route takes: CometBFT's default mempool
-	// max_tx_bytes, which the chain does not change. A larger one is refused before it is sent.
+	// max_tx_bytes, which the chain does not change. A larger one is refused before it is sent. It is
+	// the cap for every kind of transaction, not for shielded ones: the largest of those is about
+	// 108 KB (tx_size_test.go).
 	txMaxBytes = 1 << 20
 	// txMaxBody bounds the request body: the base64 of txMaxBytes and the JSON around it.
 	txMaxBody = txMaxBytes/3*4 + 4 + 1<<10

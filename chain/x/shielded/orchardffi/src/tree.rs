@@ -81,3 +81,26 @@ pub fn append(frontier: &[u8], commitments: &[u8]) -> Option<(Vec<u8>, [u8; NODE
     }
     Some((encode(&tree), tree.root().to_bytes()))
 }
+
+/// The height of a subtree whose root the chain reports when it fills: 2^16 leaves, the shard
+/// height of the Orchard shard tree (zcash `SHARD_HEIGHT`).
+pub const SUBTREE_LEVEL: u8 = 16;
+
+type Subtree = Frontier<MerkleHashOrchard, SUBTREE_LEVEL>;
+
+/// The root of the 2^16-leaf subtree whose last leaf is the last leaf of `frontier`. `None` when
+/// the frontier does not decode, is empty, or its last leaf does not close a subtree (the low 16
+/// bits of its position are not all ones). The subtree's levels 0..15 are read off the frontier's
+/// lowest ommers, which are the left siblings on the path of that last leaf.
+pub fn subtree_root(frontier: &[u8]) -> Option<[u8; NODE_LEN]> {
+    let tree = decode(frontier)?;
+    let edge = tree.value()?;
+    let position = u64::from(edge.position());
+    let mask = (1u64 << SUBTREE_LEVEL) - 1;
+    if position & mask != mask {
+        return None;
+    }
+    let ommers = edge.ommers()[..SUBTREE_LEVEL as usize].to_vec();
+    let subtree = Subtree::from_parts(Position::from(mask), *edge.leaf(), ommers).ok()?;
+    Some(subtree.root().to_bytes())
+}

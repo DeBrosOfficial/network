@@ -14,6 +14,7 @@ import (
 	"github.com/DeBrosOfficial/network/chain/app/params"
 	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
 )
 
@@ -60,6 +61,16 @@ func (Tree) Append(frontier []byte, cmx [][bundle.NodeLen]byte) ([]byte, [bundle
 		return nil, emptyRoot, nil
 	}
 	return next, sha256.Sum256(next), nil
+}
+
+// SubtreeRoot is the SHA-256 of the last SubtreeLeaves commitments of the frontier. It refuses a
+// frontier that is not a whole number of subtrees long, as the real tree does.
+func (Tree) SubtreeRoot(frontier []byte) ([bundle.NodeLen]byte, error) {
+	size := int(types.SubtreeLeaves) * bundle.NodeLen
+	if len(frontier) == 0 || len(frontier)%size != 0 {
+		return [bundle.NodeLen]byte{}, fmt.Errorf("the test tree holds %d commitments, not a whole number of subtrees", len(frontier)/bundle.NodeLen)
+	}
+	return sha256.Sum256(frontier[len(frontier)-size:]), nil
 }
 
 // RootAfter is the root of a test tree holding these commitments in order.

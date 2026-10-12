@@ -8,7 +8,7 @@
 
 Nothing forces value into the pool. A bank send of norama between plain accounts is an ordinary public payment, earnings can be withdrawn to a bank balance (`MsgWithdrawEarnings`) and sent in the open, and a user who never shields is a normal user of the chain. The pool is for people who want a payment to show no sender, recipient or amount.
 
-The tools make that choice explicit and default to the private side. `orama chain send <to> <amount>` and the SDK's `chain.transfer({ to, amount })` are private unless you pass `--public` or `public: true`, so a payment cannot become public by omission, and they never fall back to a public payment when the private one cannot be built. Building a shielded bundle needs the owner's shielded spending key (see Keys below), and the RootWallet cannot do that yet, so today a private send through the CLI stops with that explanation. A wallet or tool that holds the key builds the bundle itself and passes it to the SDK as its `shielded` option.
+The tools make that choice explicit and default to the private side. `orama chain send <to> <amount>` and the SDK's `chain.transfer({ to, amount })` are private unless you pass `--public` or `public: true`, so a payment cannot become public by omission, and they never fall back to a public payment when the private one cannot be built. A private send names a shielded address (`oramas1...`, see [Shielded addresses](#shielded-addresses)); an `orama1...` account is refused with the way to pay it openly. Building a shielded bundle needs the owner's shielded spending key (see Keys below), and the RootWallet cannot do that yet, so today a private send through the CLI stops with that explanation. A wallet or tool that holds the key builds the bundle itself and passes it to the SDK as its `shielded` option.
 
 ## Messages
 
@@ -37,7 +37,7 @@ Because ORAMA leaves the pool only into the owner's own bond or fee balance, the
 | `anchor_window_blocks` | 17,280 (24 hours at the chain's 5 s block interval) |
 | `nullifier_fee` | 0.001 ORAMA per nullifier, burned |
 | `action_gas` | 250,000 (an unmeasured placeholder) |
-| `max_actions_per_bundle` | 16 |
+| `max_actions_per_bundle` | 16 (at most 32, the protocol ceiling `bundle.MaxActions`) |
 | `unshield_floor` | 1 ORAMA |
 | `max_fee_topup` | 0.01 ORAMA |
 | `queue_per_address_cap` | 100 ORAMA |
@@ -45,11 +45,27 @@ Because ORAMA leaves the pool only into the owner's own bond or fee balance, the
 
 A transfer's fee (its value balance) must be at least `base fee x action_gas x actions + nullifier fee x actions`. The base and nullifier parts are burned and any remainder is a tip to the proposer, up to what the unshield cap has left; the part of a tip over that is burned as well, and the transfer still succeeds.
 
-Proof sizes: a 1-action bundle is 5,985 bytes and a 2-action bundle 9,141 bytes. Verifying a 1-action bundle takes about 5.6 ms on an Apple M3 with 8 threads; Linux is not measured.
+Bundle sizes: a canonical bundle of `n` actions is exactly `1 + 820n + 41 + 3 + (2,720 + 2,272n) + 64(n + 1)` bytes (the action count, 820 bytes per action, 41 of flags, value balance and anchor, the proof behind its length, one signature per action and the binding signature; the two length fields are 1 and 3 bytes up to 16 actions and 5 bytes for the proof from 29). A 1-action bundle is 5,985 bytes, a 2-action bundle 9,141 and one of the default 16 actions **53,325 bytes**. The ceiling of 32 actions is **103,823 bytes**, which is the most a node reads of a bundle (`bundle.MaxBytes`); a transaction around it adds well under a kilobyte, and the onion transaction gate (`core/pkg/txgate`) takes a request of 144,916 bytes at most, the base64 and JSON of the largest such transaction. The gateway's own 1 MiB is the chain's mempool limit for every kind of transaction. Verifying a 1-action bundle takes about 5.6 ms on an Apple M3 with 8 threads; Linux is not measured.
 
 ## Keys
 
 Wallet-side shielded keys are derived with ZIP-32 hardened-only derivation from a RootWallet branch of the seed (HKDF salt `orama-shielded-v1`). RootWallet does not use them yet, and its agent refuses shielded messages.
+
+## Shielded addresses
+
+A shielded address is the 43 raw bytes of an Orchard address (an 11-byte diversifier and the 32-byte transmission key) written in **Bech32m** ([BIP-350](https://github.com/bitcoin/bips/blob/master/bip-0350.mediawiki)) with the human-readable part `oramas`: `oramas1` and 75 characters, 82 in all, in lowercase. A reader also takes it in all capitals (for a QR code) and refuses a mix of cases. It is not an `orama1...` account address, which names a public account; the two never convert into each other.
+
+A string is checked in this order, and the first check that fails is the reason: mixed case, no `1` separator, a prefix other than `oramas`, a character outside the Bech32 alphabet, a data part other than 75 characters, the Bech32m checksum (an address with the original Bech32 checksum fails here) and a non-zero padding bit. The reasons have the same names in the three implementations: `mixed_case`, `no_separator`, `wrong_prefix`, `bad_character`, `wrong_length`, `bad_checksum` and `bad_padding`. They are the Rust wallet crate (`chain/x/shielded/wallet/src/address.rs`), the Go package the CLI uses (`core/pkg/shieldedaddr`) and the SDK (`encodeShieldedAddress`, `decodeShieldedAddress` and `isShieldedAddress` of `@debros/orama/chain`), and all three pass the one committed vector file, `chain/x/shielded/wallet/testdata/addresses/addresses.json`. The codec is structural: any 43 bytes encode, and the Rust wallet also checks, before it pays one, that they are an address Orchard can pay.
+
+## Scanning the pool
+
+A wallet that holds a shielded key finds its notes by reading every action the chain accepted and trial-decrypting it, so the chain indexer serves them in the compact form of [ZIP-307](https://zips.z.cash/zip-0307), and the chain serves the tree's frontier. All of it is public, like the rest of the [chain read API](/docs/blockchain/chain-read-api#scanning-the-shielded-pool):
+
+- **Actions.** `GET /v1/chain/index/shielded/actions?from_height=H&limit=N` returns the blocks from `H` with shielded actions, each with the actions in the order the chain appended their commitments and the size of the tree after the block. An action carries its nullifier, note commitment, ephemeral key, the first 52 bytes of the encrypted note, the 80-byte out ciphertext, the transaction hash and the leaf `position` its commitment took.
+- **Subtree roots.** `GET /v1/chain/index/shielded/subtree-roots?start_index=I&limit=N` returns the roots of the tree's filled 2^16-leaf subtrees, with the block that filled each, in the shape of lightwalletd's `GetSubtreeRoots`. A wallet that keeps a shard tree needs the leaves only of the subtrees it has notes in.
+- **Frontier.** `GET /v1/chain/query/orama.shielded.v1.Query/TreeFrontier` returns the right edge of the tree, its size and its root; the root is the `current_root` of `TreeState` at the same height. The `frontier` bytes are empty for an empty tree and otherwise the position (a little-endian `u64`), the last leaf (32 bytes) and one ommer (32 bytes) for each set bit of the position, lowest level first, which is what a wallet needs to carry the tree on from there. `height` reads an earlier state, within the last 100 blocks.
+
+The chain emits a `shielded_subtree_complete` event (`index`, `root`) in the transaction whose commitments fill a subtree. It is an event, not state, so nothing in the app hash depends on it; the indexer stores each root it sees. The roots are complete from the first subtree the indexer saw filled (`first_index` in the answer), so an index that began after earlier subtrees filled, or on a chain from before the event, has none for them; and the actions are complete from the index's `start_height`, so a wallet that scans from birth needs an indexer that began at the chain's first block.
 
 ## Not built
 
@@ -61,7 +77,7 @@ A node verifies at most 256 bundles between two blocks when it admits transactio
 
 ## Queries
 
-`Params`, `TreeState` and `NullifierSpent` are public. `Pools` and `Invariants` are withheld from the gateway.
+`Params`, `TreeState`, `TreeFrontier` and `NullifierSpent` are public. `Pools` and `Invariants` are withheld from the gateway.
 
 ## What the chain shows
 

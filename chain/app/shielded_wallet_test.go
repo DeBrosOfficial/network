@@ -19,6 +19,7 @@ import (
 	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
 	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
 )
 
 const walletScenarioPath = "../x/shielded/wallet/testdata/bundles/scenario.json"
@@ -70,8 +71,19 @@ func (c *shieldedChain) grantEarnings(t *testing.T, who sdk.AccAddress, amount i
 func (c *shieldedChain) treeRoot(t *testing.T) []byte {
 	t.Helper()
 	ctx := c.app.NewContextLegacy(true, cmtprotoHeader(c.height, c.blockTime(c.height)))
-	resp, err := keeper.NewQueryServerImpl(c.app.ShieldedKeeper).TreeState(ctx, &shieldedtypes.QueryTreeStateRequest{})
+	q := keeper.NewQueryServerImpl(c.app.ShieldedKeeper)
+	resp, err := q.TreeState(ctx, &shieldedtypes.QueryTreeStateRequest{})
 	require.NoError(t, err)
+	// The frontier a wallet downloads is the tree the chain has built: same root, same size, and
+	// folding its leaf and ommers upward gives that root (decoded by the Rust tree code the chain
+	// appends with).
+	fr, err := q.TreeFrontier(ctx, &shieldedtypes.QueryTreeFrontierRequest{})
+	require.NoError(t, err)
+	require.Equal(t, resp.CurrentRoot, fr.CurrentRoot)
+	require.Equal(t, resp.TreeSize, fr.TreeSize)
+	_, root, err := orchard.NewTree().Append(fr.Frontier, nil)
+	require.NoError(t, err)
+	require.Equal(t, resp.CurrentRoot, root[:], "appending nothing to the downloaded frontier reads back the chain's root")
 	return resp.CurrentRoot
 }
 

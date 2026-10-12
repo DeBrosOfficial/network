@@ -3,6 +3,7 @@
 //! Wallet-side only. This crate proves; nodes only verify (`../orchardffi`). It is not a
 //! dependency of `oramad` and is never linked into it.
 
+pub mod address;
 pub mod bench;
 pub mod bundle;
 pub mod keys;

@@ -197,3 +197,27 @@ pub unsafe extern "C" fn orama_orchard_tree_append(
         }
     }
 }
+
+/// C entry point for the root of a filled 2^16-leaf subtree. See `include/orama_orchard.h`.
+///
+/// # Safety
+/// `frontier` must be valid for `frontier_len` bytes and `out_root` for 32 writable bytes.
+#[no_mangle]
+pub unsafe extern "C" fn orama_orchard_tree_subtree_root(
+    frontier: *const u8,
+    frontier_len: usize,
+    out_root: *mut u8,
+) -> i32 {
+    if frontier.is_null() || frontier_len == 0 || out_root.is_null() {
+        return BAD_ARGUMENT;
+    }
+    let frontier_in = slice::from_raw_parts(frontier, frontier_len);
+    match catch_unwind(AssertUnwindSafe(|| tree::subtree_root(frontier_in))) {
+        Err(_) => PANIC,
+        Ok(None) => MALFORMED,
+        Ok(Some(root)) => {
+            slice::from_raw_parts_mut(out_root, tree::NODE_LEN).copy_from_slice(&root);
+            OK
+        }
+    }
+}

@@ -115,6 +115,33 @@ func TestRateLimitMiddleware_indexReadsHaveTheirOwnBucket(t *testing.T) {
 	}
 }
 
+// A wallet that scans the shielded pool reads many pages: those routes draw on the same per-client
+// index bucket as every other index read, so a scanner cannot exceed it.
+func TestRateLimitMiddleware_shieldedScanningRoutesDrawOnTheIndexBucket(t *testing.T) {
+	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
+	g := &Gateway{
+		logger:                logger,
+		rateLimiter:           NewRateLimiter(100000, 100000),
+		chainIndexRateLimiter: NewRateLimiter(60, 3),
+	}
+	served := 0
+	handler := g.rateLimitMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { served++ }))
+
+	var lastCode int
+	for _, path := range []string{
+		"/v1/chain/index/shielded/actions?from_height=1&limit=1000", "/v1/chain/index/shielded/subtree-roots",
+		"/v1/chain/index/shielded/actions?from_height=900", "/v1/chain/index/shielded/actions?from_height=1800",
+		"/v1/chain/index/shielded/subtree-roots?start_index=3",
+	} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, behindCaddy(t, "10.0.0.1, 198.51.100.7", path))
+		lastCode = w.Code
+	}
+	if served != 3 || lastCode != http.StatusTooManyRequests {
+		t.Errorf("served %d of 5 scanning reads with last code %d; want the burst of 3 and a 429", served, lastCode)
+	}
+}
+
 func TestChainIndexRateLimiter_isFarAboveABrowsingPersonAndFarBelowTheGeneralBucket(t *testing.T) {
 	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
 	g := &Gateway{logger: logger}

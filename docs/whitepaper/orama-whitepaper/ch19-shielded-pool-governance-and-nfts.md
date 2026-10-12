@@ -3,7 +3,7 @@
 > **At a glance.**
 >
 > - **What:** the private payment layer (`x/shielded`, Orchard notes with Halo 2 proofs), the governance and contract layer (`x/houses`, `x/wasmpolicy`, CosmWasm), and compressed NFTs with a marketplace (`x/cnft`, `x/market`). All three keep money out of the public graph and give nobody an administrative key.
-> - **Key numbers:** bundle at most 1 MiB and 16 actions; two verifiers must agree; unshield cap per 24 h is the larger of 2% of the pool and 1 ORAMA; token quorum 40%, operator house of at least 21, timelocks 14, 7 and 60 days; contract state deposit 68,359 norama per byte; NFT tree depth up to 30, mint batch 64.
+> - **Key numbers:** bundle of 16 actions by default and 32 at most (53,325 and 103,823 bytes); two verifiers must agree; unshield cap per 24 h is the larger of 2% of the pool and 1 ORAMA; token quorum 40%, operator house of at least 21, timelocks 14, 7 and 60 days; contract state deposit 68,359 norama per byte; NFT tree depth up to 30, mint batch 64.
 > - **Code:** `chain/x/shielded/`, `chain/x/houses/`, `chain/x/cnft/`.
 
 ## The shielded pool

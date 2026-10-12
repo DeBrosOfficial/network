@@ -8,6 +8,7 @@ import (
 	"cosmossdk.io/math"
 
 	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
 )
 
@@ -47,6 +48,27 @@ func TestParamsValidate_zeroCountIsRefused(t *testing.T) {
 	p := types.DefaultParams()
 	p.MaxActionsPerBundle = 0
 	require.ErrorContains(t, p.Validate(), "max_actions_per_bundle")
+}
+
+// max_actions_per_bundle is bounded by the protocol ceiling every size limit is derived from: the
+// default is inside it, the ceiling itself is valid, and one more action is refused.
+func TestParamsValidate_actionCeiling(t *testing.T) {
+	require.LessOrEqual(t, types.DefaultMaxActions, uint32(bundle.MaxActions))
+	p := types.DefaultParams()
+	p.MaxActionsPerBundle = bundle.MaxActions
+	p.ActionGas = 1
+	require.NoError(t, p.Validate())
+	p.MaxActionsPerBundle = bundle.MaxActions + 1
+	require.ErrorContains(t, p.Validate(), "protocol ceiling")
+}
+
+// The bundle a default-limit transaction carries is far below the bundle ceiling, and a message
+// field accepts one of exactly the ceiling's size and no byte more.
+func TestBundleSizes_defaultLimitAndCeiling(t *testing.T) {
+	require.Equal(t, 53_325, bundle.Len(int(types.DefaultMaxActions)))
+	require.Equal(t, 103_823, bundle.MaxBytes)
+	msg := &types.MsgShield{Signer: "orama1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqmg3rhc", Bundle: make([]byte, bundle.MaxBytes+1)}
+	require.ErrorIs(t, msg.ValidateBasic(), types.ErrBundleSize)
 }
 
 // The anchor window is named as 24 hours: it must last 24 hours at the chain's block interval.
