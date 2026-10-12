@@ -18,7 +18,10 @@ import (
 )
 
 // houseStaking reads bonded stake for the token house. Amounts are norama,
-// converted from shares, not the share count itself.
+// converted from shares, not the share count itself. Delegations lists only the delegations to
+// bonded validators, the set whose tokens make up the bonded pool TotalBondedTokens reads: a
+// delegation to a jailed or unbonding validator holds tokens that are not in that pool, and counting
+// it would push the sum above the pool and fail every tally.
 type houseStaking struct {
 	staking *stakingkeeper.Keeper
 	bank    bankkeeper.BaseKeeper
@@ -46,6 +49,9 @@ func (h houseStaking) Delegations(ctx context.Context) ([]housetypes.BondedDeleg
 		val, err := h.staking.GetValidator(ctx, valAddr)
 		if err != nil {
 			return nil, err
+		}
+		if !val.IsBonded() {
+			continue
 		}
 		delegator, err := sdk.AccAddressFromBech32(del.DelegatorAddress)
 		if err != nil {

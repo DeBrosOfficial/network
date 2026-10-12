@@ -4,7 +4,7 @@
 
 ## Two houses
 
-**The token house** votes with stake. A validator's delegators vote through it by default, and a direct vote moves that stake out of the validator's bucket. Inherited votes are capped at 3% of bonded stake per validator. Quorum is 40% of bonded stake and a proposal passes with more than 50% yes of participating weight. A tie never passes.
+**The token house** votes with stake. Only delegations to bonded validators count: when a validator is jailed or leaves the bonded set, its delegators' stake stops voting until it is back. A validator's delegators vote through it by default, and a direct vote moves that stake out of the validator's bucket. Inherited votes are capped at 3% of bonded stake per validator. Quorum is 40% of bonded stake and a proposal passes with more than 50% yes of participating weight. A tie never passes.
 
 **The operator house** votes with identities, one vote each. An identity is an operator that has:
 

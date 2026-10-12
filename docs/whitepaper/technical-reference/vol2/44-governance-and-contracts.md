@@ -84,7 +84,7 @@ Operator identity comes from `x/nodes`. `houseOperators` takes an operator's /16
 
 - A delegator that voted counts in full with its own option.
 - A delegator that did not vote inherits its validator's vote if the validator's account voted, but a validator's inherited stake counts at most `bonded x 3%` (`DelegatedVoteCapPercent`). A validator's own self-bond does not inherit; it counts only if the validator voted.
-- The delegations may not sum to more than the bonded stake; if they do the tally is rejected for this block.
+- The delegations may not sum to more than the bonded stake; if they do the tally is rejected for this block. The delegations read are those to bonded validators only (`houseStaking.Delegations`), the set whose tokens are in the bonded pool: a jailed or unbonding validator's delegations hold tokens that are not in the pool, carry no vote, and are left out of the sum, so one jailed validator cannot make every tally fail.
 
 A proposal passes the token house (`tokenHousePasses`) when participation (yes plus no plus abstain) is at least `bonded x token_quorum`, yes is strictly greater than no, and yes divided by participation is at least `token_pass_threshold`.
 
@@ -299,7 +299,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 | Hashed upload size | 4 MiB uncompressed | `maxHashedWasmBytes` |
 | Verify-proof query | 20,000 + 3,000 per sibling gas | `VerifyProofBaseGas` |
 
-`Advance` walks every active proposal each block and a tally walks every bonded delegation (`GetAllDelegations`) and every operator, so the cost of the end blocker grows with the number of delegations times the number of open proposals, up to 64. At 10x the delegations, a block that closes several votes at once is the first thing to slow; the tally has no cache. The eligible-set computation reads every operator and every node on each tally and on each operator vote. Contract scale is bounded by gas first. The ledger refund walk is bounded by the 32-chunk cap, which is the reason for the cap.
+`Advance` walks every active proposal each block and a tally walks every delegation (`GetAllDelegations`) and counts those to bonded validators and every operator, so the cost of the end blocker grows with the number of delegations times the number of open proposals, up to 64. At 10x the delegations, a block that closes several votes at once is the first thing to slow; the tally has no cache. The eligible-set computation reads every operator and every node on each tally and on each operator vote. Contract scale is bounded by gas first. The ledger refund walk is bounded by the 32-chunk cap, which is the reason for the cap.
 
 ## Design decisions
 
