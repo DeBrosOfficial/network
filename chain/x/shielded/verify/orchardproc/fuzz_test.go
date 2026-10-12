@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,7 +83,7 @@ func FuzzOrchardVerifyDifferential(f *testing.F) {
 		if verdict(a) != verdict(b) {
 			t.Fatalf("in process: %s (%v); out of process: %s (%v)", verdict(a), a, verdict(b), b)
 		}
-		if class := verdict(a); class == "fault" || class[:5] == "other" {
+		if class := verdict(a); class == "fault" || strings.HasPrefix(class, "other") {
 			t.Fatalf("bytes were answered with %s", class)
 		}
 		if _, perr := bundle.Parse(raw); perr != nil {
