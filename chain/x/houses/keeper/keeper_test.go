@@ -225,17 +225,18 @@ func (r *fakeReporters) ChangeReporters(_ sdk.Context, add, remove []string) err
 type plan struct {
 	name   string
 	height int64
+	info   string
 }
 
 type fakeUpgrades struct {
 	plans []plan
 }
 
-func (u *fakeUpgrades) ScheduleUpgrade(ctx sdk.Context, name string, height int64) error {
+func (u *fakeUpgrades) ScheduleUpgrade(ctx sdk.Context, name string, height int64, info string) error {
 	if height <= ctx.BlockHeight() {
 		return fmt.Errorf("upgrade cannot be scheduled in the past")
 	}
-	u.plans = append(u.plans, plan{name: name, height: height})
+	u.plans = append(u.plans, plan{name: name, height: height, info: info})
 	return nil
 }
 

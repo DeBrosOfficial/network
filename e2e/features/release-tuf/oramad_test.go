@@ -4,6 +4,7 @@ package releasetuf
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,9 +38,16 @@ func releaseTargets(oramad []byte) map[string][]byte {
 // run them, so any file the metadata names will do.
 var oramadContent = []byte("#!/bin/sh\necho e2e-oramad\n")
 
+// oramadArgs is the stage-oramad command for placement ("--genesis" or "--upgrade <name>"). An
+// upgrade is also held to the plan's checksums, read from planInfoPath (the extra server runs no
+// chain to ask).
 func oramadArgs(metaDir, placement string) string {
-	return fmt.Sprintf("global stage-oramad --binary %s --release-metadata %s --release-target %s --verifier %s --verifier-target %s --home %s %s",
+	args := fmt.Sprintf("global stage-oramad --binary %s --release-metadata %s --release-target %s --verifier %s --verifier-target %s --home %s %s",
 		oramadPath, metaDir, oramadTarget, verifierPath, verifierTarget, chainHome, placement)
+	if strings.Contains(placement, "--upgrade") {
+		args += " --plan-info " + planInfoPath
+	}
+	return args
 }
 
 // TestStageOramad_releaseRootRefusalsStageNothing stages a genesis oramad
@@ -65,6 +73,8 @@ func TestStageOramad_releaseRootRefusalsStageNothing(t *testing.T) {
 	}
 	nd.must(t, "cmp "+oramadPath+" "+genesisBinary)
 	nd.must(t, "cmp "+verifierPath+" "+genesisVerifier)
+	// The plan names exactly these files, so what each case below is refused for is the metadata.
+	nd.put(t, planInfoPath, []byte(planInfoJSON(sha256Hex(oramadContent), sha256Hex(verifierContent))), 0o600)
 	for _, c := range refusals(t, repo, oramadTarget, oramadContent, map[string][]byte{verifierTarget: verifierContent}) {
 		t.Run(c.name, func(t *testing.T) {
 			upgrade := "e2e-" + c.name

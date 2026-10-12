@@ -421,6 +421,7 @@ volumes:
             verified: "0.3.0"
             owns:
               - core/pkg/globalnode/
+              - core/pkg/planinfo/
               - core/pkg/globalnetns/
               - core/pkg/globalbind/
               - core/pkg/cosmovisor/

@@ -44,12 +44,14 @@ const (
 	// validatorKeyType is the only validator key type a genesis lists: x/power decodes every bonded
 	// validator's key as raw ed25519 and halts the chain on any other (chain/app/consensus_params.go).
 	validatorKeyType = "ed25519"
-	// evidenceMaxAgeNumBlocks, evidenceMaxAgeDurationNanos and evidenceMaxBytes are the evidence
-	// parameters of the genesis, CometBFT's defaults written out so the genesis does not depend on a
-	// default; chain/app/consensus_params.go refuses any other value on a production chain id
+	// evidenceMaxAgeNumBlocks and evidenceMaxAgeDurationNanos are the evidence window of the genesis:
+	// 14 days, the block retention (x/archive DefaultBlocksIn14Days blocks at the 5-second block
+	// interval; pkg/install chainMinRetainBlocks), since CometBFT can only verify evidence against
+	// blocks a node still holds. evidenceMaxBytes is CometBFT's default written out. chain/app/
+	// consensus_params.go refuses any other value on a production chain id
 	// (TestConsensusConstants_equalTheChainsPins).
-	evidenceMaxAgeNumBlocks     = "100000"
-	evidenceMaxAgeDurationNanos = "172800000000000"
+	evidenceMaxAgeNumBlocks     = "241920"
+	evidenceMaxAgeDurationNanos = "1209600000000000"
 	evidenceMaxBytes            = "1048576"
 	// genesisWorkName is the scratch home's directory beside the chain home.
 	genesisWorkName = "genesis-work"

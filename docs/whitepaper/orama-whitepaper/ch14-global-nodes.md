@@ -30,7 +30,7 @@ The CLI orders the units; systemd only uses `Wants=`. `orama global start` runs 
 
 The chain home belongs to the `orama-chain` account, but root puts binaries in it, and that account could plant a symlink where root is about to write. `core/pkg/cosmovisor/` therefore never resolves a path. It walks to the chain home one component at a time with `O_NOFOLLOW`, copies the binary into a private directory, runs the verifier on the open descriptor, and links it into place with `linkat`, which fails if the name exists. The bytes checked are the bytes installed, and nothing is replaced.
 
-Cosmovisor runs with downloads disabled: a governance plan is data, a binary is code that signs. A plan reaching its height without a staged binary leaves the chain halted. The operator stages each upgrade, with its verifier, using `orama maint global stage-oramad`, verified against the TUF release root.
+Cosmovisor runs with downloads disabled: a governance plan is data, a binary is code that signs. A plan reaching its height without a staged binary leaves the chain halted. The operator stages each upgrade, with its verifier, using `orama maint global stage-oramad`, verified against the TUF release root and held to the sha256 of the `oramad` and verifier that the plan's info names; `orama status` shows whether each node's staged binary matches.
 
 ## The sign floor and moving a key
 

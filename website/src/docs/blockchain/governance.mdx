@@ -21,7 +21,7 @@ A proposal carries exactly one of these.
 | Tier | Type | Meaning |
 |---|---|---|
 | Parameter | `ParameterChange` | Token quorum, pass threshold, voting period, house bond, per-/16 and per-ASN eligibility caps, all inside bounds |
-| Structural | `SoftwareUpgrade` | Name and height of a coordinated upgrade |
+| Structural | `SoftwareUpgrade` | Name, height and `info` (the sha256 of the release's `oramad` and verifier) of a coordinated upgrade |
 | Structural | `EmissionSplitChange` | Move the 60/25/10/5 split by at most 10 points each |
 | Structural | `DevelopmentSpend` | Mint up to the epoch's development ceiling to a recipient |
 | Structural | `PowerBoundsChange` | Activate the useful-work multiplier and set its maximum |
@@ -62,7 +62,7 @@ Bounds on what a parameter proposal can set: quorum 0.334 to 0.667, pass thresho
 | Emission split | `x/emission` reads it at the next epoch close |
 | Relay reporters | Applied through `x/relay`'s update message |
 | Code-upload hashes | Consulted by `x/wasmpolicy` before the upload sunset height |
-| Software upgrade | Scheduled in `x/upgrade` as a name and a height, with no binary information. `orama status` shows the scheduled plan and whether each validator has staged it ([Chain upgrades on a validator](/docs/operator/upgrades#chain-upgrades-on-a-validator)) |
+| Software upgrade | Scheduled in `x/upgrade` as a name, a height and the proposal's `info`, which names the sha256 of the release's `oramad` and of its shielded verifier for `linux/amd64`; the chain refuses a proposal whose `info` is not that JSON with https URLs that each carry exactly one `checksum=sha256:<64 hex>`. Nodes stage only binaries with those checksums. `orama status` shows the scheduled plan and whether each validator has staged it, and whether what it staged matches ([Chain upgrades on a validator](/docs/operator/upgrades#chain-upgrades-on-a-validator)) |
 | Development spend | Minted and credited to the recipient's earnings |
 | Power bounds (multiplier) | **Recorded only**. Nothing reads it yet |
 | Adapter allow-list | **Recorded only**. Nothing reads it yet |

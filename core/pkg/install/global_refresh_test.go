@@ -13,6 +13,7 @@ import (
 
 	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
+	"github.com/DeBrosOfficial/network/pkg/planinfo"
 )
 
 // installedFixture is a fixture with chain, public Kubo, provider and archiver
@@ -338,7 +339,7 @@ func TestStageChainUpgrade_refusesAnOramadThatDoesNotPinItsVerifier(t *testing.T
 	f := installedFixture(t)
 	f.restage(t, "oramad", "binary oramad v2 that pins nothing")
 
-	_, err := StageChainUpgrade(f.host, f.refreshOptions(allInstalled...), "v2")
+	_, err := StageChainUpgrade(f.host, f.refreshOptions(allInstalled...), "v2", planinfo.Digests{})
 
 	if err == nil || !strings.Contains(err.Error(), "does not pin") {
 		t.Fatalf("err = %v, want the unpinned verifier refused before anything is staged", err)
@@ -351,7 +352,7 @@ func TestStageChainUpgrade_refusesAnOramadThatIsNotTheManifests(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := StageChainUpgrade(f.host, f.refreshOptions(allInstalled...), "v2")
+	_, err := StageChainUpgrade(f.host, f.refreshOptions(allInstalled...), "v2", planinfo.Digests{})
 
 	if err == nil || !strings.Contains(err.Error(), "not the file the release shipped") {
 		t.Fatalf("err = %v, want the tampered oramad refused", err)

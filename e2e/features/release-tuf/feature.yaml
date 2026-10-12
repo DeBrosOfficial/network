@@ -7,7 +7,8 @@
 # failed check and nothing under /opt/orama changed; with no root adopted it
 # refuses instead of falling back to the wallet check. `orama global
 # stage-oramad` stages a verified oramad and refuses the same failures,
-# staging nothing.
+# staging nothing, and for an upgrade refuses an oramad or verifier whose
+# sha256 is not the one the plan's info names (or a plan that names none).
 id: release-tuf
 title: TUF release root refusals for stage-archive and stage-oramad
 area: infrastructure
@@ -26,4 +27,5 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-node-stage-archive: before anything is extracted the archive must be the target in TUF metadata signed under the adopted root; any failure refuses it and the wallet check is not tried instead"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-node-stage-archive: a snapshot older than the one recorded in /etc/orama/release-seen.json is refused"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-global-stage-oramad: a binary is placed only after it verifies against the release root through TUF metadata"
+    - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-global-stage-oramad: for an upgrade the oramad and the verifier must have the sha256 the plan's info names, or nothing is staged"
     - "docs/whitepaper/technical-reference/vol1/18-cache.md#supply-chain: a TUF refusal leaves /opt/orama unchanged and does not raise the rollback record"

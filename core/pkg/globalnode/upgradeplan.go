@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strings"
 
 	"github.com/DeBrosOfficial/network/pkg/chainread"
 )
@@ -21,30 +20,9 @@ var planNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 type UpgradePlan struct {
 	// Name is the plan's name; empty means none is scheduled.
 	Name string
-	// Info is the plan's free-form info, which cosmovisor reads as JSON when it
-	// carries the binaries' download URLs and checksums.
+	// Info is the plan's info: cosmovisor's upgrade-info JSON, which the proposal that
+	// scheduled it extended with the verifier (package planinfo reads the checksums).
 	Info string
-}
-
-// checksumPattern is a sha256 named in a binary's URL the way cosmovisor reads
-// it: "...?checksum=sha256:<hex>".
-var checksumPattern = regexp.MustCompile(`(?i)checksum=sha256:([0-9a-f]{64})`)
-
-// BinaryChecksum is the sha256 the plan's info names for the chain binary of
-// osArch ("linux/amd64"), or for "any". named is false when the info names none.
-func (p UpgradePlan) BinaryChecksum(osArch string) (sum string, named bool) {
-	var info struct {
-		Binaries map[string]string `json:"binaries"`
-	}
-	if json.Unmarshal([]byte(p.Info), &info) != nil {
-		return "", false
-	}
-	for _, key := range []string{osArch, "any"} {
-		if m := checksumPattern.FindStringSubmatch(info.Binaries[key]); m != nil {
-			return strings.ToLower(m[1]), true
-		}
-	}
-	return "", false
 }
 
 // CurrentUpgradePlan is the software upgrade the chain has scheduled, read from

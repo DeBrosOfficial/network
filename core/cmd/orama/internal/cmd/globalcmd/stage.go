@@ -1,17 +1,23 @@
 package globalcmd
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
 	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
+	"github.com/DeBrosOfficial/network/pkg/globalnode"
 	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/DeBrosOfficial/network/pkg/planinfo"
 	"github.com/DeBrosOfficial/network/pkg/releaseverify"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +31,7 @@ var stageFlags struct {
 	verifier       string
 	verifierTarget string
 	upgrade        string
+	planInfo       string
 	genesis        bool
 	home           string
 }
@@ -39,6 +46,14 @@ the release root adopted at /etc/orama/release-root.json.
 upgrade plan <name>; cosmovisor switches to it at the plan's height. --genesis
 stages <home>/cosmovisor/genesis/bin/oramad and points current at genesis if
 current does not exist yet. A binary already there is refused.
+
+For an upgrade, oramad and the verifier are also held to the checksums the plan
+names: the sha256 of this platform's oramad and shielded verifier, which the
+SoftwareUpgrade proposal carried in its info and x/upgrade holds as the plan's
+info. The plan is read from the chain's REST API and has to be the one named
+--upgrade; --plan-info <file> reads the info JSON from a file instead, for a
+machine whose chain cannot be asked. A file the plan does not name, or a plan
+that names no checksums, is refused and nothing is staged.
 
 The binary is copied into a root-only staging directory and verified there,
 through the descriptor that wrote it, as --release-target in the TUF metadata
@@ -62,6 +77,7 @@ func init() {
 	f.StringVar(&stageFlags.verifier, "verifier", "", "The release's orama-orchard-verifier, staged beside oramad [required]")
 	f.StringVar(&stageFlags.verifierTarget, "verifier-target", "", "Name the verifier has in the release targets metadata [required]")
 	f.StringVar(&stageFlags.upgrade, "upgrade", "", "Upgrade plan name to stage for")
+	f.StringVar(&stageFlags.planInfo, "plan-info", "", "File with the upgrade plan's info JSON, instead of asking the chain (with --upgrade)")
 	f.BoolVar(&stageFlags.genesis, "genesis", false, "Stage the genesis binary instead of an upgrade")
 	f.StringVar(&stageFlags.home, "home", constants.ChainHome, "cosmovisor DAEMON_HOME")
 	MaintCmd.AddCommand(stageOramadCmd)
@@ -76,6 +92,9 @@ func runStageOramad(cmd *cobra.Command, _ []string) error {
 	}
 	if stageFlags.genesis == (stageFlags.upgrade != "") {
 		return clierr.Usage("give exactly one of --upgrade <name> and --genesis")
+	}
+	if stageFlags.planInfo != "" && stageFlags.upgrade == "" {
+		return clierr.Usage("--plan-info goes with --upgrade")
 	}
 	if err := clierr.RequireRoot("staging oramad"); err != nil {
 		return err
@@ -92,6 +111,11 @@ func runStageOramad(cmd *cobra.Command, _ []string) error {
 	}
 	if err := checkVerifierPinned(stageFlags.binary, stageFlags.verifier); err != nil {
 		return clierr.Failure("%v", err)
+	}
+	if stageFlags.upgrade != "" {
+		if err := checkStagedAgainstPlan(cmd.Context(), stageFlags.upgrade, stageFlags.planInfo, stageFlags.binary, stageFlags.verifier); err != nil {
+			return err
+		}
 	}
 	verifier := cosmovisor.Companion{Name: constants.ChainVerifierBinary, Src: stageFlags.verifier, Verify: verifyAsTarget(stageFlags.verifierTarget)}
 	verify := verifyAsTarget(stageFlags.target)
@@ -142,4 +166,72 @@ func checkVerifierPinned(binary, verifier string) error {
 		return fmt.Errorf("hash %s: %w", verifier, err)
 	}
 	return install.CheckOramadPinsVerifier(oramad, hex.EncodeToString(h.Sum(nil)))
+}
+
+// planInfoLimit bounds a --plan-info file: the chain bounds the info it carries far below it.
+const planInfoLimit = 64 << 10
+
+// checkStagedAgainstPlan holds the oramad and the verifier about to be staged for the upgrade
+// name to the checksums its plan names, before either is staged.
+func checkStagedAgainstPlan(ctx context.Context, name, infoFile, binary, verifier string) error {
+	plan, err := stagePlan(ctx, name, infoFile)
+	if err != nil {
+		return err
+	}
+	digests, err := planinfo.Parse(plan.Name, plan.Info, runtime.GOOS+"/"+runtime.GOARCH)
+	if err != nil {
+		return clierr.Conflict("%v, so nothing is staged for it", err)
+	}
+	oramadSum, err := sha256File(binary)
+	if err != nil {
+		return clierr.Failure("%v", err)
+	}
+	verifierSum, err := sha256File(verifier)
+	if err != nil {
+		return clierr.Failure("%v", err)
+	}
+	if err := digests.Check(name, oramadSum, verifierSum); err != nil {
+		return clierr.Conflict("%v", err)
+	}
+	return nil
+}
+
+// stagePlan is the plan name's info: the file's content when infoFile is given, otherwise the
+// chain's scheduled plan, which has to be name.
+func stagePlan(ctx context.Context, name, infoFile string) (globalnode.UpgradePlan, error) {
+	if infoFile != "" {
+		data, err := os.ReadFile(infoFile)
+		if err != nil {
+			return globalnode.UpgradePlan{}, clierr.Failure("read --plan-info: %v", err)
+		}
+		if len(data) > planInfoLimit {
+			return globalnode.UpgradePlan{}, clierr.Usage("--plan-info %s is larger than %d bytes", infoFile, planInfoLimit)
+		}
+		return globalnode.UpgradePlan{Name: name, Info: strings.TrimSpace(string(data))}, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, planQueryBudget)
+	defer cancel()
+	base := chainRESTBase(globalnode.DefaultLifecycle(io.Discard).UnitDir)
+	plan, err := globalnode.CurrentUpgradePlan(ctx, base, &http.Client{Timeout: planQueryBudget})
+	if err != nil {
+		return globalnode.UpgradePlan{}, clierr.Failure("the checksums to hold %s to are the scheduled plan's, and %v (--plan-info <file> stages from the plan's info JSON instead)", name, err)
+	}
+	if plan.Name != name {
+		return globalnode.UpgradePlan{}, clierr.Conflict("the chain's scheduled upgrade is %q, not %q: only a scheduled plan's binaries can be staged (or give --plan-info)", plan.Name, name)
+	}
+	return plan, nil
+}
+
+// sha256File is the lowercase hex sha256 of the file at path.
+func sha256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("hash %s: %w", path, err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

@@ -560,9 +560,9 @@ oramad changes only through a governed upgrade. When the release carries an oram
 other than the one cosmovisor runs, the refresh reads the chain's scheduled
 upgrade plan: with one, it stages the release's oramad and shielded verifier for
 that plan, and cosmovisor switches to them at the plan's height; without one, it
-keeps the running oramad and says so. When the plan's info names a checksum for
-this platform's binary, the release's oramad has to be that one or it is not
-staged.
+keeps the running oramad and says so. The plan's info names the sha256 of this
+platform's oramad and of its shielded verifier; the release's two files have to be
+exactly those, or nothing is staged (and a plan that names none is not staged for).
 
 The chain indexer refuses an index written in an older layout than the new
 orama-global's. So when the indexer is installed, the refresh stops it, runs
@@ -601,6 +601,14 @@ upgrade plan <name>; cosmovisor switches to it at the plan's height. --genesis
 stages <home>/cosmovisor/genesis/bin/oramad and points current at genesis if
 current does not exist yet. A binary already there is refused.
 
+For an upgrade, oramad and the verifier are also held to the checksums the plan
+names: the sha256 of this platform's oramad and shielded verifier, which the
+SoftwareUpgrade proposal carried in its info and x/upgrade holds as the plan's
+info. The plan is read from the chain's REST API and has to be the one named
+--upgrade; --plan-info <file> reads the info JSON from a file instead, for a
+machine whose chain cannot be asked. A file the plan does not name, or a plan
+that names no checksums, is refused and nothing is staged.
+
 The binary is copied into a root-only staging directory and verified there,
 through the descriptor that wrote it, as --release-target in the TUF metadata
 in --release-metadata (threshold, timestamp expiry, snapshot rollback, length
@@ -618,6 +626,7 @@ layout; install places the first oramad here as the genesis binary.
 | `--binary` | — | The oramad binary to stage [required] |
 | `--genesis` | `false` | Stage the genesis binary instead of an upgrade |
 | `--home` | `/var/lib/orama-global/chain` | cosmovisor DAEMON_HOME |
+| `--plan-info` | — | File with the upgrade plan's info JSON, instead of asking the chain (with --upgrade) |
 | `--release-metadata` | — | Directory holding timestamp.json, snapshot.json and targets.json [required] |
 | `--release-target` | — | Name the binary has in the release targets metadata [required] |
 | `--upgrade` | — | Upgrade plan name to stage for |

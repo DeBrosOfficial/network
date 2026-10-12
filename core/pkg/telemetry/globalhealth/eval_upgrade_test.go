@@ -64,3 +64,25 @@ func TestEvaluate_anUnreadablePlanWarns(t *testing.T) {
 		t.Fatalf("got %+v", issue)
 	}
 }
+
+func TestEvaluate_aStagedBinaryThatIsNotThePlansIsCritical(t *testing.T) {
+	c := chain(1000, 3, 3)
+	c.Upgrade = &report.ChainUpgrade{Name: "v0-4-0", Height: 1500, Staged: true, Checksums: report.ChecksumsMismatch, ChecksumProblem: "the staged oramad is not the one the plan names"}
+	issue, ok := issueFor(issuesFor(t, Node{Host: "n1", Chain: c}), "chain.upgrade-mismatch")
+	if !ok || issue.Severity != Critical {
+		t.Fatalf("issue = %+v, want a critical chain.upgrade-mismatch", issue)
+	}
+	for _, want := range []string{`"v0-4-0"`, "the staged oramad is not the one the plan names", "stage-oramad --upgrade v0-4-0"} {
+		if !strings.Contains(issue.Message, want) {
+			t.Errorf("message %q lacks %q", issue.Message, want)
+		}
+	}
+}
+
+func TestEvaluate_aStagedBinaryThatMatchesThePlanRaisesNothing(t *testing.T) {
+	c := chain(1000, 3, 3)
+	c.Upgrade = &report.ChainUpgrade{Name: "v0-4-0", Height: 1500, Staged: true, Checksums: report.ChecksumsMatch}
+	if issues := issuesFor(t, Node{Host: "n1", Chain: c}); len(issues) != 0 {
+		t.Fatalf("raised %+v", issues)
+	}
+}

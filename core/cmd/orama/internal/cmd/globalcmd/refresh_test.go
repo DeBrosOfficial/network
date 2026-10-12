@@ -56,7 +56,7 @@ func TestHandleChainBinary_newOramadWithoutAGovernedUpgradeIsKeptAndSaid(t *test
 }
 
 func TestHandleChainBinary_aScheduledUpgradeThatCannotBeStagedIsAnError(t *testing.T) {
-	srv := chainServer(t, `{"plan":{"name":"v0-4-0"}}`, http.StatusOK)
+	srv := chainServer(t, planWithChecksum(newOramad.ReleaseSHA256), http.StatusOK)
 	var out bytes.Buffer
 
 	err := handleChainBinary(context.Background(), &out, install.GlobalHost{}, install.RefreshOptions{Manifest: "/nonexistent/manifest.json"}, newOramad, srv.URL)
@@ -70,7 +70,9 @@ func TestHandleChainBinary_aScheduledUpgradeThatCannotBeStagedIsAnError(t *testi
 }
 
 func planWithChecksum(sum string) string {
-	info := `{"binaries":{"` + runtime.GOOS + `/` + runtime.GOARCH + `":"https://x.example/oramad?checksum=sha256:` + sum + `"}}`
+	platform := runtime.GOOS + `/` + runtime.GOARCH
+	info := `{"binaries":{"` + platform + `":"https://x.example/oramad?checksum=sha256:` + sum + `"},` +
+		`"verifiers":{"` + platform + `":"https://x.example/orama-orchard-verifier?checksum=sha256:` + strings.Repeat("d", 64) + `"}}`
 	body, _ := json.Marshal(map[string]any{"plan": map[string]string{"name": "v0-4-0", "info": info}})
 	return string(body)
 }
@@ -97,14 +99,23 @@ func TestHandleChainBinary_aPlanThatNamesThisBinaryIsStaged(t *testing.T) {
 	}
 }
 
-func TestHandleChainBinary_aPlanThatNamesNoChecksumSaysTheBinaryWasNotCheckedAgainstIt(t *testing.T) {
-	srv := chainServer(t, `{"plan":{"name":"v0-4-0","info":"upgrade to 0.4.0"}}`, http.StatusOK)
-	var out bytes.Buffer
+func TestHandleChainBinary_aPlanThatNamesNoChecksumIsNotStagedFor(t *testing.T) {
+	for name, info := range map[string]string{
+		"free text":      `upgrade to 0.4.0`,
+		"no verifier":    `{"binaries":{"` + runtime.GOOS + `/` + runtime.GOARCH + `":"https://x.example/oramad?checksum=sha256:` + strings.Repeat("b", 64) + `"}}`,
+		"empty binaries": `{"binaries":{},"verifiers":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			body, _ := json.Marshal(map[string]any{"plan": map[string]string{"name": "v0-4-0", "info": info}})
+			srv := chainServer(t, string(body), http.StatusOK)
+			var out bytes.Buffer
 
-	_ = handleChainBinary(context.Background(), &out, install.GlobalHost{}, install.RefreshOptions{Manifest: "/nonexistent/manifest.json"}, newOramad, srv.URL)
+			err := handleChainBinary(context.Background(), &out, install.GlobalHost{}, install.RefreshOptions{Manifest: "/nonexistent/manifest.json"}, newOramad, srv.URL)
 
-	if !strings.Contains(out.String(), "names no checksum") {
-		t.Errorf("output does not say the release's oramad was not checked against the plan:\n%s", out.String())
+			if clierr.CodeOf(err) != clierr.CodeConflict || !strings.Contains(err.Error(), "so the release is not staged") {
+				t.Fatalf("err = %v, want a refusal before anything is staged (a staging attempt would have failed on the missing manifest instead)", err)
+			}
+		})
 	}
 }
 
@@ -116,14 +127,5 @@ func TestHandleChainBinary_anUnreadablePlanLeavesTheChainUndecidedAsAnError(t *t
 
 	if err == nil || !strings.Contains(err.Error(), "undecided") {
 		t.Fatalf("err = %v, want the undecided chain binary reported", err)
-	}
-}
-
-func TestShort(t *testing.T) {
-	if got := short(strings.Repeat("c", 64)); got != strings.Repeat("c", 12) {
-		t.Errorf("short = %q", got)
-	}
-	if got := short("abc"); got != "abc" {
-		t.Errorf("short of a short digest = %q", got)
 	}
 }

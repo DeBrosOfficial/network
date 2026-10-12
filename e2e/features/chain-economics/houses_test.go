@@ -64,11 +64,17 @@ func TestHouses_proposalsRefusedWhileTiersClosed(t *testing.T) {
 	k := c.FundedValidator(t, 1, chain.Orama(1))
 	param := map[string]any{"parameter_change": map[string]any{"token_quorum": "0.4", "token_pass_threshold": "0.5",
 		"voting_period_seconds": "604800", "house_bond": chain.Orama(1000).String(), "max_eligible_per_prefix16": 3, "max_eligible_per_asn": 5}}
-	upgrade := map[string]any{"software_upgrade": map[string]any{"name": "e2e-never", "height": "999999999"}}
+	upgradeInfo := `{"binaries":{"linux/amd64":"https://releases.example/oramad?checksum=sha256:` + strings.Repeat("a", 64) +
+		`"},"verifiers":{"linux/amd64":"https://releases.example/orama-orchard-verifier?checksum=sha256:` + strings.Repeat("b", 64) + `"}}`
+	upgrade := map[string]any{"software_upgrade": map[string]any{"name": "e2e-never", "height": "999999999", "info": upgradeInfo}}
 	for name, content := range map[string]map[string]any{"parameter": param, "structural": upgrade} {
 		r := c.Submit(t, k, chain.TxOptions{}, housesMsg("MsgSubmitProposal", map[string]any{"proposer": k.Address, "content": content}))
 		chain.RequireRefused(t, name+" proposal", r, "governance tier is closed")
 	}
+	// An upgrade names the checksums of the binaries it enacts; one without them is refused before the tier is looked at.
+	noInfo := map[string]any{"software_upgrade": map[string]any{"name": "e2e-never", "height": "999999999"}}
+	noSums := c.Submit(t, k, chain.TxOptions{}, housesMsg("MsgSubmitProposal", map[string]any{"proposer": k.Address, "content": noInfo}))
+	chain.RequireRefused(t, "software upgrade with no checksums", noSums, "software upgrade info")
 	empty := c.Submit(t, k, chain.TxOptions{}, housesMsg("MsgSubmitProposal", map[string]any{"proposer": k.Address, "content": map[string]any{}}))
 	chain.RequireRefused(t, "proposal with no action", empty, "must set exactly one action")
 	both := map[string]any{"parameter_change": param["parameter_change"], "software_upgrade": upgrade["software_upgrade"]}

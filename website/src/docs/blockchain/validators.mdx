@@ -77,7 +77,7 @@ Each validator's amount is split by its commission. The commission plus the oper
 
 ## Slashing and jailing
 
-Downtime is slashed 0.01% inside a window of 10,000 blocks. A double-sign is slashed 5% and tombstones the validator. Jailing and undelegation go through `x/staking`. Slashing applies to every CometBFT validator including bootstrap-committee seats.
+Downtime is slashed 0.01% inside a window of 10,000 blocks. A double-sign is slashed 5% and tombstones the validator; evidence of one is accepted for 14 days (241,920 blocks), the same window every node keeps its blocks for, and shorter than the 21-day unbonding time, so a validator cannot leave before its double-sign can be punished. Jailing and undelegation go through `x/staking`. Slashing applies to every CometBFT validator including bootstrap-committee seats.
 
 A node that has a bonded role in `x/nodes` is separately slashed there when it fails a storage challenge. See [Nodes](/docs/blockchain/nodes).
 

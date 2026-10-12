@@ -79,8 +79,9 @@ type ReporterKeeper interface {
 
 // UpgradeScheduler schedules a passed software upgrade with the SDK upgrade
 // module's plan store. x/upgrade halts the chain at height when the binary
-// has no handler for name, which is how a validator swaps binaries (cosmovisor).
+// has no handler for name, which is how a validator swaps binaries (cosmovisor). info is the
+// plan's upgrade-info JSON (SoftwareUpgrade.Info), carried into x/upgrade's Plan.Info.
 // x/houses does not import x/upgrade.
 type UpgradeScheduler interface {
-	ScheduleUpgrade(ctx sdk.Context, name string, height int64) error
+	ScheduleUpgrade(ctx sdk.Context, name string, height int64, info string) error
 }

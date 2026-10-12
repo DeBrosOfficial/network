@@ -68,6 +68,14 @@ func TestUpgradeSentence(t *testing.T) {
 		{"height reached", chain(1600, 6, &report.ChainUpgrade{Name: "v0-4-0", Height: 1600}), []string{"the height is reached"}},
 		{"cannot be staged", chain(1, 6, &report.ChainUpgrade{Name: "X", Height: 2, StageError: "bad name"}), []string{"cannot be staged: bad name"}},
 		{"plan unreadable", &report.ChainReport{UpgradeError: "HTTP 500"}, []string{"could not be read: HTTP 500"}},
+		{"staged and matching", chain(1000, 6, &report.ChainUpgrade{Name: "v2", Height: 1600, Staged: true, Checksums: report.ChecksumsMatch}),
+			[]string{"binary staged on this node and matches the plan"}},
+		{"staged and not matching", chain(1000, 6, &report.ChainUpgrade{Name: "v2", Height: 1600, Staged: true, Checksums: report.ChecksumsMismatch, ChecksumProblem: "the staged oramad is not the one the plan names"}),
+			[]string{"staged binary does NOT match the plan: the staged oramad is not the one the plan names"}},
+		{"the plan names no checksum", chain(1000, 6, &report.ChainUpgrade{Name: "v2", Height: 1600, Staged: true, Checksums: report.ChecksumsUnnamed, ChecksumProblem: "no checksum"}),
+			[]string{"the plan names no checksum to check it against: no checksum"}},
+		{"unreadable staged files", chain(1000, 6, &report.ChainUpgrade{Name: "v2", Height: 1600, Staged: true, Checksums: report.ChecksumsUnchecked, ChecksumProblem: "permission denied"}),
+			[]string{"could not be checked against the plan: permission denied"}},
 	}
 	for _, c := range cases {
 		got := UpgradeSentence(c.c)
@@ -99,11 +107,13 @@ func TestUpdateRendering_stripsWhatActsOnATerminal(t *testing.T) {
 	const hostile = "evil\x1b[2J\x1b]0;owned\x07\nsecond line‮"
 	n := &updatenotice.Notice{State: updatenotice.StateRefused, Mode: hostile, Candidate: hostile, Channel: hostile, Current: hostile, Reason: hostile}
 	c := &report.ChainReport{LatestHeight: 10, Upgrade: &report.ChainUpgrade{Name: hostile, Height: 20, StageError: hostile}}
+	mismatch := &report.ChainReport{LatestHeight: 10, Upgrade: &report.ChainUpgrade{Name: hostile, Height: 20, Staged: true, Checksums: report.ChecksumsMismatch, ChecksumProblem: hostile}}
 	for name, got := range map[string]string{
 		"cell":            UpdateCell(NewTheme(false), n),
 		"update sentence": UpdateSentence(n),
 		"upgrade":         UpgradeSentence(c),
 		"upgrade error":   UpgradeSentence(&report.ChainReport{UpgradeError: hostile}),
+		"checksum":        UpgradeSentence(mismatch),
 	} {
 		if strings.ContainsAny(got, "\x1b\x07\n‮") {
 			t.Errorf("%s keeps a terminal control character: %q", name, got)
@@ -127,5 +137,23 @@ func TestCountdownTo_aHeightFarAwayHasNoETA(t *testing.T) {
 	cd := CountdownTo(c, &report.ChainUpgrade{Height: 1 << 62})
 	if cd.HasETA || cd.BlocksLeft != (1<<62)-1 {
 		t.Fatalf("countdown = %+v, want blocks only", cd)
+	}
+}
+
+func TestUpgradeNeedsAttention(t *testing.T) {
+	for name, tc := range map[string]struct {
+		u    *report.ChainUpgrade
+		want bool
+	}{
+		"no plan":              {nil, false},
+		"not staged":           {&report.ChainUpgrade{}, true},
+		"staged, unchecked":    {&report.ChainUpgrade{Staged: true}, false},
+		"staged and matching":  {&report.ChainUpgrade{Staged: true, Checksums: report.ChecksumsMatch}, false},
+		"staged, mismatching":  {&report.ChainUpgrade{Staged: true, Checksums: report.ChecksumsMismatch}, true},
+		"staged, plan unnamed": {&report.ChainUpgrade{Staged: true, Checksums: report.ChecksumsUnnamed}, true},
+	} {
+		if got := UpgradeNeedsAttention(tc.u); got != tc.want {
+			t.Errorf("%s: %v, want %v", name, got, tc.want)
+		}
 	}
 }

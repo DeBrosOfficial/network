@@ -224,13 +224,23 @@ export interface ParameterChange {
 }
 
 /**
- * SoftwareUpgrade is a structural plan. x/houses records it after the upgrade
- * timelock. It does not call x/upgrade; that module is still gated by the
- * unreachable authority until app wiring says otherwise.
+ * SoftwareUpgrade is a structural plan. After the upgrade timelock x/houses
+ * schedules it as an x/upgrade plan (app/enactment.go): name and height become
+ * the plan's, info becomes Plan.Info. The binary registered for the name (the
+ * handler app/upgrades registers) runs at the height.
+ *
+ * info is cosmovisor's upgrade-info JSON extended with the shielded verifier:
+ *   {"binaries":  {"linux/amd64": "https://host/oramad?checksum=sha256:<64 hex>"},
+ *    "verifiers": {"linux/amd64": "https://host/orama-orchard-verifier?checksum=sha256:<64 hex>"}}
+ * Both maps must name every required platform (linux/amd64), every URL must be
+ * https and carry exactly one sha256 checksum, and nothing else may be in the
+ * object; it is checked when the proposal is submitted. Nodes refuse to stage a
+ * binary whose sha256 is not the one the plan names.
  */
 export interface SoftwareUpgrade {
   name: string;
   height: bigint;
+  info: string;
 }
 
 /**
@@ -1096,7 +1106,7 @@ export const ParameterChange: MessageFns<ParameterChange> = {
 };
 
 function createBaseSoftwareUpgrade(): SoftwareUpgrade {
-  return { name: "", height: 0n };
+  return { name: "", height: 0n, info: "" };
 }
 
 export const SoftwareUpgrade: MessageFns<SoftwareUpgrade> = {
@@ -1109,6 +1119,9 @@ export const SoftwareUpgrade: MessageFns<SoftwareUpgrade> = {
         throw new globalThis.Error("value provided for field message.height of type int64 too large");
       }
       writer.uint32(16).int64(message.height);
+    }
+    if (message.info !== "") {
+      writer.uint32(26).string(message.info);
     }
     return writer;
   },
@@ -1142,6 +1155,14 @@ export const SoftwareUpgrade: MessageFns<SoftwareUpgrade> = {
             message.height = reader.int64() as bigint;
             continue;
           }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.info = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1158,6 +1179,7 @@ export const SoftwareUpgrade: MessageFns<SoftwareUpgrade> = {
     return {
       name: isSet(object.name) ? globalThis.String(object.name) : "",
       height: isSet(object.height) ? BigInt(object.height) : 0n,
+      info: isSet(object.info) ? globalThis.String(object.info) : "",
     };
   },
 
@@ -1169,6 +1191,9 @@ export const SoftwareUpgrade: MessageFns<SoftwareUpgrade> = {
     if (message.height !== 0n) {
       obj.height = message.height.toString();
     }
+    if (message.info !== "") {
+      obj.info = message.info;
+    }
     return obj;
   },
 
@@ -1179,6 +1204,7 @@ export const SoftwareUpgrade: MessageFns<SoftwareUpgrade> = {
     const message = createBaseSoftwareUpgrade();
     message.name = object.name ?? "";
     message.height = (object.height !== undefined && object.height !== null) ? BigInt(object.height) : 0n;
+    message.info = object.info ?? "";
     return message;
   },
 };
