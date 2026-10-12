@@ -74,6 +74,9 @@ func FuzzClusterregRegistration(f *testing.F) {
 func assertPublicHost(t *testing.T, endpoint, host string) {
 	t.Helper()
 	trimmed := strings.TrimSuffix(host, ".")
+	if trimmed == "" {
+		t.Fatalf("accepted %q whose host is empty", endpoint)
+	}
 	if strings.ContainsAny(trimmed, "%\\ ") {
 		t.Fatalf("accepted %q whose host %q carries a zone id or a separator", endpoint, host)
 	}

@@ -20,6 +20,7 @@ func TestValidate_refusesEndpointsTheChainRefuses(t *testing.T) {
 		"/ip4/100.64.0.1/tcp/4001",
 		"::ffff:10.0.0.1",
 		"64:ff9b::7f00:1",
+		".", // no host once the root dot is dropped
 	} {
 		err := Validate(Registration{
 			Operator: operator, ClusterID: "cluster-1", BaseDomain: "example.com", Endpoints: []string{endpoint},

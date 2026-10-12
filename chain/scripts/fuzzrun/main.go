@@ -19,7 +19,6 @@ import (
 	"go/build/constraint"
 	"go/parser"
 	"go/token"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -279,27 +278,14 @@ func keep(module, dest string, results []result) error {
 		}
 		for _, name := range r.crashers {
 			src := filepath.Join(module, filepath.FromSlash(r.rel), "testdata", "fuzz", r.name, name)
-			if err := copyFile(src, filepath.Join(dir, name)); err != nil {
+			input, err := os.ReadFile(src)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(dir, name), input, 0o644); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
 }

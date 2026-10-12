@@ -76,7 +76,7 @@ func validNode(t *testing.T) clusterreg.NodeRegistration {
 		Bindings: []clusterreg.NodeBinding{{
 			Service: clusterreg.HotKeyService, KeyType: "secp256k1", Pubkey: hotPub, Signature: bytes.Repeat([]byte{5}, 64),
 		}},
-		Endpoints: []string{"203.0.113.9:4001"},
+		Endpoints: []string{"93.184.216.34:4001"}, // a public address: the documentation range is not one
 	}
 }
 

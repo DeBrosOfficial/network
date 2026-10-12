@@ -186,6 +186,9 @@ func multiaddrHosts(ep string) ([]string, error) {
 
 func rejectNonPublicHost(host string) error {
 	host = strings.TrimSuffix(host, ".")
+	if host == "" {
+		return fmt.Errorf("host is empty")
+	}
 	lower := strings.ToLower(host)
 	if lower == "localhost" || strings.HasSuffix(lower, ".localhost") || strings.HasSuffix(lower, ".local") {
 		return fmt.Errorf("host %q is not public", host)
