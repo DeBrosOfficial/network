@@ -125,10 +125,11 @@ func FuzzNullifierFold(f *testing.F) {
 		var x, y [nodeLen]byte
 		copy(x[:], a)
 		copy(y[:], b)
-		if Fold(x, y) != Fold(x, y) {
+		first, second := Fold(x, y), Fold(x, y)
+		if first != second {
 			t.Fatal("Fold is not deterministic")
 		}
-		if x != y && Fold(x, y) == Fold(y, x) {
+		if x != y && first == Fold(y, x) {
 			t.Fatalf("Fold(%x, %x) is symmetric, so the order of nullifiers would not be committed", x, y)
 		}
 	})

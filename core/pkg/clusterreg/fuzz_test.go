@@ -282,8 +282,8 @@ func FuzzClusterregCanonicalAccount(f *testing.F) {
 		if err != nil {
 			return
 		}
-		hrp, data, err := bech32Decode(got)
-		if got != addr || hrp != accountHRP || len(data) != accountBytes || got != strings.ToLower(got) {
+		hrp, data, decodeErr := bech32Decode(got)
+		if decodeErr != nil || got != addr || hrp != accountHRP || len(data) != accountBytes || got != strings.ToLower(got) {
 			t.Fatalf("CanonicalAccount(%q) = %q (%v, %d bytes)", addr, got, hrp, len(data))
 		}
 	})

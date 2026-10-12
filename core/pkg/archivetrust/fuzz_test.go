@@ -145,7 +145,7 @@ func errString(err error) string {
 func FuzzArchiveSigningMessage(f *testing.F) {
 	f.Add([]byte(`{"version":"1.2.3","commit":"abc","date":"2026-01-01T00:00:00Z","arch":"amd64","checksums":{"bin/orama":"00"}}`), "0x00")
 	f.Add([]byte(`{"version":"1\nsigners: 0xattacker","commit":"","arch":"","date":""}`), "")
-	f.Add([]byte(`{"version":"x","signers":["0xabc","0xdef‮"]}`), "0x")
+	f.Add([]byte("{\"version\":\"x\",\"signers\":[\"0xabc\",\"0xdef\u202e\"]}"), "0x")
 	f.Add([]byte(`{"release_root":"AAAA"}`), "")
 	f.Add([]byte(`null`), "")
 	f.Fuzz(func(t *testing.T, manifest []byte, signature string) {

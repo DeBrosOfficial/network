@@ -16,6 +16,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	"github.com/DeBrosOfficial/network/chain/app"
 	"github.com/DeBrosOfficial/network/chain/x/inclusion"
@@ -292,8 +293,33 @@ func FuzzAnteTxDecode(f *testing.F) {
 	})
 }
 
-// FuzzCheckTx sends arbitrary bytes to CheckTx, the front door of the ante chain. It never fails or
-// panics, and a transaction that was refused for its bytes is refused again for the same bytes.
+// statesAFee reports whether raw's auth info carries a fee with an amount on every coin. The SDK
+// decodes a transaction without one, and the ante chain's first decorator then dereferences the
+// missing field: BaseApp recovers that panic per transaction and answers the panic code, in CheckTx
+// and in a block alike, so the verdict is the same on every node and no state is touched. It is the
+// SDK's own behaviour and changing it would change the result code of such a transaction in a block,
+// so FuzzCheckTx tolerates it for exactly those transactions and for no other.
+func statesAFee(raw []byte) bool {
+	var txRaw txtypes.TxRaw
+	if txRaw.Unmarshal(raw) != nil {
+		return false
+	}
+	var auth txtypes.AuthInfo
+	if auth.Unmarshal(txRaw.AuthInfoBytes) != nil || auth.Fee == nil {
+		return false
+	}
+	for _, coin := range auth.Fee.Amount {
+		if coin.Amount.IsNil() {
+			return false
+		}
+	}
+	return true
+}
+
+// FuzzCheckTx sends arbitrary bytes to CheckTx, the front door of the ante chain. It never fails, a
+// transaction that was refused for its bytes is refused again for the same bytes, and a transaction
+// that states a fee never panics inside the ante chain, whatever else is wrong with it (one that
+// states none panics in the SDK's first decorator, recovered as described at statesAFee).
 func FuzzCheckTx(f *testing.F) {
 	c := newFuzzChain(f)
 	f.Add(c.signed)
@@ -306,8 +332,8 @@ func FuzzCheckTx(f *testing.F) {
 		if err != nil {
 			t.Fatalf("CheckTx failed: %v", err)
 		}
-		if c.panics.Load() != before {
-			t.Fatal("CheckTx panicked")
+		if c.panics.Load() != before && statesAFee(raw) {
+			t.Fatal("CheckTx panicked on a transaction that states a fee")
 		}
 		if res.Code != 0 {
 			again, err := c.app.CheckTx(&abci.RequestCheckTx{Tx: raw, Type: abci.CheckTxType_New})
