@@ -30,7 +30,9 @@ type Keeper struct {
 	// newest chunk is its last row.
 	Chunks        collections.Map[collections.Pair[[]byte, uint64], types.DepositChunk]
 	ContractBytes collections.Map[[]byte, uint64]
-	NextChunk     collections.Sequence
+	// ReleaseCarry is, per contract, the bytes freed by shrinks whose deposits are still to release.
+	ReleaseCarry collections.Map[[]byte, uint64]
+	NextChunk    collections.Sequence
 
 	uploads UploadAllowList
 }
@@ -66,6 +68,7 @@ func NewKeeper(storeService storetypes.KVStoreService, fees FeesKeeper) Keeper {
 			types.JSONValue[types.DepositChunk]{},
 		),
 		ContractBytes: collections.NewMap(sb, types.ContractBytesPrefix, "contract_bytes", collections.BytesKey, collections.Uint64Value),
+		ReleaseCarry:  collections.NewMap(sb, types.ReleaseCarryPrefix, "release_carry", collections.BytesKey, collections.Uint64Value),
 		NextChunk:     collections.NewSequence(sb, types.NextChunkPrefix, "next_deposit_chunk"),
 	}
 	schema, err := sb.Build()
@@ -103,7 +106,10 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 	if err := k.Limits.Set(ctx, gs.Limits()); err != nil {
 		return fmt.Errorf("set deposit limits: %w", err)
 	}
-	return k.importChunks(ctx, gs.DepositChunks)
+	if err := k.importChunks(ctx, gs.DepositChunks); err != nil {
+		return err
+	}
+	return k.importCarry(ctx, gs.ReleaseCarry)
 }
 
 // ExportGenesis reads the sunset height, the genesis code set, the deposit price and the ledger.
@@ -133,10 +139,14 @@ func (k Keeper) ExportGenesis(ctx context.Context) (types.GenesisState, error) {
 	if err != nil {
 		return types.GenesisState{}, err
 	}
+	carry, err := k.allCarry(ctx)
+	if err != nil {
+		return types.GenesisState{}, err
+	}
 	return types.GenesisState{
 		UploadSunsetHeight: height, GenesisCodeIDs: ids, DepositPerByte: perByte,
-		MaxDepositPerTx: limits.MaxDepositPerTx, MaxDepositChunks: limits.MaxDepositChunks, ChunkOverheadBytes: limits.ChunkOverheadBytes,
-		DepositChunks: chunks,
+		MaxDepositPerTx: limits.MaxDepositPerTx, MaxReleaseRows: limits.MaxReleaseRows, ChunkOverheadBytes: limits.ChunkOverheadBytes,
+		DepositChunks: chunks, ReleaseCarry: carry,
 	}, nil
 }
 

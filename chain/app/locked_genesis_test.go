@@ -199,7 +199,7 @@ var lockedRows = []lockedRow{
 	{"wasmpolicy", "upload_sunset_height", "3162240", "P6: 183 days of 5-second blocks; D11"},
 	{"wasmpolicy", "deposit_per_byte", "68359", "P3: about 0.07 ORAMA/KiB; C9 state deposits use the same price as x/token and x/nodes"},
 	{"wasmpolicy", "max_deposit_per_tx", "10000000000", "G1 launch default (C9 security review): 10 ORAMA of contract state deposit per transaction"},
-	{"wasmpolicy", "max_deposit_chunks", "32", "G1 launch default (C9 security review): one deposit row per payer, at most 32 per contract, bounds a shrink"},
+	{"wasmpolicy", "max_release_rows", "32", "G1 launch default (C9 security review): a contract call releases at most 32 deposit rows and carries the rest, so a shrink fits in a block however many payers there are"},
 	{"wasmpolicy", "chunk_overhead_bytes", "512", "G1 launch default (C9 security review): prices the ledger rows a new payer adds to a contract"},
 }
 
@@ -358,7 +358,7 @@ func TestLockedGenesis_everyGenesisParameterHasARow(t *testing.T) {
 	sort.Strings(missing)
 	require.Empty(t, missing, "new genesis parameters must be added to lockedRows with a plan citation")
 	for key := range moduleObject(t, defaults, "wasmpolicy") {
-		if key == "genesis_code_ids" || key == "deposit_chunks" {
+		if key == "genesis_code_ids" || key == "deposit_chunks" || key == "release_carry" {
 			continue // contents of the genesis, not parameters
 		}
 		require.True(t, covered["wasmpolicy."+key], "wasmpolicy.%s needs a lockedRows entry", key)

@@ -109,8 +109,8 @@ type fixture struct {
 func newFixture(t *testing.T) fixture { return newFixtureWith(t, 0, 32) }
 
 // newFixtureWith builds a keeper whose chunks carry overhead extra bytes and whose contracts hold at
-// most maxChunks payers.
-func newFixtureWith(t *testing.T, overhead, maxChunks uint64) fixture {
+// release at most maxRows deposit rows per call.
+func newFixtureWith(t *testing.T, overhead, maxRows uint64) fixture {
 	t.Helper()
 	key := storetypes.NewKVStoreKey(types.StoreKey)
 	ctx := testutil.DefaultContextWithDB(t, key, storetypes.NewTransientStoreKey("t_wasmpolicy")).Ctx
@@ -119,7 +119,7 @@ func newFixtureWith(t *testing.T, overhead, maxChunks uint64) fixture {
 	gs := types.DefaultGenesisState()
 	gs.DepositPerByte = math.NewInt(perByte)
 	gs.ChunkOverheadBytes = overhead
-	gs.MaxDepositChunks = maxChunks
+	gs.MaxReleaseRows = maxRows
 	require.NoError(t, k.InitGenesis(ctx, gs))
 	return fixture{ctx: ctx, k: k, fees: fees}
 }
@@ -338,15 +338,73 @@ func TestApplyStateDelta_aNewPayerLocksTheChunkOverhead(t *testing.T) {
 	require.Empty(t, f.fees.deposits)
 }
 
-func TestApplyStateDelta_aContractHoldsAtMostMaxChunksPayers(t *testing.T) {
+func TestApplyStateDelta_anyNumberOfStrangersCanPayWithoutLockingOthersOut(t *testing.T) {
 	f := newFixtureWith(t, 0, 2)
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 1, 0))
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, bob, 1, 0))
+	for i := 0; i < 40; i++ {
+		stranger := sdk.AccAddress(fmt.Sprintf("stranger_%011d", i))
+		require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, stranger, 1, 0))
+	}
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 5, 0), "an honest payer is not refused after 40 strangers")
+	held, err := f.k.ChargedBytes(f.ctx, contractA)
+	require.NoError(t, err)
+	require.Equal(t, uint64(45), held)
+	inv, err := f.k.CheckInvariants(f.ctx)
+	require.NoError(t, err)
+	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
+}
 
-	err := f.k.ApplyStateDelta(f.ctx, contractA, carol, 1, 0)
-	require.ErrorIs(t, err, types.ErrDepositLedgerFull)
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 9, 0), "an existing payer can still grow")
-	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractB, carol, 1, 0), "another contract has its own limit")
+func TestApplyStateDelta_aShrinkPastTheRowLimitCarriesTheRestToTheNextCalls(t *testing.T) {
+	f := newFixtureWith(t, 0, 2)
+	payers := []sdk.AccAddress{alice, bob, carol, sdk.AccAddress("dave________________"), sdk.AccAddress("erin________________")}
+	for _, p := range payers {
+		require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, p, 10, 0))
+	}
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 50))
+	held, err := f.k.ChargedBytes(f.ctx, contractA)
+	require.NoError(t, err)
+	require.Equal(t, uint64(30), held, "only two rows were released by the shrink")
+	carry, err := f.k.ReleaseCarry.Get(f.ctx, contractA.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, uint64(30), carry)
+
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 0), "a call with no change still works the carry off")
+	held, _ = f.k.ChargedBytes(f.ctx, contractA)
+	require.Equal(t, uint64(10), held)
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, bob, 3, 0), "growth releases the carry before it charges")
+	held, _ = f.k.ChargedBytes(f.ctx, contractA)
+	require.Equal(t, uint64(3), held, "the 20 carried bytes were released, then 3 charged")
+	has, err := f.k.ReleaseCarry.Has(f.ctx, contractA.Bytes())
+	require.NoError(t, err)
+	require.False(t, has)
+	inv, err := f.k.CheckInvariants(f.ctx)
+	require.NoError(t, err)
+	require.True(t, inv.BytesMatch && inv.DepositsMatch, inv.Detail)
+}
+
+func TestApplyStateDelta_everyReleasedDepositGoesBackToItsPayerWhateverTheRowLimit(t *testing.T) {
+	f := newFixtureWith(t, 0, 1)
+	for _, p := range []sdk.AccAddress{alice, bob, carol} {
+		require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, p, 10, 0))
+	}
+	for i := 0; i < 3; i++ {
+		require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 30))
+	}
+	held, err := f.k.ChargedBytes(f.ctx, contractA)
+	require.NoError(t, err)
+	require.Zero(t, held)
+	require.Empty(t, f.fees.deposits, "all three deposits were released")
+}
+
+func TestGenesis_exportsAndImportsTheReleaseCarry(t *testing.T) {
+	f := newFixtureWith(t, 0, 1)
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 10, 0))
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, bob, 10, 0))
+	require.NoError(t, f.k.ApplyStateDelta(f.ctx, contractA, alice, 0, 20))
+	gs, err := f.k.ExportGenesis(f.ctx)
+	require.NoError(t, err)
+	require.Len(t, gs.ReleaseCarry, 1)
+	require.Equal(t, uint64(10), gs.ReleaseCarry[0].Bytes)
+	require.NoError(t, gs.Validate())
 }
 
 func TestApplyStateDelta_theTransactionBudgetCapsWhatIsLocked(t *testing.T) {
@@ -372,6 +430,6 @@ func TestGenesisValidate_rejectsBadDepositLimits(t *testing.T) {
 	gs.MaxDepositPerTx = math.ZeroInt()
 	require.Error(t, gs.Validate())
 	gs = types.DefaultGenesisState()
-	gs.MaxDepositChunks = 0
+	gs.MaxReleaseRows = 0
 	require.Error(t, gs.Validate())
 }

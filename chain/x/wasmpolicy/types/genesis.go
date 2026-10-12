@@ -15,21 +15,30 @@ type GenesisState struct {
 	GenesisCodeIDs     []uint64       `json:"genesis_code_ids"`
 	DepositPerByte     math.Int       `json:"deposit_per_byte"`
 	MaxDepositPerTx    math.Int       `json:"max_deposit_per_tx"`
-	MaxDepositChunks   uint64         `json:"max_deposit_chunks"`
+	MaxReleaseRows     uint64         `json:"max_release_rows"`
 	ChunkOverheadBytes uint64         `json:"chunk_overhead_bytes"`
 	DepositChunks      []DepositChunk `json:"deposit_chunks"`
+	// ReleaseCarry lists the bytes per contract whose deposits a shrink has not released yet.
+	ReleaseCarry []ReleaseCarry `json:"release_carry"`
+}
+
+// ReleaseCarry is the bytes of Contract that a shrink freed and whose deposits wait for the contract's
+// next calls to release, at most max_release_rows rows each.
+type ReleaseCarry struct {
+	Contract string `json:"contract"`
+	Bytes    uint64 `json:"bytes"`
 }
 
 // Limits are the state-deposit bounds written once at genesis.
 type Limits struct {
 	MaxDepositPerTx    math.Int `json:"max_deposit_per_tx"`
-	MaxDepositChunks   uint64   `json:"max_deposit_chunks"`
+	MaxReleaseRows     uint64   `json:"max_release_rows"`
 	ChunkOverheadBytes uint64   `json:"chunk_overhead_bytes"`
 }
 
 // Limits returns the genesis deposit bounds.
 func (gs GenesisState) Limits() Limits {
-	return Limits{MaxDepositPerTx: gs.MaxDepositPerTx, MaxDepositChunks: gs.MaxDepositChunks, ChunkOverheadBytes: gs.ChunkOverheadBytes}
+	return Limits{MaxDepositPerTx: gs.MaxDepositPerTx, MaxReleaseRows: gs.MaxReleaseRows, ChunkOverheadBytes: gs.ChunkOverheadBytes}
 }
 
 // DefaultGenesisState returns P6's sunset, an empty genesis code set, P3's per-byte price and an
@@ -40,9 +49,10 @@ func DefaultGenesisState() GenesisState {
 		GenesisCodeIDs:     []uint64{},
 		DepositPerByte:     math.NewInt(DefaultDepositPerByte),
 		MaxDepositPerTx:    math.NewInt(DefaultMaxDepositPerTx),
-		MaxDepositChunks:   DefaultMaxDepositChunks,
+		MaxReleaseRows:     DefaultMaxReleaseRows,
 		ChunkOverheadBytes: DefaultChunkOverheadBytes,
 		DepositChunks:      []DepositChunk{},
+		ReleaseCarry:       []ReleaseCarry{},
 	}
 }
 
@@ -65,8 +75,16 @@ func (gs GenesisState) Validate() error {
 	if gs.MaxDepositPerTx.IsNil() || !gs.MaxDepositPerTx.IsPositive() {
 		return fmt.Errorf("max_deposit_per_tx must be a positive integer")
 	}
-	if gs.MaxDepositChunks == 0 {
-		return fmt.Errorf("max_deposit_chunks must be at least 1")
+	if gs.MaxReleaseRows == 0 {
+		return fmt.Errorf("max_release_rows must be at least 1")
+	}
+	for _, c := range gs.ReleaseCarry {
+		if _, err := sdk.AccAddressFromBech32(c.Contract); err != nil {
+			return fmt.Errorf("release carry contract %q: %w", c.Contract, err)
+		}
+		if c.Bytes == 0 {
+			return fmt.Errorf("release carry of %s holds zero bytes", c.Contract)
+		}
 	}
 	chunks := make(map[string]struct{}, len(gs.DepositChunks))
 	for _, c := range gs.DepositChunks {

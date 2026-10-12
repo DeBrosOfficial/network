@@ -29,20 +29,22 @@ type FeesKeeper interface {
 //
 // Growth locks growth * deposit_per_byte from payer, in that payer's chunk of the contract: an
 // existing chunk is topped up, a new payer gets a new chunk that also locks chunk_overhead_bytes,
-// and a contract holds at most max_deposit_chunks chunks, so a shrink walks a bounded list. Growth
+// and there is no limit on payers, so a stranger can never take a slot another account needs. Growth
 // past max_deposit_per_tx for the transaction is refused. A shrink releases chunks newest created
-// first, each refunded to the payer who locked it. Only bytes that were charged can be refunded: a contract's first bytes (for example state
+// first, each refunded to the payer who locked it, and at most max_release_rows rows per call: the
+// bytes it did not reach are carried and released by the contract's next calls, which work off the
+// carry before they charge anything new. Only bytes that were charged can be refunded: a contract's first bytes (for example state
 // present at genesis) were never charged, so a shrink past the charged total releases the
 // charged total and no more.
 func (k Keeper) ApplyStateDelta(ctx context.Context, contract, payer sdk.AccAddress, grew, shrank uint64) error {
-	switch {
-	case grew > shrank:
-		return k.charge(ctx, contract, payer, grew-shrank)
-	case shrank > grew:
+	if grew <= shrank {
 		return k.refund(ctx, contract, shrank-grew)
-	default:
-		return nil
 	}
+	// Work off the carry first, so a payer this call adds is not the newest row it releases.
+	if err := k.refund(ctx, contract, 0); err != nil {
+		return err
+	}
+	return k.charge(ctx, contract, payer, grew-shrank)
 }
 
 func (k Keeper) charge(ctx context.Context, contract, payer sdk.AccAddress, n uint64) error {
@@ -61,9 +63,6 @@ func (k Keeper) charge(ctx context.Context, contract, payer sdk.AccAddress, n ui
 		if c.Payer == payer.String() {
 			return k.topUpChunk(ctx, contract, c, n, limits)
 		}
-	}
-	if uint64(len(chunks)) >= limits.MaxDepositChunks {
-		return types.ErrDepositLedgerFull.Wrapf("contract %s has %d", contract, len(chunks))
 	}
 	return k.newChunk(ctx, contract, payer, n, limits)
 }
@@ -124,7 +123,7 @@ func spendBudget(ctx context.Context, amount math.Int, limits types.Limits) erro
 	return nil
 }
 
-// contractChunks returns a contract's chunks, oldest first. There are at most max_deposit_chunks.
+// contractChunks returns a contract's chunks, oldest first.
 func (k Keeper) contractChunks(ctx context.Context, contract sdk.AccAddress) ([]types.DepositChunk, error) {
 	var out []types.DepositChunk
 	rng := collections.NewPrefixedPairRange[[]byte, uint64](contract.Bytes())
@@ -138,20 +137,34 @@ func (k Keeper) contractChunks(ctx context.Context, contract sdk.AccAddress) ([]
 	return out, nil
 }
 
+// refund releases n freed bytes, plus the contract's carry, newest chunk first and at most
+// max_release_rows rows. What it did not reach becomes the new carry.
 func (k Keeper) refund(ctx context.Context, contract sdk.AccAddress, n uint64) error {
+	carry, err := k.carried(ctx, contract)
+	if err != nil {
+		return err
+	}
+	if n+carry == 0 {
+		return nil
+	}
+	limits, err := k.Limits.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load deposit limits: %w", err)
+	}
 	held, err := k.contractBytes(ctx, contract)
 	if err != nil {
 		return err
 	}
-	if n > held {
-		n = held
+	n = min(n+carry, held)
+	if n == 0 {
+		return k.setCarry(ctx, contract, 0)
 	}
 	rng := collections.NewPrefixedPairRange[[]byte, uint64](contract.Bytes()).Descending()
 	var rows []types.DepositChunk
 	remaining := n
 	err = k.Chunks.Walk(ctx, rng, func(_ collections.Pair[[]byte, uint64], c types.DepositChunk) (bool, error) {
 		rows = append(rows, c)
-		if c.Bytes >= remaining {
+		if c.Bytes >= remaining || uint64(len(rows)) >= limits.MaxReleaseRows {
 			return true, nil
 		}
 		remaining -= c.Bytes
@@ -168,7 +181,53 @@ func (k Keeper) refund(ctx context.Context, contract sdk.AccAddress, n uint64) e
 		}
 		remaining -= released
 	}
-	return k.subBytes(ctx, contract, n)
+	if err := k.subBytes(ctx, contract, n-remaining); err != nil {
+		return err
+	}
+	return k.setCarry(ctx, contract, remaining)
+}
+
+func (k Keeper) carried(ctx context.Context, contract sdk.AccAddress) (uint64, error) {
+	n, err := k.ReleaseCarry.Get(ctx, contract.Bytes())
+	if errors.Is(err, collections.ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("failed to load release carry of %s: %w", contract, err)
+	}
+	return n, nil
+}
+
+func (k Keeper) setCarry(ctx context.Context, contract sdk.AccAddress, n uint64) error {
+	if n == 0 {
+		return k.ReleaseCarry.Remove(ctx, contract.Bytes())
+	}
+	return k.ReleaseCarry.Set(ctx, contract.Bytes(), n)
+}
+
+func (k Keeper) allCarry(ctx context.Context) ([]types.ReleaseCarry, error) {
+	out := []types.ReleaseCarry{}
+	err := k.ReleaseCarry.Walk(ctx, nil, func(key []byte, n uint64) (bool, error) {
+		out = append(out, types.ReleaseCarry{Contract: sdk.AccAddress(key).String(), Bytes: n})
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk release carry: %w", err)
+	}
+	return out, nil
+}
+
+func (k Keeper) importCarry(ctx context.Context, carry []types.ReleaseCarry) error {
+	for _, c := range carry {
+		contract, err := sdk.AccAddressFromBech32(c.Contract)
+		if err != nil {
+			return fmt.Errorf("release carry contract %q: %w", c.Contract, err)
+		}
+		if err := k.ReleaseCarry.Set(ctx, contract.Bytes(), c.Bytes); err != nil {
+			return fmt.Errorf("failed to import release carry of %s: %w", c.Contract, err)
+		}
+	}
+	return nil
 }
 
 func (k Keeper) releaseChunk(ctx context.Context, contract sdk.AccAddress, c types.DepositChunk, released uint64) error {

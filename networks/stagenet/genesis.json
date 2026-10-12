@@ -499,7 +499,7 @@
         4,
         5
       ],
-      "max_deposit_chunks": 32,
+      "max_release_rows": 32,
       "max_deposit_per_tx": "10000000000",
       "upload_sunset_height": 3162240
     }

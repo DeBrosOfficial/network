@@ -184,10 +184,10 @@ wasmd has no price on storage, so Orama prices it in a wrapper around wasmd's VM
 **Growth.** `charge` locks `growth x deposit_per_byte` (68,359 norama, about 0.07 ORAMA per KB; the price `x/token` and `x/nodes` ship) from the payer through `x/fees`. The ledger keeps one *chunk* per payer per contract, keyed by (contract, sequence):
 
 - If the payer already has a chunk on this contract, it is topped up.
-- If not, a new chunk is created, which also locks `chunk_overhead_bytes` (512) for its own ledger rows, up to `max_deposit_chunks` (32) payers per contract. A thirty-third payer is refused with `ErrDepositLedgerFull`.
+- If not, a new chunk is created, which also locks `chunk_overhead_bytes` (512) for its own ledger rows. There is no limit on payers per contract, so a stranger cannot take a slot another account needs.
 - Every lock adds to the transaction's `DepositBudget`, which lives in the context for the whole transaction and counts submessages that later revert, which only makes the cap stricter. The sum may not pass `max_deposit_per_tx` (10 ORAMA, about 146 KB of new state at the default price): `ErrDepositCap`.
 
-**Shrink.** `refund` releases chunks newest first, each refunded to the payer who locked it; a partial release leaves the remainder of a chunk. `x/fees` returns 99% to the payer's earnings and burns 1% (`chain/x/wasmpolicy/keeper/deposit.go:FeesKeeper`). Only charged bytes can be refunded: a contract's genesis state or first bytes that were never charged are not, so a shrink past the charged total releases the charged total and no more. The overhead is released with its whole chunk.
+**Shrink.** `refund` releases chunks newest first, each refunded to the payer who locked it; a partial release leaves the remainder of a chunk. One call releases at most `max_release_rows` (32) rows; the bytes it did not reach are kept as the contract's *release carry*, and the contract's next calls work the carry off before they charge anything new (a call that changes nothing does too), so a shrink fits in a block however many payers a contract has and the deposits are released late, never lost. The carry is part of genesis. `x/fees` returns 99% to the payer's earnings and burns 1% (`chain/x/wasmpolicy/keeper/deposit.go:FeesKeeper`). Only charged bytes can be refunded: a contract's genesis state or first bytes that were never charged are not, so a shrink past the charged total releases the charged total and no more. The overhead is released with its whole chunk.
 
 **Failure.** A deposit that cannot be paid, a payer with no balance or earnings, or a missing payer turns the call into a contract error `state deposit: ...`, which wasmd treats as any failed execution. Outside a transaction (a block hook, a genesis call) there is no payer and growth fails.
 
@@ -267,7 +267,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 | Binding message with an unknown field, two variants or trailing data | `ErrBadMessage` | the contract execution fails |
 | Contract state grows and nobody can pay | contract error `state deposit: ...`, call reverted | the execute transaction fails; no ledger row |
 | One transaction would lock more than 10 ORAMA | `ErrDepositCap` | the call fails; the transaction budget counts reverted submessages too |
-| A 33rd payer grows one contract | `ErrDepositLedgerFull` | the call fails |
+| A shrink reaches more than 32 deposit rows | the first 32 are released, the rest become the release carry | the carry drains over the contract's next calls (`release_carry` in genesis) |
 | Binary built with `nowasm` joins a chain with wasm state | refuses to start | start-up error naming libwasmvm |
 | Ledger and `x/fees` disagree | `Keeper.CheckInvariants` reports `DepositsMatch` false; the module registers no query to read it | only the keeper tests exercise it |
 
@@ -296,7 +296,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 | Eligible set per network | 3 per /16, 5 per ASN by default; 1 to 21 | `Params` |
 | House size | 21 to 101 required | `min_house_size` |
 | Deposit per transaction | 10 ORAMA | `DefaultMaxDepositPerTx` |
-| Payers per contract | 32 | `DefaultMaxDepositChunks` |
+| Deposit rows released per call | 32 | `DefaultMaxReleaseRows` |
 | Hashed upload size | 4 MiB uncompressed | `maxHashedWasmBytes` |
 | Verify-proof query | 20,000 + 3,000 per sibling gas | `VerifyProofBaseGas` |
 
@@ -330,7 +330,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 
 ### Deposits in an engine wrapper
 
-*Chosen:* wrap wasmd's VM engine with a metered store and a ledger of per-payer chunks. *Rejected:* a flat fee, and wasmd's own accounting. *Why:* wasmd prices gas but not retained bytes; a refundable deposit prices occupancy and returns it. Chunks per payer let the refund go to the person who paid, with a walk bounded by the chunk cap.
+*Chosen:* wrap wasmd's VM engine with a metered store and a ledger of per-payer chunks. *Rejected:* a flat fee, and wasmd's own accounting. *Why:* wasmd prices gas but not retained bytes; a refundable deposit prices occupancy and returns it. Chunks per payer let the refund go to the person who paid, with the rows released per call bounded.
 
 ### Contracts pay users by bank send or into earnings
 
@@ -357,7 +357,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 - `chain/x/houses/keeper/`: `TestTiersStayClosedUntilOpeningRulesHold`, `TestSmallOperatorHouseBlocksStructuralVotes`, `TestOperatorHousePrefix16AndASNCaps`, `TestHouseBondLockAndSlashOnEquivocation`, `TestVetoWindow`, `TestDelegatedVoteCap`, `TestDirectVoteOverridesValidator`, `TestTimelocksAndNoEarlyExecution`, `TestSpendMintsOnlyWhenApprovedAndWithinCeiling`, `TestSplitStaysInsideCodedBoundsAndMIsOneWay`, `TestAdvance_aProposalThatNeverAdvancesIsFailedAtTheBound`, `TestAdvance_aStoreFaultStaysFatal`, `TestSoftwareUpgrade_isScheduledOnlyAfterItsTimelock`, `TestRelayReporters_refusedChangeFailsTheProposal`.
 - `chain/app/`: `TestEnactment_softwareUpgradeBecomesAnUpgradePlan`, `TestEnactment_uploadAllowListOpensOneCodeHashBeforeTheSunset`, `TestEnactment_emissionClosesEpochsAtTheEnactedSplit`, `TestUnreachableAuthority_rejectsEveryAuthorityGatedMsg`, `TestDeposit_growthIsChargedToTheCallerAndDeletionRefunds`, `TestDeposit_aTransactionCannotLockMoreThanTheCap`, `TestUpload_theHeightCannotBeChangedByAnyMessage`, `TestBindings_bypassAttemptsAreRefused`, `TestBindings_earningsPaymentIsTheOnlyNoramaPathToAUser`, `TestStandardMultisig_cannotPayNoramaToAUser`, `TestContracts_gasExhaustionAndUnboundedRecursionFailTheTransaction`, `TestCapabilitiesOmitIBCAndStargate`.
 - `chain/x/wasmbindings/`: `TestDecode_aSenderFieldCannotBeSmuggledIn`, `TestMessenger_refusesAnyStargateAndSetWithdrawAddress`, `TestQuerier_verifyProofRejectsTamperedProofsWithoutAnError`.
-- `chain/x/wasmpolicy/`: `TestUploadSunset`, `TestKeeperHasNoSunsetSetter`, `TestApplyStateDelta_shrinkReleasesNewestChunkFirstToItsPayer`, `TestApplyStateDelta_aContractHoldsAtMostMaxChunksPayers`, `TestMeteredStore_countsNewKeysOverwritesAndDeletes`, `TestRefuseNoramaWrapper`.
+- `chain/x/wasmpolicy/`: `TestUploadSunset`, `TestKeeperHasNoSunsetSetter`, `TestApplyStateDelta_shrinkReleasesNewestChunkFirstToItsPayer`, `TestApplyStateDelta_anyNumberOfStrangersCanPayWithoutLockingOthersOut`, `TestApplyStateDelta_aShrinkPastTheRowLimitCarriesTheRestToTheNextCalls`, `TestMeteredStore_countsNewKeysOverwritesAndDeletes`, `TestRefuseNoramaWrapper`.
 - `chain/contracts/standard/`: `TestLoad_everyArtifactMatchesItsPinnedHash`, `TestApply_refusesWhatItCannotAddTo`.
 
 **Fleet e2e** (the owner runs the fleet suite): `e2e/features/chain-economics/` covers the six houses messages' refusals, the houses queries and the closed tiers; `e2e/features/chain-assets/` covers the wasm policy against the build (no VM: no wasm types; VM: upload closed before the sunset); `e2e/features/chain-waivers/` holds the tripwires for unwired surfaces.

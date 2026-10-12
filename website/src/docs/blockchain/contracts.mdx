@@ -47,7 +47,7 @@ A token created with a `transfer_hook` has the named contract called (`sudo`, me
 
 ## State deposits
 
-Contract storage is priced at 68,359 norama per byte. There is one deposit chunk per payer per contract, at most 32 chunks per contract, and a first-time payer also locks a 512-byte overhead. `max_deposit_per_tx` is 10 ORAMA. When state shrinks, 99% of the deposit is refunded and 1% burned.
+Contract storage is priced at 68,359 norama per byte. There is one deposit chunk per payer per contract, no limit on payers, and a first-time payer also locks a 512-byte overhead. `max_deposit_per_tx` is 10 ORAMA. When state shrinks, 99% of the deposit is refunded and 1% burned; one call releases at most 32 deposit rows and the rest is released by the contract's next calls.
 
 ## Reading contracts
 

@@ -36,9 +36,10 @@ const (
 	// contract storage growth: 10 ORAMA, about 146 KB of new state at the default price.
 	DefaultMaxDepositPerTx int64 = 10_000_000_000
 
-	// DefaultMaxDepositChunks bounds the deposit rows of one contract: one per payer. A shrink walks
-	// at most this many, so it always fits in a block.
-	DefaultMaxDepositChunks uint64 = 32
+	// DefaultMaxReleaseRows bounds the deposit rows one contract call releases. A contract has one
+	// row per payer and no cap on payers, so a shrink that reaches more rows releases this many and
+	// carries the rest to the contract's next call.
+	DefaultMaxReleaseRows uint64 = 32
 
 	// DefaultChunkOverheadBytes prices the ledger row and the x/fees deposit row a new payer adds to a
 	// contract, in bytes of storage: it is locked with the chunk and released with it.
@@ -61,6 +62,8 @@ var (
 	ContractBytesPrefix = collections.NewPrefix(4)
 	// LimitsPrefix stores the single deposit Limits.
 	LimitsPrefix = collections.NewPrefix(6)
+	// ReleaseCarryPrefix stores, per contract, the bytes a shrink freed whose deposits are not released yet.
+	ReleaseCarryPrefix = collections.NewPrefix(7)
 	// NextChunkPrefix stores the next chunk sequence.
 	NextChunkPrefix = collections.NewPrefix(5)
 )
