@@ -22,9 +22,8 @@ const (
 )
 
 var (
-	upgradeNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
-	codeHashPattern    = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	adapterPattern     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+	codeHashPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	adapterPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 	mMinDec = math.LegacyMustNewDecFromStr(MMin)
 	mMaxDec = math.LegacyMustNewDecFromStr(MMax)
@@ -108,11 +107,14 @@ func validateParameterChange(ch ParameterChange) error {
 }
 
 func validateUpgrade(u SoftwareUpgrade) error {
-	if !upgradeNamePattern.MatchString(u.Name) {
-		return fmt.Errorf("software upgrade name %q is not a 1-64 character plan name", u.Name)
+	if !ValidUpgradeName(u.Name) {
+		return fmt.Errorf("software upgrade name %q is not a 1-64 character plan name of lowercase letters, digits, '.', '_' and '-'", u.Name)
 	}
 	if u.Height <= 0 {
 		return fmt.Errorf("software upgrade height must be positive, got %d", u.Height)
+	}
+	if _, err := ParseUpgradeInfo(u.Info); err != nil {
+		return err
 	}
 	return nil
 }

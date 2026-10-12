@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -179,13 +180,14 @@ func TestEnactment_softwareUpgradeBecomesAnUpgradePlan(t *testing.T) {
 	_, err := e.app.UpgradeKeeper.GetUpgradePlan(ctx)
 	require.Error(t, err, "no plan exists before the proposal executes")
 
-	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000}})
+	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000, Info: upgradeInfo()}})
 	require.NoError(t, enact(ctx, e.app, 1))
 
 	plan, err := e.app.UpgradeKeeper.GetUpgradePlan(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "v2", plan.Name)
 	require.Equal(t, int64(1_000), plan.Height)
+	require.Equal(t, upgradeInfo(), plan.Info, "the plan carries the checksums the proposal named")
 }
 
 // wasmStoreMsg has the shape of wasmd's MsgStoreCode as far as x/wasmpolicy reads it.
@@ -234,4 +236,10 @@ func TestEnactment_uploadAllowListOpensOneCodeHashBeforeTheSunset(t *testing.T) 
 	}})
 	require.NoError(t, enact(ctx, e.app, 2))
 	require.ErrorIs(t, e.app.WasmPolicyKeeper.CheckMsg(ctx, height, approved), wasmpolicytypes.ErrUploadClosed, "removal closes it again")
+}
+
+// upgradeInfo is a valid SoftwareUpgrade.Info naming one binary and one verifier checksum.
+func upgradeInfo() string {
+	return `{"binaries":{"linux/amd64":"https://releases.example/oramad?checksum=sha256:` + strings.Repeat("a", 64) +
+		`"},"verifiers":{"linux/amd64":"https://releases.example/orama-orchard-verifier?checksum=sha256:` + strings.Repeat("b", 64) + `"}}`
 }

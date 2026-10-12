@@ -119,12 +119,22 @@ message ParameterChange {
   uint32 max_eligible_per_asn = 6;
 }
 
-// SoftwareUpgrade is a structural plan. x/houses records it after the upgrade
-// timelock. It does not call x/upgrade; that module is still gated by the
-// unreachable authority until app wiring says otherwise.
+// SoftwareUpgrade is a structural plan. After the upgrade timelock x/houses
+// schedules it as an x/upgrade plan (app/enactment.go): name and height become
+// the plan's, info becomes Plan.Info. The binary registered for the name (the
+// handler app/upgrades registers) runs at the height.
+//
+// info is cosmovisor's upgrade-info JSON extended with the shielded verifier:
+//   {"binaries":  {"linux/amd64": "https://host/oramad?checksum=sha256:<64 hex>"},
+//    "verifiers": {"linux/amd64": "https://host/orama-orchard-verifier?checksum=sha256:<64 hex>"}}
+// Both maps must name every required platform (linux/amd64), every URL must be
+// https and carry exactly one sha256 checksum, and nothing else may be in the
+// object; it is checked when the proposal is submitted. Nodes refuse to stage a
+// binary whose sha256 is not the one the plan names.
 message SoftwareUpgrade {
   string name = 1;
   int64 height = 2;
+  string info = 3;
 }
 
 // EmissionSplitChange is a structural change to the four emission shares,

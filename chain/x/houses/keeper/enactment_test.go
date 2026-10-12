@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func TestMinHouseSize_followsGenesisParams(t *testing.T) {
 
 func TestSoftwareUpgrade_isScheduledOnlyAfterItsTimelock(t *testing.T) {
 	f := openStructural(t)
-	id, err := f.Keeper.SubmitProposal(f.Ctx, acc(200), types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v2", Height: 5_000}})
+	id, err := f.Keeper.SubmitProposal(f.Ctx, acc(200), types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v2", Height: 5_000, Info: upgradeInfo()}})
 	require.NoError(t, err)
 	f.passStructuralVotes(t, id)
 	f.advance(t, 24*time.Hour)
@@ -78,13 +79,13 @@ func TestSoftwareUpgrade_isScheduledOnlyAfterItsTimelock(t *testing.T) {
 
 	f.advance(t, time.Second)
 	require.Equal(t, types.ProposalStatus_EXECUTED, f.proposal(t, id).Status)
-	require.Equal(t, []plan{{name: "v2", height: 5_000}}, f.Upgrades.plans)
+	require.Equal(t, []plan{{name: "v2", height: 5_000, info: upgradeInfo()}}, f.Upgrades.plans)
 	require.Equal(t, "v2", mustEnacted(t, f).ScheduledUpgrade.Name)
 }
 
 func TestSoftwareUpgrade_failsWhenSchedulerRefusesAndLeavesNoState(t *testing.T) {
 	f := openStructural(t)
-	id, err := f.Keeper.SubmitProposal(f.Ctx, acc(200), types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v2", Height: 5_000}})
+	id, err := f.Keeper.SubmitProposal(f.Ctx, acc(200), types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v2", Height: 5_000, Info: upgradeInfo()}})
 	require.NoError(t, err)
 	f.passStructuralVotes(t, id)
 	f.advance(t, 24*time.Hour)
@@ -102,7 +103,7 @@ func TestSoftwareUpgrade_failsWhenSchedulerRefusesAndLeavesNoState(t *testing.T)
 func TestSoftwareUpgrade_failsWithoutAScheduler(t *testing.T) {
 	f := openStructural(t)
 	f.Keeper = f.Keeper.WithEnactors(f.Reporters, nil)
-	id, err := f.Keeper.SubmitProposal(f.Ctx, acc(200), types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v2", Height: 5_000}})
+	id, err := f.Keeper.SubmitProposal(f.Ctx, acc(200), types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v2", Height: 5_000, Info: upgradeInfo()}})
 	require.NoError(t, err)
 	f.passStructuralVotes(t, id)
 	f.advance(t, 24*time.Hour)
@@ -199,4 +200,10 @@ func TestEnactedReaders_reflectPassedProposals(t *testing.T) {
 	other, err := f.Keeper.CodeUploadAllowed(f.Ctx, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 	require.NoError(t, err)
 	require.False(t, other)
+}
+
+// upgradeInfo is a valid SoftwareUpgrade.Info naming one binary and one verifier checksum.
+func upgradeInfo() string {
+	return `{"binaries":{"linux/amd64":"https://releases.example/oramad?checksum=sha256:` + strings.Repeat("a", 64) +
+		`"},"verifiers":{"linux/amd64":"https://releases.example/orama-orchard-verifier?checksum=sha256:` + strings.Repeat("b", 64) + `"}}`
 }

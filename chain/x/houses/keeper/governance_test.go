@@ -365,7 +365,7 @@ func TestTimelocksAndNoEarlyExecution(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, after.BootstrapExitStake.Equal(before.BootstrapExitStake))
 
-	upgradeID, err := f.Keeper.SubmitProposal(f.Ctx, whale, types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v1", Height: 1_000}})
+	upgradeID, err := f.Keeper.SubmitProposal(f.Ctx, whale, types.ProposalContent{SoftwareUpgrade: &types.SoftwareUpgrade{Name: "v1", Height: 1_000, Info: upgradeInfo()}})
 	require.NoError(t, err)
 	f.passStructuralVotes(t, upgradeID)
 	f.advance(t, 24*time.Hour)

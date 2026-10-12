@@ -437,7 +437,7 @@ func (f *flow) seedVotingProposal() uint64 {
 			Id: id, Proposer: f.committeeValidatorAcc().String(), Status: housetypes.ProposalStatus_VOTING,
 			SubmitUnixNano:    ctx.BlockTime().UnixNano(),
 			VotingEndUnixNano: ctx.BlockTime().Add(24 * time.Hour).UnixNano(),
-			Content:           housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000_000}},
+			Content:           housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000_000, Info: upgradeInfo()}},
 		}))
 	})
 	return id
@@ -480,7 +480,7 @@ func TestWalletFlow_proposalsStayClosedAtBootstrapAndABondLocksAndUnlocks(t *tes
 
 	res := f.deliver(alice, &housetypes.MsgSubmitProposal{
 		Proposer: alice.addr.String(),
-		Content:  housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000_000}},
+		Content:  housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000_000, Info: upgradeInfo()}},
 	})
 	requireRejected(t, res, "tier")
 

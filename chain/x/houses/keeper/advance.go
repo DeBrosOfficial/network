@@ -286,7 +286,7 @@ func (k Keeper) applyUpgrade(ctx sdk.Context, upgrade types.SoftwareUpgrade) err
 	if k.upgrades == nil {
 		return fmt.Errorf("no upgrade scheduler is wired, software upgrade %q cannot be enacted", upgrade.Name)
 	}
-	if err := k.upgrades.ScheduleUpgrade(ctx, upgrade.Name, upgrade.Height); err != nil {
+	if err := k.upgrades.ScheduleUpgrade(ctx, upgrade.Name, upgrade.Height, upgrade.Info); err != nil {
 		return fmt.Errorf("failed to schedule software upgrade %q at height %d: %w", upgrade.Name, upgrade.Height, err)
 	}
 	enacted, err := k.Enacted.Get(ctx)

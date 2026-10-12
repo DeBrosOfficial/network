@@ -96,6 +96,6 @@ type upgradeScheduler struct {
 	upgrades *upgradekeeper.Keeper
 }
 
-func (u upgradeScheduler) ScheduleUpgrade(ctx sdk.Context, name string, height int64) error {
-	return u.upgrades.ScheduleUpgrade(ctx, upgradetypes.Plan{Name: name, Height: height})
+func (u upgradeScheduler) ScheduleUpgrade(ctx sdk.Context, name string, height int64, info string) error {
+	return u.upgrades.ScheduleUpgrade(ctx, upgradetypes.Plan{Name: name, Height: height, Info: info})
 }

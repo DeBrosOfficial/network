@@ -40,6 +40,7 @@ var allowedMessageFields = map[string]bool{
 	"max_eligible_per_asn":      true,
 	"name":                      true,
 	"height":                    true,
+	"info":                      true,
 	"validator_percent":         true,
 	"storage_percent":           true,
 	"relay_percent":             true,
