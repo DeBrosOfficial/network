@@ -169,6 +169,11 @@ export interface QueuedUnshield {
   role: Role;
   amount: string;
   height: bigint;
+  /**
+   * refusals counts the windows in a row whose payment the target refused. The queue refunds the
+   * request to its owner once it reaches the limit.
+   */
+  refusals: number;
 }
 
 /** Anchor is a note-commitment tree root and the last block it was the root at. */
@@ -682,6 +687,7 @@ function createBaseQueuedUnshield(): QueuedUnshield {
     role: 0,
     amount: "",
     height: 0n,
+    refusals: 0,
   };
 }
 
@@ -722,6 +728,9 @@ export const QueuedUnshield: MessageFns<QueuedUnshield> = {
         throw new globalThis.Error("value provided for field message.height of type int64 too large");
       }
       writer.uint32(80).int64(message.height);
+    }
+    if (message.refusals !== 0) {
+      writer.uint32(88).uint32(message.refusals);
     }
     return writer;
   },
@@ -819,6 +828,14 @@ export const QueuedUnshield: MessageFns<QueuedUnshield> = {
             message.height = reader.int64() as bigint;
             continue;
           }
+          case 11: {
+            if (tag !== 88) {
+              break;
+            }
+
+            message.refusals = reader.uint32();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -847,6 +864,7 @@ export const QueuedUnshield: MessageFns<QueuedUnshield> = {
       role: isSet(object.role) ? roleFromJSON(object.role) : 0,
       amount: isSet(object.amount) ? globalThis.String(object.amount) : "",
       height: isSet(object.height) ? BigInt(object.height) : 0n,
+      refusals: isSet(object.refusals) ? globalThis.Number(object.refusals) : 0,
     };
   },
 
@@ -882,6 +900,9 @@ export const QueuedUnshield: MessageFns<QueuedUnshield> = {
     if (message.height !== 0n) {
       obj.height = message.height.toString();
     }
+    if (message.refusals !== 0) {
+      obj.refusals = Math.round(message.refusals);
+    }
     return obj;
   },
 
@@ -900,6 +921,7 @@ export const QueuedUnshield: MessageFns<QueuedUnshield> = {
     message.role = object.role ?? 0;
     message.amount = object.amount ?? "";
     message.height = (object.height !== undefined && object.height !== null) ? BigInt(object.height) : 0n;
+    message.refusals = object.refusals ?? 0;
     return message;
   },
 };
