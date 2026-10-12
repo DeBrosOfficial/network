@@ -154,6 +154,53 @@ mod subtree {
         assert_eq!(recombine(&roots), anchor);
     }
 
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// testdata/subtree-roots.txt holds the two subtree roots and the anchor of the tree of leaves
+    /// 1 ..= 2 * 2^16 (leaf i is i + 1, little-endian), computed here. The Go tests build the same
+    /// tree through the chain (chain/indexer/shielded_chain_cgo_test.go) and must find the same
+    /// roots in its state and in the index; this test holds the file to the tree and to the
+    /// recombination, so a root the chain served would rebuild the anchor a wallet checks against.
+    /// ORAMA_WRITE_GOLDEN=1 rewrites the file.
+    #[test]
+    fn golden_subtree_roots_are_the_trees_and_recombine_to_its_anchor() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/subtree-roots.txt");
+        let mut frontier = Vec::new();
+        let mut anchor = empty_root();
+        let mut roots = Vec::new();
+        for k in 0..2u64 {
+            (frontier, anchor) = append(&frontier, &leaves(k * SUBTREE, (k + 1) * SUBTREE)).unwrap();
+            roots.push(subtree_root(&frontier).expect("a filled subtree has a root"));
+        }
+        assert_eq!(recombine(&roots), anchor);
+        assert!(frontier.len() <= orama_orchard::tree::MAX_FRONTIER_LEN);
+        let want = format!(
+            "leaves {}\nsubtree_root 0 {}\nsubtree_root 1 {}\nanchor {}\n",
+            2 * SUBTREE,
+            hex(&roots[0]),
+            hex(&roots[1]),
+            hex(&anchor)
+        );
+        if std::env::var("ORAMA_WRITE_GOLDEN").is_ok() {
+            std::fs::write(&path, &want).unwrap();
+        }
+        let got = std::fs::read_to_string(&path).expect("testdata/subtree-roots.txt; ORAMA_WRITE_GOLDEN=1 writes it");
+        assert_eq!(got, want);
+        // The file's own roots recombine to its own anchor, parsed back from the text.
+        let value = |prefix: &str| -> [u8; NODE_LEN] {
+            let line = got.lines().find(|l| l.starts_with(prefix)).unwrap();
+            let hex = line.rsplit(' ').next().unwrap();
+            let mut out = [0u8; NODE_LEN];
+            for (i, b) in out.iter_mut().enumerate() {
+                *b = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).unwrap();
+            }
+            out
+        };
+        assert_eq!(recombine(&[value("subtree_root 0"), value("subtree_root 1")]), value("anchor"));
+    }
+
     /// The frontier of a tree of exactly 2^16 leaves with made-up nodes: position 2^16 - 1, the leaf
     /// and one ommer per set bit. The nodes are not a real tree's; the entry point only needs a
     /// frontier that decodes.

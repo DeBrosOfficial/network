@@ -119,3 +119,12 @@ message Anchor {
   bytes root = 1;
   int64 height = 2;
 }
+
+// SubtreeRoot is the root of one filled 2^16-leaf subtree of the note-commitment tree: the subtree
+// numbered index covers the leaves index*65536 up to (index+1)*65536 - 1. height is the block whose
+// append filled it.
+message SubtreeRoot {
+  uint64 index = 1;
+  bytes root = 2;
+  int64 height = 3;
+}

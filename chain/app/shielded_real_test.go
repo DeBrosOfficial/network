@@ -300,7 +300,8 @@ func TestShieldedReal_anUnshieldCannotBeRedirected(t *testing.T) {
 
 func TestShieldedReal_overTheCapAFeeTopupFailsAtomicallyAndABondQueuesAndIsPaidNextWindow(t *testing.T) {
 	// The floor is 1000 and 2% of the 4900 pool is 98, so the cap is 1000 against a 4899 unshield.
-	// The transfer's 89 tip already counted against it, so a window has 911 left.
+	// The bucket holds half the cap (pool.Capacity: 500) and drains 500 a window, so no 24 hours see
+	// more than one cap leave. The transfer's 89 tip already counted against it: a window has 411 left.
 	c := realChain(t, func(gs *shieldedtypes.GenesisState) { gs.Params.UnshieldFloor = math.NewInt(1000) })
 	requireTxOK(t, c.block(t, c.shieldMsg(t)), 0, "shield")
 	requireTxOK(t, c.block(t, c.transferTx(t, loadVector(t, "ironwood-transfer"))), 0, "transfer")
@@ -319,24 +320,24 @@ func TestShieldedReal_overTheCapAFeeTopupFailsAtomicallyAndABondQueuesAndIsPaidN
 	gs, err := c.app.ShieldedKeeper.ExportGenesis(ctx)
 	require.NoError(t, err)
 	require.Len(t, gs.Queue, 1)
-	// The block that queued it ends by serving its window: what the cap has left (911) is paid at
-	// once, the remaining 3988 waits.
-	require.Equal(t, "3988", gs.Queue[0].Amount.String())
+	// The block that queued it ends by serving its window: what the bucket has left (411) is paid at
+	// once, the remaining 4488 waits.
+	require.Equal(t, "4488", gs.Queue[0].Amount.String())
 	held := c.app.BankKeeper.GetBalance(ctx, authtypes.NewModuleAddress(shieldedtypes.ModuleName), params.BaseDenom).Amount
-	require.Equal(t, "3988", held.String(), "the queued coins stay in the module account")
-	require.Equal(t, "911", c.delegated(t), "paid through the real staking module, up to the cap")
+	require.Equal(t, "4488", held.String(), "the queued coins stay in the module account")
+	require.Equal(t, "411", c.delegated(t), "paid through the real staking module, up to what the bucket has left")
 	c.requireInvariants(t)
 
 	c.block(t)
-	require.Equal(t, "911", c.delegated(t), "the window is served once, however many blocks it has")
+	require.Equal(t, "411", c.delegated(t), "the window is served once, however many blocks it has")
 
-	// A day later the next window pays the whole cap.
+	// A day later the bucket has drained empty and the next window pays what it holds, half the cap.
 	c.skew = pool.Window + time.Hour
 	c.block(t)
-	require.Equal(t, "1911", c.delegated(t))
+	require.Equal(t, "911", c.delegated(t))
 	gs, err = c.app.ShieldedKeeper.ExportGenesis(c.app.NewContext(true))
 	require.NoError(t, err)
-	require.Equal(t, "2988", gs.Queue[0].Amount.String())
+	require.Equal(t, "3988", gs.Queue[0].Amount.String())
 	c.requireInvariants(t)
 }
 
@@ -427,15 +428,15 @@ func killVerifierProcesses(t *testing.T) bool {
 }
 
 // A delegation the shielded module makes is held to the minimum x/power sets for a signed
-// MsgDelegate. Here it is 1000 and the cap pays 100 a window, so a bond would be dust: the payment
-// is refused each window and the request stays queued.
+// MsgDelegate. Here it is 1000 and the cap of 100 lets the bucket pay 50 a window, so a bond would
+// be dust: the payment is refused each window and the request stays queued.
 func TestShieldedReal_aBondThatWouldBeDustIsNotPaid(t *testing.T) {
 	c := realChain(t, func(gs *shieldedtypes.GenesisState) { gs.Params.UnshieldFloor = math.NewInt(100) }, withMinDelegation(1000))
 	requireTxOK(t, c.block(t, c.shieldMsg(t)), 0, "shield")
 	requireTxOK(t, c.block(t, c.transferTx(t, loadVector(t, "ironwood-transfer"))), 0, "transfer")
 	requireTxOK(t, c.block(t, c.unshieldTx(t, c.alice, c.bond(t, loadVector(t, "ironwood-unshield-bond")))), 0, "bond unshield")
 
-	require.Equal(t, "0", c.delegated(t), "100 is below the 1000 minimum")
+	require.Equal(t, "0", c.delegated(t), "50 is below the 1000 minimum")
 	gs, err := c.app.ShieldedKeeper.ExportGenesis(c.app.NewContext(true))
 	require.NoError(t, err)
 	require.Len(t, gs.Queue, 1)

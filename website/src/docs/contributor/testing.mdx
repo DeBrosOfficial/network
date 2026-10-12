@@ -275,6 +275,8 @@ Every command the chain jobs run is a target of `chain/Makefile` or `chain/ci.mk
 | `chain-rust` | `cargo clippy --all-targets -D warnings`, `cargo audit` and `cargo deny` (policy in `chain/deny.toml`) over `orchardffi`, `orchardverifier-bin`, `wallet`, `native` and, for audit and deny, the test contracts; then the check of the ignored advisories | `rust-lint`, `rust-audit`, `rust-deny`, `rust-ignores` |
 | `secrets` | gitleaks over the committed tree, with the allowlist `.gitleaks.toml` (a public fixture that trips a rule is allowed by its path and its exact value together, so a real credential added to the same file is still found) | none |
 
+`make test` runs the pure-Go tests of `chain`, and, when `make -C chain orchard-lib orchard-verifier` has built the Orchard library and the verifier binary on the machine, the `orchardffi` tests of `x/shielded`, `app` and `indexer` too (the real proofs through `FinalizeBlock`, the real note-commitment tree); without them it says it skipped those. They always run in `chain-test`, so a stale expectation in one is caught there at the latest, but the pull-request job is late for it: build the library once and `make test` catches it before the push.
+
 `make -C chain ci` runs the first three jobs' commands in one go; it builds libwasmvm and the Orchard verifiers first, so it takes a while.
 
 `test-race` builds libwasmvm from the source in the Go module cache (`wasmvm-lib`: the version `go.mod` pins, checked against `go.sum`) and links it with `-tags sys_wasmvm`. Nothing prebuilt is downloaded, the same rule `native/build.sh` follows for the release library.
@@ -339,6 +341,7 @@ There are 54 Go fuzz targets (`func FuzzX(f *testing.F)`) and 4 cargo-fuzz targe
 | `FuzzNetclassCheckHost`, `FuzzNetclassIsPublic` (`netclass`) | an accepted host is public by the standard library and by an `inet_aton` oracle; no special range is public |
 | `FuzzStorageKeyRewrap` (`storagekey`) | the keystream applied twice is the identity and a rewrap round trips |
 | `FuzzIndexerReadEnvelope` (`indexer`) | the explorer's decode of a transaction is deterministic, typed and has a valid signer |
+| `FuzzShieldedSubtreeEvents`, `FuzzShieldedBundleEvent`, `FuzzDecodeShieldedAction` (`indexer`) | a subtree event is accepted only with a 32-byte root under a parsed index; a bundle event only for its own message with a 32-bit commitment count; a stored action row decodes to fields of the documented lengths or is refused |
 | `FuzzReporterParseVote` (`reporter`) | a Tor vote parses to distinct relays, with the digest of its bytes and a header that reads the same alone |
 | `FuzzClientTxDecode` (`client/tx`) | a transaction a wallet accepts is bound to the chain id and account number it was checked against |
 | `FuzzArchiverBundle` (`archiver`) | a bundle is the canonical encoding of its blocks and verifies only under its own range record |

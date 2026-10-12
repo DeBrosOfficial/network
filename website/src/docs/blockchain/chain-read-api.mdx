@@ -72,7 +72,7 @@ curl -s --get https://stagenet.orama.network/v1/chain/query/orama.storage.v1.Que
 | `orama.nodes.v1.Query` | `Params`, `Operator`, `Node`, `Cluster`, `NodeUnbondings`, `NodeByName`, `NameOfNode`, `NodeNames` (paged), `Nodes` (paged) |
 | `orama.power.v1.Query` | `Params`, `BootstrapCommittee`, `Lambda`, `ValidatorPower` |
 | `orama.relay.v1.Query` | `Params`, `Reporters`, `Relay`, `EpochResult`, `Relays`, `OperatorRelays` and `RelayPayouts` (the last three paged) |
-| `orama.shielded.v1.Query` | `Params`, `TreeState`, `TreeFrontier`, `NullifierSpent` |
+| `orama.shielded.v1.Query` | `Params`, `TreeState`, `TreeFrontier`, `SubtreeRoots` (paged), `NullifierSpent` |
 | `orama.storage.v1.Query` | `Params`, `Deal`, `Slot`, `Authorization`, `Challenges`, `EpochMint`, `Queue`, `NodeFailures`, `Deals` (paged) |
 | `orama.token.v1.Query` | `Params`, `Token`, `Frozen` |
 | `cosmos.bank.v1beta1.Query` | `Balance`, `AllBalances` (paged), `SpendableBalances` (paged), `TotalSupply` (paged), `DenomOwners` (paged) |
@@ -137,7 +137,7 @@ A list answer is an object with its rows under a name (`blocks`, `txs`, `epochs`
 
 ## Scanning the shielded pool
 
-Three public reads give a wallet everything it needs to find its notes and witness them without holding every leaf of the note-commitment tree. Bytes in the index routes are lowercase hex; in a module query they are base64, like every `bytes` field of that route. The pool, the keys and the address format are described in [Shielded pool](/docs/blockchain/shielded).
+Four public reads give a wallet everything it needs to find its notes and witness them without holding every leaf of the note-commitment tree. Bytes in the index routes are lowercase hex; in a module query they are base64, like every `bytes` field of that route. The pool, the keys and the address format are described in [Shielded pool](/docs/blockchain/shielded).
 
 **Actions: `index/shielded/actions?from_height=H&limit=N`.** `from_height` is a positive height (default 1); `limit` is the most actions a page holds, 1 to 1,000 (default 200). A page is **whole blocks**: it holds the blocks with shielded actions from `from_height` on, in order, and stops before the block that would take it over `limit`, except that a first block larger than `limit` is returned whole. A block with no shielded action is not listed. Only transactions the chain accepted appear (shield, shield of earnings, transfer and unshield), and only their actions.
 
@@ -170,12 +170,26 @@ Three public reads give a wallet everything it needs to find its notes and witne
 }
 ```
 
-- `position` is the leaf the action's `cmx` took in the note-commitment tree; `tree_size` is the number of leaves after the block. The block's actions take the positions `tree_size - n` to `tree_size - 1` in order. `tx_index` is the transaction's place in its block and `action_index` the action's place among the actions of that transaction.
+- `position` is the leaf the action's `cmx` took in the note-commitment tree; `tree_size` is the number of leaves after the block. The block's actions take the positions `tree_size - n` to `tree_size - 1` in order. The index reads each position from the chain's `shielded_bundle` event (`tree_size_before`, `commitments`) and checks that the bundles follow one another without a gap, never from the chain's state. `tx_index` is the transaction's place in its block and `action_index` the action's place among the actions of that transaction.
 - `start_height` is the first block the index holds and `indexed_height` the last: nothing before the first is here, and a page that reaches the last is the end for now.
 - `has_more` says the page stopped at its limit and `next_height` is the first block not yet returned: ask again from it. Without `has_more` the reader is caught up and `next_height` is `indexed_height + 1`: ask again from there after the chain has moved on, and a `from_height` past the index is an empty page that points at itself. `next_height` never points backwards.
 - The nullifiers are those of the notes spent: a wallet marks its notes spent when it sees one of its own.
 
-**Subtree roots: `index/shielded/subtree-roots?start_index=I&limit=N`.** `start_index` is a non-negative subtree number (default 0); `limit` is 1 to 1,000 (default 100). Subtree `k` holds the leaves `k * 65,536` to `(k + 1) * 65,536 - 1`.
+**Subtree roots in state: `query/orama.shielded.v1.Query/SubtreeRoots`.** The chain stores the root of every filled 2^16-leaf subtree, so any node answers for all of them, from subtree 0. Request fields: `start_index` (the first subtree wanted, default 0; a 64-bit number is a string in JSON) and `limit` (the most roots, default 100; more than 1,000 is refused with `400`). Subtree `k` holds the leaves `k * 65,536` to `(k + 1) * 65,536 - 1`.
+
+```json
+{
+  "roots": [
+    { "index": "0", "root": "<base64, 32 bytes>", "height": "3112" },
+    { "index": "1", "root": "<base64, 32 bytes>", "height": "4871" }
+  ],
+  "total": "2"
+}
+```
+
+`total` is the number of filled subtrees, `floor(tree_size / 65,536)`, at the height the query reads. The roots come in index order; the next page starts at `start_index` plus the number returned, and a page that reaches `total` is the last for now. A `start_index` at or past `total` is an empty page, not an error. `height` is the block whose transaction filled the subtree. With the `height` query parameter (within the last 100 blocks) the answer lists the subtrees filled by then.
+
+**Subtree roots in the index: `index/shielded/subtree-roots?start_index=I&limit=N`.** The same roots, from the events the index saw. `start_index` is a non-negative subtree number (default 0); `limit` is 1 to 1,000 (default 100).
 
 ```json
 {
@@ -192,7 +206,7 @@ Three public reads give a wallet everything it needs to find its notes and witne
 }
 ```
 
-`root` is the 32-byte canonical encoding of the subtree's root (the same encoding as a `cmx` and as the tree's `current_root`) and `height` the block whose transaction filled the subtree. `first_index` is the first subtree this index has a root for; it is absent while there is none, and a subtree before it has no root here. The roots recombine to the anchor: with every subtree `0..k` filled and the tree at exactly `(k + 1) * 65,536` leaves, hashing the roots up through levels 16 to 31 with the empty-subtree roots on the right gives `TreeState.current_root`.
+`root` is the 32-byte canonical encoding of the subtree's root (here in hex; the query's is base64) (the same encoding as a `cmx` and as the tree's `current_root`) and `height` the block whose transaction filled the subtree. `first_index` is the first subtree this index has a root for; it is absent while there is none, and a subtree before it has no root here. The roots recombine to the anchor: with every subtree `0..k` filled and the tree at exactly `(k + 1) * 65,536` leaves, hashing the roots up through levels 16 to 31 with the empty-subtree roots on the right gives `TreeState.current_root`.
 
 **Frontier: `query/orama.shielded.v1.Query/TreeFrontier`.** No request fields. `height` (the query parameter) reads an earlier state, within the last 100 blocks.
 
@@ -207,7 +221,7 @@ Three public reads give a wallet everything it needs to find its notes and witne
 
 `current_root` equals `TreeState.current_root` at the same height. `frontier` is empty for an empty tree, and otherwise the position of the last leaf (a little-endian `u64`, `tree_size - 1`), that leaf (32 bytes) and one ommer (32 bytes) for each set bit of the position, lowest level first: at most 1,064 bytes. Appending commitments to it in order gives the tree's later roots.
 
-**Scanning.** Page `shielded/actions` from the wallet's birthday, trial-decrypting each `enc_compact` with the incoming viewing key and the `ephemeral_key`, and keep the positions of the notes found; take the roots of filled subtrees from `shielded/subtree-roots` and a frontier from `TreeFrontier` at a recent height; then continue from `next_height`, applying each new block's commitments to the frontier. The three reads draw on the `index/…` and `query/…` limits below, so a wallet should page at the pace of `Retry-After`.
+**Scanning.** Page `shielded/actions` from the wallet's birthday, trial-decrypting each `enc_compact` with the incoming viewing key and the `ephemeral_key`, and keep the positions of the notes found; take the roots of filled subtrees from `SubtreeRoots` and a frontier from `TreeFrontier` at a recent height; then continue from `next_height`, applying each new block's commitments to the frontier. The three reads draw on the `index/…` and `query/…` limits below, so a wallet should page at the pace of `Retry-After`.
 
 ## Caching
 

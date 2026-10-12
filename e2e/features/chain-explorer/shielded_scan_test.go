@@ -306,6 +306,87 @@ func TestShieldedScan_subtreeRootsAreCompleteFromTheFirstIndex(t *testing.T) {
 	}
 }
 
+// subtreeRootsAnswer is the answer of the SubtreeRoots query (64-bit integers are strings, the root is
+// base64).
+type subtreeRootsAnswer struct {
+	Roots []struct {
+		Index  string `json:"index"`
+		Root   string `json:"root"`
+		Height string `json:"height"`
+	} `json:"roots"`
+	Total string `json:"total"`
+}
+
+// subtreeRootsAt reads SubtreeRoots from start, at most limit roots, at a height (0 is the latest).
+func subtreeRootsAt(t *testing.T, height int64, start uint64, limit int) subtreeRootsAnswer {
+	t.Helper()
+	q := url.Values{"json": {`{"start_index":"` + strconv.FormatUint(start, 10) + `","limit":` + strconv.Itoa(limit) + `}`}}
+	if height > 0 {
+		q.Set("height", strconv.FormatInt(height, 10))
+	}
+	var got subtreeRootsAnswer
+	decode(t, read(t, "/query/orama.shielded.v1.Query/SubtreeRoots", q), &got)
+	return got
+}
+
+// TestShieldedScan_subtreeRootsInStateAreTheChainsAndTheIndexs: the SubtreeRoots query is public and
+// answers a root for every filled subtree from index 0, as many as the tree's size over the subtree
+// size at the same height, in order, 32 bytes each; a start at the end is an empty page that still
+// reports the total; and the roots the index serves are the chain's for every subtree it holds.
+func TestShieldedScan_subtreeRootsInStateAreTheChainsAndTheIndexs(t *testing.T) {
+	t.Parallel()
+	_, latest := treeAt(t, 0)
+	h, err := strconv.ParseInt(latest.Height, 10, 64)
+	if err != nil || h < 1 {
+		t.Fatalf("TreeFrontier height %q: %v", latest.Height, err)
+	}
+	size, err := strconv.ParseUint(latest.TreeSize, 10, 64)
+	if err != nil {
+		t.Fatalf("tree_size %q: %v", latest.TreeSize, err)
+	}
+	filled := size / subtreeLeaves
+	got := subtreeRootsAt(t, h, 0, 1000)
+	if got.Total != strconv.FormatUint(filled, 10) {
+		t.Errorf("at height %d the tree holds %d leaves and SubtreeRoots total is %s, want %d", h, size, got.Total, filled)
+	}
+	if uint64(len(got.Roots)) != min(filled, 1000) {
+		t.Fatalf("SubtreeRoots listed %d roots for %d filled subtrees", len(got.Roots), filled)
+	}
+	for i, r := range got.Roots {
+		if r.Index != strconv.Itoa(i) {
+			t.Errorf("root %d has index %s", i, r.Index)
+		}
+		if raw, err := base64.StdEncoding.DecodeString(r.Root); err != nil || len(raw) != nodeBytes {
+			t.Errorf("subtree %s root %q is not 32 base64 bytes: %v", r.Index, r.Root, err)
+		}
+		if ht, err := strconv.ParseInt(r.Height, 10, 64); err != nil || ht < 1 || ht > h {
+			t.Errorf("subtree %s was filled at height %q, outside the chain (up to %d)", r.Index, r.Height, h)
+		}
+	}
+	if past := subtreeRootsAt(t, h, filled, 10); len(past.Roots) != 0 || past.Total != got.Total {
+		t.Errorf("a start at the end answered %d roots with total %s, want none and %s", len(past.Roots), past.Total, got.Total)
+	}
+
+	requireIndexer(t)
+	var page struct {
+		FirstIndex *uint64 `json:"first_index"`
+		Roots      []struct {
+			Index uint64 `json:"index"`
+			Root  string `json:"root"`
+		} `json:"roots"`
+	}
+	decode(t, read(t, "/index/shielded/subtree-roots", url.Values{"limit": {"1000"}}), &page)
+	for _, r := range page.Roots {
+		if r.Index >= uint64(len(got.Roots)) {
+			continue // filled after the height read above
+		}
+		want, err := base64.StdEncoding.DecodeString(got.Roots[r.Index].Root)
+		if err != nil || hex.EncodeToString(want) != r.Root {
+			t.Errorf("subtree %d: the index serves %s, the chain keeps %s", r.Index, r.Root, got.Roots[r.Index].Root)
+		}
+	}
+}
+
 // TestShieldedScan_refusals: the scanning routes refuse what the indexer and the gateway bound.
 func TestShieldedScan_refusals(t *testing.T) {
 	t.Parallel()
@@ -327,6 +408,8 @@ func TestShieldedScan_refusals(t *testing.T) {
 		{"/index/shielded", nil, http.StatusNotFound},
 		{"/index/shielded/other", nil, http.StatusNotFound},
 		{"/query/orama.shielded.v1.Query/Pools", nil, http.StatusNotFound},
+		{"/query/orama.shielded.v1.Query/SubtreeRoots", url.Values{"json": {`{"limit":1001}`}}, http.StatusBadRequest},
+		{"/query/orama.shielded.v1.Query/SubtreeRoots", url.Values{"json": {`{"start_index":-1}`}}, http.StatusBadRequest},
 	} {
 		if resp := read(t, tc.path, tc.query); resp.Status != tc.want {
 			t.Errorf("GET %s %v: HTTP %d, want %d: %.200s", tc.path, tc.query, resp.Status, tc.want, resp.Body)

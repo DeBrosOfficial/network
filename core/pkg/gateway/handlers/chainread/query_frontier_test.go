@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"testing"
 )
 
@@ -45,5 +46,49 @@ func TestQuery_treeFrontierIsPublicAndDecodesItsBytes(t *testing.T) {
 	}
 	if q := up.calls[0]; q.Get("path") != `"/orama.shielded.v1.Query/TreeFrontier"` || q.Get("prove") != "false" {
 		t.Fatalf("upstream query %v", q)
+	}
+}
+
+// SubtreeRoots is a public module query: a wallet pages the roots of the filled subtrees with the
+// JSON form of the request (the 64-bit start_index as a string, as proto JSON writes it), and the
+// 32-byte roots arrive as base64 beside their index and filling height.
+func TestQuery_subtreeRootsIsPublicAndTakesItsPaging(t *testing.T) {
+	root := bytes.Repeat([]byte{0xee}, 32)
+	// QuerySubtreeRootsResponse{roots: [SubtreeRoot{index: 1, root, height: 5}], total: 2}
+	entry := append([]byte{0x08, 1, 0x12, byte(len(root))}, root...)
+	entry = append(entry, 0x18, 5)
+	answer := append([]byte{0x0a, byte(len(entry))}, entry...)
+	answer = append(answer, 0x10, 2)
+
+	up := &abciUpstream{value: answer}
+	p := queryProxy(t, up)
+	rr := getQuery(p, http.MethodGet, "/v1/chain/query/orama.shielded.v1.Query/SubtreeRoots?json="+url.QueryEscape(`{"start_index":"1","limit":10}`))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d body %q", rr.Code, rr.Body.String())
+	}
+	var got struct {
+		Roots []struct {
+			Index  string `json:"index"`
+			Root   string `json:"root"`
+			Height string `json:"height"`
+		} `json:"roots"`
+		Total string `json:"total"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body %q: %v", rr.Body.String(), err)
+	}
+	if len(got.Roots) != 1 || got.Total != "2" || got.Roots[0].Index != "1" || got.Roots[0].Height != "5" {
+		t.Fatalf("answer %+v", got)
+	}
+	if b, err := base64.StdEncoding.DecodeString(got.Roots[0].Root); err != nil || !bytes.Equal(b, root) {
+		t.Fatalf("root %q: %v", got.Roots[0].Root, err)
+	}
+	// The request the node received is QuerySubtreeRootsRequest{start_index: 1, limit: 10}.
+	if q := up.calls[0]; q.Get("path") != `"/orama.shielded.v1.Query/SubtreeRoots"` || q.Get("data") != "0x0801100a" {
+		t.Fatalf("upstream query %v", q)
+	}
+
+	if rr := getQuery(p, http.MethodGet, "/v1/chain/query/orama.shielded.v1.Query/SubtreeRoots?json="+url.QueryEscape(`{"start_index":-1}`)); rr.Code != http.StatusBadRequest {
+		t.Fatalf("a negative start_index answered %d", rr.Code)
 	}
 }

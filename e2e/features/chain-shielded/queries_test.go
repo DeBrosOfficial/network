@@ -58,10 +58,32 @@ func TestShieldedQueries_poolStartsEmptyAndInvariantsHold(t *testing.T) {
 	}
 	for _, n := range c.Nodes() {
 		f := queryFieldsOn(t, c, n, "Invariants", chain.PB{})
-		if f.Varint(1) != 1 || f.Varint(2) != 1 || f.Varint(3) != 1 {
-			t.Errorf("%s: shielded invariants balance_matches=%d pools_non_negative=%d accumulator_matches=%d (%s)",
-				n.Name, f.Varint(1), f.Varint(2), f.Varint(3), f.Str(4))
+		if f.Varint(1) != 1 || f.Varint(2) != 1 || f.Varint(3) != 1 || f.Varint(5) != 1 {
+			t.Errorf("%s: shielded invariants balance_matches=%d pools_non_negative=%d accumulator_matches=%d subtree_roots_match=%d (%s)",
+				n.Name, f.Varint(1), f.Varint(2), f.Varint(3), f.Varint(5), f.Str(4))
 		}
+	}
+}
+
+// TestShieldedQueries_subtreeRootsOfAnEmptyTree: with no bundle accepted the tree holds no leaf, so
+// no subtree has filled: SubtreeRoots answers no root and a total of zero on every validator, and a
+// limit over the page bound is refused rather than clipped.
+func TestShieldedQueries_subtreeRootsOfAnEmptyTree(t *testing.T) {
+	t.Parallel()
+	c := chain.New(t)
+	for _, n := range c.Nodes() {
+		a := c.ABCIQuery(t, n, shieldedQuery+"SubtreeRoots", chain.PB{})
+		if a.Code != 0 {
+			t.Fatalf("%s: SubtreeRoots: code %d: %s", n.Name, a.Code, a.Log)
+		}
+		f, err := chain.DecodePB(a.Value)
+		if err != nil || f.Varint(2) != 0 {
+			t.Errorf("%s: SubtreeRoots of an empty tree: total %d (%v), want 0", n.Name, f.Varint(2), err)
+		}
+	}
+	over := c.ABCIQuery(t, c.Node(t, 0), shieldedQuery+"SubtreeRoots", chain.PB{}.Uint(2, 1001))
+	if over.Code == 0 {
+		t.Errorf("SubtreeRoots with limit 1001 was answered; the page bound is 1000")
 	}
 }
 

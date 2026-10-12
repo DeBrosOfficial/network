@@ -20,7 +20,7 @@ var InvariantModules = []string{"emission", "fees", "houses", "market", "nodes",
 // true. A module without a hand-written query CLI is printed by autocli's
 // amino-JSON encoder, which leaves a false boolean out: for it, an absent
 // member is a broken invariant (x/shielded; the others print every member).
-var requiredTrue = map[string][]string{"shielded": {"balance_matches", "pools_non_negative", "accumulator_matches"}}
+var requiredTrue = map[string][]string{"shielded": {"balance_matches", "pools_non_negative", "accumulator_matches", "subtree_roots_match"}}
 
 // invariantMark separates the modules' answers in one node's output.
 const invariantMark = "__E2E_INVARIANTS__ "

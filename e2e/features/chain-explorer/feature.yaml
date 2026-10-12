@@ -60,6 +60,7 @@ covers:
     - orama.shielded.v1.Params
     - orama.shielded.v1.TreeState
     - orama.shielded.v1.TreeFrontier
+    - orama.shielded.v1.SubtreeRoots
   claims:
     - "website/src/docs/blockchain/reading-the-chain.mdx#the-chain-indexer: index/txs, index/accounts/{addr}/txs and index/blocks take page up to 10 and go deeper by cursor=<next_cursor>; a page with a cursor and a malformed cursor are refused"
     - "website/src/docs/blockchain/reading-the-chain.mdx#the-chain-indexer: index/accounts/{addr}/rewards and index/cnft/owners/{addr}/assets also take page up to 10 and go deeper by cursor=<next_cursor>, each with a cursor of its own shape; a page with a cursor, another list's cursor and a malformed cursor are refused"
@@ -69,6 +70,7 @@ covers:
     - "website/src/docs/blockchain/chain-read-api.mdx#scanning-the-shielded-pool: shielded/actions pages whole blocks of the committed shielded actions in the order the chain appended them, each with its leaf position and each block with the tree size after it; the positions run on without a gap from the index's first block and the last block's tree size is the tree's size at the height the index has reached"
     - "website/src/docs/blockchain/chain-read-api.mdx#scanning-the-shielded-pool: following next_height reads every action once whatever the limit, and a from_height past the index is an empty page that does not move backwards"
     - "website/src/docs/blockchain/chain-read-api.mdx#scanning-the-shielded-pool: shielded/subtree-roots lists the roots of the filled 2^16-leaf subtrees in order from first_index, 32 bytes each, with the block that filled each"
+    - "website/src/docs/blockchain/chain-read-api.mdx#scanning-the-shielded-pool: SubtreeRoots answers a root for every filled 2^16-leaf subtree from index 0 (floor(tree_size / 65536) of them, 32 bytes each, in order, with the block that filled it and the total), pages by start_index and limit up to 1,000, and the roots the index serves are the chain's"
     - "website/src/docs/blockchain/chain-read-api.mdx#scanning-the-shielded-pool: TreeFrontier answers the tree's right edge with the size and root TreeState reports at the same height, empty for an empty tree and otherwise the position, the last leaf and one ommer per set bit of the position"
     - "docs/whitepaper/technical-reference/vol2/42-archive-and-indexer.md#the-indexer: a page of the shielded routes that has more behind it is Cache-Control public, max-age=600, the page at the head max-age=2, and every error no-store; the routes refuse an unknown or repeated parameter, a limit over 1000 and a method other than GET"
     - "website/src/docs/blockchain/shielded.mdx#scanning-the-pool: ACTIONS OF AN ACCEPTED BUNDLE: the run chain is built without the Orchard library and the verifier, so no bundle is accepted and the list is empty; the check that every action of an accepted bundle is listed with its position runs unchanged on a chain that accepts bundles (trigger: chain-deploy.sh builds and installs them)"

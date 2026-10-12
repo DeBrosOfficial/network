@@ -160,7 +160,7 @@ func (f *Follower) indexBlock(ctx context.Context, height int64) error {
 		block.GasUsed += res.TxsResults[i].GasUsed
 		burned = burned.Add(txBurned)
 	}
-	if err := f.flushShielded(ctx, w, height); err != nil {
+	if err := f.flushShielded(w, height); err != nil {
 		return errors.Join(fmt.Errorf("index the shielded actions of block %d: %w", height, err), w.close())
 	}
 	block.TxCount = len(block.TxHashes)

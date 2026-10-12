@@ -89,6 +89,33 @@ func (q queryServer) TreeFrontier(ctx context.Context, _ *types.QueryTreeFrontie
 	}, nil
 }
 
+// SubtreeRoots answers a page of the roots of the filled 2^16-leaf subtrees, in index order, with
+// the number of filled subtrees. A start past the last one is an empty page, not an error: a wallet
+// that is caught up asks for the next subtree and gets none.
+func (q queryServer) SubtreeRoots(ctx context.Context, req *types.QuerySubtreeRootsRequest) (*types.QuerySubtreeRootsResponse, error) {
+	limit := req.Limit
+	if limit == 0 {
+		limit = types.SubtreeRootsDefaultLimit
+	}
+	if limit > types.SubtreeRootsMaxLimit {
+		return nil, status.Errorf(codes.InvalidArgument, "limit %d is over the most a page holds, %d", req.Limit, types.SubtreeRootsMaxLimit)
+	}
+	size, err := getUint64(ctx, q.TreeSize)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	total := size / types.SubtreeLeaves
+	resp := &types.QuerySubtreeRootsResponse{Roots: []types.SubtreeRoot{}, Total: total}
+	for index := req.StartIndex; index < total && uint32(len(resp.Roots)) < limit; index++ {
+		root, err := q.Subtrees.Get(ctx, index)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "read the root of subtree %d, which the tree of %d leaves has filled: %v", index, size, err)
+		}
+		resp.Roots = append(resp.Roots, root)
+	}
+	return resp, nil
+}
+
 func (q queryServer) NullifierSpent(ctx context.Context, req *types.QueryNullifierSpentRequest) (*types.QueryNullifierSpentResponse, error) {
 	var nf [bundle.NodeLen]byte
 	if copy(nf[:], req.Nullifier) != bundle.NodeLen || len(req.Nullifier) != bundle.NodeLen {
@@ -108,6 +135,6 @@ func (q queryServer) Invariants(ctx context.Context, _ *types.QueryInvariantsReq
 	}
 	return &types.QueryInvariantsResponse{
 		BalanceMatches: inv.BalanceMatches, PoolsNonNegative: inv.PoolsNonNegative,
-		AccumulatorMatches: inv.AccumulatorMatches, Detail: inv.Detail,
+		AccumulatorMatches: inv.AccumulatorMatches, Detail: inv.Detail, SubtreeRootsMatch: inv.SubtreeRootsMatch,
 	}, nil
 }

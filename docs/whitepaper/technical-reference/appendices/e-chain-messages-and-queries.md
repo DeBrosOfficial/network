@@ -265,6 +265,7 @@ Source: `chain/proto/orama/shielded/v1/query.proto`
 | `Pools` `/orama/shielded/v1/pools` | none |  |
 | `TreeState` `/orama/shielded/v1/tree-state` | none |  |
 | `TreeFrontier` `/orama/shielded/v1/tree-frontier` | none |  |
+| `SubtreeRoots` `/orama/shielded/v1/subtree-roots` | `start_index uint64`, `limit uint32` | QuerySubtreeRootsRequest pages the roots of the filled 2^16-leaf subtrees. |
 | `NullifierSpent` `/orama/shielded/v1/nullifier-spent` | `nullifier bytes` |  |
 | `Invariants` `/orama/shielded/v1/invariants` | none |  |
 

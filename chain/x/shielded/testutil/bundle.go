@@ -35,7 +35,11 @@ func (b Bundle) Encode(actions int) []byte {
 	out = binary.LittleEndian.AppendUint64(out, uint64(b.ValueBalance))
 	out = append(out, b.Anchor[:]...)
 	proof := bundle.ProofLen(actions)
-	out = append(out, 0xfd, byte(proof), byte(proof>>8))
+	if proof > 0xffff {
+		out = binary.LittleEndian.AppendUint32(append(out, 0xfe), uint32(proof))
+	} else {
+		out = append(out, 0xfd, byte(proof), byte(proof>>8))
+	}
 	out = append(out, make([]byte, proof)...)
 	out = append(out, make([]byte, actions*bundle.SigLen+bundle.SigLen)...)
 	return append(out, b.Tail...)

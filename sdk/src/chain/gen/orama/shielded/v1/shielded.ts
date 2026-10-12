@@ -177,6 +177,17 @@ export interface Anchor {
   height: bigint;
 }
 
+/**
+ * SubtreeRoot is the root of one filled 2^16-leaf subtree of the note-commitment tree: the subtree
+ * numbered index covers the leaves index*65536 up to (index+1)*65536 - 1. height is the block whose
+ * append filled it.
+ */
+export interface SubtreeRoot {
+  index: bigint;
+  root: Uint8Array;
+  height: bigint;
+}
+
 function createBaseParams(): Params {
   return {
     anchorWindowBlocks: 0n,
@@ -975,6 +986,113 @@ export const Anchor: MessageFns<Anchor> = {
   },
   fromPartial<I extends Exact<DeepPartial<Anchor>, I>>(object: I): Anchor {
     const message = createBaseAnchor();
+    message.root = object.root ?? new Uint8Array(0);
+    message.height = (object.height !== undefined && object.height !== null) ? BigInt(object.height) : 0n;
+    return message;
+  },
+};
+
+function createBaseSubtreeRoot(): SubtreeRoot {
+  return { index: 0n, root: new Uint8Array(0), height: 0n };
+}
+
+export const SubtreeRoot: MessageFns<SubtreeRoot> = {
+  encode(message: SubtreeRoot, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.index !== 0n) {
+      if (BigInt.asUintN(64, message.index) !== message.index) {
+        throw new globalThis.Error("value provided for field message.index of type uint64 too large");
+      }
+      writer.uint32(8).uint64(message.index);
+    }
+    if (message.root.length !== 0) {
+      writer.uint32(18).bytes(message.root);
+    }
+    if (message.height !== 0n) {
+      if (BigInt.asIntN(64, message.height) !== message.height) {
+        throw new globalThis.Error("value provided for field message.height of type int64 too large");
+      }
+      writer.uint32(24).int64(message.height);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SubtreeRoot {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSubtreeRoot();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.index = reader.uint64() as bigint;
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.root = reader.bytes();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.height = reader.int64() as bigint;
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): SubtreeRoot {
+    return {
+      index: isSet(object.index) ? BigInt(object.index) : 0n,
+      root: isSet(object.root) ? bytesFromBase64(object.root) : new Uint8Array(0),
+      height: isSet(object.height) ? BigInt(object.height) : 0n,
+    };
+  },
+
+  toJSON(message: SubtreeRoot): unknown {
+    const obj: any = {};
+    if (message.index !== 0n) {
+      obj.index = message.index.toString();
+    }
+    if (message.root.length !== 0) {
+      obj.root = base64FromBytes(message.root);
+    }
+    if (message.height !== 0n) {
+      obj.height = message.height.toString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SubtreeRoot>, I>>(base?: I): SubtreeRoot {
+    return SubtreeRoot.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SubtreeRoot>, I>>(object: I): SubtreeRoot {
+    const message = createBaseSubtreeRoot();
+    message.index = (object.index !== undefined && object.index !== null) ? BigInt(object.index) : 0n;
     message.root = object.root ?? new Uint8Array(0);
     message.height = (object.height !== undefined && object.height !== null) ? BigInt(object.height) : 0n;
     return message;

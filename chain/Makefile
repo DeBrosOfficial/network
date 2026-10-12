@@ -57,9 +57,17 @@ contracts-verify:
 
 ## test: pure-Go tests on the nowasm build, which does not need libwasmvm.
 ## When libwasmvm is present, also run the cgo build (wasm keeper, contract packet refusal).
+## When the Orchard library and the verifier binary are built (make orchard-lib orchard-verifier),
+## also run the tests that need them: the real proofs through FinalizeBlock, the real tree. They are
+## the tests only CI's test-race would otherwise run, so a stale expectation in one shows here first.
 test:
 	CGO_ENABLED=0 go test -tags nowasm ./...
 	@if [ -n "$(LIBWASMVM)" ]; then CGO_ENABLED=1 go test ./...; fi
+	@if [ -f $(ORCHARD_HOST_LIB) ] && [ -x $(ORCHARD_PROCESS_BIN) ]; then \
+		CGO_ENABLED=1 go test -tags "nowasm orchardffi" ./x/shielded/... ./app/... ./indexer/...; \
+	else \
+		echo "test: the Orchard tests (-tags orchardffi) were skipped; run make orchard-lib orchard-verifier to run them here (CI always runs them: make test-race)"; \
+	fi
 
 # Orchard/Ironwood verifier (x/shielded/orchardffi, Rust). The Go side links it only under
 # -tags orchardffi with cgo; without it a build fails closed with ErrVerifierNotLinked.
@@ -246,18 +254,20 @@ localnet-stop:
 localnet-clean:
 	./scripts/localnet/localnet.sh clean
 
-## proto-shielded: regenerate x/shielded's gogoproto code from proto/orama/shielded/v1.
-## Needs protoc and protoc-gen-gocosmos (go install github.com/cosmos/gogoproto/protoc-gen-gocosmos).
+## proto-shielded: regenerate x/shielded's gogoproto and grpc-gateway code from proto/orama/shielded/v1.
+## Same toolchain as proto-nodes.
 GOPROTO_MOD := $(shell go env GOMODCACHE)/github.com/cosmos
 proto-shielded:
 	@out=$$(mktemp -d) && \
 	protoc -I proto \
 		-I $(GOPROTO_MOD)/cosmos-sdk@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-sdk)/proto \
 		-I $(GOPROTO_MOD)/gogoproto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/gogoproto) \
+		-I $(shell go list -m -f '{{.Dir}}' github.com/grpc-ecosystem/grpc-gateway)/third_party/googleapis \
 		-I $(GOPROTO_MOD)/cosmos-proto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-proto)/proto \
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
+		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/shielded/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/shielded/types/*.pb.go x/shielded/types/ && rm -rf $$out
+	cp $$out/github.com/DeBrosOfficial/network/chain/x/shielded/types/*.go x/shielded/types/ && rm -rf $$out
 
 ## proto-emission: regenerate x/emission's gogoproto code from proto/orama/emission/v1.
 ## Same toolchain as proto-shielded.

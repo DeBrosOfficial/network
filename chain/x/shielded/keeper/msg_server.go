@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -10,21 +11,32 @@ import (
 	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
 )
 
-// EventTypeBundle is emitted for every accepted bundle.
-const EventTypeBundle = "shielded_bundle"
-
 type msgServer struct{ Keeper }
 
 // NewMsgServerImpl returns the module's Msg server. The message server is the authority: every
 // message verifies its bundle here, whatever the ante handler already did.
 func NewMsgServerImpl(k Keeper) types.MsgServer { return msgServer{k} }
 
-func (m msgServer) emit(ctx sdk.Context, kind string, adm *Admitted) {
-	ctx.EventManager().EmitEvent(sdk.NewEvent(EventTypeBundle,
-		sdk.NewAttribute("kind", kind),
-		sdk.NewAttribute("actions", fmt.Sprint(adm.Bundle.Actions)),
-		sdk.NewAttribute("amount", adm.Amount.String()),
+// emit reports an executed bundle, with the size the note-commitment tree had before its append.
+// The size is read after the append and the bundle's commitments taken off it, on an unmetered
+// context so the read costs no gas.
+func (m msgServer) emit(ctx sdk.Context, kind string, adm *Admitted) error {
+	size, err := getUint64(ctx.WithGasMeter(storetypes.NewInfiniteGasMeter()), m.TreeSize)
+	if err != nil {
+		return fmt.Errorf("read the tree size: %w", err)
+	}
+	n := uint64(len(adm.Bundle.Commitments))
+	if size < n {
+		return fmt.Errorf("the tree holds %d commitments, fewer than the %d the bundle appended", size, n)
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeBundle,
+		sdk.NewAttribute(types.AttributeKind, kind),
+		sdk.NewAttribute(types.AttributeActions, fmt.Sprint(adm.Bundle.Actions)),
+		sdk.NewAttribute(types.AttributeAmount, adm.Amount.String()),
+		sdk.NewAttribute(types.AttributeTreeSizeBefore, strconv.FormatUint(size-n, 10)),
+		sdk.NewAttribute(types.AttributeCommitments, strconv.FormatUint(n, 10)),
 	))
+	return nil
 }
 
 func (m msgServer) ShieldedTransfer(goCtx context.Context, msg *types.MsgShieldedTransfer) (*types.MsgShieldedTransferResponse, error) {
@@ -52,7 +64,9 @@ func (m msgServer) ShieldedTransfer(goCtx context.Context, msg *types.MsgShielde
 	if err := m.ExecuteTransfer(work, adm); err != nil {
 		return nil, err
 	}
-	m.emit(ctx, "transfer", adm)
+	if err := m.emit(ctx, "transfer", adm); err != nil {
+		return nil, err
+	}
 	return &types.MsgShieldedTransferResponse{}, nil
 }
 
@@ -69,7 +83,9 @@ func (m msgServer) Shield(goCtx context.Context, msg *types.MsgShield) (*types.M
 	if err := m.ExecuteShield(ctx, signer, adm); err != nil {
 		return nil, err
 	}
-	m.emit(ctx, "shield", adm)
+	if err := m.emit(ctx, "shield", adm); err != nil {
+		return nil, err
+	}
 	return &types.MsgShieldResponse{}, nil
 }
 
@@ -86,7 +102,9 @@ func (m msgServer) ShieldEarnings(goCtx context.Context, msg *types.MsgShieldEar
 	if err := m.ExecuteShieldEarnings(ctx, signer, adm); err != nil {
 		return nil, err
 	}
-	m.emit(ctx, "shield_earnings", adm)
+	if err := m.emit(ctx, "shield_earnings", adm); err != nil {
+		return nil, err
+	}
 	return &types.MsgShieldEarningsResponse{}, nil
 }
 
@@ -108,7 +126,9 @@ func (m msgServer) Unshield(goCtx context.Context, msg *types.MsgUnshield) (*typ
 	if err != nil {
 		return nil, err
 	}
-	m.emit(ctx, "unshield", adm)
+	if err := m.emit(ctx, "unshield", adm); err != nil {
+		return nil, err
+	}
 	return &types.MsgUnshieldResponse{Queued: queued}, nil
 }
 
