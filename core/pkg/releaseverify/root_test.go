@@ -49,7 +49,7 @@ func TestValidateRoot_refusals(t *testing.T) {
 func TestAdoptRoot_writesOnceAndReportsChange(t *testing.T) {
 	r := newChannelRepo(t)
 	path := filepath.Join(t.TempDir(), "release-root.json")
-	changed, err := AdoptRoot(path, r.root, testNow)
+	changed, err := AdoptRoot(path, r.root, testNow, AdoptSuccessor)
 	if err != nil || !changed {
 		t.Fatalf("first adoption: changed=%v err=%v", changed, err)
 	}
@@ -57,7 +57,7 @@ func TestAdoptRoot_writesOnceAndReportsChange(t *testing.T) {
 	if err != nil || info.Mode().Perm() != rootFilePerm {
 		t.Fatalf("root file: %v, %v", info, err)
 	}
-	changed, err = AdoptRoot(path, r.root, testNow)
+	changed, err = AdoptRoot(path, r.root, testNow, AdoptSuccessor)
 	if err != nil || changed {
 		t.Fatalf("the same root again: changed=%v err=%v", changed, err)
 	}
@@ -70,10 +70,10 @@ func TestAdoptRoot_writesOnceAndReportsChange(t *testing.T) {
 func TestAdoptRoot_aBadRootLeavesTheAdoptedOneAlone(t *testing.T) {
 	r := newChannelRepo(t)
 	path := filepath.Join(t.TempDir(), "release-root.json")
-	if _, err := AdoptRoot(path, r.root, testNow); err != nil {
+	if _, err := AdoptRoot(path, r.root, testNow, AdoptSuccessor); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AdoptRoot(path, []byte("garbage"), testNow); err == nil {
+	if _, err := AdoptRoot(path, []byte("garbage"), testNow, AdoptSuccessor); err == nil {
 		t.Fatal("garbage was adopted")
 	}
 	if got, _ := ReadRoot(path); string(got) != string(r.root) {

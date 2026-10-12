@@ -130,11 +130,12 @@ func (r Repository) settle(u RootUpdate, first, last *metadata.Metadata[metadata
 			return err
 		}
 	}
-	if _, err := AdoptRoot(u.RootPath, newest, u.Now); err != nil {
+	// The chain was verified step by step, so a jump of several versions is a rotation.
+	if _, err := AdoptRoot(u.RootPath, newest, u.Now, AdoptNewer); err != nil {
 		return err
 	}
 	if remember {
-		_, err := AdoptRoot(u.Adopted, newest, u.Now)
+		_, err := AdoptRoot(u.Adopted, newest, u.Now, AdoptNewer)
 		return err
 	}
 	return nil
@@ -266,7 +267,7 @@ func RotateRoot(u RootUpdate, next []byte) (bool, error) {
 			return false, err
 		}
 	}
-	return AdoptRoot(u.RootPath, next, u.Now)
+	return AdoptRoot(u.RootPath, next, u.Now, AdoptSuccessor)
 }
 
 // versionOf is the version a root file declares, 0 when it cannot be read.

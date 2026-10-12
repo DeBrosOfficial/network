@@ -60,7 +60,11 @@ func addRoot(opts AddRootOptions, rootPath, seenPath string, now time.Time, out 
 	case err != nil && !errors.Is(err, releaseverify.ErrNoRoot):
 		return err
 	}
-	changed, err := releaseverify.AdoptRoot(rootPath, data, now)
+	policy := releaseverify.AdoptSuccessor
+	if opts.Replace {
+		policy = releaseverify.AdoptReplace
+	}
+	changed, err := releaseverify.AdoptRoot(rootPath, data, now, policy)
 	if err != nil {
 		return err
 	}

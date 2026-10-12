@@ -183,7 +183,7 @@ func expiredRoot(t *testing.T) []byte {
 // as `stage-archive --release-only` does.
 func stageUnsigned(t *testing.T, dir string, root []byte) {
 	t.Helper()
-	if _, err := releaseverify.AdoptRoot(ReleaseRootPath, root, testNow); err != nil {
+	if _, err := releaseverify.AdoptRoot(ReleaseRootPath, root, testNow, releaseverify.AdoptReplace); err != nil {
 		t.Fatal(err)
 	}
 	err := releaseverify.RecordStaged(ReleaseStagedPath, releaseverify.Endorsement{
@@ -229,7 +229,7 @@ func TestVerify_aStagedEndorsementDoesNotSurviveAReplacedRoot(t *testing.T) {
 	releaseSeams(t)
 	dir := writeReleaseArchive(t, nil, nil, nil, testBuildDate)
 	stageUnsigned(t, dir, newRoot(t))
-	if _, err := releaseverify.AdoptRoot(ReleaseRootPath, newRoot(t), testNow); err != nil {
+	if _, err := releaseverify.AdoptRoot(ReleaseRootPath, newRoot(t), testNow, releaseverify.AdoptReplace); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Verify(anchor, dir, testArch); err == nil {

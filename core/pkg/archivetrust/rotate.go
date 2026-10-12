@@ -111,7 +111,9 @@ func VerifyAndRotate(anchorPath, archiveDir, arch string) (*Verified, bool, erro
 		}
 	}
 	if rot.changeRoot {
-		if _, err := releaseverify.AdoptRoot(ReleaseRootPath, v.ReleaseRoot, now()); err != nil {
+		// The archive is signed by the trusted signers and passed the replay rule above, so the root it
+		// carries is their decision, a re-key to an unrelated root included: an explicit replace.
+		if _, err := releaseverify.AdoptRoot(ReleaseRootPath, v.ReleaseRoot, now(), releaseverify.AdoptReplace); err != nil {
 			return nil, false, fmt.Errorf("adopt the release root the archive carries: %w", err)
 		}
 		v.AdoptedRoot = true
