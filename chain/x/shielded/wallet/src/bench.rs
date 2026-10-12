@@ -10,6 +10,9 @@
 //!   note commitments in tree order; the factory builds the tree, checks its root against the
 //!   chain's, finds each note's position by its commitment, and anchors every bundle to that root.
 //!
+//! The note codec moved to [`crate::notes`]; `bench::encode_note` / `bench::decode_note` remain as
+//! re-exports for existing callers.
+//!
 //! The accounts are those of the public all-"abandon" test seed: a localnet load generator needs
 //! reproducible wallets, not secret ones.
 
@@ -17,8 +20,7 @@ use std::collections::HashMap;
 
 use orchard::circuit::ProvingKey;
 use orchard::keys::Scope;
-use orchard::note::{ExtractedNoteCommitment, Note, NoteVersion, RandomSeed, Rho};
-use orchard::value::NoteValue;
+use orchard::note::{ExtractedNoteCommitment, Note};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
@@ -29,11 +31,9 @@ use crate::sighash::{unshield_binding, Target};
 use crate::tree::NoteTree;
 use crate::vectors::{abandon_seed, hex};
 
-const ADDRESS_LEN: usize = 43;
-const NOTE_LEN: usize = ADDRESS_LEN + 8 + 32 + 32 + 1;
+pub use crate::notes::{decode_note, encode_note};
+
 const SIGNER_LEN: usize = 20;
-const VERSION_V2: u8 = 2;
-const VERSION_V3: u8 = 3;
 
 #[derive(Deserialize)]
 pub struct OutputSpec {
@@ -130,39 +130,6 @@ impl Wallet {
             })
             .collect()
     }
-}
-
-pub fn encode_note(n: &Note) -> String {
-    let mut b = Vec::with_capacity(NOTE_LEN);
-    b.extend_from_slice(&n.recipient().to_raw_address_bytes());
-    b.extend_from_slice(&n.value().inner().to_le_bytes());
-    b.extend_from_slice(&n.rho().to_bytes());
-    b.extend_from_slice(n.rseed().as_bytes());
-    b.push(match n.version() {
-        NoteVersion::V2 => VERSION_V2,
-        NoteVersion::V3 => VERSION_V3,
-    });
-    hex(&b)
-}
-
-pub fn decode_note(s: &str) -> Result<Note, String> {
-    let b = hex::decode(s).map_err(|e| format!("note is not hex: {e}"))?;
-    if b.len() != NOTE_LEN {
-        return Err(format!("note is {} bytes, want {NOTE_LEN}", b.len()));
-    }
-    let addr_bytes: [u8; ADDRESS_LEN] = b[..ADDRESS_LEN].try_into().map_err(|_| "address bytes")?;
-    let recipient = Option::from(orchard::Address::from_raw_address_bytes(&addr_bytes)).ok_or("note address is invalid")?;
-    let value = NoteValue::from_raw(u64::from_le_bytes(b[ADDRESS_LEN..ADDRESS_LEN + 8].try_into().map_err(|_| "value bytes")?));
-    let rho_bytes: [u8; 32] = b[ADDRESS_LEN + 8..ADDRESS_LEN + 40].try_into().map_err(|_| "rho bytes")?;
-    let rho = Option::from(Rho::from_bytes(&rho_bytes)).ok_or("note rho is invalid")?;
-    let rseed_bytes: [u8; 32] = b[ADDRESS_LEN + 40..ADDRESS_LEN + 72].try_into().map_err(|_| "rseed bytes")?;
-    let rseed = Option::from(RandomSeed::from_bytes(rseed_bytes, &rho)).ok_or("note rseed does not match its rho")?;
-    let version = match b[NOTE_LEN - 1] {
-        VERSION_V2 => NoteVersion::V2,
-        VERSION_V3 => NoteVersion::V3,
-        v => return Err(format!("unknown note version {v}")),
-    };
-    Option::from(Note::from_parts(recipient, value, rho, rseed, version)).ok_or_else(|| "note is not a valid note".to_string())
 }
 
 fn cmx_hex(n: &Note) -> String {

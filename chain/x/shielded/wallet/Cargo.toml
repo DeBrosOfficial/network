@@ -9,9 +9,18 @@ description = "Wallet-side shielded core for Orama (F7): key tree, note tree and
 [lib]
 name = "orama_shielded_wallet"
 
+[features]
+# Parallel proving (halo2 over rayon threads). On by default for native builds; the browser/wasm32
+# build uses `--no-default-features`.
+default = ["multicore"]
+multicore = ["orchard/multicore"]
+
 [dependencies]
 # Same exact pins as ../orchardffi/Cargo.toml: the wallet must build what the node verifies.
-orchard = { version = "=0.15.5", features = ["circuit"] }
+# default-features = false: orchard's default turns on halo2_proofs/multicore (rayon threads), which
+# does not build for wasm32-unknown-unknown without atomics. The `multicore` crate feature below
+# brings it back for native builds.
+orchard = { version = "=0.15.5", default-features = false, features = ["circuit", "std"] }
 zcash_primitives = { version = "=0.30.1", default-features = false, features = ["std"] }
 zcash_protocol = "=0.10.6"
 # ZIP-32 hardened-only derivation framework, the version orchard 0.15.5 resolves to.
@@ -31,6 +40,11 @@ bech32 = "=0.11.1"
 zeroize = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# rand 0.8 reaches getrandom 0.2, which has no OS entropy source on wasm32-unknown-unknown: route it
+# to the browser's crypto.getRandomValues. Only that target sees this dependency.
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 blake2b_simd = "1"

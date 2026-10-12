@@ -6,8 +6,8 @@ use orchard::builder::{Builder, BuildError, BundleType, OutputError, SpendError}
 use orchard::bundle::{Authorized, BundleVersion};
 use orchard::circuit::{OrchardCircuitVersion, ProvingKey};
 use orchard::keys::{IncomingViewingKey, Scope, SpendAuthorizingKey};
-use orchard::note::Note;
-use orchard::tree::Anchor;
+use orchard::note::{ExtractedNoteCommitment, Note};
+use orchard::tree::{Anchor, MerklePath};
 use orchard::value::NoteValue;
 use orchard::{Address, Bundle};
 use rand::{CryptoRng, RngCore};
@@ -28,6 +28,9 @@ pub enum BundleError {
     Output(OutputError),
     /// The spent note's position is not in the tree.
     UnknownPosition(u32),
+    /// A supplied authentication path does not lead from the spent note, at the spend's position,
+    /// to the anchor.
+    BadPath(u32),
     /// The bundle has no actions (nothing to spend or pay).
     Empty,
     /// The bundle failed to encode.
@@ -85,15 +88,8 @@ fn zat(v: i64) -> Result<ZatBalance, BundleError> {
 
 /// Builds, proves and signs one bundle against the tree's current root.
 ///
-/// The bundle's public value balance is what the spends hold minus what the outputs pay: nothing
-/// spent and something paid shields (negative balance); more spent than paid leaves value for the
-/// chain. A **transfer** must leave its fee that way (the chain refuses a transfer whose balance is
-/// below `base_fee x action_gas x actions + nullifier_fee x actions`), and an **unshield** must pass
-/// the binding of its signer and target ([`crate::sighash::unshield_binding`]). A shield needs the
-/// nullifier fee on top of its amount in the funds that pay for it; the bundle does not carry it.
-///
-/// Spends need an `account` that owns the note. Outputs are sealed to their recipients, and to the
-/// first spender's outgoing viewing key when there is one (a shield has no sender to recover it).
+/// A thin wrapper over [`build_bundle_with_paths`]: the anchor is `tree.root()` and each spend's
+/// path is `tree.witness(position)`. See there for the balance and signing rules.
 pub fn build_bundle<R: RngCore + CryptoRng>(
     rng: &mut R,
     pk: &ProvingKey,
@@ -103,20 +99,54 @@ pub fn build_bundle<R: RngCore + CryptoRng>(
     spends: &[Spend<'_>],
     outputs: &[Output],
 ) -> Result<Built, BundleError> {
+    let mut with_paths = Vec::with_capacity(spends.len());
+    for s in spends {
+        let path = tree.witness(s.position).ok_or(BundleError::UnknownPosition(s.position))?;
+        with_paths.push((Spend { account: s.account, note: s.note, position: s.position }, path));
+    }
+    build_bundle_with_paths(rng, pk, chain_id, binding, tree.root(), &with_paths, outputs)
+}
+
+/// Builds, proves and signs one bundle against `anchor`, with the authentication path of every
+/// spent note supplied by the caller: for wallets that keep a sparse tree (a shardtree) instead of
+/// every leaf.
+///
+/// The bundle's public value balance is what the spends hold minus what the outputs pay: nothing
+/// spent and something paid shields (negative balance); more spent than paid leaves value for the
+/// chain. A **transfer** must leave its fee that way (the chain refuses a transfer whose balance is
+/// below `base_fee x action_gas x actions + nullifier_fee x actions`), and an **unshield** must pass
+/// the binding of its signer and target ([`crate::sighash::unshield_binding`]). A shield needs the
+/// nullifier fee on top of its amount in the funds that pay for it; the bundle does not carry it.
+///
+/// Spends need an `account` that owns the note. Each path must lead from the note's commitment, at
+/// the spend's `position`, to `anchor`, else [`BundleError::BadPath`]. Outputs are sealed to their
+/// recipients, and to the first spender's outgoing viewing key when there is one (a shield has no
+/// sender to recover it).
+pub fn build_bundle_with_paths<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    pk: &ProvingKey,
+    chain_id: &str,
+    binding: Option<&[u8]>,
+    anchor: Anchor,
+    spends: &[(Spend<'_>, MerklePath)],
+    outputs: &[Output],
+) -> Result<Built, BundleError> {
     let version = BundleVersion::ironwood_v3();
-    let anchor: Anchor = tree.root();
     let mut builder = Builder::new(BundleType::DEFAULT, version, version.default_flags(), anchor)
         .map_err(BundleError::Build)?;
 
     let mut asks = Vec::new();
-    for s in spends {
-        let path = tree.witness(s.position).ok_or(BundleError::UnknownPosition(s.position))?;
+    for (s, path) in spends {
+        let cmx = ExtractedNoteCommitment::from(s.note.commitment());
+        if path.position() != s.position || path.root(cmx) != anchor {
+            return Err(BundleError::BadPath(s.position));
+        }
         builder
-            .add_spend(s.account.fvk.clone(), s.note, path)
+            .add_spend(s.account.fvk.clone(), s.note, path.clone())
             .map_err(BundleError::Spend)?;
         asks.push(SpendAuthorizingKey::from(&s.account.spending_key()));
     }
-    let ovk = spends.first().map(|s| s.account.fvk.to_ovk(Scope::External));
+    let ovk = spends.first().map(|(s, _)| s.account.fvk.to_ovk(Scope::External));
     for o in outputs {
         builder
             .add_output(ovk.clone(), o.recipient, NoteValue::from_raw(o.value), [0u8; MEMO_LEN])
