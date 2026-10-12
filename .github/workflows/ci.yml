@@ -166,6 +166,43 @@ jobs:
       - name: ignored advisories
         run: make -C chain rust-ignores
 
+  # Every Go fuzz target of the chain and of core (SA2, bugboard 3388), a few seconds each: enough to
+  # replay the whole seed corpus (the real Ironwood bundles, signed transactions and network files
+  # under testdata/fuzz) and mutate it. The long run is chain-nightly.yml. A failing input is
+  # kept in the package's testdata/fuzz/ and uploaded below; commit it with the fix.
+  chain-fuzz:
+    name: Fuzz (short budget)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: |
+            chain/go.sum
+            core/go.sum
+
+      # The Orchard library (cgo) and the verifier binary are built for the differential targets.
+      - name: Rust toolchain
+        run: |
+          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup default "$toolchain"
+
+      - name: Fuzz every target
+        run: make -C chain fuzz-short
+
+      - name: Keep the inputs that failed
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-crashers
+          path: chain/build/fuzz-crashers
+          if-no-files-found: ignore
+
   secrets:
     name: Secret scan of the committed tree
     runs-on: ubuntu-latest

@@ -3,9 +3,12 @@ package clusterreg
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/DeBrosOfficial/network/pkg/netguard"
 )
 
 // Limits copied from chain/x/nodes/types. A test reads that file so a change
@@ -183,16 +186,50 @@ func multiaddrHosts(ep string) ([]string, error) {
 
 func rejectNonPublicHost(host string) error {
 	host = strings.TrimSuffix(host, ".")
+	if host == "" {
+		return fmt.Errorf("host is empty")
+	}
 	lower := strings.ToLower(host)
 	if lower == "localhost" || strings.HasSuffix(lower, ".localhost") || strings.HasSuffix(lower, ".local") {
 		return fmt.Errorf("host %q is not public", host)
 	}
-	if ip := net.ParseIP(host); ip != nil {
-		if !ip.IsGlobalUnicast() || ip.IsPrivate() {
-			return fmt.Errorf("ip %s is not a public address", ip)
+	if strings.ContainsAny(host, "%\\ ") {
+		return fmt.Errorf("host %q carries a zone id or a character that is not part of a host", host)
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		ip := net.IP(addr.AsSlice())
+		if netguard.Reserved(ip) || !addr.Unmap().IsGlobalUnicast() {
+			return fmt.Errorf("ip %s is not a public address", addr)
 		}
+		return nil
+	}
+	if isNumericLabel(host[strings.LastIndexByte(host, '.')+1:]) {
+		return fmt.Errorf("host %q ends in a number, so a resolver may read it as an obfuscated IPv4 address", host)
 	}
 	return nil
+}
+
+// isNumericLabel reports whether label is decimal digits or a 0x-prefixed hex number: the forms
+// inet_aton and URL parsers accept for the last part of an IPv4 address (chain/netclass refuses the
+// same hosts).
+func isNumericLabel(label string) bool {
+	if label == "" {
+		return false
+	}
+	if len(label) >= 2 && label[0] == '0' && (label[1] == 'x' || label[1] == 'X') {
+		for _, c := range label[2:] {
+			if !strings.ContainsRune("0123456789abcdefABCDEF", c) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, c := range label {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func validateMetadata(uri string) error {

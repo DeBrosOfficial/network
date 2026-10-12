@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	signing "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	txsigning "github.com/cosmos/cosmos-sdk/x/tx/signing"
@@ -177,6 +178,9 @@ func (b *Builder) Decode(txBytes []byte, chainID string, accountNumber uint64) (
 	if !ok {
 		return Decoded{}, fmt.Errorf("decode tx: not a fee transaction")
 	}
+	if !statesAFee(txBytes) {
+		return Decoded{}, fmt.Errorf("%w: the transaction states no fee", ErrFeeDenom)
+	}
 	fee := append(sdk.Coins(nil), feeTx.GetFee()...)
 	if err := validateFee(fee); err != nil {
 		return Decoded{}, err
@@ -196,6 +200,26 @@ func (b *Builder) Decode(txBytes []byte, chainID string, accountNumber uint64) (
 		return Decoded{}, err
 	}
 	return Decoded{Signer: signer, Fee: fee, MsgTypeURLs: urls}, nil
+}
+
+// statesAFee reports whether txBytes' auth info carries a fee and every coin of it an amount. The SDK
+// decoder accepts an auth info without a fee, and GetFee on the decoded transaction then dereferences
+// the missing field; it accepts a fee coin without an amount, whose Int is nil and panics when read.
+func statesAFee(txBytes []byte) bool {
+	var raw sdktx.TxRaw
+	if err := raw.Unmarshal(txBytes); err != nil {
+		return false
+	}
+	var auth sdktx.AuthInfo
+	if err := auth.Unmarshal(raw.AuthInfoBytes); err != nil || auth.Fee == nil {
+		return false
+	}
+	for _, coin := range auth.Fee.Amount {
+		if coin.Amount.IsNil() {
+			return false
+		}
+	}
+	return true
 }
 
 func (b *Builder) verifySigner(sdkTx sdk.Tx, chainID string, accountNumber uint64) (string, error) {

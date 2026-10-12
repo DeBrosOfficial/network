@@ -1,6 +1,6 @@
 # Heavy checks of the chain that do not belong on every pull request (chain self-audit, SA8,
-# bugboard 3394): mutation testing of the money modules, nilaway, and Miri and AddressSanitizer over
-# the Orchard FFI crate. The per-pull-request checks are in ci.yml; every command here is a target of
+# bugboard 3394): mutation testing of the money modules, nilaway, Miri and AddressSanitizer over
+# the Orchard FFI crate, and the long fuzz runs (SA2, bugboard 3388). The per-pull-request checks are in ci.yml; every command here is a target of
 # chain/ci.mk. A red nightly run is a finding to read, not noise.
 
 name: chain-nightly
@@ -79,6 +79,78 @@ jobs:
         with:
           name: nilaway
           path: chain/build/nilaway.txt
+          if-no-files-found: ignore
+
+  # The Go fuzz targets (SA2, bugboard 3388) for FUZZ_TIME_LONG each, one job per module. The pull
+  # request job (ci.yml, chain-fuzz) gives each a few seconds; this one gives the budget that finds
+  # what a few seconds do not. A failing input is uploaded and stays in the package's testdata/fuzz/
+  # of the run, so commit it with the fix: a plain `go test` then replays it for good.
+  fuzz-go:
+    name: Fuzz (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [chain, core]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: |
+            chain/go.sum
+            core/go.sum
+
+      - name: Rust toolchain
+        run: |
+          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup default "$toolchain"
+
+      - name: Fuzz ${{ matrix.module }}
+        run: make -C chain fuzz-long-${{ matrix.module }}
+
+      - name: Keep the inputs that failed
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-crashers-${{ matrix.module }}
+          path: chain/build/fuzz-crashers
+          if-no-files-found: ignore
+
+  # The four cargo-fuzz targets over the Orchard verifier crates: the C ABI verify entry, the tree
+  # append entry, the verifier process's stdin frame parser, and the framing check of the
+  # out-of-process verifier against the library's. Dated nightly Rust (RUST_NIGHTLY in chain/ci.mk).
+  fuzz-rust:
+    name: Fuzz (Orchard crates, cargo-fuzz)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: chain/go.sum
+
+      - name: cargo-fuzz and the nightly toolchain
+        run: make -C chain rust-fuzz-tools
+
+      - name: cargo fuzz
+        run: make -C chain rust-fuzz
+
+      - name: Keep the inputs that crashed
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cargo-fuzz-artifacts
+          path: |
+            chain/x/shielded/orchardffi/fuzz/artifacts
+            chain/x/shielded/orchardverifier-bin/fuzz/artifacts
           if-no-files-found: ignore
 
   # Miri (undefined behaviour in the unsafe FFI surface) and AddressSanitizer (the whole crate test

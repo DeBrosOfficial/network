@@ -32,7 +32,7 @@ const (
 // state, and each validator's own mempool is modelled by which of them was
 // handed a transaction through CheckTx.
 type inclusionChain struct {
-	t       *testing.T
+	t       testing.TB
 	app     *app.OramaApp
 	keys    []committeeKey
 	genesis time.Time
@@ -40,9 +40,15 @@ type inclusionChain struct {
 	height  int64
 }
 
-func newInclusionChain(t *testing.T, enableHeight int64) *inclusionChain {
+func newInclusionChain(t testing.TB, enableHeight int64) *inclusionChain {
 	t.Helper()
-	oramaApp := buildTestApp(t)
+	return newInclusionChainOn(t, buildTestApp(t), enableHeight)
+}
+
+// newInclusionChainOn starts the committee chain on an app the caller built (the fuzz targets give
+// it a logger that notices the panics BaseApp recovers).
+func newInclusionChainOn(t testing.TB, oramaApp *app.OramaApp, enableHeight int64) *inclusionChain {
+	t.Helper()
 	genesisTime := time.Unix(1_700_000_000, 0)
 	genState, keys := committeeGenesis(t, oramaApp, 3, 365)
 	stateBytes, err := json.Marshal(genState)
