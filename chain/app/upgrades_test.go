@@ -14,6 +14,7 @@ import (
 	"cosmossdk.io/log/v2"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -48,7 +49,7 @@ func examplePlan(ran *int, modules *int) upgrades.Upgrade {
 func runToHeight(t *testing.T, list []upgrades.Upgrade, planHeight, last int64) (*app.OramaApp, error) {
 	t.Helper()
 	app.SetAddressPrefixes()
-	oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{}, baseapp.SetChainID(testChainID))
+	oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir()}, baseapp.SetChainID(testChainID))
 	t.Cleanup(func() { require.NoError(t, oramaApp.Close()) })
 	genState, _ := buildGenesisState(t, oramaApp)
 	stateBytes, err := json.Marshal(genState)
@@ -98,6 +99,15 @@ func TestUpgrades_aRegisteredHandlerRunsAtThePlansHeight(t *testing.T) {
 	require.Equal(t, int64(4), done, "x/upgrade records the plan as done")
 	_, err = oramaApp.UpgradeKeeper.GetUpgradePlan(ctx)
 	require.Error(t, err, "the plan is cleared once its handler ran")
+}
+
+// x/upgrade writes the plan's upgrade-info.json under the app's home at <home>/data. A test app with
+// no home wrote it under the working directory, which is the package's source tree, and left a file
+// there for git to see.
+func TestUpgrades_schedulingAPlanWritesNothingIntoTheSourceTree(t *testing.T) {
+	_, err := runToHeight(t, nil, 4, 5)
+	require.ErrorContains(t, err, "NEEDED", "a binary with no handler dumps the plan to disk and halts")
+	require.NoDirExists(t, "data", "the plan's upgrade-info.json belongs under the test app's temporary home")
 }
 
 func TestUpgrades_aPlanWithoutAHandlerHaltsTheChainAtItsHeight(t *testing.T) {

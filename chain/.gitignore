@@ -13,3 +13,6 @@
 /bench/*.tmp
 /bench/latest.txt
 /bench/compare.csv
+
+# upgrade-info.json that x/upgrade writes under a test app with no home
+/app/data/
