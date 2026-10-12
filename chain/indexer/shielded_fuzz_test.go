@@ -43,3 +43,23 @@ func FuzzDecodeShieldedAction(f *testing.F) {
 		}
 	})
 }
+
+// FuzzShieldedBundleEvent: reading a bundle event never panics, and one it accepts was of the
+// bundle type, for the message asked about, with the commitment count in 32 bits.
+func FuzzShieldedBundleEvent(f *testing.F) {
+	f.Add("shielded_bundle", "tree_size_before", "0", "commitments", "2", "0")
+	f.Add("shielded_bundle", "tree_size_before", "18446744073709551615", "commitments", "4294967296", "0")
+	f.Add("shielded_bundle", "tree_size_before", "-1", "commitments", "x", "1")
+	f.Add("message", "tree_size_before", "1", "commitments", "1", "0")
+	f.Fuzz(func(t *testing.T, typ, k1, v1, k2, v2, msgIndex string) {
+		ev := abci.Event{Type: typ, Attributes: []abci.EventAttribute{{Key: k1, Value: v1}, {Key: k2, Value: v2}, {Key: msgIndexKey, Value: msgIndex}}}
+		a := applier{events: []abci.Event{ev}, msgIndex: 0}
+		_, n, err := a.bundleEvent()
+		if err != nil {
+			return
+		}
+		if typ != "shielded_bundle" || msgIndex != "0" || n > 1<<32-1 {
+			t.Fatalf("accepted %q for message 0 (msg_index %q) with %d commitments", typ, msgIndex, n)
+		}
+	})
+}

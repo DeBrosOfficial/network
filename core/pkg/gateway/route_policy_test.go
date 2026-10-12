@@ -281,6 +281,7 @@ func TestRoutePolicy_chainIndexReadsArePublic(t *testing.T) {
 		"/v1/chain/index/shielded/actions?from_height=1",
 		"/v1/chain/index/shielded/subtree-roots",
 		"/v1/chain/query/orama.shielded.v1.Query/TreeFrontier",
+		"/v1/chain/query/orama.shielded.v1.Query/SubtreeRoots",
 	} {
 		if !policyOf(http.MethodGet, path).Access.Anonymous() {
 			t.Errorf("%q is not reachable without a credential", path)

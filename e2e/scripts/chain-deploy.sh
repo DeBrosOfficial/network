@@ -490,7 +490,7 @@ cmd_invariants() {
 			# x/shielded is printed by autocli, which leaves a false boolean out: its members must be present and true.
 			if echo "$out" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
-req={"shielded":["balance_matches","pools_non_negative","accumulator_matches"]}.get(sys.argv[1],[])
+req={"shielded":["balance_matches","pools_non_negative","accumulator_matches","subtree_roots_match"]}.get(sys.argv[1],[])
 sys.exit(1 if req and [k for k in req if d.get(k) is not True] or [k for k,v in d.items() if isinstance(v,bool) and not v] else 0)' "$m"; then
 				printf '%-12s %-9s ok\n' "$name" "$m"
 			else

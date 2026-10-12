@@ -50,8 +50,8 @@ func (k Keeper) accumulator(ctx context.Context) ([bundle.NodeLen]byte, error) {
 	return acc, nil
 }
 
-// appendCommitments appends the commitments to the tree and, for every subtree they fill, emits
-// the subtree's root. The append is split where a subtree fills, so the frontier that closes it is
+// appendCommitments appends the commitments to the tree and, for every subtree they fill, stores
+// and emits the subtree's root. The append is split where a subtree fills, so the frontier that closes it is
 // at hand: after the next leaf the subtree's root is folded into a higher ommer and gone.
 func (k Keeper) appendCommitments(ctx context.Context, cmx [][bundle.NodeLen]byte) error {
 	if len(cmx) == 0 {
@@ -91,13 +91,18 @@ func (k Keeper) appendCommitments(ctx context.Context, cmx [][bundle.NodeLen]byt
 	return nil
 }
 
-// emitSubtree reports the root of subtree index, which the frontier has just closed.
+// emitSubtree stores the root of subtree index, which the frontier has just closed, with the
+// height that filled it, and reports it in an event.
 func (k Keeper) emitSubtree(ctx context.Context, frontier []byte, index uint64) error {
 	root, err := k.deps.Tree.SubtreeRoot(frontier)
 	if err != nil {
 		return fmt.Errorf("compute the root of subtree %d: %w", index, err)
 	}
-	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(types.EventTypeSubtreeComplete,
+	sctx := sdk.UnwrapSDKContext(ctx)
+	if err := k.Subtrees.Set(ctx, index, types.SubtreeRoot{Index: index, Root: root[:], Height: sctx.BlockHeight()}); err != nil {
+		return fmt.Errorf("store the root of subtree %d: %w", index, err)
+	}
+	sctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeSubtreeComplete,
 		sdk.NewAttribute(types.AttributeSubtreeIndex, strconv.FormatUint(index, 10)),
 		sdk.NewAttribute(types.AttributeSubtreeRoot, hex.EncodeToString(root[:])),
 	))

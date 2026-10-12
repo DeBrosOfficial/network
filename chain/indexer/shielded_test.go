@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	gogoproto "github.com/cosmos/gogoproto/proto"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
@@ -52,25 +53,47 @@ func rootOf(b byte) []byte {
 	return out
 }
 
-// shieldTx is a successful MsgShield of the bundle.
-func shieldTx(t *testing.T, raw []byte, events ...abci.Event) fakeTx {
+// tree stands for the chain's note-commitment tree while a test builds its blocks: each bundle it
+// is asked for carries the shielded_bundle event the chain emits, with the size the tree had
+// before the append, and the tree grows by the bundle's actions.
+type tree struct{ size uint64 }
+
+// bundleEvent is the event a committed shielded message emits, for the message at msgIndex.
+func bundleEvent(msgIndex int, before, n uint64) abci.Event {
+	return abci.Event{Type: shieldedtypes.EventTypeBundle, Attributes: []abci.EventAttribute{
+		{Key: shieldedtypes.AttributeKind, Value: "shield"},
+		{Key: shieldedtypes.AttributeActions, Value: fmt.Sprint(n)},
+		{Key: shieldedtypes.AttributeAmount, Value: "1000"},
+		{Key: shieldedtypes.AttributeTreeSizeBefore, Value: fmt.Sprint(before)},
+		{Key: shieldedtypes.AttributeCommitments, Value: fmt.Sprint(n)},
+		{Key: msgIndexKey, Value: fmt.Sprint(msgIndex)},
+	}}
+}
+
+// shield is a successful MsgShield of the bundle, with its bundle event and any other events.
+func (tr *tree) shield(t *testing.T, raw []byte, events ...abci.Event) fakeTx {
 	t.Helper()
+	n := uint64(bundleActions(t, raw))
 	tx := okTx(t, one(&shieldedtypes.MsgShield{Signer: addr(t, 1), Bundle: raw}), one(&shieldedtypes.MsgShieldResponse{}), addr(t, 1))
+	tx.res.Events = append(tx.res.Events, bundleEvent(0, tr.size, n))
 	tx.res.Events = append(tx.res.Events, events...)
+	tr.size += n
 	return tx
 }
 
-func transferTx(t *testing.T, raw []byte) fakeTx {
+func (tr *tree) transfer(t *testing.T, raw []byte) fakeTx {
 	t.Helper()
-	return okTx(t, one(&shieldedtypes.MsgShieldedTransfer{Signer: shieldedtypes.SignerlessAddress().String(), Bundle: raw}),
+	n := uint64(bundleActions(t, raw))
+	tx := okTx(t, one(&shieldedtypes.MsgShieldedTransfer{Signer: shieldedtypes.SignerlessAddress().String(), Bundle: raw}),
 		one(&shieldedtypes.MsgShieldedTransferResponse{}))
+	tx.res.Events = append(tx.res.Events, bundleEvent(0, tr.size, n))
+	tr.size += n
+	return tx
 }
 
-// treeSizeAt makes the fake chain answer TreeState with this size at this height.
-func treeSizeAt(chain *fakeChain, height int64, size uint64) {
-	chain.queries[queryKey(queryTreeState, height)] = &shieldedtypes.QueryTreeStateResponse{TreeSize: size}
-}
+const queryTreeState = "/orama.shielded.v1.Query/TreeState"
 
+// treeStateAsks counts the times the follower asked the chain for its tree state: never.
 func treeStateAsks(chain *fakeChain) int {
 	n := 0
 	for _, a := range chain.asked {
@@ -79,6 +102,13 @@ func treeStateAsks(chain *fakeChain) int {
 		}
 	}
 	return n
+}
+
+func bundleActions(t *testing.T, raw []byte) int {
+	t.Helper()
+	actions, err := bundle.CompactActions(raw)
+	require.NoError(t, err)
+	return len(actions)
 }
 
 func actionsOf(page ShieldedActionsPage) []ShieldedAction {
@@ -90,16 +120,16 @@ func actionsOf(page ShieldedActionsPage) []ShieldedAction {
 }
 
 // Every action of a committed shielded transaction is indexed, in the order the chain appended its
-// commitment, with the position it took and the tree size after its block; a failed transaction
-// leaves nothing, and the chain is asked for the tree size once.
+// commitment, with the position its bundle's event gave it and the tree size after its block; a
+// failed transaction leaves nothing, and the chain's state is never read.
 func TestFollower_shieldedActionsAreIndexedWithPositions(t *testing.T) {
 	chain := newFakeChain()
+	tr := &tree{}
 	first, second := shieldedBundle(1, 2), shieldedBundle(2, 1)
-	chain.add(shieldTx(t, first))
+	chain.add(tr.shield(t, first))
 	chain.add(okTx(t, one(&shieldedtypes.MsgShield{Signer: addr(t, 1), Bundle: shieldedBundle(9, 1)}), nil, addr(t, 1)))
 	chain.blocks[1].results[0].Code = 5 // the chain refused it
-	chain.add(transferTx(t, second), shieldTx(t, shieldedBundle(3, 1)))
-	treeSizeAt(chain, 1, 2)
+	chain.add(tr.transfer(t, second), tr.shield(t, shieldedBundle(3, 1)))
 	store := index(t, chain, 1)
 
 	page, err := store.ShieldedActions(1, ActionsMaxLimit)
@@ -136,7 +166,7 @@ func TestFollower_shieldedActionsAreIndexedWithPositions(t *testing.T) {
 	}
 	require.Equal(t, got[0].TxHash, got[1].TxHash, "one transaction")
 	require.NotEqual(t, got[1].TxHash, got[2].TxHash)
-	require.Equal(t, 1, treeStateAsks(chain), "the tree size is read once, then counted")
+	require.Zero(t, treeStateAsks(chain), "positions come from the events, not from state")
 }
 
 func commitmentOf(seed byte, i int) [bundle.NodeLen]byte {
@@ -153,12 +183,12 @@ func repeat(b byte, n int) []byte {
 	return out
 }
 
-// An index that begins after earlier shielded activity takes its first position from the chain:
-// the tree size at the end of the block less the block's actions.
-func TestFollower_shieldedPositionsStartFromTheChainsTreeSize(t *testing.T) {
+// An index that begins after earlier shielded activity takes its first position from the first
+// bundle event it sees: the size the tree had before that bundle.
+func TestFollower_shieldedPositionsStartFromTheFirstEvent(t *testing.T) {
 	chain := newFakeChain()
-	chain.add(transferTx(t, shieldedBundle(1, 3)))
-	treeSizeAt(chain, 1, 10)
+	tr := &tree{size: 7}
+	chain.add(tr.transfer(t, shieldedBundle(1, 3)))
 	store := index(t, chain, 1)
 	page, err := store.ShieldedActions(1, ActionsMaxLimit)
 	require.NoError(t, err)
@@ -182,33 +212,127 @@ func TestFollower_noShieldedActionsNoQueryAndAnEmptyPage(t *testing.T) {
 	require.False(t, page.HasMore)
 }
 
-// If the node no longer has the state the first position is read from, the follower stops with the
-// reason and writes nothing of the block, rather than guess positions.
-func TestFollower_shieldedFirstBlockWithPrunedStateStops(t *testing.T) {
+// A node that pruned its state indexes the same: the follower does not read the tree state, so a
+// chain that refuses every TreeState query changes nothing.
+func TestFollower_shieldedNeedsNoState(t *testing.T) {
 	chain := newFakeChain()
-	chain.add(transferTx(t, shieldedBundle(1, 1)))
-	chain.failing = map[string]error{queryKey(queryTreeState, 1): prunedStateError(queryTreeState, 1)}
-	store := openStore(t, t.TempDir())
-	t.Cleanup(func() { require.NoError(t, store.Close()) })
-	f, err := NewFollower(chain, store, 1)
+	tr := &tree{size: 5}
+	chain.add(tr.transfer(t, shieldedBundle(1, 1)))
+	chain.add(tr.shield(t, shieldedBundle(2, 2)))
+	chain.failing = map[string]error{
+		queryKey(queryTreeState, 1): prunedStateError(queryTreeState, 1),
+		queryKey(queryTreeState, 2): prunedStateError(queryTreeState, 2),
+	}
+	store := index(t, chain, 1)
+	page, err := store.ShieldedActions(1, ActionsMaxLimit)
 	require.NoError(t, err)
-	_, err = f.Step(context.Background())
-	require.ErrorContains(t, err, "first block with a shielded action")
-	st, err := store.Status()
-	require.NoError(t, err)
-	require.Zero(t, st.Cursor)
+	got := actionsOf(page)
+	require.Len(t, got, 3)
+	require.Equal(t, []uint64{5, 6, 7}, []uint64{got[0].Position, got[1].Position, got[2].Position})
+	require.Zero(t, treeStateAsks(chain))
+}
+
+// What the index refuses, each with the reason, and nothing of the block written: a bundle event
+// that does not follow the previous one (a gap or an overlap), an event whose count is not the
+// bundle's actions, a committed shielded message with no event or with two, and malformed fields.
+func TestFollower_shieldedBundleEventRules(t *testing.T) {
+	step := func(t *testing.T, chain *fakeChain, steps int) error {
+		store := openStore(t, t.TempDir())
+		t.Cleanup(func() { require.NoError(t, store.Close()) })
+		f, err := NewFollower(chain, store, 1)
+		require.NoError(t, err)
+		for i := 0; i < steps; i++ {
+			if _, err = f.Step(context.Background()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	withEvents := func(t *testing.T, raw []byte, events ...abci.Event) fakeTx {
+		tx := okTx(t, one(&shieldedtypes.MsgShield{Signer: addr(t, 1), Bundle: raw}), one(&shieldedtypes.MsgShieldResponse{}), addr(t, 1))
+		tx.res.Events = append(tx.res.Events, events...)
+		return tx
+	}
+	t.Run("a gap between blocks", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 2), bundleEvent(0, 0, 2)))
+		chain.add(withEvents(t, shieldedBundle(2, 1), bundleEvent(0, 3, 1)))
+		err := step(t, chain, 2)
+		require.ErrorContains(t, err, "took leaf 3 but the index holds 2 leaves")
+	})
+	t.Run("an overlap between blocks", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 2), bundleEvent(0, 0, 2)))
+		chain.add(withEvents(t, shieldedBundle(2, 1), bundleEvent(0, 1, 1)))
+		require.ErrorContains(t, step(t, chain, 2), "took leaf 1 but the index holds 2 leaves")
+	})
+	t.Run("a gap inside a block", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 2), bundleEvent(0, 0, 2)), withEvents(t, shieldedBundle(2, 1), bundleEvent(0, 5, 1)))
+		require.ErrorContains(t, step(t, chain, 1), "took leaf 5, want 2")
+	})
+	t.Run("a count that is not the bundle's actions", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 2), bundleEvent(0, 0, 3)))
+		require.ErrorContains(t, step(t, chain, 1), "appended 3 commitments for a bundle of 2 actions")
+	})
+	t.Run("no event", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 1)))
+		require.ErrorContains(t, step(t, chain, 1), "emitted no shielded_bundle event")
+	})
+	t.Run("an event of another message", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 1), bundleEvent(1, 0, 1)))
+		require.ErrorContains(t, step(t, chain, 1), "emitted no shielded_bundle event")
+	})
+	t.Run("two events", func(t *testing.T) {
+		chain := newFakeChain()
+		chain.add(withEvents(t, shieldedBundle(1, 1), bundleEvent(0, 0, 1), bundleEvent(0, 1, 1)))
+		require.ErrorContains(t, step(t, chain, 1), "emitted two shielded_bundle events")
+	})
+	t.Run("a field that is not a number", func(t *testing.T) {
+		chain := newFakeChain()
+		ev := bundleEvent(0, 0, 1)
+		ev.Attributes[3].Value = "-4"
+		chain.add(withEvents(t, shieldedBundle(1, 1), ev))
+		require.ErrorContains(t, step(t, chain, 1), shieldedtypes.AttributeTreeSizeBefore)
+	})
+	t.Run("a field that is missing", func(t *testing.T) {
+		chain := newFakeChain()
+		ev := bundleEvent(0, 0, 1)
+		ev.Attributes = append(ev.Attributes[:4:4], ev.Attributes[5:]...)
+		chain.add(withEvents(t, shieldedBundle(1, 1), ev))
+		require.ErrorContains(t, step(t, chain, 1), shieldedtypes.AttributeCommitments)
+	})
+	t.Run("a second message in a transaction takes the next leaves", func(t *testing.T) {
+		chain := newFakeChain()
+		tx := okTx(t, []gogoproto.Message{
+			&shieldedtypes.MsgShield{Signer: addr(t, 1), Bundle: shieldedBundle(1, 2)},
+			&shieldedtypes.MsgShield{Signer: addr(t, 1), Bundle: shieldedBundle(2, 1)},
+		}, []gogoproto.Message{&shieldedtypes.MsgShieldResponse{}, &shieldedtypes.MsgShieldResponse{}}, addr(t, 1))
+		tx.res.Events = append(tx.res.Events, bundleEvent(0, 4, 2), bundleEvent(1, 6, 1))
+		chain.add(tx)
+		store := index(t, chain, 1)
+		page, err := store.ShieldedActions(1, ActionsMaxLimit)
+		require.NoError(t, err)
+		got := actionsOf(page)
+		require.Len(t, got, 3)
+		require.Equal(t, []uint64{4, 5, 6}, []uint64{got[0].Position, got[1].Position, got[2].Position})
+		require.Equal(t, []uint32{0, 1, 2}, []uint32{got[0].ActionIndex, got[1].ActionIndex, got[2].ActionIndex})
+	})
 }
 
 // Pages are whole blocks: walking them by next_height reads every action exactly once whatever the
 // limit, a block larger than the limit is a page of its own, and has_more says whether to go on.
 func TestShieldedActions_pagingReadsEveryActionOnce(t *testing.T) {
 	chain := newFakeChain()
+	tr := &tree{}
 	sizes := []int{3, 1, 1, 5, 2}
 	for i, n := range sizes {
-		chain.add(shieldTx(t, shieldedBundle(byte(i+1), n)))
+		chain.add(tr.shield(t, shieldedBundle(byte(i+1), n)))
 		chain.add(bankSend(t, addr(t, 1), addr(t, 2)))
 	}
-	treeSizeAt(chain, 1, 3)
 	store := index(t, chain, 1)
 
 	for limit := 1; limit <= 12; limit++ {
@@ -247,10 +371,10 @@ func TestShieldedActions_pagingReadsEveryActionOnce(t *testing.T) {
 // in the middle starts at the first block with actions at or after it.
 func TestShieldedActions_fromHeight(t *testing.T) {
 	chain := newFakeChain()
-	chain.add(shieldTx(t, shieldedBundle(1, 1)))
+	tr := &tree{}
+	chain.add(tr.shield(t, shieldedBundle(1, 1)))
 	chain.add(bankSend(t, addr(t, 1), addr(t, 2)))
-	chain.add(shieldTx(t, shieldedBundle(2, 1)))
-	treeSizeAt(chain, 1, 1)
+	chain.add(tr.shield(t, shieldedBundle(2, 1)))
 	store := index(t, chain, 1)
 
 	page, err := store.ShieldedActions(2, 10)
@@ -270,9 +394,9 @@ func TestShieldedActions_fromHeight(t *testing.T) {
 func TestFollower_subtreeRootsAreRecorded(t *testing.T) {
 	chain := newFakeChain()
 	l := shieldedtypes.SubtreeLeaves
-	chain.add(shieldTx(t, shieldedBundle(1, 3), subtreeEvent(0, 0xa0))) // leaves l-2, l-1, l
-	chain.add(shieldTx(t, shieldedBundle(2, 2)))
-	treeSizeAt(chain, 1, l+1)
+	tr := &tree{size: l - 2}
+	chain.add(tr.shield(t, shieldedBundle(1, 3), subtreeEvent(0, 0xa0))) // leaves l-2, l-1, l
+	chain.add(tr.shield(t, shieldedBundle(2, 2)))
 	store := index(t, chain, 1)
 
 	page, err := store.SubtreeRoots(0, 10)
@@ -314,8 +438,7 @@ func TestFollower_subtreeRootRules(t *testing.T) {
 	}
 	t.Run("an event for a subtree that did not fill", func(t *testing.T) {
 		chain := newFakeChain()
-		chain.add(shieldTx(t, shieldedBundle(1, 1), subtreeEvent(0, 1)))
-		treeSizeAt(chain, 1, 1)
+		chain.add((&tree{}).shield(t, shieldedBundle(1, 1), subtreeEvent(0, 1)))
 		require.ErrorContains(t, step(chain), "reported subtree 0 filled")
 	})
 	t.Run("an event in a block with no action", func(t *testing.T) {
@@ -327,8 +450,7 @@ func TestFollower_subtreeRootRules(t *testing.T) {
 	})
 	t.Run("a fill without an event before any event", func(t *testing.T) {
 		chain := newFakeChain()
-		chain.add(shieldTx(t, shieldedBundle(1, 2)))
-		treeSizeAt(chain, 1, l+1)
+		chain.add((&tree{size: l - 1}).shield(t, shieldedBundle(1, 2)))
 		store := index(t, chain, 1)
 		page, err := store.SubtreeRoots(0, 10)
 		require.NoError(t, err)
@@ -401,10 +523,10 @@ func TestNoteSubtrees_refusesMalformedEvents(t *testing.T) {
 // they depend on: a page that stopped at its limit is fixed, the page at the head is not.
 func TestAPI_shieldedRoutes(t *testing.T) {
 	chain := newFakeChain()
+	tr := &tree{}
 	for i := 0; i < 3; i++ {
-		chain.add(shieldTx(t, shieldedBundle(byte(i+1), 2)))
+		chain.add(tr.shield(t, shieldedBundle(byte(i+1), 2)))
 	}
-	treeSizeAt(chain, 1, 2)
 	store := index(t, chain, 1)
 	api := NewAPI(store, fixedTip{earliest: 1, latest: 3})
 

@@ -59,6 +59,9 @@ type Keeper struct {
 	AnchorHeights  collections.Map[int64, []byte]
 	Accumulator    collections.Item[[]byte]
 	NullifierCount collections.Item[uint64]
+	// Subtrees holds the root of every filled 2^16-leaf subtree of the note-commitment tree,
+	// by subtree index, with the height of the block that filled it.
+	Subtrees collections.Map[uint64, types.SubtreeRoot]
 
 	pendingSchema collections.Schema
 	pendingList   collections.Map[uint64, []byte]
@@ -104,6 +107,7 @@ func NewKeeper(
 		AnchorHeights:  collections.NewMap(sb, types.AnchorHeightPrefix, "anchor_heights", collections.Int64Key, collections.BytesValue),
 		Accumulator:    collections.NewItem(sb, types.AccumulatorKey, "nullifier_accumulator", collections.BytesValue),
 		NullifierCount: collections.NewItem(sb, types.NullifierCountKey, "nullifier_count", collections.Uint64Value),
+		Subtrees:       collections.NewMap(sb, types.SubtreeRootsPrefix, "subtree_roots", collections.Uint64Key, codec.CollValue[types.SubtreeRoot](cdc)),
 	}
 	schema, err := sb.Build()
 	if err != nil {

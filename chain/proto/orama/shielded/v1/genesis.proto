@@ -28,4 +28,7 @@ message GenesisState {
   bytes nullifier_accumulator = 10;
   uint64 nullifier_count = 11;
   repeated bytes nullifiers = 12;
+  // subtree_roots are the roots of the filled 2^16-leaf subtrees, indexes 0 up with no gap: there
+  // are exactly floor(tree_size / 65536) of them.
+  repeated SubtreeRoot subtree_roots = 13 [(gogoproto.nullable) = false];
 }

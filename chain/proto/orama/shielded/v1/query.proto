@@ -21,6 +21,9 @@ service Query {
   rpc TreeFrontier(QueryTreeFrontierRequest) returns (QueryTreeFrontierResponse) {
     option (google.api.http).get = "/orama/shielded/v1/tree-frontier";
   }
+  rpc SubtreeRoots(QuerySubtreeRootsRequest) returns (QuerySubtreeRootsResponse) {
+    option (google.api.http).get = "/orama/shielded/v1/subtree-roots";
+  }
   rpc NullifierSpent(QueryNullifierSpentRequest) returns (QueryNullifierSpentResponse) {
     option (google.api.http).get = "/orama/shielded/v1/nullifier-spent";
   }
@@ -70,6 +73,23 @@ message QueryTreeFrontierResponse {
   bytes frontier = 4;
 }
 
+// QuerySubtreeRootsRequest pages the roots of the filled 2^16-leaf subtrees.
+message QuerySubtreeRootsRequest {
+  // start_index is the first subtree wanted (0 is the first).
+  uint64 start_index = 1;
+  // limit is the most roots to return: 0 means 100, and more than 1000 is refused.
+  uint32 limit = 2;
+}
+
+// QuerySubtreeRootsResponse is a page of subtree roots, in index order, and how many subtrees have
+// filled in all. The next page starts at start_index plus the number of roots returned, and the
+// last page is the one that reaches total.
+message QuerySubtreeRootsResponse {
+  repeated SubtreeRoot roots = 1 [(gogoproto.nullable) = false];
+  // total is the number of filled subtrees, floor(tree_size / 65536), at the height the query reads.
+  uint64 total = 2;
+}
+
 message QueryNullifierSpentRequest {
   bytes nullifier = 1;
 }
@@ -85,4 +105,7 @@ message QueryInvariantsResponse {
   bool pools_non_negative = 2;
   bool accumulator_matches = 3;
   string detail = 4;
+  // subtree_roots_match is whether the module holds a root for every filled 2^16-leaf subtree and
+  // for no other: the last index is floor(tree_size / 65536) - 1.
+  bool subtree_roots_match = 5;
 }

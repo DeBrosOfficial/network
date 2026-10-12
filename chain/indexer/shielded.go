@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -20,13 +19,14 @@ import (
 // note-commitment tree, and per block the tree size at the end of the block. It also records the
 // root of every 2^16-leaf subtree of the tree, from the events the chain emits when one fills.
 //
-// Positions are counted, not read: the index keeps the tree size as it ingests, taking the size
-// from the chain once, at the first block with an action, and then adding each action. The size the
-// chain reports for a subtree's end checks the count (flushShielded).
+// Positions are read from the chain's events, never from its state: every shielded_bundle event
+// carries the size the tree had before the bundle's append and the number of commitments appended
+// (shieldedtypes.AttributeTreeSizeBefore, AttributeCommitments), so an action's position is the
+// first plus its place in the bundle. The index checks that the bundles follow one another with no
+// gap or overlap (flushShielded), which also proves it saw every append. A node that pruned its
+// state serves the same index as one that kept it.
 
 const (
-	queryTreeState = "/orama.shielded.v1.Query/TreeState"
-
 	keyShieldSize   = "h/n"  // the tree size after the last indexed block with an action
 	keySubtreeNext  = "h/x"  // the index of the next subtree root the index expects
 	keySubtreesFrom = "h/f"  // the index of the first subtree root the index recorded
@@ -78,9 +78,11 @@ type SubtreeRoot struct {
 	Height int64  `json:"height"`
 }
 
-// pendingAction is an action found in a transaction of the block being indexed.
+// pendingAction is an action found in a transaction of the block being indexed, with the leaf its
+// note commitment took.
 type pendingAction struct {
 	tx, action uint32
+	position   uint64
 	hash       []byte
 	a          bundle.CompactAction
 }
@@ -94,14 +96,15 @@ type blockShielded struct {
 
 func (b *blockShielded) reset() { b.actions, b.roots = nil, nil }
 
-// add records the actions of one bundle in the transaction at tx.
-func (b *blockShielded) add(tx uint32, hash []byte, actions []bundle.CompactAction) {
+// add records the actions of one bundle in the transaction at tx, whose first commitment took the
+// leaf at before.
+func (b *blockShielded) add(tx uint32, hash []byte, before uint64, actions []bundle.CompactAction) {
 	next := uint32(0)
 	for i := len(b.actions) - 1; i >= 0 && b.actions[i].tx == tx; i-- {
 		next++
 	}
 	for i, a := range actions {
-		b.actions = append(b.actions, pendingAction{tx: tx, action: next + uint32(i), hash: hash, a: a})
+		b.actions = append(b.actions, pendingAction{tx: tx, action: next + uint32(i), position: before + uint64(i), hash: hash, a: a})
 	}
 }
 
@@ -154,8 +157,37 @@ func bundleOf(msg gogoproto.Message) []byte {
 	return nil
 }
 
+// bundleEvent returns the tree size before the append of the bundle the current message carried
+// and the number of commitments it appended, from the shielded_bundle event the message emitted.
+// Every committed shielded message emits exactly one, so none, or two, is an index that does not
+// understand the chain.
+func (a applier) bundleEvent() (before, n uint64, err error) {
+	var found map[string]string
+	for _, e := range a.events {
+		if e.Type != shieldedtypes.EventTypeBundle || attrOf(e, msgIndexKey) != strconv.Itoa(a.msgIndex) {
+			continue
+		}
+		if found != nil {
+			return 0, 0, fmt.Errorf("message %d emitted two %s events", a.msgIndex, e.Type)
+		}
+		found = map[string]string{}
+		for _, at := range e.Attributes {
+			found[at.Key] = at.Value
+		}
+	}
+	if found == nil {
+		return 0, 0, fmt.Errorf("message %d is a committed shielded message but emitted no %s event", a.msgIndex, shieldedtypes.EventTypeBundle)
+	}
+	if before, err = eventUint(found, shieldedtypes.EventTypeBundle, shieldedtypes.AttributeTreeSizeBefore, 64); err != nil {
+		return 0, 0, err
+	}
+	n, err = eventUint(found, shieldedtypes.EventTypeBundle, shieldedtypes.AttributeCommitments, 32)
+	return before, n, err
+}
+
 // applyShielded notes the actions of a committed shielded message. The chain accepted the bundle,
-// so one the framing code refuses means the index and the chain disagree about the format.
+// so one the framing code refuses means the index and the chain disagree about the format, and so
+// does an event that counts other commitments than the bundle holds actions.
 func applyShielded(a applier, msg, _ gogoproto.Message) error {
 	actions, err := bundle.CompactActions(bundleOf(msg))
 	if err != nil {
@@ -165,13 +197,20 @@ func applyShielded(a applier, msg, _ gogoproto.Message) error {
 	if err != nil {
 		return fmt.Errorf("transaction hash %q: %w", a.tx, err)
 	}
-	a.shielded.add(a.txIndex, hash, actions)
+	before, n, err := a.bundleEvent()
+	if err != nil {
+		return err
+	}
+	if n != uint64(len(actions)) {
+		return fmt.Errorf("transaction %s: the chain appended %d commitments for a bundle of %d actions", a.tx, n, len(actions))
+	}
+	a.shielded.add(a.txIndex, hash, before, actions)
 	return nil
 }
 
 // flushShielded writes the block's actions with their positions, the block's end tree size and the
 // subtree roots it completed. It does nothing for a block with neither.
-func (f *Follower) flushShielded(ctx context.Context, w *writer, height int64) error {
+func (f *Follower) flushShielded(w *writer, height int64) error {
 	b := &f.shielded
 	if len(b.actions) == 0 {
 		if len(b.roots) > 0 {
@@ -179,12 +218,12 @@ func (f *Follower) flushShielded(ctx context.Context, w *writer, height int64) e
 		}
 		return nil
 	}
-	base, err := f.treeBase(ctx, w, height, uint64(len(b.actions)))
+	base, err := f.checkContinuity(w, height)
 	if err != nil {
 		return err
 	}
-	for i, p := range b.actions {
-		if err := w.set(shieldedActionKey(height, p.tx, p.action), shieldedRow(base+uint64(i), p)); err != nil {
+	for _, p := range b.actions {
+		if err := w.set(shieldedActionKey(height, p.tx, p.action), shieldedRow(p.position, p)); err != nil {
 			return err
 		}
 	}
@@ -198,21 +237,27 @@ func (f *Follower) flushShielded(ctx context.Context, w *writer, height int64) e
 	return w.recordSubtrees(height, base, end, b.roots)
 }
 
-// treeBase is the tree size before the block's first action: the size the index has counted, or,
-// for the first block with an action the index sees, the size the chain reports at the end of the
-// block less the block's actions.
-func (f *Follower) treeBase(ctx context.Context, w *writer, height int64, n uint64) (uint64, error) {
-	if size, ok, err := getUint(w.b, []byte(keyShieldSize)); err != nil || ok {
-		return size, err
+// checkContinuity returns the leaf the block's first action took, after checking that the block's
+// actions take consecutive leaves and that the first follows the last action the index holds: a
+// gap means a shielded append the index did not see (an append by something other than a bundle, or
+// a transaction it skipped), an overlap that the chain's events disagree with themselves. The first
+// block with an action the index sees sets where its positions begin, as it may have started inside
+// the chain's history.
+func (f *Follower) checkContinuity(w *writer, height int64) (uint64, error) {
+	next, have, err := getUint(w.b, []byte(keyShieldSize))
+	if err != nil {
+		return 0, err
 	}
-	var resp shieldedtypes.QueryTreeStateResponse
-	if err := f.chain.QueryAt(ctx, height, queryTreeState, &shieldedtypes.QueryTreeStateRequest{}, &resp); err != nil {
-		return 0, fmt.Errorf("failed to read the note-commitment tree size at height %d, the first block with a shielded action this index has seen (a wallet needs each action's position): %w", height, err)
+	base := f.shielded.actions[0].position
+	if have && base != next {
+		return 0, fmt.Errorf("the first shielded action of block %d took leaf %d but the index holds %d leaves", height, base, next)
 	}
-	if resp.TreeSize < n {
-		return 0, fmt.Errorf("the chain's tree holds %d commitments at height %d, fewer than the %d actions of that block", resp.TreeSize, height, n)
+	for i, p := range f.shielded.actions {
+		if p.position != base+uint64(i) {
+			return 0, fmt.Errorf("shielded action %d of block %d (transaction %d) took leaf %d, want %d", i, height, p.tx, p.position, base+uint64(i))
+		}
 	}
-	return resp.TreeSize - n, nil
+	return base, nil
 }
 
 // recordSubtrees stores the roots of the subtrees the block filled, the leaves base to end. The

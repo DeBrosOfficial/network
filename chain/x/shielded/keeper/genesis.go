@@ -81,6 +81,11 @@ func (k Keeper) initTree(ctx context.Context, gs types.GenesisState) error {
 			return fmt.Errorf("set anchor height: %w", err)
 		}
 	}
+	for _, r := range gs.SubtreeRoots {
+		if err := k.Subtrees.Set(ctx, r.Index, r); err != nil {
+			return fmt.Errorf("set subtree root %d: %w", r.Index, err)
+		}
+	}
 	return nil
 }
 
@@ -173,6 +178,13 @@ func (k Keeper) exportTree(ctx context.Context, gs *types.GenesisState) error {
 	})
 	if err != nil {
 		return fmt.Errorf("export anchors: %w", err)
+	}
+	err = k.Subtrees.Walk(ctx, nil, func(_ uint64, r types.SubtreeRoot) (bool, error) {
+		gs.SubtreeRoots = append(gs.SubtreeRoots, r)
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("export subtree roots: %w", err)
 	}
 	return nil
 }

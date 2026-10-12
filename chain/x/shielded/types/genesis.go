@@ -123,6 +123,20 @@ func (gs GenesisState) validateTree() error {
 		}
 		roots[string(a.Root)] = true
 	}
+	return gs.validateSubtreeRoots()
+}
+
+// validateSubtreeRoots checks that the tree holds a root for each filled subtree, in order from
+// index 0 with no gap, and for no other.
+func (gs GenesisState) validateSubtreeRoots() error {
+	if want := gs.TreeSize / SubtreeLeaves; uint64(len(gs.SubtreeRoots)) != want {
+		return fmt.Errorf("tree_size %d fills %d subtrees but %d subtree roots are listed", gs.TreeSize, want, len(gs.SubtreeRoots))
+	}
+	for i, r := range gs.SubtreeRoots {
+		if r.Index != uint64(i) || len(r.Root) != bundle.NodeLen || r.Height < 0 {
+			return fmt.Errorf("subtree root %d (index %d) is malformed or out of order", i, r.Index)
+		}
+	}
 	return nil
 }
 

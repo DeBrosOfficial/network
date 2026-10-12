@@ -21,7 +21,10 @@ type Invariants struct {
 	BalanceMatches     bool
 	PoolsNonNegative   bool
 	AccumulatorMatches bool
-	Detail             string
+	// SubtreeRootsMatch is whether a root is stored for every filled 2^16-leaf subtree and none
+	// beyond: floor(tree_size / 65536) of them.
+	SubtreeRootsMatch bool
+	Detail            string
 }
 
 // CheckInvariants checks the module's invariants (plans/open-network/track-c-chain.md C12):
@@ -29,6 +32,8 @@ type Invariants struct {
 //   - the module account balance == the sum of pool balances + the queued unshields
 //   - no pool balance is negative, no queued amount is not positive
 //   - the nullifier database folds, in insertion order, to the accumulator in state
+//   - there is a subtree root for each filled subtree of the tree and none beyond: the last stored
+//     index is floor(tree_size / 65536) - 1
 func (k Keeper) CheckInvariants(ctx sdk.Context) (Invariants, error) {
 	inv, err := k.CheckLedgers(ctx)
 	if err != nil {
@@ -41,10 +46,11 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) (Invariants, error) {
 }
 
 // CheckLedgers is CheckInvariants without the nullifier-database fold: the module account against
-// the pools and the queue, and the signs of both. It reads only committed state, so the chain can
-// run it inside a block; the fold reads a database outside the state and costs O(nullifiers).
+// the pools and the queue, the signs of both, and the subtree roots against the tree's size. It
+// reads only committed state, so the chain can run it inside a block; the fold reads a database
+// outside the state and costs O(nullifiers).
 func (k Keeper) CheckLedgers(ctx sdk.Context) (Invariants, error) {
-	inv := Invariants{BalanceMatches: true, PoolsNonNegative: true, AccumulatorMatches: true}
+	inv := Invariants{BalanceMatches: true, PoolsNonNegative: true, AccumulatorMatches: true, SubtreeRootsMatch: true}
 	held := math.ZeroInt()
 	err := k.Pools.Walk(ctx, nil, func(key collections.Pair[uint32, []byte], bal math.Int) (bool, error) {
 		if bal.IsNegative() {
@@ -73,7 +79,36 @@ func (k Keeper) CheckLedgers(ctx sdk.Context) (Invariants, error) {
 		inv.BalanceMatches = false
 		inv.Detail += fmt.Sprintf("module holds %s but pools and queue account for %s; ", module, held)
 	}
+	if err := k.checkSubtreeRoots(ctx, &inv); err != nil {
+		return inv, err
+	}
 	return inv, nil
+}
+
+// checkSubtreeRoots looks at the two ends of the stored roots, which is all an append-only run
+// without gaps needs: the root of the last filled subtree is there and the next one is not. Genesis
+// import checks the whole run (GenesisState.Validate), and every later root is stored in order.
+func (k Keeper) checkSubtreeRoots(ctx sdk.Context, inv *Invariants) error {
+	size, err := getUint64(ctx, k.TreeSize)
+	if err != nil {
+		return fmt.Errorf("read the tree size: %w", err)
+	}
+	filled := size / types.SubtreeLeaves
+	hasNext, err := k.Subtrees.Has(ctx, filled)
+	if err != nil {
+		return fmt.Errorf("look for subtree root %d: %w", filled, err)
+	}
+	hasLast := filled == 0
+	if filled > 0 {
+		if hasLast, err = k.Subtrees.Has(ctx, filled-1); err != nil {
+			return fmt.Errorf("look for subtree root %d: %w", filled-1, err)
+		}
+	}
+	if hasNext || !hasLast {
+		inv.SubtreeRootsMatch = false
+		inv.Detail += fmt.Sprintf("tree of %d leaves has filled %d subtrees (last root present %t, root beyond it present %t); ", size, filled, hasLast, hasNext)
+	}
+	return nil
 }
 
 func (k Keeper) checkAccumulator(ctx sdk.Context, inv *Invariants) error {

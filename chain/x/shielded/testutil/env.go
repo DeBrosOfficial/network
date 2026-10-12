@@ -41,6 +41,9 @@ type Env struct {
 	Nodes  *NodeBonder
 	Store  *nullifier.Store
 	V1, V2 *Verifier
+	// Tree is what the keeper appends commitments to: the SHA-256 stand-in unless NewEnvWithTree
+	// was given another.
+	Tree   types.Tree
 	Height int64
 	Time   time.Time
 
@@ -67,6 +70,12 @@ func (e *Env) restore(s snapshot) {
 // NewEnv builds an Env at height 1. mutate may change the genesis before it is applied.
 func NewEnv(t *testing.T, mutate func(*types.GenesisState)) *Env {
 	t.Helper()
+	return NewEnvWithTree(t, mutate, Tree{})
+}
+
+// NewEnvWithTree is NewEnv with the keeper appending to tree, such as the real Orchard tree.
+func NewEnvWithTree(t *testing.T, mutate func(*types.GenesisState), tree types.Tree) *Env {
+	t.Helper()
 	sdk.GetConfig().SetBech32PrefixForAccount(params.Bech32Prefix, params.Bech32PrefixAccPub)
 	sdk.GetConfig().SetBech32PrefixForValidator(params.Bech32PrefixValAddr, params.Bech32PrefixValPub)
 
@@ -79,7 +88,7 @@ func NewEnv(t *testing.T, mutate func(*types.GenesisState)) *Env {
 	require.NoError(t, cms.LoadLatestVersion())
 
 	e := &Env{T: t, CMS: cms, key: key, tkey: tkey, Bank: NewBank(), Store: nullifier.NewStore(dbm.NewMemDB()),
-		V1: &Verifier{Name: "test-a"}, V2: &Verifier{Name: "test-b"}, Height: 1, Time: time.Unix(1_700_000_000, 0).UTC()}
+		V1: &Verifier{Name: "test-a"}, V2: &Verifier{Name: "test-b"}, Tree: tree, Height: 1, Time: time.Unix(1_700_000_000, 0).UTC()}
 	e.Fees = NewFees(e.Bank)
 	e.Bonder = NewBonder(e.Bank)
 	e.Nodes = &NodeBonder{Bank: e.Bank}
@@ -143,7 +152,7 @@ func (e *Env) KeeperWith(verifiers ...verify.Verifier) keeper.Keeper {
 		keeper.TransientKVService(runtime.NewTransientStoreService(e.tkey)),
 		keeper.Dependencies{
 			Bank: e.Bank, Fees: e.Fees, Bonder: e.Bonder, NodeBonder: e.Nodes,
-			Tree: Tree{}, Nullifiers: e.Store, Verifiers: verifiers,
+			Tree: e.Tree, Nullifiers: e.Store, Verifiers: verifiers,
 		},
 	)
 }
