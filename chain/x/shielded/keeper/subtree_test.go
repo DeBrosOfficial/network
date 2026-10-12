@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
@@ -56,6 +57,25 @@ func shieldActions(t *testing.T, e *testutil.Env, seed byte, n int) {
 	raw := testutil.Bundle{Seed: seed, ValueBalance: -1000, Anchor: emptyAnchor(t)}.Encode(n)
 	_, err := keeper.NewMsgServerImpl(e.Keeper).Shield(e.Ctx, &types.MsgShield{Signer: alice.String(), Bundle: raw})
 	require.NoError(t, err)
+}
+
+// The tx that fills a subtree stores a root and reports it, which the tx before it did not do; its
+// gas limit comes from a simulation of that earlier state, so the write and the event are charged on
+// an unmetered context and cost the tx's meter nothing.
+func TestEmitSubtree_costsTheTransactionNoGas(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	seedTree(t, e, types.SubtreeLeaves)
+	frontier, err := e.Keeper.Frontier.Get(e.Ctx)
+	require.NoError(t, err)
+
+	meter := storetypes.NewGasMeter(1_000_000_000)
+	require.NoError(t, keeper.EmitSubtreeForTest(e.Ctx.WithGasMeter(meter), e.Keeper, frontier, 0))
+
+	require.Zero(t, meter.GasConsumed(), "the subtree write and event are not charged to the transaction")
+	got, err := e.Keeper.Subtrees.Get(e.Ctx, 0)
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), got.Index)
+	require.Len(t, subtreeEvents(e), 1)
 }
 
 // A bundle that straddles the end of a subtree reports that subtree's root, computed from the

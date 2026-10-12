@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
@@ -98,8 +99,10 @@ func (k Keeper) emitSubtree(ctx context.Context, frontier []byte, index uint64) 
 	if err != nil {
 		return fmt.Errorf("compute the root of subtree %d: %w", index, err)
 	}
-	sctx := sdk.UnwrapSDKContext(ctx)
-	if err := k.Subtrees.Set(ctx, index, types.SubtreeRoot{Index: index, Root: root[:], Height: sctx.BlockHeight()}); err != nil {
+	// The boundary tx does one write and one event more than the tx before it, so it is charged
+	// on an unmetered context: a gas limit estimated from the tx before it still covers it.
+	sctx := sdk.UnwrapSDKContext(ctx).WithGasMeter(storetypes.NewInfiniteGasMeter())
+	if err := k.Subtrees.Set(sctx, index, types.SubtreeRoot{Index: index, Root: root[:], Height: sctx.BlockHeight()}); err != nil {
 		return fmt.Errorf("store the root of subtree %d: %w", index, err)
 	}
 	sctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeSubtreeComplete,
