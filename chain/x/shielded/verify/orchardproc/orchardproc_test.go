@@ -23,6 +23,10 @@ import (
 // behaviour without restarting the process.
 const fakeModeFileEnv = "ORAMA_FAKE_VERIFIER_MODE_FILE"
 
+// fakeIgnoreEOFEnv makes the fake child outlive the end of its stdin, so a test can tell what else
+// ends a child.
+const fakeIgnoreEOFEnv = "ORAMA_FAKE_VERIFIER_IGNORE_EOF"
+
 const (
 	modeAccept    = "accept"
 	modeReject    = "reject"    // code 3, proof rejected
@@ -58,6 +62,9 @@ func runFake(modeFile string) int {
 	for {
 		var head [4]byte
 		if _, err := io.ReadFull(os.Stdin, head[:]); err != nil {
+			if os.Getenv(fakeIgnoreEOFEnv) != "" {
+				time.Sleep(time.Hour) // the test holds the parent's pipe closed on purpose: only a signal ends this child
+			}
 			return 0
 		}
 		body := make([]byte, binary.BigEndian.Uint32(head[:]))

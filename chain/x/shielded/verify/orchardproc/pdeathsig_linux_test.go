@@ -44,7 +44,7 @@ func runParent(modeFile string) int {
 		return 2
 	}
 	v, err := New(Config{Path: exe, ChainID: "c", SHA256: sha256Hex(raw), StartTimeout: 20 * time.Second,
-		Env: []string{fakeModeFileEnv + "=" + modeFile}})
+		Env: []string{fakeModeFileEnv + "=" + modeFile, fakeIgnoreEOFEnv + "=1"}})
 	if err != nil {
 		return 2
 	}
@@ -57,7 +57,8 @@ func runParent(modeFile string) int {
 }
 
 // The child dies with the node, even when the node is killed outright and never closes its pipe
-// politely (Pdeathsig, besides the EOF of the child's stdin).
+// politely. The fake child ignores the EOF of its stdin here, so Pdeathsig is the only thing that can
+// end it: the test proves the signal and not the pipe.
 func TestChild_diesWhenTheNodeIsKilled(t *testing.T) {
 	modeFile := filepath.Join(t.TempDir(), "mode")
 	if err := os.WriteFile(modeFile, []byte(modeAccept), 0o600); err != nil {

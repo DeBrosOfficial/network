@@ -16,6 +16,11 @@ import (
 // ProofCheck is a bundle a transaction carries and the binding its signatures must commit to.
 type ProofCheck struct{ Bundle, Binding []byte }
 
+// MinProposalRequest is the least time left in a proposal's budget for which a bundle is still put
+// to a verifier. Below it the verifier is not asked: the node votes nil on its own and nothing is
+// started that a healthy verifier would have to be killed for.
+const MinProposalRequest = 250 * time.Millisecond
+
 // ErrProposalShape means a proposal's bundles break a rule that depends only on the proposal and
 // on state every validator shares (a bundle too big, the proposal over the block's gas, a bundle or
 // a nullifier twice). Every honest validator reaches the same verdict.
@@ -104,7 +109,7 @@ func (c *ProposalChecker) Admit(checks []ProofCheck) error {
 	}
 	for _, ch := range checks {
 		left := c.deadline.Sub(c.now())
-		if left <= 0 {
+		if left < MinProposalRequest {
 			return ErrProposalBudget
 		}
 		if err := c.k.CheckProposalProof(ch.Bundle, ch.Binding, left); err != nil {

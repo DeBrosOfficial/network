@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -352,15 +353,19 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 		return nil, err
 	}
 	commit, total := commitOf(h.listView(p), req.Height, ec)
-	if err := inclusion.Process(h.walkView(ctx, p, req.Height, ec, commit, total), commit, block); err != nil {
-		return reject, nil
-	}
-	// Only the proposer's own part of the block is gated: the forced prefix is what the inclusion
-	// rules require, whatever its proofs (see proposal_proofs.go).
+	// What the inclusion rules require must be the front of the block, in order (inclusion.Process,
+	// with Required computed once because the proof check needs its length).
 	need, err := inclusion.Required(h.walkView(ctx, p, req.Height, ec, commit, total), commit)
 	if err != nil {
 		return reject, nil
 	}
+	for i := range need {
+		if i >= len(block) || !bytes.Equal(block[i], need[i]) {
+			return reject, nil
+		}
+	}
+	// Only the proposer's own part of the block is gated: the forced prefix is what the inclusion
+	// rules require, whatever its proofs (see proposal_proofs.go).
 	if !h.allProofsOK(ctx, block[len(need):]) {
 		return reject, nil
 	}

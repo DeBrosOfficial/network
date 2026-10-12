@@ -181,28 +181,58 @@ func (v *Verifier) VerifyRunning(b, binding []byte) error {
 	return v.VerifyRunningWithin(b, binding, v.cfg.RequestTimeout+v.cfg.BusyWait)
 }
 
-// VerifyRunningWithin is VerifyRunning for a caller with a deadline: the wait for the verifier and
-// the request together take at most d. The wait is at most BusyWait and the request at most
-// RequestTimeout, and each is cut to what is left of d. A request that runs out of d is a fault
-// like any other timeout: the process is stopped.
+// minRequest is the least time a request is worth asking for: below it the answer cannot be
+// expected, so a caller whose deadline is that near is told ErrBusy without the process being asked.
+const minRequest = 250 * time.Millisecond
+
+// VerifyRunningWithin is VerifyRunning for a caller with a deadline: the caller is answered within
+// d. The wait for the verifier is at most BusyWait, cut to d. A caller whose deadline is nearer than
+// minRequest (or than RequestTimeout, if that is smaller) is answered ErrBusy at once and the process
+// is not asked. A request the process is given runs for the process's own RequestTimeout whatever d
+// is: a caller whose deadline falls first is answered ErrBusy and leaves the request running, which
+// keeps the verifier busy until it ends. Only exceeding RequestTimeout is a fault that stops the
+// process; a caller's deadline never is, so a healthy process is never killed (and made to build its
+// verifying key again) for being asked too late.
 func (v *Verifier) VerifyRunningWithin(b, binding []byte, d time.Duration) error {
 	sighash, err := v.prepare(b, binding)
 	if err != nil {
 		return err
 	}
+	floor := min(v.cfg.RequestTimeout, minRequest)
+	if d < floor {
+		return ErrBusy
+	}
 	start := time.Now()
 	if !v.mu.LockWithin(min(v.cfg.BusyWait, d)) {
 		return ErrBusy
 	}
-	defer v.mu.Unlock()
 	if v.proc == nil || v.proc.exited() {
+		v.mu.Unlock()
 		return ErrNotRunning
 	}
 	left := d - time.Since(start)
-	if left <= 0 {
+	if left < floor {
+		v.mu.Unlock()
 		return ErrBusy
 	}
-	return v.ask(v.proc, sighash[:], b, min(v.cfg.RequestTimeout, left))
+	if left >= v.cfg.RequestTimeout {
+		defer v.mu.Unlock()
+		return v.ask(v.proc, sighash[:], b, v.cfg.RequestTimeout)
+	}
+	result := make(chan error, 1)
+	p := v.proc
+	go func() {
+		defer v.mu.Unlock()
+		result <- v.ask(p, sighash[:], b, v.cfg.RequestTimeout)
+	}()
+	t := time.NewTimer(left)
+	defer t.Stop()
+	select {
+	case err := <-result:
+		return err
+	case <-t.C:
+		return ErrBusy
+	}
 }
 
 // prepare checks the bundle's size and computes the sighash the child is handed.

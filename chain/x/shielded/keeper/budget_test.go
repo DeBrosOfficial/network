@@ -131,3 +131,20 @@ func TestVerify_remoteCallersGetOneTextForEveryLocalRefusal(t *testing.T) {
 	require.Contains(t, err.Error(), keeper.GenericRefusal)
 	require.Equal(t, keeper.GenericRefusal, keeper.ErrMempoolBusy.Error())
 }
+
+// With less than the floor left, the bundle is not put to the verifier at all: a local nil vote.
+func TestProposalChecker_underTheFloorNothingIsAsked(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	dv := &deadlineVerifier{Verifier: &testutil.Verifier{Name: "proposal-b"}}
+	k := keeper.WithProposalVerifiersForTest(e.Keeper, []verify.Verifier{dv, e.V1})
+	c, err := k.NewProposalChecker(withBlockGas(e.Ctx, 1_000_000), time.Second)
+	require.NoError(t, err)
+	now := time.Unix(1_700_000_000, 0)
+	keeper.SetCheckerClockForTest(c, func() time.Time { return now }, now.Add(keeper.MinProposalRequest-time.Millisecond))
+
+	err = c.Admit(check(testutil.Bundle{Seed: 60, ValueBalance: 20, Anchor: emptyAnchor(t)}.Encode(1)))
+	require.ErrorIs(t, err, keeper.ErrProposalBudget)
+	require.NotErrorIs(t, err, keeper.ErrProposalShape)
+	require.True(t, keeper.AbortsChecks(err))
+	require.Empty(t, dv.got, "the verifier was not asked")
+}
