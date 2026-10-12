@@ -25,6 +25,9 @@ const (
 	ReasonDenylist = "denylist"
 	// ReasonDisk is not enough free bytes for the piece.
 	ReasonDisk = "disk full"
+	// ReasonSize is a body whose length is not the length the chain recorded for
+	// the piece. The root does not commit to the length.
+	ReasonSize = "piece size mismatch"
 	// ReasonExists is a name that already holds a different piece.
 	ReasonExists = "piece exists"
 )
@@ -201,6 +204,25 @@ func (s *Store) Prove(cid string, index uint64) (piece.Commitment, piece.Proof, 
 		return piece.Commitment{}, piece.Proof{}, err
 	}
 	return c, proof, nil
+}
+
+// PieceSize returns the length in bytes of the piece stored under cid.
+func (s *Store) PieceSize(cid string) (uint64, error) {
+	if err := validCID(cid); err != nil {
+		return 0, err
+	}
+	body, err := os.ReadFile(s.metaPath(cid))
+	if err != nil {
+		return 0, err
+	}
+	var rec record
+	if err := json.Unmarshal(body, &rec); err != nil {
+		return 0, fmt.Errorf("piece metadata %s: %w", cid, err)
+	}
+	if rec.CID != cid || rec.Size < 0 {
+		return 0, fmt.Errorf("piece metadata %s does not match its name", cid)
+	}
+	return uint64(rec.Size), nil
 }
 
 func (s *Store) piecePath(cid string) string {

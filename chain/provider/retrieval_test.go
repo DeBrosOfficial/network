@@ -173,7 +173,7 @@ func TestUpload_refusesPastTheConcurrencyCap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := h.AcceptUploads(100, func(string) bool { return true }); err != nil {
+	if err := h.AcceptUploads(100, func(string) (uint64, bool) { return 1, true }); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < MaxConcurrentUploads; i++ {

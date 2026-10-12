@@ -15,6 +15,10 @@ type pendingSlot struct {
 	DealID uint64 `json:"deal_id"`
 	Slot   uint32 `json:"slot"`
 	Root   string `json:"root,omitempty"`
+	// Size is the byte length the chain recorded for the piece (Slot.PieceBytes),
+	// filled with Root. The root does not commit to the length, so an upload of
+	// any other length is refused.
+	Size uint64 `json:"size,omitempty"`
 	// Class is the deal's class once read (0 until then). It decides whether
 	// the piece may be fetched through the public Kubo.
 	Class int32 `json:"class,omitempty"`
@@ -116,13 +120,13 @@ func (r *Runner) dropPending(dealID uint64, slot uint32) error {
 	return r.save()
 }
 
-func (r *Runner) notePendingRoot(dealID uint64, slot uint32, root string) error {
+func (r *Runner) notePendingRoot(dealID uint64, slot uint32, root string, size uint64) error {
 	r.mu.Lock()
 	changed := false
 	for i := range r.state.Pending {
 		p := &r.state.Pending[i]
-		if p.DealID == dealID && p.Slot == slot && p.Root != root {
-			p.Root = root
+		if p.DealID == dealID && p.Slot == slot && (p.Root != root || p.Size != size) {
+			p.Root, p.Size = root, size
 			changed = true
 		}
 	}

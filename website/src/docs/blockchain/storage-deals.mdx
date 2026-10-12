@@ -36,7 +36,7 @@ sequenceDiagram
 
 1. **Create.** The deal opens and is queued. Slots go to nodes with an active STORAGE role, one slot per distinct operator. Protocol deals also need a known /16 and a declared ASN.
 2. **Accept or decline.** The assigned node's *hot key* accepts or declines inside the accept window (50 blocks). Declining has no penalty. A timeout reassigns the slot to another operator.
-3. **Upload.** The owner uploads each sealed slot to its provider (`POST /pieces/<root>` on the provider service).
+3. **Upload.** The owner uploads each sealed slot to its provider (`POST /pieces/<root>` on the provider service). The provider refuses a body whose length is not the piece length the chain recorded for the slot, because the piece root alone does not tell a piece from the same piece with extra zero bytes.
 4. **Challenge and prove.** Every epoch the chain samples 8 leaves per replica. The provider answers with a Merkle leaf-inclusion proof.
 5. **Settle.** At epoch close each challenge is scored into a settlement row, up to 100 per block. A proved slot is paid out of escrow.
 6. **Miss.** A missed challenge raises a consecutive-miss count. From the second consecutive miss the node is penalised 10% of one epoch's price. At 4 misses the slot is evicted and a replacement slot is assigned; the lost piece is then rebuilt by the deal's repair delegate or, if it names none, by the owner (see [Repairing a deal](#repairing-a-deal)). A bonded node is slashed through `x/nodes`; a probation node's record deposit is burned instead.

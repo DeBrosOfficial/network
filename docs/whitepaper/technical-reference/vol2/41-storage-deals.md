@@ -73,6 +73,8 @@ The queries are `Params`, `Deal`, `Deals`, `Slot`, `Authorization`, `Challenges`
 
 `chain/piece/piece.go` is the one commitment scheme. Data is cut into 1,024-byte leaves; a partial tail leaf is zero-padded; the leaf count is then padded with all-zero leaves to the next power of two. Three SHA-256 preimages carry a leading tag byte: `0x01` plus the leaf for a leaf, `0x02` plus left and right child for an internal node, and `0x00` plus `ORAMA_PIECE_EMPTY_V1` for the empty piece. A proof is the leaf plus one sibling per level: at 64 GiB (2^26 leaves) that is 1,024 + 26 x 32 = 1,856 bytes (`ProofSize`).
 
+The root does not commit to the byte length: a piece and the same piece followed by zero bytes inside the same last leaf (or the same padded leaf count) share a root. The chain records the length per slot (`Slot.PieceBytes`) and the provider holds every upload and every stored record to it (see "The upload surface").
+
 The padding leaves are real tree nodes, but challenges are drawn modulo the real leaf count, so a padding leaf is never selected, and `VerifyChallenge` rejects a proof whose index is at or above the real count. The client has its own copy of the algorithm in `core/pkg/pieceroot/commit.go`, because the core module does not import the chain module; both are held to one set of test vectors (`TestVectors` in `chain/piece/piece_test.go`).
 
 ### Sealing a private file
@@ -144,7 +146,7 @@ Excluding the operator is what stops a reassignment loop: a declining or evicted
 | Request | Behaviour |
 |---|---|
 | `GET` or `HEAD /pieces/ROOT` | serves the file with `Range` support; no authentication, because a piece is ciphertext or public by design |
-| `POST /pieces/ROOT` with `X-Piece-Root` equal to the name | stores the body if this node is waiting for that root (`Runner.Assigned`), the body is at most `--max-piece-bytes` (256 MiB), and at most 2 uploads are in flight; otherwise 403, 413, 503 or 409 |
+| `POST /pieces/ROOT` with `X-Piece-Root` equal to the name | stores the body if this node is waiting for that root (`Runner.Assigned`, which also returns the slot's `PieceBytes`), the body is at most `--max-piece-bytes` (256 MiB) and exactly `PieceBytes` long, and at most 2 uploads are in flight; otherwise 400, 403, 413, 503 or 409 |
 | `POST /pins/ROOT` with `X-Piece-CID` | public deals only: fetches the piece from the public Kubo by CID, checks it against the assigned root, stores it and records the CID; 30 s timeout, 2 concurrent, one per root |
 
 Every request passes a token bucket per client address: 20 per second, burst 40, a table of 4,096 addresses (idle buckets dropped after 10 minutes; a full table refuses a new address), IPv6 grouped by `/64`. The server has a 2-minute read timeout. The 403 answer before the provider has read the assignment is deliberate: the owner's client retries it (`storageclient`'s `upload`).
@@ -286,6 +288,7 @@ A block must never halt because one node cannot be paid. `isolate` (`chain/x/sto
 | Provider process down for an epoch | the sampled challenges are missed; rechallenge next epoch; penalty from the second miss; eviction at the fourth | settlement rows with `proved` false; `monitor.json` `proof_misses`; `storage_slot_evicted` |
 | Piece never uploaded | the runner declines before the window closes, or the window lapses; the operator is excluded for the slot | `storage_slot_declined`; the owner's `put` times out waiting |
 | Upload with the wrong bytes | `Ingest` refuses on root mismatch; nothing is stored | HTTP 409 "piece root mismatch" |
+| Upload of the right bytes with zero padding added or removed (same root, other length) | refused before `Ingest` because the length is not the slot's `PieceBytes`; a stored record of another length is discarded when the slot is decided | HTTP 400 "piece size mismatch" |
 | Disk full | `Ingest` refuses | HTTP 409 "disk full"; the slot is declined near the window's end |
 | Kubo down on a public slot | pin fails and is retried each step; declined 2 blocks before the window closes | provider log; `storage_slot_declined` with reason "public pin failed" |
 | No eligible node for a slot | on a new deal: the deal is refunded; on a reassignment: it stays pending and is retried each block | `REFUNDED`; or a deal with an unassigned slot that never fills |
@@ -310,7 +313,7 @@ A block must never halt because one node cannot be paid. `isolate` (`chain/x/sto
 
 **Hot key.** Accept, decline, proofs and release come only from it. It needs fee funds, not a bank balance, and is never held on a server other than the node's. The unit runs as its own user (`orama-provider`) and may read the public Kubo's bearer token through a supplementary group and nothing else in that home.
 
-**The upload surface.** Anyone can `POST` to `/pieces/ROOT`, but only for a root the node is waiting for, and the body must hash to that root; a different claimed root is refused so no one can store unrelated bytes under a waiting slot's name. `/pins/ROOT` fetches by CID only for a public-class waiting slot.
+**The upload surface.** Anyone can `POST` to `/pieces/ROOT`, but only for a root the node is waiting for, and the body must hash to that root and be exactly the length the chain recorded for the slot; a different claimed root is refused so no one can store unrelated bytes under a waiting slot's name. `/pins/ROOT` fetches by CID only for a public-class waiting slot.
 
 **Public deals and the denylist.** An operator can refuse a CID (`denylist`), which declines the slot without a slash. The legal release path is the only user-visible way out of an accepted slot.
 
@@ -383,6 +386,7 @@ A block must never halt because one node cannot be paid. `isolate` (`chain/x/sto
 
 ## Known gaps
 
+- **The piece root does not commit to the length.** The last leaf is zero-padded, so data and data followed by zeros in the same leaf count share a root, and a proof of the real leaves verifies for both. The defence is the size check: the provider refuses an upload or pin whose length is not `Slot.PieceBytes` and discards a stored record of another length before it accepts the slot. Fixing the root format would change consensus (root V2) and is not done. Code: `chain/piece/piece.go:Commit`, `chain/provider/retrieval.go:serveUpload`, `chain/provider/runner_slots.go:dropWrongSize`.
 - **Challenge leaves are predictable.** The draw uses only public inputs, so every future challenge of a held slot is computable now. Consequence: a provider can store selected leaves and their paths instead of pieces and still be paid. Code: `chain/x/storage/types/assignment.go:LeafChallengeSeed`.
 - **Pay depends on the sample, not on holdings.** A node with more than `k_c` replicas is paid for about `k_c` per epoch. Consequence: operator income per replica falls as holdings grow; the parameter is fixed at genesis. Code: `chain/x/storage/keeper/challenge.go:openNodeChallenges`.
 - **BeginBlock scans whole tables every block.** `expireAcceptWindows`, `expireDeals`, `expireProbation` walk all slots, deals and nodes; deals are never removed. Consequence: block time grows with total history. Code: `chain/x/storage/keeper/assign.go:expireAcceptWindows`, `chain/x/storage/keeper/settlement.go:expireDeals`.

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -107,7 +108,7 @@ func newPublicFixture(t *testing.T, class types.DealClass, deny ...string) *publ
 	require.True(t, dec.Accept)
 	return &publicFixture{
 		store: store, runner: runner, chain: chain, pins: pins, name: name, root: root,
-		slot:   types.Slot{DealId: 5, Index: 1, NodeId: "n1", PieceRoot: root, AssignHeight: 100},
+		slot:   types.Slot{DealId: 5, Index: 1, NodeId: "n1", PieceRoot: root, PieceBytes: uint64(len(data)), AssignHeight: 100},
 		params: types.Params{AcceptWindowBlocks: 50},
 	}
 }
@@ -127,6 +128,24 @@ func TestDecide_publicDealsArePinnedInKuboBeforeTheyAreAccepted(t *testing.T) {
 		require.Len(t, f.chain.submitted, 1)
 		require.IsType(t, &types.MsgAcceptDeal{}, f.chain.submitted[0])
 	}
+}
+
+func TestDecide_aStoredPieceOfAnotherLengthIsDiscardedAndWaitsForTheRealOne(t *testing.T) {
+	f := newPublicFixture(t, types.DealClass_DEAL_CLASS_PRIVATE)
+	f.slot.PieceBytes += 100 // the chain recorded a longer piece with this root
+	require.NoError(t, f.decide(t, 101))
+	require.False(t, f.store.Has(f.name), "the wrong-length record is discarded")
+	require.Empty(t, f.chain.submitted, "nothing is accepted, and the window is still open")
+
+	require.NoError(t, f.decide(t, 150-DeclineMarginBlocks))
+	require.Len(t, f.chain.submitted, 1)
+	require.IsType(t, &types.MsgDeclineDeal{}, f.chain.submitted[0], "never accepted at the end of the window either")
+}
+
+func TestDecide_aStoredPieceOfTheRecordedLengthIsAccepted(t *testing.T) {
+	f := newPublicFixture(t, types.DealClass_DEAL_CLASS_PRIVATE)
+	require.NoError(t, f.decide(t, 101))
+	require.IsType(t, &types.MsgAcceptDeal{}, f.chain.submitted[0])
 }
 
 func TestDecide_aPrivateDealNeverReachesThePublicKubo(t *testing.T) {
@@ -370,7 +389,8 @@ func TestAssignedPublic_needsAPublicClassRead(t *testing.T) {
 	f := newPublicFixture(t, types.DealClass_DEAL_CLASS_PUBLIC_PIN)
 	name := hex.EncodeToString(f.root)
 	f.runner.state.Pending = []pendingSlot{{DealID: 5, Slot: 1, Root: name}}
-	require.True(t, f.runner.Assigned(name))
+	_, assigned := f.runner.Assigned(name)
+	require.True(t, assigned)
 	require.False(t, f.runner.AssignedPublic(name), "class not read yet")
 	require.NoError(t, f.runner.notePendingClass(5, 1, types.DealClass_DEAL_CLASS_PRIVATE))
 	require.False(t, f.runner.AssignedPublic(name))
@@ -410,6 +430,9 @@ func mustPins(t *testing.T, s *Store, name string) []ipfsPin {
 	return pins
 }
 
+// pinTestPieceBytes is the length of the pieces the pin tests fetch.
+const pinTestPieceBytes = 2500
+
 func newPinHandler(t *testing.T, cat *fakeCat, deny []string, assigned func(string) bool) (*Retrieval, *Store) {
 	t.Helper()
 	store, err := Open(t.TempDir(), deny, nil)
@@ -417,7 +440,7 @@ func newPinHandler(t *testing.T, cat *fakeCat, deny []string, assigned func(stri
 	h, err := NewRetrieval(store, 100, 20, 8)
 	require.NoError(t, err)
 	require.Error(t, h.AcceptPins(cat, assigned), "pins need uploads configured first")
-	require.NoError(t, h.AcceptUploads(4096, func(string) bool { return false }))
+	require.NoError(t, h.AcceptUploads(4096, func(string) (uint64, bool) { return pinTestPieceBytes, true }))
 	require.Error(t, h.AcceptPins(nil, assigned))
 	require.Error(t, h.AcceptPins(cat, nil))
 	require.NoError(t, h.AcceptPins(cat, assigned))
@@ -453,13 +476,27 @@ func TestPin_refusalsStoreNothing(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, postPin(h, name, "../etc/passwd"), "not a CID")
 	require.Equal(t, http.StatusBadRequest, postPin(h, "not-hex", testCID), "bad root")
 
-	cat.body = []byte("different bytes")
+	cat.body = bytes.Repeat([]byte{1}, pinTestPieceBytes)
 	require.Equal(t, http.StatusConflict, postPin(h, name, testCID), "bytes that do not hash to the assigned root")
 	require.False(t, store.Has(name))
 
 	cat.body, cat.err = data, errors.New("bitswap timeout")
 	require.Equal(t, http.StatusBadGateway, postPin(h, name, testCID))
 	require.False(t, store.Has(name))
+}
+
+func TestPin_aZeroPaddedVariantOfTheAssignedPieceIsRefused(t *testing.T) {
+	data := make([]byte, pinTestPieceBytes)
+	data[3] = 9
+	name, _ := rootHex(t, data)
+	cat := &fakeCat{body: append(append([]byte{}, data...), make([]byte, 100)...)}
+	h, store := newPinHandler(t, cat, nil, func(n string) bool { return n == name })
+
+	require.Equal(t, http.StatusBadGateway, postPin(h, name, testCID), "same root, other length")
+	require.False(t, store.Has(name))
+	cat.body = data
+	require.Equal(t, http.StatusNoContent, postPin(h, name, testCID))
+	require.Equal(t, data, mustRead(t, store, name))
 }
 
 func TestPin_denylistedCIDIsRefusedBeforeAnyFetch(t *testing.T) {
@@ -475,7 +512,7 @@ func TestPin_isNotServedUntilConfigured(t *testing.T) {
 	require.NoError(t, err)
 	h, err := NewRetrieval(store, 100, 20, 8)
 	require.NoError(t, err)
-	require.NoError(t, h.AcceptUploads(10, func(string) bool { return true }))
+	require.NoError(t, h.AcceptUploads(10, func(string) (uint64, bool) { return 1, true }))
 	name, _ := rootHex(t, []byte("x"))
 	require.Equal(t, http.StatusMethodNotAllowed, postPin(h, name, testCID))
 }

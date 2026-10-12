@@ -115,16 +115,22 @@ func NewRunner(store *Store, chain Chain, cfg Config) (*Runner, error) {
 }
 
 // Assigned reports whether name is the hex piece root of a slot this node
-// is waiting to receive. It is the upload filter for Retrieval.AcceptUploads.
-func (r *Runner) Assigned(name string) bool {
+// is waiting to receive, and the byte length the chain recorded for that slot's
+// piece. It is the upload filter for Retrieval.AcceptUploads.
+func (r *Runner) Assigned(name string) (uint64, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, p := range r.state.Pending {
 		if p.Root != "" && p.Root == name {
-			return true
+			return p.Size, true
 		}
 	}
-	return false
+	return 0, false
+}
+
+func (r *Runner) isAssigned(name string) bool {
+	_, ok := r.Assigned(name)
+	return ok
 }
 
 // AssignedPublic is Assigned for a root every waiting slot of which belongs to

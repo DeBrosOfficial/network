@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -35,7 +36,11 @@ func newFakeProvider(t *testing.T, ready func(string) bool) *fakeProvider {
 	require.NoError(t, err)
 	rt, err := provider.NewRetrieval(store, 1000, 1000, 8)
 	require.NoError(t, err)
-	require.NoError(t, rt.AcceptUploads(1<<30, ready))
+	require.NoError(t, rt.AcceptUploads(1<<30, func(name string) (uint64, bool) {
+		size, _ := bundleSizes.Load(name)
+		n, _ := size.(uint64)
+		return n, ready(name)
+	}))
 	p := &fakeProvider{store: store}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -58,6 +63,10 @@ func readMonitor(t *testing.T, dir string) Monitor {
 }
 
 func always(string) bool { return true }
+
+// bundleSizes maps the hex root of every bundle bundleRoot saw to its length: a provider refuses
+// an upload of any other length than the chain recorded for the slot.
+var bundleSizes sync.Map
 
 // assignSlots gives every deal of the chain one ASSIGNED slot held by node, as x/storage does,
 // with the piece root root.
@@ -85,6 +94,7 @@ func bundleRoot(t *testing.T, dir string) []byte {
 	require.NoError(t, err)
 	c, err := piece.Commit(body)
 	require.NoError(t, err)
+	bundleSizes.Store(hex.EncodeToString(c.Root), uint64(len(body)))
 	return c.Root
 }
 

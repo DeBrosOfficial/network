@@ -90,7 +90,8 @@ func TestApplyEvents_recordsOnlyThisNodesAssignmentsOnce(t *testing.T) {
 	require.True(t, r.applyEvents([]abci.Event{assigned, other, evicted}))
 	require.False(t, r.applyEvents([]abci.Event{assigned}), "the same slot is not added twice")
 	require.Len(t, r.state.Pending, 1)
-	require.False(t, r.Assigned(""), "a slot whose root is not read yet accepts no upload")
+	_, held := r.Assigned("")
+	require.False(t, held, "a slot whose root is not read yet accepts no upload")
 }
 
 func TestRelease_keepsAPieceAnotherSlotStillBinds(t *testing.T) {

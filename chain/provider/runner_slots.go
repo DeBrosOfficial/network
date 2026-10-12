@@ -30,7 +30,7 @@ func (r *Runner) settleOne(ctx context.Context, latest int64, params types.Param
 	if slot.NodeId != r.nodeID || slot.Status != types.SlotStatus_SLOT_STATUS_ASSIGNED || slot.Accepted {
 		return r.dropPending(p.DealID, p.Slot)
 	}
-	if err := r.notePendingRoot(p.DealID, p.Slot, rootName(slot.PieceRoot)); err != nil {
+	if err := r.notePendingRoot(p.DealID, p.Slot, rootName(slot.PieceRoot), slot.PieceBytes); err != nil {
 		return err
 	}
 	return r.decide(ctx, latest, params, slot)
@@ -60,9 +60,14 @@ func (r *Runner) noteClasses(ctx context.Context) error {
 
 func (r *Runner) decide(ctx context.Context, latest int64, params types.Params, slot types.Slot) error {
 	closes := slot.AssignHeight + int64(params.AcceptWindowBlocks)
-	_, stored, err := r.store.FindByRoot(slot.PieceRoot)
+	name, stored, err := r.store.FindByRoot(slot.PieceRoot)
 	if err != nil {
 		return err
+	}
+	if stored {
+		if stored, err = r.dropWrongSize(name, slot); err != nil {
+			return err
+		}
 	}
 	if !stored && latest < closes-DeclineMarginBlocks {
 		return nil
@@ -94,6 +99,24 @@ func (r *Runner) decide(ctx context.Context, latest int64, params types.Params, 
 		}
 	}
 	return r.dropPending(slot.DealId, slot.Index)
+}
+
+// dropWrongSize discards the stored piece of slot's root when its length is not
+// the length the chain recorded: the root does not commit to the length, so a
+// zero-padded variant carries it. It reports whether a piece is still stored.
+// One that stays, because another slot is bound to it, is declined.
+func (r *Runner) dropWrongSize(name string, slot types.Slot) (bool, error) {
+	size, err := r.store.PieceSize(name)
+	if err != nil {
+		return false, err
+	}
+	if size == slot.PieceBytes {
+		return true, nil
+	}
+	if err := r.store.Discard(name); err != nil {
+		return false, err
+	}
+	return r.store.Has(name), nil
 }
 
 // declineStored declines a slot whose piece is stored but must not be kept.
@@ -197,7 +220,7 @@ func (r *Runner) sweep(ctx context.Context, epoch uint64) error {
 		if epoch < r.markGone(a.DealID, a.Slot, epoch)+ReleaseGraceEpochs {
 			continue
 		}
-		if err := r.store.Release(a.DealID, a.Slot, r.Assigned); err != nil {
+		if err := r.store.Release(a.DealID, a.Slot, r.isAssigned); err != nil {
 			return err
 		}
 		r.clearGone(a.DealID, a.Slot)

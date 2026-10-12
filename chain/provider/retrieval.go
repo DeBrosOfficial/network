@@ -29,7 +29,7 @@ type Retrieval struct {
 	mu        sync.Mutex
 	buckets   map[string]*bucket
 	uploadMax int64
-	assigned  func(string) bool
+	assigned  func(string) (uint64, bool)
 	catter    Catter
 	pinnable  func(string) bool
 	uploads   chan struct{}
@@ -82,9 +82,11 @@ func NewRetrieval(store *Store, perSecond float64, burst, maxIPs int) (*Retrieva
 }
 
 // AcceptUploads lets POST /pieces/<cid> store a body. assigned reports
-// whether this node was given that CID. maxBody is the most bytes read.
-// Until this is called, POST is refused.
-func (rt *Retrieval) AcceptUploads(maxBody int64, assigned func(string) bool) error {
+// whether this node was given that CID and the byte length the chain recorded
+// for the piece: the root does not commit to the length (the last leaf is
+// zero-padded), so a body of any other length is refused. maxBody is the most
+// bytes read. Until this is called, POST is refused.
+func (rt *Retrieval) AcceptUploads(maxBody int64, assigned func(string) (uint64, bool)) error {
 	if maxBody < 1 || assigned == nil {
 		return errors.New("upload limit must be positive")
 	}
@@ -192,7 +194,8 @@ func (rt *Retrieval) serveUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "too many requests", http.StatusTooManyRequests)
 		return
 	}
-	if !assigned(cid) {
+	size, ok := assigned(cid)
+	if !ok {
 		http.Error(w, "not assigned", http.StatusForbidden)
 		return
 	}
@@ -220,6 +223,10 @@ func (rt *Retrieval) serveUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "read failed", http.StatusBadRequest)
 		return
 	}
+	if uint64(len(data)) != size {
+		http.Error(w, ReasonSize, http.StatusBadRequest)
+		return
+	}
 	decision, err := rt.store.Ingest(cid, data, root)
 	if err != nil {
 		http.Error(w, "ingest failed", http.StatusInternalServerError)
@@ -240,7 +247,7 @@ const pinsPrefix = "/pins/"
 // the assigned root, and are then stored like an upload. The CID is recorded
 // so a public deal pins the piece under it.
 func (rt *Retrieval) servePin(w http.ResponseWriter, r *http.Request) {
-	maxBody, _ := rt.uploadConfig()
+	maxBody, assigned := rt.uploadConfig()
 	rt.mu.Lock()
 	cat, pinnable := rt.catter, rt.pinnable
 	rt.mu.Unlock()
@@ -300,6 +307,15 @@ func (rt *Retrieval) servePin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "fetch by CID failed", http.StatusBadGateway)
 		return
 	}
+	size, ok := assigned(name)
+	if !ok {
+		http.Error(w, "not assigned", http.StatusForbidden)
+		return
+	}
+	if uint64(len(data)) != size {
+		http.Error(w, ReasonSize, http.StatusBadGateway)
+		return
+	}
 	decision, err := rt.store.Ingest(name, data, root)
 	if err != nil {
 		http.Error(w, "ingest failed", http.StatusInternalServerError)
@@ -333,7 +349,7 @@ func (rt *Retrieval) endPin(name string) {
 	delete(rt.pinning, name)
 }
 
-func (rt *Retrieval) uploadConfig() (int64, func(string) bool) {
+func (rt *Retrieval) uploadConfig() (int64, func(string) (uint64, bool)) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	return rt.uploadMax, rt.assigned
