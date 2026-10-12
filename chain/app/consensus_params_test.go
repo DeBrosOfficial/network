@@ -30,11 +30,12 @@ const (
 )
 
 // plannedConsensus is what `orama setup --create-network` writes into a genesis: the finite block
-// gas limit, CometBFT's default block size and vote extensions from height 2.
+// gas limit, CometBFT's default block size, vote extensions from height 2, ed25519 as the only
+// validator key type and CometBFT's evidence defaults.
 func plannedConsensus() *cmtproto.ConsensusParams {
 	return &cmtproto.ConsensusParams{
 		Block:     &cmtproto.BlockParams{MaxGas: 100_000_000, MaxBytes: 22_020_096},
-		Evidence:  &cmtproto.EvidenceParams{MaxAgeNumBlocks: 100_000, MaxAgeDuration: time.Hour, MaxBytes: 1_048_576},
+		Evidence:  &cmtproto.EvidenceParams{MaxAgeNumBlocks: 100_000, MaxAgeDuration: 48 * time.Hour, MaxBytes: 1_048_576},
 		Validator: &cmtproto.ValidatorParams{PubKeyTypes: []string{cmted25519.KeyType}},
 		Abci:      &cmtproto.ABCIParams{VoteExtensionsEnableHeight: 2},
 	}
@@ -81,16 +82,25 @@ func TestLockedGenesis_initChainAcceptsThePlannedConsensusParamsOnProductionChai
 
 func TestValidateConsensusParams_productionPinsEveryValue(t *testing.T) {
 	for name, edit := range map[string]func(*cmtproto.ConsensusParams){
-		"unlimited block gas":        func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = -1 },
-		"zero block gas":             func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = 0 },
-		"another finite block gas":   func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = 50_000_000 },
-		"a smaller block":            func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = 1 << 20 },
-		"a larger block":             func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = 100 << 20 },
-		"unlimited block size":       func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = -1 },
-		"vote extensions off":        func(cp *cmtproto.ConsensusParams) { cp.Abci.VoteExtensionsEnableHeight = 0 },
-		"vote extensions at 5":       func(cp *cmtproto.ConsensusParams) { cp.Abci.VoteExtensionsEnableHeight = 5 },
-		"no abci params":             func(cp *cmtproto.ConsensusParams) { cp.Abci = nil },
-		"no block params":            func(cp *cmtproto.ConsensusParams) { cp.Block = nil },
+		"unlimited block gas":      func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = -1 },
+		"zero block gas":           func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = 0 },
+		"another finite block gas": func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = 50_000_000 },
+		"a smaller block":          func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = 1 << 20 },
+		"a larger block":           func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = 100 << 20 },
+		"unlimited block size":     func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = -1 },
+		"vote extensions off":      func(cp *cmtproto.ConsensusParams) { cp.Abci.VoteExtensionsEnableHeight = 0 },
+		"vote extensions at 5":     func(cp *cmtproto.ConsensusParams) { cp.Abci.VoteExtensionsEnableHeight = 5 },
+		"no abci params":           func(cp *cmtproto.ConsensusParams) { cp.Abci = nil },
+		"no block params":          func(cp *cmtproto.ConsensusParams) { cp.Block = nil },
+		"a second validator key type": func(cp *cmtproto.ConsensusParams) {
+			cp.Validator.PubKeyTypes = []string{"ed25519", "secp256k1"}
+		},
+		"no validator key type":      func(cp *cmtproto.ConsensusParams) { cp.Validator.PubKeyTypes = nil },
+		"no validator params":        func(cp *cmtproto.ConsensusParams) { cp.Validator = nil },
+		"a shorter evidence age":     func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxAgeNumBlocks = 10 },
+		"a shorter evidence time":    func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxAgeDuration = time.Minute },
+		"an evidence size of zero":   func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxBytes = 0 },
+		"no evidence params":         func(cp *cmtproto.ConsensusParams) { cp.Evidence = nil },
 		"no consensus params at all": nil,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -115,7 +125,8 @@ func TestValidateConsensusParams_testNetworksNeedAFiniteGasLimitABoundedBlockAnd
 			relaxed.Block.MaxGas = 10_000_000
 			relaxed.Block.MaxBytes = 4 << 20
 			relaxed.Abci.VoteExtensionsEnableHeight = 7
-			require.NoError(t, app.ValidateConsensusParams(chainID, relaxed), "a test network may pick its own finite values")
+			relaxed.Evidence = &cmtproto.EvidenceParams{MaxAgeNumBlocks: 50, MaxAgeDuration: time.Hour, MaxBytes: 1 << 10}
+			require.NoError(t, app.ValidateConsensusParams(chainID, relaxed), "a test network may pick its own finite values and evidence window")
 
 			for name, edit := range map[string]func(*cmtproto.ConsensusParams){
 				"unlimited block gas":  func(cp *cmtproto.ConsensusParams) { cp.Block.MaxGas = -1 },
@@ -124,6 +135,8 @@ func TestValidateConsensusParams_testNetworksNeedAFiniteGasLimitABoundedBlockAnd
 				"an oversized block":   func(cp *cmtproto.ConsensusParams) { cp.Block.MaxBytes = 22_020_097 },
 				"vote extensions off":  func(cp *cmtproto.ConsensusParams) { cp.Abci.VoteExtensionsEnableHeight = 0 },
 				"no abci params":       func(cp *cmtproto.ConsensusParams) { cp.Abci = nil },
+				"another key type":     func(cp *cmtproto.ConsensusParams) { cp.Validator.PubKeyTypes = []string{"secp256k1"} },
+				"no validator params":  func(cp *cmtproto.ConsensusParams) { cp.Validator = nil },
 			} {
 				cp := plannedConsensus()
 				edit(cp)
@@ -136,6 +149,7 @@ func TestValidateConsensusParams_testNetworksNeedAFiniteGasLimitABoundedBlockAnd
 
 func TestValidateConsensusParams_aLocalnetIsFree(t *testing.T) {
 	cp := plannedConsensus()
+	cp.Validator.PubKeyTypes = []string{"secp256k1"}
 	cp.Block.MaxGas = -1
 	cp.Block.MaxBytes = 100 << 20
 	cp.Abci.VoteExtensionsEnableHeight = 0
@@ -158,4 +172,15 @@ func TestValidateConsensusParams_namesEveryProblem(t *testing.T) {
 	require.ErrorContains(t, err, "max_gas")
 	require.ErrorContains(t, err, "max_bytes")
 	require.ErrorContains(t, err, "vote_extensions_enable_height")
+}
+
+func TestValidateConsensusParams_namesTheEvidenceAndKeyTypeProblems(t *testing.T) {
+	cp := plannedConsensus()
+	cp.Validator.PubKeyTypes = []string{"secp256k1"}
+	cp.Evidence = &cmtproto.EvidenceParams{MaxAgeNumBlocks: 1, MaxAgeDuration: time.Second, MaxBytes: 1}
+	err := app.ValidateConsensusParams(productionChainID, cp)
+	require.ErrorContains(t, err, "validator.pub_key_types")
+	require.ErrorContains(t, err, "evidence.max_age_num_blocks")
+	require.ErrorContains(t, err, "evidence.max_age_duration")
+	require.ErrorContains(t, err, "evidence.max_bytes")
 }

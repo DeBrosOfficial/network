@@ -180,6 +180,21 @@ var lockedRows = []lockedRow{
 	{"distribution", "bonus_proposer_reward", "0", "stock x/distribution (deprecated field)"},
 	{"distribution", "withdraw_addr_enabled", "true", "stock x/distribution default"},
 
+	// x/auth and x/bank: the SDK's stock values, locked because a genesis can reprice or switch off
+	// what every transaction does (SA6-10).
+	{"auth", "max_memo_characters", "256", "stock x/auth default"},
+	{"auth", "tx_sig_limit", "7", "stock x/auth default"},
+	{"auth", "tx_size_cost_per_byte", "10", "stock x/auth default"},
+	{"auth", "sig_verify_cost_ed25519", "590", "stock x/auth default"},
+	{"auth", "sig_verify_cost_secp256k1", "1000", "stock x/auth default"},
+	{"bank", "send_enabled", "[]", "stock x/bank default: no per-denom override"},
+	{"bank", "default_send_enabled", "true", "stock x/bank default: every denom can be sent (a user's norama and tokens move by MsgSend)"},
+
+	// x/wasm (wasmd), present only when the VM is linked: who may upload and instantiate code. The
+	// upload window itself is x/wasmpolicy's sunset.
+	{"wasm", "code_upload_access", `{"permission":"Everybody","addresses":[]}`, "plans/open-network.md D11: uploads are open until x/wasmpolicy's sunset height closes them"},
+	{"wasm", "instantiate_default_permission", `"Everybody"`, "plans/open-network.md D11: anybody can instantiate a stored code"},
+
 	// x/wasmpolicy: D11, P6.
 	{"wasmpolicy", "upload_sunset_height", "3162240", "P6: 183 days of 5-second blocks; D11"},
 	{"wasmpolicy", "deposit_per_byte", "68359", "P3: about 0.07 ORAMA/KiB; C9 state deposits use the same price as x/token and x/nodes"},
@@ -200,6 +215,18 @@ var planParameters = []struct{ id, locked string }{
 	{"P8", "off-chain: no genesis field (network and app names)"},
 	{"P9", "off-chain: no genesis field (public IPFS DHT policy)"},
 	{"P10", "off-chain: no genesis field (VPN pricing)"},
+}
+
+// activeLockedRows are the rows this binary checks: the wasm rows only when libwasmvm is linked.
+func activeLockedRows() []lockedRow {
+	var rows []lockedRow
+	for _, row := range lockedRows {
+		if row.module == "wasm" && !app.WasmVMLinked() {
+			continue
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 func lockedRowKey(r lockedRow) string { return r.module + "." + r.key }
@@ -280,6 +307,10 @@ func differentValue(t *testing.T, raw json.RawMessage) json.RawMessage {
 	t.Helper()
 	s := string(raw)
 	switch {
+	case s == "[]":
+		return json.RawMessage(`[{"denom":"norama","enabled":false}]`)
+	case strings.HasPrefix(s, "{"):
+		return json.RawMessage(`{"changed":true}`)
 	case s == "true":
 		return json.RawMessage("false")
 	case s == "false":
@@ -296,7 +327,7 @@ func differentValue(t *testing.T, raw json.RawMessage) json.RawMessage {
 
 func TestLockedGenesis_defaultsEqualPlanValues(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
-	for _, row := range lockedRows {
+	for _, row := range activeLockedRows() {
 		t.Run(lockedRowKey(row), func(t *testing.T) {
 			require.NotEmpty(t, row.cite, "every locked parameter needs its plan citation")
 			got, ok := moduleObject(t, defaults, row.module)[row.key]
@@ -309,10 +340,13 @@ func TestLockedGenesis_defaultsEqualPlanValues(t *testing.T) {
 func TestLockedGenesis_everyGenesisParameterHasARow(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
 	covered := map[string]bool{}
-	for _, row := range lockedRows {
+	for _, row := range activeLockedRows() {
 		covered[lockedRowKey(row)] = true
 	}
-	modules := []string{"emission", "fees", "power", "nodes", "storage", "relay", "token", "archive", "houses", "staking", "slashing", "distribution"}
+	modules := []string{"emission", "fees", "power", "nodes", "storage", "relay", "token", "archive", "houses", "staking", "slashing", "distribution", "auth", "bank"}
+	if app.WasmVMLinked() {
+		modules = append(modules, "wasm")
+	}
 	var missing []string
 	for _, module := range modules {
 		for key := range moduleObject(t, defaults, module) {
@@ -344,7 +378,7 @@ func TestLockedGenesis_planParametersP1ToP10(t *testing.T) {
 func TestLockedGenesis_productionChainRejectsEveryChangedParameter(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
 	require.NoError(t, app.ValidateLockedGenesis("orama-1", defaults, cloneGenesis(t, defaults)))
-	for _, row := range lockedRows {
+	for _, row := range activeLockedRows() {
 		t.Run(lockedRowKey(row), func(t *testing.T) {
 			err := app.ValidateLockedGenesis("orama-1", defaults, mutateParam(t, defaults, row))
 			require.Error(t, err)
@@ -361,7 +395,7 @@ func TestLockedGenesis_chainIDThatOnlyContainsATestMarkerIsLockedLikeProduction(
 	for _, chainID := range []string{"orama-1-stagenet-x", "orama-1-devnet-x", "orama-1-localnet-x", "mainnet-localnet-1", "orama-stagenet-"} {
 		require.NoError(t, app.ValidateLockedGenesis(chainID, defaults, cloneGenesis(t, defaults)), chainID)
 		require.False(t, app.IsLocalnetChainID(chainID), chainID)
-		for _, row := range lockedRows {
+		for _, row := range activeLockedRows() {
 			err := app.ValidateLockedGenesis(chainID, defaults, mutateParam(t, defaults, row))
 			require.Errorf(t, err, "%s on %s", lockedRowKey(row), chainID)
 		}
@@ -372,7 +406,7 @@ func TestLockedGenesis_testnetRelaxesOnlyTheClockAndCommittee(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
 	relaxed := relaxedOnTestnets()
 	for _, chainID := range []string{"orama-stagenet-1", "orama-devnet-1"} {
-		for _, row := range lockedRows {
+		for _, row := range activeLockedRows() {
 			err := app.ValidateLockedGenesis(chainID, defaults, mutateParam(t, defaults, row))
 			if relaxed[lockedRowKey(row)] {
 				require.NoErrorf(t, err, "%s on %s", lockedRowKey(row), chainID)
@@ -385,7 +419,7 @@ func TestLockedGenesis_testnetRelaxesOnlyTheClockAndCommittee(t *testing.T) {
 
 func TestLockedGenesis_localnetLocksNothing(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
-	for _, row := range lockedRows {
+	for _, row := range activeLockedRows() {
 		require.NoErrorf(t, app.ValidateLockedGenesis("orama-localnet-1", defaults, mutateParam(t, defaults, row)), lockedRowKey(row))
 	}
 }

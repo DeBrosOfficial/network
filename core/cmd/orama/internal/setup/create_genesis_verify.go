@@ -52,6 +52,14 @@ type genesisFacts struct {
 			Abci struct {
 				VoteExtensionsEnableHeight string `json:"vote_extensions_enable_height"`
 			} `json:"abci"`
+			Evidence struct {
+				MaxAgeNumBlocks string `json:"max_age_num_blocks"`
+				MaxAgeDuration  string `json:"max_age_duration"`
+				MaxBytes        string `json:"max_bytes"`
+			} `json:"evidence"`
+			Validator struct {
+				PubKeyTypes []string `json:"pub_key_types"`
+			} `json:"validator"`
 		} `json:"params"`
 	} `json:"consensus"`
 }
@@ -91,6 +99,13 @@ func VerifyGenesis(genesis []byte, spec GenesisSpec) error {
 	if c := g.Consensus.Params; c.Block.MaxGas != consensusMaxGas || c.Block.MaxBytes != consensusMaxBlockBytes || c.Abci.VoteExtensionsEnableHeight != voteExtensionsEnableHeight {
 		add("consensus max_gas=%q max_bytes=%q vote_extensions_enable_height=%q, want %q, %q and %q",
 			c.Block.MaxGas, c.Block.MaxBytes, c.Abci.VoteExtensionsEnableHeight, consensusMaxGas, consensusMaxBlockBytes, voteExtensionsEnableHeight)
+	}
+	if e := g.Consensus.Params.Evidence; e.MaxAgeNumBlocks != evidenceMaxAgeNumBlocks || e.MaxAgeDuration != evidenceMaxAgeDurationNanos || e.MaxBytes != evidenceMaxBytes {
+		add("consensus evidence max_age_num_blocks=%q max_age_duration=%q max_bytes=%q, want %q, %q and %q",
+			e.MaxAgeNumBlocks, e.MaxAgeDuration, e.MaxBytes, evidenceMaxAgeNumBlocks, evidenceMaxAgeDurationNanos, evidenceMaxBytes)
+	}
+	if types := g.Consensus.Params.Validator.PubKeyTypes; !slices.Equal(types, []string{validatorKeyType}) {
+		add("consensus validator pub_key_types=%q, want [%q]: x/power halts the chain on any other validator key type", types, validatorKeyType)
 	}
 	if len(problems) > 0 {
 		return fmt.Errorf("the genesis is not the one this committee should start:\n  - %s\n"+

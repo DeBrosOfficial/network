@@ -41,6 +41,16 @@ const (
 	// are a genesis-only switch, height 2 leaves block 1 an ordinary block and
 	// exercises the enable transition.
 	voteExtensionsEnableHeight = "2"
+	// validatorKeyType is the only validator key type a genesis lists: x/power decodes every bonded
+	// validator's key as raw ed25519 and halts the chain on any other (chain/app/consensus_params.go).
+	validatorKeyType = "ed25519"
+	// evidenceMaxAgeNumBlocks, evidenceMaxAgeDurationNanos and evidenceMaxBytes are the evidence
+	// parameters of the genesis, CometBFT's defaults written out so the genesis does not depend on a
+	// default; chain/app/consensus_params.go refuses any other value on a production chain id
+	// (TestConsensusConstants_equalTheChainsPins).
+	evidenceMaxAgeNumBlocks     = "100000"
+	evidenceMaxAgeDurationNanos = "172800000000000"
+	evidenceMaxBytes            = "1048576"
 	// genesisWorkName is the scratch home's directory beside the chain home.
 	genesisWorkName = "genesis-work"
 )
@@ -114,8 +124,9 @@ func genesisScript(steps [][]string) string {
 }
 
 // ApplyConsensusParams sets the consensus parameters no module owns in a
-// genesis built by oramad: a finite block max_gas, the block max_bytes, and the height
-// vote extensions turn on at. oramad refuses a genesis whose values differ on a
+// genesis built by oramad: a finite block max_gas, the block max_bytes, the height
+// vote extensions turn on at, ed25519 as the only validator key type and the evidence
+// parameters. oramad refuses a genesis whose values differ on a
 // production chain id (chain/app/consensus_params.go). Everything else in the document is kept as it is; the result is
 // indented and its keys sorted, so applying it again changes nothing.
 func ApplyConsensusParams(genesis []byte) ([]byte, error) {
@@ -130,6 +141,27 @@ func ApplyConsensusParams(genesis []byte) ([]byte, error) {
 					return err
 				}
 				return setString(block, "max_gas", consensusMaxGas)
+			}); err != nil {
+				return err
+			}
+			if err := editObject(params, "evidence", func(evidence map[string]json.RawMessage) error {
+				if err := setString(evidence, "max_age_num_blocks", evidenceMaxAgeNumBlocks); err != nil {
+					return err
+				}
+				if err := setString(evidence, "max_age_duration", evidenceMaxAgeDurationNanos); err != nil {
+					return err
+				}
+				return setString(evidence, "max_bytes", evidenceMaxBytes)
+			}); err != nil {
+				return err
+			}
+			if err := editObject(params, "validator", func(validator map[string]json.RawMessage) error {
+				raw, err := json.Marshal([]string{validatorKeyType})
+				if err != nil {
+					return fmt.Errorf("write pub_key_types: %w", err)
+				}
+				validator["pub_key_types"] = raw
+				return nil
 			}); err != nil {
 				return err
 			}

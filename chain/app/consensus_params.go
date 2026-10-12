@@ -14,11 +14,16 @@ import (
 // app_state, so ValidateLockedGenesis never sees them. Three of them bound the work and the
 // fees of every block: block.max_gas (-1 is unlimited, and the base fee and the shielded proof work
 // are bounded by it), block.max_bytes, and abci.vote_extensions_enable_height (0 switches the
-// inclusion lists off). They are validated here from InitChain's request, by chain-id class like
-// the locked parameters (params.ClassOfChainID):
+// inclusion lists off). Two more decide who can halt the chain and what can be punished:
+// validator.pub_key_types, because x/power reads every bonded validator's key as raw ed25519 and
+// returns an error from EndBlock (a halt) for any other type, while staking accepts whatever types
+// the consensus parameters list; and the evidence parameters, which bound how old and how large the
+// evidence of a double sign may be. They are validated here from InitChain's request, by chain-id
+// class like the locked parameters (params.ClassOfChainID):
 //   - orama-localnet-<name>: free.
 //   - orama-devnet-<name> and orama-stagenet-<name>: a finite block gas limit, a block size above
-//     zero and not over ConsensusMaxBlockBytes, and vote extensions on from some height.
+//     zero and not over ConsensusMaxBlockBytes, vote extensions on from some height, and ed25519 as
+//     the only validator key type.
 //   - anything else (production): exactly the values `orama setup --create-network` writes.
 const (
 	// ConsensusMaxGas is the block gas limit of a genesis (core/cmd/orama/internal/setup
@@ -31,6 +36,16 @@ const (
 	// ConsensusVoteExtensionsEnableHeight is the height vote extensions turn on at (core/cmd/orama/
 	// internal/setup voteExtensionsEnableHeight): block 1 stays an ordinary block.
 	ConsensusVoteExtensionsEnableHeight int64 = 2
+	// ConsensusValidatorKeyType is the only validator key type a genesis may list: x/power decodes
+	// every bonded validator's key as raw ed25519.
+	ConsensusValidatorKeyType = "ed25519"
+	// ConsensusEvidenceMaxAgeNumBlocks, ConsensusEvidenceMaxAgeDurationNanos and
+	// ConsensusEvidenceMaxBytes are the evidence parameters of a genesis, CometBFT's defaults written
+	// out (core/cmd/orama/internal/setup evidenceMaxAgeNumBlocks, evidenceMaxAgeDurationNanos,
+	// evidenceMaxBytes), so a production genesis does not depend on a default.
+	ConsensusEvidenceMaxAgeNumBlocks     int64 = 100_000
+	ConsensusEvidenceMaxAgeDurationNanos int64 = 172_800_000_000_000
+	ConsensusEvidenceMaxBytes            int64 = 1_048_576
 )
 
 // ValidateConsensusParams returns an error naming every consensus parameter of cp that the class of
@@ -70,9 +85,38 @@ func ValidateConsensusParams(chainID string, cp *cmtproto.ConsensusParams) error
 	case voteHeight <= 0:
 		diffs = append(diffs, fmt.Sprintf("abci.vote_extensions_enable_height is %d, want the height they turn on at (above zero)", voteHeight))
 	}
+	if cp.Validator == nil || len(cp.Validator.PubKeyTypes) != 1 || cp.Validator.PubKeyTypes[0] != ConsensusValidatorKeyType {
+		var types []string
+		if cp.Validator != nil {
+			types = cp.Validator.PubKeyTypes
+		}
+		diffs = append(diffs, fmt.Sprintf("validator.pub_key_types is %v, want [%s]: x/power halts the chain on any other key type", types, ConsensusValidatorKeyType))
+	}
+	if production {
+		diffs = append(diffs, evidenceDiffs(cp.Evidence)...)
+	}
 	if len(diffs) == 0 {
 		return nil
 	}
 	sort.Strings(diffs)
 	return fmt.Errorf("consensus parameters differ from the allowed values on chain-id %q:\n  %s", chainID, strings.Join(diffs, "\n  "))
+}
+
+// evidenceDiffs lists every evidence parameter that is not the pinned value (nil evidence is all zero).
+func evidenceDiffs(e *cmtproto.EvidenceParams) []string {
+	var numBlocks, duration, maxBytes int64
+	if e != nil {
+		numBlocks, duration, maxBytes = e.MaxAgeNumBlocks, int64(e.MaxAgeDuration), e.MaxBytes
+	}
+	var diffs []string
+	if numBlocks != ConsensusEvidenceMaxAgeNumBlocks {
+		diffs = append(diffs, fmt.Sprintf("evidence.max_age_num_blocks is %d, want %d", numBlocks, ConsensusEvidenceMaxAgeNumBlocks))
+	}
+	if duration != ConsensusEvidenceMaxAgeDurationNanos {
+		diffs = append(diffs, fmt.Sprintf("evidence.max_age_duration is %d ns, want %d ns", duration, ConsensusEvidenceMaxAgeDurationNanos))
+	}
+	if maxBytes != ConsensusEvidenceMaxBytes {
+		diffs = append(diffs, fmt.Sprintf("evidence.max_bytes is %d, want %d", maxBytes, ConsensusEvidenceMaxBytes))
+	}
+	return diffs
 }

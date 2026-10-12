@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -30,10 +31,18 @@ import (
 
 // lockedModules are the genesis modules whose "params" are locked. Each name is
 // the module's genesis key.
+//
+// auth and bank are the SDK's own modules and are locked like the rest: auth prices a transaction's
+// bytes and signatures and bounds its signers and memo, bank can switch sending off. wasm exists only
+// in a binary that links libwasmvm (WasmVMLinked); its parameters decide who may upload and who may
+// instantiate code, which x/wasmpolicy's sunset then narrows further.
 var lockedModules = []string{
 	"emission", "fees", "power", "nodes", "storage", "relay", "token", "archive", "houses",
-	"staking", "slashing", "distribution", "shielded",
+	"staking", "slashing", "distribution", "shielded", "auth", "bank",
 }
+
+// wasmModule is wasmd's genesis key, locked only when the VM is linked.
+const wasmModule = "wasm"
 
 // wasmPolicyModule is locked on its sunset height (P6) and its state-deposit parameters (P3 and the
 // C9 bounds). The genesis code set and the deposit ledger are contents of the genesis, not parameters:
@@ -80,8 +89,12 @@ func ValidateLockedGenesis(chainID string, defaults, gs GenesisState) error {
 	class := params.ClassOfChainID(chainID)
 	relaxed := class == params.ChainDevnet || class == params.ChainStagenet
 
+	modules := lockedModules
+	if WasmVMLinked() {
+		modules = append(slices.Clone(lockedModules), wasmModule)
+	}
 	var diffs []string
-	for _, module := range lockedModules {
+	for _, module := range modules {
 		d, err := lockedModuleDiffs(module, defaults, gs, relaxed)
 		if err != nil {
 			return err

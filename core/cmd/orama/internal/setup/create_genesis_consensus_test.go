@@ -17,11 +17,14 @@ func TestConsensusConstants_equalTheChainsPins(t *testing.T) {
 	}
 	src := string(data)
 	for name, want := range map[string]string{
-		"ConsensusMaxGas":                     consensusMaxGas,
-		"ConsensusMaxBlockBytes":              consensusMaxBlockBytes,
-		"ConsensusVoteExtensionsEnableHeight": voteExtensionsEnableHeight,
+		"ConsensusMaxGas":                      consensusMaxGas,
+		"ConsensusMaxBlockBytes":               consensusMaxBlockBytes,
+		"ConsensusVoteExtensionsEnableHeight":  voteExtensionsEnableHeight,
+		"ConsensusEvidenceMaxAgeNumBlocks":     evidenceMaxAgeNumBlocks,
+		"ConsensusEvidenceMaxAgeDurationNanos": evidenceMaxAgeDurationNanos,
+		"ConsensusEvidenceMaxBytes":            evidenceMaxBytes,
 	} {
-		m := regexp.MustCompile(name + ` int64 = ([0-9_ *]+)\n`).FindStringSubmatch(src)
+		m := regexp.MustCompile(name + `\s+int64 = ([0-9_ *]+)\n`).FindStringSubmatch(src)
 		if m == nil {
 			t.Fatalf("chain/app/consensus_params.go no longer declares %s: update setup/create_genesis.go", name)
 		}
@@ -36,6 +39,9 @@ func TestConsensusConstants_equalTheChainsPins(t *testing.T) {
 		if strconv.FormatInt(got, 10) != want {
 			t.Errorf("%s is %d in the chain and %q in setup", name, got, want)
 		}
+	}
+	if !regexp.MustCompile(`ConsensusValidatorKeyType = "` + validatorKeyType + `"`).MatchString(src) {
+		t.Errorf("chain/app/consensus_params.go no longer pins the validator key type %q: update setup/create_genesis.go", validatorKeyType)
 	}
 }
 
@@ -61,5 +67,28 @@ func TestVerifyGenesis_aBlockSizeOtherThanThePinIsRefused(t *testing.T) {
 	tampered := []byte(strings.Replace(string(doc), `"max_bytes": "`+consensusMaxBlockBytes+`"`, `"max_bytes": "-1"`, 1))
 	if err := VerifyGenesis(tampered, verifySpec(2)); err == nil || !strings.Contains(err.Error(), "max_bytes") {
 		t.Errorf("an unlimited block size was accepted: %v", err)
+	}
+}
+
+func TestVerifyGenesis_aValidatorKeyTypeOrEvidenceWindowOtherThanThePinIsRefused(t *testing.T) {
+	doc, err := ApplyConsensusParams(genesisFor{chainID: "orama-stagenet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyGenesis(doc, verifySpec(2)); err != nil {
+		t.Fatalf("the genesis setup writes was refused: %v", err)
+	}
+	for name, tamper := range map[string]struct{ from, to, want string }{
+		"a second key type":       {`"ed25519"`, `"ed25519", "secp256k1"`, "pub_key_types"},
+		"a shorter evidence age":  {`"max_age_num_blocks": "` + evidenceMaxAgeNumBlocks + `"`, `"max_age_num_blocks": "10"`, "evidence"},
+		"a shorter evidence time": {`"max_age_duration": "` + evidenceMaxAgeDurationNanos + `"`, `"max_age_duration": "60000000000"`, "evidence"},
+	} {
+		bad := []byte(strings.Replace(string(doc), tamper.from, tamper.to, 1))
+		if string(bad) == string(doc) {
+			t.Fatalf("%s: the genesis has no %s to tamper with:\n%s", name, tamper.from, doc)
+		}
+		if err := VerifyGenesis(bad, verifySpec(2)); err == nil || !strings.Contains(err.Error(), tamper.want) {
+			t.Errorf("%s was accepted: %v", name, err)
+		}
 	}
 }
