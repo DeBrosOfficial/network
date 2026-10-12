@@ -384,7 +384,10 @@ func (c *rawChild) send(t *testing.T, length uint32, body []byte) {
 func TestDifferential_theChildsFrameLimits(t *testing.T) {
 	_, chainID := load(t, "ironwood-1-action")
 	p := newPair(t, chainID, 30*time.Second)
-	maxFrame := uint32(bundle.MaxBytes + idLen + 32)
+	// The child's own limit is its constant MAX_FRAME (orchardverifier-bin protocol.rs), a 1 MiB
+	// bundle plus the id and the sighash; the node refuses a bundle over bundle.MaxBytes long before.
+	const childMaxFrame = (1 << 20) + idLen + 32
+	maxFrame := uint32(childMaxFrame)
 
 	c := startRawChild(t)
 	c.send(t, maxFrame+1, nil)
