@@ -97,9 +97,62 @@ func TestMessenger_failsValidateBasicBeforeRouting(t *testing.T) {
 func TestMessenger_passesEveryOtherMessageThrough(t *testing.T) {
 	next := &recordingNext{}
 	m := wasmbindings.NewMessenger(next, &fakeRouter{}, &fakeEarnings{})
-	_, _, _, err := m.DispatchMsg(msgCtx(t), contract, "", wasmvmtypes.CosmosMsg{Bank: &wasmvmtypes.BankMsg{Burn: &wasmvmtypes.BurnMsg{}}})
+	_, _, _, err := m.DispatchMsg(msgCtx(t), contract, "", wasmvmtypes.CosmosMsg{Bank: &wasmvmtypes.BankMsg{Send: &wasmvmtypes.SendMsg{ToAddress: user.String(), Amount: wasmvmtypes.Array[wasmvmtypes.Coin]{wasmvmtypes.NewCoin(1, "norama")}}}})
 	require.NoError(t, err)
 	require.Equal(t, 1, next.calls)
+}
+
+func bankBurn(coins ...wasmvmtypes.Coin) wasmvmtypes.CosmosMsg {
+	return wasmvmtypes.CosmosMsg{Bank: &wasmvmtypes.BankMsg{Burn: &wasmvmtypes.BurnMsg{Amount: coins}}}
+}
+
+func TestMessenger_bankBurnOfAFactoryDenomRunsAsTheTokenModulesBurn(t *testing.T) {
+	next, router := &recordingNext{}, &fakeRouter{}
+	m := wasmbindings.NewMessenger(next, router, &fakeEarnings{})
+	gold, silver := tokentypes.Denom(user.String(), "gold"), tokentypes.Denom(user.String(), "silver")
+
+	_, _, _, err := m.DispatchMsg(msgCtx(t), contract, "", bankBurn(
+		wasmvmtypes.Coin{Denom: gold, Amount: "40"}, wasmvmtypes.Coin{Denom: silver, Amount: "2"}))
+	require.NoError(t, err)
+	require.Zero(t, next.calls, "wasmd's own burn handler never sees a bank burn")
+	require.Len(t, router.seen, 2)
+	first := router.seen[0].(*tokentypes.MsgBurn)
+	require.Equal(t, contract.String(), first.Sender)
+	require.Equal(t, gold, first.Denom)
+	require.Equal(t, "40", first.Amount.String())
+	require.Equal(t, silver, router.seen[1].(*tokentypes.MsgBurn).Denom)
+}
+
+func TestMessenger_bankBurnRefusesNoramaAndEveryNonFactoryDenom(t *testing.T) {
+	next, router := &recordingNext{}, &fakeRouter{}
+	m := wasmbindings.NewMessenger(next, router, &fakeEarnings{})
+	for name, msg := range map[string]wasmvmtypes.CosmosMsg{
+		"norama":                  bankBurn(wasmvmtypes.NewCoin(1, "norama")),
+		"unknown denom":           bankBurn(wasmvmtypes.NewCoin(1, "uatom")),
+		"factory then norama":     bankBurn(wasmvmtypes.Coin{Denom: tokentypes.Denom(user.String(), "gold"), Amount: "1"}, wasmvmtypes.NewCoin(1, "norama")),
+		"factory token of norama": bankBurn(wasmvmtypes.Coin{Denom: tokentypes.Denom(user.String(), "norama"), Amount: "1"}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, _, err := m.DispatchMsg(msgCtx(t), contract, "", msg)
+			require.Error(t, err)
+		})
+	}
+	require.Zero(t, next.calls)
+}
+
+func TestMessenger_bankBurnRefusesNoCoinsAndABadAmount(t *testing.T) {
+	m := wasmbindings.NewMessenger(&recordingNext{}, &fakeRouter{}, &fakeEarnings{})
+	gold := tokentypes.Denom(user.String(), "gold")
+	for name, msg := range map[string]wasmvmtypes.CosmosMsg{
+		"no coins":     bankBurn(),
+		"bad amount":   bankBurn(wasmvmtypes.Coin{Denom: gold, Amount: "ten"}),
+		"empty amount": bankBurn(wasmvmtypes.Coin{Denom: gold, Amount: ""}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, _, err := m.DispatchMsg(msgCtx(t), contract, "", msg)
+			require.ErrorIs(t, err, wasmbindings.ErrBadMessage)
+		})
+	}
 }
 
 func TestMessenger_refusesAnyStargateAndSetWithdrawAddress(t *testing.T) {

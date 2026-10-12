@@ -59,7 +59,7 @@ func expectedModuleAccountPerms() map[string][]string {
 		shieldedtypes.ModuleName:       {authtypes.Burner},
 	}
 	if app.WasmVMLinked() {
-		perms["wasm"] = []string{authtypes.Burner}
+		perms["wasm"] = nil
 	}
 	return perms
 }

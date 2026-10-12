@@ -8,12 +8,14 @@ import (
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v3/types"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/app/params"
+	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
 )
 
 // Dispatcher is wasmd's Messenger: the handler the wasm keeper would use without this package.
@@ -52,10 +54,40 @@ func (m Messenger) DispatchMsg(ctx sdk.Context, contract sdk.AccAddress, portID 
 	if err := RejectDisabled(msg); err != nil {
 		return nil, nil, nil, err
 	}
+	if msg.Bank != nil && msg.Bank.Burn != nil {
+		return m.bankBurn(ctx, contract, msg.Bank.Burn)
+	}
 	if msg.Custom == nil {
 		return m.next.DispatchMsg(ctx, contract, portID, msg)
 	}
 	return m.custom(ctx, contract, msg.Custom)
+}
+
+// bankBurn is CosmosMsg::Bank(Burn). x/token is the only path that destroys a factory denom, because
+// it is the one that lowers the token's issued supply together with the bank supply. wasmd's own
+// handler burns from the bank alone, and the end-of-block conservation pass would halt the chain, so
+// a factory denom runs as x/token's MsgBurn with the contract as sender. Norama and every other
+// denom are refused: a contract does not destroy norama, only a module holding the Burner
+// permission does.
+func (m Messenger) bankBurn(ctx sdk.Context, contract sdk.AccAddress, burn *wasmvmtypes.BurnMsg) ([]sdk.Event, [][]byte, [][]*codectypes.Any, error) {
+	if len(burn.Amount) == 0 {
+		return nil, nil, nil, ErrBadMessage.Wrap("bank burn: no coins")
+	}
+	msgs := make([]sdk.Msg, 0, len(burn.Amount))
+	for _, c := range burn.Amount {
+		if _, _, err := tokentypes.ParseDenom(c.Denom); err != nil {
+			return nil, nil, nil, errorsmod.Wrapf(ErrDisabledMessage, "bank burn of %q: only a token-factory denom can be burned, and only through x/token", c.Denom)
+		}
+		if err := refuseNoramaDenom(c.Denom); err != nil {
+			return nil, nil, nil, err
+		}
+		amt, ok := math.NewIntFromString(c.Amount)
+		if !ok {
+			return nil, nil, nil, ErrBadMessage.Wrapf("bank burn amount %q of %s", c.Amount, c.Denom)
+		}
+		msgs = append(msgs, &tokentypes.MsgBurn{Sender: contract.String(), Denom: c.Denom, Amount: amt})
+	}
+	return m.routeAll(ctx, msgs)
 }
 
 // RejectDisabled refuses CosmosMsg variants that would let a contract sign as itself for a module
@@ -82,12 +114,17 @@ func (m Messenger) custom(ctx sdk.Context, contract sdk.AccAddress, raw json.Raw
 	if action.Pay != nil {
 		return m.pay(ctx, contract, action.Pay)
 	}
+	return m.routeAll(ctx, action.Msgs)
+}
+
+// routeAll executes msgs in order and collects their events, data and responses.
+func (m Messenger) routeAll(ctx sdk.Context, msgs []sdk.Msg) ([]sdk.Event, [][]byte, [][]*codectypes.Any, error) {
 	var (
 		events    []sdk.Event
 		data      [][]byte
 		responses [][]*codectypes.Any
 	)
-	for _, msg := range action.Msgs {
+	for _, msg := range msgs {
 		res, err := m.route(ctx, msg)
 		if err != nil {
 			return nil, nil, nil, err

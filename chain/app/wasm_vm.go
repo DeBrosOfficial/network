@@ -23,7 +23,6 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 
 	"github.com/CosmWasm/wasmd/x/wasm"
@@ -37,10 +36,12 @@ import (
 	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
 )
 
+// wasmModuleAccountPerms keeps the wasm module account, so its address stays blocked, with no
+// permission. wasmd's only uses of Burner are CosmosMsg::Bank(Burn), which x/wasmbindings routes to
+// x/token (a bank burn would leave x/token's issued supply behind the bank supply), and the cleanup
+// of a vesting account, which a chain with no vesting accounts never reaches.
 func wasmModuleAccountPerms() map[string][]string {
-	return map[string][]string{
-		wasmtypes.ModuleName: {authtypes.Burner},
-	}
+	return map[string][]string{wasmtypes.ModuleName: nil}
 }
 
 // WasmVMLinked reports whether this binary links libwasmvm.

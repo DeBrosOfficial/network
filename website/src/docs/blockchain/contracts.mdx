@@ -39,6 +39,8 @@ A contract returns `CosmosMsg::Custom` with one of these.
 
 Queries a contract may make: `token.info`, `cnft.tree`, `cnft.verify_proof` (20,000 gas plus 3,000 per sibling) and `market.listing`. Staking messages, stargate (`Any`) messages and distribution `SetWithdrawAddress` are refused.
 
+A bank burn (`BankMsg::Burn`) of a token-factory denom runs as the token module's `Burn` with the contract as the signer, so the token's issued supply falls with the bank supply. A bank burn of `norama`, or of any denom that is not a token-factory denom, is refused: a contract cannot destroy norama.
+
 ## A contract as a token's transfer hook
 
 A token created with a `transfer_hook` has the named contract called (`sudo`, message `{"transfer_hook":{"denom","from","to","amount"}}`) on every `Transfer`, under a gas cap of 100,000. A contract that returns an error refuses the transfer; one that runs past the cap fails it. Only a build with the contract VM can create such a token. See [Token factory](/docs/blockchain/token-factory#the-transfer-hook).

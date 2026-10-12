@@ -96,7 +96,7 @@ The store keys, in `NewOramaApp`, are: `auth`, `bank`, `staking`, `distribution`
 
 `x/inclusion` is a library, not a module: it has no store or messages, and the application calls it from the ABCI++ handlers. `x/confidential` is a library nothing imports (see [confidential nodes](#confidential-nodes)). `x/vpnlaunch` and `x/wasmbindings` are not wired as modules either; `wasmbindings` is installed into wasmd as a message handler and a query plugin.
 
-The module accounts and their permissions (`maccPerms`): `fee_collector`, `distribution` and `power` hold none; `bonded_tokens_pool` and `not_bonded_tokens_pool` hold Burner and Staking; `emission` holds Minter; `fees`, `fees_deposits`, `nodes`, `houses`, `storage`, `storage_escrow`, `relay` and `shielded` hold Burner; `token` holds Minter and Burner; `archive`, `storage_archive`, `cnft` and `market` hold none; wasmd's `wasm` account holds Burner when the VM is linked. `BlockedAddresses()` is every one of them, so a user can never send to a module account.
+The module accounts and their permissions (`maccPerms`): `fee_collector`, `distribution` and `power` hold none; `bonded_tokens_pool` and `not_bonded_tokens_pool` hold Burner and Staking; `emission` holds Minter; `fees`, `fees_deposits`, `nodes`, `houses`, `storage`, `storage_escrow`, `relay` and `shielded` hold Burner; `token` holds Minter and Burner; `archive`, `storage_archive`, `cnft` and `market` hold none; wasmd's `wasm` account exists when the VM is linked and holds no permission: a contract's `BankMsg::Burn` is routed to `x/token` (see `chain/x/wasmbindings/messenger.go`), so no contract can lower a bank supply behind a ledger. `BlockedAddresses()` is every one of them, so a user can never send to a module account.
 
 ### The block lifecycle
 
