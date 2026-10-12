@@ -3,6 +3,8 @@
 //! spend-authorization signatures, the binding signature, then the Halo 2 proof. Post-NU6.3
 //! verifying key only; the insecure pre-NU6.2 circuit is never built.
 
+pub mod protocol;
+
 use std::io::Cursor;
 use std::sync::OnceLock;
 
@@ -50,7 +52,9 @@ fn compact_size(data: &[u8], pos: &mut usize) -> Option<u64> {
     (value >= min).then_some(value)
 }
 
-fn check_framing(data: &[u8]) -> Result<(), u8> {
+/// Checks the framing and the proof length before any cryptography runs. Public so the cargo-fuzz
+/// target can compare it with the in-process library's own check of the same bytes.
+pub fn check_framing(data: &[u8]) -> Result<(), u8> {
     let mut pos = 0;
     let n = usize::try_from(compact_size(data, &mut pos).ok_or(MALFORMED)?).map_err(|_| MALFORMED)?;
     if n == 0 {
