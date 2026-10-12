@@ -27,10 +27,25 @@ type fakeFees struct {
 	refunded  map[string]math.Int
 	burned    math.Int
 	failLocks bool
+	// balanceBurned is what BurnFromBalance destroyed, per payer; poor makes it refuse.
+	balanceBurned map[string]math.Int
+	poor          bool
+}
+
+func (f *fakeFees) BurnFromBalance(_ context.Context, from sdk.AccAddress, amount math.Int, _ string) error {
+	if f.poor {
+		return fmt.Errorf("insufficient funds")
+	}
+	prev, ok := f.balanceBurned[from.String()]
+	if !ok {
+		prev = math.ZeroInt()
+	}
+	f.balanceBurned[from.String()] = prev.Add(amount)
+	return nil
 }
 
 func newFakeFees() *fakeFees {
-	return &fakeFees{deposits: map[string]feestypes.Deposit{}, refunded: map[string]math.Int{}, burned: math.ZeroInt()}
+	return &fakeFees{deposits: map[string]feestypes.Deposit{}, refunded: map[string]math.Int{}, burned: math.ZeroInt(), balanceBurned: map[string]math.Int{}}
 }
 
 func (f *fakeFees) LockDeposit(_ context.Context, owner sdk.AccAddress, id string, amount math.Int) error {

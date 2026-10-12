@@ -42,7 +42,10 @@ func storeCodeMsg(sender string) chain.Msg {
 // genesis has wasmpolicy and no wasm, the wasm query and message types do not
 // exist, and a MsgStoreCode cannot even be signed. A VM build instead
 // refuses the upload in the ante chain until upload_sunset_height
-// (x/wasmpolicy ErrUploadClosed).
+// (x/wasmpolicy ErrUploadClosed). The burned per-byte code fee is charged
+// after that check, on an open upload only, so it is not reachable here: a
+// refused upload must therefore not mention it (the success path is
+// chain/app TestCodeFee_*).
 func TestWasm_policyMatchesTheBuild(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
@@ -54,6 +57,9 @@ func TestWasm_policyMatchesTheBuild(t *testing.T) {
 	if mods["wasm"] {
 		r := c.Submit(t, k, chain.TxOptions{}, storeCodeMsg(k.Address))
 		chain.RequireRefused(t, "code upload before the sunset height", r, "code upload is closed until upload_sunset_height")
+		if strings.Contains(r.String(), "code fee") {
+			t.Errorf("a refused upload reached the code fee: %s", r)
+		}
 		return
 	}
 	q := c.QueryOut(t, k.Node, "wasm", "list-code")

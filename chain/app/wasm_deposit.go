@@ -96,10 +96,15 @@ func (e depositEngine) settle(querier wasmvm.Querier, contract, sender string, m
 	return res, gasUsed, nil
 }
 
-// payer is the message sender when that is a plain account, and otherwise the transaction signer
-// the ante chain recorded. A contract never pays: its calls are rooted in a signer.
+// payer is the account that pays for a call: see depositPayer.
 func (e depositEngine) payer(ctx sdk.Context, sender string) sdk.AccAddress {
-	if addr, err := sdk.AccAddressFromBech32(sender); err == nil && !e.isContract(ctx, addr) {
+	return depositPayer(ctx, sender, e.isContract)
+}
+
+// depositPayer is the message sender when that is a plain account, and otherwise the transaction
+// signer the ante chain recorded. A contract never pays: its calls are rooted in a signer.
+func depositPayer(ctx sdk.Context, sender string, isContract func(ctx context.Context, addr sdk.AccAddress) bool) sdk.AccAddress {
+	if addr, err := sdk.AccAddressFromBech32(sender); err == nil && !isContract(ctx, addr) {
 		return addr
 	}
 	return wasmpolicy.DepositPayer(ctx)

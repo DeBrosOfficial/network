@@ -76,6 +76,8 @@ Some state is paid for with a deposit that is locked as long as the state exists
 | cNFT tree | 1 norama per modelled byte of tree state |
 | Contract storage | 68,359 norama per byte, one chunk per payer per contract |
 
+Contract code is priced at the same 68,359 norama per byte, but as a fee, not a deposit: every message that stores code burns it from the signer's bank balance, on the uncompressed size, and it is never refunded ([Contracts](/docs/blockchain/contracts#storing-code-costs-a-burned-fee)).
+
 ## Other fees you will meet
 
 | Fee | Amount | Where it goes |

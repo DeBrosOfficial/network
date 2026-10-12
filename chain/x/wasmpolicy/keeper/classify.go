@@ -88,21 +88,28 @@ func codeHash(msg sdk.Msg) (string, bool) {
 	if !isCode {
 		return "", false
 	}
-	code := carrier.GetWASMByteCode()
-	if bytes.HasPrefix(code, gzipMagic) {
-		zr, err := gzip.NewReader(bytes.NewReader(code))
-		if err != nil {
-			return "", false
-		}
-		defer zr.Close()
-		code, err = io.ReadAll(io.LimitReader(zr, maxHashedWasmBytes+1))
-		if err != nil {
-			return "", false
-		}
-	}
-	if len(code) == 0 || len(code) > maxHashedWasmBytes {
+	code, ok := uncompressedWasm(carrier.GetWASMByteCode())
+	if !ok || len(code) == 0 {
 		return "", false
 	}
 	sum := sha256.Sum256(code)
 	return hex.EncodeToString(sum[:]), true
+}
+
+// uncompressedWasm returns code as wasmd stores it: raw wasm, or the gunzipped stream when code
+// starts with the gzip magic. ok is false when the stream is invalid or the result is over
+// maxHashedWasmBytes, so a gzip bomb is never fully read.
+func uncompressedWasm(code []byte) ([]byte, bool) {
+	if bytes.HasPrefix(code, gzipMagic) {
+		zr, err := gzip.NewReader(bytes.NewReader(code))
+		if err != nil {
+			return nil, false
+		}
+		defer zr.Close()
+		code, err = io.ReadAll(io.LimitReader(zr, maxHashedWasmBytes+1))
+		if err != nil {
+			return nil, false
+		}
+	}
+	return code, len(code) <= maxHashedWasmBytes
 }

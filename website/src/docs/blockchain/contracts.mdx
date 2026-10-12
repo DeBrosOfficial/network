@@ -6,6 +6,16 @@ The chain can run CosmWasm smart contracts through wasmd (v0.70.3 on wasmvm v3.0
 
 `MsgStoreCode`, `MsgStoreAndInstantiateContract` and `MsgStoreAndMigrateContract` are refused by the ante chain until `upload_sunset_height` (the locked default is 3,162,240, about 183 days at the chain's 5 s block interval, the `timeout_commit` `oramad init` writes; see [Performance](/docs/contributor/performance#the-block-interval)). Before then the only code that can be stored is a SHA-256 on the governance code-upload allow-list ([Governance](/docs/blockchain/governance)). A contract cannot upload code. Anyone can instantiate a stored code at any time.
 
+## Storing code costs a burned fee
+
+Code is permanent, so storing it is paid once and not refunded. Every message that stores code (`MsgStoreCode`, `MsgStoreAndInstantiateContract`, `MsgStoreAndMigrateContract`) burns `deposit_per_byte` (68,359 norama) for each byte of the *uncompressed* wasm, on top of gas. A 267 KB contract costs about 18 ORAMA. The fee uses the same per-byte rate as the contract state deposit below, but a state deposit is returned when the state is deleted and the code fee never is.
+
+- It is paid from the signer's bank balance only. Earnings do not fund it. A signer who cannot pay is refused: nothing is stored and nothing is burned except the transaction's gas fee.
+- A gzip upload is charged on the gunzipped size, since that is what wasmd stores.
+- The fee is taken inside the message, so a store that wasmd then rejects reverts with its fee. A simulation reports it too.
+- Each paid store emits a `wasmpolicy_code_fee` event with `payer`, `bytes` and `amount`.
+- The five standard contracts are written at genesis and are not charged.
+
 ## The five standard contracts
 
 A genesis can include five standard contracts, stored as codes 1 to 5 and none instantiated (`oramad genesis add-standard-contracts`):

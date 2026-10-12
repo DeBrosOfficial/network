@@ -27,4 +27,7 @@ var (
 
 	// ErrDepositCap is returned when one transaction would lock more state deposit than max_deposit_per_tx.
 	ErrDepositCap = errors.Register(ModuleName, 7, "state deposit for this transaction exceeds max_deposit_per_tx")
+
+	// ErrCodeFee is returned when the per-byte code fee cannot be charged: the code cannot be sized or the payer cannot pay.
+	ErrCodeFee = errors.Register(ModuleName, 8, "code fee cannot be charged")
 )

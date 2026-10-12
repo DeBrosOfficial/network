@@ -23,6 +23,9 @@ type FeesKeeper interface {
 	TopUpDeposit(ctx context.Context, id string, extra math.Int) error
 	ReleaseDepositPart(ctx context.Context, id string, part math.Int) (refund, burn math.Int, err error)
 	GetDeposit(ctx context.Context, id string) (feestypes.Deposit, error)
+	// BurnFromBalance destroys amount of from's bank balance (never its earnings) and refuses,
+	// moving nothing, when that balance is short. The code fee uses it.
+	BurnFromBalance(ctx context.Context, from sdk.AccAddress, amount math.Int, reason string) error
 }
 
 // ApplyStateDelta settles one contract call's net change of stored bytes.

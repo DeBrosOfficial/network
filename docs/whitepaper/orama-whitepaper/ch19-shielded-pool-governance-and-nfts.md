@@ -55,6 +55,7 @@ Contracts run on CosmWasm through wasmd, with `x/wasmpolicy` around it:
 - **Norama stays norama.** A contract may hold and pay norama like any account, but may not wrap it as a token. It can pay a user's earnings through an earnings binding.
 - **Closed uploads.** Until a sunset height (3,162,240 blocks), only genesis code and governed hashes may be stored. Five audited standard contracts, including `cw20-base` and `cw721-base`, ship at genesis.
 - **Priced state.** A metered store counts bytes added and removed, and the caller locks a refundable deposit of 68,359 norama per byte, capped at 10 ORAMA per transaction. A shrink refunds 99%.
+- **Priced code.** Code is permanent, so every message that stores it burns 68,359 norama per byte of the uncompressed wasm from the signer's bank balance, on top of gas, and never refunds it. The genesis contracts are not charged.
 - **No IBC, no stargate, no staking.** A contract is always the signer of what it sends, since no binding has a sender field, and reaches Orama's modules only through bindings for tokens, NFTs, the market, storage and earnings. The shielded binding returns `NOT_LINKED`.
 
 ## Compressed NFTs and the market

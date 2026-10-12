@@ -45,6 +45,15 @@ const (
 	// contract, in bytes of storage: it is locked with the chunk and released with it.
 	DefaultChunkOverheadBytes uint64 = 512
 
+	// EventTypeCodeFee is emitted when a message that stores code pays the per-byte code fee.
+	EventTypeCodeFee = "wasmpolicy_code_fee"
+	// AttributeCodeBytes is the uncompressed size of the stored code, in bytes.
+	AttributeCodeBytes = "bytes"
+	// AttributeCodeFee is the burned fee, in norama.
+	AttributeCodeFee = "amount"
+	// AttributeCodePayer is the account that paid it.
+	AttributeCodePayer = "payer"
+
 	// DefaultUploadSunsetHeight is the genesis upload_sunset_height (P6).
 	DefaultUploadSunsetHeight uint64 = SunsetDays * BlocksPerDay
 )
