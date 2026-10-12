@@ -71,4 +71,7 @@ type NullifierStore interface {
 type Tree interface {
 	Append(frontier []byte, commitments [][bundle.NodeLen]byte) ([]byte, [bundle.NodeLen]byte, error)
 	EmptyRoot() ([bundle.NodeLen]byte, error)
+	// SubtreeRoot is the root of the SubtreeLeaves-leaf subtree that the last leaf of frontier
+	// closes. It refuses a frontier whose tree size is not a multiple of SubtreeLeaves.
+	SubtreeRoot(frontier []byte) ([bundle.NodeLen]byte, error)
 }

@@ -13,6 +13,9 @@ func TestTree_unlinkedFailsClosed(t *testing.T) {
 	if _, _, err := NewTree().Append(nil, nil); !errors.Is(err, verify.ErrVerifierNotLinked) {
 		t.Fatalf("Append: %v", err)
 	}
+	if _, err := NewTree().SubtreeRoot([]byte{1}); !errors.Is(err, verify.ErrVerifierNotLinked) {
+		t.Fatalf("SubtreeRoot: %v", err)
+	}
 	if _, err := NewTree().EmptyRoot(); !errors.Is(err, verify.ErrVerifierNotLinked) {
 		t.Fatalf("EmptyRoot: %v", err)
 	}

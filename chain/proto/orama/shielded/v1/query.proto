@@ -18,6 +18,9 @@ service Query {
   rpc TreeState(QueryTreeStateRequest) returns (QueryTreeStateResponse) {
     option (google.api.http).get = "/orama/shielded/v1/tree-state";
   }
+  rpc TreeFrontier(QueryTreeFrontierRequest) returns (QueryTreeFrontierResponse) {
+    option (google.api.http).get = "/orama/shielded/v1/tree-frontier";
+  }
   rpc NullifierSpent(QueryNullifierSpentRequest) returns (QueryNullifierSpentResponse) {
     option (google.api.http).get = "/orama/shielded/v1/nullifier-spent";
   }
@@ -47,6 +50,24 @@ message QueryTreeStateResponse {
   uint64 anchors = 3;
   bytes nullifier_accumulator = 4;
   uint64 nullifier_count = 5;
+}
+
+message QueryTreeFrontierRequest {}
+
+// QueryTreeFrontierResponse is the right edge of the Orchard note-commitment tree at the height the
+// query reads (the latest committed block, or the height the caller asks the node for). A wallet
+// that holds a frontier, and the commitments after it, can witness any note it owns without
+// holding every leaf.
+message QueryTreeFrontierResponse {
+  // height is the block whose committed state this is.
+  uint64 height = 1;
+  // tree_size is the number of commitments in the tree, so the next leaf's position.
+  uint64 tree_size = 2;
+  // current_root is the tree's root, equal to TreeState.current_root at the same height.
+  bytes current_root = 3;
+  // frontier is the encoded frontier: empty for an empty tree, otherwise position (u64 LE), the
+  // last leaf (32 bytes) and one ommer (32 bytes) per set bit of the position, lowest level first.
+  bytes frontier = 4;
 }
 
 message QueryNullifierSpentRequest {

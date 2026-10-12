@@ -2,10 +2,15 @@ package keeper
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strconv"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
 )
 
 // register makes a bundle's effects on the tree and the nullifier set: it folds each nullifier
@@ -45,28 +50,57 @@ func (k Keeper) accumulator(ctx context.Context) ([bundle.NodeLen]byte, error) {
 	return acc, nil
 }
 
+// appendCommitments appends the commitments to the tree and, for every subtree they fill, emits
+// the subtree's root. The append is split where a subtree fills, so the frontier that closes it is
+// at hand: after the next leaf the subtree's root is folded into a higher ommer and gone.
 func (k Keeper) appendCommitments(ctx context.Context, cmx [][bundle.NodeLen]byte) error {
+	if len(cmx) == 0 {
+		return nil
+	}
 	frontier, err := getBytes(ctx, k.Frontier)
 	if err != nil {
 		return fmt.Errorf("read the tree frontier: %w", err)
-	}
-	next, root, err := k.deps.Tree.Append(frontier, cmx)
-	if err != nil {
-		return fmt.Errorf("append %d commitments to the tree: %w", len(cmx), err)
 	}
 	size, err := getUint64(ctx, k.TreeSize)
 	if err != nil {
 		return fmt.Errorf("read the tree size: %w", err)
 	}
-	if err := k.Frontier.Set(ctx, next); err != nil {
+	var root [bundle.NodeLen]byte
+	for len(cmx) > 0 {
+		chunk := min(uint64(len(cmx)), types.SubtreeLeaves-size%types.SubtreeLeaves)
+		if frontier, root, err = k.deps.Tree.Append(frontier, cmx[:chunk]); err != nil {
+			return fmt.Errorf("append %d commitments to the tree: %w", chunk, err)
+		}
+		cmx = cmx[chunk:]
+		size += chunk
+		if size%types.SubtreeLeaves == 0 {
+			if err := k.emitSubtree(ctx, frontier, size/types.SubtreeLeaves-1); err != nil {
+				return err
+			}
+		}
+	}
+	if err := k.Frontier.Set(ctx, frontier); err != nil {
 		return fmt.Errorf("write the tree frontier: %w", err)
 	}
 	if err := k.CurrentRoot.Set(ctx, root[:]); err != nil {
 		return fmt.Errorf("write the tree root: %w", err)
 	}
-	if err := k.TreeSize.Set(ctx, size+uint64(len(cmx))); err != nil {
+	if err := k.TreeSize.Set(ctx, size); err != nil {
 		return fmt.Errorf("write the tree size: %w", err)
 	}
+	return nil
+}
+
+// emitSubtree reports the root of subtree index, which the frontier has just closed.
+func (k Keeper) emitSubtree(ctx context.Context, frontier []byte, index uint64) error {
+	root, err := k.deps.Tree.SubtreeRoot(frontier)
+	if err != nil {
+		return fmt.Errorf("compute the root of subtree %d: %w", index, err)
+	}
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(types.EventTypeSubtreeComplete,
+		sdk.NewAttribute(types.AttributeSubtreeIndex, strconv.FormatUint(index, 10)),
+		sdk.NewAttribute(types.AttributeSubtreeRoot, hex.EncodeToString(root[:])),
+	))
 	return nil
 }
 

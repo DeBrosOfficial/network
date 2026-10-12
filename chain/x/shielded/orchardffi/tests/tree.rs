@@ -99,3 +99,94 @@ fn c_entry_point() {
     };
     assert_eq!(bad, MALFORMED);
 }
+
+mod subtree {
+    use incrementalmerkletree::{Hashable, Level};
+    use orama_orchard::orama_orchard_tree_subtree_root;
+    use orama_orchard::tree::{append, empty_root, subtree_root, DEPTH, NODE_LEN, SUBTREE_LEVEL};
+    use orchard::tree::MerkleHashOrchard;
+
+    const SUBTREE: u64 = 1 << SUBTREE_LEVEL;
+
+    /// Leaf `i` as a canonical field element: i + 1 in little-endian, far below the modulus.
+    fn leaves(from: u64, to: u64) -> Vec<u8> {
+        let mut out = Vec::with_capacity(((to - from) as usize) * NODE_LEN);
+        for i in from..to {
+            let mut cmx = [0u8; NODE_LEN];
+            cmx[..8].copy_from_slice(&(i + 1).to_le_bytes());
+            out.extend_from_slice(&cmx);
+        }
+        out
+    }
+
+    fn node(bytes: &[u8; NODE_LEN]) -> MerkleHashOrchard {
+        Option::from(MerkleHashOrchard::from_bytes(bytes)).unwrap()
+    }
+
+    /// Folds the level-16 roots, left to right, up to the depth-32 root, with the empty root as
+    /// the right sibling wherever the tree has no leaf.
+    fn recombine(roots: &[[u8; NODE_LEN]]) -> [u8; NODE_LEN] {
+        let mut level: Vec<MerkleHashOrchard> = roots.iter().map(node).collect();
+        for l in SUBTREE_LEVEL..DEPTH {
+            let empty = MerkleHashOrchard::empty_root(Level::from(l));
+            level = level
+                .chunks(2)
+                .map(|pair| MerkleHashOrchard::combine(Level::from(l), &pair[0], pair.get(1).unwrap_or(&empty)))
+                .collect();
+        }
+        level[0].to_bytes()
+    }
+
+    /// The subtree roots of two filled subtrees recombine to the root the frontier reports for
+    /// the same 2 * 2^16 leaves: the shard roots a wallet holds are the tree's own.
+    #[test]
+    fn subtree_roots_recombine_to_the_anchor() {
+        let mut frontier = Vec::new();
+        let mut roots = Vec::new();
+        let mut anchor = empty_root();
+        for k in 0..2u64 {
+            let (next, root) = append(&frontier, &leaves(k * SUBTREE, (k + 1) * SUBTREE)).unwrap();
+            frontier = next;
+            anchor = root;
+            roots.push(subtree_root(&frontier).expect("a filled subtree has a root"));
+        }
+        assert_ne!(roots[0], roots[1]);
+        assert_eq!(recombine(&roots), anchor);
+    }
+
+    /// The frontier of a tree of exactly 2^16 leaves with made-up nodes: position 2^16 - 1, the leaf
+    /// and one ommer per set bit. The nodes are not a real tree's; the entry point only needs a
+    /// frontier that decodes.
+    fn filled_frontier() -> Vec<u8> {
+        let mut out = (SUBTREE - 1).to_le_bytes().to_vec();
+        out.extend_from_slice(&leaves(0, 1 + SUBTREE_LEVEL as u64));
+        out
+    }
+
+    /// A frontier that has not just filled a subtree has no subtree root to give, and neither has
+    /// an empty one.
+    #[test]
+    fn a_frontier_that_closes_no_subtree_is_refused() {
+        assert!(subtree_root(&[]).is_none());
+        for n in [1, 2, 3, 5, 255] {
+            let (short, _) = append(&[], &leaves(0, n)).unwrap();
+            assert!(subtree_root(&short).is_none(), "{n} leaves close no subtree");
+        }
+        assert!(subtree_root(&[1, 2, 3]).is_none());
+    }
+
+    #[test]
+    fn c_entry_point() {
+        let full = filled_frontier();
+        let want = subtree_root(&full).unwrap();
+        let mut root = [0u8; NODE_LEN];
+        let code = unsafe { orama_orchard_tree_subtree_root(full.as_ptr(), full.len(), root.as_mut_ptr()) };
+        assert_eq!(code, orama_orchard::OK);
+        assert_eq!(root, want);
+        let code = unsafe { orama_orchard_tree_subtree_root(std::ptr::null(), 0, root.as_mut_ptr()) };
+        assert_eq!(code, orama_orchard::BAD_ARGUMENT);
+        let (short, _) = append(&[], &leaves(0, 5)).unwrap();
+        let code = unsafe { orama_orchard_tree_subtree_root(short.as_ptr(), short.len(), root.as_mut_ptr()) };
+        assert_eq!(code, orama_orchard::MALFORMED);
+    }
+}
