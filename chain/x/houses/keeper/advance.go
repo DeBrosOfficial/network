@@ -149,6 +149,11 @@ func (k Keeper) closeVoting(ctx sdk.Context, p types.Proposal) error {
 		}
 		return nil
 	}
+	if open, err := k.structuralOpen(ctx, p); err != nil {
+		return err
+	} else if !open {
+		return k.finish(ctx, p, types.ProposalStatus_REJECTED, types.ErrTierClosed.Error())
+	}
 	opYes, opNo, opAbstain, eligible, err := k.tallyOperators(ctx, p.Id)
 	if err != nil {
 		return err
@@ -192,6 +197,11 @@ func (k Keeper) closeVeto(ctx sdk.Context, p types.Proposal) error {
 // ends, against the state the vote was cast on, and a proposer who wants the action again submits a
 // new proposal. A collection that cannot be decoded is not a refusal of the action: it fails the block.
 func (k Keeper) execute(ctx sdk.Context, p types.Proposal) error {
+	if open, err := k.structuralOpen(ctx, p); err != nil {
+		return err
+	} else if !open {
+		return k.finish(ctx, p, types.ProposalStatus_FAILED, types.ErrTierClosed.Error())
+	}
 	cacheCtx, write := ctx.CacheContext()
 	if err := k.apply(cacheCtx, p); err != nil {
 		if errors.Is(err, collections.ErrEncoding) {
@@ -201,6 +211,18 @@ func (k Keeper) execute(ctx sdk.Context, p types.Proposal) error {
 	}
 	write()
 	return k.finish(ctx, p, types.ProposalStatus_EXECUTED, "")
+}
+
+// structuralOpen reports whether p may go on. A structural proposal is let in only while the structural
+// tier is open (lambda, house size and network spread), and the operators who make that true can take
+// their bonds back after the proposal is in: the house that votes, and the house that runs the
+// proposal after its timelock, must still be the house the tier describes. Every other kind is
+// always allowed here.
+func (k Keeper) structuralOpen(ctx sdk.Context, p types.Proposal) (bool, error) {
+	if p.Content.Kind() != types.KindStructural {
+		return true, nil
+	}
+	return k.tierOpen(ctx, types.KindStructural)
 }
 
 func (k Keeper) finish(ctx sdk.Context, p types.Proposal, status types.ProposalStatus, reason string) error {

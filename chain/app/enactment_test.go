@@ -5,12 +5,14 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 
+	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -18,6 +20,7 @@ import (
 	"github.com/DeBrosOfficial/network/chain/app"
 	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
 	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
+	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
 	wasmpolicytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
 )
 
@@ -44,10 +47,53 @@ func (e enactmentApp) ctxAt(height int64, after time.Duration) sdk.Context {
 	return e.app.NewNextBlockContext(cmtproto.Header{Height: height, Time: e.genesis.Add(after)})
 }
 
-// timelockedProposal stores a proposal whose vote and timelock are done, so ExecuteProposal is
-// the real enactment path. Tier gates, votes and timelock timing are covered in x/houses.
+// openStructuralTier writes the operator house the structural tier needs besides lambda: 21 members
+// with the minimum service days, each holding a house bond, spread over 7 /16 networks and 5 ASNs.
+func openStructuralTier(t *testing.T, ctx sdk.Context, a *app.OramaApp) {
+	t.Helper()
+	for i := 0; i < 21; i++ {
+		addr := sdk.AccAddress(bytes.Repeat([]byte{byte(i + 1)}, 20)).String()
+		canonical, err := nodestypes.CanonicalAddress(addr)
+		require.NoError(t, err)
+		require.NoError(t, a.NodesKeeper.Operators.Set(ctx, addr, nodestypes.Operator{Address: addr}))
+		node := nodestypes.Node{
+			NodeId: fmt.Sprintf("tier-%d", i), Operator: addr, Status: nodestypes.NodeStatusActive,
+			Asn: uint32(i%5 + 1), Endpoints: []string{fmt.Sprintf("https://%d.%d.0.1:443", 40+i/3, 100+i/3)},
+		}
+		require.NoError(t, a.NodesKeeper.Nodes.Set(ctx, node.NodeId, node))
+		for day := uint64(0); day < housetypes.MinServiceDays; day++ {
+			require.NoError(t, a.NodesKeeper.ServiceDays.Set(ctx, collections.Join(canonical, day), nodestypes.ServiceDay{Operator: canonical, DayIndex: day}))
+		}
+		require.NoError(t, a.HousesKeeper.Bonds.Set(ctx, addr, housetypes.HouseBond{
+			Address: addr, Amount: housetypes.DefaultHouseBond(), LockedAtHeight: 1,
+		}))
+	}
+}
+
+// enact runs ExecuteProposal with lambda at 1, the last condition of the structural tier that a
+// structural proposal is checked against when its timelock ends, and puts lambda back after: lambda at
+// 1 would change how the chain under test distributes rewards.
+func enact(ctx sdk.Context, a *app.OramaApp, id uint64) error {
+	lambda, err := a.PowerKeeper.Lambda.Get(ctx)
+	if err != nil {
+		return err
+	}
+	if err := a.PowerKeeper.Lambda.Set(ctx, math.LegacyOneDec()); err != nil {
+		return err
+	}
+	execErr := a.HousesKeeper.ExecuteProposal(ctx, id)
+	if err := a.PowerKeeper.Lambda.Set(ctx, lambda); err != nil {
+		return err
+	}
+	return execErr
+}
+
+// timelockedProposal stores a proposal whose vote and timelock are done, so ExecuteProposal (through enact) is
+// the real enactment path. Votes and timelock timing are covered in x/houses; the structural tier
+// the proposal needs is opened here.
 func timelockedProposal(t *testing.T, ctx sdk.Context, a *app.OramaApp, id uint64, content housetypes.ProposalContent) {
 	t.Helper()
+	openStructuralTier(t, ctx, a)
 	proposer := sdk.AccAddress(bytes.Repeat([]byte{9}, 20)).String()
 	ended := ctx.BlockTime().Add(-time.Hour).UnixNano()
 	require.NoError(t, a.HousesKeeper.Proposals.Set(ctx, id, housetypes.Proposal{
@@ -69,7 +115,7 @@ func TestEnactment_emissionClosesEpochsAtTheEnactedSplit(t *testing.T) {
 	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{EmissionSplit: &housetypes.EmissionSplitChange{
 		ValidatorPercent: 70, StoragePercent: 15, RelayPercent: 10, DevelopmentPercent: 5,
 	}})
-	require.NoError(t, e.app.HousesKeeper.ExecuteProposal(ctx, 1))
+	require.NoError(t, enact(ctx, e.app, 1))
 	require.NoError(t, e.app.EmissionKeeper.AdvanceBlock(ctx))
 
 	second, err := e.app.EmissionKeeper.Ceilings.Get(ctx, 2)
@@ -96,7 +142,7 @@ func TestEnactment_relayReportersChangeThroughRelaysOwnPath(t *testing.T) {
 	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{RelayReporters: &housetypes.RelayReporterChange{
 		Add: []string{added}, Remove: []string{old},
 	}})
-	require.NoError(t, e.app.HousesKeeper.ExecuteProposal(ctx, 1))
+	require.NoError(t, enact(ctx, e.app, 1))
 
 	got := map[string]bool{}
 	require.NoError(t, e.app.RelayKeeper.Reporters.Walk(ctx, nil, func(addr string, _ bool) (bool, error) {
@@ -116,7 +162,7 @@ func TestEnactment_relayReporterChangeThatEmptiesTheSetFails(t *testing.T) {
 	require.NoError(t, e.app.RelayKeeper.Reporters.Set(ctx, only, true))
 
 	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{RelayReporters: &housetypes.RelayReporterChange{Remove: []string{only}}})
-	require.NoError(t, e.app.HousesKeeper.ExecuteProposal(ctx, 1))
+	require.NoError(t, enact(ctx, e.app, 1))
 
 	p, err := e.app.HousesKeeper.Proposals.Get(ctx, 1)
 	require.NoError(t, err)
@@ -133,7 +179,7 @@ func TestEnactment_softwareUpgradeBecomesAnUpgradePlan(t *testing.T) {
 	require.Error(t, err, "no plan exists before the proposal executes")
 
 	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{SoftwareUpgrade: &housetypes.SoftwareUpgrade{Name: "v2", Height: 1_000}})
-	require.NoError(t, e.app.HousesKeeper.ExecuteProposal(ctx, 1))
+	require.NoError(t, enact(ctx, e.app, 1))
 
 	plan, err := e.app.UpgradeKeeper.GetUpgradePlan(ctx)
 	require.NoError(t, err)
@@ -175,7 +221,7 @@ func TestEnactment_uploadAllowListOpensOneCodeHashBeforeTheSunset(t *testing.T) 
 	timelockedProposal(t, ctx, e.app, 1, housetypes.ProposalContent{AllowList: &housetypes.AllowListChange{
 		CodeUploadAdd: []string{approved.sha256Hex()},
 	}})
-	require.NoError(t, e.app.HousesKeeper.ExecuteProposal(ctx, 1))
+	require.NoError(t, enact(ctx, e.app, 1))
 
 	require.NoError(t, e.app.WasmPolicyKeeper.CheckMsg(ctx, height, approved), "the enacted hash is allowed")
 	require.NoError(t, e.app.WasmPolicyKeeper.CheckMsg(ctx, height, gzipped(t, wasm)), "a gzip upload is hashed uncompressed")
@@ -185,6 +231,6 @@ func TestEnactment_uploadAllowListOpensOneCodeHashBeforeTheSunset(t *testing.T) 
 	timelockedProposal(t, ctx, e.app, 2, housetypes.ProposalContent{AllowList: &housetypes.AllowListChange{
 		CodeUploadRemove: []string{approved.sha256Hex()},
 	}})
-	require.NoError(t, e.app.HousesKeeper.ExecuteProposal(ctx, 2))
+	require.NoError(t, enact(ctx, e.app, 2))
 	require.ErrorIs(t, e.app.WasmPolicyKeeper.CheckMsg(ctx, height, approved), wasmpolicytypes.ErrUploadClosed, "removal closes it again")
 }

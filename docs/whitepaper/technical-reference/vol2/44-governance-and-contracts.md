@@ -34,7 +34,7 @@ The contract runtime answers a different question: what may user code do on a ch
 
 **House bond.** Norama locked in the `houses` module account. It is locked while the operator has a vote on a proposal that is voting or in its veto window, and it is burned in full on equivocation.
 
-**Tier.** The parameter tier takes `ParameterChange`. The structural tier takes the other six kinds (below). Each tier is open or closed (`Tiers`); a proposal of a closed tier is refused at submission.
+**Tier.** The parameter tier takes `ParameterChange`. The structural tier takes the other six kinds (below). Each tier is open or closed (`Tiers`); a proposal of a closed tier is refused at submission. A structural proposal is checked again when voting closes (it is `REJECTED` with `ErrTierClosed` if the tier has closed) and again when its timelock ends (it is `FAILED` with `ErrTierClosed` and nothing runs), because the operators who open the tier can unlock their bonds after the proposal is in (`structuralOpen` in `chain/x/houses/keeper/advance.go`).
 
 **Proposal content.** Exactly one of seven actions: `ParameterChange`, `SoftwareUpgrade`, `EmissionSplitChange`, `DevelopmentSpend`, `PowerBoundsChange`, `RelayReporterChange`, `AllowListChange` (`chain/x/houses/types/content.go:ProposalContent`).
 
@@ -254,6 +254,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 | Trigger | What the system does | What you observe |
 |---|---|---|
 | Proposal submitted while its tier is closed | refused with `ErrTierClosed` | the transaction fails; `Tiers` shows which condition is unmet |
+| Structural tier closes while a structural proposal is open | `REJECTED` at the close of voting, `FAILED` at the end of the timelock, both with `ErrTierClosed` | the proposal's `fail_reason`; `Tiers` shows which condition is unmet |
 | Staking, power or operator read fails while tallying | that proposal's step is rolled back and retried next block, at most 5 times in a row, then `FAILED` | `houses_proposal_failed` event and log line; `advance_failures` on the proposal |
 | Store fault while advancing | the block fails on every validator | chain halt |
 | Timelocked action refused at execution (spend over the ceiling, reporter set emptied, upgrade height passed, no enactor wired) | no partial write; `FAILED` with the reason | proposal status and `fail_reason` |
