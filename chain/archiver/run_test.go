@@ -59,7 +59,7 @@ func (c *fakeChain) ProviderURL(_ context.Context, nodeID string) (string, error
 	return u, nil
 }
 
-func realBlock(t *testing.T, h int64) Block {
+func realBlock(t testing.TB, h int64) Block {
 	t.Helper()
 	b := cmttypes.MakeBlock(h, []cmttypes.Tx{cmttypes.Tx([]byte{byte(h)})}, &cmttypes.Commit{}, nil)
 	b.ChainID = "orama-test-1"

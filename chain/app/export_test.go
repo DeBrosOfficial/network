@@ -23,5 +23,10 @@ func EncodeInjectedCommitForTest(ec abci.ExtendedCommitInfo) ([]byte, error) {
 	return encodeInjectedCommit(ec)
 }
 
+// DecodeInjectedCommitForTest parses the injected transaction the way ProcessProposal does.
+func DecodeInjectedCommitForTest(tx []byte) (abci.ExtendedCommitInfo, error) {
+	return decodeInjectedCommit(tx)
+}
+
 // InclusionPoolLen is the number of transactions the seen-set tracks.
 func (app *OramaApp) InclusionPoolLen() int { return app.inclusion.pool.Len() }
