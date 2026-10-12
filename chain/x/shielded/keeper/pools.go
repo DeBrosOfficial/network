@@ -104,3 +104,21 @@ func (k Keeper) applyCap(
 	}
 	return outcome, nil
 }
+
+// capRemaining is what the pool's limiter still takes at now, with balance the pool's balance
+// before the outflow. It reads the limiter and writes nothing.
+func (k Keeper) capRemaining(
+	ctx context.Context, now time.Time, key collections.Pair[uint32, []byte], balance math.Int,
+) (math.Int, error) {
+	p, err := k.params(ctx)
+	if err != nil {
+		return math.ZeroInt(), err
+	}
+	lim, _, err := k.limiter(ctx, key)
+	if err != nil {
+		return math.ZeroInt(), err
+	}
+	limit := pool.CapAmount(balance, p.UnshieldFloor)
+	lim.Roll(now, limit)
+	return lim.Remaining(limit), nil
+}

@@ -43,7 +43,7 @@ Because ORAMA leaves the pool only into the owner's own bond or fee balance, the
 | `queue_per_address_cap` | 100 ORAMA |
 | `max_signerless_per_block` | 64 |
 
-A transfer's fee (its value balance) must be at least `base fee x action_gas x actions + nullifier fee x actions`. The base and nullifier parts are burned and any remainder is a tip to the proposer.
+A transfer's fee (its value balance) must be at least `base fee x action_gas x actions + nullifier fee x actions`. The base and nullifier parts are burned and any remainder is a tip to the proposer, up to what the unshield cap has left; the part of a tip over that is burned as well, and the transfer still succeeds.
 
 Proof sizes: a 1-action bundle is 5,985 bytes and a 2-action bundle 9,141 bytes. Verifying a 1-action bundle takes about 5.6 ms on an Apple M3 with 8 threads; Linux is not measured.
 

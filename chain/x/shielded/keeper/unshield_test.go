@@ -147,20 +147,37 @@ func TestUnshield_burnedFeesAreExemptButATipCountsAgainstTheCap(t *testing.T) {
 	e.Fees.Proposer = bob
 	// Fee 41: 11 is burned (exempt), 30 is tip and counts. Cap 50 leaves 20.
 	require.NoError(t, transfer(e, transferBundle(20, 41, emptyRoot())))
+	require.Equal(t, "30", e.Fees.EarningsOf(bob).String())
 	_, err := unshield(t, e, topup(2, 21, alice))
 	require.NoError(t, err, "the burned 11 took nothing from the cap: 20 is still there")
 	_, err = unshield(t, e, topup(3, 2, alice))
 	require.ErrorIs(t, err, pool.ErrCapExhausted, "the tip and the top-up used the whole 50")
 }
 
-func TestTransfer_aTipOverTheCapFailsSoAProposerCannotDrainThePoolThroughFees(t *testing.T) {
+func TestTransfer_aTipOverTheCapIsBurnedSoAProposerCannotDrainThePoolThroughFees(t *testing.T) {
 	e := capEnv(t, nil)
 	e.Fees.Proposer = bob
-	err := transfer(e, transferBundle(20, 400, emptyRoot()))
-	require.ErrorIs(t, err, pool.ErrCapExhausted)
-	require.Equal(t, "1000", poolBalance(t, e).String())
+	require.NoError(t, transfer(e, transferBundle(20, 400, emptyRoot())), "the transfer is not failed by the margin")
+	require.Equal(t, "50", e.Fees.EarningsOf(bob).String(), "the proposer keeps no more than the cap")
+	require.Equal(t, "600", poolBalance(t, e).String())
+	require.NoError(t, transfer(e, transferBundle(21, 400, emptyRoot())))
+	require.Equal(t, "50", e.Fees.EarningsOf(bob).String(), "with the cap spent the whole fee is burned")
+	require.Equal(t, "200", poolBalance(t, e).String())
+	lim, err := e.Keeper.Limiters.Get(e.Ctx, collectionsPool())
+	require.NoError(t, err)
+	require.Equal(t, "50", lim.Counted.String(), "burned value is exempt: the cap counts only the tip that was paid")
+	requireInvariants(t, e)
 	e.Fees.Proposer = nil
-	require.NoError(t, transfer(e, transferBundle(20, 400, emptyRoot())), "with no proposer the whole fee is burned, which is exempt")
+	require.NoError(t, transfer(e, transferBundle(22, 100, emptyRoot())), "with no proposer the whole fee is burned, which is exempt")
+}
+
+func TestTransfer_aTipMarginWhenTheCapIsSpentIsBurnedNotFatal(t *testing.T) {
+	e := capEnv(t, nil)
+	e.Fees.Proposer = bob
+	_, err := unshield(t, e, topup(2, 51, alice)) // net 50: the whole cap
+	require.NoError(t, err)
+	require.NoError(t, transfer(e, transferBundle(20, 41, emptyRoot())), "11 fee + 30 margin")
+	require.True(t, e.Fees.EarningsOf(bob).IsZero(), "the margin over the cap is burned, not paid")
 }
 
 func TestQueue_aBondBehindAQueueTakesNoCap(t *testing.T) {

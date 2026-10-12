@@ -48,9 +48,11 @@ func (k Keeper) ExecuteTransfer(ctx sdk.Context, adm *Admitted) error {
 	if !found {
 		burn, tip = adm.Amount, math.ZeroInt()
 	}
-	if err := k.capTip(ctx, before, tip); err != nil {
+	kept, err := k.capTip(ctx, before, tip)
+	if err != nil {
 		return err
 	}
+	burn, tip = burn.Add(tip.Sub(kept)), kept
 	if err := k.burn(ctx, burn); err != nil {
 		return err
 	}
@@ -104,16 +106,25 @@ func (k Keeper) creditPool(ctx sdk.Context, adm *Admitted) error {
 	return k.credit(ctx, nativePool(), adm.Amount)
 }
 
-// capTip counts a transfer's tip against the pool's 24h cap. The burned part of a fee is exempt, but
-// the tip becomes a proposer's spendable earnings, so a proposer holding counterfeit notes could
-// otherwise drain the pool through fees without meeting the cap. A tip over what the cap has left
-// fails the transfer, like a fee top-up.
-func (k Keeper) capTip(ctx sdk.Context, poolBefore, tip math.Int) error {
+// capTip counts a transfer's tip against the pool's 24h cap and returns the part that fits. The
+// burned part of a fee is exempt, but the tip becomes a proposer's spendable earnings, so a
+// proposer holding counterfeit notes could otherwise drain the pool through fees without meeting
+// the cap. A tip over what the cap has left is cut to it and the caller burns the rest, which is
+// exempt: the transfer is not failed by a margin the wallet could not know.
+func (k Keeper) capTip(ctx sdk.Context, poolBefore, tip math.Int) (math.Int, error) {
 	if !tip.IsPositive() {
-		return nil
+		return math.ZeroInt(), nil
 	}
-	if _, err := k.applyCap(ctx, ctx.BlockTime(), nativePool(), poolBefore, tip, pool.KindFeeTopup); err != nil {
-		return fmt.Errorf("the tip of %s%s: %w", tip, params.BaseDenom, err)
+	room, err := k.capRemaining(ctx, ctx.BlockTime(), nativePool(), poolBefore)
+	if err != nil {
+		return math.ZeroInt(), err
 	}
-	return nil
+	kept := math.MinInt(tip, room)
+	if !kept.IsPositive() {
+		return math.ZeroInt(), nil
+	}
+	if _, err := k.applyCap(ctx, ctx.BlockTime(), nativePool(), poolBefore, kept, pool.KindFeeTopup); err != nil {
+		return math.ZeroInt(), fmt.Errorf("the tip of %s%s: %w", kept, params.BaseDenom, err)
+	}
+	return kept, nil
 }
