@@ -62,12 +62,15 @@ type Keeper struct {
 	emptyRoot *emptyRootCache
 	admission *admission
 
-	Schema         collections.Schema
-	Params         collections.Item[types.Params]
-	Pools          collections.Map[collections.Pair[uint32, []byte], math.Int]
-	Limiters       collections.Map[collections.Pair[uint32, []byte], types.Limiter]
-	Queue          collections.Map[uint64, types.QueuedUnshield]
-	NextQueueID    collections.Sequence
+	Schema      collections.Schema
+	Params      collections.Item[types.Params]
+	Pools       collections.Map[collections.Pair[uint32, []byte], math.Int]
+	Limiters    collections.Map[collections.Pair[uint32, []byte], types.Limiter]
+	Queue       collections.Map[uint64, types.QueuedUnshield]
+	NextQueueID collections.Sequence
+	// QueueOwners is how many requests each owner has in Queue, kept in step with it: up on
+	// enqueue, down on payment in full and on refund. Genesis rebuilds it from the queue.
+	QueueOwners    collections.Map[string, uint64]
 	Frontier       collections.Item[[]byte]
 	TreeSize       collections.Item[uint64]
 	CurrentRoot    collections.Item[[]byte]
@@ -116,6 +119,7 @@ func NewKeeper(
 		Queue:     collections.NewMap(sb, types.QueuePrefix, "queue", collections.Uint64Key, codec.CollValue[types.QueuedUnshield](cdc)),
 
 		NextQueueID:    collections.NewSequence(sb, types.NextQueueIDPrefix, "next_queue_id"),
+		QueueOwners:    collections.NewMap(sb, types.QueueOwnersPrefix, "queue_owners", collections.StringKey, collections.Uint64Value),
 		Frontier:       collections.NewItem(sb, types.FrontierKey, "frontier", collections.BytesValue),
 		TreeSize:       collections.NewItem(sb, types.TreeSizeKey, "tree_size", collections.Uint64Value),
 		CurrentRoot:    collections.NewItem(sb, types.CurrentRootKey, "current_root", collections.BytesValue),

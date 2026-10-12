@@ -57,6 +57,13 @@ func (k Keeper) initPools(ctx context.Context, gs types.GenesisState) error {
 		if err := k.Queue.Set(ctx, q.Id, q); err != nil {
 			return fmt.Errorf("set queued unshield: %w", err)
 		}
+		n, err := k.queuedBy(ctx, q.Owner)
+		if err != nil {
+			return err
+		}
+		if err := k.QueueOwners.Set(ctx, q.Owner, n+1); err != nil {
+			return fmt.Errorf("index queued unshield %d by owner: %w", q.Id, err)
+		}
 	}
 	return k.NextQueueID.Set(ctx, gs.NextQueueId)
 }

@@ -92,18 +92,31 @@ func (gs GenesisState) Validate() error {
 		if err := c.Validate(); err != nil {
 			return err
 		}
-		payerKey := c.Contract + "/" + c.Payer
+		// Validate has parsed both; the canonical forms key the uniqueness checks, so an address
+		// written in upper case cannot slip a second chunk past the one-payer-one-chunk rule.
+		contract, payer := canonicalBech32(c.Contract), canonicalBech32(c.Payer)
+		payerKey := contract + "/" + payer
 		if _, ok := payers[payerKey]; ok {
 			return fmt.Errorf("payer %s has two deposit chunks of contract %s: one payer is one chunk", c.Payer, c.Contract)
 		}
 		payers[payerKey] = struct{}{}
-		key := fmt.Sprintf("%s/%d", c.Contract, c.Seq)
+		key := fmt.Sprintf("%s/%d", contract, c.Seq)
 		if _, ok := chunks[key]; ok {
 			return fmt.Errorf("duplicate deposit chunk %s", key)
 		}
 		chunks[key] = struct{}{}
 	}
 	return nil
+}
+
+// canonicalBech32 is the canonical string of a bech32 account address that has already been
+// validated.
+func canonicalBech32(addr string) string {
+	acc, err := sdk.AccAddressFromBech32(addr)
+	if err != nil {
+		return addr
+	}
+	return acc.String()
 }
 
 // DepositChunk is one state-deposit charge: Bytes of a contract's storage growth that Payer

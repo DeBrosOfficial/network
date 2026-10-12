@@ -34,6 +34,8 @@ func TestParse(t *testing.T) {
 		{"a longer digest is not a prefix match", info(entry("linux/amd64", oramad+"ab"), entry("linux/amd64", verifier)), Digests{}, "no oramad checksum"},
 		{"free text", `upgrade to 0.4.0`, Digests{}, "carries no upgrade-info JSON"},
 		{"empty", ``, Digests{}, "carries no upgrade-info JSON"},
+		{"an unknown member", `{"note":"x",` + info(entry("linux/amd64", oramad), entry("linux/amd64", verifier))[1:], Digests{}, "unknown field"},
+		{"data after the object", info(entry("linux/amd64", oramad), entry("linux/amd64", verifier)) + `{}`, Digests{}, "data after the JSON object"},
 		{"only binaries", `{"binaries":{` + entry("linux/amd64", oramad) + `}}`, Digests{}, "no orama-orchard-verifier checksum"},
 	}
 	for _, tt := range tests {

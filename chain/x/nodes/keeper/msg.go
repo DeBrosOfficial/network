@@ -370,28 +370,50 @@ func (k Keeper) retireNode(ctx sdk.Context, node *types.Node, status types.NodeS
 	return k.saveNode(ctx, *node)
 }
 
+// checkBond runs the checks BondNode makes before it moves any coin: the message is well formed,
+// the node exists, belongs to the operator, is not closed and has the role. It returns the node,
+// the operator's canonical address and the params.
+func (k Keeper) checkBond(ctx sdk.Context, msg *types.MsgBondNode) (types.Node, string, types.Params, error) {
+	if err := msg.ValidateBasic(); err != nil {
+		return types.Node{}, "", types.Params{}, err
+	}
+	p, err := k.params(ctx)
+	if err != nil {
+		return types.Node{}, "", types.Params{}, err
+	}
+	node, operator, err := k.requireNodeOwner(ctx, msg.NodeId, msg.Operator)
+	if err != nil {
+		return types.Node{}, "", types.Params{}, err
+	}
+	if err := closedNode(node); err != nil {
+		return types.Node{}, "", types.Params{}, err
+	}
+	if !types.HasRole(node.Roles, msg.Role) {
+		return types.Node{}, "", types.Params{}, fmt.Errorf("node %s does not have role %s", node.NodeId, msg.Role)
+	}
+	return node, operator, p, nil
+}
+
+// CheckBondNode reports whether BondNode would accept msg, apart from the operator holding the
+// coins: it writes nothing and moves nothing. x/shielded calls it when a node-bond unshield is
+// queued, so a request that can never be paid is refused up front.
+func (k Keeper) CheckBondNode(ctx sdk.Context, msg *types.MsgBondNode) error {
+	if msg == nil {
+		return fmt.Errorf("nil MsgBondNode")
+	}
+	_, _, _, err := k.checkBond(ctx, msg)
+	return err
+}
+
 // BondNode escrows norama from the operator into the node's role bond.
 func (k Keeper) BondNode(ctx sdk.Context, msg *types.MsgBondNode) error {
 	if msg == nil {
 		return fmt.Errorf("nil MsgBondNode")
 	}
 	return k.transact(ctx, func(ctx sdk.Context) error {
-		if err := msg.ValidateBasic(); err != nil {
-			return err
-		}
-		p, err := k.params(ctx)
+		node, operator, p, err := k.checkBond(ctx, msg)
 		if err != nil {
 			return err
-		}
-		node, operator, err := k.requireNodeOwner(ctx, msg.NodeId, msg.Operator)
-		if err != nil {
-			return err
-		}
-		if err := closedNode(node); err != nil {
-			return err
-		}
-		if !types.HasRole(node.Roles, msg.Role) {
-			return fmt.Errorf("node %s does not have role %s", node.NodeId, msg.Role)
 		}
 		owner, err := sdk.AccAddressFromBech32(operator)
 		if err != nil {

@@ -48,6 +48,9 @@ type Bonder interface {
 
 // NodeBonder adds to the signer's own x/nodes role bond from the operator's bank balance.
 type NodeBonder interface {
+	// CheckBondNode refuses a bond that BondNode would refuse for any reason but the operator's
+	// balance (unknown node, not the operator's, closed, no such role), changing nothing.
+	CheckBondNode(ctx sdk.Context, msg *nodestypes.MsgBondNode) error
 	BondNode(ctx sdk.Context, msg *nodestypes.MsgBondNode) error
 }
 

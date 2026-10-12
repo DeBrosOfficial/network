@@ -31,8 +31,19 @@ type urlVector struct {
 	Checksum string `json:"checksum"`
 }
 
+// skipWithoutChain skips a test that compares this package with the chain's source when the checkout
+// has no chain/ directory (a core-only checkout): there is nothing to compare with.
+func skipWithoutChain(t testing.TB) {
+	t.Helper()
+	if _, err := os.Stat(filepath.FromSlash(chainUpgradeInfoSource)); err != nil {
+		t.Skipf("the chain source is not in this checkout (%s): nothing to compare the upgrade-info reader with; "+
+			"run this test in the full monorepo before changing planinfo or chain/x/houses/types/upgrade_info.go", chainUpgradeInfoSource)
+	}
+}
+
 func readURLVectors(t testing.TB) []urlVector {
 	t.Helper()
+	skipWithoutChain(t)
 	raw, err := os.ReadFile(filepath.FromSlash(chainURLVectors))
 	if err != nil {
 		t.Fatalf("read the chain's URL vectors: %v", err)
@@ -120,6 +131,7 @@ func declNamed(t *testing.T, path, name string, rename map[string]string) string
 }
 
 func TestURLChecksum_isTheChainsFunction(t *testing.T) {
+	skipWithoutChain(t)
 	rename := map[string]string{
 		"upgradeURLChecksum":    "urlChecksum",
 		"upgradeChecksumParam":  "checksumParam",

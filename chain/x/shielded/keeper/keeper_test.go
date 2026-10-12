@@ -57,7 +57,7 @@ func requireInvariants(t *testing.T, e *testutil.Env) {
 	e.EndBlockUncommitted()
 	inv, err := e.Keeper.CheckInvariants(e.Ctx)
 	require.NoError(t, err)
-	require.True(t, inv.BalanceMatches && inv.PoolsNonNegative && inv.AccumulatorMatches, inv.Detail)
+	require.True(t, inv.BalanceMatches && inv.PoolsNonNegative && inv.AccumulatorMatches && inv.QueueIndexMatches, inv.Detail)
 }
 
 // shield funds the pool through MsgShield with a bundle of the given seed. It returns the bundle.

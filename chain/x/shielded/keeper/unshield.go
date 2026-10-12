@@ -37,6 +37,11 @@ func (k Keeper) ExecuteUnshield(ctx sdk.Context, msg *types.MsgUnshield, signer 
 			return false, fmt.Errorf("%w: %w", types.ErrTarget, err)
 		}
 	}
+	if msg.Target == types.UnshieldTargetNodeBond {
+		if err := k.deps.NodeBonder.CheckBondNode(ctx, nodeBond(signer, msg, net)); err != nil {
+			return false, fmt.Errorf("%w: %w", types.ErrTarget, err)
+		}
+	}
 	if err := k.register(ctx, adm.Bundle); err != nil {
 		return false, err
 	}
@@ -71,6 +76,11 @@ func (k Keeper) ExecuteUnshield(ctx sdk.Context, msg *types.MsgUnshield, signer 
 		return true, k.enqueue(ctx, msg, signer, net)
 	}
 	return false, k.pay(ctx, signer, msg.Target, msg.Validator, msg.NodeId, msg.Role, net)
+}
+
+// nodeBond is the bond a node-bond unshield of amount makes: the operator is the signer.
+func nodeBond(signer sdk.AccAddress, msg *types.MsgUnshield, amount math.Int) *nodestypes.MsgBondNode {
+	return &nodestypes.MsgBondNode{Operator: signer.String(), NodeId: msg.NodeId, Role: msg.Role, Amount: amount}
 }
 
 // pay delivers coins from the module account to a target owned by owner.

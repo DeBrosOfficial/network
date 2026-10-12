@@ -25,7 +25,7 @@ func FuzzPoolServe(f *testing.F) {
 		capInt, perInt := math.NewIntFromUint64(capacity), math.NewIntFromUint64(perAddress)
 		minPart := math.NewIntFromUint64(minimumPart)
 		accept := func(_ int, grant math.Int) bool { return grant.GTE(minPart) }
-		grants, _ := Serve(capInt, perInt, reqs, accept, nil)
+		grants, _ := Serve(capInt, perInt, len(reqs), reqs, accept, nil)
 		if len(grants) != len(reqs) {
 			t.Fatalf("%d grants for %d requests", len(grants), len(reqs))
 		}
@@ -59,7 +59,7 @@ func FuzzPoolServe(f *testing.F) {
 		if total.GT(capInt) {
 			t.Fatalf("paid %s out of a capacity of %s", total, capInt)
 		}
-		again, _ := Serve(capInt, perInt, reqs, accept, nil)
+		again, _ := Serve(capInt, perInt, len(reqs), reqs, accept, nil)
 		for i := range grants {
 			if !grants[i].Amount.Equal(again[i].Amount) {
 				t.Fatal("Serve is not deterministic")

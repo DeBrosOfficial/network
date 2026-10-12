@@ -82,8 +82,8 @@ func (app *OramaApp) checkShieldedLedgers(ctx sdk.Context) error {
 	}
 	return ledgerVerdict(inv.Detail, map[string]bool{
 		"module balance matches pools": inv.BalanceMatches, "pools non-negative": inv.PoolsNonNegative,
-		"subtree roots match the tree": inv.SubtreeRootsMatch,
-	}, "module balance matches pools", "pools non-negative", "subtree roots match the tree")
+		"subtree roots match the tree": inv.SubtreeRootsMatch, "queue owner index matches": inv.QueueIndexMatches,
+	}, "module balance matches pools", "pools non-negative", "subtree roots match the tree", "queue owner index matches")
 }
 
 func (app *OramaApp) checkHousesLedgers(ctx sdk.Context) error {

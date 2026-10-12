@@ -11,6 +11,16 @@ import (
 	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
 )
 
+// MaxQueueRefusals is how many windows in a row a request's target may refuse before the queue
+// gives up on it and refunds it. A payment that goes out, or a window that reaches the request
+// and skips it without a refusal (capacity, per-address cap, a part below the minimum), resets
+// the count.
+const MaxQueueRefusals = 3
+
+// MaxQueuedPerOwner is how many unshields one owner may have in the queue at once. A request over
+// it is refused when it is made, so no address can fill the queue.
+const MaxQueuedPerOwner = 10
+
 // MaxFrontierLen bounds a stored frontier: position, leaf and one ommer per tree level.
 const MaxFrontierLen = 8 + bundle.NodeLen + 32*bundle.NodeLen
 
@@ -84,6 +94,7 @@ func (gs GenesisState) validatePools() error {
 
 func (gs GenesisState) validateQueue() error {
 	ids := map[uint64]bool{}
+	owners := map[string]int{}
 	for _, q := range gs.Queue {
 		if ids[q.Id] || q.Id >= gs.NextQueueId {
 			return fmt.Errorf("queued unshield %d is duplicated or not below next_queue_id", q.Id)
@@ -92,8 +103,18 @@ func (gs GenesisState) validateQueue() error {
 		if q.Amount.IsNil() || !q.Amount.IsPositive() {
 			return fmt.Errorf("queued unshield %d amount must be positive", q.Id)
 		}
-		if _, err := sdk.AccAddressFromBech32(q.Owner); err != nil {
+		owner, err := sdk.AccAddressFromBech32(q.Owner)
+		if err != nil {
 			return fmt.Errorf("queued unshield %d owner: %w", q.Id, err)
+		}
+		if q.Owner != owner.String() {
+			return fmt.Errorf("queued unshield %d owner %s is not in canonical form %s", q.Id, q.Owner, owner)
+		}
+		if owners[owner.String()]++; owners[owner.String()] > MaxQueuedPerOwner {
+			return fmt.Errorf("%w: %s has more than %d queued unshields", ErrQueueOwnerFull, q.Owner, MaxQueuedPerOwner)
+		}
+		if q.Refusals >= MaxQueueRefusals {
+			return fmt.Errorf("queued unshield %d has been refused %d times; at %d it is refunded and leaves the queue", q.Id, q.Refusals, MaxQueueRefusals)
 		}
 		if q.Target != UnshieldTargetBond && q.Target != UnshieldTargetNodeBond {
 			return fmt.Errorf("queued unshield %d has target %s; only bond targets queue", q.Id, q.Target)

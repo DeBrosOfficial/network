@@ -122,11 +122,18 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) error {
 	if err := k.importChunks(ctx, gs.DepositChunks); err != nil {
 		return err
 	}
-	return k.importCarry(ctx, gs.ReleaseCarry)
+	if err := k.importCarry(ctx, gs.ReleaseCarry); err != nil {
+		return err
+	}
+	return k.checkLedgerExact(ctx)
 }
 
 // ExportGenesis reads the sunset height, the genesis code set, the deposit price and the ledger.
+// It refuses to export a deposit ledger that disagrees with its chunks or its x/fees deposits.
 func (k Keeper) ExportGenesis(ctx context.Context) (types.GenesisState, error) {
+	if err := k.checkLedgerExact(ctx); err != nil {
+		return types.GenesisState{}, err
+	}
 	height, err := k.SunsetHeight(ctx)
 	if err != nil {
 		return types.GenesisState{}, err

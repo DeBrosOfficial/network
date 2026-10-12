@@ -10,6 +10,7 @@
 package planinfo
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,15 +45,21 @@ type Digests struct {
 // Parse reads the digests info names for osArch ("linux/amd64"). Only the platform's own
 // entries count; there is no "any" fallback, because the proposal had to name every required
 // platform. An info that is not that JSON, or names no checksum for either file, is an error: a
-// plan whose binaries cannot be checked is not one to stage for. name is the plan's, for the
-// message.
+// plan whose binaries cannot be checked is not one to stage for. The JSON is read the way the chain
+// reads it (ParseUpgradeInfo in chain/x/houses/types): an unknown member or data after the object is
+// an error. name is the plan's, for the message.
 func Parse(name, info, osArch string) (Digests, error) {
 	var doc struct {
 		Binaries  map[string]string `json:"binaries"`
 		Verifiers map[string]string `json:"verifiers"`
 	}
-	if err := json.Unmarshal([]byte(info), &doc); err != nil {
+	dec := json.NewDecoder(bytes.NewReader([]byte(info)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&doc); err != nil {
 		return Digests{}, fmt.Errorf("the scheduled upgrade %q carries no upgrade-info JSON naming its binaries' checksums (%w)", name, err)
+	}
+	if dec.More() {
+		return Digests{}, fmt.Errorf("the scheduled upgrade %q carries upgrade-info JSON with data after the JSON object", name)
 	}
 	d := Digests{Oramad: urlChecksum(doc.Binaries[osArch]), Verifier: urlChecksum(doc.Verifiers[osArch])}
 	switch {

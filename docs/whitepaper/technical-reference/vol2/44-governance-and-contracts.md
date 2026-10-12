@@ -242,7 +242,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 
 ## Lifecycle
 
-**Genesis.** `x/houses` starts with defaults and both tiers closed. Genesis parameters of governance are locked: on any chain id other than a localnet, devnet or stagenet, `ValidateLockedGenesis` compares every locked module parameter, including `wasmpolicy.upload_sunset_height`, with the app's defaults and refuses a difference. `chain/contracts/standard/genesis.go:Apply` stores the five contracts. A build without the VM refuses a genesis that contains the wasm module (`TestNowasmInitChainRejectsWasmGenesis`) and a node that claims wasm.
+**Genesis.** `x/houses` starts with defaults and both tiers closed. Genesis parameters of governance are locked: on any chain id other than a localnet, devnet or stagenet, `ValidateLockedGenesis` compares every locked module parameter, including `wasmpolicy.upload_sunset_height`, with the app's defaults and refuses a difference. `GenesisState.Validate` keys the deposit chunks by the canonical form of their bech32 addresses, so an address written in capitals cannot give one payer a second chunk or one contract a repeated sequence number. `InitGenesis` ends with `CheckInvariantsExact` and `ExportGenesis` starts with it, once each: a ledger that disagrees with its `x/fees` deposits, its totals or its payer index is refused instead of imported or exported. `chain/contracts/standard/genesis.go:Apply` stores the five contracts. A build without the VM refuses a genesis that contains the wasm module (`TestNowasmInitChainRejectsWasmGenesis`) and a node that claims wasm.
 
 **Normal operation.** Each block's end blocker runs `Advance`. Contract calls charge and refund through the ledger as they run.
 
@@ -273,7 +273,7 @@ Queries for `x/houses`: `Params`, `Proposal`, `Vote`, `HouseBond`, `Tiers`, `Ena
 | One transaction would lock more than 10 ORAMA | `ErrDepositCap` | the call fails; the transaction budget counts reverted submessages too |
 | A shrink reaches more than 32 deposit rows | the first 32 are released, the rest become the release carry | the carry drains over the contract's next calls (`release_carry` in genesis) |
 | Binary built with `nowasm` joins a chain with wasm state | refuses to start | start-up error naming libwasmvm |
-| Ledger totals drift from their parts | `Keeper.CheckInvariants`, which the epoch conservation pass runs, sums the per-contract running totals and compares them with the global ones: its cost grows with contracts, not chunks. `CheckInvariantsExact` walks every chunk and compares it with its `x/fees` deposit, the totals and the payer index; the module registers no query to read either | the epoch pass halts the chain on the cheap check; the keeper tests exercise the exact one |
+| Ledger totals drift from their parts | `Keeper.CheckInvariants`, which the epoch conservation pass runs, sums the per-contract running totals and compares them with the global ones: its cost grows with contracts, not chunks. `CheckInvariantsExact` walks every chunk and compares it with its `x/fees` deposit, the totals and the payer index, once at the end of `InitGenesis` and once in `ExportGenesis`; the module registers no query to read either | the epoch pass halts the chain on the cheap check; genesis import and export fail on the exact one |
 
 ## Trust and security
 

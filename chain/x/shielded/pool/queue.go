@@ -28,13 +28,24 @@ type Grant struct {
 // capacity and the address's cap are used up only by a payment that went out: a request whose
 // payment is refused is skipped, its grant is zero, its index is returned in refused, and the
 // requests behind it are served from the capacity it did not take.
-func Serve(capacity, perAddress math.Int, reqs []Request, accept func(i int, grant math.Int) bool, pay func(i int, grant math.Int) bool) (grants []Grant, refused []int) {
+//
+// A refused payment does not count against maxPaid. Serve stops once maxPaid payments went out,
+// or when reqs ends or the capacity is used up, so the caller bounds the work by how many rows it
+// passes in and by maxPaid, and a run of refusing requests at the head cannot hold back the ones
+// behind them. The requests it stops before keep a zero grant and are not in refused.
+func Serve(capacity, perAddress math.Int, maxPaid int, reqs []Request, accept func(i int, grant math.Int) bool, pay func(i int, grant math.Int) bool) (grants []Grant, refused []int) {
 	grants = make([]Grant, len(reqs))
-	left := capacity
-	paid := map[string]math.Int{}
 	for i, r := range reqs {
 		grants[i] = Grant{Address: r.Address, Amount: math.ZeroInt()}
-		if !left.IsPositive() || !perAddress.IsPositive() || r.Amount.IsNil() || !r.Amount.IsPositive() {
+	}
+	left := capacity
+	paid := map[string]math.Int{}
+	went := 0
+	for i, r := range reqs {
+		if went >= maxPaid || !left.IsPositive() {
+			break
+		}
+		if !perAddress.IsPositive() || r.Amount.IsNil() || !r.Amount.IsPositive() {
 			continue
 		}
 		used, ok := paid[r.Address]
@@ -53,6 +64,7 @@ func Serve(capacity, perAddress math.Int, reqs []Request, accept func(i int, gra
 			continue
 		}
 		grants[i].Amount = grant
+		went++
 		left = left.Sub(grant)
 		paid[r.Address] = used.Add(grant)
 	}

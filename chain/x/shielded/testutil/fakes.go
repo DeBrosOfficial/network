@@ -83,6 +83,9 @@ func RootAfter(cmx ...[bundle.NodeLen]byte) [bundle.NodeLen]byte {
 type Bank struct {
 	Balances map[string]math.Int
 	Burned   math.Int
+	// RefuseTo makes a module-to-account send fail for the addresses it names, as the real bank
+	// does for a blocked or otherwise refused recipient.
+	RefuseTo map[string]error
 }
 
 // NewBank returns an empty bank.
@@ -122,6 +125,9 @@ func (b *Bank) SendCoinsFromAccountToModule(_ context.Context, from sdk.AccAddre
 
 // SendCoinsFromModuleToAccount implements the shielded BankKeeper.
 func (b *Bank) SendCoinsFromModuleToAccount(_ context.Context, module string, to sdk.AccAddress, amt sdk.Coins) error {
+	if err := b.RefuseTo[to.String()]; err != nil {
+		return err
+	}
 	return b.move(module, to.String(), amt)
 }
 
@@ -277,12 +283,23 @@ type NodeBonder struct {
 	Bank  *Bank
 	Bonds []*nodestypes.MsgBondNode
 	Fail  error
+	// Refuse names the node ids the real x/nodes would refuse a bond to (unknown, someone else's,
+	// closed, no such role). Both CheckBondNode and BondNode refuse them.
+	Refuse map[string]error
+}
+
+// CheckBondNode implements the shielded NodeBonder.
+func (n *NodeBonder) CheckBondNode(_ sdk.Context, msg *nodestypes.MsgBondNode) error {
+	return n.Refuse[msg.NodeId]
 }
 
 // BondNode implements the shielded NodeBonder.
-func (n *NodeBonder) BondNode(_ sdk.Context, msg *nodestypes.MsgBondNode) error {
+func (n *NodeBonder) BondNode(ctx sdk.Context, msg *nodestypes.MsgBondNode) error {
 	if n.Fail != nil {
 		return n.Fail
+	}
+	if err := n.CheckBondNode(ctx, msg); err != nil {
+		return err
 	}
 	owner, err := sdk.AccAddressFromBech32(msg.Operator)
 	if err != nil {

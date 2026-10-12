@@ -22,6 +22,8 @@ var (
 	ErrTxShape = errors.New("shielded message has the wrong transaction shape")
 	// ErrTarget means the unshield target is unknown, unlinked or missing its fields.
 	ErrTarget = errors.New("unshield target is not valid")
+	// ErrQueueOwnerFull means the signer already has MaxQueuedPerOwner unshields in the queue.
+	ErrQueueOwnerFull = errors.New("owner has too many queued unshields")
 	// ErrTargetNotLinked means the target's module has no path for it yet.
 	ErrTargetNotLinked = errors.New("unshield target is not linked")
 	// ErrFeeTopupCap means a fee top-up is above max_fee_topup.

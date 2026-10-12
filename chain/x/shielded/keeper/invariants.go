@@ -24,6 +24,8 @@ type Invariants struct {
 	// SubtreeRootsMatch is whether a root is stored for every filled 2^16-leaf subtree and none
 	// beyond: floor(tree_size / 65536) of them.
 	SubtreeRootsMatch bool
+	// QueueIndexMatches is whether the per-owner count of queued unshields equals the queue's rows.
+	QueueIndexMatches bool
 	Detail            string
 }
 
@@ -31,6 +33,7 @@ type Invariants struct {
 //
 //   - the module account balance == the sum of pool balances + the queued unshields
 //   - no pool balance is negative, no queued amount is not positive
+//   - the per-owner count of queued unshields is the number of queue rows each owner has
 //   - the nullifier database folds, in insertion order, to the accumulator in state
 //   - there is a subtree root for each filled subtree of the tree and none beyond: the last stored
 //     index is floor(tree_size / 65536) - 1
@@ -50,7 +53,7 @@ func (k Keeper) CheckInvariants(ctx sdk.Context) (Invariants, error) {
 // reads only committed state, so the chain can run it inside a block; the fold reads a database
 // outside the state and costs O(nullifiers).
 func (k Keeper) CheckLedgers(ctx sdk.Context) (Invariants, error) {
-	inv := Invariants{BalanceMatches: true, PoolsNonNegative: true, AccumulatorMatches: true, SubtreeRootsMatch: true}
+	inv := Invariants{BalanceMatches: true, PoolsNonNegative: true, AccumulatorMatches: true, SubtreeRootsMatch: true, QueueIndexMatches: true}
 	held := math.ZeroInt()
 	err := k.Pools.Walk(ctx, nil, func(key collections.Pair[uint32, []byte], bal math.Int) (bool, error) {
 		if bal.IsNegative() {
@@ -67,12 +70,17 @@ func (k Keeper) CheckLedgers(ctx sdk.Context) (Invariants, error) {
 	if err != nil {
 		return inv, fmt.Errorf("walk the queue: %w", err)
 	}
+	rows := map[string]uint64{}
 	for _, q := range queue {
+		rows[q.Owner]++
 		if !q.Amount.IsPositive() {
 			inv.PoolsNonNegative = false
 			inv.Detail += fmt.Sprintf("queued unshield %d has amount %s; ", q.Id, q.Amount)
 		}
 		held = held.Add(q.Amount)
+	}
+	if err := k.checkQueueIndex(ctx, rows, &inv); err != nil {
+		return inv, err
 	}
 	module := k.deps.Bank.GetBalance(ctx, authtypes.NewModuleAddress(types.ModuleName), params.BaseDenom).Amount
 	if !module.Equal(held) {
@@ -83,6 +91,27 @@ func (k Keeper) CheckLedgers(ctx sdk.Context) (Invariants, error) {
 		return inv, err
 	}
 	return inv, nil
+}
+
+// checkQueueIndex compares the per-owner counts with the rows the queue walk found.
+func (k Keeper) checkQueueIndex(ctx sdk.Context, rows map[string]uint64, inv *Invariants) error {
+	seen := 0
+	err := k.QueueOwners.Walk(ctx, nil, func(owner string, n uint64) (bool, error) {
+		seen++
+		if rows[owner] != n {
+			inv.QueueIndexMatches = false
+			inv.Detail += fmt.Sprintf("%s has %d queued unshields but the index counts %d; ", owner, rows[owner], n)
+		}
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("walk the queue owner index: %w", err)
+	}
+	if seen != len(rows) {
+		inv.QueueIndexMatches = false
+		inv.Detail += fmt.Sprintf("the queue has %d owners but the index %d; ", len(rows), seen)
+	}
+	return nil
 }
 
 // checkSubtreeRoots looks at the two ends of the stored roots, which is all an append-only run

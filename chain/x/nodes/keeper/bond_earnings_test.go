@@ -68,3 +68,38 @@ func TestBondNode_insufficientEarningsMoveNothing(t *testing.T) {
 	require.True(t, f.Earnings.balances[op.String()].Equal(orama(1)), "a partial top-up cannot make the bond succeed, so none is made")
 	require.True(t, f.Bank.balanceOf(op.String()).Equal(bank))
 }
+
+// CheckBondNode is the dry run x/shielded makes when a node-bond unshield is made: it refuses
+// what BondNode would refuse for the node, the operator and the role, and changes nothing.
+func TestCheckBondNode_refusesWhatBondNodeRefusesAndChangesNothing(t *testing.T) {
+	f := newTestFixture(t)
+	op, _ := storageNode(t, f, "n", nil, 0)
+	other := newAccount(t)
+	f.registerOperator(t, other)
+	bank := f.Bank.balanceOf(op.String())
+	before, err := f.Keeper.GetNode(f.Ctx, "n")
+	require.NoError(t, err)
+
+	good := &types.MsgBondNode{Operator: op.String(), NodeId: "n", Role: types.RoleStorage, Amount: orama(2)}
+	require.NoError(t, f.Keeper.CheckBondNode(f.Ctx, good), "the operator's balance is not the check's business")
+
+	for name, msg := range map[string]*types.MsgBondNode{
+		"unknown node":   {Operator: op.String(), NodeId: "ghost", Role: types.RoleStorage, Amount: orama(2)},
+		"someone else's": {Operator: other.String(), NodeId: "n", Role: types.RoleStorage, Amount: orama(2)},
+		"role not held":  {Operator: op.String(), NodeId: "n", Role: types.RoleRelay, Amount: orama(2)},
+		"zero amount":    {Operator: op.String(), NodeId: "n", Role: types.RoleStorage, Amount: orama(0)},
+		"no operator":    {NodeId: "n", Role: types.RoleStorage, Amount: orama(2)},
+	} {
+		require.Error(t, f.Keeper.CheckBondNode(f.Ctx, msg), name)
+	}
+	require.Error(t, f.Keeper.CheckBondNode(f.Ctx, nil))
+
+	after, err := f.Keeper.GetNode(f.Ctx, "n")
+	require.NoError(t, err)
+	require.Equal(t, before, after, "no bond changed")
+	require.True(t, f.Bank.balanceOf(op.String()).Equal(bank), "no coin moved")
+
+	_, err = f.Msg.RetireNode(f.Ctx, &types.MsgRetireNode{Operator: op.String(), NodeId: "n"})
+	require.NoError(t, err)
+	require.Error(t, f.Keeper.CheckBondNode(f.Ctx, good), "a retired node takes no bond")
+}

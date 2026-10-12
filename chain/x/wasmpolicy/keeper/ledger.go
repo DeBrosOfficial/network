@@ -77,8 +77,9 @@ type Invariants struct {
 //   - the rows and locked norama of all contracts sum to the global totals.
 //
 // The totals are written by the same code that writes the chunks, so a bug that drifts one from the
-// other shows here; CheckInvariantsExact compares them with the chunks themselves and is for tests,
-// the genesis export and tooling, not for the block.
+// other shows here; CheckInvariantsExact compares them with the chunks themselves. It costs
+// O(chunks), so the chain runs it once at the end of InitGenesis and once in ExportGenesis, never
+// in a block.
 func (k Keeper) CheckInvariants(ctx context.Context) (Invariants, error) {
 	inv := Invariants{BytesMatch: true, DepositsMatch: true}
 	global, err := k.globalTotals(ctx)
@@ -134,7 +135,8 @@ func (k Keeper) CheckInvariants(ctx context.Context) (Invariants, error) {
 //   - every chunk's x/fees deposit exists, belongs to the chunk's payer, and holds exactly
 //     (bytes + overhead) * per_byte.
 //
-// The walk is O(chunks). The x/fees invariant (deposit module balance equals open deposits)
+// The walk is O(chunks): InitGenesis and ExportGenesis run it once each and refuse a ledger it
+// finds broken (checkLedgerExact). The x/fees invariant (deposit module balance equals open deposits)
 // covers these deposits too, since they are ordinary x/fees deposits.
 func (k Keeper) CheckInvariantsExact(ctx context.Context) (Invariants, error) {
 	inv := Invariants{BytesMatch: true, DepositsMatch: true}
@@ -183,6 +185,19 @@ func (k Keeper) CheckInvariantsExact(ctx context.Context) (Invariants, error) {
 		inv.Detail += fmt.Sprintf("contract %s: %d bytes in chunks and no charged-bytes row\n", addr, sums[addr])
 	}
 	return inv, nil
+}
+
+// checkLedgerExact runs CheckInvariantsExact and turns a broken ledger into an error, so a genesis
+// that imports or exports a ledger that disagrees with its deposits stops the chain.
+func (k Keeper) checkLedgerExact(ctx context.Context) error {
+	inv, err := k.CheckInvariantsExact(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check the deposit ledger: %w", err)
+	}
+	if !inv.BytesMatch || !inv.DepositsMatch {
+		return fmt.Errorf("the deposit ledger is inconsistent: %s", inv.Detail)
+	}
+	return nil
 }
 
 // checkChunk compares one chunk with its x/fees deposit.

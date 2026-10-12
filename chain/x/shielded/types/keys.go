@@ -72,6 +72,8 @@ var (
 	AccumulatorKey     = collections.NewPrefix(10)
 	NullifierCountKey  = collections.NewPrefix(11)
 	SubtreeRootsPrefix = collections.NewPrefix(12)
+	// QueueOwnersPrefix indexes the queue by owner: the number of queued unshields each owner has.
+	QueueOwnersPrefix = collections.NewPrefix(13)
 )
 
 // The collections prefixes of the transient store.
