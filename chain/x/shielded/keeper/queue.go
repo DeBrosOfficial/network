@@ -13,8 +13,16 @@ import (
 )
 
 // EventTypeQueuePaymentFailed is emitted when a window could not deliver a queued request. The
-// request stays in the queue.
+// request stays in the queue until it has been refused MaxQueueRefusals windows in a row.
 const EventTypeQueuePaymentFailed = "shielded_queue_payment_failed"
+
+// EventTypeQueueRefunded is emitted when a request whose target refused it MaxQueueRefusals windows
+// in a row is paid back to its owner's bank balance and removed from the queue.
+const EventTypeQueueRefunded = "shielded_queue_refunded"
+
+// MaxQueueRefusals is how many windows in a row a request's target may refuse before the queue
+// gives up on it and refunds it. A payment that goes out resets the count.
+const MaxQueueRefusals = 3
 
 func (k Keeper) queueHasEntries(ctx context.Context) (bool, error) {
 	it, err := k.Queue.Iterate(ctx, nil)
@@ -93,13 +101,17 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 	for i, q := range reqs {
 		poolReqs[i] = pool.Request{Address: q.Owner, Amount: q.Amount}
 	}
-	grants := pool.Serve(lim.Remaining(limit), p.QueuePerAddressCap, poolReqs, func(i int, grant math.Int) bool {
+	grants, refused := pool.Serve(lim.Remaining(limit), p.QueuePerAddressCap, poolReqs, func(i int, grant math.Int) bool {
 		return k.partPaymentFits(ctx, reqs[i], grant)
+	}, func(i int, grant math.Int) bool {
+		return k.payQueued(ctx, reqs[i], grant)
 	})
-	for i, q := range reqs {
-		grant := grants[i].Amount
-		if grant.IsPositive() && k.payQueued(ctx, q, grant) {
-			lim.Counted = lim.Counted.Add(grant)
+	for _, g := range grants {
+		lim.Counted = lim.Counted.Add(g.Amount)
+	}
+	for _, i := range refused {
+		if err := k.recordRefusal(ctx, reqs[i]); err != nil {
+			return err
 		}
 	}
 	stored.ServedWindowStart = now
@@ -122,6 +134,8 @@ func (k Keeper) partPaymentFits(ctx sdk.Context, q types.QueuedUnshield, grant m
 }
 
 // payQueued pays grant of one queued request in a cache context and reports whether it went out.
+// A payment that goes out clears the request's count of refusals; a refused one is left to
+// recordRefusal, and the window's capacity is not used by it.
 func (k Keeper) payQueued(ctx sdk.Context, q types.QueuedUnshield, grant math.Int) bool {
 	cache, write := ctx.CacheContext()
 	owner, err := sdk.AccAddressFromBech32(q.Owner)
@@ -130,6 +144,7 @@ func (k Keeper) payQueued(ctx sdk.Context, q types.QueuedUnshield, grant math.In
 	}
 	if err == nil {
 		q.Amount = q.Amount.Sub(grant)
+		q.Refusals = 0
 		if q.Amount.IsPositive() {
 			err = k.Queue.Set(cache, q.Id, q)
 		} else {
@@ -140,10 +155,45 @@ func (k Keeper) payQueued(ctx sdk.Context, q types.QueuedUnshield, grant math.In
 		ctx.EventManager().EmitEvent(sdk.NewEvent(EventTypeQueuePaymentFailed,
 			sdk.NewAttribute("id", fmt.Sprint(q.Id)),
 			sdk.NewAttribute("owner", q.Owner),
+			sdk.NewAttribute("refusals", fmt.Sprint(q.Refusals+1)),
 			sdk.NewAttribute("reason", err.Error()),
 		))
 		return false
 	}
 	write()
 	return true
+}
+
+// recordRefusal counts one more window in which q's target refused it. At MaxQueueRefusals the
+// request is refunded: what is left of it goes from the module account to its owner's bank
+// balance, it leaves the queue and an event says so. A refund the bank refuses leaves the request
+// queued with its count, so the next window tries again and nothing is lost.
+func (k Keeper) recordRefusal(ctx sdk.Context, q types.QueuedUnshield) error {
+	q.Refusals++
+	if q.Refusals < MaxQueueRefusals {
+		return k.Queue.Set(ctx, q.Id, q)
+	}
+	cache, write := ctx.CacheContext()
+	owner, err := sdk.AccAddressFromBech32(q.Owner)
+	if err == nil {
+		err = k.deps.Bank.SendCoinsFromModuleToAccount(cache, types.ModuleName, owner, coins(q.Amount))
+	}
+	if err == nil {
+		err = k.Queue.Remove(cache, q.Id)
+	}
+	if err != nil {
+		ctx.EventManager().EmitEvent(sdk.NewEvent(EventTypeQueuePaymentFailed,
+			sdk.NewAttribute("id", fmt.Sprint(q.Id)),
+			sdk.NewAttribute("owner", q.Owner),
+			sdk.NewAttribute("reason", fmt.Sprintf("refund: %v", err)),
+		))
+		return k.Queue.Set(ctx, q.Id, q)
+	}
+	write()
+	ctx.EventManager().EmitEvent(sdk.NewEvent(EventTypeQueueRefunded,
+		sdk.NewAttribute("id", fmt.Sprint(q.Id)),
+		sdk.NewAttribute("owner", q.Owner),
+		sdk.NewAttribute("amount", q.Amount.String()),
+	))
+	return nil
 }

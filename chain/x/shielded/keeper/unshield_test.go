@@ -286,7 +286,6 @@ func TestQueue_aPartBelowTheDelegationMinimumIsNotIssued(t *testing.T) {
 	e.Bonder.Minimum = math.NewInt(10)
 	_, err := unshield(t, e, topup(2, 51, alice)) // spend the cap
 	require.NoError(t, err)
-	carol := sdk.AccAddress([]byte("carol_______________"))
 	for i, who := range []sdk.AccAddress{alice, bob, carol} {
 		amount := []int64{46, 21, 16}[i] // net 45, 20, 15
 		resp, err := unshield(t, e, bond(byte(3+i), amount, who))
@@ -376,6 +375,89 @@ func TestQueue_aRefusingTargetKeepsItsRequestAndOthersStillPay(t *testing.T) {
 	require.Len(t, queued(t, e), 2, "nothing was lost")
 	// The fake bank is not part of the cache context the payment runs in, so the module balance
 	// is checked against the real bank in the app integration tests, not here.
+}
+
+// deadValidator is a valid operator address the fake bonder refuses, as a validator removed after
+// the bond was queued is refused by the real one.
+func deadValidator() string { return sdk.ValAddress([]byte("dead________________")).String() }
+
+var carol = sdk.AccAddress([]byte("carol_______________"))
+
+// queueDeadHeadThenBob queues, oldest first, carol's bond to a validator that refuses it (40 net)
+// and bob's honest bond (40 net), after a top-up spent the cap.
+func queueDeadHeadThenBob(t *testing.T, e *testutil.Env) {
+	t.Helper()
+	e.Bonder.Refuse = map[string]error{deadValidator(): testutil.ErrBoom}
+	_, err := unshield(t, e, topup(2, 51, alice))
+	require.NoError(t, err)
+	dead := bond(3, 41, carol)
+	dead.Validator = deadValidator()
+	resp, err := unshield(t, e, dead)
+	require.NoError(t, err)
+	require.True(t, resp.Queued)
+	resp, err = unshield(t, e, bond(4, 41, bob))
+	require.NoError(t, err)
+	require.True(t, resp.Queued)
+}
+
+func eventCount(e *testutil.Env, typ string) int {
+	var n int
+	for _, ev := range e.Ctx.EventManager().Events() {
+		if ev.Type == typ {
+			n++
+		}
+	}
+	return n
+}
+
+func TestQueue_aRefusedRequestAtTheHeadDoesNotStarveTheOnesBehindIt(t *testing.T) {
+	e := capEnv(t, func(gs *types.GenesisState) { gs.Params.QueuePerAddressCap = math.NewInt(1000) })
+	queueDeadHeadThenBob(t, e)
+	nextWindow(e)
+
+	// The cap is 50. The head asked 40 and its payment is refused; that must not use up the
+	// window, so bob behind it is paid his 40 in the first window.
+	require.Equal(t, "40", delegated(e, bob))
+	rest := queued(t, e)
+	require.Len(t, rest, 1)
+	require.Equal(t, carol.String(), rest[0].Owner)
+	require.Equal(t, "40", rest[0].Amount.String())
+	require.EqualValues(t, 1, rest[0].Refusals)
+	requireInvariants(t, e)
+}
+
+func TestQueue_aRequestRefusedWindowAfterWindowIsRefundedToItsSigner(t *testing.T) {
+	e := capEnv(t, func(gs *types.GenesisState) { gs.Params.QueuePerAddressCap = math.NewInt(1000) })
+	queueDeadHeadThenBob(t, e)
+	for i := 1; i < keeper.MaxQueueRefusals; i++ {
+		nextWindow(e)
+		require.Len(t, queued(t, e), 1, "window %d: still queued after fewer than the limit", i)
+		require.Equal(t, "0", e.Bank.Of(carol.String()).String(), "nothing is refunded early")
+	}
+	e.Advance(pool.Window + time.Minute)
+	require.NoError(t, e.Keeper.EndBlock(e.Ctx))
+
+	require.Empty(t, queued(t, e), "the refused request leaves the queue")
+	require.Equal(t, "40", e.Bank.Of(carol.String()).String(), "and its coins go back to its signer's bank balance")
+	require.Equal(t, 1, eventCount(e, keeper.EventTypeQueueRefunded))
+	requireInvariants(t, e)
+}
+
+func TestQueue_aPaymentThatGoesOutResetsTheCountOfRefusals(t *testing.T) {
+	e := capEnv(t, func(gs *types.GenesisState) { gs.Params.QueuePerAddressCap = math.NewInt(20) })
+	queueDeadHeadThenBob(t, e)
+	for i := 0; i < keeper.MaxQueueRefusals-1; i++ {
+		nextWindow(e)
+	}
+	e.Bonder.Refuse = nil // the validator accepts again
+	nextWindow(e)
+	require.Equal(t, "20", e.Bonder.Delegated[carol.String()+"/"+deadValidator()].String(), "paid a part at the cap")
+	for _, q := range queued(t, e) {
+		if q.Owner == carol.String() {
+			require.EqualValues(t, 0, q.Refusals)
+		}
+	}
+	require.Equal(t, "0", e.Bank.Of(carol.String()).String(), "not refunded")
 }
 
 func TestUnshield_nodeBondTargetGoesToTheSignersOwnNode(t *testing.T) {

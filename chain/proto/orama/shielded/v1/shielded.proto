@@ -112,6 +112,9 @@ message QueuedUnshield {
     (gogoproto.nullable) = false
   ];
   int64 height = 10;
+  // refusals counts the windows in a row whose payment the target refused. The queue refunds the
+  // request to its owner once it reaches the limit.
+  uint32 refusals = 11;
 }
 
 // Anchor is a note-commitment tree root and the last block it was the root at.

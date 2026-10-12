@@ -23,8 +23,13 @@ type Grant struct {
 // agree to a part payment: a part that accept refuses (a delegation that would be dust) is not
 // issued and the capacity stays for the next request. A grant that pays the whole request is always
 // issued, so the target's own refusal is reported when it is paid.
-func Serve(capacity, perAddress math.Int, reqs []Request, accept func(i int, grant math.Int) bool) []Grant {
-	grants := make([]Grant, len(reqs))
+//
+// pay makes the payment and reports whether it went out (nil means every payment goes out). The
+// capacity and the address's cap are used up only by a payment that went out: a request whose
+// payment is refused is skipped, its grant is zero, its index is returned in refused, and the
+// requests behind it are served from the capacity it did not take.
+func Serve(capacity, perAddress math.Int, reqs []Request, accept func(i int, grant math.Int) bool, pay func(i int, grant math.Int) bool) (grants []Grant, refused []int) {
+	grants = make([]Grant, len(reqs))
 	left := capacity
 	paid := map[string]math.Int{}
 	for i, r := range reqs {
@@ -43,9 +48,13 @@ func Serve(capacity, perAddress math.Int, reqs []Request, accept func(i int, gra
 		if grant.LT(r.Amount) && accept != nil && !accept(i, grant) {
 			continue
 		}
+		if pay != nil && !pay(i, grant) {
+			refused = append(refused, i)
+			continue
+		}
 		grants[i].Amount = grant
 		left = left.Sub(grant)
 		paid[r.Address] = used.Add(grant)
 	}
-	return grants
+	return grants, refused
 }

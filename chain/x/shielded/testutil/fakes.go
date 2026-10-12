@@ -223,6 +223,8 @@ type Bonder struct {
 	Bank      *Bank
 	Delegated map[string]math.Int
 	Fail      error
+	// Refuse makes Delegate fail for the validators it names, as a bond to a removed validator does.
+	Refuse map[string]error
 	// Minimum is the smallest delegation CheckMinimum accepts.
 	Minimum math.Int
 }
@@ -249,6 +251,12 @@ func (b *Bonder) CheckMinimum(_ sdk.Context, delegator sdk.AccAddress, validator
 func (b *Bonder) Delegate(ctx sdk.Context, delegator sdk.AccAddress, validator string, amount math.Int) error {
 	if b.Fail != nil {
 		return b.Fail
+	}
+	if err := b.Refuse[validator]; err != nil {
+		// The payment runs in a cache context the real bank rolls back with the refusal; this
+		// fake bank cannot, so it takes back the coins the payment already moved.
+		_ = b.Bank.move(delegator.String(), "shielded", sdk.NewCoins(sdk.NewCoin(params.BaseDenom, amount)))
+		return err
 	}
 	if err := b.CheckMinimum(ctx, delegator, validator, amount); err != nil {
 		return err
