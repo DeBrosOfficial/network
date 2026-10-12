@@ -19,6 +19,7 @@ GREMLINS_VERSION := v0.6.0
 SEMGREP_VERSION := 1.180.0
 CARGO_AUDIT_VERSION := 0.22.2
 CARGO_DENY_VERSION := 0.20.2
+CARGO_FUZZ_VERSION := 0.13.2
 # The toolchain native/build.sh builds with. Miri and the sanitizers need a nightly one, pinned to
 # a dated build (an undated `nightly` turns the nightly job red on a day nothing in the repo
 # changed). 2026-10-01 is in rustup's dist index with miri and rust-src available for
@@ -77,19 +78,41 @@ MUTATION_EFFICACY ?=
 MUTATION_MIN := x/emission/types=80 x/power/types=65 x/storage/keeper=0
 MUTATION_DEFAULT_MIN := 90
 
+# --- fuzzing (SA2, bugboard 3388) -------------------------------------------------------------
+# Go native fuzz targets (func FuzzX(f *testing.F)) in chain/ and core/, and four cargo-fuzz targets
+# over the Orchard verifier crates. website/src/docs/contributor/testing.mdx ("Fuzzing") has the
+# budgets and what each target checks. The Go targets run with nowasm (no libwasmvm to build) and
+# the Orchard library and verifier binary linked, so the differential and cgo targets run.
+FUZZ_TAGS := nowasm orchardffi
+# Time per target. fuzz-short runs on every pull request: 10 s is enough to replay the whole seed
+# corpus and mutate it for a few thousand executions; fuzz-long is the nightly run.
+FUZZ_TIME_SHORT ?= 10s
+FUZZ_TIME_LONG ?= 5m
+# Targets run at once and fuzzing workers per target. Four-core runners: two targets of two workers.
+FUZZ_JOBS ?= 2
+FUZZ_PARALLEL ?= 2
+# Where the inputs that made a target fail are copied (the workflows upload this directory).
+FUZZ_ARTIFACTS ?= $(CURDIR)/$(BUILD_DIR)/fuzz-crashers
+# Seconds per cargo-fuzz target in the nightly run.
+FUZZ_CARGO_SECONDS ?= 600
+# crate:target pairs. The corpus directory of a crate's fuzz/ is ignored by git; fuzz/seeds/<target>
+# is the committed seed set, read-only to the fuzzer.
+FUZZ_CARGO_TARGETS := $(ORCHARD_CRATE):ffi_verify $(ORCHARD_CRATE):tree_append \
+	$(VERIFIER_CRATE):stdin_frames $(VERIFIER_CRATE):check_framing
+
 .PHONY: rust-ignores ci ci-nightly test-race wasmvm-lib native-vendor staticcheck gosec govulncheck vet-all \
 	nilaway semgrep semgrep-test mutation rust-lint rust-audit rust-deny rust-miri rust-asan \
-	rust-tools tools-go
+	rust-tools tools-go fuzz-list fuzz-corpus fuzz-short fuzz-long fuzz-long-chain fuzz-long-core rust-fuzz rust-fuzz-tools
 
 ## print-<VAR>: print a variable of this Makefile (the workflows read the pinned versions from here).
 print-%:
 	@echo '$($*)'
 
 ## ci: everything the pull-request workflow runs, in one command (slow: build, race tests, scanners).
-ci: vet-all test-race staticcheck gosec govulncheck semgrep-test semgrep rust-lint rust-audit rust-deny rust-ignores
+ci: vet-all test-race fuzz-short staticcheck gosec govulncheck semgrep-test semgrep rust-lint rust-audit rust-deny rust-ignores
 
 ## ci-nightly: the heavy checks the nightly workflow runs.
-ci-nightly: nilaway mutation rust-miri rust-asan
+ci-nightly: nilaway mutation rust-miri rust-asan fuzz-long rust-fuzz
 
 ## wasmvm-lib: build libwasmvm from the source in the Go module cache (the version go.mod pins,
 ## checked against go.sum) into build/wasmvm, so the cgo tests that run CosmWasm do not need a
@@ -246,3 +269,74 @@ rust-miri:
 ## AddressSanitizer (nightly job). -Zbuild-std rebuilds std with the sanitizer.
 rust-asan:
 	cd $(ORCHARD_CRATE) && RUSTFLAGS="-Zsanitizer=address" cargo +$(RUST_NIGHTLY) test --locked -Zbuild-std --target $$(rustc +$(RUST_NIGHTLY) -vV | sed -n 's/^host: //p') --tests
+
+## fuzz-list: the Go fuzz targets of chain and core, one per line.
+fuzz-list:
+	go run ./scripts/fuzzrun -list -tags "$(FUZZ_TAGS)"
+	go run ./scripts/fuzzrun -list -module ../core
+
+## fuzz-short: every Go fuzz target of chain and core for FUZZ_TIME_SHORT, a few at a time (the pull
+## request job). A target that fails leaves its input in the package's testdata/fuzz/<Target>/, where
+## a plain `go test` replays it, and a copy under FUZZ_ARTIFACTS.
+fuzz-short: orchard-lib orchard-verifier
+	@rc=0; \
+	CGO_ENABLED=1 go run ./scripts/fuzzrun -tags "$(FUZZ_TAGS)" -fuzztime $(FUZZ_TIME_SHORT) -jobs $(FUZZ_JOBS) -parallel $(FUZZ_PARALLEL) -artifacts $(FUZZ_ARTIFACTS)/chain || rc=1; \
+	go run ./scripts/fuzzrun -module ../core -fuzztime $(FUZZ_TIME_SHORT) -jobs $(FUZZ_JOBS) -parallel $(FUZZ_PARALLEL) -artifacts $(FUZZ_ARTIFACTS)/core || rc=1; \
+	exit $$rc
+
+## fuzz-long-chain and fuzz-long-core: the Go targets of one module for FUZZ_TIME_LONG each (the
+## nightly jobs, one per module so a slow one does not hide the other). FUZZ_ONLY=<regexp> picks
+## targets by "package/FuzzName". fuzz-long is both.
+FUZZ_ONLY ?=
+fuzz-long: fuzz-long-chain fuzz-long-core
+
+fuzz-long-chain: orchard-lib orchard-verifier
+	CGO_ENABLED=1 go run ./scripts/fuzzrun -tags "$(FUZZ_TAGS)" -fuzztime $(FUZZ_TIME_LONG) -jobs $(FUZZ_JOBS) -parallel $(FUZZ_PARALLEL) -only '$(FUZZ_ONLY)' -artifacts $(FUZZ_ARTIFACTS)/chain
+
+fuzz-long-core:
+	go run ./scripts/fuzzrun -module ../core -fuzztime $(FUZZ_TIME_LONG) -jobs $(FUZZ_JOBS) -parallel $(FUZZ_PARALLEL) -only '$(FUZZ_ONLY)' -artifacts $(FUZZ_ARTIFACTS)/core
+
+## fuzz-corpus: rebuild the committed seed corpora that come from real data in the repository
+## (the Ironwood vectors, the signed transactions of client/tx, the network manifests, a Tor vote)
+## with scripts/fuzzcorpus. The other targets seed themselves in code (f.Add).
+fuzz-corpus:
+	rm -rf x/shielded/bundle/testdata/fuzz/FuzzBundleParse x/shielded/verify/orchard/testdata/fuzz/FuzzOrchardSighash \
+		x/shielded/verify/orchardproc/testdata/fuzz/FuzzOrchardVerifyDifferential app/testdata/fuzz/FuzzAnteTxDecode \
+		app/testdata/fuzz/FuzzCheckTx indexer/testdata/fuzz/FuzzIndexerReadEnvelope client/tx/testdata/fuzz/FuzzClientTxDecode \
+		reporter/testdata/fuzz/FuzzReporterParseVote piece/testdata/fuzz/FuzzPieceRoundTrip \
+		../core/pkg/netregistry/testdata/fuzz/FuzzNetregistryManifest ../core/pkg/tornet/testdata/fuzz/FuzzTornetNetwork
+	go run ./scripts/fuzzcorpus -dir x/shielded/bundle/testdata/fuzz/FuzzBundleParse -prefix vector \
+		-file x/shielded/orchardffi/testdata/ironwood-1-action.bundle -file x/shielded/orchardffi/testdata/ironwood-transfer.bundle \
+		-file x/shielded/orchardffi/testdata/ironwood-unshield.bundle
+	go run ./scripts/fuzzcorpus -dir x/shielded/verify/orchard/testdata/fuzz/FuzzOrchardSighash -prefix vector \
+		-pre string:orama-localnet-1 -pre bytes: -post uint16:0 -post uint8:1 \
+		-file x/shielded/orchardffi/testdata/ironwood-1-action.bundle -file x/shielded/orchardffi/testdata/ironwood-unshield.bundle
+	go run ./scripts/fuzzcorpus -dir x/shielded/verify/orchardproc/testdata/fuzz/FuzzOrchardVerifyDifferential -prefix vector \
+		-post bytes: -file x/shielded/orchardffi/testdata/ironwood-1-action.bundle -file x/shielded/orchardffi/testdata/ironwood-unshield.bundle
+	go run ./scripts/fuzzcorpus -dir app/testdata/fuzz/FuzzAnteTxDecode -prefix tx -hexjson client/tx/testdata/tx_vectors.json#tx_hex
+	go run ./scripts/fuzzcorpus -dir app/testdata/fuzz/FuzzCheckTx -prefix tx -hexjson client/tx/testdata/tx_vectors.json#tx_hex
+	go run ./scripts/fuzzcorpus -dir indexer/testdata/fuzz/FuzzIndexerReadEnvelope -prefix tx -hexjson client/tx/testdata/tx_vectors.json#tx_hex
+	go run ./scripts/fuzzcorpus -dir client/tx/testdata/fuzz/FuzzClientTxDecode -prefix tx -post string:orama-vectors-1 -post uint64:7 \
+		-hexjson client/tx/testdata/tx_vectors.json#tx_hex
+	go run ./scripts/fuzzcorpus -dir reporter/testdata/fuzz/FuzzReporterParseVote -prefix vote -file reporter/testdata/vote-sample.vote
+	go run ./scripts/fuzzcorpus -dir piece/testdata/fuzz/FuzzPieceRoundTrip -prefix vector -post uint64:1 -post uint16:3 \
+		-hexjson piece/testdata/vectors.json#data_hex
+	go run ./scripts/fuzzcorpus -dir ../core/pkg/netregistry/testdata/fuzz/FuzzNetregistryManifest -prefix stagenet -file ../networks/stagenet/manifest.json
+	go run ./scripts/fuzzcorpus -dir ../core/pkg/tornet/testdata/fuzz/FuzzTornetNetwork -prefix stagenet -file ../networks/stagenet/tor-network.json
+
+## rust-fuzz-tools: install the pinned cargo-fuzz and the dated nightly Rust it runs on.
+rust-fuzz-tools:
+	@cargo fuzz --version 2>/dev/null | grep -q "$(CARGO_FUZZ_VERSION)" || cargo install --locked --version $(CARGO_FUZZ_VERSION) cargo-fuzz
+	rustup toolchain install $(RUST_NIGHTLY) --profile minimal
+
+## rust-fuzz: the four cargo-fuzz targets of the Orchard verifier crates, FUZZ_CARGO_SECONDS each
+## (nightly): the C ABI verify entry, the tree append entry, the verifier process's stdin frame
+## parser, and the framing check of the out-of-process verifier against the library's. The fuzz
+## crates have their own Cargo.lock (seeded from the crate's pinned one) and are never built into oramad.
+rust-fuzz: rust-fuzz-tools
+	@rc=0; for pair in $(FUZZ_CARGO_TARGETS); do \
+		crate=$${pair%%:*}; target=$${pair##*:}; \
+		echo "cargo fuzz $$crate $$target ($(FUZZ_CARGO_SECONDS)s)"; \
+		mkdir -p $$crate/fuzz/corpus/$$target; \
+		(cd $$crate && cargo +$(RUST_NIGHTLY) fuzz run $$target fuzz/corpus/$$target fuzz/seeds/$$target -- -max_total_time=$(FUZZ_CARGO_SECONDS) -rss_limit_mb=4096) || rc=1; \
+	done; exit $$rc
