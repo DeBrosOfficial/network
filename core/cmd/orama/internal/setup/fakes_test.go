@@ -240,7 +240,7 @@ func fakeRelayFingerprint(ip string) []byte {
 
 // fakeRelayIdentity is what `orama global tor relay-identity` prints on the fake machine at ip.
 func fakeRelayIdentity(ip string, in IdentityRequest) ([]byte, error) {
-	identity, err := globalbind.NewRelayIdentity(fakeRelaySecret(ip), fakeRelayRSA(ip), in.ChainID, in.Operator, in.RelayNodeID)
+	identity, err := globalbind.NewRelayIdentity(fakeRelaySecret(ip), fakeRelayRSA(ip), in.ChainID, in.Operator, in.RelayNodeID, in.RelayExit)
 	if err != nil {
 		return nil, err
 	}

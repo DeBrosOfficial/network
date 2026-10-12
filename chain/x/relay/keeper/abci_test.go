@@ -37,13 +37,20 @@ func (f *testFixture) reportsOf(t *testing.T, epoch uint64) []types.CompleteRepo
 
 func registerMsg(t *testing.T, rk relayKey) *types.MsgRegisterRelay {
 	t.Helper()
+	return registerMsgExit(t, rk, false)
+}
+
+// registerMsgExit is a MsgRegisterRelay whose two proofs cover the exit declaration.
+func registerMsgExit(t *testing.T, rk relayKey, exit bool) *types.MsgRegisterRelay {
+	t.Helper()
 	return &types.MsgRegisterRelay{
+		Exit:             exit,
 		Operator:         rk.operator.String(),
 		NodeId:           rk.nodeID,
 		RsaFingerprint:   rk.fp,
-		Ed25519Signature: ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, rk.fp)),
+		Ed25519Signature: ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, rk.fp, exit)),
 		RsaPublicKey:     rk.rsa.der,
-		RsaSignature:     rk.rsa.proof(t, rk.nodeID, rk.pub),
+		RsaSignature:     rk.rsa.proofExit(t, rk.nodeID, rk.pub, exit),
 	}
 }
 

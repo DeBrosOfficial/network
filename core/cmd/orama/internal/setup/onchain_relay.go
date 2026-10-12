@@ -13,7 +13,8 @@ import (
 
 // relayIdentityOf is the identity of the node's Tor relay that the node signed for this registration,
 // checked here against exactly what the chain verifies: the binding of the relay's ed25519 key as the
-// operator's service key "relay", and the cross-certificate of its RSA fingerprint for this node. nil
+// operator's service key "relay", and the cross-certificate of its RSA fingerprint for this node and its
+// exit declaration, which the RSA proof covers too. nil
 // for a node that carries no relay. A relay whose identity does not verify would be refused by the
 // chain after the registration and the bond were paid for, so it stops the run before any transaction.
 func (r *runner) relayIdentityOf(n *nodeRun, ident NodeIdentity) (*globalbind.RelayIdentity, error) {
@@ -23,7 +24,7 @@ func (r *runner) relayIdentityOf(n *nodeRun, ident NodeIdentity) (*globalbind.Re
 	if len(ident.RelayIdentity) == 0 {
 		return nil, fmt.Errorf("node %q returned no identity for its Tor relay: is the relay installed and started? `orama global tor info` on the node shows its fingerprint once it has run", n.plan.Name)
 	}
-	id, err := globalbind.ParseRelayIdentity(ident.RelayIdentity, r.net.Manifest.ChainID, r.oper, n.plan.Name)
+	id, err := globalbind.ParseRelayIdentity(ident.RelayIdentity, r.net.Manifest.ChainID, r.oper, n.plan.Name, slices.Contains(n.plan.Roles, clusterreg.RoleExit))
 	if err != nil {
 		return nil, fmt.Errorf("the Tor relay identity that node %q signed for operator %s on chain %s: %w", n.plan.Name, r.oper, r.net.Manifest.ChainID, err)
 	}

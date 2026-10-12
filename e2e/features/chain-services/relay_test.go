@@ -22,8 +22,8 @@ import (
 const (
 	rsaFingerprintLen = 20
 	rsaBits           = 1024
-	crossCertDomain   = "orama/relay/rsa-cross-cert/v1"
-	rsaProofDomain    = "orama/relay/rsa-proof/v1"
+	crossCertDomain   = "orama/relay/rsa-cross-cert/v2"
+	rsaProofDomain    = "orama/relay/rsa-proof/v2"
 	inputsRootLen     = 32
 )
 
@@ -46,17 +46,26 @@ func newRSAIdentity(t *testing.T) rsaIdentity {
 	return rsaIdentity{key: key, der: der, fp: sum[:]}
 }
 
-// crossCert is the relay's ed25519 signature over domain||0||node id||0||fp.
-func crossCert(priv ed25519.PrivateKey, nodeID string, fp []byte) []byte {
+// exitByte is the exit declaration both signed messages end with.
+func exitByte(exit bool) byte {
+	if exit {
+		return 1
+	}
+	return 0
+}
+
+// crossCert is the relay's ed25519 signature over domain||0||node id||0||fp||0||exit.
+func crossCert(priv ed25519.PrivateKey, nodeID string, fp []byte, exit bool) []byte {
 	msg := append(append(append(append([]byte(crossCertDomain), 0), nodeID...), 0), fp...)
-	return ed25519.Sign(priv, msg)
+	return ed25519.Sign(priv, append(msg, 0, exitByte(exit)))
 }
 
 // proof is the RSA identity's signature (PKCS#1 v1.5 over SHA-256) over domain||0||node id||0||the
-// relay's ed25519 key: proof that whoever registers the fingerprint holds its key.
-func (r rsaIdentity) proof(t *testing.T, nodeID string, ed25519Pub ed25519.PublicKey) []byte {
+// relay's ed25519 key||0||exit: proof that whoever registers the fingerprint holds its key.
+func (r rsaIdentity) proof(t *testing.T, nodeID string, ed25519Pub ed25519.PublicKey, exit bool) []byte {
 	t.Helper()
 	msg := append(append(append(append([]byte(rsaProofDomain), 0), nodeID...), 0), ed25519Pub...)
+	msg = append(msg, 0, exitByte(exit))
 	sum := sha256.Sum256(msg)
 	sig, err := rsa.SignPKCS1v15(rand.Reader, r.key, crypto.SHA256, sum[:])
 	if err != nil {
@@ -78,10 +87,16 @@ type relayFields struct {
 // validRelay is a registration of node nodeID for the RSA identity id, signed the way the chain checks it.
 func validRelay(t *testing.T, operator, nodeID string, id rsaIdentity, priv ed25519.PrivateKey) relayFields {
 	t.Helper()
+	return validRelayExit(t, operator, nodeID, id, priv, false)
+}
+
+// validRelayExit is validRelay for a relay that declares exit as given; both signatures cover it.
+func validRelayExit(t *testing.T, operator, nodeID string, id rsaIdentity, priv ed25519.PrivateKey, exit bool) relayFields {
+	t.Helper()
 	return relayFields{
-		operator: operator, nodeID: nodeID, fingerprint: id.fp,
-		ed25519Sig: crossCert(priv, nodeID, id.fp), rsaPublicKey: id.der,
-		rsaSig: id.proof(t, nodeID, priv.Public().(ed25519.PublicKey)),
+		operator: operator, nodeID: nodeID, fingerprint: id.fp, exit: exit,
+		ed25519Sig: crossCert(priv, nodeID, id.fp, exit), rsaPublicKey: id.der,
+		rsaSig: id.proof(t, nodeID, priv.Public().(ed25519.PublicKey), exit),
 	}
 }
 
@@ -156,19 +171,21 @@ func TestRelayRegister_refusals(t *testing.T) {
 		msg  relayFields
 		want string
 	}{
-		"signed by another key":    {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(stranger, id, rsaID.fp) }), "does not match the ed25519 cross-signature"},
-		"over another fingerprint": {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(priv, id, newRSAIdentity(t).fp) }), "does not match the ed25519 cross-signature"},
-		"over another node id":     {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(priv, id+"x", rsaID.fp) }), "does not match the ed25519 cross-signature"},
-		"19-byte fingerprint":      {op, edit(good, func(f *relayFields) { f.fingerprint = rsaID.fp[:19] }), "rsa fingerprint must be 20 bytes"},
-		"not the node's operator":  {other, validRelay(t, other.Address, id, rsaID, priv), "operator does not own node"},
-		"unknown node":             {op, validRelay(t, op.Address, "e2e-no-such-node", rsaID, priv), "e2e-no-such-node"},
-		"empty node id":            {op, validRelay(t, op.Address, "", rsaID, priv), "node id is empty"},
+		"signed by another key":                         {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(stranger, id, rsaID.fp, false) }), "does not match the ed25519 cross-signature"},
+		"over another fingerprint":                      {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(priv, id, newRSAIdentity(t).fp, false) }), "does not match the ed25519 cross-signature"},
+		"over another node id":                          {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(priv, id+"x", rsaID.fp, false) }), "does not match the ed25519 cross-signature"},
+		"19-byte fingerprint":                           {op, edit(good, func(f *relayFields) { f.fingerprint = rsaID.fp[:19] }), "rsa fingerprint must be 20 bytes"},
+		"a non-exit relay's proofs replayed as an exit": {op, edit(good, func(f *relayFields) { f.exit = true }), "does not match the ed25519 cross-signature"},
+		"an exit cross-cert with a non-exit rsa proof":  {op, edit(validRelayExit(t, op.Address, id, rsaID, priv, true), func(f *relayFields) { f.rsaSig = good.rsaSig }), "rsa identity does not prove the fingerprint"},
+		"not the node's operator":                       {other, validRelay(t, other.Address, id, rsaID, priv), "operator does not own node"},
+		"unknown node":                                  {op, validRelay(t, op.Address, "e2e-no-such-node", rsaID, priv), "e2e-no-such-node"},
+		"empty node id":                                 {op, validRelay(t, op.Address, "", rsaID, priv), "node id is empty"},
 		"another key's fingerprint, the squatter's own key": {op, edit(good, func(f *relayFields) {
 			f.fingerprint = strangerRSA.fp
-			f.ed25519Sig = crossCert(priv, id, strangerRSA.fp)
+			f.ed25519Sig = crossCert(priv, id, strangerRSA.fp, false)
 		}), "rsa identity does not prove the fingerprint"},
-		"the right key, another key's signature": {op, edit(good, func(f *relayFields) { f.rsaSig = strangerRSA.proof(t, id, priv.Public().(ed25519.PublicKey)) }), "rsa identity does not prove the fingerprint"},
-		"a proof made for another node":          {op, edit(good, func(f *relayFields) { f.rsaSig = rsaID.proof(t, id+"x", priv.Public().(ed25519.PublicKey)) }), "rsa identity does not prove the fingerprint"},
+		"the right key, another key's signature": {op, edit(good, func(f *relayFields) { f.rsaSig = strangerRSA.proof(t, id, priv.Public().(ed25519.PublicKey), false) }), "rsa identity does not prove the fingerprint"},
+		"a proof made for another node":          {op, edit(good, func(f *relayFields) { f.rsaSig = rsaID.proof(t, id+"x", priv.Public().(ed25519.PublicKey), false) }), "rsa identity does not prove the fingerprint"},
 		"no rsa key":                             {op, edit(good, func(f *relayFields) { f.rsaPublicKey, f.rsaSig = nil, nil }), "rsa identity does not prove the fingerprint"},
 	}
 	for name, tc := range cases {
@@ -238,12 +255,13 @@ func TestRelayUpdate_rotatesAFingerprint(t *testing.T) {
 		msg  relayFields
 		want string
 	}{
-		"a node with no relay":            {op, validRelay(t, op.Address, bareID, rotated, bareBindings[0].Priv), "no relay is registered on the node"},
-		"a fingerprint another relay has": {op, validRelay(t, op.Address, id, foreign, priv), "fingerprint already registered"},
-		"signed by another key":           {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(stranger, id, rotated.fp) }), "does not match the ed25519 cross-signature"},
-		"not the node's operator":         {other, validRelay(t, other.Address, id, rotated, priv), "operator does not own node"},
-		"19-byte fingerprint":             {op, edit(good, func(f *relayFields) { f.fingerprint = rotated.fp[:19] }), "rsa fingerprint must be 20 bytes"},
-		"an rsa key that cannot prove it": {op, edit(good, func(f *relayFields) { f.rsaSig = first.proof(t, id, priv.Public().(ed25519.PublicKey)) }), "rsa identity does not prove the fingerprint"},
+		"a node with no relay":                     {op, validRelay(t, op.Address, bareID, rotated, bareBindings[0].Priv), "no relay is registered on the node"},
+		"a fingerprint another relay has":          {op, validRelay(t, op.Address, id, foreign, priv), "fingerprint already registered"},
+		"signed by another key":                    {op, edit(good, func(f *relayFields) { f.ed25519Sig = crossCert(stranger, id, rotated.fp, false) }), "does not match the ed25519 cross-signature"},
+		"not the node's operator":                  {other, validRelay(t, other.Address, id, rotated, priv), "operator does not own node"},
+		"19-byte fingerprint":                      {op, edit(good, func(f *relayFields) { f.fingerprint = rotated.fp[:19] }), "rsa fingerprint must be 20 bytes"},
+		"proofs made for no exit, sent as an exit": {op, edit(good, func(f *relayFields) { f.exit = true }), "does not match the ed25519 cross-signature"},
+		"an rsa key that cannot prove it":          {op, edit(good, func(f *relayFields) { f.rsaSig = first.proof(t, id, priv.Public().(ed25519.PublicKey), false) }), "rsa identity does not prove the fingerprint"},
 	}
 	for name, tc := range refusals {
 		chain.RequireRefused(t, name, c.Submit(t, tc.k, chain.TxOptions{}, tc.msg.update()), tc.want)
@@ -252,8 +270,7 @@ func TestRelayUpdate_rotatesAFingerprint(t *testing.T) {
 		t.Fatalf("a refused update removed the relay: %s", out.Stderr)
 	}
 
-	rotation := validRelay(t, op.Address, id, rotated, priv)
-	rotation.exit = true
+	rotation := validRelayExit(t, op.Address, id, rotated, priv, true)
 	chain.RequireOK(t, "rotate the fingerprint", c.Submit(t, op, chain.TxOptions{}, rotation.update()))
 	if out := c.QueryFails(t, op.Node, "relay", "relay", hex.EncodeToString(first.fp)); !chain.NotFound(out) {
 		t.Errorf("the replaced fingerprint is still registered: %s", out)

@@ -132,10 +132,10 @@ func (k Keeper) checkRelayClaim(ctx sdk.Context, what, operatorAddr, nodeID stri
 	if !boundOperator.Equals(operator) {
 		return relayClaim{}, fmt.Errorf("%s: operator does not own node %s", what, nodeID)
 	}
-	if !types.VerifyCrossCert(pub, nodeID, rsaFingerprint, proof.ed25519Signature) {
+	if !types.VerifyCrossCert(pub, nodeID, rsaFingerprint, exit, proof.ed25519Signature) {
 		return relayClaim{}, fmt.Errorf("%s: %w", what, types.ErrCrossCertMismatch)
 	}
-	if err := types.VerifyRSAProof(rsaFingerprint, proof.rsaPublicKey, pub, nodeID, proof.rsaSignature); err != nil {
+	if err := types.VerifyRSAProof(rsaFingerprint, proof.rsaPublicKey, pub, nodeID, exit, proof.rsaSignature); err != nil {
 		return relayClaim{}, fmt.Errorf("%s: %w", what, err)
 	}
 	prefix16, err := types.RelayPrefix16(network)

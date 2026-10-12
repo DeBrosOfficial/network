@@ -158,7 +158,7 @@ func TestRSAFingerprintMustMatchEd25519CrossSignature(t *testing.T) {
 		Operator:         operator.String(),
 		NodeId:           rk.nodeID,
 		RsaFingerprint:   rk.fp,
-		Ed25519Signature: ed25519.Sign(otherPriv, types.CrossCertMessage(rk.nodeID, rk.fp)),
+		Ed25519Signature: ed25519.Sign(otherPriv, types.CrossCertMessage(rk.nodeID, rk.fp, false)),
 	})
 	require.ErrorIs(t, err, types.ErrCrossCertMismatch)
 

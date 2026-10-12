@@ -2146,7 +2146,9 @@ Print the relay's RSA fingerprint, the binding that makes its ed25519 master ide
 operator's service key "relay", the cross-certificate that ties the fingerprint to the node, and the RSA
 identity's own proof of the fingerprint. x/relay pays the relay that a directory authority's vote names
 by that ed25519 identity and that fingerprint, so the chain needs both, signed by the relay's own keys;
-a fingerprint is public, so the RSA proof is what shows the registrant holds the key behind it.
+a fingerprint is public, so the RSA proof is what shows the registrant holds the key behind it. Both
+signatures cover whether the relay is an exit (--exit), so a relay's proofs register it only with the
+declaration they were made for.
 
 The signatures are made here with the relay's key in its DataDirectory
 (/var/lib/orama-global/tor-relay); the key is never printed or copied. 'orama setup' runs this on the
@@ -2156,6 +2158,7 @@ node and sends the registration; nothing is submitted by this command.
 | Flag | Default | Description |
 |---|---|---|
 | `--chain-id` | — | Chain id the binding is for [required] |
+| `--exit` | `false` | Sign for a relay declared an exit; both signatures cover this declaration |
 | `--home` | `/var/lib/orama-global/tor-relay` | The relay's tor DataDirectory |
 | `--node-id` | — | The chain id of the node the relay runs on [required] |
 | `--operator` | — | Operator account (orama1...) [required] |

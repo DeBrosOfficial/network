@@ -50,8 +50,9 @@ type relayIdentityDoc struct {
 
 // NewRelayIdentity signs, with tor's expanded ed25519 secret, the relay binding for operator on
 // chainID and the cross-certificate of the RSA key's fingerprint for nodeID, and proves the RSA key
-// with a signature of its own over the proof message of nodeID and the binding's key.
-func NewRelayIdentity(expanded []byte, rsaKey *rsa.PrivateKey, chainID, operator, nodeID string) (RelayIdentity, error) {
+// with a signature of its own over the proof message of nodeID, the binding's key and exit. Both
+// signatures cover exit, so they register or update the relay only with that declaration.
+func NewRelayIdentity(expanded []byte, rsaKey *rsa.PrivateKey, chainID, operator, nodeID string, exit bool) (RelayIdentity, error) {
 	if rsaKey == nil {
 		return RelayIdentity{}, fmt.Errorf("the relay has no RSA identity key")
 	}
@@ -62,11 +63,11 @@ func NewRelayIdentity(expanded []byte, rsaKey *rsa.PrivateKey, chainID, operator
 	if err != nil {
 		return RelayIdentity{}, err
 	}
-	cert, err := SignRelayCrossCert(expanded, nodeID, fingerprint)
+	cert, err := SignRelayCrossCert(expanded, nodeID, fingerprint, exit)
 	if err != nil {
 		return RelayIdentity{}, err
 	}
-	sum := sha256.Sum256(clusterreg.RelayRSAProofMessage(nodeID, binding.Pubkey))
+	sum := sha256.Sum256(clusterreg.RelayRSAProofMessage(nodeID, binding.Pubkey, exit))
 	proof, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA256, sum[:])
 	if err != nil {
 		return RelayIdentity{}, fmt.Errorf("sign the RSA proof: %w", err)
@@ -92,7 +93,7 @@ func (r RelayIdentity) MarshalJSON() ([]byte, error) {
 // and the node nodeID, before anything is signed or sent: the binding must be the relay service's
 // ed25519 key, its signature must verify, and the cross-certificate must verify under that same
 // key for this node and fingerprint. A value the chain would refuse is refused here.
-func ParseRelayIdentity(raw []byte, chainID, operator, nodeID string) (RelayIdentity, error) {
+func ParseRelayIdentity(raw []byte, chainID, operator, nodeID string, exit bool) (RelayIdentity, error) {
 	var doc relayIdentityDoc
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		return RelayIdentity{}, fmt.Errorf("the relay identity is not JSON: %w", err)
@@ -128,10 +129,10 @@ func ParseRelayIdentity(raw []byte, chainID, operator, nodeID string) (RelayIden
 	if err := Verify(binding, chainID, operator); err != nil {
 		return RelayIdentity{}, fmt.Errorf("the relay binding for operator %s on chain %s: %w", operator, chainID, err)
 	}
-	if len(cert) != clusterreg.RelaySignatureLen || !ed25519.Verify(pub, clusterreg.RelayCrossCertMessage(nodeID, fingerprint), cert) {
-		return RelayIdentity{}, fmt.Errorf("the relay cross-certificate of node %q does not verify under the relay's key", nodeID)
+	if len(cert) != clusterreg.RelaySignatureLen || !ed25519.Verify(pub, clusterreg.RelayCrossCertMessage(nodeID, fingerprint, exit), cert) {
+		return RelayIdentity{}, fmt.Errorf("the relay cross-certificate of node %q does not verify under the relay's key for exit=%v", nodeID, exit)
 	}
-	if err := verifyRSAProof(fingerprint, rsaPublic, rsaProof, nodeID, pub); err != nil {
+	if err := verifyRSAProof(fingerprint, rsaPublic, rsaProof, nodeID, pub, exit); err != nil {
 		return RelayIdentity{}, fmt.Errorf("the relay RSA proof of node %q: %w", nodeID, err)
 	}
 	return RelayIdentity{Fingerprint: fingerprint, Binding: binding, CrossCert: cert, RSAPublicKey: rsaPublic, RSASignature: rsaProof}, nil
@@ -140,7 +141,7 @@ func ParseRelayIdentity(raw []byte, chainID, operator, nodeID string) (RelayIden
 // verifyRSAProof checks what the chain checks (x/relay VerifyRSAProof): the public key is the one whose
 // SHA-1 is the fingerprint, in canonical DER, of a size Tor and the chain accept, and the signature is
 // its own over the proof message.
-func verifyRSAProof(fingerprint, publicKey, signature []byte, nodeID string, ed25519Pub []byte) error {
+func verifyRSAProof(fingerprint, publicKey, signature []byte, nodeID string, ed25519Pub []byte, exit bool) error {
 	if len(publicKey) == 0 || len(publicKey) > clusterreg.RelayRSAPublicKeyMaxLen {
 		return fmt.Errorf("the RSA public key is %d bytes, want 1 to %d", len(publicKey), clusterreg.RelayRSAPublicKeyMaxLen)
 	}
@@ -158,7 +159,7 @@ func verifyRSAProof(fingerprint, publicKey, signature []byte, nodeID string, ed2
 	if bits := pub.N.BitLen(); bits < clusterreg.RelayRSAMinBits || bits > clusterreg.RelayRSAMaxBits {
 		return fmt.Errorf("the RSA key is %d bits, want %d to %d", bits, clusterreg.RelayRSAMinBits, clusterreg.RelayRSAMaxBits)
 	}
-	sum := sha256.Sum256(clusterreg.RelayRSAProofMessage(nodeID, ed25519Pub))
+	sum := sha256.Sum256(clusterreg.RelayRSAProofMessage(nodeID, ed25519Pub, exit))
 	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, sum[:], signature); err != nil {
 		return fmt.Errorf("the signature does not verify under the RSA public key")
 	}

@@ -354,7 +354,7 @@ A relay that was not installed as an exit has `ExitRelay 0` and
 **Getting paid.** x/relay pays a relay only when it is registered on the chain by the two things a directory authority's
 vote names it by: its RSA fingerprint and its ed25519 identity. `orama setup` registers both for every node it sets up
 (see [A relay is registered with the chain](/docs/operator/setup#a-relay-is-registered-with-the-chain)). By hand, on the relay's
-node and as root, `orama global tor relay-identity --chain-id <id> --operator <orama1...> --node-id <node>` prints
+node and as root, `orama global tor relay-identity --chain-id <id> --operator <orama1...> --node-id <node> [--exit]` prints
 what the two messages need, signed with the relay's own keys, which stay in its DataDirectory:
 
 ```json
@@ -364,15 +364,15 @@ what the two messages need, signed with the relay's own keys, which stay in its 
   "key_type": "ed25519",
   "pubkey": "<hex>",
   "signature": "<hex: the binding of the key to the operator>",
-  "cross_cert": "<hex: the relay's signature over the node id and the fingerprint>",
+  "cross_cert": "<hex: the relay's signature over the node id, the fingerprint and the exit declaration>",
   "rsa_public_key": "<hex: the relay's RSA identity public key, PKCS#1 DER>",
-  "rsa_signature": "<hex: the RSA identity's proof, over the node id and the relay's ed25519 key>"
+  "rsa_signature": "<hex: the RSA identity's proof, over the node id, the relay's ed25519 key and the exit declaration>"
 }
 ```
 
 The node must hold the relay role (a node's roles are fixed when it is registered) and bind `pubkey` as its `relay` service
-key, then `MsgRegisterRelay` registers the relay with `rsa_fingerprint`, `cross_cert`, `rsa_public_key` and `rsa_signature`. The last two are why nobody can register a fingerprint they do not hold the key of: a fingerprint is public, and the chain checks that `rsa_public_key` is the key it is the SHA-1 of and that `rsa_signature` is that key's own. If the relay's keys are replaced,
-`MsgUpdateRelay` carries the new fingerprint and certificate; it also takes the new key after a `MsgUpdateNode` rebinds it, and
+key, then `MsgRegisterRelay` registers the relay with `rsa_fingerprint`, `cross_cert`, `rsa_public_key` and `rsa_signature`. Both signatures cover whether the relay is an exit (`--exit`), so the proofs of a relay that is not an exit cannot be replayed to register or update it as one: pass `--exit` exactly when the message says `exit: true`, and sign again when that changes. The last two are why nobody can register a fingerprint they do not hold the key of: a fingerprint is public, and the chain checks that `rsa_public_key` is the key it is the SHA-1 of and that `rsa_signature` is that key's own. If the relay's keys are replaced,
+`MsgUpdateRelay` carries the new fingerprint and certificate, and fresh signatures when `exit` changes; it also takes the new key after a `MsgUpdateNode` rebinds it, and
 until it is sent the relay's reports are refused. Whether the chain holds your relay, and what it was last paid, is on
 `orama status` and on the explorer's Tor page.
 

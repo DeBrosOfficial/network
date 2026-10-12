@@ -152,10 +152,10 @@ func signExpanded(expanded, pub, message []byte) ([]byte, error) {
 }
 
 // SignRelayCrossCert signs, with tor's 64-byte expanded ed25519 secret, the message that binds an RSA
-// fingerprint to a node id (clusterreg.RelayCrossCertMessage): the cross-certificate x/relay
+// fingerprint to a node id and an exit declaration (clusterreg.RelayCrossCertMessage): the cross-certificate x/relay
 // verifies against the key the node binds under the "relay" service. The signature is a normal
 // 64-byte ed25519 signature.
-func SignRelayCrossCert(expanded []byte, nodeID string, rsaFingerprint []byte) ([]byte, error) {
+func SignRelayCrossCert(expanded []byte, nodeID string, rsaFingerprint []byte, exit bool) ([]byte, error) {
 	if len(expanded) != 64 {
 		return nil, fmt.Errorf("expanded ed25519 secret is %d bytes, want 64", len(expanded))
 	}
@@ -166,5 +166,5 @@ func SignRelayCrossCert(expanded []byte, nodeID string, rsaFingerprint []byte) (
 	if err != nil {
 		return nil, err
 	}
-	return signExpanded(expanded, pub, clusterreg.RelayCrossCertMessage(nodeID, rsaFingerprint))
+	return signExpanded(expanded, pub, clusterreg.RelayCrossCertMessage(nodeID, rsaFingerprint, exit))
 }

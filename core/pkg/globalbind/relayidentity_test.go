@@ -48,7 +48,7 @@ func identityDoc(t *testing.T, id RelayIdentity) map[string]string {
 func TestRelayIdentity_roundTripsThroughTheNodesJSON(t *testing.T) {
 	expanded, pub := torSecret()
 	key := rsaIdentity(t)
-	id, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "node-a")
+	id, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "node-a", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestRelayIdentity_roundTripsThroughTheNodesJSON(t *testing.T) {
 	if want := strings.ToUpper(hex.EncodeToString(id.Fingerprint)); !strings.Contains(string(raw), want) || len(want) != 40 {
 		t.Errorf("the fingerprint is not 40 upper-case hex digits: %s", raw)
 	}
-	got, err := ParseRelayIdentity(raw, vectorChain, vectorOperator, "node-a")
+	got, err := ParseRelayIdentity(raw, vectorChain, vectorOperator, "node-a", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,15 +78,15 @@ func TestRelayIdentity_roundTripsThroughTheNodesJSON(t *testing.T) {
 func TestParseRelayIdentity_refusals(t *testing.T) {
 	expanded, _ := torSecret()
 	key, other := rsaIdentity(t), rsaIdentity(t)
-	id, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "node-a")
+	id, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "node-a", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	otherID, err := NewRelayIdentity(expanded, other, vectorChain, vectorOperator, "node-a")
+	otherID, err := NewRelayIdentity(expanded, other, vectorChain, vectorOperator, "node-a", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrongNode, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "someone-else")
+	wrongNode, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "someone-else", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,15 +125,15 @@ func TestParseRelayIdentity_refusals(t *testing.T) {
 			}
 			c.edit(d)
 			edited, _ := json.Marshal(d)
-			if _, err := ParseRelayIdentity(edited, c.chain, c.who, c.node); err == nil {
+			if _, err := ParseRelayIdentity(edited, c.chain, c.who, c.node, false); err == nil {
 				t.Fatal("the identity was accepted")
 			}
 		})
 	}
-	if _, err := ParseRelayIdentity([]byte("not json"), vectorChain, vectorOperator, "node-a"); err == nil {
+	if _, err := ParseRelayIdentity([]byte("not json"), vectorChain, vectorOperator, "node-a", false); err == nil {
 		t.Error("text was accepted")
 	}
-	if _, err := NewRelayIdentity(expanded, nil, vectorChain, vectorOperator, "node-a"); err == nil {
+	if _, err := NewRelayIdentity(expanded, nil, vectorChain, vectorOperator, "node-a", false); err == nil {
 		t.Error("a relay with no RSA key was signed for")
 	}
 }
@@ -144,9 +144,55 @@ func TestVerifyRSAProof_aKeyOfTheWrongSizeIsRefused(t *testing.T) {
 		n.Add(n, big.NewInt(1))
 		der := x509.MarshalPKCS1PublicKey(&rsa.PublicKey{N: n, E: 65537})
 		sum := sha1.Sum(der) // #nosec G401
-		err := verifyRSAProof(sum[:], der, make([]byte, bits/8), "node-a", make([]byte, 32))
+		err := verifyRSAProof(sum[:], der, make([]byte, bits/8), "node-a", make([]byte, 32), false)
 		if err == nil || !strings.Contains(err.Error(), "bits") {
 			t.Errorf("%s: err = %v", name, err)
 		}
+	}
+}
+
+// Both signatures cover the exit declaration: an identity signed for a non-exit relay is refused as an
+// exit and the reverse, and so is one whose cross-certificate or RSA proof alone comes from the other.
+func TestParseRelayIdentity_exitIsBoundIntoBothSignatures(t *testing.T) {
+	expanded, _ := torSecret()
+	key := rsaIdentity(t)
+	plain, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "node-a", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exit, err := NewRelayIdentity(expanded, key, vectorChain, vectorOperator, "node-a", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainDoc, exitDoc := identityDoc(t, plain), identityDoc(t, exit)
+	parse := func(d map[string]string, asExit bool) error {
+		raw, _ := json.Marshal(d)
+		_, err := ParseRelayIdentity(raw, vectorChain, vectorOperator, "node-a", asExit)
+		return err
+	}
+	if err := parse(plainDoc, false); err != nil {
+		t.Errorf("a non-exit identity was refused as a non-exit: %v", err)
+	}
+	if err := parse(exitDoc, true); err != nil {
+		t.Errorf("an exit identity was refused as an exit: %v", err)
+	}
+	if parse(plainDoc, true) == nil {
+		t.Error("a non-exit identity was accepted as an exit")
+	}
+	if parse(exitDoc, false) == nil {
+		t.Error("an exit identity was accepted as a non-exit")
+	}
+	certOnly := map[string]string{}
+	rsaOnly := map[string]string{}
+	for k, v := range exitDoc {
+		certOnly[k], rsaOnly[k] = v, v
+	}
+	certOnly["rsa_signature"] = plainDoc["rsa_signature"]
+	rsaOnly["cross_cert"] = plainDoc["cross_cert"]
+	if parse(certOnly, true) == nil {
+		t.Error("an exit identity with a non-exit RSA proof was accepted")
+	}
+	if parse(rsaOnly, true) == nil {
+		t.Error("an exit identity with a non-exit cross-certificate was accepted")
 	}
 }

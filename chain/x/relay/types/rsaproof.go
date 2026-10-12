@@ -12,7 +12,7 @@ import (
 )
 
 // rsaProofDomain separates the RSA proof from every other message the same key might sign.
-const rsaProofDomain = "orama/relay/rsa-proof/v1"
+const rsaProofDomain = "orama/relay/rsa-proof/v2"
 
 const (
 	// MaxRSAPublicKeyLen bounds the DER of a relay's RSA identity key (a 4096-bit key is about 530 bytes).
@@ -27,21 +27,24 @@ const (
 var ErrRSAProofMismatch = errors.New("rsa identity does not prove the fingerprint")
 
 // RSAProofMessage is the byte string the relay's RSA identity key signs: the domain, the node id and the
-// ed25519 key the node binds as its relay key, each after a zero byte. It binds the RSA identity to that
-// node and that ed25519 key, so a proof made for one node is useless for another.
-func RSAProofMessage(nodeID string, ed25519Pub []byte) []byte {
-	msg := make([]byte, 0, len(rsaProofDomain)+1+len(nodeID)+1+len(ed25519Pub))
+// ed25519 key the node binds as its relay key and one exit byte (0 non-exit, 1 exit), each after a zero
+// byte. It binds the RSA identity to that node, that ed25519 key and that exit declaration, so a proof
+// made for one node, or for a non-exit relay, is useless for another node or for an exit.
+func RSAProofMessage(nodeID string, ed25519Pub []byte, exit bool) []byte {
+	msg := make([]byte, 0, len(rsaProofDomain)+1+len(nodeID)+1+len(ed25519Pub)+1+1)
 	msg = append(msg, rsaProofDomain...)
 	msg = append(msg, 0)
 	msg = append(msg, nodeID...)
 	msg = append(msg, 0)
-	return append(msg, ed25519Pub...)
+	msg = append(msg, ed25519Pub...)
+	msg = append(msg, 0)
+	return append(msg, exitByte(exit))
 }
 
 // VerifyRSAProof checks that rsaPublicKey (PKCS#1 DER) is the key whose SHA-1 digest is fingerprint and
 // that signature is its RSASSA-PKCS1-v1_5 SHA-256 signature over RSAProofMessage. A fingerprint is public
 // (the consensus lists it), so without this anyone could register a stranger's fingerprint first.
-func VerifyRSAProof(fingerprint, rsaPublicKey, ed25519Pub []byte, nodeID string, signature []byte) error {
+func VerifyRSAProof(fingerprint, rsaPublicKey, ed25519Pub []byte, nodeID string, exit bool, signature []byte) error {
 	if len(rsaPublicKey) == 0 || len(rsaPublicKey) > MaxRSAPublicKeyLen {
 		return fmt.Errorf("%w: rsa public key must be 1 to %d bytes", ErrRSAProofMismatch, MaxRSAPublicKeyLen)
 	}
@@ -59,7 +62,7 @@ func VerifyRSAProof(fingerprint, rsaPublicKey, ed25519Pub []byte, nodeID string,
 	if bits := pub.N.BitLen(); bits < MinRSABits || bits > MaxRSABits {
 		return fmt.Errorf("%w: rsa key is %d bits, want %d to %d", ErrRSAProofMismatch, bits, MinRSABits, MaxRSABits)
 	}
-	sum := sha256.Sum256(RSAProofMessage(nodeID, ed25519Pub))
+	sum := sha256.Sum256(RSAProofMessage(nodeID, ed25519Pub, exit))
 	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, sum[:], signature); err != nil {
 		return fmt.Errorf("%w: the signature does not verify", ErrRSAProofMismatch)
 	}

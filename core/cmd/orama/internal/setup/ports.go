@@ -198,6 +198,9 @@ type IdentityRequest struct {
 	// of that key to Operator as the service key "relay" and the cross-certificate of its RSA
 	// fingerprint for the chain node with this id. The relay key signs on the node and never leaves it.
 	RelayNodeID string
+	// RelayExit is whether the relay is declared an exit. Both of the relay's signatures cover it, so
+	// the node signs for exactly the declaration setup is about to send.
+	RelayExit bool
 }
 
 // NodeIdentity is what registering a node on the chain needs from the node.

@@ -214,11 +214,15 @@ echo {BINDING}
 `)
 	}
 	if in.RelayNodeID != "" {
-		script += strings.NewReplacer(
+		exitFlag := ""
+		if in.RelayExit {
+			exitFlag = " --exit"
+		}
+		script += strings.NewReplacer("{EXITFLAG}", exitFlag,
 			"{RELAYIDENTITY}", markRelayIdentity, "{CLI}", constants.GlobalBinDir+"/orama",
 			"{CHAINID}", clusterops.ShellQuote(in.ChainID), "{OPERATOR}", clusterops.ShellQuote(in.Operator), "{NODEID}", clusterops.ShellQuote(in.RelayNodeID),
 		).Replace(`echo {RELAYIDENTITY}
-{CLI} global tor relay-identity --chain-id {CHAINID} --operator {OPERATOR} --node-id {NODEID}
+{CLI} global tor relay-identity --chain-id {CHAINID} --operator {OPERATOR} --node-id {NODEID}{EXITFLAG}
 `)
 	}
 	return script

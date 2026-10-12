@@ -114,11 +114,11 @@ func TestRun_aRelayIdentityTheChainWouldRefuseStopsTheRunBeforeAnyTransaction(t 
 	tamper := map[string]func(*NodeIdentity){
 		"no identity at all": func(id *NodeIdentity) { id.RelayIdentity = nil },
 		"a cross-certificate of another node": func(id *NodeIdentity) {
-			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayRSA(ip1), testChainID, testOperator, "someone-else")
+			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayRSA(ip1), testChainID, testOperator, "someone-else", false)
 			id.RelayIdentity, _ = json.Marshal(other)
 		},
 		"a binding for another operator": func(id *NodeIdentity) {
-			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayRSA(ip1), testChainID, "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s", "alice")
+			other, _ := globalbind.NewRelayIdentity(fakeRelaySecret(ip1), fakeRelayRSA(ip1), testChainID, "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s", "alice", false)
 			id.RelayIdentity, _ = json.Marshal(other)
 		},
 		"text": func(id *NodeIdentity) { id.RelayIdentity = []byte("no relay here") },
@@ -181,6 +181,13 @@ func TestIdentityScript_theRelayKeySignsOnTheNodeAndOnlyWhenAsked(t *testing.T) 
 		if !strings.Contains(script, want) {
 			t.Errorf("the script lacks %q:\n%s", want, script)
 		}
+	}
+	if strings.Contains(script, "--exit") {
+		t.Errorf("a relay that is not an exit signs without --exit:\n%s", script)
+	}
+	exit := identityScript(IdentityRequest{ChainID: testChainID, Operator: testOperator, RelayNodeID: "alice", RelayExit: true})
+	if !strings.Contains(exit, "--node-id 'alice' --exit\n") {
+		t.Errorf("an exit relay signs for the exit declaration:\n%s", exit)
 	}
 	if plain := identityScript(IdentityRequest{ChainID: testChainID, Operator: testOperator}); strings.Contains(plain, "relay-identity") {
 		t.Errorf("a node that was not asked prints no relay identity:\n%s", plain)

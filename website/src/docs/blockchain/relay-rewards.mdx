@@ -8,8 +8,8 @@
 
 | Message | Signed by | What it does |
 |---|---|---|
-| `RegisterRelay` | The operator | Registers a relay: `node_id`, the relay's RSA fingerprint (20 bytes, the 40 hex digits Tor writes), whether it is an exit, and a cross-certificate over the node id and fingerprint signed by the relay's ed25519 identity. The node must hold the relay role and bind that identity as its `relay` service key; no other key of the node is taken for it |
-| `UpdateRelay` | The operator | Replaces the fingerprint and exit declaration of the node's relay, and takes the ed25519 key the node binds now. It is how a relay follows a rotation of its Tor keys, or a `MsgUpdateNode` that rebinds the key |
+| `RegisterRelay` | The operator | Registers a relay: `node_id`, the relay's RSA fingerprint (20 bytes, the 40 hex digits Tor writes), whether it is an exit, a cross-certificate over the node id, fingerprint and exit declaration signed by the relay's ed25519 identity, and the RSA identity key's own proof over the node id, the relay's ed25519 key and the same exit declaration. Neither signature verifies for the opposite `exit` value, so a relay's proofs cannot be replayed to make it an exit relay. The node must hold the relay role and bind that identity as its `relay` service key; no other key of the node is taken for it |
+| `UpdateRelay` | The operator | Replaces the fingerprint and exit declaration of the node's relay, and takes the ed25519 key the node binds now. It carries the same two signatures as `RegisterRelay`, made over the new exit value. It is how a relay follows a rotation of its Tor keys, or a `MsgUpdateNode` that rebinds the key |
 | `ReportEpoch` | A reporter | Sends one chunk of a per-epoch report: observations per relay (consensus weight, flags, uptime fraction) and an `inputs_root`. Up to 32 chunks of 4,096 entries |
 | `UpdateReporters` | Nobody directly | Accepted only inside a passed governance proposal that changes the reporter set |
 

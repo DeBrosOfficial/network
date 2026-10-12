@@ -25,9 +25,6 @@ import (
 	"github.com/DeBrosOfficial/network/pkg/tornet"
 )
 
-// rsaProofDomain is the domain of the RSA identity's proof (chain/x/relay/types/rsaproof.go).
-const rsaProofDomain = "orama/relay/rsa-proof/v1"
-
 // relayNodes are the nodes of the target whose Tor relay runs; the tests are not
 // applicable on a target that installed none (the provisioned fleet installs no
 // Tor role, stagenet does).
@@ -165,6 +162,9 @@ func TestRelayIdentity_signsWhatTheChainChecksAndRefusesANonRoot(t *testing.T) {
 	}
 	c.Query(t, n, &v, "relay", "relay", strings.ToLower(info.Fingerprint))
 	args := []string{"global", "tor", "relay-identity", "--chain-id", c.ID, "--operator", v.Relay.Operator, "--node-id", v.Relay.NodeID}
+	if v.Relay.Exit {
+		args = append(args, "--exit")
+	}
 
 	infra.ExpectNodeExit(t, n.Name+" relay-identity as a user that is not root", infra.OnNodeUnprivileged(t, c.F, n, args...), infra.ExitUsage, "must be run as root")
 
@@ -193,7 +193,7 @@ func TestRelayIdentity_signsWhatTheChainChecksAndRefusesANonRoot(t *testing.T) {
 		return raw
 	}
 	pub, cert, fingerprint := unhex("pubkey", doc.Pubkey), unhex("cross_cert", doc.CrossCert), unhex("rsa_fingerprint", doc.RSAFingerprint)
-	if !ed25519.Verify(pub, clusterreg.RelayCrossCertMessage(v.Relay.NodeID, fingerprint), cert) {
+	if !ed25519.Verify(pub, clusterreg.RelayCrossCertMessage(v.Relay.NodeID, fingerprint, v.Relay.Exit), cert) {
 		t.Errorf("%s: the cross-certificate does not verify under the relay's key for node %s", n.Name, v.Relay.NodeID)
 	}
 	// The RSA proof: the public key is the one the fingerprint is the SHA-1 of, and its signature over the
@@ -206,7 +206,7 @@ func TestRelayIdentity_signsWhatTheChainChecksAndRefusesANonRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%s: rsa_public_key: %v", n.Name, err)
 	}
-	proof := sha256.Sum256(append(append(append(append([]byte(rsaProofDomain), 0), v.Relay.NodeID...), 0), pub...))
+	proof := sha256.Sum256(clusterreg.RelayRSAProofMessage(v.Relay.NodeID, pub, v.Relay.Exit))
 	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, proof[:], unhex("rsa_signature", doc.RSASignature)); err != nil {
 		t.Errorf("%s: the RSA proof does not verify: %v", n.Name, err)
 	}

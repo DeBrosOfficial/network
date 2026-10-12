@@ -22,13 +22,20 @@ import (
 // proved by id's own key.
 func updateMsg(t *testing.T, rk relayKey, id rsaID, key ed25519.PrivateKey) *types.MsgUpdateRelay {
 	t.Helper()
+	return updateMsgExit(t, rk, id, key, false)
+}
+
+// updateMsgExit is updateMsg whose two proofs cover the exit declaration.
+func updateMsgExit(t *testing.T, rk relayKey, id rsaID, key ed25519.PrivateKey, exit bool) *types.MsgUpdateRelay {
+	t.Helper()
 	return &types.MsgUpdateRelay{
+		Exit:             exit,
 		Operator:         rk.operator.String(),
 		NodeId:           rk.nodeID,
 		RsaFingerprint:   id.fp,
-		Ed25519Signature: ed25519.Sign(key, types.CrossCertMessage(rk.nodeID, id.fp)),
+		Ed25519Signature: ed25519.Sign(key, types.CrossCertMessage(rk.nodeID, id.fp, exit)),
 		RsaPublicKey:     id.der,
-		RsaSignature:     id.proof(t, rk.nodeID, key.Public().(ed25519.PublicKey)),
+		RsaSignature:     id.proofExit(t, rk.nodeID, key.Public().(ed25519.PublicKey), exit),
 	}
 }
 
@@ -77,11 +84,11 @@ func TestRegisterRelay_refusals(t *testing.T) {
 	secondIdentity := newRSAID(t, 0x66)
 	again.RsaFingerprint, again.RsaPublicKey = secondIdentity.fp, secondIdentity.der
 	again.RsaSignature = secondIdentity.proof(t, rk.nodeID, rk.pub)
-	again.Ed25519Signature = ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, again.RsaFingerprint))
+	again.Ed25519Signature = ed25519.Sign(rk.priv, types.CrossCertMessage(rk.nodeID, again.RsaFingerprint, false))
 	notOwner := registerMsg(t, second)
 	notOwner.Operator = other.String()
 	badSig := registerMsg(t, second)
-	badSig.Ed25519Signature = ed25519.Sign(rk.priv, types.CrossCertMessage(second.nodeID, second.fp))
+	badSig.Ed25519Signature = ed25519.Sign(rk.priv, types.CrossCertMessage(second.nodeID, second.fp, false))
 	unknown := registerMsg(t, second)
 	unknown.NodeId = "no-such-node"
 
@@ -135,9 +142,7 @@ func TestUpdateRelay_rotatesTheFingerprintAndKeepsTheJail(t *testing.T) {
 	rotated := newRSAID(t, 0x77)
 	newFP := rotated.fp
 	events := eventsOf(f, types.EventTypeRelayUpdated, func(ctx sdk.Context) {
-		msg := updateMsg(t, rk, rotated, rk.priv)
-		msg.Exit = true
-		_, err := f.Msg.UpdateRelay(ctx, msg)
+		_, err := f.Msg.UpdateRelay(ctx, updateMsgExit(t, rk, rotated, rk.priv, true))
 		require.NoError(t, err)
 	})
 	require.Len(t, events, 1)
@@ -456,7 +461,7 @@ func TestRegisterRelay_refusesAFingerprintTheCallerCannotProve(t *testing.T) {
 	}
 	victimFingerprint := func(msg *types.MsgRegisterRelay) {
 		msg.RsaFingerprint = victim.fp
-		msg.Ed25519Signature = ed25519.Sign(squatter.priv, types.CrossCertMessage(squatter.nodeID, victim.fp))
+		msg.Ed25519Signature = ed25519.Sign(squatter.priv, types.CrossCertMessage(squatter.nodeID, victim.fp, false))
 	}
 	for name, edit := range map[string]func(*types.MsgRegisterRelay){
 		"the victim's fingerprint with the squatter's own key": victimFingerprint,
@@ -495,4 +500,59 @@ func TestRegisterRelay_refusesAFingerprintTheCallerCannotProve(t *testing.T) {
 	f.Nodes.add(victim)
 	_, err = f.Msg.RegisterRelay(f.Ctx, registerMsg(t, victim))
 	require.NoError(t, err, "the victim registers its own fingerprint, which nobody could take before it")
+}
+
+// The exit declaration is covered by both proofs: proofs made for a non-exit relay cannot register or
+// update it as an exit, and an exit relay's proofs cannot declare it a plain relay.
+func TestRegisterRelay_exitIsBoundIntoBothProofs(t *testing.T) {
+	f := newTestFixture(t)
+	f.init(t, 1, []sdk.AccAddress{acc(1)}, nil)
+	rk := newRelayKey(t, "node-a", 0x11, acc(2), "10.1.0.1")
+	f.Nodes.add(rk)
+
+	for _, exit := range []bool{false, true} {
+		replayed := registerMsgExit(t, rk, exit)
+		replayed.Exit = !exit
+		_, err := f.Msg.RegisterRelay(f.Ctx, replayed)
+		require.ErrorIs(t, err, types.ErrCrossCertMismatch, "both proofs replayed with the opposite exit, exit=%v", exit)
+
+		onlyCert := registerMsgExit(t, rk, !exit)
+		onlyCert.Exit = !exit
+		onlyCert.RsaSignature = rk.rsa.proofExit(t, rk.nodeID, rk.pub, exit)
+		_, err = f.Msg.RegisterRelay(f.Ctx, onlyCert)
+		require.ErrorIs(t, err, types.ErrRSAProofMismatch, "the cross-cert covers the exit but the RSA proof does not, exit=%v", exit)
+	}
+	_, err := f.Msg.RegisterRelay(f.Ctx, registerMsgExit(t, rk, true))
+	require.NoError(t, err, "proofs made for an exit register an exit")
+	relay, err := f.Keeper.Relays.Get(f.Ctx, rk.fp)
+	require.NoError(t, err)
+	require.True(t, relay.Exit)
+}
+
+func TestUpdateRelay_exitIsBoundIntoBothProofs(t *testing.T) {
+	f := newTestFixture(t)
+	f.init(t, 1, []sdk.AccAddress{acc(1)}, nil)
+	rk := newRelayKey(t, "node-a", 0x11, acc(2), "10.1.0.1")
+	f.register(t, rk, false)
+
+	promoted := updateMsgExit(t, rk, rk.rsa, rk.priv, false)
+	promoted.Exit = true
+	_, err := f.Msg.UpdateRelay(f.Ctx, promoted)
+	require.ErrorIs(t, err, types.ErrCrossCertMismatch, "the proofs of a non-exit relay replayed as an exit")
+
+	halfSigned := updateMsgExit(t, rk, rk.rsa, rk.priv, true)
+	halfSigned.RsaSignature = rk.rsa.proofExit(t, rk.nodeID, rk.pub, false)
+	_, err = f.Msg.UpdateRelay(f.Ctx, halfSigned)
+	require.ErrorIs(t, err, types.ErrRSAProofMismatch, "a fresh cross-cert with the old RSA proof")
+
+	_, err = f.Msg.UpdateRelay(f.Ctx, updateMsgExit(t, rk, rk.rsa, rk.priv, true))
+	require.NoError(t, err, "fresh proofs over the new exit value update it")
+	relay, err := f.Keeper.Relays.Get(f.Ctx, rk.fp)
+	require.NoError(t, err)
+	require.True(t, relay.Exit)
+
+	demoted := updateMsgExit(t, rk, rk.rsa, rk.priv, true)
+	demoted.Exit = false
+	_, err = f.Msg.UpdateRelay(f.Ctx, demoted)
+	require.ErrorIs(t, err, types.ErrCrossCertMismatch, "an exit relay's proofs replayed as a plain relay")
 }

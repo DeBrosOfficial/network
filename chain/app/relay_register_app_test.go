@@ -105,7 +105,7 @@ func newAppRSA(t testing.TB, mark byte) appRSA {
 // proof is the RSA identity's signature over the proof message of a node and its relay key.
 func (r appRSA) proof(t testing.TB, nodeID string, ed25519Pub []byte) []byte {
 	t.Helper()
-	sum := sha256.Sum256(relaytypes.RSAProofMessage(nodeID, ed25519Pub))
+	sum := sha256.Sum256(relaytypes.RSAProofMessage(nodeID, ed25519Pub, false))
 	sig, err := rsa.SignPKCS1v15(rand.Reader, r.key, crypto.SHA256, sum[:])
 	require.NoError(t, err)
 	return sig
@@ -116,7 +116,7 @@ func (c *wiringChain) registerMsg(n relayNode, id appRSA) *relaytypes.MsgRegiste
 	c.t.Helper()
 	return &relaytypes.MsgRegisterRelay{
 		Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: id.fp,
-		Ed25519Signature: stded25519.Sign(n.priv, relaytypes.CrossCertMessage(n.id, id.fp)),
+		Ed25519Signature: stded25519.Sign(n.priv, relaytypes.CrossCertMessage(n.id, id.fp, false)),
 		RsaPublicKey:     id.der,
 		RsaSignature:     id.proof(c.t, n.id, n.priv.Public().(stded25519.PublicKey)),
 	}
@@ -217,7 +217,7 @@ func TestUpdateRelay_followsAMsgUpdateNodeRebind(t *testing.T) {
 		id := newAppRSA(t, 0x11)
 		_, err := relaykeeper.NewMsgServerImpl(c.app.RelayKeeper).UpdateRelay(ctx, &relaytypes.MsgUpdateRelay{
 			Operator: n.operator.String(), NodeId: n.id, RsaFingerprint: fp,
-			Ed25519Signature: stded25519.Sign(newPriv, relaytypes.CrossCertMessage(n.id, fp)),
+			Ed25519Signature: stded25519.Sign(newPriv, relaytypes.CrossCertMessage(n.id, fp, false)),
 			RsaPublicKey:     id.der,
 			RsaSignature:     id.proof(t, n.id, newPub),
 		})

@@ -59,11 +59,11 @@ func torRelayHome(t *testing.T) (home string, pub ed25519.PublicKey, fingerprint
 
 func TestRelayIdentityDoc_signsWhatTheChainChecksAndPrintsNoSecret(t *testing.T) {
 	home, pub, fingerprint := torRelayHome(t)
-	doc, err := relayIdentityDoc(home, relayTestChain, relayTestOperator, "node-a")
+	doc, err := relayIdentityDoc(home, relayTestChain, relayTestOperator, "node-a", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity, err := globalbind.ParseRelayIdentity(doc, relayTestChain, relayTestOperator, "node-a")
+	identity, err := globalbind.ParseRelayIdentity(doc, relayTestChain, relayTestOperator, "node-a", false)
 	if err != nil {
 		t.Fatalf("what the command prints does not verify: %v", err)
 	}
@@ -79,9 +79,25 @@ func TestRelayIdentityDoc_signsWhatTheChainChecksAndPrintsNoSecret(t *testing.T)
 	}
 }
 
+func TestRelayIdentityDoc_signaturesCoverTheExitDeclaration(t *testing.T) {
+	home, _, _ := torRelayHome(t)
+	for _, exit := range []bool{false, true} {
+		doc, err := relayIdentityDoc(home, relayTestChain, relayTestOperator, "node-a", exit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := globalbind.ParseRelayIdentity(doc, relayTestChain, relayTestOperator, "node-a", exit); err != nil {
+			t.Errorf("exit=%v: what the command prints does not verify for its own declaration: %v", exit, err)
+		}
+		if _, err := globalbind.ParseRelayIdentity(doc, relayTestChain, relayTestOperator, "node-a", !exit); err == nil {
+			t.Errorf("exit=%v: the printed identity verifies for the opposite declaration", exit)
+		}
+	}
+}
+
 func TestRelayIdentityDoc_refusals(t *testing.T) {
 	t.Run("a relay that has not started", func(t *testing.T) {
-		if _, err := relayIdentityDoc(t.TempDir(), relayTestChain, relayTestOperator, "node-a"); err == nil || !strings.Contains(err.Error(), "has not started") {
+		if _, err := relayIdentityDoc(t.TempDir(), relayTestChain, relayTestOperator, "node-a", false); err == nil || !strings.Contains(err.Error(), "has not started") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -91,13 +107,13 @@ func TestRelayIdentityDoc_refusals(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(home, "fingerprint-ed25519"), []byte("OramaRelay "+other+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := relayIdentityDoc(home, relayTestChain, relayTestOperator, "node-a"); err == nil || !strings.Contains(err.Error(), "tor wrote the identity") {
+		if _, err := relayIdentityDoc(home, relayTestChain, relayTestOperator, "node-a", false); err == nil || !strings.Contains(err.Error(), "tor wrote the identity") {
 			t.Fatalf("err = %v", err)
 		}
 	})
 	t.Run("an operator that is not an address", func(t *testing.T) {
 		home, _, _ := torRelayHome(t)
-		if _, err := relayIdentityDoc(home, relayTestChain, "ORAMA1X", "node-a"); err == nil {
+		if _, err := relayIdentityDoc(home, relayTestChain, "ORAMA1X", "node-a", false); err == nil {
 			t.Fatal("a bad operator was accepted")
 		}
 	})

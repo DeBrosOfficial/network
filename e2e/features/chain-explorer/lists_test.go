@@ -26,7 +26,7 @@ const (
 
 	rsaFingerprintLen = 20
 	// crossCertDomain is the domain of a relay's cross-certificate (x/relay/types/crosscert.go).
-	crossCertDomain = "orama/relay/rsa-cross-cert/v1"
+	crossCertDomain = "orama/relay/rsa-cross-cert/v2"
 )
 
 func atoi(t *testing.T, s string) int64 {
@@ -189,6 +189,7 @@ func TestExplorerLists_dealsPagesNewestFirstAndEveryEntryIsTheDealQueryAnswer(t 
 // and the RSA fingerprint.
 func registerRelayMsg(operator, nodeID string, fp []byte, priv ed25519.PrivateKey) chain.Msg {
 	signed := append(append(append(append([]byte(crossCertDomain), 0), nodeID...), 0), fp...)
+	signed = append(signed, 0, 1) // the registration below declares exit
 	return chain.NewMsg("/orama.relay.v1.MsgRegisterRelay", map[string]any{
 		"operator": operator, "node_id": nodeID, "rsa_fingerprint": base64.StdEncoding.EncodeToString(fp),
 		"exit": true, "ed25519_signature": base64.StdEncoding.EncodeToString(ed25519.Sign(priv, signed)),

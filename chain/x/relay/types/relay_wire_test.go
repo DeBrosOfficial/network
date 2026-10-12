@@ -20,9 +20,13 @@ const (
 	registerRelayNoExitHex = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a1411111111111111111111111111111111111111112a402222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222232093333333333333333333a1044444444444444444444444444444444"
 )
 
-// crossCertGoldenHex is the cross-certificate message for node "node-a" and a fingerprint of
-// twenty 0x11 bytes: the domain, a zero, the node id, a zero, the fingerprint.
-const crossCertGoldenHex = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763100" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111"
+// crossCertGoldenHex is the cross-certificate message for node "node-a", a fingerprint of twenty 0x11
+// bytes and no exit: the domain, a zero, the node id, a zero, the fingerprint, a zero and the exit byte.
+// crossCertExitGoldenHex is the same with exit declared.
+const (
+	crossCertGoldenHex     = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763200" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111" + "00" + "00"
+	crossCertExitGoldenHex = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763200" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111" + "00" + "01"
+)
 
 func wireOperator(t *testing.T) string {
 	t.Helper()
@@ -58,6 +62,8 @@ func TestMsgUpdateRelay_wireIsRegisterRelaysWire(t *testing.T) {
 }
 
 func TestCrossCertMessage_isPinned(t *testing.T) {
-	got := types.CrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, 20))
+	got := types.CrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, 20), false)
 	require.Equal(t, crossCertGoldenHex, hex.EncodeToString(got))
+	got = types.CrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, 20), true)
+	require.Equal(t, crossCertExitGoldenHex, hex.EncodeToString(got))
 }

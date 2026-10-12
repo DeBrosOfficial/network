@@ -189,6 +189,7 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 	req := IdentityRequest{ChainID: r.net.Manifest.ChainID, Operator: r.oper, BindConsensus: n.plan.BindConsensus}
 	if slices.Contains(n.plan.Roles, clusterreg.RoleRelay) {
 		req.RelayNodeID = id
+		req.RelayExit = slices.Contains(n.plan.Roles, clusterreg.RoleExit)
 	}
 	ident, err := n.m.Identity(ctx, req)
 	if err != nil {

@@ -32,8 +32,8 @@ const (
 	// the same key signs, and relayRSAProofDomain the RSA proof from every other RSA message.
 	// chain/x/relay/types holds the same strings (crosscert.go, rsaproof.go), and the tests in both
 	// modules pin the bytes.
-	relayCrossCertDomain = "orama/relay/rsa-cross-cert/v1"
-	relayRSAProofDomain  = "orama/relay/rsa-proof/v1"
+	relayCrossCertDomain = "orama/relay/rsa-cross-cert/v2"
+	relayRSAProofDomain  = "orama/relay/rsa-proof/v2"
 )
 
 // RelayRegistration is MsgRegisterRelay and MsgUpdateRelay, which carry the same fields: the
@@ -53,27 +53,42 @@ type RelayRegistration struct {
 	RSASignature     []byte
 }
 
+// relayExitByte is the byte that carries a relay's exit declaration in both signed messages.
+func relayExitByte(exit bool) byte {
+	if exit {
+		return 1
+	}
+	return 0
+}
+
 // RelayCrossCertMessage is the byte string the relay's ed25519 identity signs to bind an RSA
-// fingerprint to a node id: the domain, the node id and the fingerprint, each after a zero byte.
-func RelayCrossCertMessage(nodeID string, rsaFingerprint []byte) []byte {
-	msg := make([]byte, 0, len(relayCrossCertDomain)+1+len(nodeID)+1+len(rsaFingerprint))
+// fingerprint to a node id and an exit declaration: the domain, the node id, the fingerprint and one
+// exit byte (0 or 1), each after a zero byte. The exit byte keeps the proofs of a non-exit relay from
+// being replayed to register or update it as an exit.
+func RelayCrossCertMessage(nodeID string, rsaFingerprint []byte, exit bool) []byte {
+	msg := make([]byte, 0, len(relayCrossCertDomain)+1+len(nodeID)+1+len(rsaFingerprint)+1+1)
 	msg = append(msg, relayCrossCertDomain...)
 	msg = append(msg, 0)
 	msg = append(msg, nodeID...)
 	msg = append(msg, 0)
-	return append(msg, rsaFingerprint...)
+	msg = append(msg, rsaFingerprint...)
+	msg = append(msg, 0)
+	return append(msg, relayExitByte(exit))
 }
 
 // RelayRSAProofMessage is the byte string the relay's RSA identity key signs (RSASSA-PKCS1-v1_5 over its
-// SHA-256): the domain, the node id and the ed25519 key the node binds as its relay key, each after a
-// zero byte. It binds the RSA identity to that node and that key.
-func RelayRSAProofMessage(nodeID string, ed25519Pub []byte) []byte {
-	msg := make([]byte, 0, len(relayRSAProofDomain)+1+len(nodeID)+1+len(ed25519Pub))
+// SHA-256): the domain, the node id, the ed25519 key the node binds as its relay key and one exit byte
+// (0 or 1), each after a zero byte. It binds the RSA identity to that node, that key and that exit
+// declaration.
+func RelayRSAProofMessage(nodeID string, ed25519Pub []byte, exit bool) []byte {
+	msg := make([]byte, 0, len(relayRSAProofDomain)+1+len(nodeID)+1+len(ed25519Pub)+1+1)
 	msg = append(msg, relayRSAProofDomain...)
 	msg = append(msg, 0)
 	msg = append(msg, nodeID...)
 	msg = append(msg, 0)
-	return append(msg, ed25519Pub...)
+	msg = append(msg, ed25519Pub...)
+	msg = append(msg, 0)
+	return append(msg, relayExitByte(exit))
 }
 
 // ValidateRelay checks the operator, the node id and the shapes of the fingerprint and signature.

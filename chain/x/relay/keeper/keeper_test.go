@@ -243,7 +243,13 @@ func newRSAID(t *testing.T, mark byte) rsaID {
 // proof is the RSA identity's signature over the proof message of a node and its relay key.
 func (r rsaID) proof(t *testing.T, nodeID string, ed25519Pub []byte) []byte {
 	t.Helper()
-	sum := sha256.Sum256(types.RSAProofMessage(nodeID, ed25519Pub))
+	return r.proofExit(t, nodeID, ed25519Pub, false)
+}
+
+// proofExit is proof for a relay that declares exit.
+func (r rsaID) proofExit(t *testing.T, nodeID string, ed25519Pub []byte, exit bool) []byte {
+	t.Helper()
+	sum := sha256.Sum256(types.RSAProofMessage(nodeID, ed25519Pub, exit))
 	sig, err := rsa.SignPKCS1v15(rand.Reader, r.key, crypto.SHA256, sum[:])
 	require.NoError(t, err)
 	return sig
@@ -332,9 +338,7 @@ func (f *testFixture) init(t *testing.T, quorum uint32, reporters []sdk.AccAddre
 func (f *testFixture) register(t *testing.T, rk relayKey, exit bool) {
 	t.Helper()
 	f.Nodes.add(rk)
-	msg := registerMsg(t, rk)
-	msg.Exit = exit
-	_, err := f.Msg.RegisterRelay(f.Ctx, msg)
+	_, err := f.Msg.RegisterRelay(f.Ctx, registerMsgExit(t, rk, exit))
 	require.NoError(t, err)
 }
 

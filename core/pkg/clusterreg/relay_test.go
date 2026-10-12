@@ -13,8 +13,10 @@ import (
 const (
 	registerRelayExitHex   = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a14111111111111111111111111111111111111111120012a402222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222232093333333333333333333a1044444444444444444444444444444444"
 	registerRelayNoExitHex = "0a2c6f72616d613139726c34636d32686d7238616679346b6c6470787a33666b61346a677571306135747570307312066e6f64652d611a1411111111111111111111111111111111111111112a402222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222232093333333333333333333a1044444444444444444444444444444444"
-	// crossCertGoldenHex is chain/x/relay/types CrossCertMessage("node-a", 20 x 0x11).
-	crossCertGoldenHex = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763100" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111"
+	// crossCertGoldenHex is chain/x/relay/types CrossCertMessage("node-a", 20 x 0x11, false) and
+	// crossCertExitGoldenHex the same with exit true.
+	crossCertGoldenHex     = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763200" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111" + "00" + "00"
+	crossCertExitGoldenHex = "6f72616d612f72656c61792f7273612d63726f73732d636572742f763200" + "6e6f64652d61" + "00" + "1111111111111111111111111111111111111111" + "00" + "01"
 )
 
 func validRelay() RelayRegistration {
@@ -52,20 +54,32 @@ func TestRelayTypeURLs(t *testing.T) {
 	}
 }
 
-// rsaProofGoldenHex is chain/x/relay/types RSAProofMessage("node-a", 32 x 0x55).
-const rsaProofGoldenHex = "6f72616d612f72656c61792f7273612d70726f6f662f7631" + "00" + "6e6f64652d61" + "00" +
-	"5555555555555555555555555555555555555555555555555555555555555555"
+// rsaProofGoldenHex is chain/x/relay/types RSAProofMessage("node-a", 32 x 0x55, false) and
+// rsaProofExitGoldenHex the same with exit true.
+const (
+	rsaProofGoldenHex = "6f72616d612f72656c61792f7273612d70726f6f662f7632" + "00" + "6e6f64652d61" + "00" +
+		"5555555555555555555555555555555555555555555555555555555555555555" + "00" + "00"
+	rsaProofExitGoldenHex = "6f72616d612f72656c61792f7273612d70726f6f662f7632" + "00" + "6e6f64652d61" + "00" +
+		"5555555555555555555555555555555555555555555555555555555555555555" + "00" + "01"
+)
 
 func TestRelayRSAProofMessage_matchesTheChain(t *testing.T) {
-	if got := RelayRSAProofMessage("node-a", bytes.Repeat([]byte{0x55}, 32)); hex.EncodeToString(got) != rsaProofGoldenHex {
+	if got := RelayRSAProofMessage("node-a", bytes.Repeat([]byte{0x55}, 32), false); hex.EncodeToString(got) != rsaProofGoldenHex {
 		t.Errorf("rsa proof message %x", got)
+	}
+	if got := RelayRSAProofMessage("node-a", bytes.Repeat([]byte{0x55}, 32), true); hex.EncodeToString(got) != rsaProofExitGoldenHex {
+		t.Errorf("rsa proof message for an exit %x", got)
 	}
 }
 
 func TestRelayCrossCertMessage_matchesTheChain(t *testing.T) {
-	got := RelayCrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, RelayFingerprintLen))
+	got := RelayCrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, RelayFingerprintLen), false)
 	if hex.EncodeToString(got) != crossCertGoldenHex {
 		t.Errorf("cross-cert message %x", got)
+	}
+	got = RelayCrossCertMessage("node-a", bytes.Repeat([]byte{0x11}, RelayFingerprintLen), true)
+	if hex.EncodeToString(got) != crossCertExitGoldenHex {
+		t.Errorf("cross-cert message for an exit %x", got)
 	}
 }
 
