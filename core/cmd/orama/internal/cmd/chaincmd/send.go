@@ -37,8 +37,8 @@ permanently. The command prints the payment and that warning and asks you to typ
 transaction and asks you to approve it.
 
 <to> is a shielded address (oramas1...) for a private send, and an orama1... account
-for a public send. Withdraw earnings to your balance
-first ('orama chain withdraw-earnings'); earnings cannot be sent directly.
+for a public send. Withdraw earnings to your balance first ('orama chain
+withdraw-earnings'); earnings cannot be sent directly.
 
 Transactions go through the gateway of the selected network, or --node (a chain
 REST API, for example one reached over an SSH tunnel). Either must be https, or on

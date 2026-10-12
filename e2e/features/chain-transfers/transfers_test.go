@@ -19,6 +19,9 @@ const (
 	explicitPublic = "choose a public transfer explicitly"
 	// oneNorama is 0.000000001 ORAMA, the smallest amount.
 	oneNorama = "0.000000001"
+	// shieldedRecipient is a shielded address (Bech32m, HRP oramas) from the committed vectors
+	// (chain/x/shielded/wallet/testdata/addresses/addresses.json).
+	shieldedRecipient = "oramas1u0rsk23eql6q3l5qyaclkpuzfmrwsf4l8478tph7vtewqnxm45ex0ranw9c69lguh7czufckn7s"
 )
 
 func run(t *testing.T, args ...string) oramacli.Result {
@@ -26,17 +29,17 @@ func run(t *testing.T, args ...string) oramacli.Result {
 	return infra.Run(t, harness.CLI(t), args...)
 }
 
-// TestSend_withoutPublicIsPrivateAndPaysNothing: no --public is a private send, which the
-// RootWallet cannot build yet; the command refuses, names the explicit alternative, and a fresh
-// recipient still holds nothing. --yes does not make it public.
+// TestSend_withoutPublicIsPrivateAndPaysNothing: no --public is a private send to a shielded
+// address, which the RootWallet cannot build yet; the command refuses, names the explicit
+// alternative, and a fresh account still holds nothing. --yes does not make it public.
 func TestSend_withoutPublicIsPrivateAndPaysNothing(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
 	n := c.Node(t, chain.OperatorNode)
 	payee := c.NewKey(t, n, "e2e-transfers-private")
 	for _, args := range [][]string{
-		{"chain", "send", payee.Address, oneNorama},
-		{"chain", "send", payee.Address, "1", "--yes"},
+		{"chain", "send", shieldedRecipient, oneNorama},
+		{"chain", "send", shieldedRecipient, "1", "--yes"},
 	} {
 		infra.ExpectExit(t, run(t, args...), infra.ExitFailure, privateRefusal, explicitPublic)
 	}
@@ -51,18 +54,23 @@ func TestSend_refusalsAreUsageErrorsBeforeAnyWalletOrChain(t *testing.T) {
 	t.Parallel()
 	valid := "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s"
 	cases := map[string][]string{
-		"not an address":     {"chain", "send", "bob", "1", "--public", "--yes"},
-		"a valoper address":  {"chain", "send", "oramavaloper19rl4cm2hmr8afy4kldpxz3fka4jguq0al2xuls", "1", "--public", "--yes"},
-		"zero":               {"chain", "send", valid, "0", "--public", "--yes"},
-		"negative":           {"chain", "send", valid, "-1", "--public", "--yes"},
-		"an exponent":        {"chain", "send", valid, "1e9", "--public", "--yes"},
-		"ten decimals":       {"chain", "send", valid, "0.0000000001", "--public", "--yes"},
-		"no amount":          {"chain", "send", valid, "--public"},
-		"surplus argument":   {"chain", "send", valid, "1", "extra", "--public"},
-		"withdraw zero":      {"chain", "withdraw-earnings", "0"},
-		"withdraw all":       {"chain", "withdraw-earnings", "all"},
-		"withdraw fractions": {"chain", "withdraw-earnings", "0.0000000001"},
-		"withdraw nothing":   {"chain", "withdraw-earnings"},
+		"not an address":    {"chain", "send", "bob", "1", "--public", "--yes"},
+		"a valoper address": {"chain", "send", "oramavaloper19rl4cm2hmr8afy4kldpxz3fka4jguq0al2xuls", "1", "--public", "--yes"},
+		"zero":              {"chain", "send", valid, "0", "--public", "--yes"},
+		"negative":          {"chain", "send", valid, "-1", "--public", "--yes"},
+		"an exponent":       {"chain", "send", valid, "1e9", "--public", "--yes"},
+		"ten decimals":      {"chain", "send", valid, "0.0000000001", "--public", "--yes"},
+		"no amount":         {"chain", "send", valid, "--public"},
+		"surplus argument":  {"chain", "send", valid, "1", "extra", "--public"},
+		// A private send names a shielded address; an account, a mistyped shielded address and a
+		// shielded address under --public are refused before any wallet or chain.
+		"private to an account":        {"chain", "send", valid, "1"},
+		"private to a mistyped shield": {"chain", "send", shieldedRecipient[:len(shieldedRecipient)-1] + "q", "1"},
+		"public to a shielded address": {"chain", "send", shieldedRecipient, "1", "--public", "--yes"},
+		"withdraw zero":                {"chain", "withdraw-earnings", "0"},
+		"withdraw all":                 {"chain", "withdraw-earnings", "all"},
+		"withdraw fractions":           {"chain", "withdraw-earnings", "0.0000000001"},
+		"withdraw nothing":             {"chain", "withdraw-earnings"},
 	}
 	for name, args := range cases {
 		res := run(t, args...)

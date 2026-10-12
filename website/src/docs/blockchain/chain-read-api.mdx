@@ -18,7 +18,7 @@ The gateway is a read-only proxy to three things on the node: the CometBFT RPC, 
 
 - **Method.** A read route answers `GET` only; any other method on one is `405` with `Allow: GET`. The write routes (`POST simulate`, `broadcast`, `light`, `faucet`) are separate and are not described here: see [Reading the chain](/docs/blockchain/reading-the-chain#simulate-and-broadcast).
 - **Paths.** A path must be exactly as the table writes it: no trailing slash, no doubled slash, no `.` or `..` segment, no backslash and no percent-escape. Anything else is `404`, even if its decoded form would match a route.
-- **Query strings.** A key the route does not take, a repeated key, a key with an empty value or a `;` in the query is `400`. Numbers are plain positive integers: no sign, no leading zero, at most 19 digits.
+- **Query strings.** A key the route does not take, a repeated key, a key with an empty value or a `;` in the query is `400`. Numbers are plain positive integers: no sign, no leading zero, at most 19 digits (`start_index` of the subtree roots may be 0).
 - **Bodies.** An answer is the node's own JSON, byte for byte, up to 8 MiB (a larger one is `502`: it is never cut). The proxy reads each upstream for at most 10 seconds. Every 64-bit integer in a module query answer is a decimal string; read them into a `BigInt`, not a JavaScript `number`.
 - **Errors.** The node's own error text is never passed on, because it can name paths and addresses. A failure is a fixed one-line plain-text body (see [Errors](#errors)).
 
@@ -72,7 +72,7 @@ curl -s --get https://stagenet.orama.network/v1/chain/query/orama.storage.v1.Que
 | `orama.nodes.v1.Query` | `Params`, `Operator`, `Node`, `Cluster`, `NodeUnbondings`, `NodeByName`, `NameOfNode`, `NodeNames` (paged), `Nodes` (paged) |
 | `orama.power.v1.Query` | `Params`, `BootstrapCommittee`, `Lambda`, `ValidatorPower` |
 | `orama.relay.v1.Query` | `Params`, `Reporters`, `Relay`, `EpochResult`, `Relays`, `OperatorRelays` and `RelayPayouts` (the last three paged) |
-| `orama.shielded.v1.Query` | `Params`, `TreeState`, `NullifierSpent` |
+| `orama.shielded.v1.Query` | `Params`, `TreeState`, `TreeFrontier`, `NullifierSpent` |
 | `orama.storage.v1.Query` | `Params`, `Deal`, `Slot`, `Authorization`, `Challenges`, `EpochMint`, `Queue`, `NodeFailures`, `Deals` (paged) |
 | `orama.token.v1.Query` | `Params`, `Token`, `Frozen` |
 | `cosmos.bank.v1beta1.Query` | `Balance`, `AllBalances` (paged), `SpendableBalances` (paged), `TotalSupply` (paged), `DenomOwners` (paged) |
@@ -108,6 +108,8 @@ The chain indexer keeps what a node's own state does not: blocks and transaction
 | `index/txs`, `index/accounts/{address}/txs` | `page` (to 10) or `cursor`, `limit`, `filter` | Transactions, newest first |
 | `index/accounts/{address}/rewards` | `page` (to 10) or `cursor`, `limit` | What the chain credited an account as a delegator or an operator, newest epoch first |
 | `index/cnft/owners/{address}/assets` | `page` (to 10) or `cursor`, `limit` | The assets an owner holds, by asset id |
+| `index/shielded/actions` | `from_height`, `limit` (1 to 1,000, default 200) | The compact shielded actions of the blocks from a height, for a wallet that scans the pool, see [Scanning the shielded pool](#scanning-the-shielded-pool) |
+| `index/shielded/subtree-roots` | `start_index` (from 0), `limit` (1 to 1,000, default 100) | The roots of the filled 2^16-leaf subtrees of the note-commitment tree |
 
 **Filters.** `filter` on the two transaction lists is one of `all` (the default), `failed`, `transfers`, `staking` or `storage`, lower-case, once. A transaction is listed under `failed` when the chain refused it and under each kind its messages belong to.
 
@@ -133,13 +135,87 @@ do {
 
 A list answer is an object with its rows under a name (`blocks`, `txs`, `epochs`, `points`, `validators`, `rewards`, `assets`, `buckets`), the `limit`, the `page` when it was asked by page number and `next_cursor` when a cursor can follow. Amounts are exact integer strings in `norama` (10^9 norama is 1 ORAMA).
 
+## Scanning the shielded pool
+
+Three public reads give a wallet everything it needs to find its notes and witness them without holding every leaf of the note-commitment tree. Bytes in the index routes are lowercase hex; in a module query they are base64, like every `bytes` field of that route. The pool, the keys and the address format are described in [Shielded pool](/docs/blockchain/shielded).
+
+**Actions: `index/shielded/actions?from_height=H&limit=N`.** `from_height` is a positive height (default 1); `limit` is the most actions a page holds, 1 to 1,000 (default 200). A page is **whole blocks**: it holds the blocks with shielded actions from `from_height` on, in order, and stops before the block that would take it over `limit`, except that a first block larger than `limit` is returned whole. A block with no shielded action is not listed. Only transactions the chain accepted appear (shield, shield of earnings, transfer and unshield), and only their actions.
+
+```json
+{
+  "start_height": 1,
+  "indexed_height": 5230,
+  "from_height": 1,
+  "next_height": 812,
+  "has_more": true,
+  "blocks": [
+    {
+      "height": 420,
+      "tree_size": 2,
+      "actions": [
+        {
+          "tx_index": 0,
+          "action_index": 0,
+          "position": 1,
+          "tx_hash": "<64 hex>",
+          "nullifier": "<64 hex>",
+          "cmx": "<64 hex>",
+          "ephemeral_key": "<64 hex>",
+          "enc_compact": "<104 hex: the first 52 bytes of the encrypted note>",
+          "out_ciphertext": "<160 hex: 80 bytes>"
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `position` is the leaf the action's `cmx` took in the note-commitment tree; `tree_size` is the number of leaves after the block. The block's actions take the positions `tree_size - n` to `tree_size - 1` in order. `tx_index` is the transaction's place in its block and `action_index` the action's place among the actions of that transaction.
+- `start_height` is the first block the index holds and `indexed_height` the last: nothing before the first is here, and a page that reaches the last is the end for now.
+- `has_more` says the page stopped at its limit and `next_height` is the first block not yet returned: ask again from it. Without `has_more` the reader is caught up and `next_height` is `indexed_height + 1`: ask again from there after the chain has moved on, and a `from_height` past the index is an empty page that points at itself. `next_height` never points backwards.
+- The nullifiers are those of the notes spent: a wallet marks its notes spent when it sees one of its own.
+
+**Subtree roots: `index/shielded/subtree-roots?start_index=I&limit=N`.** `start_index` is a non-negative subtree number (default 0); `limit` is 1 to 1,000 (default 100). Subtree `k` holds the leaves `k * 65,536` to `(k + 1) * 65,536 - 1`.
+
+```json
+{
+  "indexed_height": 5230,
+  "subtree_leaves": 65536,
+  "first_index": 0,
+  "start_index": 0,
+  "next_index": 2,
+  "has_more": false,
+  "roots": [
+    { "index": 0, "root": "<64 hex>", "height": 3112 },
+    { "index": 1, "root": "<64 hex>", "height": 4871 }
+  ]
+}
+```
+
+`root` is the 32-byte canonical encoding of the subtree's root (the same encoding as a `cmx` and as the tree's `current_root`) and `height` the block whose transaction filled the subtree. `first_index` is the first subtree this index has a root for; it is absent while there is none, and a subtree before it has no root here. The roots recombine to the anchor: with every subtree `0..k` filled and the tree at exactly `(k + 1) * 65,536` leaves, hashing the roots up through levels 16 to 31 with the empty-subtree roots on the right gives `TreeState.current_root`.
+
+**Frontier: `query/orama.shielded.v1.Query/TreeFrontier`.** No request fields. `height` (the query parameter) reads an earlier state, within the last 100 blocks.
+
+```json
+{
+  "height": "5230",
+  "tree_size": "4194307",
+  "current_root": "<base64, 32 bytes>",
+  "frontier": "<base64>"
+}
+```
+
+`current_root` equals `TreeState.current_root` at the same height. `frontier` is empty for an empty tree, and otherwise the position of the last leaf (a little-endian `u64`, `tree_size - 1`), that leaf (32 bytes) and one ommer (32 bytes) for each set bit of the position, lowest level first: at most 1,064 bytes. Appending commitments to it in order gives the tree's later roots.
+
+**Scanning.** Page `shielded/actions` from the wallet's birthday, trial-decrypting each `enc_compact` with the incoming viewing key and the `ephemeral_key`, and keep the positions of the notes found; take the roots of filled subtrees from `shielded/subtree-roots` and a frontier from `TreeFrontier` at a recent height; then continue from `next_height`, applying each new block's commitments to the frontier. The three reads draw on the `index/…` and `query/…` limits below, so a wallet should page at the pace of `Retry-After`.
+
 ## Caching
 
 Only the `index/…` routes are cacheable, and they say so. A `200` carries `Cache-Control: public, max-age=N` where `N` is:
 
 | Answer | `max-age` |
 |---|---|
-| A block (`index/blocks/{height}`), a transaction by hash (`index/txs/{hash}`) and everything under `index/epochs/` (a closed epoch, its validators, its rewards): fixed once they exist | 600 (ten minutes, not longer: a network that starts again keeps its heights and epoch numbers) |
+| A block (`index/blocks/{height}`), a transaction by hash (`index/txs/{hash}`) and everything under `index/epochs/` (a closed epoch, its validators, its rewards): fixed once they exist. A page of `index/shielded/actions` or `index/shielded/subtree-roots` that has more behind it (`has_more`) is fixed too | 600 (ten minutes, not longer: a network that starts again keeps its heights and epoch numbers) |
 | Every other index answer: the lists, the home snapshot, status, accounts, validators, supply, statistics | 2 (about a block) |
 
 The gateway passes on only that exact form and only for a `200`, and never more than an hour; anything else is `no-store`. Every error, every answer of the chain routes and of `query/…`, and the head stream are `Cache-Control: no-store`. A browser's `fetch` follows these headers by itself; a server-side client that wants the saving has to keep the answer for that long.
