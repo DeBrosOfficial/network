@@ -112,6 +112,9 @@ func (r *Runner) heldPrivately(ctx context.Context, name string, dealID uint64, 
 			continue
 		}
 		deal, err := r.chain.Deal(ctx, a.DealID)
+		if errors.Is(err, ErrGone) {
+			continue // a finished deal's slot is released soon and holds the piece for nobody
+		}
 		if err != nil {
 			return false, fmt.Errorf("read deal %d: %w", a.DealID, err)
 		}

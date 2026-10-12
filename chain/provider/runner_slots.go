@@ -22,8 +22,17 @@ func (r *Runner) settlePending(ctx context.Context, latest int64, params types.P
 	return errors.Join(errs...)
 }
 
+// chainSlot reads a slot. One the chain no longer stores is a slot nobody holds.
+func (r *Runner) chainSlot(ctx context.Context, dealID uint64, index uint32) (types.Slot, error) {
+	slot, err := r.chain.Slot(ctx, dealID, index)
+	if errors.Is(err, ErrGone) {
+		return types.Slot{DealId: dealID, Index: index}, nil
+	}
+	return slot, err
+}
+
 func (r *Runner) settleOne(ctx context.Context, latest int64, params types.Params, p pendingSlot) error {
-	slot, err := r.chain.Slot(ctx, p.DealID, p.Slot)
+	slot, err := r.chainSlot(ctx, p.DealID, p.Slot)
 	if err != nil {
 		return err
 	}
@@ -49,6 +58,9 @@ func (r *Runner) noteClasses(ctx context.Context) error {
 			continue
 		}
 		deal, err := r.chain.Deal(ctx, p.DealID)
+		if errors.Is(err, ErrGone) {
+			continue // the slot is dropped when it is settled
+		}
 		if err != nil {
 			errs = append(errs, fmt.Errorf("read deal %d: %w", p.DealID, err))
 			continue
@@ -187,7 +199,7 @@ func (r *Runner) heldChallenges(ctx context.Context, listed []types.Challenge) (
 		if ch.Proved {
 			continue
 		}
-		slot, err := r.chain.Slot(ctx, ch.DealId, ch.Slot)
+		slot, err := r.chainSlot(ctx, ch.DealId, ch.Slot)
 		if err != nil {
 			// One failed read skips only that challenge; the rest are still proved.
 			errs = append(errs, fmt.Errorf("deal %d slot %d: %w", ch.DealId, ch.Slot, err))
@@ -209,7 +221,7 @@ func (r *Runner) sweep(ctx context.Context, epoch uint64) error {
 		return err
 	}
 	for _, a := range bound {
-		slot, err := r.chain.Slot(ctx, a.DealID, a.Slot)
+		slot, err := r.chainSlot(ctx, a.DealID, a.Slot)
 		if err != nil {
 			return err
 		}

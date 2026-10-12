@@ -67,4 +67,6 @@ var (
 	ProbationNetPrefix   = collections.NewPrefix(26)
 	ProbationASNPrefix   = collections.NewPrefix(27)
 	FailuresPrefix       = collections.NewPrefix(28)
+	DealExpiryPrefix     = collections.NewPrefix(29)
+	AcceptWindowPrefix   = collections.NewPrefix(30)
 )

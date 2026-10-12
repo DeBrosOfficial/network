@@ -49,7 +49,7 @@ Every item below describes the code as it is. Several are marked as bugs in thei
 
 ## Scaling and delivery
 
-- **Per-block table scans grow with all history.** Accept-window expiry, deal expiry and probation expiry walk every slot, deal and node each block, and deals are never deleted. `chain/x/storage/keeper/assign.go:expireAcceptWindows`.
+- **Per-block node walks grow with the node count.** Probation expiry and challenge opening walk every tracked node each block. Deal and accept-window expiry read indexes and finished deals are deleted, so history does not add cost. `chain/x/storage/keeper/settlement.go:expireProbation`.
 - **The registry has one writer and a fixed voter cap.** Every registry write is a Raft entry in one group, nodes beyond five add read replicas and not write capacity, and five voters tolerate two simultaneous failures however large the fleet grows.
 - **Pub/sub messages near 1 MiB fail silently or kill a stream.** A message of 786,427 bytes or more ends the delivery stream for every subscriber on that topic on each gateway that receives it, and messages near 1 MiB reach only the publishing node while the publisher gets a 200. `core/pkg/gateway/handlers/pubsub/publish_handler.go:MaxPerMessageBytes`.
 

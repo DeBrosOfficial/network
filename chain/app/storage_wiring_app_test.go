@@ -2,6 +2,7 @@ package app_test
 
 import (
 	stded25519 "crypto/ed25519"
+	"errors"
 	"testing"
 	"time"
 
@@ -210,6 +211,9 @@ func (c *wiringChain) slotHolders(dealID uint64) []string {
 	var out []string
 	for i := uint32(0); i < 3; i++ {
 		slot, err := c.app.StorageKeeper.Slots.Get(c.app.NewContext(true), collectionsJoin(dealID, i))
+		if errors.Is(err, collections.ErrNotFound) {
+			continue // a refunded deal is deleted with its slots and has no holder
+		}
 		require.NoError(c.t, err)
 		out = append(out, slot.NodeId)
 	}
@@ -294,10 +298,9 @@ func TestApp_protocolDealSlotsNeedDistinctNetworksFromTheirEndpoints(t *testing.
 		refused = id
 	})
 	c.blocks(1)
-	deal, err := c.app.StorageKeeper.Deals.Get(c.app.NewContext(true), refused)
-	require.NoError(t, err)
-	require.Equal(t, storagetypes.DealStatus_DEAL_STATUS_REFUNDED, deal.Status,
-		"a and b share a /16, so only two distinct networks exist for three slots")
+	_, err := c.app.StorageKeeper.Deals.Get(c.app.NewContext(true), refused)
+	require.ErrorIs(t, err, collections.ErrNotFound,
+		"a and b share a /16, so only two distinct networks exist for three slots: the deal is refunded and deleted")
 
 	c.addStorageNode("d", "https://151.101.2.10:443", 20940)
 	c.blocks(1)

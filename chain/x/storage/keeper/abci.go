@@ -42,14 +42,12 @@ func (k Keeper) BeginBlock(ctx sdk.Context) error {
 	if err := k.openChallenges(ctx, epoch); err != nil {
 		return err
 	}
-	if err := k.expireDeals(ctx, epoch); err != nil {
-		return err
-	}
 	return k.expireProbation(ctx, epoch)
 }
 
 // EndBlock drains the settlement queue up to its per-block limit, then expires
-// deals whose payments have finished landing.
+// deals whose payments have finished landing. Expiry runs only here, once per block, after the
+// queue has had its turn.
 func (k Keeper) EndBlock(ctx sdk.Context) error {
 	if err := k.SettleQueue(ctx); err != nil {
 		return err

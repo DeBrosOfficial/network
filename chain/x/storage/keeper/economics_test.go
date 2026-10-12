@@ -88,7 +88,7 @@ func TestServiceSplitAndFinalSettlement(t *testing.T) {
 	f.end(t)
 	// Missed epoch refunds 3 * 1000. Proved epoch was already paid.
 	require.Equal(t, math.NewInt(3000), f.Earnings.get(client))
-	require.Equal(t, types.DealStatus_DEAL_STATUS_EXPIRED, f.deal(t, id).Status)
+	f.requireDealFinished(t, id)
 	f.requireInvariants(t)
 }
 

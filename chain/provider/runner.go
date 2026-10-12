@@ -114,6 +114,11 @@ func NewRunner(store *Store, chain Chain, cfg Config) (*Runner, error) {
 	}, nil
 }
 
+// ErrGone is what a Chain returns for a deal or slot x/storage no longer stores. The chain deletes a
+// deal and its slots once the deal has ended and been settled, so a slot this node still holds can
+// vanish; the node reads that as a slot that is no longer its own.
+var ErrGone = errors.New("the chain no longer stores it")
+
 // Assigned reports whether name is the hex piece root of a slot this node
 // is waiting to receive, and the byte length the chain recorded for that slot's
 // piece. It is the upload filter for Retrieval.AcceptUploads.

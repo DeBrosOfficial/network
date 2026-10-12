@@ -155,8 +155,7 @@ func TestProtocolSlots_refuseNodesWithoutNetworkOrASN(t *testing.T) {
 	require.NoError(t, err)
 	f.end(t)
 	f.begin(t)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, id).Status,
-		"two identified nodes cannot fill three diverse slots, and unidentified nodes do not count")
+	f.requireDealFinished(t, id, "two identified nodes cannot fill three diverse slots, and unidentified nodes do not count")
 }
 
 func TestPrivateDeals_acceptNodesWithoutNetworkIdentity(t *testing.T) {

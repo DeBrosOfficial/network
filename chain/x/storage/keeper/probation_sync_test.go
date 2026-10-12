@@ -71,8 +71,7 @@ func TestProbation_nodesTakeProtocolDealSlotsUnderTheirCap(t *testing.T) {
 	second := f.protocolDeal(t, 2)
 	f.end(t)
 	f.begin(t)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, second).Status,
-		"probation_slots is 1, so each probation node is full after one protocol slot")
+	f.requireDealFinished(t, second, "probation_slots is 1, so each probation node is full after one protocol slot")
 	f.requireInvariants(t)
 }
 
@@ -86,8 +85,7 @@ func TestProbation_nodesNeverHoldUserDeals(t *testing.T) {
 	id := f.createDeal(t, types.DealClass_DEAL_CLASS_PRIVATE, client, "", 3, 1000, 1, pieces)
 	f.end(t)
 	f.begin(t)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, id).Status,
-		"a probation node has no bond to slash, so it takes no user deal")
+	f.requireDealFinished(t, id, "a probation node has no bond to slash, so it takes no user deal")
 }
 
 func TestProbation_aNodeThatBondsGraduatesAndFreesItsCaps(t *testing.T) {

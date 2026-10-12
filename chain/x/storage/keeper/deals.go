@@ -412,9 +412,5 @@ func (k Keeper) refundUnassigned(ctx sdk.Context, deal types.Deal) error {
 	if err := k.returnEscrow(ctx, &deal); err != nil {
 		return err
 	}
-	deal.Status = types.DealStatus_DEAL_STATUS_REFUNDED
-	if err := k.saveDeal(ctx, deal); err != nil {
-		return err
-	}
-	return k.Pending.Remove(ctx, deal.Id)
+	return k.finishDeal(ctx, deal, types.DealStatus_DEAL_STATUS_REFUNDED)
 }

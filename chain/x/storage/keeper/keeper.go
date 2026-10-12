@@ -60,6 +60,14 @@ type Keeper struct {
 	ProbationASN   collections.Map[uint32, uint64]
 	// Failures counts, per node and kind, the consecutive blocks a node's work was rolled back.
 	Failures collections.Map[collections.Pair[string, string], uint64]
+	// DealExpiry holds (end epoch, deal id) for every stored deal, so expiry reads the deals that are due
+	// and not every deal. saveDeal keeps it equal to the deals' end epochs.
+	DealExpiry collections.KeySet[collections.Pair[uint64, uint64]]
+	// AcceptWindow holds (assign height, deal id, slot) for every slot that is ASSIGNED and not yet
+	// accepted, so the window check reads the slots that are stale and not every slot. It is keyed by the
+	// assign height, not the deadline, so a change of accept_window_blocks needs no rewrite. saveSlot keeps it
+	// equal to the slots' state.
+	AcceptWindow collections.KeySet[collections.Pair[uint64, collections.Pair[uint64, uint32]]]
 }
 
 // NewKeeper builds a keeper. None of the interfaces may be nil once a block runs.
@@ -108,6 +116,8 @@ func NewKeeper(
 		ProbationNet:      collections.NewMap(sb, types.ProbationNetPrefix, "probation_net", collections.StringKey, collections.Uint64Value),
 		ProbationASN:      collections.NewMap(sb, types.ProbationASNPrefix, "probation_asn", collections.Uint32Key, collections.Uint64Value),
 		Failures:          collections.NewMap(sb, types.FailuresPrefix, "failures", collections.PairKeyCodec(collections.StringKey, collections.StringKey), collections.Uint64Value),
+		DealExpiry:        collections.NewKeySet(sb, types.DealExpiryPrefix, "deal_expiry", collections.PairKeyCodec(collections.Uint64Key, collections.Uint64Key)),
+		AcceptWindow:      collections.NewKeySet(sb, types.AcceptWindowPrefix, "accept_window", collections.PairKeyCodec(collections.Uint64Key, collections.PairKeyCodec(collections.Uint64Key, collections.Uint32Key))),
 	}
 	schema, err := sb.Build()
 	if err != nil {

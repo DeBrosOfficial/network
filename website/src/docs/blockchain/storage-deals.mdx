@@ -40,6 +40,7 @@ sequenceDiagram
 4. **Challenge and prove.** Every epoch the chain samples 8 leaves per replica. The provider answers with a Merkle leaf-inclusion proof.
 5. **Settle.** At epoch close each challenge is scored into a settlement row, up to 100 per block. A proved slot is paid out of escrow.
 6. **Miss.** A missed challenge raises a consecutive-miss count. From the second consecutive miss the node is penalised 10% of one epoch's price. At 4 misses the slot is evicted and a replacement slot is assigned; the lost piece is then rebuilt by the deal's repair delegate or, if it names none, by the owner (see [Repairing a deal](#repairing-a-deal)). A bonded node is slashed through `x/nodes`; a probation node's record deposit is burned instead.
+7. **Finish.** When a deal ends (its last epoch is settled, or it is refunded because no node could hold it) and its payments have drained, the chain deletes the deal and its slots and emits `storage_deal_finished` with the deal id and `EXPIRED` or `REFUNDED`. The `Deal` and `Slot` queries then answer "not found" and `Deals` lists only running deals, so read the event stream for the history of finished deals.
 
 Each failing item is isolated: the block continues and a `storage_item_failed` event is emitted.
 

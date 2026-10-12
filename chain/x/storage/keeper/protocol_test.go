@@ -44,7 +44,7 @@ func TestProtocolSlotsDistinctNetworkAndASN(t *testing.T) {
 	f.end(t)
 	f.begin(t)
 	// Only two /16s, so the protocol deal cannot fill three diverse slots.
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, 1).Status)
+	f.requireDealFinished(t, 1)
 
 	g := newFixture(t)
 	g.init(t, nil)
@@ -128,7 +128,7 @@ func TestProbationCapsExpiryAndDeposit(t *testing.T) {
 	require.NoError(t, err)
 	f.end(t)
 	f.begin(t)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, second).Status, "probation caps leave fewer than 3 eligible nodes")
+	f.requireDealFinished(t, second, "probation caps leave fewer than 3 eligible nodes")
 	_ = p2
 
 	// A probation node that never proves is jailed at expiry. Registered in epoch 1;

@@ -452,18 +452,24 @@ func (k Keeper) expireAcceptWindows(ctx sdk.Context) error {
 	if err != nil {
 		return err
 	}
-	var stale []types.Slot
-	err = k.Slots.Walk(ctx, nil, func(_ collections.Pair[uint64, uint32], slot types.Slot) (bool, error) {
-		if slot.Status == types.SlotStatus_SLOT_STATUS_ASSIGNED && !slot.Accepted &&
-			ctx.BlockHeight() > slot.AssignHeight+int64(p.AcceptWindowBlocks) {
-			stale = append(stale, slot)
-		}
+	// A slot is stale when the block height is past its assign height plus the window.
+	last := ctx.BlockHeight() - int64(p.AcceptWindowBlocks) - 1
+	if last < 0 {
+		return nil
+	}
+	var keys []collections.Pair[uint64, collections.Pair[uint64, uint32]]
+	rng := collections.NewPrefixUntilPairRange[uint64, collections.Pair[uint64, uint32]](uint64(last))
+	if err := k.AcceptWindow.Walk(ctx, rng, func(key collections.Pair[uint64, collections.Pair[uint64, uint32]]) (bool, error) {
+		keys = append(keys, key)
 		return false, nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
-	for _, slot := range stale {
+	for _, key := range keys {
+		slot, err := k.loadSlot(ctx, key.K2().K1(), key.K2().K2())
+		if err != nil {
+			return err
+		}
 		if _, err := k.isolate(ctx, FailureKindDeal, dealSubject(slot.DealId), func(c sdk.Context) error {
 			return k.expireAcceptWindow(c, slot)
 		}); err != nil {

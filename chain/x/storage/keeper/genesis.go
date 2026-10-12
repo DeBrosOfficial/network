@@ -54,14 +54,14 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gen types.GenesisState) error {
 		return err
 	}
 	for _, d := range gen.Deals {
-		if err := k.Deals.Set(ctx, d.Id, d); err != nil {
+		if err := k.saveDeal(ctx, d); err != nil {
 			return err
 		}
 	}
 	for _, s := range gen.Slots {
 		s.ReplicaIndexed = false
 		s.ReplicaSeq = 0
-		if err := k.Slots.Set(ctx, collections.Join(s.DealId, s.Index), s); err != nil {
+		if err := k.saveSlot(ctx, s); err != nil {
 			return err
 		}
 	}

@@ -54,8 +54,52 @@ func (k Keeper) loadDeal(ctx sdk.Context, id uint64) (types.Deal, error) {
 }
 
 func (k Keeper) saveDeal(ctx sdk.Context, deal types.Deal) error {
+	old, err := k.Deals.Get(ctx, deal.Id)
+	switch {
+	case err == nil:
+		if old.EndEpoch != deal.EndEpoch {
+			if err := k.DealExpiry.Remove(ctx, collections.Join(old.EndEpoch, deal.Id)); err != nil {
+				return fmt.Errorf("failed to re-index deal %d: %w", deal.Id, err)
+			}
+		}
+	case !errors.Is(err, collections.ErrNotFound):
+		return fmt.Errorf("failed to read deal %d: %w", deal.Id, err)
+	}
+	if err := k.DealExpiry.Set(ctx, collections.Join(deal.EndEpoch, deal.Id)); err != nil {
+		return fmt.Errorf("failed to index deal %d: %w", deal.Id, err)
+	}
 	if err := k.Deals.Set(ctx, deal.Id, deal); err != nil {
 		return fmt.Errorf("failed to store deal %d: %w", deal.Id, err)
+	}
+	return nil
+}
+
+// deleteDeal removes a finished deal, its slots and its index rows. The caller has already detached every
+// slot and returned the escrow, and no settlement row of the deal is queued.
+func (k Keeper) deleteDeal(ctx sdk.Context, deal types.Deal) error {
+	slots, err := k.dealSlots(ctx, deal.Id)
+	if err != nil {
+		return err
+	}
+	for _, slot := range slots {
+		if slot.NodeId != "" || slot.ReplicaIndexed {
+			return fmt.Errorf("deal %d slot %d is still held by %q and cannot be deleted", deal.Id, slot.Index, slot.NodeId)
+		}
+		if err := k.AcceptWindow.Remove(ctx, acceptWindowKey(slot)); err != nil {
+			return err
+		}
+		if err := k.Slots.Remove(ctx, collections.Join(slot.DealId, slot.Index)); err != nil {
+			return fmt.Errorf("failed to delete deal %d slot %d: %w", slot.DealId, slot.Index, err)
+		}
+	}
+	if err := k.DealExpiry.Remove(ctx, collections.Join(deal.EndEpoch, deal.Id)); err != nil {
+		return err
+	}
+	if err := k.Pending.Remove(ctx, deal.Id); err != nil {
+		return err
+	}
+	if err := k.Deals.Remove(ctx, deal.Id); err != nil {
+		return fmt.Errorf("failed to delete deal %d: %w", deal.Id, err)
 	}
 	return nil
 }
@@ -72,10 +116,28 @@ func (k Keeper) loadSlot(ctx sdk.Context, dealID uint64, index uint32) (types.Sl
 }
 
 func (k Keeper) saveSlot(ctx sdk.Context, slot types.Slot) error {
+	old, err := k.Slots.Get(ctx, collections.Join(slot.DealId, slot.Index))
+	switch {
+	case err == nil:
+		if err := k.AcceptWindow.Remove(ctx, acceptWindowKey(old)); err != nil {
+			return fmt.Errorf("failed to re-index deal %d slot %d: %w", slot.DealId, slot.Index, err)
+		}
+	case !errors.Is(err, collections.ErrNotFound):
+		return fmt.Errorf("failed to read deal %d slot %d: %w", slot.DealId, slot.Index, err)
+	}
+	if slot.Status == types.SlotStatus_SLOT_STATUS_ASSIGNED && !slot.Accepted {
+		if err := k.AcceptWindow.Set(ctx, acceptWindowKey(slot)); err != nil {
+			return fmt.Errorf("failed to index deal %d slot %d: %w", slot.DealId, slot.Index, err)
+		}
+	}
 	if err := k.Slots.Set(ctx, collections.Join(slot.DealId, slot.Index), slot); err != nil {
 		return fmt.Errorf("failed to store deal %d slot %d: %w", slot.DealId, slot.Index, err)
 	}
 	return nil
+}
+
+func acceptWindowKey(slot types.Slot) collections.Pair[uint64, collections.Pair[uint64, uint32]] {
+	return collections.Join(uint64(slot.AssignHeight), collections.Join(slot.DealId, slot.Index))
 }
 
 func (k Keeper) dealSlots(ctx sdk.Context, dealID uint64) ([]types.Slot, error) {

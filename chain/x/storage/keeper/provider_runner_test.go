@@ -19,6 +19,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/DeBrosOfficial/network/chain/client/node"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/DeBrosOfficial/network/chain/provider"
 	"github.com/DeBrosOfficial/network/chain/x/storage/types"
 )
@@ -69,6 +72,9 @@ func (c nodeChain) Slot(_ context.Context, dealID uint64, slot uint32) (types.Sl
 		return types.Slot{}, fmt.Errorf("rpc timeout reading deal %d slot %d", dealID, slot)
 	}
 	res, err := c.sim.f.Query.Slot(c.sim.f.Ctx, &types.QuerySlotRequest{DealId: dealID, Slot: slot})
+	if status.Code(err) == codes.NotFound {
+		return types.Slot{}, fmt.Errorf("deal %d slot %d: %w", dealID, slot, provider.ErrGone)
+	}
 	if err != nil {
 		return types.Slot{}, err
 	}
@@ -77,6 +83,9 @@ func (c nodeChain) Slot(_ context.Context, dealID uint64, slot uint32) (types.Sl
 
 func (c nodeChain) Deal(_ context.Context, dealID uint64) (types.Deal, error) {
 	res, err := c.sim.f.Query.Deal(c.sim.f.Ctx, &types.QueryDealRequest{DealId: dealID})
+	if status.Code(err) == codes.NotFound {
+		return types.Deal{}, fmt.Errorf("deal %d: %w", dealID, provider.ErrGone)
+	}
 	if err != nil {
 		return types.Deal{}, err
 	}

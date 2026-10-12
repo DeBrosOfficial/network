@@ -871,15 +871,13 @@ func (k Keeper) countActiveOperators(ctx sdk.Context) (uint64, error) {
 	return uint64(len(seen)), nil
 }
 
+// expireDeals ends every deal whose end epoch has come and whose settlement rows have drained. It reads
+// the DealExpiry index up to the current epoch, so a block with nothing due reads no deal.
 func (k Keeper) expireDeals(ctx sdk.Context, epoch uint64) error {
 	var ids []uint64
-	if err := k.Deals.Walk(ctx, nil, func(id uint64, deal types.Deal) (bool, error) {
-		if deal.Status == types.DealStatus_DEAL_STATUS_REFUNDED || deal.Status == types.DealStatus_DEAL_STATUS_EXPIRED {
-			return false, nil
-		}
-		if epoch >= deal.EndEpoch {
-			ids = append(ids, id)
-		}
+	rng := collections.NewPrefixUntilPairRange[uint64, uint64](epoch)
+	if err := k.DealExpiry.Walk(ctx, rng, func(key collections.Pair[uint64, uint64]) (bool, error) {
+		ids = append(ids, key.K2())
 		return false, nil
 	}); err != nil {
 		return err
@@ -922,11 +920,21 @@ func (k Keeper) expireDeal(ctx sdk.Context, id uint64) error {
 	if err := k.returnEscrow(ctx, &deal); err != nil {
 		return err
 	}
-	deal.Status = types.DealStatus_DEAL_STATUS_EXPIRED
-	if err := k.saveDeal(ctx, deal); err != nil {
+	return k.finishDeal(ctx, deal, types.DealStatus_DEAL_STATUS_EXPIRED)
+}
+
+// finishDeal ends a deal whose slots are detached and whose escrow is returned: it deletes the deal and
+// its slots, so the state holds only deals that are still running, and emits storage_deal_finished for
+// indexers, which can no longer read the deal from a query.
+func (k Keeper) finishDeal(ctx sdk.Context, deal types.Deal, status types.DealStatus) error {
+	if err := k.deleteDeal(ctx, deal); err != nil {
 		return err
 	}
-	return k.Pending.Remove(ctx, id)
+	ctx.EventManager().EmitEvent(sdk.NewEvent("storage_deal_finished",
+		sdk.NewAttribute("deal_id", fmt.Sprintf("%d", deal.Id)),
+		sdk.NewAttribute("status", status.String()),
+	))
+	return nil
 }
 
 func (k Keeper) expireProbation(ctx sdk.Context, epoch uint64) error {

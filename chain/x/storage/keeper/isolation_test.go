@@ -339,7 +339,7 @@ func TestExpireDeals_oneCorruptDealDoesNotHaltTheBlock(t *testing.T) {
 	f.begin(t)
 	f.end(t)
 
-	require.Equal(t, types.DealStatus_DEAL_STATUS_EXPIRED, f.deal(t, good).Status, "the healthy deal still expires")
+	f.requireDealFinished(t, good, "the healthy deal still expires")
 	require.NotEqual(t, types.DealStatus_DEAL_STATUS_EXPIRED, f.deal(t, bad).Status)
 	n, err := f.Keeper.FailureCount(f.Ctx, "deal/"+u64(bad), keeper.FailureKindDeal)
 	require.NoError(t, err)

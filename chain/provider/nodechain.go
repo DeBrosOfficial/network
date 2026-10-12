@@ -40,22 +40,32 @@ func (c *NodeChain) Params(ctx context.Context) (types.Params, error) {
 	return resp.Params, nil
 }
 
-// Slot returns one deal slot.
+// Slot returns one deal slot, or ErrGone when the chain no longer stores it: x/storage deletes a
+// deal and its slots once the deal is finished and settled.
 func (c *NodeChain) Slot(ctx context.Context, dealID uint64, slot uint32) (types.Slot, error) {
 	var resp types.QuerySlotResponse
 	if err := c.Query(ctx, "/orama.storage.v1.Query/Slot", &types.QuerySlotRequest{DealId: dealID, Slot: slot}, &resp); err != nil {
-		return types.Slot{}, err
+		return types.Slot{}, gone(err, fmt.Sprintf("deal %d slot %d", dealID, slot))
 	}
 	return resp.Slot, nil
 }
 
-// Deal returns one storage deal.
+// Deal returns one storage deal, or ErrGone when the chain no longer stores it.
 func (c *NodeChain) Deal(ctx context.Context, dealID uint64) (types.Deal, error) {
 	var resp types.QueryDealResponse
 	if err := c.Query(ctx, "/orama.storage.v1.Query/Deal", &types.QueryDealRequest{DealId: dealID}, &resp); err != nil {
-		return types.Deal{}, err
+		return types.Deal{}, gone(err, fmt.Sprintf("deal %d", dealID))
 	}
 	return resp.Deal, nil
+}
+
+// gone turns the node's "does not exist" answer into ErrGone and passes any other error through.
+func gone(err error, what string) error {
+	var qe *node.QueryError
+	if errors.As(err, &qe) && qe.NotFound() {
+		return fmt.Errorf("%s: %w", what, ErrGone)
+	}
+	return err
 }
 
 // CurrentEpoch is x/emission's epoch, the one x/storage challenges in.

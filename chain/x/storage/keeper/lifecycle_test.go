@@ -137,9 +137,7 @@ func TestDistinctOperatorsAndRefund(t *testing.T) {
 	gid := g.createDeal(t, types.DealClass_DEAL_CLASS_PRIVATE, payer, "", 3, 1000, 1, pieces)
 	g.end(t)
 	g.begin(t)
-	got := g.deal(t, gid)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, got.Status)
-	require.True(t, got.Escrow.IsZero())
+	g.requireDealFinished(t, gid)
 	require.True(t, g.Earnings.get(payer).IsPositive(), "escrow refund lands in earnings")
 	require.Equal(t, math.NewInt(1000), g.Bank.burned, "the burned fee is not refunded")
 	g.requireInvariants(t)
@@ -197,7 +195,7 @@ func TestRepairDelegateExcluded(t *testing.T) {
 	// Only three operators and one is excluded, so the deal cannot fill.
 	f.end(t)
 	f.begin(t)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, res.DealId).Status)
+	f.requireDealFinished(t, res.DealId)
 
 	spare := f.addNode(t, "n4", "10.9.0.0/16", 9, 1<<20, false)
 	id := f.createDeal(t, types.DealClass_DEAL_CLASS_PRIVATE, client, "", 3, 1000, 1, pieces)
@@ -238,7 +236,7 @@ func TestReservedWithinDeclared(t *testing.T) {
 	id2 := f.createDeal(t, types.DealClass_DEAL_CLASS_PUBLIC_PIN, client, "", 3, 1000, 1, one)
 	f.end(t)
 	f.begin(t)
-	require.Equal(t, types.DealStatus_DEAL_STATUS_REFUNDED, f.deal(t, id2).Status)
+	f.requireDealFinished(t, id2)
 	f.requireInvariants(t)
 }
 
