@@ -148,18 +148,26 @@ const (
 // WindowSeconds is Window in whole seconds, the unit the limiter counts time in.
 const WindowSeconds = int64(Window / time.Second)
 
-// Limiter is the net-outflow counter for one pool: a leaky bucket that holds at most one cap and
-// drains one cap per Window. Counted is the level and Start is the instant the drain has been
+// Capacity is what the bucket holds under cap: half of it, rounded down. The bucket drains its
+// capacity per Window, so an interval of length T at most Window admits at most
+// Capacity + Capacity*T/Window <= cap: never more than one cap leaves in any 24 hours. The
+// sustained rate is half a cap per Window.
+func Capacity(cap math.Int) math.Int { return cap.QuoRaw(2) }
+
+// Limiter is the net-outflow counter for one pool: a leaky bucket that holds Capacity(cap) and
+// drains that much per Window. Counted is the level and Start is the instant the drain has been
 // accounted up to, so the bucket never resets all at once.
 type Limiter struct {
 	Start   time.Time
 	Counted math.Int
 }
 
-// Roll drains the bucket for the time since Start at cap per Window, in whole norama. Start moves
+// Roll drains the bucket for the time since Start at Capacity(cap) per Window, in whole norama,
+// rounded down, so it never drains more than the exact rate. Start moves
 // forward only by the time the drained norama stand for, rounded up, so a short interval that
 // drains nothing is kept and added to the next one; a bucket that drains empty restarts at now.
 func (l *Limiter) Roll(now time.Time, cap math.Int) {
+	rate := Capacity(cap)
 	if l.Counted.IsNil() {
 		l.Counted = math.ZeroInt()
 	}
@@ -168,10 +176,10 @@ func (l *Limiter) Roll(now time.Time, cap math.Int) {
 		return
 	}
 	elapsed := now.Unix() - l.Start.Unix()
-	if elapsed <= 0 || !cap.IsPositive() {
+	if elapsed <= 0 || !rate.IsPositive() {
 		return
 	}
-	drained := cap.MulRaw(elapsed).QuoRaw(WindowSeconds)
+	drained := rate.MulRaw(elapsed).QuoRaw(WindowSeconds)
 	if !drained.IsPositive() {
 		return
 	}
@@ -180,7 +188,7 @@ func (l *Limiter) Roll(now time.Time, cap math.Int) {
 		l.Start = now
 		return
 	}
-	used := drained.MulRaw(WindowSeconds).Add(cap).SubRaw(1).Quo(cap) // ceil(drained * Window / cap)
+	used := drained.MulRaw(WindowSeconds).Add(rate).SubRaw(1).Quo(rate) // ceil(drained * Window / rate)
 	l.Counted = l.Counted.Sub(drained)
 	l.Start = l.Start.Add(time.Duration(used.Int64()) * time.Second)
 }
@@ -188,7 +196,7 @@ func (l *Limiter) Roll(now time.Time, cap math.Int) {
 // Remaining is what the bucket still takes under cap right now; call Roll first. It is never
 // negative, even when the cap fell below the level because the pool shrank.
 func (l *Limiter) Remaining(cap math.Int) math.Int {
-	left := cap.Sub(l.Counted)
+	left := Capacity(cap).Sub(l.Counted)
 	if left.IsNegative() {
 		return math.ZeroInt()
 	}

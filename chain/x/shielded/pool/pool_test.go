@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -72,6 +73,10 @@ func TestCapFloorAndExemptFee(t *testing.T) {
 	if !CapAmount(large, floor).Equal(want) {
 		t.Fatalf("pct: %s", CapAmount(large, floor))
 	}
+	room := Capacity(want) // the bucket holds half a cap
+	if !room.Equal(math.NewInt(10_000_000_000)) {
+		t.Fatalf("capacity: %s", room)
+	}
 
 	lim := &Limiter{}
 	now := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
@@ -81,11 +86,11 @@ func TestCapFloorAndExemptFee(t *testing.T) {
 	if !lim.Counted.IsZero() {
 		t.Fatal("fee burn counted against the cap")
 	}
-	if _, err := lim.Apply(now, large, floor, want, KindAdapter); err != nil {
+	if _, err := lim.Apply(now, large, floor, room, KindAdapter); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := lim.Apply(now, large, floor, math.NewInt(1), KindAdapter); err != ErrCapExhausted {
-		t.Fatalf("adapter over cap: %v", err)
+		t.Fatalf("adapter over the bucket: %v", err)
 	}
 	out, err := lim.Apply(now, large, floor, math.NewInt(1), KindBond)
 	if err != nil || out != OutcomeQueue {
@@ -98,10 +103,10 @@ func TestCapFloorAndExemptFee(t *testing.T) {
 	}
 }
 
-func TestLimiterRoll_drainsOneCapPerWindow(t *testing.T) {
-	cap := math.NewInt(86_400) // one norama per second
+func TestLimiterRoll_drainsItsCapacityPerWindow(t *testing.T) {
+	cap := math.NewInt(172_800) // capacity 86,400: one norama per second
 	start := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
-	lim := &Limiter{Start: start, Counted: cap}
+	lim := &Limiter{Start: start, Counted: Capacity(cap)}
 	lim.Roll(start.Add(1000*time.Second), cap)
 	if !lim.Counted.Equal(math.NewInt(85_400)) || !lim.Start.Equal(start.Add(1000*time.Second)) {
 		t.Fatalf("after 1000 s: %s at %s", lim.Counted, lim.Start)
@@ -113,7 +118,7 @@ func TestLimiterRoll_drainsOneCapPerWindow(t *testing.T) {
 }
 
 func TestLimiterRoll_shortIntervalsStillAddUpToADrain(t *testing.T) {
-	cap := math.NewInt(50) // 50 per 86,400 s: a norama drains every 1,728 s
+	cap := math.NewInt(100) // capacity 50: a norama drains every 1,728 s
 	start := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
 	lim := &Limiter{Start: start, Counted: math.NewInt(10)}
 	for s := int64(5); s <= 1727; s += 5 { // a block every 5 s, none drains a whole norama
@@ -128,47 +133,77 @@ func TestLimiterRoll_shortIntervalsStillAddUpToADrain(t *testing.T) {
 	}
 }
 
-func TestLimiterRoll_neverDrainsMoreThanTheElapsedTimeAllows(t *testing.T) {
-	cap := math.NewInt(50)
-	start := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
-	for _, step := range []int64{1, 7, 61, 1728, 3000} {
-		lim := &Limiter{Start: start, Counted: cap}
-		var drainedTotal int64
-		for s := step; s <= 3*86_400; s += step {
-			before := lim.Counted
-			lim.Roll(start.Add(time.Duration(s)*time.Second), cap)
-			drainedTotal += before.Sub(lim.Counted).Int64()
-			lim.Counted = cap // outflow refills the bucket at once
-		}
-		if drainedTotal > 3*cap.Int64() {
-			t.Fatalf("step %d s: %d drained in 3 days, at most %d allowed", step, drainedTotal, 3*cap.Int64())
-		}
-	}
-}
-
 func TestLimiterRoll_emptyZeroAndShrunkenCases(t *testing.T) {
 	now := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
 	fresh := &Limiter{}
-	fresh.Roll(now, math.NewInt(50))
+	fresh.Roll(now, math.NewInt(100))
 	if !fresh.Counted.IsZero() || !fresh.Start.Equal(now) {
 		t.Fatalf("a new limiter starts empty at now: %s at %s", fresh.Counted, fresh.Start)
 	}
-	zeroCap := &Limiter{Start: now, Counted: math.NewInt(5)}
-	zeroCap.Roll(now.Add(Window), math.ZeroInt())
-	if !zeroCap.Counted.Equal(math.NewInt(5)) {
-		t.Fatalf("a zero cap drains nothing: %s", zeroCap.Counted)
+	for _, cap := range []math.Int{math.ZeroInt(), math.OneInt()} { // a capacity of zero drains nothing
+		l := &Limiter{Start: now, Counted: math.NewInt(5)}
+		l.Roll(now.Add(Window), cap)
+		if !l.Counted.Equal(math.NewInt(5)) {
+			t.Fatalf("cap %s drains nothing: %s", cap, l.Counted)
+		}
 	}
 	back := &Limiter{Start: now, Counted: math.NewInt(5)}
-	back.Roll(now.Add(-time.Hour), math.NewInt(50))
+	back.Roll(now.Add(-time.Hour), math.NewInt(100))
 	if !back.Counted.Equal(math.NewInt(5)) {
 		t.Fatalf("a clock behind Start drains nothing: %s", back.Counted)
 	}
 	shrunk := &Limiter{Start: now, Counted: math.NewInt(100)}
-	if !shrunk.Remaining(math.NewInt(50)).IsZero() {
-		t.Fatal("a cap below the level leaves nothing, never a negative amount")
+	if !shrunk.Remaining(math.NewInt(100)).IsZero() {
+		t.Fatal("a cap whose half is below the level leaves nothing, never a negative amount")
 	}
-	if !shrunk.Remaining(math.NewInt(130)).Equal(math.NewInt(30)) {
-		t.Fatalf("remaining: %s", shrunk.Remaining(math.NewInt(130)))
+	if !shrunk.Remaining(math.NewInt(260)).Equal(math.NewInt(30)) {
+		t.Fatalf("remaining: %s", shrunk.Remaining(math.NewInt(260)))
+	}
+}
+
+// Over random sequences of outflows and time steps, what the limiter admits in every sliding 24
+// hour interval never exceeds one cap, and it admits a burst of half a cap and half a cap per day
+// afterwards.
+func TestLimiter_noSlidingWindowOfAWindowAdmitsMoreThanOneCap(t *testing.T) {
+	type outflow struct {
+		at     int64
+		amount int64
+	}
+	for seed := int64(1); seed <= 300; seed++ {
+		rng := rand.New(rand.NewSource(seed))
+		balance := math.NewInt(int64(100 + rng.Intn(20_000_000)))
+		floor := math.OneInt()
+		runCap := CapAmount(balance, floor).Int64()
+		start := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
+		lim := &Limiter{}
+		var admitted []outflow
+		at := int64(0)
+		for i := 0; i < 400; i++ {
+			switch rng.Intn(4) {
+			case 0:
+				at += int64(rng.Intn(6)) // a block
+			case 1:
+				at += int64(rng.Intn(3600))
+			case 2:
+				at += int64(rng.Intn(int(WindowSeconds * 2 / 3)))
+			default:
+				at += 5
+			}
+			amount := int64(1 + rng.Intn(int(runCap)))
+			out, err := lim.Apply(start.Add(time.Duration(at)*time.Second), balance, floor, math.NewInt(amount), KindAdapter)
+			if err == nil && out == OutcomeAllow {
+				admitted = append(admitted, outflow{at, amount})
+			}
+		}
+		for i := range admitted {
+			var sum int64
+			for j := i; j < len(admitted) && admitted[j].at-admitted[i].at <= WindowSeconds; j++ {
+				sum += admitted[j].amount
+			}
+			if sum > runCap {
+				t.Fatalf("seed %d: %d left in the 24 hours from t=%d, the cap is %d", seed, sum, admitted[i].at, runCap)
+			}
+		}
 	}
 }
 

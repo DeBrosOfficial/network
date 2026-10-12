@@ -20,12 +20,12 @@ import (
 // validator is a valid operator address; the bech32 prefix is set by testutil.NewEnv.
 func validator() string { return sdk.ValAddress(bob).String() }
 
-// capEnv has a 1000-norama pool, a 50-norama unshield cap (the floor: 2% of 1000 is 20) and a
+// capEnv has a 1000-norama pool, a 100-norama unshield cap (the floor: 2% of 1000 is 20), so 50 fits in the bucket and a
 // per-address queue cap of 30.
 func capEnv(t *testing.T, mutate func(*types.GenesisState)) *testutil.Env {
 	t.Helper()
 	e := testutil.NewEnv(t, func(gs *types.GenesisState) {
-		gs.Params.UnshieldFloor = math.NewInt(50)
+		gs.Params.UnshieldFloor = math.NewInt(100)
 		gs.Params.QueuePerAddressCap = math.NewInt(30)
 		if mutate != nil {
 			mutate(gs)
@@ -131,7 +131,7 @@ func TestUnshield_theCapDrainsBackGraduallyOver24Hours(t *testing.T) {
 }
 
 func TestUnshield_capHoldsAcrossTheWindowBoundary(t *testing.T) {
-	e := capEnv(t, nil)                          // cap 50 (the floor)
+	e := capEnv(t, nil)                          // bucket 50 (half the cap of 100)
 	_, err := unshield(t, e, topup(2, 2, alice)) // net 1: opens the window
 	require.NoError(t, err)
 	e.Advance(pool.Window - time.Minute)
