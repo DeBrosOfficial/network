@@ -55,6 +55,10 @@ Wallet-side shielded keys are derived with ZIP-32 hardened-only derivation from 
 
 The `CONTRACT` unshield path and its adapter, `DEPOSIT` unshields, vintage migration, multi-asset pools, shielded delegation tokens, per-peer admission limits in the mempool, a measured gas price, and a real two-node state-sync test of the nullifier database.
 
+## Known limit: admission budget
+
+A node verifies at most 256 bundles between two blocks when it admits transactions. A bundle that fails only its proof costs its sender nothing, so a stream of them can use up that budget, and honest bundles sent to the node meanwhile are answered "busy" until the next block. The answer is not a rejection: send the bundle again or to another node. It affects the node's mempool, never a block. The planned mitigations are per-peer rate limits at the sentry nodes and a budget measured on production hardware.
+
 ## Queries
 
 `Params`, `TreeState` and `NullifierSpent` are public. `Pools` and `Invariants` are withheld from the gateway.
