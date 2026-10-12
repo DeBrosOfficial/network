@@ -23,7 +23,7 @@ func TestParse(t *testing.T) {
 		wantErr string
 	}{
 		{"both of the platform", info(entry("linux/amd64", oramad), entry("linux/amd64", verifier)), Digests{oramad, verifier}, ""},
-		{"an uppercase digest is lowered", info(entry("linux/amd64", strings.ToUpper(oramad)), entry("linux/amd64", verifier)), Digests{oramad, verifier}, ""},
+		{"an uppercase digest is not one the chain accepts", info(entry("linux/amd64", strings.ToUpper(oramad)), entry("linux/amd64", verifier)), Digests{}, "no oramad checksum"},
 		{"a checksum before another parameter", info(`"linux/amd64":"https://x.example/o?checksum=sha256:`+oramad+`&archive=false"`, entry("linux/amd64", verifier)), Digests{oramad, verifier}, ""},
 		{"another platform beside it", info(entry("linux/arm64", digest("0"))+","+entry("linux/amd64", oramad), entry("linux/amd64", verifier)), Digests{oramad, verifier}, ""},
 		{"any is not this platform", info(entry("any", oramad), entry("linux/amd64", verifier)), Digests{}, "no oramad checksum for linux/amd64"},

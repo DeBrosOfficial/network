@@ -86,16 +86,24 @@ func (i UpgradeInfo) VerifierChecksum(platform string) string {
 	return upgradeURLChecksum(i.Verifiers[platform])
 }
 
+// upgradeURLChecksum is the sha256 (lowercase hex) a binary URL names, or "". It reads the URL the
+// way checkUpgradeURL does: url.Parse, url.ParseQuery, and exactly one lowercase
+// "checksum=sha256:<64 lowercase hex>" query value. core/pkg/planinfo carries a copy of this function
+// that a node stages by; planinfo's sync test fails when the two differ, so keep them identical.
 func upgradeURLChecksum(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return ""
 	}
-	sum := u.Query().Get(upgradeChecksumParam)
-	if !upgradeChecksumValue.MatchString(sum) {
+	query, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
 		return ""
 	}
-	return strings.TrimPrefix(sum, UpgradeChecksumPrefix)
+	sums := query[upgradeChecksumParam]
+	if len(sums) != 1 || !upgradeChecksumValue.MatchString(sums[0]) {
+		return ""
+	}
+	return strings.TrimPrefix(sums[0], UpgradeChecksumPrefix)
 }
 
 func checkUpgradeURLs(member string, urls map[string]string) []string {
@@ -132,6 +140,11 @@ func checkUpgradeURL(raw string) error {
 	}
 	if u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
 		return fmt.Errorf("must be an https URL with a host, no credentials and no fragment")
+	}
+	// "checksum=" before the query is a decoy: a reader that scans the raw string for it, as a
+	// regular expression does, would take it for the digest.
+	if beforeQuery, _, _ := strings.Cut(raw, "?"); strings.Contains(strings.ToLower(beforeQuery), upgradeChecksumParam+"=") {
+		return fmt.Errorf("must not contain %q outside the query", upgradeChecksumParam+"=")
 	}
 	query, err := url.ParseQuery(u.RawQuery)
 	if err != nil {

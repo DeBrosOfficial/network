@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -20,10 +21,16 @@ import (
 // ErrMismatch is what Check wraps: the oramad or verifier offered is not the one the plan names.
 var ErrMismatch = errors.New("not the binary the upgrade plan names")
 
+const (
+	// checksumParam and checksumPrefix are how a binary's URL names its digest, the way cosmovisor
+	// reads it: "...?checksum=sha256:<hex>".
+	checksumParam  = "checksum"
+	checksumPrefix = "sha256:"
+)
+
 var (
-	// checksumPattern is a sha256 named in a binary's URL the way cosmovisor reads it:
-	// "...?checksum=sha256:<hex>".
-	checksumPattern = regexp.MustCompile(`(?i)checksum=sha256:([0-9a-f]{64})(?:&|$)`)
+	// checksumValue is the one value the checksum parameter may have: the prefix and 64 lowercase hex digits.
+	checksumValue = regexp.MustCompile(`^` + checksumPrefix + `[0-9a-f]{64}$`)
 	// sha256HexPattern is a digest the way Check compares it: 64 lowercase hex digits.
 	sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
@@ -57,12 +64,25 @@ func Parse(name, info, osArch string) (Digests, error) {
 	return d, nil
 }
 
-// urlChecksum is the lowercase sha256 a binary's URL names, or "".
+// urlChecksum is the sha256 (lowercase hex) a binary's URL names, or "". It reads the URL exactly as
+// the chain validated it: url.Parse, url.ParseQuery, and exactly one lowercase
+// "checksum=sha256:<64 lowercase hex>" query value. It is a copy of upgradeURLChecksum in
+// chain/x/houses/types/upgrade_info.go (core cannot import the chain), and TestURLChecksum_isTheChainsFunction
+// fails when the two differ.
 func urlChecksum(rawURL string) string {
-	if m := checksumPattern.FindStringSubmatch(rawURL); m != nil {
-		return strings.ToLower(m[1])
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
 	}
-	return ""
+	query, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return ""
+	}
+	sums := query[checksumParam]
+	if len(sums) != 1 || !checksumValue.MatchString(sums[0]) {
+		return ""
+	}
+	return strings.TrimPrefix(sums[0], checksumPrefix)
 }
 
 // Valid reports whether both digests are well formed.
