@@ -31,6 +31,13 @@ const (
 // returns the retain height of every commit by height.
 func runRetainChain(t *testing.T, lastArchived int64) map[int64]int64 {
 	t.Helper()
+	return runRetainChainWithEvidence(t, lastArchived, retainTestMinBlocks)
+}
+
+// runRetainChainWithEvidence is runRetainChain with the evidence age of the consensus parameters
+// set to evidenceBlocks.
+func runRetainChainWithEvidence(t *testing.T, lastArchived, evidenceBlocks int64) map[int64]int64 {
+	t.Helper()
 	app.SetAddressPrefixes()
 	oramaApp := app.NewOramaApp(log.NewNopLogger(), dbm.NewMemDB(), true, simtestutil.EmptyAppOptions{},
 		baseapp.SetChainID(testChainID), baseapp.SetMinRetainBlocks(retainTestMinBlocks))
@@ -43,7 +50,7 @@ func runRetainChain(t *testing.T, lastArchived int64) map[int64]int64 {
 		ChainId: testChainID, InitialHeight: 1, Time: genesisTime, AppStateBytes: stateBytes,
 		ConsensusParams: &cmtprototypes.ConsensusParams{
 			Block:     &cmtprototypes.BlockParams{MaxBytes: 1 << 20, MaxGas: -1},
-			Evidence:  &cmtprototypes.EvidenceParams{MaxAgeNumBlocks: retainTestMinBlocks, MaxAgeDuration: time.Hour, MaxBytes: 1024},
+			Evidence:  &cmtprototypes.EvidenceParams{MaxAgeNumBlocks: evidenceBlocks, MaxAgeDuration: time.Hour, MaxBytes: 1024},
 			Validator: &cmtprototypes.ValidatorParams{PubKeyTypes: []string{"ed25519"}},
 		},
 	})
@@ -79,6 +86,18 @@ func TestCommit_retainHeightNeverPassesTheArchivedPrefix(t *testing.T) {
 	require.Equal(t, archived, retain[retainTestBlocks],
 		"a stalled archive holds the retain height on the last archived block while the tip runs on")
 	require.Equal(t, int64(3), retain[6], "below the archived prefix the 14-day window binds: 6 - 3")
+}
+
+// The evidence window is the oldest block CometBFT can verify a double sign against, so the retain
+// height never passes tip - max_age_num_blocks, even when min-retain-blocks and the archive
+// window would let it.
+func TestCommit_retainHeightHonoursTheEvidenceWindow(t *testing.T) {
+	const evidenceBlocks, archived int64 = 8, 100
+	retain := runRetainChainWithEvidence(t, archived, evidenceBlocks)
+	for h := evidenceBlocks + 1; h <= retainTestBlocks; h++ {
+		require.LessOrEqual(t, retain[h], h-evidenceBlocks, "block %d: retain height %d prunes inside the evidence window", h, retain[h])
+	}
+	require.Equal(t, retainTestBlocks-evidenceBlocks, retain[retainTestBlocks])
 }
 
 func TestCommit_nothingIsPrunedWhileNothingIsArchived(t *testing.T) {

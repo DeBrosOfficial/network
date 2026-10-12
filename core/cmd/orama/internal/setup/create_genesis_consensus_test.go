@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The pins in create_genesis.go and the values oramad refuses a production genesis for must be one
@@ -17,12 +18,10 @@ func TestConsensusConstants_equalTheChainsPins(t *testing.T) {
 	}
 	src := string(data)
 	for name, want := range map[string]string{
-		"ConsensusMaxGas":                      consensusMaxGas,
-		"ConsensusMaxBlockBytes":               consensusMaxBlockBytes,
-		"ConsensusVoteExtensionsEnableHeight":  voteExtensionsEnableHeight,
-		"ConsensusEvidenceMaxAgeNumBlocks":     evidenceMaxAgeNumBlocks,
-		"ConsensusEvidenceMaxAgeDurationNanos": evidenceMaxAgeDurationNanos,
-		"ConsensusEvidenceMaxBytes":            evidenceMaxBytes,
+		"ConsensusMaxGas":                     consensusMaxGas,
+		"ConsensusMaxBlockBytes":              consensusMaxBlockBytes,
+		"ConsensusVoteExtensionsEnableHeight": voteExtensionsEnableHeight,
+		"ConsensusEvidenceMaxBytes":           evidenceMaxBytes,
 	} {
 		m := regexp.MustCompile(name + `\s+int64 = ([0-9_ *]+)\n`).FindStringSubmatch(src)
 		if m == nil {
@@ -40,6 +39,7 @@ func TestConsensusConstants_equalTheChainsPins(t *testing.T) {
 			t.Errorf("%s is %d in the chain and %q in setup", name, got, want)
 		}
 	}
+	checkEvidenceWindow(t, src)
 	if !regexp.MustCompile(`ConsensusValidatorKeyType = "` + validatorKeyType + `"`).MatchString(src) {
 		t.Errorf("chain/app/consensus_params.go no longer pins the validator key type %q: update setup/create_genesis.go", validatorKeyType)
 	}
@@ -90,5 +90,50 @@ func TestVerifyGenesis_aValidatorKeyTypeOrEvidenceWindowOtherThanThePinIsRefused
 		if err := VerifyGenesis(bad, verifySpec(2)); err == nil || !strings.Contains(err.Error(), tamper.want) {
 			t.Errorf("%s was accepted: %v", name, err)
 		}
+	}
+}
+
+// The evidence window is 14 days of the chain's blocks: the chain derives it from x/archive's
+// retention (DefaultBlocksIn14Days) and the block interval, setup writes the numbers.
+func checkEvidenceWindow(t *testing.T, chainSrc string) {
+	t.Helper()
+	for _, derivation := range []string{
+		"ConsensusEvidenceMaxAgeNumBlocks     int64 = archivetypes.DefaultBlocksIn14Days",
+		"ConsensusEvidenceMaxAgeDurationNanos int64 = ConsensusEvidenceMaxAgeNumBlocks * params.BlockIntervalSeconds * int64(time.Second)",
+	} {
+		if !strings.Contains(chainSrc, derivation) {
+			t.Fatalf("chain/app/consensus_params.go no longer derives the evidence window as %q: update setup/create_genesis.go", derivation)
+		}
+	}
+	params, err := os.ReadFile("../../../../../chain/app/params/params.go")
+	if err != nil {
+		t.Fatalf("read the chain's params: %v", err)
+	}
+	m := regexp.MustCompile(`(?m)^\s*BlockIntervalSeconds = (\d+)\s*$`).FindSubmatch(params)
+	if m == nil {
+		t.Fatal("chain/app/params/params.go no longer declares BlockIntervalSeconds: update the evidence window")
+	}
+	interval, err := strconv.ParseInt(string(m[1]), 10, 64)
+	if err != nil || interval <= 0 {
+		t.Fatalf("BlockIntervalSeconds = %q is not a positive integer", m[1])
+	}
+	const retentionDays, secondsPerDay = 14, 24 * 60 * 60
+	blocks := retentionDays * secondsPerDay / interval
+	if got := strconv.FormatInt(blocks, 10); got != evidenceMaxAgeNumBlocks {
+		t.Errorf("evidenceMaxAgeNumBlocks = %s, want %s (14 days of %d s blocks)", evidenceMaxAgeNumBlocks, got, interval)
+	}
+	if got := strconv.FormatInt(blocks*interval*int64(time.Second), 10); got != evidenceMaxAgeDurationNanos {
+		t.Errorf("evidenceMaxAgeDurationNanos = %s, want %s", evidenceMaxAgeDurationNanos, got)
+	}
+}
+
+func TestEvidenceWindow_staysUnderTheUnbondingTime(t *testing.T) {
+	const unbonding = 21 * 24 * time.Hour
+	nanos, err := strconv.ParseInt(evidenceMaxAgeDurationNanos, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if time.Duration(nanos) >= unbonding {
+		t.Errorf("evidence max age %v must be under the unbonding time %v", time.Duration(nanos), unbonding)
 	}
 }

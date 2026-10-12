@@ -35,7 +35,7 @@ const (
 func plannedConsensus() *cmtproto.ConsensusParams {
 	return &cmtproto.ConsensusParams{
 		Block:     &cmtproto.BlockParams{MaxGas: 100_000_000, MaxBytes: 22_020_096},
-		Evidence:  &cmtproto.EvidenceParams{MaxAgeNumBlocks: 100_000, MaxAgeDuration: 48 * time.Hour, MaxBytes: 1_048_576},
+		Evidence:  &cmtproto.EvidenceParams{MaxAgeNumBlocks: app.ConsensusEvidenceMaxAgeNumBlocks, MaxAgeDuration: time.Duration(app.ConsensusEvidenceMaxAgeDurationNanos), MaxBytes: app.ConsensusEvidenceMaxBytes},
 		Validator: &cmtproto.ValidatorParams{PubKeyTypes: []string{cmted25519.KeyType}},
 		Abci:      &cmtproto.ABCIParams{VoteExtensionsEnableHeight: 2},
 	}
@@ -99,6 +99,8 @@ func TestValidateConsensusParams_productionPinsEveryValue(t *testing.T) {
 		"no validator params":        func(cp *cmtproto.ConsensusParams) { cp.Validator = nil },
 		"a shorter evidence age":     func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxAgeNumBlocks = 10 },
 		"a shorter evidence time":    func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxAgeDuration = time.Minute },
+		"the old 48 h evidence time": func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxAgeDuration = 48 * time.Hour },
+		"a longer evidence age":      func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxAgeNumBlocks *= 2 },
 		"an evidence size of zero":   func(cp *cmtproto.ConsensusParams) { cp.Evidence.MaxBytes = 0 },
 		"no evidence params":         func(cp *cmtproto.ConsensusParams) { cp.Evidence = nil },
 		"no consensus params at all": nil,

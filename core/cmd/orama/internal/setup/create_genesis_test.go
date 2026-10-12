@@ -100,8 +100,8 @@ func TestApplyConsensusParams_setsTheTwoValuesAndKeepsTheRest(t *testing.T) {
 	if params["abci"]["vote_extensions_enable_height"] != "2" {
 		t.Errorf("abci = %v", params["abci"])
 	}
-	if params["evidence"]["max_age_num_blocks"] != "100000" {
-		t.Errorf("evidence = %v", params["evidence"])
+	if params["evidence"]["max_age_num_blocks"] != evidenceMaxAgeNumBlocks || params["evidence"]["max_age_duration"] != evidenceMaxAgeDurationNanos {
+		t.Errorf("evidence = %v, want the 14-day window", params["evidence"])
 	}
 	for _, kept := range []string{`12345678901234567890123`, `"a & b <c>"`, `"chain_id": "orama-stagenet-6"`} {
 		if !strings.Contains(string(out), kept) {

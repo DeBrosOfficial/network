@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/DeBrosOfficial/network/chain/app/params"
+	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
 )
 
 // The consensus parameters live in the genesis document's top-level consensus field, not in
@@ -17,8 +19,8 @@ import (
 // inclusion lists off). Two more decide who can halt the chain and what can be punished:
 // validator.pub_key_types, because x/power reads every bonded validator's key as raw ed25519 and
 // returns an error from EndBlock (a halt) for any other type, while staking accepts whatever types
-// the consensus parameters list; and the evidence parameters, which bound how old and how large the
-// evidence of a double sign may be. They are validated here from InitChain's request, by chain-id
+// the consensus parameters list; and the evidence parameters, which bound how old (14 days, the
+// block retention) and how large the evidence of a double sign may be. They are validated here from InitChain's request, by chain-id
 // class like the locked parameters (params.ClassOfChainID):
 //   - orama-localnet-<name>: free.
 //   - orama-devnet-<name> and orama-stagenet-<name>: a finite block gas limit, a block size above
@@ -39,13 +41,20 @@ const (
 	// ConsensusValidatorKeyType is the only validator key type a genesis may list: x/power decodes
 	// every bonded validator's key as raw ed25519.
 	ConsensusValidatorKeyType = "ed25519"
-	// ConsensusEvidenceMaxAgeNumBlocks, ConsensusEvidenceMaxAgeDurationNanos and
-	// ConsensusEvidenceMaxBytes are the evidence parameters of a genesis, CometBFT's defaults written
-	// out (core/cmd/orama/internal/setup evidenceMaxAgeNumBlocks, evidenceMaxAgeDurationNanos,
-	// evidenceMaxBytes), so a production genesis does not depend on a default.
-	ConsensusEvidenceMaxAgeNumBlocks     int64 = 100_000
-	ConsensusEvidenceMaxAgeDurationNanos int64 = 172_800_000_000_000
-	ConsensusEvidenceMaxBytes            int64 = 1_048_576
+	// ConsensusEvidenceMaxAgeNumBlocks and ConsensusEvidenceMaxAgeDurationNanos are the evidence
+	// window of a genesis: 14 days, the same window every node retains blocks for (x/archive's
+	// DefaultBlocksIn14Days; core/pkg/install min-retain-blocks follows it). CometBFT can only
+	// verify evidence against the blocks and validator sets a node still holds, so the window may
+	// not be longer than the retention, and it stays under the 21-day unbonding time so a
+	// validator cannot unbond before its evidence expires (TestConsensusEvidenceWindow_*). The
+	// duration is the block count at the block interval, so the two never disagree.
+	// core/cmd/orama/internal/setup evidenceMaxAgeNumBlocks and evidenceMaxAgeDurationNanos write
+	// the same values.
+	ConsensusEvidenceMaxAgeNumBlocks     int64 = archivetypes.DefaultBlocksIn14Days
+	ConsensusEvidenceMaxAgeDurationNanos int64 = ConsensusEvidenceMaxAgeNumBlocks * params.BlockIntervalSeconds * int64(time.Second)
+	// ConsensusEvidenceMaxBytes is CometBFT's default evidence size (core/cmd/orama/internal/setup
+	// evidenceMaxBytes), written out so a production genesis does not depend on a default.
+	ConsensusEvidenceMaxBytes int64 = 1_048_576
 )
 
 // ValidateConsensusParams returns an error naming every consensus parameter of cp that the class of
