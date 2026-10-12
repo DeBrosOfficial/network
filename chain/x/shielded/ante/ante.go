@@ -49,6 +49,30 @@ type signedBundle struct {
 	kind    keeper.Kind
 }
 
+// ProofCheck is a bundle a transaction carries and the binding its signatures must commit to.
+type ProofCheck struct{ Bundle, Binding []byte }
+
+// ProofChecks lists the bundles of tx that a verifier must accept: a signed shielded message's, and
+// a signer-less transfer's. A transaction with none gives an empty list. An unshield whose binding
+// cannot be computed is an error: it cannot pass.
+func ProofChecks(tx sdk.Tx) ([]ProofCheck, error) {
+	var out []ProofCheck
+	for _, msg := range tx.GetMsgs() {
+		if m, ok := msg.(*types.MsgShieldedTransfer); ok {
+			out = append(out, ProofCheck{Bundle: m.Bundle})
+			continue
+		}
+		b, signed, err := bundleOf(msg)
+		if err != nil {
+			return nil, err
+		}
+		if signed {
+			out = append(out, ProofCheck{Bundle: b.raw, Binding: b.binding})
+		}
+	}
+	return out, nil
+}
+
 // bundleOf returns the bundle of a signed shielded message. ok is false for any other message.
 func bundleOf(msg sdk.Msg) (b signedBundle, ok bool, err error) {
 	switch m := msg.(type) {

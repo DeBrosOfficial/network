@@ -3,11 +3,14 @@
 package app_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
@@ -127,4 +130,81 @@ func TestCheckNodeCanVerify_aHostThatCannotStartFromTheCheckedFileIsRefused(t *t
 		require.ErrorContains(t, err, runtime.GOOS)
 	}
 	require.NoError(t, app.CheckNodeCanVerify("orama-localnet-1", opts))
+}
+
+// mempoolVerifierReady waits for the mempool's verifier process, which starts in the background.
+func mempoolVerifierReady(t *testing.T, a *app.OramaApp) {
+	t.Helper()
+	ready, ok := a.ShieldedMempoolVerifiers[1].(interface{ Ready() bool })
+	require.True(t, ok)
+	require.Eventually(t, ready.Ready, 30*time.Second, 20*time.Millisecond, "the mempool's verifier process did not become ready")
+}
+
+func (c *shieldedChain) process(t *testing.T, txs ...[]byte) abci.ResponseProcessProposal_ProposalStatus {
+	t.Helper()
+	resp, err := c.app.ProcessProposal(&abci.RequestProcessProposal{
+		Height: c.height + 1, Time: c.blockTime(c.height + 1), ProposerAddress: c.committee[0].cons.PubKey().Address(),
+		Txs: txs, Hash: bytes.Repeat([]byte{2}, 32),
+	})
+	require.NoError(t, err)
+	return resp.Status
+}
+
+func (c *shieldedChain) prepare(t *testing.T, txs ...[]byte) [][]byte {
+	t.Helper()
+	resp, err := c.app.PrepareProposal(&abci.RequestPrepareProposal{
+		Height: c.height + 1, Time: c.blockTime(c.height + 1), ProposerAddress: c.committee[0].cons.PubKey().Address(),
+		MaxTxBytes: 4 << 20, Txs: txs,
+	})
+	require.NoError(t, err)
+	return resp.Txs
+}
+
+// A block proposal is checked before it is voted for: an honest bundle is accepted, a tampered one
+// is refused (a verdict every validator reaches), and PrepareProposal leaves the tampered one out.
+func TestShieldedReal_aProposalWithATamperedBundleIsRefusedAndAnHonestOneAccepted(t *testing.T) {
+	c := realChain(t, nil)
+	mempoolVerifierReady(t, c.app)
+	honest := c.shieldMsg(t)
+	raw := loadVector(t, "ironwood-1-action")
+	raw[len(raw)-1] ^= 1
+	tampered := c.signed(t, c.alice, txGas, &shieldedtypes.MsgShield{Signer: c.aliceAddr().String(), Bundle: raw})
+
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, c.process(t, honest))
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, c.process(t, tampered))
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, c.process(t, honest, tampered), "one bad bundle refuses the whole proposal")
+	require.Equal(t, [][]byte{honest}, c.prepare(t, tampered, honest), "PrepareProposal leaves the failing bundle out")
+}
+
+// A bundle that kills the verifier is a nil vote, never a halt: the proposal is refused and the node
+// neither exits nor stops, and FinalizeBlock is not reached.
+func TestShieldedReal_aProposalWithABundleThatFaultsTheVerifierIsRefusedAndNeverHalts(t *testing.T) {
+	vectorChainIDFromFile(t)
+	exited := -1
+	old := app.VerifierHaltExit
+	app.VerifierHaltExit = func(code int) { exited = code }
+	t.Cleanup(func() { app.VerifierHaltExit = old })
+
+	c := fundedChain(t, dbm.NewMemDB(), t.TempDir(), faultingVerifier(t))
+	mempoolVerifierReady(t, c.app)
+	tx := c.shieldMsg(t)
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, c.process(t, tx), "the mempool's child dies on the bundle: a fault is a nil vote")
+	require.Equal(t, -1, exited, "ProcessProposal never halts the node")
+	require.Empty(t, c.prepare(t, tx), "PrepareProposal leaves a bundle it cannot check out of the block")
+	require.Equal(t, -1, exited)
+}
+
+// FinalizeBlock still verifies, whatever ProcessProposal said, and still halts on a fault: a
+// proposal that was accepted and a verifier that then fails is the case the halt is for.
+func TestShieldedReal_finalizeBlockStillVerifiesAndHaltsOnAFaultAfterAnAcceptedProposal(t *testing.T) {
+	vectorChainIDFromFile(t)
+	exited := -1
+	old := app.VerifierHaltExit
+	app.VerifierHaltExit = func(code int) { exited = code }
+	t.Cleanup(func() { app.VerifierHaltExit = old })
+
+	c := fundedChain(t, dbm.NewMemDB(), t.TempDir(), faultingVerifier(t))
+	tx := c.shieldMsg(t)
+	haltOfBlock(t, func() { c.finalize(t, tx) })
+	require.Equal(t, app.ExitVerifierHalt, exited)
 }

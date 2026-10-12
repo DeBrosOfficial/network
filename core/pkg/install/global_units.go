@@ -101,14 +101,24 @@ func RenderGlobalChainUnit(persistentPeers string) string {
 	env := fmt.Sprintf("Environment=DAEMON_NAME=%s\nEnvironment=DAEMON_HOME=%s\nEnvironment=DAEMON_ALLOW_DOWNLOAD_BINARIES=false\nEnvironment=DAEMON_RESTART_AFTER_UPGRADE=true\nEnvironment=GOMEMLIMIT=%s\nReadOnlyPaths=%s\n",
 		constants.ChainDaemonName, constants.ChainHome, constants.ChainGoMemLimit,
 		strings.Join(cosmovisor.Layout{Home: constants.ChainHome}.ReadOnlyDirs(), " "))
-	return renderGlobalUnit(
+	unit := renderGlobalUnit(
 		"Orama L1 node (oramad under cosmovisor)",
 		globalChainUser,
 		constants.ChainHome,
 		exec,
 		env+"ExecStartPre=+"+GlobalSignFloorCheck+"\n"+chainPrometheusNote(),
 	)
+	// A node that stops on a shielded verifier fault (exit status 87) or on any other halt is
+	// restarted forever, but with growing pauses: the restart delay rises from RestartSec in
+	// RestartSteps steps to RestartMaxDelaySec, so a node that stops on the same block every time
+	// does not spin and flood its journal.
+	return strings.Replace(unit, "RestartSec=5\n", "RestartSec=5\nRestartSteps="+chainRestartSteps+"\nRestartMaxDelaySec="+chainRestartMaxDelaySec+"\n", 1)
 }
+
+const (
+	chainRestartSteps       = "6"
+	chainRestartMaxDelaySec = "120"
+)
 
 // GlobalSignFloorCheck is the double-sign guard the chain unit runs,
 // as root ("+"), before every start: at boot, on Restart=always, and on a

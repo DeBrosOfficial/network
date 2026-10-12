@@ -770,3 +770,58 @@ func TestTransfer_notLinkedInABlockLeaksNothingToTheLog(t *testing.T) {
 	require.NotContains(t, err.Error(), "deadbeef")
 	require.NotContains(t, err.Error(), "/var/lib")
 }
+
+// notReady is a mempool verifier that has not started its process yet.
+type notReady struct{ *testutil.Verifier }
+
+func (notReady) Ready() bool { return false }
+
+// A mempool verifier that is still starting is answered before the block's verification budget is
+// spent and before anything is asked of it, and the answer is neither a verdict nor a fault, so
+// nothing is remembered.
+func TestVerify_aStartingMempoolVerifierSpendsNothingAndIsNeverRemembered(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	starting := &testutil.Verifier{Name: "mempool-b"}
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, notReady{starting}})
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	ctx := e.CheckCtx()
+	adm, err := k.Admit(ctx, raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
+		err = k.Verify(ctx, raw, nil, adm)
+		require.ErrorIs(t, err, verify.ErrVerifierStarting)
+		require.NotErrorIs(t, err, verify.ErrVerifierFault)
+	}
+	require.Zero(t, starting.Calls, "nothing was asked of the verifier")
+
+	// The budget was never spent, so a ready set still has all of it.
+	k2 := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, starting})
+	require.NoError(t, k2.Verify(ctx, raw, nil, adm))
+}
+
+// A proposal's proof check asks the mempool's verifiers, says "starting" while they are not ready,
+// reports a rejection as one, and spends none of the mempool's budget.
+func TestCheckProposalProof(t *testing.T) {
+	e := testutil.NewEnv(t, nil)
+	mp := &testutil.Verifier{Name: "mempool-b"}
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, mp})
+	raw := transferBundle(3, 20, emptyAnchor(t))
+	require.NoError(t, k.CheckProposalProof(raw, nil))
+	require.Equal(t, 1, mp.Calls)
+
+	mp.Reject = func([]byte) error { return verify.ErrProofRejected }
+	require.ErrorIs(t, k.CheckProposalProof(raw, nil), verify.ErrProofRejected)
+	mp.Reject = func([]byte) error { return verify.ErrVerifierFault }
+	require.ErrorIs(t, k.CheckProposalProof(raw, nil), verify.ErrVerifierFault)
+
+	starting := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, notReady{mp}})
+	require.ErrorIs(t, starting.CheckProposalProof(raw, nil), verify.ErrVerifierStarting)
+
+	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
+		_ = k.CheckProposalProof(raw, nil)
+	}
+	mp.Reject = nil
+	adm, err := k.Admit(e.CheckCtx(), raw, nil, keeper.KindTransfer, false)
+	require.NoError(t, err)
+	require.NoError(t, k.Verify(e.CheckCtx(), raw, nil, adm), "proposal checks spend none of the mempool's budget")
+}

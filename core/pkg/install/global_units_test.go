@@ -373,4 +373,9 @@ func TestRenderGlobalChainUnit_restartsOnAnyExitIncludingTheVerifierHalt(t *test
 	if !strings.Contains(unit, "StartLimitIntervalSec=0") {
 		t.Errorf("the chain unit limits its restarts:\n%s", unit)
 	}
+	for _, want := range []string{"\nRestartSec=5\n", "\nRestartSteps=6\n", "\nRestartMaxDelaySec=120\n"} {
+		if !strings.Contains(unit, want) {
+			t.Errorf("the chain unit has no %q: a node stopping on the same block would restart at a fixed pace:\n%s", strings.TrimSpace(want), unit)
+		}
+	}
 }

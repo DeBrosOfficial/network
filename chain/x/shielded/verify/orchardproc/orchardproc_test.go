@@ -661,3 +661,66 @@ func TestClose_endsTheChild(t *testing.T) {
 		t.Fatal("the child outlived Close")
 	}
 }
+
+// VerifyRunning never starts a process and never waits: with none running it answers ErrNotRunning.
+func TestVerifyRunning_neverStartsAProcess(t *testing.T) {
+	f := newFixture(t, 5*time.Second)
+	if err := f.v.VerifyRunning(fakeBundle(), nil); !errors.Is(err, ErrNotRunning) {
+		t.Fatalf("before any start: got %v, want ErrNotRunning", err)
+	}
+	f.v.mu.Lock()
+	started := f.v.proc != nil
+	f.v.mu.Unlock()
+	if started {
+		t.Fatal("VerifyRunning started a process")
+	}
+	if err := f.v.Warm(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.v.VerifyRunning(fakeBundle(), nil); err != nil {
+		t.Fatalf("with a running process: %v", err)
+	}
+}
+
+// A child that exited while idle is not started again by VerifyRunning.
+func TestVerifyRunning_aChildThatExitedWhileIdleIsNotRestarted(t *testing.T) {
+	f := newFixture(t, 5*time.Second)
+	if err := f.v.Warm(); err != nil {
+		t.Fatal(err)
+	}
+	f.v.mu.Lock()
+	first := f.v.proc
+	_ = first.cmd.Process.Kill()
+	f.v.mu.Unlock()
+	select {
+	case <-first.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the process did not exit")
+	}
+	if err := f.v.VerifyRunning(fakeBundle(), nil); !errors.Is(err, ErrNotRunning) {
+		t.Fatalf("got %v, want ErrNotRunning", err)
+	}
+	f.v.mu.Lock()
+	same := f.v.proc == first
+	f.v.mu.Unlock()
+	if !same {
+		t.Fatal("VerifyRunning replaced the dead process")
+	}
+}
+
+// VerifyRunning does not wait for a request or a start that holds the verifier.
+func TestVerifyRunning_doesNotWaitForTheLock(t *testing.T) {
+	f := newFixture(t, 5*time.Second)
+	f.v.mu.Lock()
+	done := make(chan error, 1)
+	go func() { done <- f.v.VerifyRunning(fakeBundle(), nil) }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrNotRunning) {
+			t.Errorf("got %v, want ErrNotRunning", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("VerifyRunning waited for the lock")
+	}
+	f.v.mu.Unlock()
+}

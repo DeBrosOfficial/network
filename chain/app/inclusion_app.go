@@ -26,6 +26,7 @@ func (app *OramaApp) setInclusionHandlers() {
 
 			accounts:  app.AccountKeeper,
 			signModes: app.txConfig.SignModeHandler(),
+			proofs:    app.proofsOK,
 		},
 		accounts:  app.AccountKeeper,
 		staking:   app.StakingKeeper,

@@ -245,6 +245,11 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 	if err != nil {
 		return nil, err
 	}
+	// A transaction whose shielded bundle fails the proof check is left out: its peers would refuse
+	// the block (ProcessProposal).
+	kept := *req
+	kept.Txs = h.dropFailingProofs(req.Txs)
+	req = &kept
 	if !commitInjected(ctx, req.Height) {
 		capped := *req
 		capped.Txs = h.capSignerless(req.Txs, limit)
@@ -315,6 +320,9 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 				return reject, nil
 			}
 		}
+		if !h.allProofsOK(req.Txs) {
+			return reject, nil
+		}
 		return def(ctx, req)
 	}
 	if len(req.Txs) == 0 {
@@ -342,6 +350,9 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 	}
 	commit, total := commitOf(h.listView(p), req.Height, ec)
 	if err := inclusion.Process(h.walkView(ctx, p, req.Height, ec, commit, total), commit, block); err != nil {
+		return reject, nil
+	}
+	if !h.allProofsOK(block) {
 		return reject, nil
 	}
 	rest := *req

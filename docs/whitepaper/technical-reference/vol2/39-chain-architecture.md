@@ -497,7 +497,7 @@ For the archive, `oramad query archive last-archived-height` is the contiguous a
 
 ## Trust and security
 
-**Trust boundaries.** There are five. The validator set (stake plus the committee) is trusted for liveness and, above 2/3, for safety. A node operator is trusted with that node's keys only: the sign floor guards the validator key; a hot key signs a node's own transactions and holds only a fee-only balance. The gateway is a public, unauthenticated read and submit proxy that is trusted for nothing: it forwards signed bytes and answers reads the chain would answer to anyone. A client trusts a node's answers as it would any single full node (the library queries at latest height with no proof). The native verifiers are trusted for the shielded pool: two independent implementations must both accept a bundle.
+**Trust boundaries.** There are five. The validator set (stake plus the committee) is trusted for liveness and, above 2/3, for safety. A node operator is trusted with that node's keys only: the sign floor guards the validator key; a hot key signs a node's own transactions and holds only a fee-only balance. The gateway is a public, unauthenticated read and submit proxy that is trusted for nothing: it forwards signed bytes and answers reads the chain would answer to anyone. A client trusts a node's answers as it would any single full node (the library queries at latest height with no proof). The native verifiers are trusted for the shielded pool: two builds of one upstream implementation must both accept a bundle.
 
 **What an attacker can and cannot do.**
 

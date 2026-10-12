@@ -100,6 +100,9 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 	if k.admission.faultRecalled(key) {
 		return unavailable(ctx, ErrRecentVerifierFault, hash, true)
 	}
+	if !k.mempoolReady() {
+		return fmt.Errorf("%w: try again in a few seconds", verify.ErrVerifierStarting)
+	}
 	if !k.admission.spend() {
 		return ErrMempoolBusy
 	}
@@ -117,6 +120,32 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 // ended in a verifier fault: the verifier is not asked again until the memory of it expires. It is
 // not a verdict on the bundle, it is kept only by the mempool and never consulted in a block.
 var ErrRecentVerifierFault = fmt.Errorf("%w: this bundle's check recently failed on this node", verify.ErrVerifierFault)
+
+// readier is a verifier that can say whether it is ready to be asked without being asked.
+type readier interface{ Ready() bool }
+
+// mempoolReady reports whether every mempool verifier that can say so is ready. A node whose
+// mempool verifier is still being started refuses at once, before it spends any of the block's
+// verification budget on a request nothing would answer.
+func (k Keeper) mempoolReady() bool {
+	for _, v := range k.mempoolVerifiers() {
+		if r, ok := v.(readier); ok && !r.Ready() {
+			return false
+		}
+	}
+	return true
+}
+
+// CheckProposalProof runs the verifiers of the mempool over one bundle of a block proposal. It is
+// what ProcessProposal and PrepareProposal ask: a verdict or a fault both mean the proposal is not
+// voted for, and neither ever halts the node (a halt is for FinalizeBlock, where the block is
+// already decided). It changes no state and spends no budget.
+func (k Keeper) CheckProposalProof(raw, binding []byte) error {
+	if !k.mempoolReady() {
+		return verify.ErrVerifierStarting
+	}
+	return verifyWith(k.mempoolVerifiers(), raw, binding)
+}
 
 // mempoolVerifiers are the verifiers CheckTx and a simulation use.
 func (k Keeper) mempoolVerifiers() []verify.Verifier {

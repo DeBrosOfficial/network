@@ -61,6 +61,11 @@ var ErrVerifierPanic = fmt.Errorf("%w: the verifier panicked on this bundle", Er
 // only the mempool refuses the transaction, locally.
 var ErrVerifierFault = errors.New("shielded verifier fault")
 
+// ErrVerifierStarting means a verifier of the mempool is not ready yet (its process is being
+// started in the background). It is neither a verdict on the bundle nor a fault: nothing was asked
+// of the verifier, so nothing is remembered, and the caller may try again in a moment.
+var ErrVerifierStarting = errors.New("shielded verifier is starting")
+
 // Verifier checks one bundle. Nodes only verify. They do not build proofs.
 //
 // binding is what the signatures must additionally commit to: nil for a bundle whose transparent

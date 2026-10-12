@@ -141,25 +141,58 @@ func (v *Verifier) Close() error {
 	return nil
 }
 
-// Verify accepts a bundle only when the binary says every check passed.
+// ErrNotRunning is what VerifyRunning answers when no process is ready to be asked: it never
+// starts one.
+var ErrNotRunning = errors.New("the out-of-process verifier is not running")
+
+// Verify accepts a bundle only when the binary says every check passed. It starts the process when
+// there is none, which builds the Halo 2 verifying key: seconds of work.
 func (v *Verifier) Verify(b, binding []byte) error {
-	if len(b) == 0 || len(b) > bundle.MaxBytes {
-		return fmt.Errorf("%w: %d bytes", verify.ErrMalformed, len(b))
-	}
-	sighash, err := orchard.Sighash(v.cfg.ChainID, binding, b)
+	sighash, err := v.prepare(b, binding)
 	if err != nil {
 		return err
 	}
-
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	p, err := v.running()
 	if err != nil {
 		return err
 	}
+	return v.ask(p, sighash[:], b)
+}
+
+// VerifyRunning is Verify for a caller that cannot afford to wait for a start or for another
+// request (the mempool, which runs under CometBFT's ABCI lock): it never starts a process and never
+// waits for the lock. When the process is nil, has exited, is being started or is busy it answers
+// ErrNotRunning without asking anything, and the caller starts the process elsewhere (Warm).
+func (v *Verifier) VerifyRunning(b, binding []byte) error {
+	sighash, err := v.prepare(b, binding)
+	if err != nil {
+		return err
+	}
+	if !v.mu.TryLock() {
+		return ErrNotRunning
+	}
+	defer v.mu.Unlock()
+	if v.proc == nil || v.proc.exited() {
+		return ErrNotRunning
+	}
+	return v.ask(v.proc, sighash[:], b)
+}
+
+// prepare checks the bundle's size and computes the sighash the child is handed.
+func (v *Verifier) prepare(b, binding []byte) ([32]byte, error) {
+	if len(b) == 0 || len(b) > bundle.MaxBytes {
+		return [32]byte{}, fmt.Errorf("%w: %d bytes", verify.ErrMalformed, len(b))
+	}
+	return orchard.Sighash(v.cfg.ChainID, binding, b)
+}
+
+// ask puts one request to p. The caller holds v.mu.
+func (v *Verifier) ask(p *process, sighash, b []byte) error {
 	v.nextID++
 	id := v.nextID
-	code, err := p.exchange(id, sighash[:], b, v.cfg.RequestTimeout)
+	code, err := p.exchange(id, sighash, b, v.cfg.RequestTimeout)
 	if err != nil {
 		v.stop()
 		return fmt.Errorf("%w: out-of-process verifier: %w", verify.ErrVerifierFault, err)
