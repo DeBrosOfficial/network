@@ -49,6 +49,10 @@ type Dependencies struct {
 	// lock for both, so a CheckTx that is waiting on its child delays a block by the same time.
 	// Empty means the mempool shares Verifiers.
 	MempoolVerifiers []verify.Verifier
+	// ProposalVerifiers check the bundles of block proposals (ProcessProposal, PrepareProposal).
+	// They have a child process of their own, so CheckTx, ReCheck and simulations (the mempool's
+	// child) cannot make a proposal wait or fail. Empty means proposals share MempoolVerifiers.
+	ProposalVerifiers []verify.Verifier
 }
 
 // Keeper is x/shielded's keeper.

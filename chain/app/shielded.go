@@ -142,7 +142,7 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 	app.nullifierStore = store
 
 	app.ShieldedVerifiers = app.newShieldedVerifiers(appOpts)
-	app.ShieldedMempoolVerifiers = app.newMempoolVerifiers(app.ShieldedVerifiers, appOpts)
+	app.ShieldedMempoolVerifiers, app.ShieldedProposalVerifiers = app.newChildVerifiers(app.ShieldedVerifiers, appOpts)
 	app.AddRunTxRecoveryHandler(verifierHaltHandler(app.Logger(), func(code int) { VerifierHaltExit(code) }))
 	app.ShieldedKeeper = shieldedkeeper.NewKeeper(
 		app.appCodec,
@@ -158,6 +158,8 @@ func (app *OramaApp) buildShielded(keys map[string]*storetypes.KVStoreKey, tkeys
 			Verifiers:  app.ShieldedVerifiers,
 			// CheckTx and simulations have a verifier process of their own (see newMempoolVerifiers).
 			MempoolVerifiers: app.ShieldedMempoolVerifiers,
+			// ProcessProposal and PrepareProposal have a child of their own.
+			ProposalVerifiers: app.ShieldedProposalVerifiers,
 			// A chain that is not a localnet or a scripted devnet must verify, so a verifier that
 			// is missing at run time halts the node instead of refusing bundles on it alone.
 			RequireVerifiers: !verifiersOptional(app.ChainID()),
@@ -226,7 +228,7 @@ func (app *OramaApp) Close() error {
 	err := app.BaseApp.Close()
 	// The verifier processes end with the app: a node that is closed and opened again in one
 	// process (a test, an upgrade) must not leave a child behind for each open.
-	for _, set := range [][]verify.Verifier{app.ShieldedVerifiers, app.ShieldedMempoolVerifiers} {
+	for _, set := range [][]verify.Verifier{app.ShieldedVerifiers, app.ShieldedMempoolVerifiers, app.ShieldedProposalVerifiers} {
 		for _, v := range set {
 			if c, ok := v.(io.Closer); ok {
 				if closeErr := c.Close(); closeErr != nil && err == nil {

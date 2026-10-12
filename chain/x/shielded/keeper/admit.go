@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
@@ -100,10 +101,21 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 	if k.admission.faultRecalled(key) {
 		return unavailable(ctx, ErrRecentVerifierFault, hash, true)
 	}
-	if !k.mempoolReady() {
-		return fmt.Errorf("%w: try again in a few seconds", verify.ErrVerifierStarting)
+	if !ready(k.mempoolVerifiers()) {
+		ctx.Logger().Debug("the mempool's shielded verifier is not ready", "module", "x/shielded", "bundle_sha256", hash)
+		return fmt.Errorf("%w: %s", verify.ErrVerifierStarting, GenericRefusal)
+	}
+	if ctx.ExecMode() == sdk.ExecModeSimulate {
+		select {
+		case k.admission.simulations <- struct{}{}:
+			defer func() { <-k.admission.simulations }()
+		default:
+			ctx.Logger().Debug("too many simulations are verifying shielded bundles", "module", "x/shielded")
+			return ErrMempoolBusy
+		}
 	}
 	if !k.admission.spend() {
+		ctx.Logger().Debug("the per-block verification budget of the mempool is spent", "module", "x/shielded")
 		return ErrMempoolBusy
 	}
 	err := verifyWith(k.mempoolVerifiers(), raw, binding)
@@ -127,11 +139,11 @@ var ErrRecentVerifierFault = fmt.Errorf("%w: this bundle's check recently failed
 // readier is a verifier that can say whether it is ready to be asked without being asked.
 type readier interface{ Ready() bool }
 
-// mempoolReady reports whether every mempool verifier that can say so is ready. A node whose
-// mempool verifier is still being started refuses at once, before it spends any of the block's
-// verification budget on a request nothing would answer.
-func (k Keeper) mempoolReady() bool {
-	for _, v := range k.mempoolVerifiers() {
+// ready reports whether every verifier of the set that can say so is ready. A node whose verifier
+// process is still being started refuses at once, before it spends any verification budget on a
+// request nothing would answer. Asking also starts a process that is not ready (in the background).
+func ready(set []verify.Verifier) bool {
+	for _, v := range set {
 		if r, ok := v.(readier); ok && !r.Ready() {
 			return false
 		}
@@ -139,19 +151,49 @@ func (k Keeper) mempoolReady() bool {
 	return true
 }
 
-// CheckProposalProof runs the verifiers of the mempool over one bundle of a block proposal. It is
-// what ProcessProposal and PrepareProposal ask: a verdict or a fault both mean the proposal is not
-// voted for, and neither ever halts the node (a halt is for FinalizeBlock, where the block is
-// already decided). It changes no state and spends no budget.
-func (k Keeper) CheckProposalProof(raw, binding []byte) error {
+// proposalVerifiers are the verifiers block proposals use.
+func (k Keeper) proposalVerifiers() []verify.Verifier {
+	if len(k.deps.ProposalVerifiers) > 0 {
+		return k.deps.ProposalVerifiers
+	}
+	return k.mempoolVerifiers()
+}
+
+// withDeadline gives a verifier the time one request may take, when it can be given one.
+type withDeadline struct {
+	verify.Verifier
+	d time.Duration
+}
+
+func (w withDeadline) Verify(bundle, binding []byte) error {
+	if dv, ok := w.Verifier.(verify.DeadlineVerifier); ok {
+		return dv.VerifyWithin(bundle, binding, w.d)
+	}
+	return w.Verifier.Verify(bundle, binding)
+}
+
+// CheckProposalProof runs the proposal verifiers over one bundle of a block proposal, within the
+// time left (within). It is what ProcessProposal and PrepareProposal ask: a verdict, a fault, a
+// verifier that is starting or busy, or the time running out all mean the proposal is not voted for,
+// and none ever halts the node (a halt is for FinalizeBlock, where the block is already decided). It
+// changes no state and spends none of the mempool's budget.
+func (k Keeper) CheckProposalProof(raw, binding []byte, within time.Duration) error {
 	key := admissionKey(raw, binding)
 	if k.admission.validRecalled(key) {
 		return nil
 	}
-	if !k.mempoolReady() {
+	set := k.proposalVerifiers()
+	if !ready(set) {
 		return verify.ErrVerifierStarting
 	}
-	err := verifyWith(k.mempoolVerifiers(), raw, binding)
+	if within <= 0 {
+		return ErrProposalBudget
+	}
+	bounded := make([]verify.Verifier, len(set))
+	for i, v := range set {
+		bounded[i] = withDeadline{Verifier: v, d: within}
+	}
+	err := verifyWith(bounded, raw, binding)
 	if err == nil {
 		k.admission.rememberValid(key)
 	}
@@ -185,7 +227,7 @@ func unavailable(ctx sdk.Context, err error, bundleHash string, repeat bool) err
 	if !errors.Is(err, verify.ErrVerifierFault) {
 		class = verify.ErrVerifierNotLinked
 	}
-	return fmt.Errorf("%w: the shielded verifier is unavailable on this node; send the transaction to another node or try again later", class)
+	return fmt.Errorf("%w: %s", class, GenericRefusal)
 }
 
 // localFault reports an error that is a fact about this node and not about the bundle: a verifier

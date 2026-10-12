@@ -30,6 +30,8 @@ type mempoolVerifier struct {
 	proc   *orchardproc.Verifier
 	logger log.Logger
 	now    func() time.Time
+	// role names the verifier in the log: "mempool" (CheckTx, ReCheck, simulations) or "proposal".
+	role string
 
 	ready atomic.Bool
 	// configured is false on a node with no verifier binary (a localnet or a scripted devnet): then
@@ -47,7 +49,7 @@ type mempoolVerifier struct {
 var _ verify.Verifier = (*mempoolVerifier)(nil)
 
 func newMempoolVerifier(proc *orchardproc.Verifier, logger log.Logger) *mempoolVerifier {
-	return &mempoolVerifier{proc: proc, logger: logger, now: time.Now}
+	return &mempoolVerifier{proc: proc, logger: logger, now: time.Now, role: "mempool"}
 }
 
 // ID is the process verifier's identity, so verify.Check counts it as the second verifier.
@@ -115,9 +117,9 @@ func (m *mempoolVerifier) warm() {
 			_ = m.proc.Close() // started after the app closed: do not leave the child behind
 		case err == nil:
 		case first:
-			m.logger.Error("the mempool's shielded verifier did not start; CheckTx and proposal checks refuse shielded bundles until it does", "err", err)
+			m.logger.Error("the shielded verifier process did not start; shielded bundles it would check are refused until it does", "role", m.role, "err", err)
 		default:
-			m.logger.Debug("the mempool's shielded verifier did not start again", "err", err)
+			m.logger.Debug("the shielded verifier process did not start again", "role", m.role, "err", err)
 		}
 	}()
 }
@@ -125,6 +127,16 @@ func (m *mempoolVerifier) warm() {
 // Verify implements verify.Verifier. What a caller outside the node learns is only that the verifier
 // is starting; the detail is in the node's log.
 func (m *mempoolVerifier) Verify(bundle, binding []byte) error {
+	return m.verifyWithin(bundle, binding, 0)
+}
+
+// VerifyWithin implements verify.DeadlineVerifier: the request, wait included, takes at most d.
+func (m *mempoolVerifier) VerifyWithin(bundle, binding []byte, d time.Duration) error {
+	return m.verifyWithin(bundle, binding, d)
+}
+
+// verifyWithin asks the running child; d is zero for the child's own timeouts.
+func (m *mempoolVerifier) verifyWithin(bundle, binding []byte, d time.Duration) error {
 	if !m.configured {
 		return m.proc.Verify(bundle, binding)
 	}
@@ -132,16 +144,21 @@ func (m *mempoolVerifier) Verify(bundle, binding []byte) error {
 		m.warm()
 		return verify.ErrVerifierStarting
 	}
-	err := m.proc.VerifyRunning(bundle, binding)
+	var err error
+	if d > 0 {
+		err = m.proc.VerifyRunningWithin(bundle, binding, d)
+	} else {
+		err = m.proc.VerifyRunning(bundle, binding)
+	}
 	switch {
 	case errors.Is(err, orchardproc.ErrNotRunning):
-		m.logger.Debug("the mempool's shielded verifier process is gone; starting another in the background")
+		m.logger.Debug("the shielded verifier process is gone; starting another in the background", "role", m.role)
 		m.setReady(false) // the child exited while idle: start the next one off the request path
 		m.warm()
 		return verify.ErrVerifierStarting
 	case errors.Is(err, orchardproc.ErrBusy):
 		// A request or a start holds the process, which says nothing about it being gone: it stays ready.
-		m.logger.Debug("the mempool's shielded verifier is busy")
+		m.logger.Debug("the shielded verifier process is busy", "role", m.role)
 		return verify.ErrVerifierStarting
 	case errors.Is(err, verify.ErrVerifierFault), errors.Is(err, verify.ErrVerifierPanic):
 		m.setReady(false) // orchardproc ended the child

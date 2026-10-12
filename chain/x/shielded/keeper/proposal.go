@@ -10,6 +10,7 @@ import (
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
 )
 
 // ProofCheck is a bundle a transaction carries and the binding its signatures must commit to.
@@ -59,6 +60,13 @@ func (k Keeper) NewProposalChecker(ctx sdk.Context, budget time.Duration) (*Prop
 	return c, nil
 }
 
+// AbortsChecks reports whether err says this node cannot go on checking the proposal (the budget is
+// spent, the verifier is starting or busy, a fault, a verifier that is not linked), as opposed to a
+// verdict on one transaction. A proposer stops checking, and drops what is left, on such an error.
+func AbortsChecks(err error) bool {
+	return errors.Is(err, ErrProposalBudget) || localFault(err) || errors.Is(err, verify.ErrVerifierStarting)
+}
+
 // Admit checks the bundles of one transaction against everything admitted before it. Nothing is
 // recorded unless every bundle passes, so a transaction a proposer drops leaves no trace.
 func (c *ProposalChecker) Admit(checks []ProofCheck) error {
@@ -95,10 +103,11 @@ func (c *ProposalChecker) Admit(checks []ProofCheck) error {
 		}
 	}
 	for _, ch := range checks {
-		if c.now().After(c.deadline) {
+		left := c.deadline.Sub(c.now())
+		if left <= 0 {
 			return ErrProposalBudget
 		}
-		if err := c.k.CheckProposalProof(ch.Bundle, ch.Binding); err != nil {
+		if err := c.k.CheckProposalProof(ch.Bundle, ch.Binding, left); err != nil {
 			return err
 		}
 	}

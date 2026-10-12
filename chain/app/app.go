@@ -254,7 +254,10 @@ type OramaApp struct {
 	// ShieldedMempoolVerifiers are the verifiers CheckTx and simulations use: the same library and
 	// a second child process, so mempool work never holds up block execution.
 	ShieldedMempoolVerifiers []verify.Verifier
-	nullifierStore           *nullifier.Store
+	// ShieldedProposalVerifiers are the verifiers ProcessProposal and PrepareProposal use: a child
+	// process of their own, so mempool work cannot make a proposal wait.
+	ShieldedProposalVerifiers []verify.Verifier
+	nullifierStore            *nullifier.Store
 
 	// tokenHook is x/token's transfer hook; installWasm binds it to the wasm keeper.
 	tokenHook *contractTransferHook

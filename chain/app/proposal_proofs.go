@@ -27,6 +27,13 @@ import (
 // PrepareProposal leaves out the transactions that fail, so an honest proposer whose verifier is
 // ready does not build a block its peers refuse for this reason. FinalizeBlock still verifies every
 // bundle with the block's own verifiers and still halts on a fault.
+//
+// The check applies only to the proposer's own part of the block. The transactions an inclusion list
+// forces to the front of the block (inclusion.Required) are never gated here, in PrepareProposal or in
+// ProcessProposal: the inclusion rules require them whatever their proof, and a proposal check that
+// refused what those rules require would let one validator that lists a bad transaction stall every
+// round. A forced transaction with a bad proof, or a nullifier another one spends, goes to execution,
+// where FinalizeBlock verifies it, fails it with an ordinary result and halts nobody.
 
 // proposalProofBudget is the time one proposal's proof checks may take on this node. CometBFT's
 // timeout_propose is 3 s by default and a validator that has not decided by then prevotes nil; the
@@ -42,10 +49,10 @@ const proposalProofBudget = 2500 * time.Millisecond
 // every shielded proposal instead of leaving that to execution, so it does not run. Every other
 // chain refuses to start without them (CheckNodeCanVerify).
 func (app *OramaApp) canCheckProofs() bool {
-	if !orchardverify.Linked || len(app.ShieldedMempoolVerifiers) != 2 {
+	if !orchardverify.Linked || len(app.ShieldedProposalVerifiers) != 2 {
 		return false
 	}
-	m, ok := app.ShieldedMempoolVerifiers[0].(*mempoolVerifier)
+	m, ok := app.ShieldedProposalVerifiers[0].(*mempoolVerifier)
 	return ok && m.configured
 }
 
@@ -97,19 +104,18 @@ func (h *inclusionHandlers) allProofsOK(ctx sdk.Context, txs [][]byte) bool {
 	return true
 }
 
-// dropFailingProofs returns txs, in order, without the transactions that fail the proof check.
-// forced are transactions already in the block that cannot be left out (an inclusion list's); they
-// count against the limits first and are not checked.
-func (h *inclusionHandlers) dropFailingProofs(ctx sdk.Context, txs, forced [][]byte) [][]byte {
+// dropFailingProofs returns txs, in order, without the transactions that fail the proof check. It
+// is given only the proposer's own transactions: the transactions an inclusion list forces into the
+// block are never passed here (see the note at the top), they go to execution as they are. When the
+// node can no longer check (the budget is spent, the verifier is starting, busy or faulting) it stops
+// checking and leaves out every shielded transaction that is left: a block with fewer transactions
+// is better than a block its own proposer cannot vouch for.
+func (h *inclusionHandlers) dropFailingProofs(ctx sdk.Context, txs [][]byte) [][]byte {
 	c := h.proposalChecker(ctx)
 	if c == nil {
 		return txs
 	}
-	for _, raw := range forced {
-		if checks, ok := h.checks(raw); ok && len(checks) > 0 {
-			_ = c.Admit(checks) // forced: counted when it passes, kept when it does not
-		}
-	}
+	aborted := false
 	out := make([][]byte, 0, len(txs))
 	for _, raw := range txs {
 		checks, ok := h.checks(raw)
@@ -117,8 +123,12 @@ func (h *inclusionHandlers) dropFailingProofs(ctx sdk.Context, txs, forced [][]b
 			continue
 		}
 		if len(checks) > 0 {
+			if aborted {
+				continue
+			}
 			if err := c.Admit(checks); err != nil {
 				h.logger.Debug("a shielded bundle was left out of the proposal", "module", "x/shielded", "err", err)
+				aborted = shieldedkeeper.AbortsChecks(err)
 				continue
 			}
 		}

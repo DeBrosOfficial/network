@@ -38,7 +38,15 @@ const (
 // default, so the variable that picks the fake mode is passed on purpose.
 func fakeEnv() []string { return []string{fakeModeFileEnv + "=" + os.Getenv(fakeModeFileEnv)} }
 
+// parentModeHook lets a platform file run this test binary as a node (pdeathsig_linux_test.go).
+var parentModeHook func() (code int, ok bool)
+
 func TestMain(m *testing.M) {
+	if parentModeHook != nil {
+		if code, ok := parentModeHook(); ok {
+			os.Exit(code)
+		}
+	}
 	if modeFile := os.Getenv(fakeModeFileEnv); modeFile != "" {
 		os.Exit(runFake(modeFile))
 	}
@@ -64,7 +72,7 @@ func runFake(modeFile string) int {
 		case modeReject:
 			writeFrame(os.Stdout, id, codeProofRejected)
 		case modeHang:
-			select {}
+			time.Sleep(time.Hour) // a bare select{} would end the child at once with a deadlock error
 		case modeDie:
 			return 3
 		case modeWrongID:

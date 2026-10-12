@@ -15,6 +15,7 @@ package verify
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // MinVerifiers is the number of distinct verifier builds that must accept a bundle. They are
@@ -60,6 +61,13 @@ var ErrVerifierPanic = fmt.Errorf("%w: the verifier panicked on this bundle", Er
 // the node stops (x/shielded/keeper VerifierHalt) and re-executes the block after a restart, and
 // only the mempool refuses the transaction, locally.
 var ErrVerifierFault = errors.New("shielded verifier fault")
+
+// DeadlineVerifier is a Verifier that can be given a time limit for one request (the whole request,
+// including any wait for the verifier). A caller with a deadline of its own uses it when it can.
+type DeadlineVerifier interface {
+	Verifier
+	VerifyWithin(bundle, binding []byte, d time.Duration) error
+}
 
 // ErrVerifierStarting means a verifier of the mempool is not ready yet (its process is being
 // started in the background). It is neither a verdict on the bundle nor a fault: nothing was asked

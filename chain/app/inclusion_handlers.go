@@ -254,7 +254,7 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 		// signer-less cap, so only transactions that can be in the block count): its peers would
 		// refuse the block (ProcessProposal).
 		capped := *req
-		capped.Txs = h.dropFailingProofs(ctx, h.capSignerless(req.Txs, limit), nil)
+		capped.Txs = h.dropFailingProofs(ctx, h.capSignerless(req.Txs, limit))
 		return def(ctx, &capped)
 	}
 	if err := baseapp.ValidateVoteExtensions(ctx, h.valStore, req.Height, "", req.LocalLastCommit); err != nil {
@@ -291,7 +291,7 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 		}
 	}
 	rest.Txs = h.capSignerless(rest.Txs, limit-h.countSignerless(prefix))
-	rest.Txs = h.dropFailingProofs(ctx, rest.Txs, prefix)
+	rest.Txs = h.dropFailingProofs(ctx, rest.Txs)
 	if rest.MaxTxBytes <= 0 || len(rest.Txs) == 0 {
 		return &abci.ResponsePrepareProposal{Txs: block}, nil
 	}
@@ -355,7 +355,13 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 	if err := inclusion.Process(h.walkView(ctx, p, req.Height, ec, commit, total), commit, block); err != nil {
 		return reject, nil
 	}
-	if !h.allProofsOK(ctx, block) {
+	// Only the proposer's own part of the block is gated: the forced prefix is what the inclusion
+	// rules require, whatever its proofs (see proposal_proofs.go).
+	need, err := inclusion.Required(h.walkView(ctx, p, req.Height, ec, commit, total), commit)
+	if err != nil {
+		return reject, nil
+	}
+	if !h.allProofsOK(ctx, block[len(need):]) {
 		return reject, nil
 	}
 	rest := *req

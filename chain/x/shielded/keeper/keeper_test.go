@@ -806,21 +806,21 @@ func TestCheckProposalProof(t *testing.T) {
 	mp := &testutil.Verifier{Name: "mempool-b"}
 	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{mp, e.V1})
 	raw := transferBundle(3, 20, emptyAnchor(t))
-	require.NoError(t, k.CheckProposalProof(raw, nil))
+	require.NoError(t, k.CheckProposalProof(raw, nil, time.Second))
 	require.Equal(t, 1, mp.Calls)
 
 	rejected, faulted := transferBundle(4, 20, emptyAnchor(t)), transferBundle(5, 20, emptyAnchor(t))
 	mp.Reject = func([]byte) error { return verify.ErrProofRejected }
-	require.ErrorIs(t, k.CheckProposalProof(rejected, nil), verify.ErrProofRejected)
+	require.ErrorIs(t, k.CheckProposalProof(rejected, nil, time.Second), verify.ErrProofRejected)
 	mp.Reject = func([]byte) error { return verify.ErrVerifierFault }
-	require.ErrorIs(t, k.CheckProposalProof(faulted, nil), verify.ErrVerifierFault)
+	require.ErrorIs(t, k.CheckProposalProof(faulted, nil, time.Second), verify.ErrVerifierFault)
 
 	starting := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{notReady{mp}, e.V1})
-	require.ErrorIs(t, starting.CheckProposalProof(transferBundle(6, 20, emptyAnchor(t)), nil), verify.ErrVerifierStarting)
+	require.ErrorIs(t, starting.CheckProposalProof(transferBundle(6, 20, emptyAnchor(t)), nil, time.Second), verify.ErrVerifierStarting)
 
 	mp.Reject = nil
 	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
-		_ = k.CheckProposalProof(transferBundle(byte(10+i%100), 20, emptyAnchor(t)), nil)
+		_ = k.CheckProposalProof(transferBundle(byte(10+i%100), 20, emptyAnchor(t)), nil, time.Second)
 	}
 	other := transferBundle(200, 20, emptyAnchor(t))
 	adm, err := k.Admit(e.CheckCtx(), other, nil, keeper.KindTransfer, false)

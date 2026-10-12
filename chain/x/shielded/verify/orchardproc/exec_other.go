@@ -12,3 +12,6 @@ const StartsFromCheckedFile = false
 
 // configure leaves cmd starting the file by name.
 func (b *pinnedBinary) configure(cmd *exec.Cmd) { cmd.Path = b.path }
+
+// startCommand starts cmd.
+func startCommand(cmd *exec.Cmd) error { return cmd.Start() }

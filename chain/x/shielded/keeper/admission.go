@@ -3,6 +3,7 @@ package keeper
 import (
 	"container/list"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -25,11 +26,18 @@ const (
 	MaxRememberedFaults = 1024
 	// MaxRememberedValid bounds the memory of accepted bundles.
 	MaxRememberedValid = 4096
+	// MaxConcurrentSimulations bounds the simulations verified at once.
+	MaxConcurrentSimulations = 2
 )
 
 // ErrMempoolBusy means this node has verified its share of proofs since the last block and refuses
 // more until the next one. The transaction is not invalid; it can be sent again.
-var ErrMempoolBusy = errors.New("shielded proof verification is busy in this block, try again next block")
+var ErrMempoolBusy = errors.New(GenericRefusal)
+
+// GenericRefusal is the one text a remote caller gets when this node cannot check a shielded bundle
+// right now, whatever the reason (busy, starting, a recent fault, too many simulations): the reason
+// is in the node's log.
+const GenericRefusal = "the shielded verifier is unavailable on this node right now; try again later or send the transaction to another node"
 
 // admission is the mempool's defence against proof-failing bundles: a bounded memory of bundles
 // that failed verification, so each costs one verification per node, and a per-block budget of
@@ -49,6 +57,9 @@ type admission struct {
 	// mempool and proposal checks: a block always verifies.
 	valid      map[[sha256.Size]byte]struct{}
 	validOrder *list.List
+	// simulations bounds the gRPC simulations that run at once: they run outside CometBFT's ABCI
+	// lock, on the mempool's verifier.
+	simulations chan struct{}
 }
 
 type failedEntry struct {
@@ -59,7 +70,8 @@ type failedEntry struct {
 func newAdmission() *admission {
 	return &admission{failed: map[[sha256.Size]byte]*list.Element{}, order: list.New(),
 		faults: map[[sha256.Size]byte]time.Time{}, now: time.Now,
-		valid: map[[sha256.Size]byte]struct{}{}, validOrder: list.New()}
+		valid: map[[sha256.Size]byte]struct{}{}, validOrder: list.New(),
+		simulations: make(chan struct{}, MaxConcurrentSimulations)}
 }
 
 // validRecalled reports a bundle a verifier accepted before.
@@ -130,6 +142,9 @@ func (a *admission) rememberFault(key [sha256.Size]byte) {
 // remembering one bundle's failure can never refuse another.
 func admissionKey(raw, binding []byte) [sha256.Size]byte {
 	h := sha256.New()
+	var n [8]byte
+	binary.BigEndian.PutUint64(n[:], uint64(len(raw)))
+	h.Write(n[:]) // the bundle's length, so a bundle and a binding cannot be re-split into another pair
 	h.Write(raw)
 	h.Write(binding)
 	var out [sha256.Size]byte

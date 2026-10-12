@@ -223,15 +223,15 @@ func TestMempoolVerifier_aFailedFirstStartIsRetriedThroughTheKeepersGate(t *test
 	settled := func() bool { m.mu.Lock(); defer m.mu.Unlock(); return !m.warming }
 	b := bundleForTest()
 
-	require.ErrorIs(t, k.CheckProposalProof(b, nil), verify.ErrVerifierStarting)
+	require.ErrorIs(t, k.CheckProposalProof(b, nil, time.Second), verify.ErrVerifierStarting)
 	require.Eventually(t, settled, 5*time.Second, time.Millisecond)
-	require.ErrorIs(t, k.CheckProposalProof(b, nil), verify.ErrVerifierStarting, "inside the back-off")
+	require.ErrorIs(t, k.CheckProposalProof(b, nil, time.Second), verify.ErrVerifierStarting, "inside the back-off")
 	m.mu.Lock()
 	require.Equal(t, 1, m.attempts)
 	m.mu.Unlock()
 
 	require.NoError(t, os.WriteFile(path, raw, 0o755)) // the binary appears
 	now = now.Add(warmBackoff + time.Second)
-	require.ErrorIs(t, k.CheckProposalProof(b, nil), verify.ErrVerifierStarting, "the call that finds the back-off over starts the child")
+	require.ErrorIs(t, k.CheckProposalProof(b, nil, time.Second), verify.ErrVerifierStarting, "the call that finds the back-off over starts the child")
 	require.Eventually(t, m.Ready, 10*time.Second, 5*time.Millisecond, "and a later call finds it ready")
 }

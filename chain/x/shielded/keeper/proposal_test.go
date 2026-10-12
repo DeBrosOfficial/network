@@ -113,7 +113,7 @@ func TestProposalChecker_aBundleTheMempoolVerifiedIsNotVerifiedAgain(t *testing.
 	require.NoError(t, e.Keeper.Verify(ctx, raw, nil, adm))
 	calls := e.V2.Calls
 
-	require.NoError(t, e.Keeper.CheckProposalProof(raw, nil))
+	require.NoError(t, e.Keeper.CheckProposalProof(raw, nil, time.Second))
 	require.Equal(t, calls, e.V2.Calls, "the verdict of CheckTx is reused")
 
 	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
@@ -121,7 +121,7 @@ func TestProposalChecker_aBundleTheMempoolVerifiedIsNotVerifiedAgain(t *testing.
 	require.Greater(t, e.V2.Calls, calls, "a block verifies whatever the mempool remembers")
 
 	other := testutil.Bundle{Seed: 11, ValueBalance: 20, Anchor: anchor}.Encode(1)
-	require.ErrorIs(t, e.Keeper.CheckProposalProof(other, nil), verify.ErrVerifierFault, "a bundle nobody verified is verified")
+	require.ErrorIs(t, e.Keeper.CheckProposalProof(other, nil, time.Second), verify.ErrVerifierFault, "a bundle nobody verified is verified")
 }
 
 // Only valid verdicts are remembered: a rejected bundle is asked again, and a fault is no verdict.
@@ -129,9 +129,9 @@ func TestProposalChecker_onlyValidVerdictsAreReused(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
 	raw := testutil.Bundle{Seed: 12, ValueBalance: 20, Anchor: emptyAnchor(t)}.Encode(1)
 	e.V2.Reject = func([]byte) error { return verify.ErrProofRejected }
-	require.ErrorIs(t, e.Keeper.CheckProposalProof(raw, nil), verify.ErrProofRejected)
+	require.ErrorIs(t, e.Keeper.CheckProposalProof(raw, nil, time.Second), verify.ErrProofRejected)
 	e.V2.Reject = func([]byte) error { return verify.ErrVerifierFault }
-	require.ErrorIs(t, e.Keeper.CheckProposalProof(raw, nil), verify.ErrVerifierFault)
+	require.ErrorIs(t, e.Keeper.CheckProposalProof(raw, nil, time.Second), verify.ErrVerifierFault)
 	e.V2.Reject = nil
-	require.NoError(t, e.Keeper.CheckProposalProof(raw, nil))
+	require.NoError(t, e.Keeper.CheckProposalProof(raw, nil, time.Second))
 }

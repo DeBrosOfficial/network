@@ -1,10 +1,20 @@
 package keeper
 
-import "time"
+import (
+	"time"
+
+	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+)
 
 // SetCheckerClockForTest replaces a proposal checker's clock and deadline.
 func SetCheckerClockForTest(c *ProposalChecker, now func() time.Time, deadline time.Time) {
 	c.now, c.deadline = now, deadline
+}
+
+// WithProposalVerifiersForTest returns k with another set of proposal verifiers.
+func WithProposalVerifiersForTest(k Keeper, set []verify.Verifier) Keeper {
+	k.deps.ProposalVerifiers = set
+	return k
 }
 
 // AdvanceFaultMemoryForTest moves the mempool's clock forward by d, to expire remembered faults.

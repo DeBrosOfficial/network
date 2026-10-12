@@ -35,7 +35,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -97,7 +96,7 @@ type Config struct {
 type Verifier struct {
 	cfg Config
 
-	mu     sync.Mutex
+	mu     *timedMutex
 	proc   *process
 	nextID uint64
 }
@@ -125,7 +124,7 @@ func New(cfg Config) (*Verifier, error) {
 	if cfg.BusyWait <= 0 {
 		cfg.BusyWait = DefaultBusyWait
 	}
-	return &Verifier{cfg: cfg}, nil
+	return &Verifier{cfg: cfg, mu: newTimedMutex()}, nil
 }
 
 // Warm starts the process and waits for its ready frame, so the verifying key is built before the
@@ -169,7 +168,7 @@ func (v *Verifier) Verify(b, binding []byte) error {
 	if err != nil {
 		return err
 	}
-	return v.ask(p, sighash[:], b)
+	return v.ask(p, sighash[:], b, v.cfg.RequestTimeout)
 }
 
 // VerifyRunning is Verify for a caller that cannot afford to wait for a start (the mempool, which
@@ -179,33 +178,31 @@ func (v *Verifier) Verify(b, binding []byte) error {
 // under way is waited for at most Config.BusyWait; if the verifier is still held it answers
 // ErrBusy, which says nothing about whether the process is alive.
 func (v *Verifier) VerifyRunning(b, binding []byte) error {
+	return v.VerifyRunningWithin(b, binding, v.cfg.RequestTimeout+v.cfg.BusyWait)
+}
+
+// VerifyRunningWithin is VerifyRunning for a caller with a deadline: the wait for the verifier and
+// the request together take at most d. The wait is at most BusyWait and the request at most
+// RequestTimeout, and each is cut to what is left of d. A request that runs out of d is a fault
+// like any other timeout: the process is stopped.
+func (v *Verifier) VerifyRunningWithin(b, binding []byte, d time.Duration) error {
 	sighash, err := v.prepare(b, binding)
 	if err != nil {
 		return err
 	}
-	if !v.lockWithin(v.cfg.BusyWait) {
+	start := time.Now()
+	if !v.mu.LockWithin(min(v.cfg.BusyWait, d)) {
 		return ErrBusy
 	}
 	defer v.mu.Unlock()
 	if v.proc == nil || v.proc.exited() {
 		return ErrNotRunning
 	}
-	return v.ask(v.proc, sighash[:], b)
-}
-
-// lockWithin takes v.mu, waiting at most d.
-func (v *Verifier) lockWithin(d time.Duration) bool {
-	if v.mu.TryLock() {
-		return true
+	left := d - time.Since(start)
+	if left <= 0 {
+		return ErrBusy
 	}
-	deadline := time.Now().Add(d)
-	for time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-		if v.mu.TryLock() {
-			return true
-		}
-	}
-	return false
+	return v.ask(v.proc, sighash[:], b, min(v.cfg.RequestTimeout, left))
 }
 
 // prepare checks the bundle's size and computes the sighash the child is handed.
@@ -217,10 +214,10 @@ func (v *Verifier) prepare(b, binding []byte) ([32]byte, error) {
 }
 
 // ask puts one request to p. The caller holds v.mu.
-func (v *Verifier) ask(p *process, sighash, b []byte) error {
+func (v *Verifier) ask(p *process, sighash, b []byte, timeout time.Duration) error {
 	v.nextID++
 	id := v.nextID
-	code, err := p.exchange(id, sighash, b, v.cfg.RequestTimeout)
+	code, err := p.exchange(id, sighash, b, timeout)
 	if err != nil {
 		v.stop()
 		return fmt.Errorf("%w: out-of-process verifier: %w", verify.ErrVerifierFault, err)
@@ -306,7 +303,7 @@ func start(cfg Config) (*process, error) {
 		return nil, fmt.Errorf("%w: verifier stdout: %w", verify.ErrVerifierFault, err)
 	}
 	cmd.Stdout = childOut
-	if err := cmd.Start(); err != nil {
+	if err := startCommand(cmd); err != nil {
 		_ = stdout.Close()
 		_ = childOut.Close()
 		return nil, fmt.Errorf("%w: start %q: %w", verify.ErrVerifierFault, cfg.Path, err)
