@@ -113,7 +113,9 @@ func (gs GenesisState) validateQueue() error {
 		if owners[owner.String()]++; owners[owner.String()] > MaxQueuedPerOwner {
 			return fmt.Errorf("%w: %s has more than %d queued unshields", ErrQueueOwnerFull, q.Owner, MaxQueuedPerOwner)
 		}
-		if q.Refusals >= MaxQueueRefusals {
+		// A row reaches MaxQueueRefusals and stays only when its refund itself was refused; it is
+		// retried next window, so an export may hold it. Above that no path writes.
+		if q.Refusals > MaxQueueRefusals {
 			return fmt.Errorf("queued unshield %d has been refused %d times; at %d it is refunded and leaves the queue", q.Id, q.Refusals, MaxQueueRefusals)
 		}
 		if q.Target != UnshieldTargetBond && q.Target != UnshieldTargetNodeBond {

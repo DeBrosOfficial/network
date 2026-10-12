@@ -146,7 +146,7 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 	for i, q := range reqs {
 		poolReqs[i] = pool.Request{Address: q.Owner, Amount: q.Amount}
 	}
-	grants, refused := pool.Serve(lim.Remaining(limit), p.QueuePerAddressCap, MaxServedPerWindow, poolReqs, func(i int, grant math.Int) bool {
+	grants, refused, examined := pool.Serve(lim.Remaining(limit), p.QueuePerAddressCap, MaxServedPerWindow, poolReqs, func(i int, grant math.Int) bool {
 		return k.partPaymentFits(ctx, reqs[i], grant)
 	}, func(i int, grant math.Int) bool {
 		return k.payQueued(ctx, reqs[i], grant)
@@ -161,8 +161,10 @@ func (k Keeper) serveQueue(ctx sdk.Context) error {
 			return err
 		}
 	}
-	for i, q := range reqs {
-			// Not refused and not paid: the window skipped it (capacity, address cap, a part below the
+	// Only rows the window reached count: a row after the point where capacity or the payment budget
+	// ran out was not looked at, so its refusals stay as they were.
+	for i, q := range reqs[:examined] {
+		// Not refused and not paid: the window skipped it (capacity, address cap, a part below the
 		// minimum), so the refusals it had were not in a row.
 		if q.Refusals > 0 && !refusedNow[i] && !grants[i].Amount.IsPositive() {
 			q.Refusals = 0

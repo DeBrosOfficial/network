@@ -192,6 +192,11 @@ func TestQueue_aRefundTheBankRefusesKeepsTheRowAndIsRetriedNextWindow(t *testing
 	require.Equal(t, "0", e.Bank.Of(carol.String()).String())
 	requireInvariants(t, e)
 
+	// A chain exported in this state must import again: the row waiting for its refund is valid.
+	exported, err := e.Keeper.ExportGenesis(e.Ctx)
+	require.NoError(t, err)
+	require.NoError(t, exported.Validate(), "an export holding a refund the bank refused is a valid genesis")
+
 	e.Bank.RefuseTo = nil
 	nextWindow(e)
 	require.Empty(t, queued(t, e), "the next window refunds it")
@@ -255,8 +260,12 @@ func TestGenesis_queueRulesAreValidated(t *testing.T) {
 	gs.Queue = []types.QueuedUnshield{entry(0, alice, types.MaxQueueRefusals-1)}
 	require.NoError(t, gs.Validate())
 
+	// At MaxQueueRefusals a row stays only while its refund is refused and retried: valid.
 	gs.Queue = []types.QueuedUnshield{entry(0, alice, types.MaxQueueRefusals)}
-	require.ErrorContains(t, gs.Validate(), "refunded", "a request refused MaxQueueRefusals times is refunded, not stored")
+	require.NoError(t, gs.Validate(), "a row waiting for a refund the bank refused is stored")
+
+	gs.Queue = []types.QueuedUnshield{entry(0, alice, types.MaxQueueRefusals+1)}
+	require.ErrorContains(t, gs.Validate(), "refunded", "no path stores a request refused more than MaxQueueRefusals times")
 
 	gs.Queue = nil
 	for i := 0; i <= types.MaxQueuedPerOwner; i++ {

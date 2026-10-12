@@ -33,7 +33,10 @@ type Grant struct {
 // or when reqs ends or the capacity is used up, so the caller bounds the work by how many rows it
 // passes in and by maxPaid, and a run of refusing requests at the head cannot hold back the ones
 // behind them. The requests it stops before keep a zero grant and are not in refused.
-func Serve(capacity, perAddress math.Int, maxPaid int, reqs []Request, accept func(i int, grant math.Int) bool, pay func(i int, grant math.Int) bool) (grants []Grant, refused []int) {
+//
+// examined is how many requests, from the first, the window reached before capacity or the payment
+// budget ran out; requests from examined on were not looked at.
+func Serve(capacity, perAddress math.Int, maxPaid int, reqs []Request, accept func(i int, grant math.Int) bool, pay func(i int, grant math.Int) bool) (grants []Grant, refused []int, examined int) {
 	grants = make([]Grant, len(reqs))
 	for i, r := range reqs {
 		grants[i] = Grant{Address: r.Address, Amount: math.ZeroInt()}
@@ -45,6 +48,7 @@ func Serve(capacity, perAddress math.Int, maxPaid int, reqs []Request, accept fu
 		if went >= maxPaid || !left.IsPositive() {
 			break
 		}
+		examined = i + 1
 		if !perAddress.IsPositive() || r.Amount.IsNil() || !r.Amount.IsPositive() {
 			continue
 		}
@@ -68,5 +72,5 @@ func Serve(capacity, perAddress math.Int, maxPaid int, reqs []Request, accept fu
 		left = left.Sub(grant)
 		paid[r.Address] = used.Add(grant)
 	}
-	return grants, refused
+	return grants, refused, examined
 }
