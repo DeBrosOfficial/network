@@ -16,12 +16,13 @@ const (
 	dealNonceField    = 7
 	dealReplicasField = 8
 
-	slotDealField     = 1
-	slotIndexField    = 2
-	slotNodeField     = 3
-	slotRootField     = 7
-	slotStatusField   = 11
-	slotAcceptedField = 13
+	slotDealField       = 1
+	slotIndexField      = 2
+	slotNodeField       = 3
+	slotRootField       = 7
+	slotPieceBytesField = 10
+	slotStatusField     = 11
+	slotAcceptedField   = 13
 
 	nodeEndpointsField = 6
 )
@@ -123,6 +124,8 @@ func decodeSlot(resp []byte) (Slot, error) {
 			s.NodeID = string(b)
 		case slotRootField:
 			s.PieceRoot = append([]byte(nil), b...)
+		case slotPieceBytesField:
+			s.PieceBytes = v
 		case slotStatusField:
 			s.Status = int32(v)
 		case slotAcceptedField:

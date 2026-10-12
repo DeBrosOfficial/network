@@ -77,12 +77,19 @@ func (c *Client) repairSlot(ctx context.Context, deal Deal, seed []byte, sources
 		return Repaired{}, err
 	}
 	var errs []error
+	mismatches := 0
 	for _, src := range sources {
 		body, err := c.rebuild(ctx, deal, seed, src, target)
-		if errors.Is(err, ErrRootMismatch) || errors.Is(err, storagefile.ErrNotForKey) {
+		if errors.Is(err, storagefile.ErrNotForKey) {
 			return Repaired{}, err
 		}
 		if err != nil {
+			// A rewrap that misses the root is that source's fault (a zero-padded copy or a
+			// replica that is not the deal's), so the next source is tried. Only when every
+			// source misses it is the repair seed the likely cause.
+			if errors.Is(err, ErrRootMismatch) {
+				mismatches++
+			}
 			errs = append(errs, fmt.Errorf("from slot %d: %w", src.Index, err))
 			continue
 		}
@@ -90,6 +97,9 @@ func (c *Client) repairSlot(ctx context.Context, deal Deal, seed []byte, sources
 			return Repaired{}, fmt.Errorf("upload to %s: %w", target.NodeID, err)
 		}
 		return Repaired{Slot: target.Index, From: src.Index, Provider: target.NodeID}, nil
+	}
+	if mismatches > 0 && mismatches == len(sources) {
+		return Repaired{}, errors.Join(errs...)
 	}
 	return Repaired{}, fmt.Errorf("%w: %w", ErrNoReplica, errors.Join(errs...))
 }
@@ -102,6 +112,9 @@ func (c *Client) rebuild(ctx context.Context, deal Deal, seed []byte, src, targe
 	blob, err := Fetch(ctx, c.http, base, src.PieceRoot)
 	if err != nil {
 		return nil, err
+	}
+	if uint64(len(blob)) != src.PieceBytes {
+		return nil, fmt.Errorf("source replica is %d bytes, the chain recorded %d", len(blob), src.PieceBytes)
 	}
 	out, err := storagefile.Rewrap(seed, deal.Nonce, src.Index, target.Index, blob)
 	if err != nil {

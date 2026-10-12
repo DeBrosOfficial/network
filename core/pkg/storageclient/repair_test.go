@@ -124,3 +124,23 @@ func TestRepair_aStalledSlotDoesNotSpendTheBudgetOfTheNext(t *testing.T) {
 		t.Fatal("slot 2's provider holds nothing")
 	}
 }
+
+// The piece root does not commit to the length, so a provider serving a zero-padded copy passes the
+// root check. Its replica must count against that source only: the repair goes on to the next one.
+func TestRepair_aZeroPaddedSourceDoesNotBlockRepairFromAnotherSource(t *testing.T) {
+	plain := bytes.Repeat([]byte("orama "), 700)
+	w := newWorld(t, plain)
+	w.holdAll(t)
+	w.lose(2)
+	root := hex.EncodeToString(w.slots[0].Root)
+	w.providers[0].pieces[root] = append(append([]byte(nil), w.slots[0].Bytes...), make([]byte, 16)...)
+	c := w.client(t)
+
+	done, err := c.Repair(context.Background(), 5, testRepair)
+	if err != nil {
+		t.Fatalf("repair from the honest source failed: %v", err)
+	}
+	if len(done) != 1 || done[0].Slot != 2 || done[0].From != 1 {
+		t.Fatalf("repaired %+v, want slot 2 rebuilt from slot 1", done)
+	}
+}

@@ -70,8 +70,11 @@ type Slot struct {
 	Index     uint32
 	NodeID    string
 	PieceRoot []byte
-	Status    int32
-	Accepted  bool
+	// PieceBytes is the replica's length the chain recorded. The piece root does not commit to the
+	// length, so a zero-padded copy has the same root; only this tells them apart.
+	PieceBytes uint64
+	Status     int32
+	Accepted   bool
 }
 
 // Held reports whether a node is assigned to the slot and may hold it.

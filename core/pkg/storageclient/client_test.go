@@ -131,6 +131,7 @@ func (w *world) answer(rw http.ResponseWriter, r *http.Request) {
 		slot := append(encodeUintField(slotDealField, 5), encodeUintField(slotIndexField, idx)...)
 		slot = append(slot, field(slotNodeField, []byte("n"+string(rune('0'+idx))))...)
 		slot = append(slot, field(slotRootField, s.Root)...)
+		slot = append(slot, encodeUintField(slotPieceBytesField, uint64(len(s.Bytes)))...)
 		status := uint64(slotAssigned)
 		if w.live[idx] {
 			status = slotActive
