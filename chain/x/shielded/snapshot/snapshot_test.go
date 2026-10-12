@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"encoding/binary"
 	"errors"
 	"io"
 	"testing"
@@ -147,6 +148,30 @@ func TestSnapshot_storeShorterThanCommittedFails(t *testing.T) {
 	e := New(src, func(uint64) ([bundle.NodeLen]byte, uint64, error) { return [bundle.NodeLen]byte{}, count + 5, nil })
 	if err := e.SnapshotExtension(1, func([]byte) error { return nil }); !errors.Is(err, types.ErrNullifierStore) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// A record's height is not part of the accumulator, so the fold check cannot refuse a stream that
+// states a negative height. Stored, it sorts after every real height (the key is the unsigned
+// value), the restored node would walk its records in a different order than the stream gave, and
+// the snapshot it serves next would fold to another accumulator. Found by FuzzSnapshotRestore.
+func TestRestore_refusesARecordAtANegativeHeight(t *testing.T) {
+	first, second := nf(1), nf(2)
+	var acc [bundle.NodeLen]byte
+	acc = nullifier.Fold(nullifier.Fold(acc, first), second)
+	committed := func(uint64) ([bundle.NodeLen]byte, uint64, error) { return acc, 2, nil }
+
+	record := func(height uint64, id [bundle.NodeLen]byte) []byte {
+		return append(binary.BigEndian.AppendUint64(nil, height), id[:]...)
+	}
+	stream := append(record(^uint64(0), first), record(3, second)...)
+	store := nullifier.NewStore(dbm.NewMemDB())
+	err := New(store, committed).RestoreExtension(5, Format, reader([][]byte{stream}))
+	if !errors.Is(err, types.ErrNullifierStore) {
+		t.Fatalf("a record at height -1 was restored: %v", err)
+	}
+	if empty, _ := store.Empty(); !empty {
+		t.Fatal("the refused restore left records behind")
 	}
 }
 

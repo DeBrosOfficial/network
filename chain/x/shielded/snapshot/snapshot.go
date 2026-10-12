@@ -157,7 +157,7 @@ func (i *importer) add(payload []byte) error {
 	}
 	for ; len(payload) > 0; payload = payload[recordLen:] {
 		h := int64(binary.BigEndian.Uint64(payload))
-		if h < i.blockHeight || h > i.height {
+		if h < 0 || h < i.blockHeight || h > i.height {
 			return fmt.Errorf("%w: record height %d is out of order or above the snapshot height %d", types.ErrNullifierStore, h, i.height)
 		}
 		if h != i.blockHeight {
