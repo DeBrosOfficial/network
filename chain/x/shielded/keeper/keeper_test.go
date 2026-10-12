@@ -679,9 +679,10 @@ func TestTransfer_missingVerifiersHaltOnlyAChainThatMustVerify(t *testing.T) {
 	}
 }
 
-// Mempool work has verifiers of its own: a bundle that holds the mempool's child never holds up the
-// verifiers a block runs on.
-func TestVerify_aHungMempoolCheckDoesNotHoldUpBlockExecution(t *testing.T) {
+// Mempool work has verifiers of its own: a bundle that holds the mempool's child does not hold the
+// block's verifier. (This is the verifier's mutex, not CometBFT's ABCI lock, which the keeper does not
+// see; the mempool's short request timeout bounds that stall.)
+func TestVerify_theMempoolAndTheBlockDoNotShareAVerifier(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
 	shield(t, e, 1, 1000)
 	e.EndBlock()

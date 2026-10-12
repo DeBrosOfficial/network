@@ -43,9 +43,11 @@ type Dependencies struct {
 	// every node alike, and leaves it false so every bundle is refused there.
 	RequireVerifiers bool
 	// MempoolVerifiers check the bundles of CheckTx and a simulation. They are a separate set from
-	// Verifiers, with their own child process, so work the mempool hands the node (a bundle that
-	// hangs the child for its whole watchdog, sent again and again) never holds up the verifiers a
-	// block runs on. Empty means the mempool shares Verifiers.
+	// Verifiers, with their own child process and a short request timeout, so a bundle that hangs
+	// the mempool's child never holds the block's verifier, and a stall costs at most that timeout.
+	// It does not make CheckTx and FinalizeBlock independent: CometBFT's local ABCI client takes one
+	// lock for both, so a CheckTx that is waiting on its child delays a block by the same time.
+	// Empty means the mempool shares Verifiers.
 	MempoolVerifiers []verify.Verifier
 }
 

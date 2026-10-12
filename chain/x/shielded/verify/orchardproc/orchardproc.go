@@ -82,6 +82,10 @@ type Config struct {
 	// bundle because one has a different binary. The node takes it from the value linked into
 	// oramad at build time (chain/app ShieldedVerifierSHA256), never from an operator setting.
 	SHA256 string
+	// Env is the child's whole environment. It is empty by default: the verifier needs nothing from
+	// the node's environment, and must not inherit its secrets. Tests that speak through a variable
+	// set it here.
+	Env []string
 	// RequestTimeout and StartTimeout default to the package constants when zero.
 	RequestTimeout time.Duration
 	StartTimeout   time.Duration
@@ -227,7 +231,7 @@ func start(cfg Config) (*process, error) {
 	}
 	defer bin.Close()
 	// The command is built by hand so a path without a slash is not looked up on PATH.
-	cmd := &exec.Cmd{Path: cfg.Path, Args: []string{cfg.Path}}
+	cmd := &exec.Cmd{Path: cfg.Path, Args: []string{cfg.Path}, Env: append([]string{}, cfg.Env...)}
 	bin.configure(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

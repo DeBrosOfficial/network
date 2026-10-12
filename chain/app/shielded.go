@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
 	shieldedsnapshot "github.com/DeBrosOfficial/network/chain/x/shielded/snapshot"
 	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
 	orchardverify "github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
 )
 
@@ -222,6 +224,17 @@ func (app *OramaApp) NullifierStore() *nullifier.Store { return app.nullifierSto
 // home).
 func (app *OramaApp) Close() error {
 	err := app.BaseApp.Close()
+	// The verifier processes end with the app: a node that is closed and opened again in one
+	// process (a test, an upgrade) must not leave a child behind for each open.
+	for _, set := range [][]verify.Verifier{app.ShieldedVerifiers, app.ShieldedMempoolVerifiers} {
+		for _, v := range set {
+			if c, ok := v.(io.Closer); ok {
+				if closeErr := c.Close(); closeErr != nil && err == nil {
+					err = closeErr
+				}
+			}
+		}
+	}
 	if closeErr := app.nullifierStore.Close(); closeErr != nil && err == nil {
 		err = closeErr
 	}

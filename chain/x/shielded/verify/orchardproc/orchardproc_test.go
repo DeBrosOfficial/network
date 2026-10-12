@@ -34,6 +34,10 @@ const (
 	modePanicCode = "panic"     // answers with the panic code
 )
 
+// fakeEnv is the whole environment the fake child gets: the verifier's environment is empty by
+// default, so the variable that picks the fake mode is passed on purpose.
+func fakeEnv() []string { return []string{fakeModeFileEnv + "=" + os.Getenv(fakeModeFileEnv)} }
+
 func TestMain(m *testing.M) {
 	if modeFile := os.Getenv(fakeModeFileEnv); modeFile != "" {
 		os.Exit(runFake(modeFile))
@@ -100,7 +104,7 @@ func newFixture(t *testing.T, timeout time.Duration) *fixture {
 	t.Setenv(fakeModeFileEnv, modeFile)
 	f := &fixture{t: t, modeFile: modeFile}
 	f.mode(modeAccept)
-	f.v = mustNew(t, Config{Path: exe, ChainID: "test-chain", RequestTimeout: timeout, StartTimeout: 10 * time.Second})
+	f.v = mustNew(t, Config{Path: exe, ChainID: "test-chain", RequestTimeout: timeout, StartTimeout: 10 * time.Second, Env: fakeEnv()})
 	t.Cleanup(func() { _ = f.v.Close() })
 	return f
 }
@@ -404,7 +408,7 @@ func TestPin_aBinarySwappedAfterTheCheckIsNotTheOneThatRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := New(Config{Path: path, ChainID: "c", SHA256: pin, StartTimeout: 10 * time.Second})
+	v, err := New(Config{Path: path, ChainID: "c", SHA256: pin, StartTimeout: 10 * time.Second, Env: fakeEnv()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -515,7 +519,7 @@ func TestPin_aLinkedDirectoryAboveTheFileIsFollowed(t *testing.T) {
 	if err := os.Symlink(filepath.Dir(real), filepath.Join(dir, "current")); err != nil {
 		t.Fatal(err)
 	}
-	v := mustNew(t, Config{Path: filepath.Join(dir, "current", filepath.Base(real)), ChainID: "c", SHA256: hashOf(t, real), StartTimeout: 10 * time.Second})
+	v := mustNew(t, Config{Path: filepath.Join(dir, "current", filepath.Base(real)), ChainID: "c", SHA256: hashOf(t, real), StartTimeout: 10 * time.Second, Env: fakeEnv()})
 	t.Cleanup(func() { _ = v.Close() })
 	if err := v.Warm(); err != nil {
 		t.Fatalf("a path through a linked directory must start: %v", err)
@@ -605,12 +609,55 @@ func TestStart_aPathWithoutASlashIsNotLookedUpOnPATH(t *testing.T) {
 	if err := os.WriteFile(os.Getenv(fakeModeFileEnv), []byte(modeAccept), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	v, err := New(Config{Path: "verifier", ChainID: "c", SHA256: hashOf(t, copyTo), StartTimeout: 10 * time.Second})
+	v, err := New(Config{Path: "verifier", ChainID: "c", SHA256: hashOf(t, copyTo), StartTimeout: 10 * time.Second, Env: fakeEnv()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = v.Close() })
 	if err := v.Warm(); err != nil {
 		t.Fatalf("a relative path must start the file in the working directory: %v", err)
+	}
+}
+
+// The child gets an empty environment: nothing of the node's (keys, tokens, paths) reaches it.
+func TestStart_theChildInheritsNothingFromTheNodesEnvironment(t *testing.T) {
+	t.Setenv("ORAMA_SECRET_FOR_THE_TEST", "hunter2")
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	out := filepath.Join(t.TempDir(), "env")
+	script := "#!/bin/sh\nenv > " + out + "\nprintf '\\000\\000\\000\\011\\377\\377\\377\\377\\377\\377\\377\\377\\000'\nhead -c 1 >/dev/null\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	v := mustNew(t, Config{Path: path, ChainID: "c", StartTimeout: 10 * time.Second})
+	t.Cleanup(func() { _ = v.Close() })
+	if err := v.Warm(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "hunter2") || strings.Contains(string(raw), "ORAMA_SECRET") {
+		t.Fatalf("the child saw the node's environment:\n%s", raw)
+	}
+}
+
+// Closing the verifier ends the child: stdin closes, the child reads EOF and exits, which is also
+// how it ends when the node itself dies.
+func TestClose_endsTheChild(t *testing.T) {
+	f := newFixture(t, 5*time.Second)
+	if err := f.v.Warm(); err != nil {
+		t.Fatal(err)
+	}
+	f.v.mu.Lock()
+	child := f.v.proc
+	f.v.mu.Unlock()
+	if err := f.v.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-child.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the child outlived Close")
 	}
 }

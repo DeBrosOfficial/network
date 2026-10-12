@@ -96,8 +96,9 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 	if err, failed := k.admission.recalled(key); failed {
 		return fmt.Errorf("shielded bundle refused (already rejected): %w", err)
 	}
+	hash := hex.EncodeToString(key[:])
 	if k.admission.faultRecalled(key) {
-		return unavailable(ctx, ErrRecentVerifierFault)
+		return unavailable(ctx, ErrRecentVerifierFault, hash, true)
 	}
 	if !k.admission.spend() {
 		return ErrMempoolBusy
@@ -109,7 +110,7 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 			k.admission.rememberFault(key)
 		}
 	}
-	return unavailable(ctx, err)
+	return unavailable(ctx, err, hash, false)
 }
 
 // ErrRecentVerifierFault is what the mempool answers for a bundle whose last check, a moment ago,
@@ -128,11 +129,18 @@ func (k Keeper) mempoolVerifiers() []verify.Verifier {
 // unavailable is what the mempool tells a submitter whose transaction this node could not check
 // because of the node itself: a generic refusal. The detail (paths, hashes, the child's state) goes
 // to this node's log only, so a remote client learns nothing about the machine.
-func unavailable(ctx sdk.Context, err error) error {
+//
+// A fault is logged at Error the first time a bundle causes it and at Debug when the same bundle
+// comes back (repeat), so a bundle sent in a loop cannot flood the log.
+func unavailable(ctx sdk.Context, err error, bundleHash string, repeat bool) error {
 	if !localFault(err) {
 		return err
 	}
-	ctx.Logger().Error("the shielded verifier could not check a bundle", "module", "x/shielded", "err", err)
+	if repeat {
+		ctx.Logger().Debug("the shielded verifier could not check a bundle again", "module", "x/shielded", "bundle_sha256", bundleHash, "err", err)
+	} else {
+		ctx.Logger().Error("the shielded verifier could not check a bundle", "module", "x/shielded", "bundle_sha256", bundleHash, "err", err)
+	}
 	class := verify.ErrVerifierFault
 	if !errors.Is(err, verify.ErrVerifierFault) {
 		class = verify.ErrVerifierNotLinked
@@ -159,18 +167,19 @@ func localFault(err error) bool {
 // mempool, a simulation) a fault only refuses the transaction on this node, which is local.
 func (k Keeper) checkInBlock(ctx sdk.Context, raw, binding []byte) error {
 	err := k.check(raw, binding)
+	sum := sha256.Sum256(raw)
+	hash := hex.EncodeToString(sum[:])
 	if ctx.ExecMode() != sdk.ExecModeFinalize {
-		return unavailable(ctx, err)
+		return unavailable(ctx, err, hash, false)
 	}
 	// Not linked and not distinct count as faults only on a chain that must verify: there they
 	// mean this node lost a verifier, while on a localnet or a devnet every node refuses alike.
 	if errors.Is(err, verify.ErrVerifierFault) || (k.deps.RequireVerifiers && localFault(err)) {
-		hash := sha256.Sum256(raw)
-		panic(VerifierHalt{Height: ctx.BlockHeight(), BundleHash: hex.EncodeToString(hash[:]), Err: err})
+		panic(VerifierHalt{Height: ctx.BlockHeight(), BundleHash: hash, Err: err})
 	}
 	// Verifiers that are not linked on a localnet or a devnet: the same refusal on every node, with
 	// the node's paths and pins kept out of the transaction's log.
-	return unavailable(ctx, err)
+	return unavailable(ctx, err, hash, false)
 }
 
 func (k Keeper) check(raw, binding []byte) error { return verifyWith(k.deps.Verifiers, raw, binding) }
