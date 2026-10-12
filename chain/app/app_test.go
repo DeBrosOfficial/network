@@ -337,9 +337,9 @@ func TestOramaApp_shieldedVerifiersAreTwoAndAnUnconfiguredNodeAcceptsNothing(t *
 func TestOramaApp_theMempoolHasItsOwnProcessVerifier(t *testing.T) {
 	a := buildTestApp(t)
 	require.Len(t, a.ShieldedMempoolVerifiers, verify.MinVerifiers)
-	require.Equal(t, a.ShieldedVerifiers[0], a.ShieldedMempoolVerifiers[0], "the library is shared")
-	require.NotSame(t, a.ShieldedVerifiers[1], a.ShieldedMempoolVerifiers[1], "the process verifier is not")
-	require.Equal(t, a.ShieldedVerifiers[1].ID(), a.ShieldedMempoolVerifiers[1].ID())
+	require.Equal(t, a.ShieldedVerifiers[0], a.ShieldedMempoolVerifiers[1], "the library is shared, and last: the killable child goes first")
+	require.NotSame(t, a.ShieldedVerifiers[1], a.ShieldedMempoolVerifiers[0], "the process verifier is not")
+	require.Equal(t, a.ShieldedVerifiers[1].ID(), a.ShieldedMempoolVerifiers[0].ID())
 }
 
 // A verifier halt (shieldedkeeper.VerifierHalt) ends the process only when it comes out of the

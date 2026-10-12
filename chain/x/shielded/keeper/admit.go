@@ -107,6 +107,9 @@ func (k Keeper) Verify(ctx sdk.Context, raw, binding []byte, adm *Admitted) erro
 		return ErrMempoolBusy
 	}
 	err := verifyWith(k.mempoolVerifiers(), raw, binding)
+	if err == nil {
+		k.admission.rememberValid(key)
+	}
 	if err != nil {
 		k.admission.remember(key, err)
 		if localFault(err) {
@@ -141,10 +144,18 @@ func (k Keeper) mempoolReady() bool {
 // voted for, and neither ever halts the node (a halt is for FinalizeBlock, where the block is
 // already decided). It changes no state and spends no budget.
 func (k Keeper) CheckProposalProof(raw, binding []byte) error {
+	key := admissionKey(raw, binding)
+	if k.admission.validRecalled(key) {
+		return nil
+	}
 	if !k.mempoolReady() {
 		return verify.ErrVerifierStarting
 	}
-	return verifyWith(k.mempoolVerifiers(), raw, binding)
+	err := verifyWith(k.mempoolVerifiers(), raw, binding)
+	if err == nil {
+		k.admission.rememberValid(key)
+	}
+	return err
 }
 
 // mempoolVerifiers are the verifiers CheckTx and a simulation use.

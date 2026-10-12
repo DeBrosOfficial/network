@@ -373,9 +373,14 @@ func TestRenderGlobalChainUnit_restartsOnAnyExitIncludingTheVerifierHalt(t *test
 	if !strings.Contains(unit, "StartLimitIntervalSec=0") {
 		t.Errorf("the chain unit limits its restarts:\n%s", unit)
 	}
-	for _, want := range []string{"\nRestartSec=5\n", "\nRestartSteps=6\n", "\nRestartMaxDelaySec=120\n"} {
-		if !strings.Contains(unit, want) {
-			t.Errorf("the chain unit has no %q: a node stopping on the same block would restart at a fixed pace:\n%s", strings.TrimSpace(want), unit)
+	if !strings.Contains(unit, "\nRestartSec=5\n") {
+		t.Errorf("the chain unit restarts at another pace than every 5 s:\n%s", unit)
+	}
+	// systemd's RestartSteps/RestartMaxDelaySec are deliberately not used: they need systemd 254, may
+	// never reset, and a node that stops on the same block is a crash loop for monitoring to flag.
+	for _, forbidden := range []string{"RestartSteps", "RestartMaxDelaySec"} {
+		if strings.Contains(unit, forbidden) {
+			t.Errorf("the chain unit sets %s", forbidden)
 		}
 	}
 }

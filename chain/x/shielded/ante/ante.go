@@ -50,7 +50,7 @@ type signedBundle struct {
 }
 
 // ProofCheck is a bundle a transaction carries and the binding its signatures must commit to.
-type ProofCheck struct{ Bundle, Binding []byte }
+type ProofCheck = keeper.ProofCheck
 
 // ProofChecks lists the bundles of tx that a verifier must accept: a signed shielded message's, and
 // a signer-less transfer's. A transaction with none gives an empty list. An unshield whose binding

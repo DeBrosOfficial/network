@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,8 +53,23 @@ func newMempoolVerifier(proc *orchardproc.Verifier, logger log.Logger) *mempoolV
 // ID is the process verifier's identity, so verify.Check counts it as the second verifier.
 func (m *mempoolVerifier) ID() string { return m.proc.ID() }
 
-// Ready reports whether a request would be asked of a running child (keeper.readier).
-func (m *mempoolVerifier) Ready() bool { return !m.configured || m.ready.Load() }
+// Ready reports whether a request would be asked of a running child (keeper.readier). Asking is
+// also what starts the child again after a failed start: a verifier that is not ready starts in the
+// background, at most once per back-off, so the gate in front of Verify cannot keep it down.
+func (m *mempoolVerifier) Ready() bool {
+	if !m.configured || m.ready.Load() {
+		return true
+	}
+	m.warm()
+	return false
+}
+
+// setReady marks the child ready unless the verifier was closed meanwhile.
+func (m *mempoolVerifier) setReady(v bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ready.Store(v && !m.closed)
+}
 
 // Close stops the child. It never waits for a start under way: the start closes the child it
 // finished after Close was called.
@@ -63,8 +77,8 @@ func (m *mempoolVerifier) Close() error {
 	m.mu.Lock()
 	m.closed = true
 	starting := m.warming
-	m.mu.Unlock()
 	m.ready.Store(false)
+	m.mu.Unlock()
 	if starting {
 		return nil
 	}
@@ -87,22 +101,19 @@ func (m *mempoolVerifier) warm() {
 		m.mu.Lock()
 		m.warming = false
 		closed := m.closed
-		if err != nil {
-			m.nextWarm = m.now().Add(warmBackoff)
-		}
 		first := !m.failed
 		if err != nil {
 			m.failed = true
+			m.nextWarm = m.now().Add(warmBackoff)
+		} else {
+			m.failed = false
+			m.ready.Store(!closed)
 		}
 		m.mu.Unlock()
 		switch {
 		case closed:
 			_ = m.proc.Close() // started after the app closed: do not leave the child behind
 		case err == nil:
-			m.mu.Lock()
-			m.failed = false
-			m.mu.Unlock()
-			m.ready.Store(true)
 		case first:
 			m.logger.Error("the mempool's shielded verifier did not start; CheckTx and proposal checks refuse shielded bundles until it does", "err", err)
 		default:
@@ -111,23 +122,29 @@ func (m *mempoolVerifier) warm() {
 	}()
 }
 
-// Verify implements verify.Verifier.
+// Verify implements verify.Verifier. What a caller outside the node learns is only that the verifier
+// is starting; the detail is in the node's log.
 func (m *mempoolVerifier) Verify(bundle, binding []byte) error {
 	if !m.configured {
 		return m.proc.Verify(bundle, binding)
 	}
 	if !m.ready.Load() {
 		m.warm()
-		return fmt.Errorf("%w: the mempool's verifier process is not ready", verify.ErrVerifierStarting)
+		return verify.ErrVerifierStarting
 	}
 	err := m.proc.VerifyRunning(bundle, binding)
 	switch {
 	case errors.Is(err, orchardproc.ErrNotRunning):
-		m.ready.Store(false) // the child exited while idle or is busy: start the next one off the request path
+		m.logger.Debug("the mempool's shielded verifier process is gone; starting another in the background")
+		m.setReady(false) // the child exited while idle: start the next one off the request path
 		m.warm()
-		return fmt.Errorf("%w: the mempool's verifier process is not running", verify.ErrVerifierStarting)
+		return verify.ErrVerifierStarting
+	case errors.Is(err, orchardproc.ErrBusy):
+		// A request or a start holds the process, which says nothing about it being gone: it stays ready.
+		m.logger.Debug("the mempool's shielded verifier is busy")
+		return verify.ErrVerifierStarting
 	case errors.Is(err, verify.ErrVerifierFault), errors.Is(err, verify.ErrVerifierPanic):
-		m.ready.Store(false) // orchardproc ended the child
+		m.setReady(false) // orchardproc ended the child
 		m.warm()
 	}
 	return err

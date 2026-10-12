@@ -23,6 +23,8 @@ const (
 	// check ended in a fault; MaxRememberedFaults bounds the table. Local admission policy only.
 	FaultMemory         = time.Minute
 	MaxRememberedFaults = 1024
+	// MaxRememberedValid bounds the memory of accepted bundles.
+	MaxRememberedValid = 4096
 )
 
 // ErrMempoolBusy means this node has verified its share of proofs since the last block and refuses
@@ -42,6 +44,11 @@ type admission struct {
 	// again and again. A block never reads it.
 	faults map[[sha256.Size]byte]time.Time
 	now    func() time.Time
+	// valid remembers bundles a verifier accepted, oldest evicted first, so a proposal does not
+	// verify again what this node's mempool already checked. Valid verdicts only, and only for the
+	// mempool and proposal checks: a block always verifies.
+	valid      map[[sha256.Size]byte]struct{}
+	validOrder *list.List
 }
 
 type failedEntry struct {
@@ -51,7 +58,32 @@ type failedEntry struct {
 
 func newAdmission() *admission {
 	return &admission{failed: map[[sha256.Size]byte]*list.Element{}, order: list.New(),
-		faults: map[[sha256.Size]byte]time.Time{}, now: time.Now}
+		faults: map[[sha256.Size]byte]time.Time{}, now: time.Now,
+		valid: map[[sha256.Size]byte]struct{}{}, validOrder: list.New()}
+}
+
+// validRecalled reports a bundle a verifier accepted before.
+func (a *admission) validRecalled(key [sha256.Size]byte) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	_, ok := a.valid[key]
+	return ok
+}
+
+// rememberValid records an accepted bundle.
+func (a *admission) rememberValid(key [sha256.Size]byte) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.valid[key]; ok {
+		return
+	}
+	a.valid[key] = struct{}{}
+	a.validOrder.PushBack(key)
+	if a.validOrder.Len() > MaxRememberedValid {
+		oldest := a.validOrder.Front()
+		a.validOrder.Remove(oldest)
+		delete(a.valid, oldest.Value.([sha256.Size]byte))
+	}
 }
 
 // faultRecalled reports a check of these exact bytes that ended in a fault less than FaultMemory ago.

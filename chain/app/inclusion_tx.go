@@ -27,9 +27,6 @@ type inclusionTxRules struct {
 	ante      sdk.AnteHandler
 	accounts  authkeeper.AccountKeeper
 	signModes *txsigning.HandlerMap
-	// proofs reports whether the shielded bundles of a transaction pass the proof check
-	// (proposal_proofs.go). Nil means there is none to run.
-	proofs func(sdk.Tx) bool
 }
 
 // meta reads the fields the inclusion rules need. Only an ordered
@@ -128,9 +125,6 @@ func (r inclusionTxRules) admitter(scratch sdk.Context) func([]byte, inclusion.M
 			WithGasMeter(storetypes.NewInfiniteGasMeter())
 		if _, err := r.ante(txCtx, tx, false); err != nil {
 			return false
-		}
-		if r.proofs != nil && !r.proofs(tx) {
-			return false // a listed transaction with a bundle no proposal could carry is not listed
 		}
 		write()
 		return true

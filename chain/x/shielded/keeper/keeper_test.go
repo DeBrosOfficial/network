@@ -782,7 +782,7 @@ func (notReady) Ready() bool { return false }
 func TestVerify_aStartingMempoolVerifierSpendsNothingAndIsNeverRemembered(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
 	starting := &testutil.Verifier{Name: "mempool-b"}
-	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, notReady{starting}})
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{notReady{starting}, e.V1})
 	raw := transferBundle(3, 20, emptyAnchor(t))
 	ctx := e.CheckCtx()
 	adm, err := k.Admit(ctx, raw, nil, keeper.KindTransfer, false)
@@ -795,7 +795,7 @@ func TestVerify_aStartingMempoolVerifierSpendsNothingAndIsNeverRemembered(t *tes
 	require.Zero(t, starting.Calls, "nothing was asked of the verifier")
 
 	// The budget was never spent, so a ready set still has all of it.
-	k2 := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, starting})
+	k2 := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{starting, e.V1})
 	require.NoError(t, k2.Verify(ctx, raw, nil, adm))
 }
 
@@ -804,24 +804,26 @@ func TestVerify_aStartingMempoolVerifierSpendsNothingAndIsNeverRemembered(t *tes
 func TestCheckProposalProof(t *testing.T) {
 	e := testutil.NewEnv(t, nil)
 	mp := &testutil.Verifier{Name: "mempool-b"}
-	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, mp})
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{mp, e.V1})
 	raw := transferBundle(3, 20, emptyAnchor(t))
 	require.NoError(t, k.CheckProposalProof(raw, nil))
 	require.Equal(t, 1, mp.Calls)
 
+	rejected, faulted := transferBundle(4, 20, emptyAnchor(t)), transferBundle(5, 20, emptyAnchor(t))
 	mp.Reject = func([]byte) error { return verify.ErrProofRejected }
-	require.ErrorIs(t, k.CheckProposalProof(raw, nil), verify.ErrProofRejected)
+	require.ErrorIs(t, k.CheckProposalProof(rejected, nil), verify.ErrProofRejected)
 	mp.Reject = func([]byte) error { return verify.ErrVerifierFault }
-	require.ErrorIs(t, k.CheckProposalProof(raw, nil), verify.ErrVerifierFault)
+	require.ErrorIs(t, k.CheckProposalProof(faulted, nil), verify.ErrVerifierFault)
 
-	starting := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{e.V1, notReady{mp}})
-	require.ErrorIs(t, starting.CheckProposalProof(raw, nil), verify.ErrVerifierStarting)
+	starting := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{notReady{mp}, e.V1})
+	require.ErrorIs(t, starting.CheckProposalProof(transferBundle(6, 20, emptyAnchor(t)), nil), verify.ErrVerifierStarting)
 
-	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
-		_ = k.CheckProposalProof(raw, nil)
-	}
 	mp.Reject = nil
-	adm, err := k.Admit(e.CheckCtx(), raw, nil, keeper.KindTransfer, false)
+	for i := 0; i < keeper.MaxCheckVerificationsPerBlock+10; i++ {
+		_ = k.CheckProposalProof(transferBundle(byte(10+i%100), 20, emptyAnchor(t)), nil)
+	}
+	other := transferBundle(200, 20, emptyAnchor(t))
+	adm, err := k.Admit(e.CheckCtx(), other, nil, keeper.KindTransfer, false)
 	require.NoError(t, err)
-	require.NoError(t, k.Verify(e.CheckCtx(), raw, nil, adm), "proposal checks spend none of the mempool's budget")
+	require.NoError(t, k.Verify(e.CheckCtx(), other, nil, adm), "proposal checks spend none of the mempool's budget")
 }

@@ -708,19 +708,43 @@ func TestVerifyRunning_aChildThatExitedWhileIdleIsNotRestarted(t *testing.T) {
 	}
 }
 
-// VerifyRunning does not wait for a request or a start that holds the verifier.
-func TestVerifyRunning_doesNotWaitForTheLock(t *testing.T) {
+// A request in flight or a start under way is waited for a short time, and then VerifyRunning says
+// "busy", which is not "gone": the process may be alive.
+func TestVerifyRunning_aBusyVerifierIsBusyNotGone(t *testing.T) {
 	f := newFixture(t, 5*time.Second)
+	if err := f.v.Warm(); err != nil {
+		t.Fatal(err)
+	}
 	f.v.mu.Lock()
+	start := time.Now()
 	done := make(chan error, 1)
 	go func() { done <- f.v.VerifyRunning(fakeBundle(), nil) }()
 	select {
 	case err := <-done:
-		if !errors.Is(err, ErrNotRunning) {
-			t.Errorf("got %v, want ErrNotRunning", err)
+		if !errors.Is(err, ErrBusy) || errors.Is(err, ErrNotRunning) {
+			t.Errorf("got %v, want ErrBusy and not ErrNotRunning", err)
 		}
-	case <-time.After(2 * time.Second):
-		t.Error("VerifyRunning waited for the lock")
+		if took := time.Since(start); took < DefaultBusyWait/2 || took > 3*time.Second {
+			t.Errorf("waited %s, want about %s", took, DefaultBusyWait)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("VerifyRunning waited without bound for the lock")
 	}
 	f.v.mu.Unlock()
+	if err := f.v.VerifyRunning(fakeBundle(), nil); err != nil {
+		t.Fatalf("once the verifier is free it answers: %v", err)
+	}
+}
+
+// A request that finishes inside the wait is waited for and answered.
+func TestVerifyRunning_waitsForARequestThatFinishesInTime(t *testing.T) {
+	f := newFixture(t, 5*time.Second)
+	if err := f.v.Warm(); err != nil {
+		t.Fatal(err)
+	}
+	f.v.mu.Lock()
+	go func() { time.Sleep(30 * time.Millisecond); f.v.mu.Unlock() }()
+	if err := f.v.VerifyRunning(fakeBundle(), nil); err != nil {
+		t.Fatalf("got %v, want the answer", err)
+	}
 }

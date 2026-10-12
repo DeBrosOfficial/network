@@ -86,9 +86,10 @@ type Config struct {
 	// the node's environment, and must not inherit its secrets. Tests that speak through a variable
 	// set it here.
 	Env []string
-	// RequestTimeout and StartTimeout default to the package constants when zero.
+	// RequestTimeout, StartTimeout and BusyWait default to the package constants when zero.
 	RequestTimeout time.Duration
 	StartTimeout   time.Duration
+	BusyWait       time.Duration
 }
 
 // Verifier is a verify.Verifier backed by the out-of-process binary. It is safe for concurrent
@@ -121,6 +122,9 @@ func New(cfg Config) (*Verifier, error) {
 	if cfg.StartTimeout <= 0 {
 		cfg.StartTimeout = DefaultStartTimeout
 	}
+	if cfg.BusyWait <= 0 {
+		cfg.BusyWait = DefaultBusyWait
+	}
 	return &Verifier{cfg: cfg}, nil
 }
 
@@ -141,9 +145,16 @@ func (v *Verifier) Close() error {
 	return nil
 }
 
-// ErrNotRunning is what VerifyRunning answers when no process is ready to be asked: it never
+// ErrNotRunning is what VerifyRunning answers when there is no live process to ask: it never
 // starts one.
 var ErrNotRunning = errors.New("the out-of-process verifier is not running")
+
+// ErrBusy is what VerifyRunning answers when another request or a start holds the verifier for
+// longer than BusyWait. The process may be perfectly alive: the caller must not treat it as gone.
+var ErrBusy = errors.New("the out-of-process verifier is busy")
+
+// DefaultBusyWait is how long VerifyRunning waits for a request in flight before it answers ErrBusy.
+const DefaultBusyWait = 250 * time.Millisecond
 
 // Verify accepts a bundle only when the binary says every check passed. It starts the process when
 // there is none, which builds the Halo 2 verifying key: seconds of work.
@@ -161,23 +172,40 @@ func (v *Verifier) Verify(b, binding []byte) error {
 	return v.ask(p, sighash[:], b)
 }
 
-// VerifyRunning is Verify for a caller that cannot afford to wait for a start or for another
-// request (the mempool, which runs under CometBFT's ABCI lock): it never starts a process and never
-// waits for the lock. When the process is nil, has exited, is being started or is busy it answers
-// ErrNotRunning without asking anything, and the caller starts the process elsewhere (Warm).
+// VerifyRunning is Verify for a caller that cannot afford to wait for a start (the mempool, which
+// runs under CometBFT's ABCI lock): it never starts a process. When there is none, or it has
+// exited, it answers ErrNotRunning without asking anything, and the caller starts the process
+// elsewhere (Warm). A request in flight (a gRPC simulation runs outside the ABCI lock) or a start
+// under way is waited for at most Config.BusyWait; if the verifier is still held it answers
+// ErrBusy, which says nothing about whether the process is alive.
 func (v *Verifier) VerifyRunning(b, binding []byte) error {
 	sighash, err := v.prepare(b, binding)
 	if err != nil {
 		return err
 	}
-	if !v.mu.TryLock() {
-		return ErrNotRunning
+	if !v.lockWithin(v.cfg.BusyWait) {
+		return ErrBusy
 	}
 	defer v.mu.Unlock()
 	if v.proc == nil || v.proc.exited() {
 		return ErrNotRunning
 	}
 	return v.ask(v.proc, sighash[:], b)
+}
+
+// lockWithin takes v.mu, waiting at most d.
+func (v *Verifier) lockWithin(d time.Duration) bool {
+	if v.mu.TryLock() {
+		return true
+	}
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+		if v.mu.TryLock() {
+			return true
+		}
+	}
+	return false
 }
 
 // prepare checks the bundle's size and computes the sighash the child is handed.

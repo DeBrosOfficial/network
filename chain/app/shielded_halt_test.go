@@ -135,7 +135,7 @@ func TestCheckNodeCanVerify_aHostThatCannotStartFromTheCheckedFileIsRefused(t *t
 // mempoolVerifierReady waits for the mempool's verifier process, which starts in the background.
 func mempoolVerifierReady(t *testing.T, a *app.OramaApp) {
 	t.Helper()
-	ready, ok := a.ShieldedMempoolVerifiers[1].(interface{ Ready() bool })
+	ready, ok := a.ShieldedMempoolVerifiers[0].(interface{ Ready() bool })
 	require.True(t, ok)
 	require.Eventually(t, ready.Ready, 30*time.Second, 20*time.Millisecond, "the mempool's verifier process did not become ready")
 }

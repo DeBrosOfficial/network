@@ -15,6 +15,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
 )
 
 // inclusionHandlers connects x/inclusion to BaseApp: the four ABCI handlers
@@ -32,6 +33,9 @@ type inclusionHandlers struct {
 	now       func() time.Time
 	// signerlessMax is x/shielded's max_signerless_per_block, read from state.
 	signerlessMax func(ctx sdk.Context) (uint32, error)
+	// newProofChecker builds the shielded proof check of one proposal; it returns nil on a node
+	// with nothing to check with (proposal_proofs.go).
+	newProofChecker func(ctx sdk.Context) (*shieldedkeeper.ProposalChecker, error)
 }
 
 // stakingParams is the one staking read the extension budget needs: the size of
@@ -245,14 +249,12 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 	if err != nil {
 		return nil, err
 	}
-	// A transaction whose shielded bundle fails the proof check is left out: its peers would refuse
-	// the block (ProcessProposal).
-	kept := *req
-	kept.Txs = h.dropFailingProofs(req.Txs)
-	req = &kept
 	if !commitInjected(ctx, req.Height) {
+		// A transaction whose shielded bundle fails the proof check is left out (after the
+		// signer-less cap, so only transactions that can be in the block count): its peers would
+		// refuse the block (ProcessProposal).
 		capped := *req
-		capped.Txs = h.capSignerless(req.Txs, limit)
+		capped.Txs = h.dropFailingProofs(ctx, h.capSignerless(req.Txs, limit), nil)
 		return def(ctx, &capped)
 	}
 	if err := baseapp.ValidateVoteExtensions(ctx, h.valStore, req.Height, "", req.LocalLastCommit); err != nil {
@@ -289,6 +291,7 @@ func (h *inclusionHandlers) PrepareProposal(ctx sdk.Context, req *abci.RequestPr
 		}
 	}
 	rest.Txs = h.capSignerless(rest.Txs, limit-h.countSignerless(prefix))
+	rest.Txs = h.dropFailingProofs(ctx, rest.Txs, prefix)
 	if rest.MaxTxBytes <= 0 || len(rest.Txs) == 0 {
 		return &abci.ResponsePrepareProposal{Txs: block}, nil
 	}
@@ -320,7 +323,7 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 				return reject, nil
 			}
 		}
-		if !h.allProofsOK(req.Txs) {
+		if !h.allProofsOK(ctx, req.Txs) {
 			return reject, nil
 		}
 		return def(ctx, req)
@@ -352,7 +355,7 @@ func (h *inclusionHandlers) ProcessProposal(ctx sdk.Context, req *abci.RequestPr
 	if err := inclusion.Process(h.walkView(ctx, p, req.Height, ec, commit, total), commit, block); err != nil {
 		return reject, nil
 	}
-	if !h.allProofsOK(block) {
+	if !h.allProofsOK(ctx, block) {
 		return reject, nil
 	}
 	rest := *req

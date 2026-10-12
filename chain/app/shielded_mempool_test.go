@@ -11,9 +11,15 @@ import (
 	"cosmossdk.io/log/v2"
 
 	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
 	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchardproc"
 )
+
+// hangScript is a verifier binary that is ready at once and then never answers.
+const hangScript = "#!/bin/sh\n" +
+	"printf '\\000\\000\\000\\011\\377\\377\\377\\377\\377\\377\\377\\377\\000'\n" +
+	"sleep 30\n"
 
 // scriptVerifier is a verifier binary that waits for a gate file to exist, says it is ready, and
 // exits at its first request, as a killed child does. The gate makes "not ready yet" a state a test
@@ -162,4 +168,70 @@ func TestMempoolVerifier_closeEndsTheChild(t *testing.T) {
 	require.Eventually(t, m.Ready, 10*time.Second, 5*time.Millisecond)
 	require.NoError(t, m.Close())
 	require.False(t, m.Ready())
+}
+
+// A request in flight (a gRPC simulation runs outside the ABCI lock) makes a second request busy, and
+// busy is not gone: the verifier stays ready and no second child is started.
+func TestMempoolVerifier_aBusyChildStaysReady(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier")
+	require.NoError(t, os.WriteFile(path, []byte(hangScript), 0o755))
+	pin, err := FileSHA256(path)
+	require.NoError(t, err)
+	proc, err := orchardproc.New(orchardproc.Config{Path: path, ChainID: "orama-localnet-1", SHA256: pin,
+		RequestTimeout: 2 * time.Second, BusyWait: 20 * time.Millisecond})
+	require.NoError(t, err)
+	m := newMempoolVerifier(proc, log.NewNopLogger())
+	m.configured = true
+	t.Cleanup(func() { _ = m.Close() })
+	m.warm()
+	require.Eventually(t, m.Ready, 10*time.Second, 5*time.Millisecond)
+
+	first := make(chan error, 1)
+	go func() { first <- m.Verify(bundleForTest(), nil) }() // holds the child until its timeout
+	time.Sleep(200 * time.Millisecond)
+	err = m.Verify(bundleForTest(), nil)
+	require.ErrorIs(t, err, verify.ErrVerifierStarting)
+	require.True(t, m.ready.Load(), "busy must not clear ready")
+	m.mu.Lock()
+	require.Equal(t, 1, m.attempts, "no second start for a child that is alive")
+	m.mu.Unlock()
+	require.ErrorIs(t, <-first, verify.ErrVerifierFault) // the hung request times out
+}
+
+// A first start that fails is tried again after the back-off, and the keeper's readiness gate is what
+// asks: Ready itself starts the child, so the gate in front of Verify cannot keep it down. Through
+// keeper.CheckProposalProof.
+func TestMempoolVerifier_aFailedFirstStartIsRetriedThroughTheKeepersGate(t *testing.T) {
+	gate := filepath.Join(t.TempDir(), "gate")
+	release(t, gate)
+	script := scriptVerifier(t, gate)
+	pin, err := FileSHA256(script)
+	require.NoError(t, err)
+	raw, err := os.ReadFile(script)
+	require.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "orama-orchard-verifier") // not there yet: the first start fails
+	proc, err := orchardproc.New(orchardproc.Config{Path: path, ChainID: "orama-localnet-1", SHA256: pin})
+	require.NoError(t, err)
+	m := newMempoolVerifier(proc, log.NewNopLogger())
+	m.configured = true
+	now := time.Unix(1_700_000_000, 0)
+	m.now = func() time.Time { return now }
+	t.Cleanup(func() { _ = m.Close() })
+
+	e := testutil.NewEnv(t, nil)
+	k := e.KeeperWithMempool([]verify.Verifier{e.V1, e.V2}, []verify.Verifier{m, e.V1})
+	settled := func() bool { m.mu.Lock(); defer m.mu.Unlock(); return !m.warming }
+	b := bundleForTest()
+
+	require.ErrorIs(t, k.CheckProposalProof(b, nil), verify.ErrVerifierStarting)
+	require.Eventually(t, settled, 5*time.Second, time.Millisecond)
+	require.ErrorIs(t, k.CheckProposalProof(b, nil), verify.ErrVerifierStarting, "inside the back-off")
+	m.mu.Lock()
+	require.Equal(t, 1, m.attempts)
+	m.mu.Unlock()
+
+	require.NoError(t, os.WriteFile(path, raw, 0o755)) // the binary appears
+	now = now.Add(warmBackoff + time.Second)
+	require.ErrorIs(t, k.CheckProposalProof(b, nil), verify.ErrVerifierStarting, "the call that finds the back-off over starts the child")
+	require.Eventually(t, m.Ready, 10*time.Second, 5*time.Millisecond, "and a later call finds it ready")
 }

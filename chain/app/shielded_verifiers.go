@@ -107,16 +107,20 @@ func FileSHA256(path string) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// newMempoolVerifiers is the verifier set CheckTx and simulations use: the same linked library
-// (stateless, safe for concurrent use) and a second out-of-process verifier over the same pinned
-// binary, with a child process of its own and a short request timeout (mempoolRequestTimeout).
+// newMempoolVerifiers is the verifier set CheckTx, simulations and proposal checks use: a second
+// out-of-process verifier over the same pinned binary, with a child process of its own and a short
+// request timeout (mempoolRequestTimeout), and then the same linked library (stateless, safe for
+// concurrent use). The child goes first because it can be killed and replaced: a bundle that makes
+// it fault is stopped there. A bundle that aborts or hangs the in-process library has nothing in
+// front of it, and still stops the node (see the shielded chapter).
 // Mempool work, which anyone can send, then never queues behind the block's verifier mutex, and a
 // bundle that hangs the mempool's child stalls it for at most that timeout. It does not isolate
 // consensus from the mempool: CometBFT's local ABCI client takes one lock for CheckTx and
 // FinalizeBlock, so a CheckTx waiting on its child delays a block by the same bounded time. The
-// child is started at construction in the background, and again in the background after a fault, so
-// CheckTx never builds the Halo 2 key under that lock: until it is ready the mempool refuses with a
-// local fault.
+// child is started at construction in the background, and again in the background after a fault or
+// when it is found gone (the readiness check starts it, at most once per back-off), so CheckTx never
+// builds the Halo 2 key under that lock: until it is ready the answer is verify.ErrVerifierStarting,
+// which is neither a verdict nor a fault.
 func (app *OramaApp) newMempoolVerifiers(block []verify.Verifier, appOpts servertypes.AppOptions) []verify.Verifier {
 	if len(block) != verify.MinVerifiers {
 		return nil
@@ -133,7 +137,7 @@ func (app *OramaApp) newMempoolVerifiers(block []verify.Verifier, appOpts server
 		m.configured = true
 		m.warm()
 	}
-	return []verify.Verifier{block[0], m}
+	return []verify.Verifier{m, block[0]}
 }
 
 // newShieldedVerifiers builds the two verifiers a shielded bundle must pass: the orchard library
