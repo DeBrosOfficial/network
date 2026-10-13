@@ -1,23 +1,32 @@
 name: mirror-to-github
 
-# Gitea is the source of truth. This pushes its branches and tags to the GitHub
-# org repo, where releases are built.
+# Gitea is the source of truth. This pushes a branch or tag that was just pushed
+# to Gitea on to the GitHub org repo, where releases are built.
 #
 # It is deliberately NOT Gitea's built-in push mirror. That runs
 # `git push --mirror`, which deletes every ref GitHub has and Gitea lacks:
-# gh-pages and the tags that `gh release create` makes. Here only branches and
-# tags are pushed, never forced and never deleted, and gh-pages is skipped. A
-# non-fast-forward is rejected and fails this job, so a diverged GitHub branch
-# is seen, not overwritten.
+# gh-pages and the tags that `gh release create` makes. Here one ref is pushed,
+# never forced and never deleted. A non-fast-forward is rejected and fails this
+# job, so a diverged GitHub branch is seen, not overwritten.
 #
 # Only the branches and tags listed under `on.push` reach the PUBLIC GitHub
 # repo. A work-in-progress or embargoed branch pushed to Gitea stays on Gitea;
-# add its name here (and to the grep below) to publish it.
+# add its name here to publish it.
+#
+# Only the pushed commit is fetched (this repo's history is 2.3 GB, and a full
+# clone on every push took longer than the job allows). GitHub already holds
+# the history, so it needs only the new commit. A push that GitHub cannot
+# connect to its history is rejected by GitHub ("shallow update not allowed"),
+# and the fix is one manual `git push github <ref>` from a full clone. A
+# missed branch push heals itself on the next push of that branch.
+#
+# MIRROR_GITHUB_TOKEN needs `repo` and `workflow` (classic) or Contents and
+# Workflows write (fine-grained): a commit touching .github/workflows is
+# rejected without the workflow scope.
 on:
   push:
     branches: [main, nightly, "release/**"]
     tags: ["v*", "sdk/v*", "release-*"]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,10 +34,6 @@ permissions:
 concurrency:
   group: mirror-to-github
   cancel-in-progress: false
-
-# MIRROR_GITHUB_TOKEN needs `repo` and `workflow` (classic) or Contents and
-# Workflows write (fine-grained): a commit touching .github/workflows is
-# rejected without the workflow scope.
 
 jobs:
   mirror:
@@ -38,37 +43,24 @@ jobs:
     env:
       MIRROR_URL: https://github.com/Orama-Network/orama.git
       MIRROR_TOKEN: ${{ secrets.MIRROR_GITHUB_TOKEN }}
+      PUSHED_REF: ${{ github.ref }}
+      PUSHED_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Push branches and tags
+      - name: Push the ref to GitHub
         run: |
           set -euo pipefail
           if [ -z "${MIRROR_TOKEN}" ]; then
             echo "::error::secret MIRROR_GITHUB_TOKEN is not set on this repository"
             exit 1
           fi
+          [[ "${PUSHED_REF}" =~ ^refs/(heads|tags)/[A-Za-z0-9._/-]+$ ]] || { echo "::error::unexpected ref '${PUSHED_REF}'"; exit 1; }
+          [[ "${PUSHED_SHA}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::unexpected sha '${PUSHED_SHA}'"; exit 1; }
           AUTH="$(printf 'x-access-token:%s' "${MIRROR_TOKEN}" | base64 | tr -d '\n')"
           echo "::add-mask::${AUTH}"
-          push() {
-            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
-              GIT_CONFIG_VALUE_0="Authorization: Basic ${AUTH}" git push "${MIRROR_URL}" "$@"
-          }
-          git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*' --tags
-          refspecs=()
-          while read -r branch; do
-            refspecs+=("refs/remotes/origin/${branch}:refs/heads/${branch}")
-          done < <(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -x -E 'main|nightly|release/.+')
-          # Tags go first, and a rejected branch must not stop them: the GitHub
-          # release workflows fire on a tag push. Every failure is reported and
-          # the job still ends red.
-          status=0
-          push 'refs/tags/v*:refs/tags/v*' 'refs/tags/sdk/v*:refs/tags/sdk/v*' 'refs/tags/release-*:refs/tags/release-*' || status=1
-          if [ "${#refspecs[@]}" -gt 0 ]; then
-            push "${refspecs[@]}" || status=1
-          else
-            echo "::warning::no branch to mirror"
-          fi
-          exit "${status}"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+            GIT_CONFIG_VALUE_0="Authorization: Basic ${AUTH}" \
+            git push "${MIRROR_URL}" "${PUSHED_SHA}:${PUSHED_REF}"
