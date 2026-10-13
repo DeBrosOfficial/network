@@ -46,8 +46,10 @@ jobs:
       - name: Verify VERSION file matches release tag
         if: github.event_name == 'release'
         working-directory: .
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag '$TAG' is not a version tag"; exit 1; }
           EXPECTED="${TAG#v}"
           EXPECTED="${EXPECTED%-nightly}"
           ACTUAL=$(tr -d '[:space:]' < VERSION)
@@ -73,17 +75,21 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Bump version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
+          if [ "$EVENT_NAME" = "release" ]; then
+            VERSION="${RELEASE_TAG#v}"
             # --allow-same-version: when /VERSION was already bumped on the
             # source branch before tagging, package.json may already match
             # the tag. npm version errors as 'Version not changed' without
             # this flag.
             npm version "$VERSION" --no-git-tag-version --allow-same-version
-          elif [ -n "${{ inputs.version }}" ]; then
-            npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
+          elif [ -n "$INPUT_VERSION" ]; then
+            [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::version '$INPUT_VERSION' is not a version"; exit 1; }
+            npm version "$INPUT_VERSION" --no-git-tag-version --allow-same-version
           fi
 
       - name: Typecheck

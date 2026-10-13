@@ -48,7 +48,7 @@ jobs:
 
       - name: Keep the report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: mutation-${{ strategy.job-index }}
           path: chain/build/mutation-*.json
@@ -75,7 +75,7 @@ jobs:
 
       - name: Keep the report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: nilaway
           path: chain/build/nilaway.txt
@@ -115,7 +115,7 @@ jobs:
 
       - name: Keep the inputs that failed
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: fuzz-crashers-${{ matrix.module }}
           path: chain/build/fuzz-crashers
@@ -145,7 +145,7 @@ jobs:
 
       - name: Keep the inputs that crashed
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: cargo-fuzz-artifacts
           path: |
