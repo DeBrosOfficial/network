@@ -121,7 +121,7 @@ describe("content", () => {
       "https://testflight.apple.com/join/GzQ2gvx4",
       "https://play.google.com/store/apps/details?id=debros.anchat_lite",
       "https://g.anchat.io/orama",
-      "https://github.com/DeBrosDAO/orama",
+      "https://github.com/Orama-Network/orama",
       'href="/whitepaper"',
     ]) {
       expect(html, href).toContain(href);

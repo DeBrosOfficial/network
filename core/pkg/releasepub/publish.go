@@ -19,7 +19,7 @@ import (
 // release host and the public repository whose releases carry the archives.
 const (
 	// DefaultGitHubRepo holds the archives as release assets.
-	DefaultGitHubRepo = "DeBrosDAO/orama"
+	DefaultGitHubRepo = "Orama-Network/orama"
 	// DefaultMetadataDest is the rsync destination of the metadata: the
 	// directory the release host's nginx serves (website/deploy/releases.orama.network.nginx.conf).
 	DefaultMetadataDest = "releases.orama.network:/opt/orama-releases/"

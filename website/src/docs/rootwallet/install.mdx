@@ -2,7 +2,7 @@
 
 ## Desktop
 
-Download from the [RootWallet releases page](https://github.com/DeBrosDAO/rootwallet/releases).
+Download from the [RootWallet releases page](https://github.com/RootWallet-io/rootwallet/releases).
 
 | OS | Package |
 |---|---|
@@ -25,15 +25,17 @@ Mobile is in active development.
 ## CLI
 
 ```bash
-brew install DeBrosDAO/tap/rootwallet     # macOS or Linux
-npm install -g @debros/root-cli           # anywhere with Node 20.19 or newer
+brew install RootWallet-io/tap/rootwallet     # macOS or Linux
+npm config set @rootwallet-io:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install -g @rootwallet-io/root-cli           # anywhere with Node 20.19 or newer
 ```
 
 From source:
 
 ```bash
-git clone https://github.com/DeBrosDAO/rootwallet.git
-cd rootwallet && pnpm install && pnpm --filter @debros/root-cli build
+git clone https://github.com/RootWallet-io/rootwallet.git
+cd rootwallet && pnpm install && pnpm --filter @rootwallet-io/root-cli build
 ```
 
 On Windows only the CLI runs, and there is no OS-keychain session, so each command asks for your password.

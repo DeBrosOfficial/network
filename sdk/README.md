@@ -1,4 +1,4 @@
-# @debros/orama - TypeScript SDK for Orama Network
+# @orama-network/orama - TypeScript SDK for Orama Network
 
 A modern, isomorphic TypeScript SDK for the Orama Network gateway. Works seamlessly in both Node.js and browser environments with support for database operations, pub/sub messaging, and network management.
 
@@ -14,19 +14,21 @@ A modern, isomorphic TypeScript SDK for the Orama Network gateway. Works seamles
 ## Installation
 
 ```bash
-npm install @debros/orama
+npm config set @orama-network:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install @orama-network/orama
 ```
 
 Works from both module systems:
 
 ```js
-import { createClient } from "@debros/orama"; // ESM
-const { createClient } = require("@debros/orama"); // CommonJS
+import { createClient } from "@orama-network/orama"; // ESM
+const { createClient } = require("@orama-network/orama"); // CommonJS
 ```
 
 ## The chain module
 
-`@debros/orama/chain` reads the Orama chain, builds and signs its transactions with a
+`@orama-network/orama/chain` reads the Orama chain, builds and signs its transactions with a
 wallet or a local key, and describes them for an approval screen. It is a separate entry
 with its own optional peers (`@bufbuild/protobuf`, `@noble/curves`, `@noble/hashes`,
 `@scure/base`). See [the chain module](../website/src/docs/developer/sdk-reference.mdx#the-chain-module).
@@ -46,7 +48,7 @@ ORAMA_API_KEY=ak_... pnpm example
 ### Initialize the Client
 
 ```typescript
-import { createClient } from "@debros/orama";
+import { createClient } from "@orama-network/orama";
 
 const client = createClient({
   baseURL: "https://ns-myapp.orama-devnet.network",
@@ -455,7 +457,7 @@ only**:
 
 ```typescript
 import { Agent, fetch as undiciFetch } from "undici";
-import { createClient } from "@debros/orama";
+import { createClient } from "@orama-network/orama";
 
 const dispatcher = new Agent({ connect: { rejectUnauthorized: false } });
 
@@ -477,7 +479,7 @@ included — so scoping it to one dispatcher, as above, is the safe equivalent.
 By default, credentials are stored in memory. For browser apps, use localStorage:
 
 ```typescript
-import { createClient, LocalStorageAdapter } from "@debros/orama";
+import { createClient, LocalStorageAdapter } from "@orama-network/orama";
 
 const client = createClient({
   baseURL: "https://ns-myapp.orama-devnet.network",
@@ -637,7 +639,7 @@ could call.
   each request carries a per-request Ed25519 ownership signature. See
   [the vault documentation](https://docs.orama.network/developer/vault).
 - **Software on the mesh** — node agents, operator tooling, RootWallet — uses
-  `@debros/orama-vault`, which speaks to guardians directly.
+  `@orama-network/orama-vault`, which speaks to guardians directly.
 
 ### Wallet-Based Authentication
 
@@ -677,7 +679,7 @@ console.log(apiKey.api_key);
 Every failure is an `SDKError`, so one `catch` covers the SDK:
 
 ```typescript
-import { SDKError } from "@debros/orama";
+import { SDKError } from "@orama-network/orama";
 
 try {
   await client.db.query("SELECT * FROM nonexistent");
@@ -703,7 +705,7 @@ They all extend `SDKError`, so the `catch` above still catches them:
 | `NetworkError` | No HTTP response at all: DNS, connection refused, TLS, timeout, or a caller's abort. `httpStatus` is always 0 | `code` is `NETWORK_ERROR`, `TIMEOUT` or `ABORTED` |
 
 ```typescript
-import { NetworkError, ScopeError } from "@debros/orama";
+import { NetworkError, ScopeError } from "@orama-network/orama";
 
 try {
   await client.storage.upload(file, file.name);
@@ -724,7 +726,7 @@ the key does not hold. The grants and the named profiles are exported so you can
 name them in code rather than in comments:
 
 ```typescript
-import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@debros/orama";
+import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@orama-network/orama";
 
 PROFILE_SCOPES["app-runtime"]; // ["invoke", "storage", "push", "webrtc", "proxy"]
 satisfiesScope(["admin"], "storage"); // true — admin is a wildcard

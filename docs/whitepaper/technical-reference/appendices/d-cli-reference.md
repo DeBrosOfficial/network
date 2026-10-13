@@ -3939,7 +3939,7 @@ release host. --dry-run prints the commands.
 |---|---|---|
 | `--dir` | — | The release repository working directory (default ~/.orama/release-repo) |
 | `--dry-run` | `false` | Check the directory and print the commands; run nothing |
-| `--github-repo` | `DeBrosDAO/orama` | The GitHub repository whose releases hold the archives |
+| `--github-repo` | `Orama-Network/orama` | The GitHub repository whose releases hold the archives |
 | `--metadata-dest` | `releases.orama.network:/opt/orama-releases/` | The rsync destination of the metadata on the release host |
 
 

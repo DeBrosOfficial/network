@@ -1,29 +1,31 @@
 # TypeScript SDK
 
-`@debros/orama` (version 0.3.0, MIT) is the programmatic surface of an Orama namespace. Everything a deployed application does (query its database, publish to a topic, cache a value, store a file, invoke a function) goes through one client against one gateway URL.
+`@orama-network/orama` (version 0.3.0, MIT) is the programmatic surface of an Orama namespace. Everything a deployed application does (query its database, publish to a topic, cache a value, store a file, invoke a function) goes through one client against one gateway URL.
 
 The SDK reaches a deliberate subset of the gateway. Deploying an application, minting a key and managing nodes are the CLI's job. Every route and its owner is on [Gateway HTTP API](/docs/developer/api-surface). There is also a [Go client](/docs/developer/go-sdk).
 
 ## Install
 
 ```bash
-npm install @debros/orama
+npm config set @orama-network:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install @orama-network/orama
 ```
 
 ESM and CommonJS, in Node and in a browser bundle. Node 20.19 or later. Entry points:
 
 | Import | What |
 |---|---|
-| `@debros/orama` | The client and everything below |
-| `@debros/orama/chain` | Read the chain, build and sign transactions. Optional peers: `@bufbuild/protobuf`, `@noble/curves`, `@noble/hashes`, `@scure/base` (all 2.x) |
-| `@debros/orama/relay` | `RelayedFetch` for relayed downloads. Node.js only |
+| `@orama-network/orama` | The client and everything below |
+| `@orama-network/orama/chain` | Read the chain, build and sign transactions. Optional peers: `@bufbuild/protobuf`, `@noble/curves`, `@noble/hashes`, `@scure/base` (all 2.x) |
+| `@orama-network/orama/relay` | `RelayedFetch` for relayed downloads. Node.js only |
 
-The vault client is a separate package, `@debros/orama-vault`; see [Secrets](#secrets).
+The vault client is a separate package, `@orama-network/orama-vault`; see [Secrets](#secrets).
 
 ## The client
 
 ```ts
-import { createClient } from "@debros/orama";
+import { createClient } from "@orama-network/orama";
 
 const client = createClient({
   baseURL: "https://ns-myapp.cluster.example.com",
@@ -92,7 +94,7 @@ The key is exchanged once, before the first request, for a 15-minute token carry
 ### A deployed app
 
 ```ts
-import { createWorkloadClient } from "@debros/orama";
+import { createWorkloadClient } from "@orama-network/orama";
 const client = await createWorkloadClient();
 ```
 
@@ -151,7 +153,7 @@ const result = await client.auth.verify({
 ### Persisting tokens in a browser
 
 ```ts
-import { createClient, LocalStorageAdapter } from "@debros/orama";
+import { createClient, LocalStorageAdapter } from "@orama-network/orama";
 
 const client = createClient({ baseURL, apiKey, storage: new LocalStorageAdapter() });
 ```
@@ -253,7 +255,7 @@ const { caps } = await client.storage.mintFetchCaps(cid, { count: 3, ttlSeconds:
 await client.storage.revokeFetchCap(caps[0].id, caps[0].revokeKey);
 
 // Downloader, Node.js only:
-import { RelayedFetch } from "@debros/orama/relay";
+import { RelayedFetch } from "@orama-network/orama/relay";
 
 const transport = new RelayedFetch({
   relays: ["https://node-1.relays.example", "https://node-2.relays.example"],
@@ -286,7 +288,7 @@ not a privacy boundary: together they hold both halves. Choose relays from a
 different operator than the namespace.
 
 - **Node.js only.** `RelayedFetch` needs `node:tls` and `ws`, so it lives in the
-  `@debros/orama/relay` entry and the core import stays bundleable for React
+  `@orama-network/orama/relay` entry and the core import stays bundleable for React
   Native and browsers. Those apps need a native helper that runs TLS to the
   namespace host over the relay stream.
 - **No direct fallback.** A relay or tunnel failure throws and is never retried
@@ -340,7 +342,7 @@ Every failure is an `SDKError`.
 `error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
 
 ```ts
-import { NetworkError, ScopeError } from "@debros/orama";
+import { NetworkError, ScopeError } from "@orama-network/orama";
 try {
   await client.storage.upload(file, file.name);
 } catch (error) {
@@ -353,7 +355,7 @@ try {
 ### Grants
 
 ```ts
-import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@debros/orama";
+import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@orama-network/orama";
 PROFILE_SCOPES["app-runtime"];          // ["invoke", "storage", "push", "webrtc", "proxy"]
 satisfiesScope(["admin"], "storage");   // true: admin is a wildcard
 ```
@@ -374,7 +376,7 @@ const client = createClient({
 
 ## Secrets
 
-The vault client is `@debros/orama-vault`. It talks to guardian daemons on the WireGuard overlay, which an application outside the cluster cannot reach. An application reaches the vault through the gateway's `/v1/vault/push` and `/v1/vault/pull`, which do the Shamir split server side and authenticate each request with a per-request Ed25519 ownership signature. See [Vault](/docs/developer/vault).
+The vault client is `@orama-network/orama-vault`. It talks to guardian daemons on the WireGuard overlay, which an application outside the cluster cannot reach. An application reaches the vault through the gateway's `/v1/vault/push` and `/v1/vault/pull`, which do the Shamir split server side and authenticate each request with a per-request Ed25519 ownership signature. See [Vault](/docs/developer/vault).
 
 ## A gateway with an untrusted certificate
 
@@ -393,10 +395,10 @@ The SDK never changes the process's TLS settings on your behalf: that would disa
 
 ## The chain module
 
-`@debros/orama/chain` reads the Orama chain, builds and signs its transactions, and describes them for an approval screen.
+`@orama-network/orama/chain` reads the Orama chain, builds and signs its transactions, and describes them for an approval screen.
 
 ```ts
-import { LocalSigner, MSG, OramaChainClient, describeTx } from "@debros/orama/chain";
+import { LocalSigner, MSG, OramaChainClient, describeTx } from "@orama-network/orama/chain";
 
 const chain = new OramaChainClient({
   gatewayURL: "https://cluster.example.com",   // the read-only /v1/chain/ proxy

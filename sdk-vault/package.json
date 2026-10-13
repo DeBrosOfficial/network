@@ -1,5 +1,5 @@
 {
-  "name": "@debros/orama-vault",
+  "name": "@orama-network/orama-vault",
   "version": "0.3.0",
   "description": "Client for the Orama Network vault guardians — Shamir-split secret storage for operators and RootWallet",
   "type": "module",
@@ -20,11 +20,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DeBrosDAO/orama.git",
+    "url": "git+https://github.com/Orama-Network/orama.git",
     "directory": "sdk-vault"
   },
   "bugs": {
-    "url": "https://github.com/DeBrosDAO/orama/issues"
+    "url": "https://github.com/Orama-Network/orama/issues"
   },
   "exports": {
     ".": {
@@ -52,7 +52,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
-    "release:npm": "npm publish --access public --registry=https://registry.npmjs.org/",
     "release:gh": "npm publish --registry=https://npm.pkg.github.com"
   },
   "dependencies": {
@@ -72,8 +71,7 @@
     "vitest": "^5.0.2"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "registry": "https://npm.pkg.github.com"
   },
   "engines": {
     "node": ">=20.19"

@@ -1,5 +1,5 @@
 /**
- * @debros/orama-vault — client for the Orama Network vault guardians.
+ * @orama-network/orama-vault — client for the Orama Network vault guardians.
  *
  * This is operator and RootWallet tooling, not application tooling. The
  * guardians listen on the WireGuard overlay (`10.0.0.x`), so an application
@@ -7,7 +7,7 @@
  * secrets should use the gateway's `/v1/vault/{push,pull}` endpoints, which are
  * reachable over HTTPS and do the same Shamir split server-side.
  *
- * It used to ship inside `@debros/orama`, where it added two cryptography
+ * It used to ship inside `@orama-network/orama`, where it added two cryptography
  * dependencies and twenty top-level primitives to every application's bundle
  * for an API none of them could call.
  */

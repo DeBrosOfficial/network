@@ -1,6 +1,6 @@
 # Website docs audit
 
-Branch `nightly` at `6b08177c`, network version 0.3.0, SDK `@debros/orama` 0.3.0.
+Branch `nightly` at `6b08177c`, network version 0.3.0, SDK `@orama-network/orama` 0.3.0.
 Audited: 31 MDX pages under `website/src/docs/` (8,426 lines), the navigation in
 `website/src/data/docs-navigation.ts`, the renderer (`src/pages/docs.tsx`, the sidebar,
 the search index in `vite.config.ts`, `scripts/build-llms.mjs`), against the code

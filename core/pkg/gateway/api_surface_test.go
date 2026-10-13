@@ -174,7 +174,7 @@ func TestEveryDocumentedRouteExists(t *testing.T) {
 // an accident.
 func TestEveryDocumentedRouteHasAnOwner(t *testing.T) {
 	valid := map[string]struct{}{
-		"SDK":      {}, // @debros/orama calls it
+		"SDK":      {}, // @orama-network/orama calls it
 		"CLI":      {}, // the orama CLI calls it; an application has no reason to
 		"internal": {}, // node-to-node over WireGuard, never a client
 		"direct":   {}, // reachable by a client, but not through the SDK by design

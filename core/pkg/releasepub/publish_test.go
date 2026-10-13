@@ -54,7 +54,7 @@ func cutOne(t *testing.T, repo Repo, agent *fakeAgent, channel, version, content
 }
 
 func publishParams(repo Repo, r *recorder) PublishParams {
-	return PublishParams{Repo: repo, GitHubRepo: "DeBrosDAO/orama", MetadataDest: "releases.example.org:/srv/releases/", Now: testNow, Run: r.run}
+	return PublishParams{Repo: repo, GitHubRepo: "Orama-Network/orama", MetadataDest: "releases.example.org:/srv/releases/", Now: testNow, Run: r.run}
 }
 
 func TestPublish_uploadsArchivesFirstThenMetadataWithTheTimestampLast(t *testing.T) {
@@ -67,8 +67,8 @@ func TestPublish_uploadsArchivesFirstThenMetadataWithTheTimestampLast(t *testing
 		t.Fatal(err)
 	}
 	want := []string{
-		"gh release view release-nightly-0.3.1 --repo DeBrosDAO/orama --json assets",
-		"gh release upload release-nightly-0.3.1 --repo DeBrosDAO/orama " + path,
+		"gh release view release-nightly-0.3.1 --repo Orama-Network/orama --json assets",
+		"gh release upload release-nightly-0.3.1 --repo Orama-Network/orama " + path,
 	}
 	if len(rec.calls) != 4 || rec.calls[0] != want[0] || rec.calls[1] != want[1] {
 		t.Fatalf("calls = %q", rec.calls)
@@ -99,7 +99,7 @@ func TestPublish_createsTheGitHubReleaseWhenThereIsNone(t *testing.T) {
 	if err := Publish(t.Context(), publishParams(repo, rec)); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(rec.calls[1], "gh release create release-nightly-0.3.1 --repo DeBrosDAO/orama --title nightly 0.3.1") || !strings.HasSuffix(rec.calls[1], "--prerelease") {
+	if !strings.HasPrefix(rec.calls[1], "gh release create release-nightly-0.3.1 --repo Orama-Network/orama --title nightly 0.3.1") || !strings.HasSuffix(rec.calls[1], "--prerelease") {
 		t.Fatalf("create = %q", rec.calls[1])
 	}
 }

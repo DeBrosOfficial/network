@@ -6,7 +6,7 @@
 export const SITE_URL = "https://orama.network";
 export const SITE_NAME = "Orama Network";
 
-export const GITHUB_URL = "https://github.com/DeBrosDAO/orama";
+export const GITHUB_URL = "https://github.com/Orama-Network/orama";
 export const X_URL = "https://x.com/orama_network";
 /** Orama's public group on AnChat. */
 export const ANCHAT_GROUP_URL = "https://g.anchat.io/orama";

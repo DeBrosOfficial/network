@@ -7,7 +7,7 @@ A decentralized infrastructure platform combining distributed SQL, IPFS storage,
 | Package | Language | Description |
 |---------|----------|-------------|
 | [core/](core/) | Go | API gateway, distributed node, CLI, and client SDK |
-| [sdk/](sdk/) | TypeScript | `@debros/orama` — JavaScript/TypeScript SDK ([npm](https://www.npmjs.com/package/@debros/orama)) |
+| [sdk/](sdk/) | TypeScript | `@orama-network/orama` — JavaScript/TypeScript SDK ([GitHub Packages](https://github.com/orgs/Orama-Network/packages)) |
 | [website/](website/) | TypeScript | Public website (orama.network), whitepaper and docs |
 | [vault/](vault/) | Zig | Distributed secrets vault (Shamir's Secret Sharing) |
 | [os/](os/) | Go + Buildroot | OramaOS — hardened minimal Linux for network nodes |
@@ -41,7 +41,7 @@ make vault-build
 | [Authentication](docs/whitepaper/technical-reference/vol1/13-identity.md) | Who someone is, what they may do, and how the gateway decides |
 | [Security](docs/whitepaper/technical-reference/vol1/05-privilege-and-filesystem-trust.md) | Security hardening and threat model |
 | [Monitoring](website/src/docs/operator/monitoring.mdx) | Cluster health monitoring |
-| [TypeScript SDK](website/src/docs/developer/sdk-reference.mdx) | `@debros/orama` — the client applications use |
+| [TypeScript SDK](website/src/docs/developer/sdk-reference.mdx) | `@orama-network/orama` — the client applications use |
 | [Go Client SDK](website/src/docs/developer/go-sdk.mdx) | The Go client for the same gateway |
 | [Serverless](website/src/docs/developer/functions.mdx) | WASM serverless functions |
 | [API Surface](docs/whitepaper/technical-reference/appendices/i-api-surface.md) | Every gateway route and which client owns it |

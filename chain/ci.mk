@@ -1,6 +1,6 @@
 # CI and static-analysis targets of the chain module (SA0, bugboard 3381; SA8, bugboard 3394).
 #
-# Included by the Makefile. The workflows in .github/workflows (ci.yml per pull request,
+# Included by the Makefile. The workflows in .gitea/workflows (ci.yml per pull request,
 # chain-nightly.yml every night) call these targets and nothing else, so what CI runs is what a
 # developer runs: `make -C chain <target>`. website/src/docs/contributor/testing.mdx lists them.
 #

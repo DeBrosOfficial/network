@@ -5,9 +5,11 @@ This takes you from nothing to a deployed site and a working database call. It a
 ## 1. Install the tools
 
 ```bash
-brew install DeBrosDAO/tap/orama      # the CLI
+brew install Orama-Network/tap/orama      # the CLI
 orama version
-npm install @debros/orama             # the SDK, in your app
+npm config set @orama-network:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install @orama-network/orama             # the SDK, in your app
 ```
 
 You also need a wallet that can sign. Install [RootWallet](/docs/rootwallet/install) (desktop, or the `rw` CLI), create a wallet, and leave it unlocked. Orama has no accounts and no passwords: your wallet address is your identity.
@@ -79,7 +81,7 @@ orama namespace keys create --scope admin --label server
 The command prints the key once, after a short report. Copy the line under `API KEY` into your secret store; it cannot be shown again.
 
 ```ts
-import { createClient } from "@debros/orama";
+import { createClient } from "@orama-network/orama";
 
 const server = createClient({
   baseURL: "https://ns-myapp.cluster.example.com",

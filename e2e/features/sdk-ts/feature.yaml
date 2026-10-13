@@ -1,4 +1,4 @@
-# The TypeScript SDK (@debros/orama, sdk/src) against the fleet through
+# The TypeScript SDK (@orama-network/orama, sdk/src) against the fleet through
 # vitest: the SDK's own e2e suite (sdk/tests/e2e) and this feature's
 # additions under tests/ (auth verify with a real signature, whoami, refresh
 # rotation, refresh-on-401 replay, logout, renew refused for a user, device

@@ -13,7 +13,7 @@ describe("mdxToMarkdown", () => {
   });
 
   it("TestMdxToMarkdown_keeps_code_fences_untouched", () => {
-    const code = '```ts\nimport { createClient } from "@debros/orama";\nexport default App;\n<div>\n```';
+    const code = '```ts\nimport { createClient } from "@orama-network/orama";\nexport default App;\n<div>\n```';
     expect(mdxToMarkdown(`# T\n\n${code}\n`)).toBe(`# T\n\n${code}\n`);
   });
 

@@ -1,17 +1,19 @@
-# Quick Start Guide for @debros/orama
+# Quick Start Guide for @orama-network/orama
 
 ## 5-Minute Setup
 
 ### 1. Install
 
 ```bash
-npm install @debros/orama
+npm config set @orama-network:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install @orama-network/orama
 ```
 
 ### 2. Create a Client
 
 ```typescript
-import { createClient } from "@debros/orama";
+import { createClient } from "@orama-network/orama";
 
 const client = createClient({
   baseURL: "https://ns-myapp.orama-devnet.network",
@@ -139,7 +141,7 @@ await client.db.transaction([
 
 ### Error Handling
 ```typescript
-import { NetworkError, ScopeError, SDKError } from "@debros/orama";
+import { NetworkError, ScopeError, SDKError } from "@orama-network/orama";
 
 try {
   await client.db.query("SELECT * FROM invalid_table");

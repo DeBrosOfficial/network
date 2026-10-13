@@ -4,7 +4,7 @@ import { aborted, exchange } from "./relay-exchange";
 import { storageRefusal } from "./relay-refusals";
 
 /**
- * Node-only. Published as `@debros/orama/relay` so the core entry never
+ * Node-only. Published as `@orama-network/orama/relay` so the core entry never
  * references `node:tls` or `node:stream` and stays bundleable for React Native
  * and browsers. Those apps need a native helper that terminates TLS end to end
  * on the device and speaks the relay's WebSocket framing.

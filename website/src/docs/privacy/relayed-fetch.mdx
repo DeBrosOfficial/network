@@ -56,8 +56,8 @@ On S, `/v1/storage/relayed/` is `LogNoAddress`: S keeps the row (method, path, s
 Node.js only. The relay client lives in its own entry point because it needs `node:tls` and `ws`.
 
 ```ts
-import { createClient } from "@debros/orama";
-import { RelayedFetch } from "@debros/orama/relay";
+import { createClient } from "@orama-network/orama";
+import { RelayedFetch } from "@orama-network/orama/relay";
 
 // The owner: a device-bound session on the namespace.
 const owner = createClient({ baseURL: "https://ns-myapp.cluster.example.com" /* signed in */ });

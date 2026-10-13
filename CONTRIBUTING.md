@@ -14,8 +14,8 @@ Thanks for helping improve the network! This monorepo contains multiple projects
 ## Setup
 
 ```bash
-git clone https://github.com/DeBrosOfficial/network.git
-cd network
+git clone https://github.com/Orama-Network/orama.git
+cd orama
 ```
 
 ### Core (Go)

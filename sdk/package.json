@@ -1,5 +1,5 @@
 {
-  "name": "@debros/orama",
+  "name": "@orama-network/orama",
   "version": "0.3.0",
   "description": "TypeScript SDK for Orama Network - Database, PubSub, Cache, Storage, Functions, and more",
   "type": "module",
@@ -28,11 +28,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DeBrosDAO/orama.git",
+    "url": "git+https://github.com/Orama-Network/orama.git",
     "directory": "sdk"
   },
   "bugs": {
-    "url": "https://github.com/DeBrosDAO/orama/issues"
+    "url": "https://github.com/Orama-Network/orama/issues"
   },
   "exports": {
     ".": {
@@ -83,7 +83,6 @@
     "test:unit": "vitest run tests/unit",
     "test:e2e": "vitest run tests/e2e",
     "example": "tsx examples/basic-usage.ts",
-    "release:npm": "npm publish --access public --registry=https://registry.npmjs.org/",
     "release:gh": "npm publish --registry=https://npm.pkg.github.com"
   },
   "dependencies": {
@@ -135,8 +134,7 @@
     "ws": "^8.22.0"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "registry": "https://npm.pkg.github.com"
   },
   "engines": {
     "node": ">=20.19"

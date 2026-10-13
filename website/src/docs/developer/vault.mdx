@@ -16,7 +16,7 @@ This means:
 
 - **No single guardian sees the secret.** Fewer than K shares reveal nothing about it, whatever the attacker's computing power. K guardians that collude can reconstruct it (K is about a third of the fleet).
 - **Splitting happens before storage.** With the SDK the secret is split before it leaves the client; via the gateway it is split in the gateway's memory, which therefore holds the whole value for the length of a request.
-- **Encrypt first.** The vault stores exactly the bytes it is given. What you store should already be ciphertext; `@debros/orama-vault` exports AES-256-GCM and HKDF helpers for that (see Crypto Utilities), but `VaultClient` does not call them.
+- **Encrypt first.** The vault stores exactly the bytes it is given. What you store should already be ciphertext; `@orama-network/orama-vault` exports AES-256-GCM and HKDF helpers for that (see Crypto Utilities), but `VaultClient` does not call them.
 - **Fault tolerant.** A secret survives guardian failures as long as the read threshold is met.
 - **Write quorum.** A write is reported successful only when at least W guardians acknowledged it, and W is always larger than K.
 - **Zeroed shares.** The SDK and the gateway zero their share buffers after each operation. They do not zero everything: request bodies and base64 strings are left to the garbage collector.
@@ -38,8 +38,8 @@ signature.
 
 Guardians listen on the WireGuard overlay (`10.0.0.x`), so only software running
 on the mesh can reach them: node agents, operator tooling and RootWallet. That
-client is published separately as `@debros/orama-vault`. It used to ship inside
-`@debros/orama`, which offered every application an API it had no route to.
+client is published separately as `@orama-network/orama-vault`. It used to ship inside
+`@orama-network/orama`, which offered every application an API it had no route to.
 
 | Path | API Version | Who splits/combines | Auth | For |
 |------|-------------|-------------------|------|-----|
@@ -56,11 +56,13 @@ The direct client is its own package (Node 20.19 or later). Install it only wher
 reachable:
 
 ```bash
-npm install @debros/orama-vault
+npm config set @orama-network:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install @orama-network/orama-vault
 ```
 
 ```typescript
-import { VaultClient } from "@debros/orama-vault";
+import { VaultClient } from "@orama-network/orama-vault";
 
 const vault = new VaultClient({
   guardians: [
@@ -385,8 +387,8 @@ The gateway, the SDK and the guardian's own code compute these formulas independ
 
 ## Crypto Utilities
 
-`@debros/orama-vault` exports the low-level cryptographic primitives it uses
-internally. They were exported from `@debros/orama` until they moved with the
+`@orama-network/orama-vault` exports the low-level cryptographic primitives it uses
+internally. They were exported from `@orama-network/orama` until they moved with the
 rest of the vault client:
 
 ```typescript
@@ -423,7 +425,7 @@ import {
 
   // Validation
   isValidEncryptedData,
-} from "@debros/orama-vault";
+} from "@orama-network/orama-vault";
 ```
 
 | Function | Description |

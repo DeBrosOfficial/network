@@ -334,6 +334,7 @@ volumes:
               - core/.env.example
               - core/.githooks/
               - .github/
+              - .gitea/
               - .goreleaser.yaml
               - Makefile
               - VERSION

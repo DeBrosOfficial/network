@@ -1,4 +1,4 @@
-name: Publish SDK to npm
+name: Publish SDK to GitHub Packages
 
 on:
   release:
@@ -15,11 +15,12 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   publish:
     # Both packages are cut from the same /VERSION and published together. The
-    # vault client moved out of @debros/orama into its own package; leaving it
+    # vault client moved out of @orama-network/orama into its own package; leaving it
     # unpublished would mean nothing ships it at all.
     name: Build & Publish ${{ matrix.package }}
     runs-on: ubuntu-latest
@@ -31,9 +32,9 @@ jobs:
       matrix:
         include:
           - directory: sdk
-            package: "@debros/orama"
+            package: "@orama-network/orama"
           - directory: sdk-vault
-            package: "@debros/orama-vault"
+            package: "@orama-network/orama-vault"
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -60,7 +61,8 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@orama-network"
 
       - name: Install pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -95,9 +97,9 @@ jobs:
 
       - name: Publish (dry run)
         if: inputs.dry-run == true
-        run: npm publish --access public --dry-run
+        run: npm publish --dry-run
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # The dist-tag is decided by the version, not by the branch.
       #
@@ -105,7 +107,7 @@ jobs:
       # carrying a -nightly version published with no tag — and npm's default
       # tag is `latest` regardless of whether the version is a prerelease. That
       # is how `latest` came to be 0.122.80-nightly while the repo was 23
-      # versions ahead, so `npm install @debros/orama` installed a stale
+      # versions ahead, so `npm install @orama-network/orama` installed a stale
       # prerelease.
       #
       # A version with a prerelease component can now only ever reach the
@@ -116,13 +118,13 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if [[ "$VERSION" == *-* ]]; then
             echo "$VERSION is a prerelease — publishing under the 'nightly' tag"
-            npm publish --access public --tag nightly
+            npm publish --tag nightly
           else
             echo "$VERSION is a release — publishing under 'latest'"
-            npm publish --access public --tag latest
+            npm publish --tag latest
           fi
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get published version
         if: github.event_name == 'release' || inputs.dry-run != true

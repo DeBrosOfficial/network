@@ -2,7 +2,7 @@
 
 > **At a glance.**
 >
-> - **What:** the ways a human or a program talks to a cluster. `orama` is one Go binary for tenants and operators; it calls gateway routes with a short-lived bearer, reaches machines over SSH with keys that live in the RootWallet vault, and signs through the RootWallet agent. The TypeScript SDK (`@debros/orama`) is the library for tenant applications, and a Go client serves the gateway itself and Go programs.
+> - **What:** the ways a human or a program talks to a cluster. `orama` is one Go binary for tenants and operators; it calls gateway routes with a short-lived bearer, reaches machines over SSH with keys that live in the RootWallet vault, and signs through the RootWallet agent. The TypeScript SDK (`@orama-network/orama`) is the library for tenant applications, and a Go client serves the gateway itself and Go programs.
 > - **Key numbers:** 28 visible command groups, 232 commands, 8 exit codes (0 to 7); gateway calls time out at 30 s with an 8 MiB response cap; agent requests wait up to 270 s. TypeScript SDK: 60 s timeout, 3 retries on 408, 429, 500, 502, 503 and 504, 15 min access tokens, WebSocket reconnect up to 10 attempts from 500 ms to 30 s.
 > - **Code:** `core/cmd/orama/`, `core/pkg/rwagent/`, `sdk/src/`, `core/pkg/client/`, `contracts/`.
 

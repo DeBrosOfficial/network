@@ -9,8 +9,8 @@ How to build and test Orama from a checkout. Everything lives in one repository.
 | `core/` | Node software: gateway, CLI (`orama`), supervisor, install, monitor | Go 1.27.2+ |
 | `chain/` | The Orama chain (`oramad`, `orama-global`). Its own Go module; `core/` does not import it | Go |
 | `caddy/` | The Caddy modules built into every node's Caddy | Go |
-| `sdk/` | `@debros/orama`, the TypeScript SDK | TypeScript |
-| `sdk-vault/` | `@debros/orama-vault`, the vault client | TypeScript |
+| `sdk/` | `@orama-network/orama`, the TypeScript SDK | TypeScript |
+| `sdk-vault/` | `@orama-network/orama-vault`, the vault client | TypeScript |
 | `vault/` | The guardian daemon | Zig |
 | `os/` | OramaOS: agent and Buildroot image | Go, Buildroot |
 | `website/` | The website and these docs | TypeScript (pnpm) |

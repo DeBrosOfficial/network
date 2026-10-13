@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 
 /**
  * The package was ESM-only while its README promised isomorphic use, so
- * `require('@debros/orama')` failed outright at import: Jest without ESM
+ * `require('@orama-network/orama')` failed outright at import: Jest without ESM
  * support, ts-node in CJS mode, and CJS server code in a Next.js app all hit
  * ERR_REQUIRE_ESM. These lock the packaging down.
  *
@@ -44,8 +44,8 @@ describe('package.json', () => {
 
   it('points at the repository it actually lives in', () => {
     // It said DeBrosOfficial/network, which is not where this is.
-    expect(pkg.repository.url).toContain('DeBrosDAO/orama');
-    expect(pkg.bugs.url).toContain('DeBrosDAO/orama');
+    expect(pkg.repository.url).toContain('Orama-Network/orama');
+    expect(pkg.bugs.url).toContain('Orama-Network/orama');
   });
 
   it('exposes the chain module as its own entry, so other clients do not carry its codecs', () => {
@@ -174,14 +174,14 @@ describe('the end-to-end suite', () => {
 });
 
 /**
- * The vault client moved to `@debros/orama-vault`. It talked to guardian
+ * The vault client moved to `@orama-network/orama-vault`. It talked to guardian
  * daemons on the WireGuard overlay, which an application outside the cluster
  * cannot reach, and it pulled two cryptography libraries and twenty top-level
  * primitives into every consumer's bundle for an API none of them could call.
  */
 describe('the app SDK carries no vault', () => {
   it('declares no cryptography dependency', () => {
-    // The chain entry (@debros/orama/chain) needs secp256k1 and protobuf. They
+    // The chain entry (@orama-network/orama/chain) needs secp256k1 and protobuf. They
     // are optional peers a chain caller installs, never dependencies, so this
     // list, and every other client's install, stays free of them.
     const deps = Object.keys(pkg.dependencies ?? {});

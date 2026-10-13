@@ -200,7 +200,7 @@ A V1 to V2 migration tool exists (`vault/src/storage/migrate_v1_v2.zig`: copies 
 
 ### V2 named secrets and the sdk-vault client
 
-`sdk-vault` (`@debros/orama-vault`, version 0.3.0) is for software on the mesh: node agents, operator tooling, RootWallet. It is published separately because applications cannot reach the guardians and used to carry its cryptography dependencies in every application bundle (`sdk-vault/src/index.ts`).
+`sdk-vault` (`@orama-network/orama-vault`, version 0.3.0) is for software on the mesh: node agents, operator tooling, RootWallet. It is published separately because applications cannot reach the guardians and used to carry its cryptography dependencies in every application bundle (`sdk-vault/src/index.ts`).
 
 `VaultClient` (`sdk-vault/src/client.ts`) takes a list of guardian endpoints and a 32-byte Ed25519 seed. The identity is SHA-256 of the derived public key. The configured list is the unit of redundancy.
 

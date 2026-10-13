@@ -1,0 +1,53 @@
+name: mirror-to-github
+
+# Gitea is the source of truth. This pushes its branches and tags to the GitHub
+# org repo, where releases are built.
+#
+# It is deliberately NOT Gitea's built-in push mirror. That runs
+# `git push --mirror`, which deletes every ref GitHub has and Gitea lacks:
+# gh-pages and the tags that `gh release create` makes. Here only branches and
+# tags are pushed, never forced and never deleted, and gh-pages is skipped. A
+# non-fast-forward is rejected and fails this job, so a diverged GitHub branch
+# is seen, not overwritten.
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-to-github
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Push to GitHub
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MIRROR_URL: https://github.com/Orama-Network/orama.git
+      MIRROR_TOKEN: ${{ secrets.MIRROR_GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Push branches and tags
+        run: |
+          set -euo pipefail
+          if [ -z "${MIRROR_TOKEN}" ]; then
+            echo "::error::secret MIRROR_GITHUB_TOKEN is not set on this repository"
+            exit 1
+          fi
+          AUTH="$(printf 'x-access-token:%s' "${MIRROR_TOKEN}" | base64 | tr -d '\n')"
+          push() { git -c "http.extraHeader=Authorization: Basic ${AUTH}" push "${MIRROR_URL}" "$@"; }
+          git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*' --tags
+          refspecs=()
+          while read -r branch; do
+            refspecs+=("refs/remotes/origin/${branch}:refs/heads/${branch}")
+          done < <(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -v -x -e HEAD -e gh-pages)
+          push "${refspecs[@]}"
+          push 'refs/tags/*:refs/tags/*'

@@ -1,4 +1,4 @@
-# @debros/orama-vault
+# @orama-network/orama-vault
 
 Client for the Orama Network vault guardians: Shamir-split secret storage across
 the guardian daemons that run on every node.
@@ -18,20 +18,22 @@ split and combine server-side, and authenticate each request with a per-request
 Ed25519 ownership signature. That path is documented on the
 website under Vault (`website/src/docs/developer/vault.mdx`).
 
-This package used to be a directory inside `@debros/orama`, where it added two
+This package used to be a directory inside `@orama-network/orama`, where it added two
 cryptography dependencies and twenty top-level primitives to every application's
 bundle for an API none of them had a route to.
 
 ## Install
 
 ```bash
-npm install @debros/orama-vault
+npm config set @orama-network:registry https://npm.pkg.github.com
+npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm install @orama-network/orama-vault
 ```
 
 ## Use
 
 ```typescript
-import { VaultClient, QuorumError } from "@debros/orama-vault";
+import { VaultClient, QuorumError } from "@orama-network/orama-vault";
 
 const vault = new VaultClient({
   guardians: [

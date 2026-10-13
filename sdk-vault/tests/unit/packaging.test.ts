@@ -20,7 +20,7 @@ const distBuilt = existsSync(join(root, 'dist/index.js'));
 
 describe('package.json', () => {
   it('is the vault package, not the app SDK', () => {
-    expect(pkg.name).toBe('@debros/orama-vault');
+    expect(pkg.name).toBe('@orama-network/orama-vault');
   });
 
   it('declares both module formats in exports', () => {

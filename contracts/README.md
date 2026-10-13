@@ -65,7 +65,7 @@ it.
 
 ## Coverage
 
-The fixtures cover the routes `@debros/orama` calls with a JSON body. Routes
+The fixtures cover the routes `@orama-network/orama` calls with a JSON body. Routes
 that carry no body (`GET /v1/rqlite/schema`), take multipart form data
 (`/v1/storage/upload`) or carry an application-defined payload
 (`/v1/invoke/{namespace}/{name}`) have no fixed shape to pin.

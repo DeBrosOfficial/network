@@ -6,10 +6,10 @@ rel: "release.yaml"
 chk: "strip v and -nightly;\nmust equal /VERSION"
 gr: "GoReleaser: orama + orama-node,\nlinux/darwin, amd64/arm64,\ntar.gz, .deb, checksums.txt"
 ghrel: "GitHub Release\n(prerelease: auto)"
-brew: "Homebrew tap\n(stable only)"
+brew: "Homebrew tap\nOrama-Network/homebrew-tap\n(stable only)"
 apt: "release-apt.yml\n(on release published)"
 sdk: "publish-sdk.yml\n(on release published)"
-npm: "npm: @debros/orama, @debros/orama-vault\ndist-tag from prerelease suffix"
+npm: "GitHub Packages: @orama-network/orama, @orama-network/orama-vault\ndist-tag from prerelease suffix"
 
 dev -> tag
 tag -> rel

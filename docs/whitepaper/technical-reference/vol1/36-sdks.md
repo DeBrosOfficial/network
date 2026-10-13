@@ -2,7 +2,7 @@
 
 > **At a glance.**
 >
-> - **What:** two client libraries for the same gateway. The TypeScript SDK (`@debros/orama`, `sdk/`) is the library for tenant applications: one `HttpClient` shared by seven sub-clients, a WebSocket client for pub/sub, and two optional subpaths, `./chain` (read the chain, build and sign transactions) and `./relay` (Node-only relayed storage fetch). The Go client (`core/pkg/client`) is the library the gateway and the control plane use to reach the cluster registry and the node-local services, and the one a Go program outside the cluster uses to reach a gateway. Neither contains a vault client; that is a separate package ([Vault](28-vault.md)).
+> - **What:** two client libraries for the same gateway. The TypeScript SDK (`@orama-network/orama`, `sdk/`) is the library for tenant applications: one `HttpClient` shared by seven sub-clients, a WebSocket client for pub/sub, and two optional subpaths, `./chain` (read the chain, build and sign transactions) and `./relay` (Node-only relayed storage fetch). The Go client (`core/pkg/client`) is the library the gateway and the control plane use to reach the cluster registry and the node-local services, and the one a Go program outside the cluster uses to reach a gateway. Neither contains a vault client; that is a separate package ([Vault](28-vault.md)).
 > - **Key numbers:** TS request timeout 60 s (uploads and downloads 5x), 3 retries on 408, 429, 500, 502, 503 and 504 with a base delay of 1 s times the attempt plus up to 25% jitter, `Retry-After` honoured up to 30 s; access token 15 min, renewed 60 s early; WebSocket reconnect 10 attempts, 500 ms doubling to 30 s; pin-propagation re-ask 8 attempts over 18 s; chain client timeout 15 s. Go gateway database client 60 s timeout and 64 MiB response cap; direct database client 3 attempts; storage timeouts 30 s to 5 min.
 > - **Code:** `sdk/src/` (entry points `sdk/src/index.ts`, `sdk/src/chain/index.ts`, `sdk/src/storage/relay-transport.ts`), `core/pkg/client/`, shared fixtures in `contracts/`.
 > - **Depends on:** [gateway architecture](12-gateway-architecture.md) for the routes and the error model, [identity](13-identity.md) and [authorization](14-authorization.md) for the credentials the clients carry, [storage](19-storage.md), [pub/sub](20-pubsub.md), and for the chain subpath [chain architecture](../vol2/39-chain-architecture.md).
@@ -47,9 +47,9 @@ The Go client exists for a different reason. The gateway is itself a client of t
 
 | Entry | Source | Needs | Why separate |
 |---|---|---|---|
-| `@debros/orama` | `sdk/src/index.ts` | `isomorphic-ws`; `ws` optional peer on Node | The default import; no Node-only imports |
-| `@debros/orama/chain` | `sdk/src/chain/index.ts` | optional peers `@bufbuild/protobuf`, `@noble/curves`, `@noble/hashes`, `@scure/base` | The generated protobuf codecs are large |
-| `@debros/orama/relay` | `sdk/src/storage/relay-transport.ts` | Node, `node:tls`, `ws` | `node:tls` must not reach React Native or browser bundles |
+| `@orama-network/orama` | `sdk/src/index.ts` | `isomorphic-ws`; `ws` optional peer on Node | The default import; no Node-only imports |
+| `@orama-network/orama/chain` | `sdk/src/chain/index.ts` | optional peers `@bufbuild/protobuf`, `@noble/curves`, `@noble/hashes`, `@scure/base` | The generated protobuf codecs are large |
+| `@orama-network/orama/relay` | `sdk/src/storage/relay-transport.ts` | Node, `node:tls`, `ws` | `node:tls` must not reach React Native or browser bundles |
 
 The package is built by `tsup` to both ESM and CommonJS, with separate type declarations per format, `sideEffects: false`, and `engines.node >= 20.19` (`sdk/package.json`, `sdk/tsup.config.ts`). The CommonJS build exists because the package once shipped ESM only while documenting `require`. `sdk/tests/unit/packaging.test.ts` pins the exports map, the two formats and the rule that the core has no cryptography dependency.
 
@@ -203,7 +203,7 @@ What each party sees: the relay sees the caller's address, the namespace host an
 
 ### The chain subpath
 
-`@debros/orama/chain` reads the chain, builds transactions, has a wallet sign them and describes them for an approval screen. Its design is that the SDK never holds the user's key in the signing path.
+`@orama-network/orama/chain` reads the chain, builds transactions, has a wallet sign them and describes them for an approval screen. Its design is that the SDK never holds the user's key in the signing path.
 
 **Reads.** `OramaChainClient` takes two optional bases. `gatewayURL` is the gateway root, for the open read proxy `/v1/chain/` ([the chain read proxy](12-gateway-architecture.md#the-chain-read-proxy)): `status`, `block`, `blocks`, `tx`, `validators`, `supply`, `stakingPool`, the indexer (`index/status`, `index/blocks/<h>`, `index/txs/<hash>`, `index/accounts/<addr>/txs`, the cNFT asset and owner routes), and `query/<package.Service>/<Method>` for any module's Query service. Typed wrappers cover x/nodes, x/storage, x/fees, x/archive, x/relay, and the bank, auth, staking, distribution and wasm reads a wallet needs. Each wrapper validates its inputs before any request: bech32 shape for `orama1...` and `oramavaloper1...` addresses, a denom pattern, an unsigned 64-bit range for ids, a page limit of 1 to 100, a 64-hex-character transaction hash, a transaction of 1 byte to 1 MiB (the gateway's `max_tx_bytes`). A read whose base is missing fails and names it. `height` selects a historical read. `restURL` is a node's Cosmos REST API, needed for `account`, `balances` and `broadcast`, which the gateway proxy does not serve. Module queries answer the decoded response with the proto field names, uint64 fields as decimal strings. `isContract` turns the gateway's typed 404 for a non-contract address into `false`.
 

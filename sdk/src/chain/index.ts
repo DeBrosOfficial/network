@@ -2,7 +2,7 @@
  * The Orama chain module: read the chain, build transactions, sign them with a
  * wallet, and describe them for an approval screen.
  *
- *     import { OramaChainClient, LocalSigner, MSG } from "@debros/orama/chain";
+ *     import { OramaChainClient, LocalSigner, MSG } from "@orama-network/orama/chain";
  *
  * The protobuf types under ./gen are generated from chain/proto by
  * `pnpm gen:chain`; they are not exported wholesale, only what a caller needs.

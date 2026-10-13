@@ -11,7 +11,7 @@ The route set in this appendix and the set the gateway registers must be identic
 
 | Owner | Meaning | Count |
 |-------|---------|-------|
-| `SDK` | `@debros/orama` calls it | 43 |
+| `SDK` | `@orama-network/orama` calls it | 43 |
 | `CLI` | The `orama` CLI calls it. An application has no reason to: deploying, minting keys and managing nodes are operator actions. | 81 |
 | `direct` | Reachable by a client, but not through the SDK by design. The reason is in the row. | 27 |
 | `internal` | Node-to-node over the WireGuard overlay. Never reachable by a client. | 23 |
@@ -137,7 +137,7 @@ A namespace's cache is one Olric DMap with the `dmap` name folded into each key,
 |-------|-------|-------|
 | `/v1/vault/health` | direct | Aggregate guardian health. |
 | `/v1/vault/pull` | direct | Retrieve a secret. Ed25519-signed per request. |
-| `/v1/vault/push` | direct | Store a secret. Ed25519-signed per request; see [the vault](../vol1/28-vault.md). Deliberately not in `@debros/orama`. |
+| `/v1/vault/push` | direct | Store a secret. Ed25519-signed per request; see [the vault](../vol1/28-vault.md). Deliberately not in `@orama-network/orama`. |
 | `/v1/vault/status` | direct | Guardian count and threshold. |
 
 ### WebRTC

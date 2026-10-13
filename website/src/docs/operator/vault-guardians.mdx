@@ -16,7 +16,7 @@ The guardian is part of the network, not an add-on. Status: partial. Guardians d
 | Peer port | `7501` is configured and **nothing listens on it** |
 | Limits | `MemoryMax=512M`, no swap, `Restart=always` every 5 s with no start limit |
 
-A guardian never splits, combines or encrypts anything. It receives a share, checks who sent it, and writes bytes. Splitting and combining happen in the gateway (for applications) or in the client (`@debros/orama-vault`, for tooling on the mesh).
+A guardian never splits, combines or encrypts anything. It receives a share, checks who sent it, and writes bytes. Splitting and combining happen in the gateway (for applications) or in the client (`@orama-network/orama-vault`, for tooling on the mesh).
 
 Every active node in the registry is assumed to run a guardian; nothing checks. The gateway reads the guardian list from the active nodes of the index database and pairs each with port 10106.
 
