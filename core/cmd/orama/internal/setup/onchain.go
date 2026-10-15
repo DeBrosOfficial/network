@@ -187,7 +187,9 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 	ip, id := n.plan.IP, n.plan.Name
 	r.emit(ip, StepOnchain, StateRunning, "")
 	req := IdentityRequest{ChainID: r.net.Manifest.ChainID, Operator: r.oper, BindConsensus: n.plan.BindConsensus}
-	if slices.Contains(n.plan.Roles, clusterreg.RoleRelay) {
+	// A relay the Tor step starts has no identity yet; registerTorRelays registers it after that step.
+	relayNow := slices.Contains(n.plan.Roles, clusterreg.RoleRelay) && !r.relayStartsInTorStep(n)
+	if relayNow {
 		req.RelayNodeID = id
 		req.RelayExit = slices.Contains(n.plan.Roles, clusterreg.RoleExit)
 	}
@@ -199,9 +201,11 @@ func (r *runner) registerNode(ctx context.Context, sess ChainSession, n *nodeRun
 	if err != nil {
 		return err
 	}
-	relay, err := r.relayIdentityOf(n, ident)
-	if err != nil {
-		return err
+	var relay *globalbind.RelayIdentity
+	if relayNow {
+		if relay, err = r.relayIdentityOf(n, ident); err != nil {
+			return err
+		}
 	}
 	node, err := sess.Node(ctx, id)
 	if err != nil {

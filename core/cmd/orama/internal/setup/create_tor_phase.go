@@ -67,7 +67,10 @@ func (r *runner) torRuns() ([]*torRun, error) {
 //  4. the run waits until the machines hold a consensus signed by a majority of the
 //     authorities that lists them: no authority votes Running for 30 minutes after it
 //     starts, so that takes about an hour;
-//  5. the nodes leave the bootstrap mode one at a time, authorities first, an
+//  5. each relay's key is bound to its node and the relay is registered with x/relay
+//     (registerTorRelays): the relay made its identity when it started, after its
+//     node was registered with the relay role;
+//  6. the nodes leave the bootstrap mode one at a time, authorities first, an
 //     authority only once the machine itself allows it.
 func (r *runner) torPhase(ctx context.Context) error {
 	runs := r.create.torRuns
@@ -103,6 +106,9 @@ func (r *runner) torPhase(ctx context.Context) error {
 	r.d.Report.Linef("the first consensus needs a majority of the authorities to vote, and a directory authority casts no Running vote for %s after it starts: "+
 		"expect it about an hour after the authorities were started", tornet.AuthorityLearnWindow)
 	if err := r.torWaitReady(ctx, runs, time.Time{}, "the network's first Tor consensus"); err != nil {
+		return err
+	}
+	if err := r.registerTorRelays(ctx, runs); err != nil {
 		return err
 	}
 	if err := r.torLeaveBootstrap(ctx, runs, files); err != nil {

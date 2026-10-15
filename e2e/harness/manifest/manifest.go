@@ -25,7 +25,7 @@ const (
 )
 
 // MaxExtraNodes is how many on-demand servers one feature may ask for.
-const MaxExtraNodes = 3
+const MaxExtraNodes = 4
 
 // ID prefixes of the coverage universe. A manifest's covers entries map onto
 // these; so does every enumerated item and every waiver.

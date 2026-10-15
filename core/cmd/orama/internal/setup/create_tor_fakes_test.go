@@ -216,6 +216,22 @@ func (s *seatFake) InstallTor(_ context.Context, in TorInstall) error {
 	return nil
 }
 
+// Identity is the machine's keys, as the chain-layer fake gives them, except that a relay's
+// identity exists only once its Tor has started: the real node refuses before that, as
+// tornet.ReadRelayKeys does on stagenet chain 11, where it stopped the create run.
+func (s *seatFake) Identity(ctx context.Context, in IdentityRequest) (NodeIdentity, error) {
+	if in.RelayNodeID != "" && s.tor != nil {
+		s.tor.mu.Lock()
+		m, ok := s.tor.machines[s.ip]
+		started := ok && !m.firstStart.IsZero()
+		s.tor.mu.Unlock()
+		if !started {
+			return NodeIdentity{}, fmt.Errorf("run on %s: /var/lib/orama-global/tor-relay has no relay identity key yet: the relay has not started", s.ip)
+		}
+	}
+	return s.fakeMachine.Identity(ctx, in)
+}
+
 func (s *seatFake) StartTor(_ context.Context, role TorRole) error {
 	t := s.tor
 	t.mu.Lock()

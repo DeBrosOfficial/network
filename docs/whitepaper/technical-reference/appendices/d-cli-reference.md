@@ -5555,10 +5555,12 @@ new one, and only while no chain has run).
 A creation also makes the network its own Tor network, unless --tor-authorities 0: the first N machines
 (default 3, when there are at least 3 machines and neither --tor-network nor --no-relay is given; fewer
 than 3 is refused) each run a directory authority, whose keys are made on that machine and never leave it,
-and the others run relays (exits with --exit). After the chains run and the nodes are registered, setup
+and the others run relays (exits with --exit). After the chains run and the nodes are registered (the
+relay machines with the relay role and without the relay's key, which Tor makes on its first start), setup
 installs and starts the authorities within minutes of each other, waits until the machines' own tor holds a
 consensus signed by a majority of the authorities that lists them (an authority casts no Running vote for
-30 minutes after it starts, so that takes about an hour), then leaves the bootstrap mode: the authorities
+30 minutes after it starts, so that takes about an hour), binds each relay's key to its node and registers
+the relay with x/relay, then leaves the bootstrap mode: the authorities
 are restarted one at a time, each only when its own machine allows it (30 minutes after the previous one
 started), then the relays. The step takes two hours or more; a run that stops resumes where it stopped.
 networks/<name>/ gets the tor-network.json the manifest pins, which every machine that joins installs.

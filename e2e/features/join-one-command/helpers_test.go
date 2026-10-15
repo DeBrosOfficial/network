@@ -86,6 +86,13 @@ type statusDoc struct {
 	} `json:"nodes"`
 	Operator *struct {
 		Address string `json:"address"`
+		// Relays are the relays x/relay holds on the operator's nodes.
+		Relays []struct {
+			NodeID      string `json:"node_id"`
+			Fingerprint string `json:"rsa_fingerprint"`
+			Exit        bool   `json:"exit"`
+			Jailed      bool   `json:"jailed"`
+		} `json:"relays"`
 	} `json:"operator"`
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
 	"github.com/DeBrosOfficial/network/e2e/harness"
 	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
 	"github.com/DeBrosOfficial/network/pkg/constants"
 	"github.com/DeBrosOfficial/network/pkg/netregistry"
 	"github.com/DeBrosOfficial/network/pkg/tornet"
@@ -26,15 +27,21 @@ const (
 	// torCreateBudget bounds the creation with its Tor network: the chain, then about an hour
 	// for the first consensus and 30 minutes for each authority after the first.
 	torCreateBudget = 4 * time.Hour
+	// torAuthorities is how many of the creation's machines run a directory authority: the
+	// default for four machines. The machine after them runs a relay.
+	torAuthorities = 3
 	// authorityKeysHome is where the authorities' keys are made on their machines.
 	authorityKeysHome = constants.GlobalTorAuthorityKeysDir
 )
 
-// TestSetup_createANetworkWithItsOwnTorNetwork: `orama setup --create-network` on three fresh
-// servers, with the default of three directory authorities, makes the network's own Tor
-// network after the chain runs: the authorities' keys on their own machines, the final
-// tor-network.json pinned in the manifest, a consensus signed by a majority of the
-// authorities that lists every machine, and a second run that changes nothing.
+// TestSetup_createANetworkWithItsOwnTorNetwork: `orama setup --create-network` on four fresh
+// servers, with the default of three directory authorities and so one relay, makes the
+// network's own Tor network after the chain runs: the authorities' keys on their own
+// machines, the final tor-network.json pinned in the manifest, a consensus signed by a
+// majority of the authorities that lists every machine, the relay registered on the chain
+// (its node registered with the relay role before the relay existed, its key bound to the
+// node and the relay registered once the first consensus listed it), and a second run that
+// changes nothing.
 func TestSetup_createANetworkWithItsOwnTorNetwork(t *testing.T) {
 	if os.Getenv(torNetworkEnv) != "1" {
 		harness.SkipNotApplicable(t, "set "+torNetworkEnv+"=1 (and widen the stage budget): the network's own Tor network takes two and a half hours after the chain is up")
@@ -45,7 +52,9 @@ func TestSetup_createANetworkWithItsOwnTorNetwork(t *testing.T) {
 		harness.ExtraNode(t, "join-one-tor-1", extraLocation),
 		harness.ExtraNode(t, "join-one-tor-2", extraLocation),
 		harness.ExtraNode(t, "join-one-tor-3", extraLocation),
+		harness.ExtraNode(t, "join-one-tor-4", extraLocation),
 	}
+	authorities, relay := extras[:torAuthorities], extras[torAuthorities]
 	publishDir := filepath.Join(t.TempDir(), "networks")
 	args := createArgsWith(t, publishDir, nil, extras...)
 	steps := []struct {
@@ -54,12 +63,13 @@ func TestSetup_createANetworkWithItsOwnTorNetwork(t *testing.T) {
 	}{
 		{"threeFreshServersMakeTheirOwnTorNetwork", func(t *testing.T) {
 			res := infra.RunFor(t, cli, torCreateBudget, args...)
-			infra.ExpectExit(t, res, infra.ExitOK, "Done.", "the Tor network "+createdNetwork+" is up: 3 directory authorities and 0 relays")
+			infra.ExpectExit(t, res, infra.ExitOK, "Done.", "the Tor network "+createdNetwork+" is up: 3 directory authorities and 1 relays")
 			published, network := publishedTorNetwork(t, publishDir)
-			for i, e := range extras {
+			for i, e := range authorities {
 				// The authorities are nicknamed in the order of the machines.
 				requireAuthority(t, f, e, "OramaAuth0"+string(rune('1'+i)), published, network)
 			}
+			requireRelayRegistered(t, f, cli, relay)
 		}},
 		{"theSameCommandAgainChangesNothing", func(t *testing.T) {
 			res := infra.RunFor(t, cli, torCreateBudget, args...)
@@ -68,6 +78,7 @@ func TestSetup_createANetworkWithItsOwnTorNetwork(t *testing.T) {
 				t.Errorf("the second run touched a Tor role:\n%s", res.Stdout)
 			}
 			_, _ = publishedTorNetwork(t, publishDir)
+			requireRelayRegistered(t, f, cli, relay)
 		}},
 	}
 	for _, s := range steps {
@@ -176,4 +187,35 @@ func TestSetup_torAuthoritiesIsRefusedWhenItCannotWork(t *testing.T) {
 		args := append([]string{"setup", "--yes", "--tor-authorities", "3", "--name", "alice"}, machines...)
 		infra.ExpectExit(t, infra.Run(t, cli, args...), infra.ExitUsage, "--tor-authorities", "--create-network")
 	})
+}
+
+// requireRelayRegistered checks the chain holds the relay of the machine that runs one: the
+// operator's relays (the x/relay query `orama status` reads) list exactly one relay, with the
+// fingerprint the relay's own tor reports, not jailed and not an exit, and no authority is
+// registered as a relay.
+func requireRelayRegistered(t *testing.T, f *fleet.Fleet, cli *oramacli.Runner, relay harness.Extra) {
+	t.Helper()
+	info := infra.OnNode(t, f, relay.Node, "global", "tor", "info", "--json")
+	infra.ExpectNodeExit(t, "orama global tor info", info, infra.ExitOK)
+	var roles []tornet.NodeInfo
+	if err := json.Unmarshal([]byte(info.Stdout), &roles); err != nil {
+		t.Fatalf("%s: orama global tor info --json is not JSON: %v\n%s", relay.PublicIP, err, info.Stdout)
+	}
+	var fingerprint string
+	for _, r := range roles {
+		if r.Home == constants.GlobalTorRelayHome {
+			fingerprint = r.Fingerprint
+		}
+	}
+	if fingerprint == "" {
+		t.Fatalf("%s: orama global tor info lists no relay:\n%s", relay.PublicIP, info.Stdout)
+	}
+	doc := status(t, cli, createdNetwork)
+	if doc.Operator == nil || len(doc.Operator.Relays) != 1 {
+		t.Fatalf("orama status lists the relays %+v of the operator, want the one relay of %s", doc.Operator, relay.PublicIP)
+	}
+	got := doc.Operator.Relays[0]
+	if !strings.EqualFold(got.Fingerprint, fingerprint) || got.Exit || got.Jailed {
+		t.Errorf("the chain holds the relay %+v, want the fingerprint %s of the relay on %s, not an exit and not jailed", got, fingerprint, relay.PublicIP)
+	}
 }

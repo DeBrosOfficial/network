@@ -60,8 +60,10 @@ type world struct {
 	// read of a fee balance fails with.
 	fundHotKeyErr error
 	feeBalanceErr error
-	faucetPays    *big.Int
-	faucetCalls   int
+	// registerRelayErr is what MsgRegisterRelay fails with for a node, by node id.
+	registerRelayErr map[string]error
+	faucetPays       *big.Int
+	faucetCalls      int
 	// faucetLag is how many balance reads pass before a drip is visible through the session, as a
 	// node that is a block behind the seed that paid shows it.
 	faucetLag int
@@ -479,6 +481,12 @@ func (s *fakeSession) RelayOfNode(_ context.Context, _, nodeID string) (*Registe
 	return s.w.relays[nodeID], nil
 }
 func (s *fakeSession) RegisterRelay(_ context.Context, r clusterreg.RelayRegistration) (*onchain.Receipt, error) {
+	s.w.mu.Lock()
+	err := s.w.registerRelayErr[r.NodeID]
+	s.w.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
 	s.w.add("tx register-relay %s fp=%X exit=%t", r.NodeID, r.RSAFingerprint, r.Exit)
 	return s.holdRelay(r)
 }

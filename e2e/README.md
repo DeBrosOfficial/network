@@ -62,7 +62,7 @@ stage: 3                          # 1..11, see stages/stages.yaml
 destructive: false                # true: runs alone, after the stage's other packages
 opt_in: E2E_CHAIN_SOAK            # optional, see "Opt-in features"; omit it for every ordinary feature
 requires:
-  extra_nodes: 0                  # 0..3 servers created on demand with harness.ExtraNode
+  extra_nodes: 0                  # 0..4 servers created on demand with harness.ExtraNode
   probe: false                    # needs state.probes (a vantage point in another location)
   chain: false                    # needs the co-hosted chain (harness.RequireChain)
 covers:                           # what the tests exercise; unknown keys are rejected
@@ -950,7 +950,7 @@ stale waivers).
   `extra.add`/`extra.remove` (extras only, never a core node or probe; one
   name at a time), `cluster.add`/`cluster.remove` (eval clusters it
   installed). Extras, clusters and adds in flight together are capped at
-  `E2E_BROKER_MAX_SERVERS` (default 3, `manifest.MaxExtraNodes`; raise it
+  `E2E_BROKER_MAX_SERVERS` (default 4, `manifest.MaxExtraNodes`; raise it
   when a stage runs several extra-hungry features in parallel). A connection
   has 10 s to send its request, and 8 are served at once (others wait in the
   backlog). In a feature process `provision.AddExtra`, `RemoveExtra`,

@@ -213,7 +213,7 @@ The budgets are sized from the packages' own bounds (comments in `e2e/stages/sta
 
 A package is a directory under `e2e/features/`, named by the feature id, with a `feature.yaml`, a `main_test.go` calling `harness.Main(m)` and tests. `harness.Main` reads `E2E_FLEET_STATE`. Under the runner `E2E_STRICT=1` is always set, and a package started without state exits 1 instead of skipping all its tests, so a misconfigured run cannot be green by skipping everything. Outside strict mode every test skips (`e2e/harness/harness.go:Main`).
 
-The manifest is decoded with unknown keys refused and one YAML document only, so a typo such as `cover:` cannot silently cover nothing (`e2e/harness/manifest/manifest.go:Parse`). Every `covers` kind has a shape the entry must match (`e2e/harness/manifest/validate.go`), a feature must list at least one thing, and `requires.extra_nodes` is 0 to 3.
+The manifest is decoded with unknown keys refused and one YAML document only, so a typo such as `cover:` cannot silently cover nothing (`e2e/harness/manifest/manifest.go:Parse`). Every `covers` kind has a shape the entry must match (`e2e/harness/manifest/validate.go`), a feature must list at least one thing, and `requires.extra_nodes` is 0 to 4.
 
 `make e2e-lint` runs `go vet` with and without the tag and `e2e/lint`, which parses every feature and fails on:
 
@@ -430,7 +430,7 @@ CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) runs on Gitea Actions; the re
 ## Limits and scale
 
 - **Counts.** 8,464 core tests run in `go test ./...`. CI gives each package 5 min under the race detector. `make test` runs without `-race`.
-- **Fleet size.** Three nodes, 16 concurrent namespaces, at most 3 extra servers at once, and a Hetzner project limit of 10 servers by default. Stage 1 sets namespace creation to open for the whole run and raises the per-wallet namespace cap when needed; these two settings are the only state a test leaves changed, on a fleet that is destroyed afterwards.
+- **Fleet size.** Three nodes, 16 concurrent namespaces, at most 4 extra servers at once, and a Hetzner project limit of 10 servers by default. Stage 1 sets namespace creation to open for the whole run and raises the per-wallet namespace cap when needed; these two settings are the only state a test leaves changed, on a fleet that is destroyed afterwards.
 - **Credentials.** Auth-heavy packages are bounded by 24 credential operations a minute, shared by the whole run.
 - **Time.** Stage budgets sum to 750 min; the worst case with every destructive package serial is 5,465 min. Stage 11 is 4,370 of those minutes (23 packages at 190 min), so the serial destructive tail is the first bottleneck. A typical soak is 30 min by default (`E2E_SOAK_MINUTES`).
 - **At 10x the surface.** The coverage gate is linear in the universe, and the universe grows with commands and routes: 10x features means roughly 10x manifests and, because destructive packages are serial, up to 10x the tail. Parallelism is capped by the 16 namespace slots and by the single runner machine. The model has no notion of which nodes a destructive package disturbs, so no two can run side by side.
