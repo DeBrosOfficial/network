@@ -14,27 +14,27 @@
       "address": "57.129.166.16",
       "or_port": 31020,
       "dir_port": 31021,
-      "v3_ident": "3A3935F34A859B1B056537F175BBF19B1E9CA4CE",
-      "fingerprint": "43A651D1A6D4AEA92560FF9686E0C160D1BE7B0E",
-      "ed25519_id": "yn65ZfdKbpLj7DUkkTSobGajWl2ymb/SZe1QbxfwOLE"
+      "v3_ident": "669E7ADFCCBF4824856AF43C339F2904350A11F4",
+      "fingerprint": "36348B57535B45716A13C6EC85D0E1E83D32020C",
+      "ed25519_id": "bq9ihD+fAtpaeeZOiAhE54hPUv9pSFWywHPPtki/tyY"
     },
     {
       "nickname": "OramaAuth02",
       "address": "57.129.166.17",
       "or_port": 31020,
       "dir_port": 31021,
-      "v3_ident": "28CA5DBF108A672087326DDDCDE0CF77F35557C4",
-      "fingerprint": "5AE9A9DAC372DB1BFFDF57801DC078F4BB8D06BA",
-      "ed25519_id": "spSe4GoTrII3DKzGVv/dW5c1mbD1hnmsq3yZZYNkmaM"
+      "v3_ident": "DF1A7EDAD347099E4C84C51E3C41D17054D2451F",
+      "fingerprint": "F3F9E3EDBC612045C66F03242877F06EF1EB4879",
+      "ed25519_id": "kjhAIv6Z257/+XM7Ywjthcq/9NcegtOrZZ5MPYl1gIU"
     },
     {
       "nickname": "OramaAuth03",
       "address": "161.97.184.199",
       "or_port": 31020,
       "dir_port": 31021,
-      "v3_ident": "74451198B51B3D224AEDC3992179AC14F33720B3",
-      "fingerprint": "F646BA66875D380B74CB6319CA41BEF969F835D5",
-      "ed25519_id": "JLR/IxLwQA7R40F8eYC1wWeuhT30+G2JgRIPFvUmNf4"
+      "v3_ident": "6A4041F7655BE3A8099530087880384142C3F26F",
+      "fingerprint": "3FBD9BCBC7FA03F6263CFA4E7A2473ACA5321598",
+      "ed25519_id": "OD/yO9XcL1xR+cPkP+s4YfJjyaVsJg315Uw/JoF2shw"
     }
   ]
 }
