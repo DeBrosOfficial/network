@@ -63,8 +63,17 @@ jobs:
         working-directory: core
         env:
           GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: 0
+          # CGO is required: the tenant SQLite handler
+          # (pkg/gateway/handlers/sqlite) uses mattn/go-sqlite3's SetLimit,
+          # which the pure-Go (CGO_ENABLED=0) stub does not provide.
+          CGO_ENABLED: 1
         run: |
+          # Cross-compiling arm64 under CGO needs an aarch64 C toolchain.
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get update
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+            export CC=aarch64-linux-gnu-gcc
+          fi
           VERSION="${{ steps.version.outputs.version }}"
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)

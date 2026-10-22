@@ -62,7 +62,7 @@ jobs:
           export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
           go build -o "${RUNNER_TEMP}/orama" ./cmd/orama
           for n in 1 2; do
-            "${RUNNER_TEMP}/orama" build --unsigned --arch "${{ matrix.arch }}" --output "${RUNNER_TEMP}/build-${n}.tar.gz"
+            "${RUNNER_TEMP}/orama" maint build --unsigned --arch "${{ matrix.arch }}" --output "${RUNNER_TEMP}/build-${n}.tar.gz"
           done
           sha256sum "${RUNNER_TEMP}/build-1.tar.gz" "${RUNNER_TEMP}/build-2.tar.gz"
 
