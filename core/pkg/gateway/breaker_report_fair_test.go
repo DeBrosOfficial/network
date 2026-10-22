@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func breakerStatus(ns, dep, node string) BreakerStatus {

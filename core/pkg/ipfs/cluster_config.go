@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
 )
 
 // ClusterServiceConfig is the part of service.json the node writes. Every

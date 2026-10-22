@@ -1,6 +1,6 @@
 package report
 
-import "github.com/DeBrosOfficial/network/pkg/updatenotice"
+import "github.com/Orama-Network/orama/core/pkg/updatenotice"
 
 // collectUpdate is the auto-update agent's last finding, nil when it has none
 // to report. A notice that cannot be read is a finding too: it is reported as

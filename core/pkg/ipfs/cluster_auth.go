@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // IPFS Cluster's REST API (constants.IPFSClusterAPIPort) pins, unpins and

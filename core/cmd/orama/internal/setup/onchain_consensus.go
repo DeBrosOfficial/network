@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/globalbind"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/globalbind"
 )
 
 // consensusBindingOf is the binding of the node's consensus key to the operator

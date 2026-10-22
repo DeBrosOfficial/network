@@ -7,8 +7,8 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 func TestMintDevelopmentSpend_mintsOnlyRemainingCeiling(t *testing.T) {

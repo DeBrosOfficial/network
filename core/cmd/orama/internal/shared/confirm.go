@@ -3,7 +3,7 @@ package shared
 import (
 	"bufio"
 	"fmt"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"os"
 	"strings"
 )

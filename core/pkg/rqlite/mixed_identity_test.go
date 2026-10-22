@@ -3,7 +3,7 @@ package rqlite
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/discovery"
+	"github.com/Orama-Network/orama/core/pkg/discovery"
 )
 
 // A cluster part-way through `orama maint node migrate-raft-id` holds members under

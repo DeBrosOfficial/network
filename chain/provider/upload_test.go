@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
+	"github.com/Orama-Network/orama/chain/piece"
 )
 
 func rootHex(t *testing.T, data []byte) (string, []byte) {

@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama Namespace Olric Cache (%i)
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 # Olric has no functional dependency on rqlite: it is an in-memory cache that
 # talks to its own memberlist over the overlay and never reads the database. It
 # used to declare Requires= AND After= on rqlite, which meant a rqlite restart

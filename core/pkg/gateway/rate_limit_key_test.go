@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey/clientkeytest"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // behindCaddy is a request as the node's Caddy forwards it: from loopback, with the address it is

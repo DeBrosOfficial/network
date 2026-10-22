@@ -16,8 +16,8 @@ import (
 	txsigning "github.com/cosmos/cosmos-sdk/x/tx/signing"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 // inclusionTxRules adapts real chain transactions to x/inclusion.

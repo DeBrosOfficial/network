@@ -6,16 +6,18 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/releasepub"
-	"github.com/DeBrosOfficial/network/pkg/releasepub/pubtest"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/releasepub"
+	"github.com/Orama-Network/orama/core/pkg/releasepub/pubtest"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 var testNow = time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
@@ -77,13 +79,13 @@ func TestRelease_theWholeFlowFromRootToPublish(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cut: %v\n%s", err, out)
 	}
-	for _, want := range []string{"Approval 1 of 3", "Approval 3 of 3", "list    nightly/orama-0.3.1-linux-arm64.tar.gz", "GitHub release release-nightly-0.3.1"} {
+	for _, want := range []string{"Approval 1 of 3", "Approval 3 of 3", "list    nightly/orama-0.3.1-linux-arm64.tar.gz", "Gitea release release-nightly-0.3.1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("cut output lacks %q:\n%s", want, out)
 		}
 	}
 	out, err = exec(t, a, nil, "publish", "--dir", dir, "--dry-run", "--metadata-dest", "host:/srv/")
-	if err != nil || !strings.Contains(out, "gh release upload release-nightly-0.3.1") || !strings.Contains(out, "Dry run") {
+	if err != nil || !strings.Contains(out, "/releases/tags/release-nightly-0.3.1") || !strings.Contains(out, "Dry run") {
 		t.Fatalf("publish --dry-run: %v\n%s", err, out)
 	}
 	if out, err = exec(t, a, nil, "refresh-timestamp", "--dir", dir, "--channel", "nightly"); err != nil || !strings.Contains(out, "timestamp version 2") {
@@ -152,18 +154,28 @@ func TestPublish_runsTheCommandsThroughTheRunner(t *testing.T) {
 	if _, err := exec(t, a, nil, "cut", "--dir", dir, "--channel", "main", "--archive", archiveFile(t, "0.3.0", "amd64")); err != nil {
 		t.Fatal(err)
 	}
+	gitea := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Header.Get("Authorization") != "token test-token":
+			w.WriteHeader(http.StatusUnauthorized)
+		case r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":7,"assets":[]}`))
+		}
+	}))
+	t.Cleanup(gitea.Close)
+	t.Setenv("GITEA_TOKEN", "test-token")
 	var calls []string
 	run := func(_ context.Context, name string, args ...string) ([]byte, error) {
 		calls = append(calls, name+" "+args[0])
-		if name == "gh" && args[1] == "view" {
-			return []byte(`{"assets":[]}`), nil
-		}
 		return nil, nil
 	}
-	if _, err := exec(t, a, run, "publish", "--dir", dir, "--github-repo", "o/r", "--metadata-dest", "h:/d/"); err != nil {
+	if _, err := exec(t, a, run, "publish", "--dir", dir, "--gitea-repo", "o/r", "--gitea-api", gitea.URL, "--metadata-dest", "h:/d/"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(calls, ";") != "gh release;gh release;rsync -a;rsync -a" {
+	if strings.Join(calls, ";") != "rsync -a;rsync -a" {
 		t.Fatalf("calls = %q", calls)
 	}
 }

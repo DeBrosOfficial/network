@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 // Phase 5 enables the timer for the next boot and does not start it: started

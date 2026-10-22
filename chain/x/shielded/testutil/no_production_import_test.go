@@ -12,7 +12,7 @@ import (
 // TestNoProductionImport fails when a non-test Go file of the module imports this package: the
 // fakes here, including a verifier that accepts everything, must never be linked into oramad.
 func TestNoProductionImport(t *testing.T) {
-	const self = "github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
+	const self = "github.com/Orama-Network/orama/chain/x/shielded/testutil"
 	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)

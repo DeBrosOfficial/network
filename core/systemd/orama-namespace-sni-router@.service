@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama Namespace SNI Router (%i)
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 After=network.target
 Before=orama-namespace-caddy@%i.service
 PartOf=orama-node.service

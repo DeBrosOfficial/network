@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

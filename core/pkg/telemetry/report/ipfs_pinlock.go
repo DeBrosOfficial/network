@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // Kubo serialises pinning and garbage collection with one lock: pin/add and

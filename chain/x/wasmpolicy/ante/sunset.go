@@ -3,7 +3,7 @@ package ante
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
 )
 
 // UploadSunsetDecorator rejects MsgStoreCode before upload_sunset_height unless the

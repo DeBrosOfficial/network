@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // The waiting device's half of a device link (see authsvc.StartDeviceLink).

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 	"golang.org/x/crypto/nacl/box"
 )
 

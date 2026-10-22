@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/reporter"
+	"github.com/Orama-Network/orama/chain/reporter"
 )
 
 func newTestPassLog() (*passLog, *bytes.Buffer) {

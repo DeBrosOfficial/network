@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/broadcast"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/profile"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ratelimit"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/broadcast"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/profile"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ratelimit"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
 )
 
 const (

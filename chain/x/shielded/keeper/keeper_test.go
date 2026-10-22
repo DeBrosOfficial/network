@@ -14,13 +14,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/nullifier"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // With the test genesis (nullifier fee 1, action gas 10) and a base fee of 1, a one-action transfer

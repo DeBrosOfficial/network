@@ -16,11 +16,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	cnftkeeper "github.com/DeBrosOfficial/network/chain/x/cnft/keeper"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	"github.com/DeBrosOfficial/network/chain/x/market/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	cnftkeeper "github.com/Orama-Network/orama/chain/x/cnft/keeper"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/market/keeper"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 func init() {

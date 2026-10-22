@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A policy recorded while the key sweep stopped is not reported as a policy

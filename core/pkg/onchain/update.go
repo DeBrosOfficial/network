@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 // UpdateNodeBindings replaces the binding set of one of the signing operator's

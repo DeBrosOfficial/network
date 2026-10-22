@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 // A teardown owed for a deleted namespace reaches a node that holds the name

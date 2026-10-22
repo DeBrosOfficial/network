@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
+	"github.com/Orama-Network/orama/chain/piece"
 )
 
 func TestRetrievalServesARangeAndRefusesTheRest(t *testing.T) {

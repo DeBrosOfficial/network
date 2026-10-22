@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // TestSetInternalAuthJWTHeaders_setsSubAndCustom verifies that the proxy

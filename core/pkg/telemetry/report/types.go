@@ -3,8 +3,8 @@ package report
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
 )
 
 // NodeReport is the top-level JSON output of `orama node report`.

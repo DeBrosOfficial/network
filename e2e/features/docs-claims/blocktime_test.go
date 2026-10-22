@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/cliconf"
+	"github.com/Orama-Network/orama/e2e/features/internal/cliconf"
 )
 
 const (

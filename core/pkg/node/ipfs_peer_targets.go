@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // activeOverlayPeersSQL selects the registered, active nodes that have a

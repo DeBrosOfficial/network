@@ -12,10 +12,10 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 func TestMain(m *testing.M) {

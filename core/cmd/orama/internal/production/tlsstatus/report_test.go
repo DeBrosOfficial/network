@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 )
 
 var testNow = time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)

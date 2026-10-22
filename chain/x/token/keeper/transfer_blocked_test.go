@@ -9,7 +9,7 @@ import (
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // MsgTransfer sends with the keeper-level bank.SendCoins, which skips the blocked-address list that

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // Who may sign in to a namespace, per namespace and opt-in.

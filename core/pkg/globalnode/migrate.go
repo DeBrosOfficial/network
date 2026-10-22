@@ -6,8 +6,8 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // ImportResult is what an import did.

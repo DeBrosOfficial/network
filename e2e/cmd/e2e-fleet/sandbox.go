@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // EnvSandbox, set to 1, runs every feature package under bubblewrap with

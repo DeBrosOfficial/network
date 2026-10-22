@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/broker"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/broker"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 const evalSub = namePrefix + "testrun1-evalx." + testZone

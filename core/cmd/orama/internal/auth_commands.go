@@ -8,8 +8,8 @@ import (
 
 	"github.com/mattn/go-isatty"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // offersSavedCredentials reports whether a login offers the saved credentials

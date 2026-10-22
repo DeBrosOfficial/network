@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/realistic"
+	"github.com/Orama-Network/orama/e2e/features/internal/realistic"
 )
 
 // sdkPackages are the published TypeScript packages; their production

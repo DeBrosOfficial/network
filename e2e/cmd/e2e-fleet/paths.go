@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // modulePath identifies the e2e module's go.mod.
-const modulePath = "github.com/DeBrosOfficial/network/e2e"
+const modulePath = "github.com/Orama-Network/orama/e2e"
 
 // Paths inside the e2e module.
 const (

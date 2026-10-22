@@ -18,8 +18,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
-	"github.com/DeBrosOfficial/network/chain/x/wasmbindings"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/wasmbindings"
 )
 
 type recordingNext struct{ calls int }

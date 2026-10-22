@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/realistic"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/features/internal/realistic"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // sitePages are what a visitor of the marketing site loads.

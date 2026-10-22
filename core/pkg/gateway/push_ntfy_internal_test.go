@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	pushntfy "github.com/DeBrosOfficial/network/pkg/push/providers/ntfy"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	pushntfy "github.com/Orama-Network/orama/core/pkg/push/providers/ntfy"
 )
 
 const ntfyRelayTestSecret = "a cluster secret"

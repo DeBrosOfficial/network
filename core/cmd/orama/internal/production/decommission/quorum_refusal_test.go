@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/clusterops"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/clusterops"
 )
 
 func TestQuorumRefusal_unsafeRemovalIsConflict(t *testing.T) {

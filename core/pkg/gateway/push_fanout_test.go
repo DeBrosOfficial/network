@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // Bugboard #858 — the fan-out resolver turns active dns_nodes into overlay

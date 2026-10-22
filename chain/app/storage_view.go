@@ -9,9 +9,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // storageNodes is the storage module's view of x/nodes. IsActive is the STORAGE

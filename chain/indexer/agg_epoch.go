@@ -10,9 +10,9 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // blockFacts is what the aggregates take from one block.

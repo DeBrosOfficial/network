@@ -17,7 +17,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // The layout. The veth pair uses 198.18.0.0/30 (RFC 2544 benchmarking space):

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"go.uber.org/zap"
 )
 

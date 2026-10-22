@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
 )
 
 type junitSuites struct {

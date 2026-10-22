@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/netclass"
+	"github.com/Orama-Network/orama/chain/netclass"
 )
 
 // ErrNotPublic is a provider endpoint that resolves to loopback, a private, shared, link-local,

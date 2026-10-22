@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
 )
 
 // Backup routes (docs/whitepaper/technical-reference/appendices/i-api-surface.md "Namespace management"); shapes are

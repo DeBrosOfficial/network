@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/broadcast"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/broadcast"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
 )
 
 func TestParseOptions_defaultsToTheFourNodeLocalnetSmokeProfile(t *testing.T) {

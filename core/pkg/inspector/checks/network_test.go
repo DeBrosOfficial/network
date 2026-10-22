@@ -3,7 +3,7 @@ package checks
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 func TestCheckNetwork_HealthyNode(t *testing.T) {

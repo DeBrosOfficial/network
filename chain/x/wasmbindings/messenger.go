@@ -14,8 +14,8 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // Dispatcher is wasmd's Messenger: the handler the wasm keeper would use without this package.

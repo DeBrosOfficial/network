@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/config"
 )
 
 func (r *RQLiteManager) rqliteDataDirPath() (string, error) {

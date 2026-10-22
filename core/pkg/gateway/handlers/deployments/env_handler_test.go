@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 )
 
 // PORT is written into the systemd unit by the process manager and is how the

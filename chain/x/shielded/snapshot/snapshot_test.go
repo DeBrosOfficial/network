@@ -8,9 +8,9 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/nullifier"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 func nf(i int) [bundle.NodeLen]byte {

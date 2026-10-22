@@ -3,9 +3,9 @@ package storagecmd
 import (
 	"os"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/globalcmd"
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/globalcmd"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 	"github.com/spf13/cobra"
 )
 

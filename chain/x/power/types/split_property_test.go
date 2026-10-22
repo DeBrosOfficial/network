@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // TestComputeCappedShares_randomizedSplitBelowCapGainsNothing checks the C4

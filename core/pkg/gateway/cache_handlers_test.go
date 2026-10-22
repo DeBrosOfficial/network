@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/cache"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/cache"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/olric"
 	"go.uber.org/zap"
 )
 

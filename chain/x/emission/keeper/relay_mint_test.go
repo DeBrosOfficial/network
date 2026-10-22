@@ -7,9 +7,9 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 func TestMintRelayReward_refusesASecondMintPastTheCeiling(t *testing.T) {

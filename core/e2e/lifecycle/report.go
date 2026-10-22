@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/oramaunit"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/oramaunit"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // Values `orama status report` writes, pinned against the monitor's own

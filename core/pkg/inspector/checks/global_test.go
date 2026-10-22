@@ -3,8 +3,8 @@ package checks
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func TestCheckGlobal_healthyChainPasses(t *testing.T) {

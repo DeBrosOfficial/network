@@ -15,7 +15,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 )

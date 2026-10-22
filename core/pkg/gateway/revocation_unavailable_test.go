@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // unreadableRevocations is a gateway whose registry cannot be read, so the

@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/nsledger"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/nsledger"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 func TestUniqueName_validAndUnique(t *testing.T) {

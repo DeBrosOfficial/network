@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
 

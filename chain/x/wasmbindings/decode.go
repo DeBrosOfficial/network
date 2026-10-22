@@ -3,11 +3,11 @@ package wasmbindings
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
 )
 
 func decodeEarnings(m *EarningsMsg) (Action, error) {

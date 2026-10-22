@@ -3,8 +3,8 @@ package removenode
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // nodeIsValidator reads from the cluster's telemetry, the snapshot `orama

@@ -15,7 +15,7 @@ import (
 
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/Orama-Network/orama/chain/app"
 )
 
 // DefaultIAVLCache is the IAVL node cache the generator uses: twenty times oramad's own default.

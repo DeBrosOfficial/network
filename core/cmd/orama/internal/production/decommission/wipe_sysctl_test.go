@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // sysctlMachine is a test machine for the restore block: a root with /proc/sys keys and

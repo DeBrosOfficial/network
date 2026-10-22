@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 	"go.uber.org/zap"
 )
 

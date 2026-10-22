@@ -20,9 +20,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 const (

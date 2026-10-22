@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/metrics"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/metrics"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
 )
 
 const (

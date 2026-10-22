@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // markerApp answers 503 and sets the tenant-origin marker as the tenant's code

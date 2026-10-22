@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 // ufwCommand must run ufw directly as root but through the privileged helper's

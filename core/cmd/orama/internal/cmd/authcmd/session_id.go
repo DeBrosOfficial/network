@@ -3,7 +3,7 @@ package authcmd
 import (
 	"strconv"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // parseSessionID reads the id 'orama auth sessions' printed.

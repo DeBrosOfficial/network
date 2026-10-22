@@ -8,7 +8,7 @@ import (
 	sdkstore "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // runTransferHook calls the token's transfer hook under a gas meter capped at

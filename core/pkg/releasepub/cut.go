@@ -13,9 +13,9 @@ import (
 
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/autoupdate"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/autoupdate"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // CutParams is one release.
@@ -165,7 +165,7 @@ func checkReleasable(ref releaseverify.ArchiveRef) error {
 		return fmt.Errorf("version %q is not dotted numeric (1.2.3), so a client could not order it and would never install it: %w", ref.Version, err)
 	}
 	if strings.ContainsAny(ref.Version, "+") {
-		return fmt.Errorf("version %q has a '+', which the release host cannot map to a GitHub release tag", ref.Version)
+		return fmt.Errorf("version %q has a '+', which the release host cannot map to a Gitea release tag", ref.Version)
 	}
 	return nil
 }

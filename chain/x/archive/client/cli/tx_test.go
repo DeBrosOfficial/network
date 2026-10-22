@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
+	"github.com/Orama-Network/orama/chain/piece"
 )
 
 // MsgAttest and MsgAttachReplicas fail ValidateBasic without a node id, and

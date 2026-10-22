@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/keeper"
+	"github.com/Orama-Network/orama/chain/x/storage/keeper"
 )
 
 func TestSampleIsLinearInKAtOneMillion(t *testing.T) {

@@ -10,11 +10,11 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // validator is a valid operator address; the bech32 prefix is set by testutil.NewEnv.

@@ -14,17 +14,17 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/apphash"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/apphash"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // registrations are the modules whose messages the bench signs or decodes.

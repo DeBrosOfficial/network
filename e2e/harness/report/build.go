@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 func buildFeature(m manifest.Manifest, results []gotest.Result, labels map[string]string) FeatureResult {

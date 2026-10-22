@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
 )
 
 // The help text is built from the alias table rather than repeating it, so an

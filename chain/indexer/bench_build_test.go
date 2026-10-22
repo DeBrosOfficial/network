@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"cosmossdk.io/math"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
 	"github.com/cockroachdb/pebble"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"

@@ -7,8 +7,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // Names of the shielded transaction types. A transfer type carries its action count.

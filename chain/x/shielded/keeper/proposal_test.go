@@ -10,9 +10,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 func withBlockGas(ctx sdk.Context, maxGas int64) sdk.Context {

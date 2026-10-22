@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Destroy tears down a sandbox cluster.

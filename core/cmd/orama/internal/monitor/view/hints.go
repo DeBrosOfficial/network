@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // commonProblemsDoc is where the runbooks for recurring failures live.

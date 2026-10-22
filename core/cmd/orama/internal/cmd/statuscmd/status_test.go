@@ -1,7 +1,7 @@
 package statuscmd
 
 import (
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
 	"strings"
 	"testing"
 )

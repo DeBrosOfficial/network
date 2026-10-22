@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
 )
 
 // What a deployment leaves on the node besides its code and secrets: the state

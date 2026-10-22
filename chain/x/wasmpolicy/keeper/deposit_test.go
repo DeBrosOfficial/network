@@ -14,9 +14,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 const perByte = 10

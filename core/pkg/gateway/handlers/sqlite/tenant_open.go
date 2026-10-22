@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/pkg/sqlguard"
+	"github.com/Orama-Network/orama/core/pkg/sqlguard"
 	"github.com/mattn/go-sqlite3"
 )
 

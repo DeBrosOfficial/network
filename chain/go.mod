@@ -1,4 +1,4 @@
-module github.com/DeBrosOfficial/network/chain
+module github.com/Orama-Network/orama/chain
 
 go 1.27.2
 

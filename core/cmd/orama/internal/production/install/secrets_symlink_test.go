@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	joinhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/join"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	joinhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/join"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // The join flow writes the cluster's secrets as root into secrets/, which the

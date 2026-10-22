@@ -8,9 +8,9 @@ package nodescmd
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/noderesolver"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 	"github.com/spf13/cobra"
 )
 

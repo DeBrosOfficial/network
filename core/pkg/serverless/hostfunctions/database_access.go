@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // A gateway's database handle belongs to one namespace: the gateway's own

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/push"
 )
 
 // A transport failure must not carry the URL the provider posted to: for a

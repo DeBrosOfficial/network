@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // orama-deploy-build@ runs a tenant's `npm install` with the network, and its

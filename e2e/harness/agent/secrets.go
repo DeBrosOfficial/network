@@ -14,7 +14,7 @@ import (
 
 	bip39 "github.com/cosmos/go-bip39"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 const (

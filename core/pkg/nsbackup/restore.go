@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 	"golang.org/x/crypto/nacl/box"
 )
 

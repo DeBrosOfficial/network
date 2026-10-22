@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/DeBrosOfficial/network/pkg/wireguard"
+	"github.com/Orama-Network/orama/core/pkg/wireguard"
 )
 
 // WireGuardPeer represents a WireGuard mesh peer

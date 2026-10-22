@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/olric/olrictest"
+	"github.com/Orama-Network/orama/core/pkg/olric/olrictest"
 )
 
 func TestCurrent_followsSetAndDrop(t *testing.T) {

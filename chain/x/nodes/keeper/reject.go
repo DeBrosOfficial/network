@@ -5,7 +5,7 @@ import (
 
 	"cosmossdk.io/collections"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // unbondingRejection marks an error as a failure of paying the one unbonding entry.

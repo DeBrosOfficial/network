@@ -14,10 +14,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/chain/archiver"
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/repair"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/archiver"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/repair"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 const rangeBlocksUsage = "Blocks per archived range; 0 (the default) reads the chain's range_blocks, and any other value must equal it"

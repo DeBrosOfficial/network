@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // verifyCoordination reports whether a node-to-node coordination request came

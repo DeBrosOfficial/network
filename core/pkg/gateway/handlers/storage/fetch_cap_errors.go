@@ -3,7 +3,7 @@ package storage
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // The typed refusals of the fetch-capability routes (bugboard #266). Every one

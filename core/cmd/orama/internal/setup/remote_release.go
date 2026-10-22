@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/clusterops"
-	psetup "github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/clusterops"
+	psetup "github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
 
 const (

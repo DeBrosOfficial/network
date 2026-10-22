@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 type rotateSecretsRequest struct {

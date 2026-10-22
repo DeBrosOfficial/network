@@ -21,8 +21,8 @@ import (
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // fakeRPC answers CometBFT JSON-RPC calls from a table of method results.

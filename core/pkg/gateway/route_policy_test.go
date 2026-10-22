@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	serverlesshandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/serverless"
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
-	"github.com/DeBrosOfficial/network/pkg/nodeapi"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	serverlesshandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/serverless"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/nodeapi"
 )
 
 // Who may call what used to be three hand-maintained lists of path prefixes —

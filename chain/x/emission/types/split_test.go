@@ -6,7 +6,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 func TestSplitEpochMint_epoch1TotalSplitsExactly(t *testing.T) {

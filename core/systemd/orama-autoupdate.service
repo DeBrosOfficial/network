@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama auto-update: look for a newer release on the cluster's channel and act on it
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 After=network-online.target orama-node.service
 Wants=network-online.target
 

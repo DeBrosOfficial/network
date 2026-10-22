@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // The gateway links github.com/mattn/go-sqlite3 for namespace SQLite

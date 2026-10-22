@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
-	"github.com/DeBrosOfficial/network/pkg/push/credentials"
+	"github.com/Orama-Network/orama/core/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/push/credentials"
 )
 
 // TopicMode selects how device tokens (ntfy topics) are generated.

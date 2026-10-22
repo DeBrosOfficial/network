@@ -1,6 +1,6 @@
 package namespace
 
-import "github.com/DeBrosOfficial/network/pkg/wireguard"
+import "github.com/Orama-Network/orama/core/pkg/wireguard"
 
 // getWireGuardIP returns the IPv4 address of the wg0 interface.
 // Used as a fallback when Olric BindAddr is empty or 0.0.0.0.

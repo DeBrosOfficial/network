@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // subscribeRequest is a pubsub WebSocket upgrade request for topic by a caller

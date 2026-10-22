@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx"
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx/sshxtest"
+	"github.com/Orama-Network/orama/e2e/harness/sshx"
+	"github.com/Orama-Network/orama/e2e/harness/sshx/sshxtest"
 )
 
 // echoServer answers each line with "echo: <line>".

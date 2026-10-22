@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // The command's first step was GET /v1/agent/genesis-key on the node. The

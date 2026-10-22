@@ -10,9 +10,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/traffic"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/traffic"
 )
 
 // The relay keeps no per-stream timing or volume (bugboard #266): no

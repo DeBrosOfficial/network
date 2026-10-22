@@ -5,7 +5,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 func TestNextBaseFee_unchangedAtExactlyTarget(t *testing.T) {

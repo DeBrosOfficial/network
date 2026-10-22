@@ -19,9 +19,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/archive/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/client/cli"
+	"github.com/Orama-Network/orama/chain/x/archive/keeper"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // ConsensusVersion is x/archive's initial consensus version.

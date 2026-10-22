@@ -10,11 +10,11 @@ import (
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	houseskeeper "github.com/DeBrosOfficial/network/chain/x/houses/keeper"
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	relaykeeper "github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	houseskeeper "github.com/Orama-Network/orama/chain/x/houses/keeper"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
+	relaykeeper "github.com/Orama-Network/orama/chain/x/relay/keeper"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // This file wires x/houses' enacted outcomes to the modules that act on them

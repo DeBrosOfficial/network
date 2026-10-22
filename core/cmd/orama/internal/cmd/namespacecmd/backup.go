@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
 	"github.com/spf13/cobra"
 )
 

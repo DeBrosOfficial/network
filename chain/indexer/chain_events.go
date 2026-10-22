@@ -7,8 +7,8 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 // msgIndexKey is the attribute the SDK appends to every event a message emitted: the message's

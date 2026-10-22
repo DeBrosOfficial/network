@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
 )
 
 const (

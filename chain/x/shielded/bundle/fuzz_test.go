@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // compactSize is the canonical Bitcoin CompactSize encoding, the inverse of ReadCompactSize.

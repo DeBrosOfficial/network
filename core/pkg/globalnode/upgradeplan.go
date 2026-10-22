@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 // currentPlanPath is x/upgrade's query for the plan the chain has scheduled.

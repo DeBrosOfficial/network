@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // The tests run this test binary as the "verifier": with fakeModeFileEnv set, TestMain speaks the

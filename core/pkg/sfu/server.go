@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )

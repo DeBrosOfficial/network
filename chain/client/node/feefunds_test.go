@@ -19,8 +19,8 @@ import (
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // pathRPC answers abci_query by the query path it asks for.

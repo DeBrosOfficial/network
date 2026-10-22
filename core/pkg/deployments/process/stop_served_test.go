@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 	"go.uber.org/zap"
 )
 

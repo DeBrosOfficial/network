@@ -8,9 +8,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/overlay"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/overlay"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // An OramaOS node's mesh row carries the placeholder id its enrolment gave it,

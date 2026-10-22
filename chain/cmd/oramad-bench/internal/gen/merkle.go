@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 // proofSet computes, in one pass over the leaves, the full sibling path of every leaf of a cNFT

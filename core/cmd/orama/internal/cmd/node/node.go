@@ -1,8 +1,8 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/push"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/push"
 	"github.com/spf13/cobra"
 )
 

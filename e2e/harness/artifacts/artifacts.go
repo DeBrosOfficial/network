@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // DirName is the artifacts directory under the run's artifact dir.

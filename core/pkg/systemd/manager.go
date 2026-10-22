@@ -3,8 +3,8 @@ package systemd
 import (
 	"errors"
 	"fmt"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 	"io/fs"
 	"os"
 	"os/exec"

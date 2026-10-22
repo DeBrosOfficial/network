@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/chainonion"
+	"github.com/Orama-Network/orama/core/pkg/chainonion"
 )
 
 const testOnion = "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrstuvwx.onion"

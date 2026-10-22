@@ -3,7 +3,7 @@ package rqlite
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/discovery"
+	"github.com/Orama-Network/orama/core/pkg/discovery"
 )
 
 func TestShouldReplaceHost(t *testing.T) {

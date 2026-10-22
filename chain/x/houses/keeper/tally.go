@@ -7,7 +7,7 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 func (k Keeper) tallyToken(ctx context.Context, proposalID uint64) (yes, no, abstain math.Int, err error) {

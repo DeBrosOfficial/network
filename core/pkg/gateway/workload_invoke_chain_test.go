@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	serverlesshandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/serverless"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	serverlesshandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
 

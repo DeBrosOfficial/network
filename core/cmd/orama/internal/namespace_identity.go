@@ -8,7 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"gopkg.in/yaml.v3"
 
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // localNodePeerID is the libp2p peer id of the node this command runs on, from

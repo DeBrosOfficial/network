@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // socksRequest is what the fake SOCKS5 server saw for one CONNECT.

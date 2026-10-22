@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	webrtchandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/webrtc"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	webrtchandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/webrtc"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 const testStealthHost = "cdn-24c2fc1cfeab.stagenet.example.net"

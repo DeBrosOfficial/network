@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // minEligibleOperators is the operator-house size a tier needs (docs/whitepaper/technical-reference/vol2/44-governance-and-contracts.md

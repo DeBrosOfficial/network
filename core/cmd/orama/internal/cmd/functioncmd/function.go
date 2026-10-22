@@ -1,7 +1,7 @@
 package functioncmd
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/functions"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/functions"
 	"github.com/spf13/cobra"
 )
 

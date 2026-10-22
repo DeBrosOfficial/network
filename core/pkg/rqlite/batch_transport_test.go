@@ -8,7 +8,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	_ "github.com/rqlite/gorqlite/stdlib"
 )
 

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/rqlite/rqlitetest"
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite/rqlitetest"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 // clockedDB lets a test move the gateway's clock while the admission is being

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // separatorDot joins the parts of a status line.

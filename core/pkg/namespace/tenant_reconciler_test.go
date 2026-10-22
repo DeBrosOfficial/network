@@ -4,10 +4,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/olric"
 )
 
 func TestTenantReconcileCoordinator_isDeterministicAndSingular(t *testing.T) {

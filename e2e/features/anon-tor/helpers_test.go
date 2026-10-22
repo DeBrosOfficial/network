@@ -14,8 +14,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // Routes and limits (docs/whitepaper/technical-reference/appendices/i-api-surface.md#network-and-proxy;

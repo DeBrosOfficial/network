@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // A grant may be narrowed to a path prefix — `storage:avatars/*` — and this is

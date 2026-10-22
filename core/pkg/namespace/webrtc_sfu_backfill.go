@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu"
+	"github.com/Orama-Network/orama/core/pkg/sfu"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 func checkVerify(e *testutil.Env, raw []byte) error {

@@ -9,12 +9,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
-	"github.com/DeBrosOfficial/network/pkg/olric"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/sfu"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/sfu"
 	"go.uber.org/zap"
 )
 

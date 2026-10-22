@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/DeBrosOfficial/network/chain/x/internal/pagebound"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/internal/pagebound"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 var _ types.QueryServer = queryServer{}

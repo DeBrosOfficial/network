@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 func seatInstall(user string, services ...install.GlobalService) InitChainInput {

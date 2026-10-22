@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 // Sources of the universe, relative to the repository root.

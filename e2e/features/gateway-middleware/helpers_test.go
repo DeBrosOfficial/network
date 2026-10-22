@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // securityHeaders is what the security-headers middleware sets on every

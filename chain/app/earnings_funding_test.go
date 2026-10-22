@@ -14,14 +14,14 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/piece"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	storagekeeper "github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	tokenkeeper "github.com/DeBrosOfficial/network/chain/x/token/keeper"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/piece"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	storagekeeper "github.com/Orama-Network/orama/chain/x/storage/keeper"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
+	tokenkeeper "github.com/Orama-Network/orama/chain/x/token/keeper"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // earningsOnlyChain is a committed app whose account holds earnings and no bank balance, the

@@ -21,11 +21,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/push"
-	"github.com/DeBrosOfficial/network/pkg/push/credentials"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/push/credentials"
 )
 
 // Handlers serves the /v1/push/* HTTP endpoints. Construct via NewHandlers;

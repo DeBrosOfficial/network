@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	ns "github.com/DeBrosOfficial/network/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	ns "github.com/Orama-Network/orama/core/pkg/namespace"
 	"go.uber.org/zap"
 )
 

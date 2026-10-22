@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // Epoch is an emission epoch as the reporter needs it.

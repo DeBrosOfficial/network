@@ -28,7 +28,7 @@ package good
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 func TestMain(m *testing.M) { harness.Main(m) }
@@ -41,7 +41,7 @@ package good
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 func TestHealth_ok(t *testing.T) {

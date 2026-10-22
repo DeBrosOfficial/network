@@ -11,7 +11,7 @@ import (
 	"github.com/mackerelio/go-osstat/memory"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 func logPeerStatus(n *Node, currentPeerCount int, lastPeerCount int, firstCheck bool) (int, bool) {

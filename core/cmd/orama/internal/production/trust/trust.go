@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // maxRootBytes bounds the root file read from disk; a root is a few kilobytes.

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/DeBrosOfficial/network/migrations"
+	"github.com/Orama-Network/orama/core/migrations"
 	"go.uber.org/zap"
 )
 

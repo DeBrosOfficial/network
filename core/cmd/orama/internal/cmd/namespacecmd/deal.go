@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/storagecmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/storagecmd"
 	"github.com/spf13/cobra"
 )
 

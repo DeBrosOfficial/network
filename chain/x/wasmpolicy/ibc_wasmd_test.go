@@ -12,8 +12,8 @@ import (
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func TestWasmdContractPacketCannotOpenChannel(t *testing.T) {

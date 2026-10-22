@@ -4,7 +4,7 @@ import (
 	"io"
 	"testing"
 
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 func TestUseClusterACMECA_adoptsTheJoinResponseWhenUnset(t *testing.T) {

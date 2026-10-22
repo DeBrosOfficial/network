@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/tlsstatus"
 )
 
 const issuanceDomain = "cluster.example.org"

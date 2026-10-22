@@ -17,8 +17,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // ConsensusVersion is wasmpolicy's initial consensus version.

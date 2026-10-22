@@ -11,7 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 type fakeAdmitter struct {

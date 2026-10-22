@@ -1,7 +1,7 @@
 package dbcmd
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/db"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/db"
 	"github.com/spf13/cobra"
 )
 

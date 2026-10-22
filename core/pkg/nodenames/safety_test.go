@@ -17,7 +17,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protowire"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 func insertRow(t *testing.T, db *sql.DB, fqdn, typ, value, namespace string) {

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // savedReport is <home>/report-<epoch>.json: the entries chosen for an epoch,

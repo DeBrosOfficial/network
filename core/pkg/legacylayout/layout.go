@@ -30,7 +30,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // Where the old layout kept things, relative to the orama directory.

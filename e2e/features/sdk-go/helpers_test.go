@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // Budgets for one SDK call against the fleet.

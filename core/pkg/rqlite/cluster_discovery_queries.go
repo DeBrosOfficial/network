@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/discovery"
+	"github.com/Orama-Network/orama/core/pkg/discovery"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"go.uber.org/zap"
 )

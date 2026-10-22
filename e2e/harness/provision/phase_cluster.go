@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 const (

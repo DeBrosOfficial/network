@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
 )
 
 func TestOpen_offersTheRateForTheDuration(t *testing.T) {

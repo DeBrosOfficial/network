@@ -13,7 +13,7 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func TestStandardContracts_areStoredAtGenesisAndInThePolicyCodeSet(t *testing.T) {

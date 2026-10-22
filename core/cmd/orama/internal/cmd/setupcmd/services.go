@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	psetup "github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup/wizard"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	psetup "github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup/wizard"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // runWizard asks the questions on the terminal, runs the setup with live

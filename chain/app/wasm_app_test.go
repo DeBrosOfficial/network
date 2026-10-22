@@ -14,8 +14,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func TestWasmPolicyInDefaultGenesis(t *testing.T) {

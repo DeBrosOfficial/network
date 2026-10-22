@@ -18,7 +18,7 @@ import (
 
 	goproxy "golang.org/x/net/proxy"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // runningProbeTimeout bounds the TCP probe Running makes against the SOCKS

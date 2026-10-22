@@ -1,8 +1,8 @@
 package gateway
 
 import (
-	"github.com/DeBrosOfficial/network/pkg/gateway/wssession"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // startWSSessionSweeper closes the WebSockets whose token expired or was

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 	"go.uber.org/zap"
 )
 

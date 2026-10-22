@@ -4,11 +4,13 @@ This takes you from nothing to a deployed site and a working database call. It a
 
 ## 1. Install the tools
 
+The CLI is a release download: take `orama_<version>_linux_<arch>.tar.gz` (or the `.deb`) from the
+[releases page](https://git.icxcnika.io/ICXCNIKA/orama/releases) and put `orama` on your `PATH`.
+
 ```bash
-brew install Orama-Network/tap/orama      # the CLI
 orama version
-npm config set @orama-network:registry https://npm.pkg.github.com
-npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm config set @orama-network:registry https://git.icxcnika.io/api/packages/ICXCNIKA/npm/
+npm config set //git.icxcnika.io/api/packages/ICXCNIKA/npm/:_authToken <token with package read>
 npm install @orama-network/orama             # the SDK, in your app
 ```
 

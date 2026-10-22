@@ -13,9 +13,9 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // shieldedBundle is a bundle of n actions whose commitments, nullifiers and ciphertexts are

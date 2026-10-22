@@ -35,12 +35,12 @@ import (
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // testChainID is the chain ID used across this file's InitChain calls; baseapp.SetChainID must

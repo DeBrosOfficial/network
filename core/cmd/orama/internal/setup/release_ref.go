@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // ReleaseRef is the newest release of a network's channel as its verified

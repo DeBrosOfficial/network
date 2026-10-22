@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 )
 
 // envReadingServices are the services whose units are run today and read an

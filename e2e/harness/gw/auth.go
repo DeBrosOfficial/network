@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 // Auth routes (docs/whitepaper/technical-reference/appendices/i-api-surface.md, "Authentication").

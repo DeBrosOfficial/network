@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 // termConsistency judges the raft terms the nodes report, keyed by term. A

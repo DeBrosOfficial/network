@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // ACME DNS-01 endpoints (docs/whitepaper/technical-reference/appendices/i-api-surface.md "Internal"; core/pkg/gateway/acme_auth.go).

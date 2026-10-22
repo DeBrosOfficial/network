@@ -13,8 +13,8 @@ import (
 	"github.com/cometbft/cometbft/store"
 	"github.com/cometbft/cometbft/types"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-state/internal/stategen"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-state/internal/stategen"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 const (

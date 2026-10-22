@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

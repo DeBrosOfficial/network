@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 func TestStealthToggleOutcome(t *testing.T) {

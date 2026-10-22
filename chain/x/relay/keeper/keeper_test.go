@@ -27,10 +27,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	chainparams "github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	chainparams "github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/relay/keeper"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 func init() {

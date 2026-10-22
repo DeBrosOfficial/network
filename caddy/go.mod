@@ -1,4 +1,4 @@
-module github.com/DeBrosOfficial/caddy-orama
+module github.com/Orama-Network/orama/caddy
 
 go 1.27.2
 

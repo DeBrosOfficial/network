@@ -7,7 +7,7 @@ import (
 	context "context"
 	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
-	types "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	types "github.com/Orama-Network/orama/chain/x/cnft/types"
 	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
 	_ "github.com/cosmos/gogoproto/gogoproto"

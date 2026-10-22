@@ -5,10 +5,10 @@ package monitoring
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/monitor"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/monitor"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // reservedAddr is an address no node has (TEST-NET-3, RFC 5737).

@@ -16,15 +16,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/lifecycle"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/globalbind"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
-	"github.com/DeBrosOfficial/network/pkg/statesync"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/lifecycle"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/tlsstatus"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/globalbind"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/statesync"
 )
 
 const (

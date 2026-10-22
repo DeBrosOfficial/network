@@ -21,10 +21,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/power/ante"
-	"github.com/DeBrosOfficial/network/chain/x/power/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/power/ante"
+	"github.com/Orama-Network/orama/chain/x/power/keeper"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 func TestMain(m *testing.M) {

@@ -3,7 +3,7 @@ package reporter
 import (
 	"fmt"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // DefaultChunkEntries is how many relays one MsgReportEpoch carries. A

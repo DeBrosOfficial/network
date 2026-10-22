@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama Namespace IPFS Cluster (%i)
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 # Requires is deliberate here, unlike gateway→rqlite. ipfs-cluster is a
 # controller for exactly this node's IPFS daemon: without it there is nothing to
 # pin to, no API to answer on, and no useful degraded mode to sit in. Stopping

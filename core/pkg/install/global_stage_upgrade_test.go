@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/planinfo"
+	"github.com/Orama-Network/orama/core/pkg/planinfo"
 )
 
 func TestStageChainUpgrade_refusesBinariesThePlanDoesNotName(t *testing.T) {

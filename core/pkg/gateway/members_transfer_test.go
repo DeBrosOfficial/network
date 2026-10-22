@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/operator"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/operator"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 func decodeBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {

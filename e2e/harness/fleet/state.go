@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/config"
 )
 
 // Node roles, matching the roles the orama CLI installs.

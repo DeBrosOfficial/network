@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 )
 
 // A: two same-name static creates with identical content share one index row.

@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/olric"
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
-	"github.com/DeBrosOfficial/network/pkg/serverless/aggregator"
+	"github.com/Orama-Network/orama/core/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless/aggregator"
 	olriclib "github.com/olric-data/olric"
 	"go.uber.org/zap"
 )

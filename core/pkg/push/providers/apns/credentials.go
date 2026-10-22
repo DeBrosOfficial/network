@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/push/credentials"
+	"github.com/Orama-Network/orama/core/pkg/push/credentials"
 )
 
 // Environment selects which APNs endpoint the provider talks to:

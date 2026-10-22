@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // StageRemaining is what is left of the package's stage budget. The runner

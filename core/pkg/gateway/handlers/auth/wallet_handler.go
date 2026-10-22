@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // WhoamiHandler answers "who am I here, and what may I do".

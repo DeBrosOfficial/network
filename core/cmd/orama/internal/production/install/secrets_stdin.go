@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // A remote install runs `sudo orama node install ...` on the new machine over

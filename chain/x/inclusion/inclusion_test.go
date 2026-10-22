@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 func key(seed byte) ed25519.PrivateKey {

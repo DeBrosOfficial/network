@@ -3,7 +3,7 @@ package gateway
 import (
 	"net/http/httptest"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
 )
 
 // policyOf is the policy of the route a request for (method, path) matches. It

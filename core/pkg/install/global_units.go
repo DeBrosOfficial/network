@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/cosmovisor"
 )
 
 // Global unit accounts and paths. `orama global install` (InstallGlobal)

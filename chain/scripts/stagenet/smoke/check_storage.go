@@ -18,9 +18,9 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 const (

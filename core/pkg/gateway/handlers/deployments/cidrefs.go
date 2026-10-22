@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/storage"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/storage"
 	"go.uber.org/zap"
 )
 

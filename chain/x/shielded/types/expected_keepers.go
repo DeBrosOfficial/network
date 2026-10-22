@@ -7,8 +7,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
 )
 
 // BankKeeper is the subset of x/bank the module uses.

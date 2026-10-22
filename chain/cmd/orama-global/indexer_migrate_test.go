@@ -12,7 +12,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/indexer"
+	"github.com/Orama-Network/orama/chain/indexer"
 )
 
 // indexWithLayout makes the index of a home and gives it the layout version (the indexer keeps it

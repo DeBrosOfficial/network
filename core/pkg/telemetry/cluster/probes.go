@@ -3,7 +3,7 @@ package cluster
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // Every node runs the gateway, the database, the cache, storage, the vault and

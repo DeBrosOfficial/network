@@ -4,8 +4,8 @@ import (
 	"errors"
 	"os"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // ReplicaProof builds the proof x/storage checks for one challenged slot.

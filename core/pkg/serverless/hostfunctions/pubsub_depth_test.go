@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
-	"github.com/DeBrosOfficial/network/pkg/serverless/triggers"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless/triggers"
 	olriclib "github.com/olric-data/olric"
 	"go.uber.org/zap"
 )

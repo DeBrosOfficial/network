@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math/big"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/chaincmd"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/chaincmd"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // sshFaucet funds an account through `orama chain faucet`'s plumbing: the drip is

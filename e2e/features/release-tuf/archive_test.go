@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tuf"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/tuf"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // archiveTarget is the name the archive has in the release targets.

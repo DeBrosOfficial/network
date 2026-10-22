@@ -3,9 +3,9 @@ package gateway
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 	"go.uber.org/zap"
 )
 

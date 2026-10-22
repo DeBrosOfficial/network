@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/gateway"
-	namespacehandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/namespace"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/gateway"
+	namespacehandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/namespace"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
 	"go.uber.org/zap"
 )
 

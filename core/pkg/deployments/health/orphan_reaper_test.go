@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments/process"
+	"github.com/Orama-Network/orama/core/pkg/deployments/process"
 	"go.uber.org/zap"
 )
 

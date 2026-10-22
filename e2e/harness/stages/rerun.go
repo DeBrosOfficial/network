@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
 )
 
 // RerunDir holds the targeted re-runs, apart from the runs the verdict uses.

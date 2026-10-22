@@ -17,8 +17,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/keeper"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // testRangeBlocks is the range width the tests' genesis sets: the ranges the tests attest are

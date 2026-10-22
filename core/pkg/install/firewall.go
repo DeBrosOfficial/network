@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/hardening"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 // ufwCommand builds an exec.Command for ufw run as root. At install time the

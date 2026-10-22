@@ -6,7 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
 )
 
 // Domains keep the identifiers of different kinds apart: the same index never yields the same bytes

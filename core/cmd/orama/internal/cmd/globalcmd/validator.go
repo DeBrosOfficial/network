@@ -5,8 +5,8 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/globalnode"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/globalnode"
 	"github.com/spf13/cobra"
 )
 

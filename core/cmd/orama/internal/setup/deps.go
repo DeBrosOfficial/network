@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
-	"github.com/DeBrosOfficial/network/pkg/statesync"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/statesync"
 )
 
 // NewDeps wires the real ports: SSH to the machines, the network registry, the

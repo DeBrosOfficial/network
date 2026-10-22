@@ -3,8 +3,8 @@ package app_test
 import (
 	"testing"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // x/houses validates a proposed split at submission and x/emission re-validates it at every

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 )

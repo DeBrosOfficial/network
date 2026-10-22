@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/noderesolver"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
 	"github.com/spf13/cobra"
 )
 

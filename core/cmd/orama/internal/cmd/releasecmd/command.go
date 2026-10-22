@@ -1,7 +1,7 @@
 // Package releasecmd is `orama maint release`: the maintainer's tool for
-// cutting a release into the DeBros release repository. It signs TUF metadata
+// cutting a release into the Orama release repository. It signs TUF metadata
 // with the maintainer's RootWallet (one human approval per signature) and
-// publishes it: archives to GitHub release assets, metadata to the release
+// publishes it: archives to Gitea release assets, metadata to the release
 // host. See website/src/docs/contributor/deployment.mdx.
 package releasecmd
 
@@ -14,9 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/releasepub"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/releasepub"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // defaultRepoSubdir is the working copy of the release repository, below the
@@ -43,7 +43,7 @@ func newCommand(d deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "release",
 		Short: "Cut and publish a signed release (maintainers)",
-		Long: `Cut a release into the DeBros release repository and publish it.
+		Long: `Cut a release into the Orama release repository and publish it.
 
 The metadata is TUF, signed with the one release key in your RootWallet. Every
 signature is approved by you in the RootWallet desktop app; the command says
@@ -54,7 +54,7 @@ root for all four roles, so the same wallet signs everything.
   renew-root         the next version of the root, same keys, a new expiry
   cut                list an archive on a channel and sign it (3 approvals)
   refresh-timestamp  re-sign only the timestamp (1 approval)
-  publish            upload the archives to GitHub and the metadata to the release host
+  publish            upload the archives to Gitea and the metadata to the release host
 
 A channel is nightly, main, or dev/<branch>. cut writes only to the repository
 directory (--dir); publish is the step that touches the network, so cut

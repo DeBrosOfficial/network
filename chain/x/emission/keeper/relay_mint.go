@@ -8,7 +8,7 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // RelayCeiling is the relay share recorded for a closed epoch.

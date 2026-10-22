@@ -5,7 +5,7 @@ package networkroutes
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
 )
 
 // TestNetworkRoutes_asOperator runs every test that needs an operator

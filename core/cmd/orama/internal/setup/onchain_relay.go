@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/globalbind"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/globalbind"
 )
 
 // relayIdentityOf is the identity of the node's Tor relay that the node signed for this registration,

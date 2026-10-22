@@ -8,7 +8,7 @@
 // broadcasting transactions with the validator's own keyring, reading
 // module queries, and the invariant check every step ends with.
 //
-// Route (why nothing here imports github.com/DeBrosOfficial/network/chain):
+// Route (why nothing here imports github.com/Orama-Network/orama/chain):
 // the only funded accounts of a run chain are the three validator operator
 // keys, and they live in each node's keyring (e2e/scripts/chain-deploy.sh:
 // `keys add validator --keyring-backend test` under the chain home). A
@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // Layout of a co-hosted validator (e2e/scripts/chain-deploy.sh, docs/whitepaper/technical-reference/vol2/39-chain-architecture.md

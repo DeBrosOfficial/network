@@ -3,7 +3,7 @@ package checks
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 func TestCheckSystem_HealthyNode(t *testing.T) {
@@ -154,7 +154,7 @@ func TestCheckSystem_NameserverServicesNotCheckedOnRegularNode(t *testing.T) {
 	}
 }
 
-func TestCheckSystem_FailedUnits_Debros(t *testing.T) {
+func TestCheckSystem_FailedUnits_Orama(t *testing.T) {
 	nd := makeNodeData("1.1.1.1", "node")
 	nd.System = &inspector.SystemData{
 		Services:    map[string]string{},

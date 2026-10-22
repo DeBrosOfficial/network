@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // The polling client switches on the `error` member and nothing else, so the

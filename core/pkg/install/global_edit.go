@@ -6,8 +6,8 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // RequirePublicKubo refuses a node that has no public Kubo, which is what

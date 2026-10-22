@@ -1,6 +1,6 @@
 package shared
 
-import "github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+import "github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 
 // FormatBytes renders a byte count for a person.
 //

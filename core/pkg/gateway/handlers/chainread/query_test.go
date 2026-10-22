@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 // abciUpstream answers abci_query with value (or a chain error) and records what it was asked.

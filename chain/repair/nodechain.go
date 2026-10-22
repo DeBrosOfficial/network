@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // NodeChain is Chain over one oramad RPC.

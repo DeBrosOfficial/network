@@ -12,22 +12,22 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	oramatx "github.com/DeBrosOfficial/network/chain/client/tx"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	oramatx "github.com/Orama-Network/orama/chain/client/tx"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // The wallet-flow suite drives what a RootWallet user does, through the same

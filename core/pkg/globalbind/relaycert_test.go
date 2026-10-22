@@ -6,7 +6,7 @@ import (
 	"crypto/sha512"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 func TestSignRelayCrossCert_verifiesAsAnEd25519SignatureOfTheCrossCertMessage(t *testing.T) {

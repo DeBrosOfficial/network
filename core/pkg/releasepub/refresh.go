@@ -9,7 +9,7 @@ import (
 
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // RefreshTimestamp re-signs only the timestamp (one approval): the next

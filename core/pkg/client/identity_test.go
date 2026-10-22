@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/encryption"
+	"github.com/Orama-Network/orama/core/pkg/encryption"
 )
 
 func TestPersistentIdentity_NoPath(t *testing.T) {

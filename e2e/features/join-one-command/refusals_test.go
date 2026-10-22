@@ -5,7 +5,7 @@ package joinonecommand
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
 )
 
 // unusedIP is a public address no server of the run has (TEST-NET-3): the

@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DeBrosOfficial/orama-os/agent/internal/types"
+	"github.com/Orama-Network/orama/os/agent/internal/types"
 )
 
 // codeBytes is the size of a registration code. It is the only thing standing

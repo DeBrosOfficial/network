@@ -3,8 +3,8 @@ package profile
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
 )
 
 // Smoke is the short profile `make bench-load` runs: every type once or twice at a rate any

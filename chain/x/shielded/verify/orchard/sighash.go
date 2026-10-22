@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
 )
 
 // VerifierID is this verifier's identity for verify.Check's distinctness rule.

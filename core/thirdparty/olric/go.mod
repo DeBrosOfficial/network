@@ -1,4 +1,4 @@
-module github.com/DeBrosOfficial/network/thirdparty/olric
+module github.com/Orama-Network/orama/core/thirdparty/olric
 
 go 1.27.2
 

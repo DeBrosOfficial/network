@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/discovery"
-	"github.com/DeBrosOfficial/network/pkg/node/lifecycle"
+	"github.com/Orama-Network/orama/core/pkg/discovery"
+	"github.com/Orama-Network/orama/core/pkg/node/lifecycle"
 	"github.com/libp2p/go-libp2p/core/host"
 	"go.uber.org/zap"
 )

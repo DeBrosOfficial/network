@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/config"
 )
 
 // The stagenet target signs through the dev agent, whose socket is in the

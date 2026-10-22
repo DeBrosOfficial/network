@@ -6,7 +6,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 func day(n int64) int64 { return n * int64(24*time.Hour/time.Second) }

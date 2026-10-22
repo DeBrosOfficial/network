@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
 )
 
 // A release the installer accepts but the Tor Project does not publish for

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/nodenames"
+	"github.com/Orama-Network/orama/core/pkg/nodenames"
 )
 
 // ChainNames claims names on the chain the operator's session is open on.

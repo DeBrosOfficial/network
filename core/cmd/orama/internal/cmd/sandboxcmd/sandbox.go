@@ -2,9 +2,9 @@ package sandboxcmd
 
 import (
 	"fmt"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/sandbox"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/sandbox"
 	"github.com/spf13/cobra"
 )
 

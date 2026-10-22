@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // The methods below are how other modules read what a passed structural

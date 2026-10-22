@@ -14,7 +14,7 @@ import (
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 	"github.com/theupdateframework/go-tuf/v2/metadata/trustedmetadata"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // topRoles are the four roles a root names, all with the one release key.

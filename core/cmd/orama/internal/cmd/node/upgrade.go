@@ -3,8 +3,8 @@ package node
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/upgrade"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/upgrade"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 	"github.com/spf13/cobra"
 )
 

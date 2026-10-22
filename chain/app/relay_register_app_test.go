@@ -19,12 +19,12 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	relaykeeper "github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	relaykeeper "github.com/Orama-Network/orama/chain/x/relay/keeper"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // relayNode is a registered x/nodes node carrying an ed25519 "relay" binding.

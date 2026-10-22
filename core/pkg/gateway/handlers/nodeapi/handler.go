@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/nodeapi"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/nodeapi"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"go.uber.org/zap"
 )

@@ -7,8 +7,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/app"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 // The refusal names the way out, and the explicit opt-in exports the same state: export is the recovery

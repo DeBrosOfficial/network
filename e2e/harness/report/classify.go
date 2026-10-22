@@ -1,6 +1,6 @@
 package report
 
-import "github.com/DeBrosOfficial/network/e2e/harness/gotest"
+import "github.com/Orama-Network/orama/e2e/harness/gotest"
 
 // Flakiness labels of a failure.
 const (

@@ -1,6 +1,6 @@
 package legacylayout
 
-import "github.com/DeBrosOfficial/network/pkg/privhelper"
+import "github.com/Orama-Network/orama/core/pkg/privhelper"
 
 // PrivHelperStager stages through orama-privhelper, which validates every name
 // again and writes with O_NOFOLLOW into trees only root can write.

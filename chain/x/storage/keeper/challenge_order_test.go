@@ -8,7 +8,7 @@ import (
 
 	"cosmossdk.io/collections"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // storageFailureReasons is the error attribute of every storage_item_failed event so far.

@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
 )
 
 // oramaDir is where a node keeps its configuration and data.

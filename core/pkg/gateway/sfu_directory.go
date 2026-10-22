@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	webrtchandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/webrtc"
+	webrtchandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/webrtc"
 )
 
 // sfuDirectoryTTL bounds how long a namespace's SFU list is reused. The list

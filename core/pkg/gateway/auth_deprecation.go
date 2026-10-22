@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // Telling a client it is using a spelling that is going away.

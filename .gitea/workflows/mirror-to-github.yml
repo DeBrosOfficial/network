@@ -1,7 +1,8 @@
 name: mirror-to-github
 
 # Gitea is the source of truth. This pushes a branch or tag that was just pushed
-# to Gitea on to the GitHub org repo, where releases are built.
+# to Gitea on to the GitHub org repo, a code-only mirror (its Actions are off;
+# releases are built here on Gitea).
 #
 # It is deliberately NOT Gitea's built-in push mirror. That runs
 # `git push --mirror`, which deletes every ref GitHub has and Gitea lacks:

@@ -13,7 +13,7 @@ import (
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 )
 
-// Asset is an archive a release uploads to GitHub.
+// Asset is an archive a release uploads to Gitea.
 type Asset struct {
 	// Name is the asset's file name; Path is where the archive is on this
 	// machine; Target is the name the targets metadata lists it under.

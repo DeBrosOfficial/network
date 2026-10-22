@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 const (

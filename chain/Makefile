@@ -1,4 +1,4 @@
-# Makefile for the Orama L1 chain module (github.com/DeBrosOfficial/network/chain).
+# Makefile for the Orama L1 chain module (github.com/Orama-Network/orama/chain).
 #
 # This module is self-contained: it never touches core/go.mod, and core/ never imports it (see
 # plans/open-network.md, "Repository and component boundaries").
@@ -102,7 +102,7 @@ orchard-lib-linux-amd64:
 VERIFIER_CRATE := x/shielded/orchardverifier-bin
 VERIFIER_NAME := orama-orchard-verifier
 # The pin linked into oramad: the sha256 file orchard-verifier-linux-amd64 writes.
-VERIFIER_PIN_LDFLAG = -X github.com/DeBrosOfficial/network/chain/app.ShieldedVerifierSHA256=$$(cat $(BUILD_DIR)/$(VERIFIER_NAME)-linux-amd64.sha256)
+VERIFIER_PIN_LDFLAG = -X github.com/Orama-Network/orama/chain/app.ShieldedVerifierSHA256=$$(cat $(BUILD_DIR)/$(VERIFIER_NAME)-linux-amd64.sha256)
 orchard-verifier:
 	cd $(VERIFIER_CRATE) && cargo build --release --locked
 	@echo "sha256 (link it into oramad: -X .../app.ShieldedVerifierSHA256=<hex>; there is no flag for it):"
@@ -267,7 +267,7 @@ proto-shielded:
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/shielded/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/shielded/types/*.go x/shielded/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/shielded/types/*.go x/shielded/types/ && rm -rf $$out
 
 ## proto-emission: regenerate x/emission's gogoproto code from proto/orama/emission/v1.
 ## Same toolchain as proto-shielded.
@@ -279,7 +279,7 @@ proto-emission:
 		-I $(GOPROTO_MOD)/cosmos-proto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-proto)/proto \
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		proto/orama/emission/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/emission/types/*.pb.go x/emission/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/emission/types/*.pb.go x/emission/types/ && rm -rf $$out
 
 ## proto-fees: regenerate x/fees's gogoproto code from proto/orama/fees/v1.
 ## Same toolchain as proto-shielded.
@@ -291,7 +291,7 @@ proto-fees:
 		-I $(GOPROTO_MOD)/cosmos-proto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-proto)/proto \
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		proto/orama/fees/v1/tx.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/fees/types/tx.pb.go x/fees/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/fees/types/tx.pb.go x/fees/types/ && rm -rf $$out
 
 ## proto-power: regenerate x/power's gogoproto code from proto/orama/power/v1.
 ## Same toolchain as proto-shielded, plus the googleapis protos its query service imports.
@@ -304,7 +304,7 @@ proto-power:
 		-I $(GOPROTO_MOD)/cosmos-proto@$(shell go list -m -f '{{.Version}}' github.com/cosmos/cosmos-proto)/proto \
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		proto/orama/power/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/power/types/*.pb.go x/power/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/power/types/*.pb.go x/power/types/ && rm -rf $$out
 
 ## proto-nodes: regenerate x/nodes's gogoproto and grpc-gateway code from proto/orama/nodes/v1.
 ## Same toolchain as proto-power, plus protoc-gen-grpc-gateway v1
@@ -319,7 +319,7 @@ proto-nodes:
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/nodes/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/nodes/types/*.go x/nodes/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/nodes/types/*.go x/nodes/types/ && rm -rf $$out
 
 ## proto-houses: regenerate x/houses's gogoproto and grpc-gateway code from proto/orama/houses/v1.
 ## Same toolchain as proto-nodes.
@@ -333,7 +333,7 @@ proto-houses:
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/houses/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/houses/types/*.go x/houses/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/houses/types/*.go x/houses/types/ && rm -rf $$out
 
 ## proto-relay: regenerate x/relay's gogoproto and grpc-gateway code from proto/orama/relay/v1.
 ## Same toolchain as proto-nodes.
@@ -347,7 +347,7 @@ proto-relay:
 		--gocosmos_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/gogoproto/types/any:$$out \
 		--grpc-gateway_out=logtostderr=true,allow_colon_final_segments=true:$$out \
 		proto/orama/relay/v1/*.proto && \
-	cp $$out/github.com/DeBrosOfficial/network/chain/x/relay/types/*.go x/relay/types/ && rm -rf $$out
+	cp $$out/github.com/Orama-Network/orama/chain/x/relay/types/*.go x/relay/types/ && rm -rf $$out
 
 # Microbenchmarks and their regression gate (website/src/docs/contributor/performance.mdx).
 #

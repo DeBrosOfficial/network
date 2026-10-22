@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // restoreTest attributes the runner's node restoration in the evidence.

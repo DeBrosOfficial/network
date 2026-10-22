@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/runctx"
+	"github.com/Orama-Network/orama/e2e/harness/runctx"
 )
 
 // errNotMet is the observation recorded when a probe says "not yet" without

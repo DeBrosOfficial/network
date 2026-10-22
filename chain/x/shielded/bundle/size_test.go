@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // The largest bundle the protocol allows is a canonical bundle of MaxActions actions, and MaxBytes

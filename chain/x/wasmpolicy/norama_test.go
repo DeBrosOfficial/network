@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func TestRefuseNoramaWrapper(t *testing.T) {

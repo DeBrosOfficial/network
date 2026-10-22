@@ -17,8 +17,8 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // codeFeeSunset opens uploads a few blocks into the test chain.

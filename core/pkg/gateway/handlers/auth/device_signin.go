@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A wallet sign-in that binds a device.

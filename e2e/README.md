@@ -24,7 +24,7 @@ evidence in the report when it fails.
 
 ```
 e2e/
-  go.mod                 own module (github.com/DeBrosOfficial/network/e2e), replaces ../core
+  go.mod                 own module (github.com/Orama-Network/orama/e2e), replaces ../core
   cmd/e2e-fleet/         the runner: run, provision, test, teardown, sweep, sweep-namespaces, report, coverage, hook, target
   harness/               what tests import (below); provision/hetzner/cloudflare/agent/sshx provision the fleet
   harness/broker/        the runner's credential broker (DNS TXT, extras, eval clusters) on a unix socket
@@ -115,7 +115,7 @@ package authsiwe
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 func TestMain(m *testing.M) { harness.Main(m) }
@@ -265,15 +265,15 @@ a test that needs another value sets it and restores the one it found.
 
 ```go
 import (
-	"github.com/DeBrosOfficial/network/e2e/harness"            // entry points
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually" // waiting
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"      // nodes
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"         // gateway HTTP/WS + auth
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"         // namespace per test
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"   // the CLI under test
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"     // keys and signatures
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"   // RunRecorded for other subprocesses
-	"github.com/DeBrosOfficial/network/e2e/harness/provision"  // EvalCluster (ExtraCluster's type)
+	"github.com/Orama-Network/orama/e2e/harness"            // entry points
+	"github.com/Orama-Network/orama/e2e/harness/eventually" // waiting
+	"github.com/Orama-Network/orama/e2e/harness/fleet"      // nodes
+	"github.com/Orama-Network/orama/e2e/harness/gw"         // gateway HTTP/WS + auth
+	"github.com/Orama-Network/orama/e2e/harness/ns"         // namespace per test
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"   // the CLI under test
+	"github.com/Orama-Network/orama/e2e/harness/wallet"     // keys and signatures
+	"github.com/Orama-Network/orama/e2e/harness/evidence"   // RunRecorded for other subprocesses
+	"github.com/Orama-Network/orama/e2e/harness/provision"  // EvalCluster (ExtraCluster's type)
 )
 ```
 
@@ -1081,6 +1081,6 @@ What the harness cannot close, and how to live with it:
 `github.com/gorilla/websocket` is pinned to the pseudo-version
 `v1.5.4-0.20250319132907-e064f32e3674` (a commit after v1.5.3, with no tag
 since) and `github.com/pion/*` to the versions `core/go.mod` uses: the e2e
-module replaces `github.com/DeBrosOfficial/network` with `../core`, so it
+module replaces `github.com/Orama-Network/orama/core` with `../core`, so it
 builds the gateway's own WebSocket and WebRTC code paths with the same
 modules the product ships.

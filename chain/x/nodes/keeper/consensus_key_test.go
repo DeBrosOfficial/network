@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 func TestOperatorOfConsensusKey_namesTheOperatorOfTheNodeThatBindsTheKey(t *testing.T) {

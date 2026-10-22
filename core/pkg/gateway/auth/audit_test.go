@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey/clientkeytest"
 )
 
 type auditDB struct {

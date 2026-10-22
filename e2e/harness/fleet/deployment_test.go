@@ -3,7 +3,7 @@ package fleet
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 func TestDeploymentRange_matchesCore(t *testing.T) {

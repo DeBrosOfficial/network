@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // LegacyCaddyStorageDir is where a node's Caddy kept its certificates before

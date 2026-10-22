@@ -10,10 +10,10 @@ import (
 
 	"cosmossdk.io/log/v2"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchardproc"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify/orchardproc"
 )
 
 // hangScript is a verifier binary that is ready at once and then never answers.

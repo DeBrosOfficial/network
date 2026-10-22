@@ -1,4 +1,4 @@
-module github.com/DeBrosOfficial/network
+module github.com/Orama-Network/orama/core
 
 go 1.27.2
 

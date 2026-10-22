@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet/tornettest"
+	"github.com/Orama-Network/orama/core/pkg/tornet/tornettest"
 )
 
 // testRoot and testGenesis stand in for release-root.json and genesis.json;

@@ -18,9 +18,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/power/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/power/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/x/power/client/cli"
+	"github.com/Orama-Network/orama/chain/x/power/keeper"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // ConsensusVersion is x/power's initial consensus version.

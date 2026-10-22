@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // Every bundle the F7 wallet builder produced, including a transfer and an unshield that spend

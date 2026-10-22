@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/lifecycle"
+	"github.com/Orama-Network/orama/core/e2e/lifecycle"
 )
 
 // One node reboots while the other two hold quorum.

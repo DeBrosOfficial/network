@@ -10,16 +10,16 @@ import (
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	houstypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	houstypes "github.com/Orama-Network/orama/chain/x/houses/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // newCodec returns a codec that knows every message type the chain's modules

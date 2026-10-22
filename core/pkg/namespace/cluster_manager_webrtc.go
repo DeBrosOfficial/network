@@ -15,11 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
-	"github.com/DeBrosOfficial/network/pkg/sfu"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/sfu"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

@@ -37,7 +37,7 @@ describe.skipIf(!hasGateway())("Network", () => {
       url: "https://httpbin.org/get",
       method: "GET",
       headers: {
-        "User-Agent": "DeBros-SDK-Test/1.0",
+        "User-Agent": "Orama-SDK-Test/1.0",
       },
     });
 

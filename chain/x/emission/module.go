@@ -15,9 +15,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/emission/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/emission/client/cli"
+	"github.com/Orama-Network/orama/chain/x/emission/keeper"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 // ConsensusVersion is x/emission's initial consensus version.

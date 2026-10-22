@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalbind"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalbind"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
 )
 
 // onchainPhase registers the operator and every full node on the chain, in order

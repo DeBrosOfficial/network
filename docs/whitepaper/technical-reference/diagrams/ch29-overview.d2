@@ -34,9 +34,9 @@ fleet: "Channel 1: fleet archive" {
 
 gh: "Channel 2: public release" {
   rel: "core/scripts/release.sh\n(git tag)"
-  wf: ".github/workflows/release.yaml\nVERSION == tag check"
+  wf: ".gitea/workflows/release.yml\nVERSION == tag check"
   gr: "GoReleaser\n.goreleaser.yaml"
-  out: "GitHub Release, deb, Homebrew,\nrelease-apt.yml, publish-sdk.yml" {
+  out: "Gitea Release: binaries, .deb,\nreproducible archive, SDK -> Gitea npm" {
     shape: cylinder
   }
   rel -> wf: "tag push"

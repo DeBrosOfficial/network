@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 )
 
 // A namespace unit's env file is written as plain KEY=value lines, and some

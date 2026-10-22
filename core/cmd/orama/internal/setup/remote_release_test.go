@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	psetup "github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
+	psetup "github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
 )
 
 const (

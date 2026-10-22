@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 // The request's cluster_id reaches the admission, and a spawn for an earlier

@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Run processes the enroll command.

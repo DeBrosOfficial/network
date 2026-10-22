@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/realistic"
-	"github.com/DeBrosOfficial/network/e2e/harness/staticfind"
-	"github.com/DeBrosOfficial/network/e2e/harness/vulnaccept"
+	"github.com/Orama-Network/orama/e2e/features/internal/realistic"
+	"github.com/Orama-Network/orama/e2e/harness/staticfind"
+	"github.com/Orama-Network/orama/e2e/harness/vulnaccept"
 )
 
 // acceptedYAML is the checked-in list of vulnerabilities the project accepts

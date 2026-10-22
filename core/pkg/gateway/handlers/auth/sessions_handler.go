@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // Seeing and ending the sessions signed in as you.

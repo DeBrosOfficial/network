@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/legacylayout"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/legacylayout"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // devNull is what a masked unit's symlink points at.

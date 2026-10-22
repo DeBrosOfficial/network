@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // The explorer's reads of the chain indexer (/v1/chain/index/) draw on the general per-client bucket

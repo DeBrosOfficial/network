@@ -1,8 +1,8 @@
 package cluster
 
 import (
-	"github.com/DeBrosOfficial/network/pkg/telemetry/globalhealth"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/globalhealth"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func checkGlobalHealth(reports []*report.NodeReport) []Alert {

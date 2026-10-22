@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
 )
 
 // rateLimitClient returns the address to hold responsible for a request, and whether it is internal

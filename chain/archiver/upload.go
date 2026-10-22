@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 const (

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/gateway"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 	"go.uber.org/zap"
 )
 

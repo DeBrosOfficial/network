@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 func TestRestoreHandler_refuses_up_front_when_rqlite_cannot_batch(t *testing.T) {

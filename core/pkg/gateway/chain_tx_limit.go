@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // A wallet with no node of its own simulates and broadcasts through POST /v1/chain/simulate and

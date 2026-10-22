@@ -13,8 +13,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // Every route whose handler asks the operator list stays on the index gateway

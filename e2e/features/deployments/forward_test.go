@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // TestDeployForward_updateThroughANodeWithoutTheApp: an update sent to a

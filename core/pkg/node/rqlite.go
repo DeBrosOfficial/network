@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	database "github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	database "github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // newRQLiteManager builds the manager. It performs no I/O, so it belongs with

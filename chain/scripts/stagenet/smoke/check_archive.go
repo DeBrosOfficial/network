@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 // errPeerCredsLinuxOnly is why identifyCaller refuses on every other system.

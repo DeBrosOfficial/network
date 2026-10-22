@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"strings"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
-	"github.com/DeBrosOfficial/network/pkg/tlsstore"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/tlsstore"
 )
 
 // internalAuthHeaders are the request headers a gateway uses to tell another

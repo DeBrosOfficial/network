@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // namespaceRQLiteDataSubdir is where a tenant namespace keeps its rqlite data

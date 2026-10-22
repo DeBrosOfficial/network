@@ -8,8 +8,8 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // The consensus parameters live in the genesis document's top-level consensus field, not in

@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/chain/netclass"
+	"github.com/Orama-Network/orama/chain/netclass"
 )
 
 const (

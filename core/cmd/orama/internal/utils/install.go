@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 	"strings"
 )
 

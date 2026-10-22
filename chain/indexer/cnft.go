@@ -11,9 +11,9 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 const queryTree = "/orama.cnft.v1.Query/Tree"

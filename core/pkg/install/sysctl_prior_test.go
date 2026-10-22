@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
 )
 
 // fakeFiles is a readFile over a map; a missing path is fs.ErrNotExist.

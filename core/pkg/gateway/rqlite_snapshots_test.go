@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
 )
 
 // followerRQLite answers POST /db/load with a redirect to the leader, and

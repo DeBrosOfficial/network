@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/pace"
+	"github.com/Orama-Network/orama/e2e/harness/pace"
 )
 
 // fakeDeviceCLI prints what core's deviceLogin prints, polls once, then

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/config"
 )
 
 // -auth is installed by the systemd spawner from the auth file copy, not

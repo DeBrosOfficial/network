@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/hub"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/hub"
 )
 
 // internalTelemetryHandler serves this node's latest report to a peer's

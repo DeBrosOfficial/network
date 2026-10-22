@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/shamir"
+	"github.com/Orama-Network/orama/core/pkg/shamir"
 )
 
 func TestThresholdsForGuardianCount(t *testing.T) {

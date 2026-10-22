@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/config"
 )
 
 // ParseConfig strictly decodes the TURN YAML written by the namespace spawner

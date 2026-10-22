@@ -3,7 +3,7 @@ package sfu
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 	"go.uber.org/zap"
 )
 

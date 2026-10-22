@@ -19,8 +19,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/client/node"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/client/node"
 )
 
 // fakeChain is a node that serves a fixed list of blocks and answers

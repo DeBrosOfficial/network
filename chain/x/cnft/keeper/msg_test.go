@@ -10,8 +10,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/x/cnft/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/cnft/keeper"
+	"github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 func TestCreateTree_locksDeposit(t *testing.T) {

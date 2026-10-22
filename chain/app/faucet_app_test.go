@@ -15,9 +15,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissionkeeper "github.com/DeBrosOfficial/network/chain/x/emission/keeper"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissionkeeper "github.com/Orama-Network/orama/chain/x/emission/keeper"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 const faucetAppProductionChainID = "orama-1"

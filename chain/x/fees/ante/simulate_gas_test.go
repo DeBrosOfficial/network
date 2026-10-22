@@ -16,10 +16,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	feesante "github.com/DeBrosOfficial/network/chain/x/fees/ante"
-	"github.com/DeBrosOfficial/network/chain/x/fees/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	feesante "github.com/Orama-Network/orama/chain/x/fees/ante"
+	"github.com/Orama-Network/orama/chain/x/fees/keeper"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // simulatedGasLimit is what a `--gas auto` client declares while it simulates: the gas is what the

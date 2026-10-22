@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/provider"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/provider"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 func TestProviderAcceptAndProofRoundTrip(t *testing.T) {

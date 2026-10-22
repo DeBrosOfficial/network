@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/provision"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/provision"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // ttlMargin covers what the stage plan does not bound: provisioning, the

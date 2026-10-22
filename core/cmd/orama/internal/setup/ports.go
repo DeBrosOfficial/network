@@ -5,12 +5,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
-	"github.com/DeBrosOfficial/network/pkg/statesync"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/tlsstatus"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/statesync"
 )
 
 // Everything run.go does to the world goes through these ports. The real ones

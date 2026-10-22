@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/provision"
-	"github.com/DeBrosOfficial/network/e2e/harness/runctx"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/provision"
+	"github.com/Orama-Network/orama/e2e/harness/runctx"
 )
 
 // extraBudget bounds creating or removing one extra server.

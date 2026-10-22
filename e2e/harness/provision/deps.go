@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/agent"
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx"
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/e2e/harness/agent"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/sshx"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 	"golang.org/x/crypto/ssh"
 )
 

@@ -13,7 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // docCase is one chain command and the message it must build.

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // Which port a deployment may bind.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 // SignIn runs the whole wallet sign-in: challenge, a real EIP-191 signature over

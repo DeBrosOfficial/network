@@ -7,7 +7,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/nodeedit"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/nodeedit"
 )
 
 // Flag names that say whether a setting was given at all.

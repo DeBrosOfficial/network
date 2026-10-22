@@ -7,7 +7,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
 )
 
 const (

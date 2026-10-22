@@ -3,7 +3,7 @@ package serverless
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A workload's admin answer is its grant now, like its invoke answer: a token

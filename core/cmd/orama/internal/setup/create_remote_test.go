@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 func TestSSHMachine_initChainPutsAPlaceholderAndRemovesIt(t *testing.T) {

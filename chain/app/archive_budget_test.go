@@ -7,10 +7,10 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/archiver"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/archiver"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // archiveCostPerEpoch simulates ranges being archived one after another for years epochs, at the

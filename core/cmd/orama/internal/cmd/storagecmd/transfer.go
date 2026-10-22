@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/storageclient"
-	"github.com/DeBrosOfficial/network/pkg/storagefile"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/storageclient"
+	"github.com/Orama-Network/orama/core/pkg/storagefile"
 	"github.com/spf13/cobra"
 )
 

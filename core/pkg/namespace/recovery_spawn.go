@@ -3,9 +3,9 @@ package namespace
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
-	"github.com/DeBrosOfficial/network/pkg/olric"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
+	"github.com/Orama-Network/orama/core/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // The spawns of node replacement and cluster repair onto the node chosen for

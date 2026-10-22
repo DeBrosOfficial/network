@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments/process"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/deployments/process"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // workloadIdentities is what the minter needs of the auth service.

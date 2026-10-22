@@ -6,7 +6,7 @@ import (
 	"cosmossdk.io/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmbindings"
+	"github.com/Orama-Network/orama/chain/x/wasmbindings"
 )
 
 func TestShieldedBindingReturnsNotLinked(t *testing.T) {

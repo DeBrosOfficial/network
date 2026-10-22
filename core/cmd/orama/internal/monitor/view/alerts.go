@@ -3,7 +3,7 @@ package view
 import (
 	"sort"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // SeverityFilter narrows an alert list. The empty filter shows everything.

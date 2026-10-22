@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 func typeURLOf(t *testing.T, signed []byte) string { return decodeSignDoc(t, signed).typeURL }

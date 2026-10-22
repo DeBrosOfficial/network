@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/upgrade"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/upgrade"
 	"github.com/spf13/cobra"
 )
 

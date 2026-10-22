@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 var threeOps = []string{"op1", "op2", "op3"}

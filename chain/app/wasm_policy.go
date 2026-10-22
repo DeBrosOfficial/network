@@ -5,10 +5,10 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	wasmpolicy "github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/ante"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	wasmpolicy "github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/ante"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func (app *OramaApp) mountWasmPolicy(keys map[string]*storetypes.KVStoreKey) {

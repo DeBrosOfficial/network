@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // EvalCluster is a single-node eval cluster beside the run (website/src/docs/operator/getting-started.mdx).

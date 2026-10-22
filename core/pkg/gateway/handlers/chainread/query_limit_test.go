@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 // cosmos-sdk's query.Paginate turns count_total on whenever the limit is 0 or the pagination

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 func healthy() Health { return Health{Voters: 3, HealthyVoters: 2} }

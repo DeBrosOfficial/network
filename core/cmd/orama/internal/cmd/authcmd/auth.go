@@ -1,7 +1,7 @@
 package authcmd
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
 	"github.com/spf13/cobra"
 )
 

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/apphash"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/apphash"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
 )
 
 var t0 = time.Unix(1_700_000_000, 0)

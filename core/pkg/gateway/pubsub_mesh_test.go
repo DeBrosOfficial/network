@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 )

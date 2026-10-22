@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 	olriclib "github.com/olric-data/olric"
 	"github.com/olric-data/olric/config"
 	"go.uber.org/zap"

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // Op is one unit of simulated work: worker is the goroutine, i counts its calls.

@@ -10,7 +10,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/config"
 )
 
 func TestExtractIPFromMultiaddr(t *testing.T) {

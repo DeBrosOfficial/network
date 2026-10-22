@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
 )
 
 // signIn is the whole of what a wallet signature buys, and both endpoints that

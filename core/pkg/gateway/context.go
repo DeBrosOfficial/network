@@ -3,8 +3,8 @@ package gateway
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // Context keys for request-scoped values

@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-state/internal/stategen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-state/internal/stategen"
 )
 
 // snapshotLine is what `oramad snapshots export` prints.

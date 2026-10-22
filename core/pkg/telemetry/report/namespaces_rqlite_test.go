@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 var testCreds = rqlite.Endpoint{Host: "10.0.0.1", Port: 10100, Username: "orama", Password: "0123456789abcdef"}

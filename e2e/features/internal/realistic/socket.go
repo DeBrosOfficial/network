@@ -12,7 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // pathPubsubWS is the subscription socket (docs/whitepaper/technical-reference/appendices/i-api-surface.md "Pub/sub").

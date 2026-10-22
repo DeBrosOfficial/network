@@ -3,8 +3,8 @@ package clusterops
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 // RetireStep is one statement of the retirement, with what it is for.

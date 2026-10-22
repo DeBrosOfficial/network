@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/gateway/wssession"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )

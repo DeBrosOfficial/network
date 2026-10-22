@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ratelimit"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ratelimit"
 )
 
 // closedPoll bounds how long a closed-loop sender waits for a completion before it looks again, in

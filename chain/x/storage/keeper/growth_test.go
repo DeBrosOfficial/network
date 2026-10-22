@@ -7,7 +7,7 @@ import (
 
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // emptyBlockGasAfterFinishedDeals creates n PRIVATE deals that no node can hold (so each is refunded and

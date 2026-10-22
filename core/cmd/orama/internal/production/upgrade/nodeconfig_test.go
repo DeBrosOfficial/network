@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 func TestOlricSeeds_usesBootstrapPeersAndWireGuard(t *testing.T) {

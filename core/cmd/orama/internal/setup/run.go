@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // Deps are the ports a run uses. Funder and Domain may be nil: without a faucet

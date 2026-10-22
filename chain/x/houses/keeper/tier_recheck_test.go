@@ -7,7 +7,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // The structural tier (>= min_house_size eligible operators, 7 /16s, 5 ASNs) is checked only

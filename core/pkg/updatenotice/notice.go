@@ -12,8 +12,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 // Path is the notice file, beside the other release state in /etc/orama.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/nodenames"
+	"github.com/Orama-Network/orama/core/pkg/nodenames"
 )
 
 // A node with no dns.node_names_zone publishes no names: there is no sync, so a cluster that does

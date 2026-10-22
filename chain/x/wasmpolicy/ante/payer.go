@@ -6,8 +6,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // DepositPayerDecorator records the transaction's first signer as the account that pays contract

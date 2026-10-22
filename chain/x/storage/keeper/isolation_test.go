@@ -14,8 +14,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/keeper"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 const probationDepositKeyPrefix = "storage/probation/"

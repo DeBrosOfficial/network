@@ -14,8 +14,8 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	policykeeper "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	policykeeper "github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
 )
 
 // depositEngine wraps wasmd's VM engine so every contract call that changes stored bytes settles a

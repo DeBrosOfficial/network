@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
 )
 
 // The CLI reference is whitepaper appendix D, rendered from the cobra tree by

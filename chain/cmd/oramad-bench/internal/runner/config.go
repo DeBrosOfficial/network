@@ -6,10 +6,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/broadcast"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/profile"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/broadcast"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/profile"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
 )
 
 const (

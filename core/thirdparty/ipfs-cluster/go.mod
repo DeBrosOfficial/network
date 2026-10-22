@@ -1,4 +1,4 @@
-module github.com/DeBrosOfficial/network/thirdparty/ipfs-cluster
+module github.com/Orama-Network/orama/core/thirdparty/ipfs-cluster
 
 go 1.27.2
 

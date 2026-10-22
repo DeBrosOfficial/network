@@ -6,11 +6,11 @@ import (
 	"net"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	webrtchandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/webrtc"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	webrtchandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/webrtc"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 	"go.uber.org/zap"
 )
 

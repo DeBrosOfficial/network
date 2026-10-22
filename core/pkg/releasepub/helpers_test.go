@@ -13,9 +13,9 @@ import (
 
 	"github.com/secure-systems-lab/go-securesystemslib/cjson"
 
-	"github.com/DeBrosOfficial/network/pkg/releasepub/pubtest"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/releasepub/pubtest"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 var testNow = time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)

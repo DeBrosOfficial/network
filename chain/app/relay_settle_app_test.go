@@ -12,11 +12,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 
-	relaykeeper "github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaykeeper "github.com/Orama-Network/orama/chain/x/relay/keeper"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // reportClosedEpoch sends every reporter's report for the epoch that just closed and

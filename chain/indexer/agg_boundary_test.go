@@ -9,7 +9,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 func epochClosedEventOf(epoch, blocks uint64, startUnixNano int64) abci.Event {

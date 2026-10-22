@@ -3,7 +3,7 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // checkSnapshotTermAhead flags a node whose latest raft snapshot carries a

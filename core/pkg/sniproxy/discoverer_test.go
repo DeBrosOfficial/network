@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 )
 
 // TestTURNRouteDiscoverer_staticRouteWinsMerge verifies that when a discovered

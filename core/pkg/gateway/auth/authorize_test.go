@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // A grant narrowed to `pubsub:topic=chat.*` used to authorise nothing, because

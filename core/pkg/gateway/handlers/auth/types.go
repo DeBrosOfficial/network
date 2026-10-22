@@ -3,7 +3,7 @@ package auth
 import (
 	"encoding/json"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // ChallengeRequest is the request body for challenge generation.

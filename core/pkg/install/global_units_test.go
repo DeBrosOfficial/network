@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 func TestGlobalUnits_usersPortsAndNoClusterSecret(t *testing.T) {

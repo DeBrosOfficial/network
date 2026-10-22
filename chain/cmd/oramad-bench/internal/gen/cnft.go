@@ -7,9 +7,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 // CnftMint is the type name of the minting of a compressed NFT.

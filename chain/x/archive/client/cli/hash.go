@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // commitBundleFile reads the bundle file at path and returns its piece commitment.

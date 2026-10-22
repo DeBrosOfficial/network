@@ -3,8 +3,8 @@ package install
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments/process"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/deployments/process"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 // The gateway drives a deployment's unit as the unprivileged orama user. Every

@@ -20,8 +20,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/staticfind"
-	"github.com/DeBrosOfficial/network/e2e/harness/vulnaccept"
+	"github.com/Orama-Network/orama/e2e/harness/staticfind"
+	"github.com/Orama-Network/orama/e2e/harness/vulnaccept"
 )
 
 const (

@@ -2,7 +2,7 @@
 
 package orchard
 
-import "github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+import "github.com/Orama-Network/orama/chain/x/shielded/verify"
 
 // Append refuses: a build without the Rust library cannot hash the tree, so it cannot take a
 // shielded bundle either.

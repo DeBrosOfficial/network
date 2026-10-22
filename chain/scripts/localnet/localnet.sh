@@ -120,7 +120,7 @@ build() {
 		build_verifier
 	fi
 	local ldflags=""
-	if [ -n "$verifier_sha" ]; then ldflags="-X github.com/DeBrosOfficial/network/chain/app.ShieldedVerifierSHA256=$verifier_sha"; fi
+	if [ -n "$verifier_sha" ]; then ldflags="-X github.com/Orama-Network/orama/chain/app.ShieldedVerifierSHA256=$verifier_sha"; fi
 	log "building oramad (wasm=$WITH_WASM shielded=$WITH_SHIELDED)"
 	(cd "$chain_root" && CGO_ENABLED="$cgo" go build -tags "$tags" -ldflags "$ldflags" -o "$bin" ./cmd/oramad)
 }

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 func TestAdd_roundTripRedactedAndOrdered(t *testing.T) {

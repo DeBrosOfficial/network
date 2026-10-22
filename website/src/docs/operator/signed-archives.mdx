@@ -4,7 +4,7 @@ Nodes install only build archives signed by an address they trust. The list of
 trusted addresses — the **trust anchor** — is `/etc/orama/archive-signers` on
 every node: root:root 0644 in a root-only directory, one lowercase `0x` address
 per line. There is no unsigned mode, no source-build mode and no built-in
-signer: a cluster trusts its operator's wallet, not a DeBros key.
+signer: a cluster trusts its operator's wallet, not a Orama key.
 
 **Build.** `orama maint build` signs by default. It asks the RootWallet agent for its
 active account before compiling (a locked or absent wallet fails in seconds),
@@ -131,7 +131,7 @@ trusts the root. `--release` and `--archive` are alternatives.
 
 **Signers and the test root.** Publishing a release is `orama maint release` (`pkg/releasepub`): the RootWallet
 release key signs targets, snapshot and timestamp, three approvals, and `publish`
-uploads the archives to a GitHub release and the metadata to the release host. For a test network,
+uploads the archives to a Gitea release (authenticated with `GITEA_TOKEN`) and the metadata to the release host. For a test network,
 `go run ./cmd/testtuf` (in `core/`) makes and updates a repository signed by
 software keys: `testtuf init -dir D`, `testtuf publish -dir D -channel stable
 -archive orama-0.3.1-linux-amd64.tar.gz`, and `testtuf refresh -dir D` before the

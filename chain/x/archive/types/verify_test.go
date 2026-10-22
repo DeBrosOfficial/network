@@ -7,7 +7,7 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/merkle"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 func TestVerifyBundle_mutatedHeaderFails(t *testing.T) {

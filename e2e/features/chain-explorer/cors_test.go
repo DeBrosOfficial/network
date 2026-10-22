@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // explorerOrigin is where the website serves the explorer. It is not under any network's base domain

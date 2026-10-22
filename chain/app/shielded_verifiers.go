@@ -13,10 +13,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
-	orchardverify "github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchardproc"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
+	orchardverify "github.com/Orama-Network/orama/chain/x/shielded/verify/orchard"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify/orchardproc"
 )
 
 const (

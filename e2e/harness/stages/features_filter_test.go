@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 // TestRun_featuresRerunsOnlyThoseAndKeepsTheRest: a rerun of the packages

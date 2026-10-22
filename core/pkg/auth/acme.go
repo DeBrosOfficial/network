@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // acmeChallengeKeyPurpose is the HKDF domain separator for the key Caddy signs

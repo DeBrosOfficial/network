@@ -8,7 +8,7 @@ import (
 
 	"github.com/rqlite/gorqlite"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // safeWriteOne wraps gorqlite's WriteOneParameterized to recover from panics.

@@ -175,7 +175,7 @@ tools-go:
 nilaway:
 	go install go.uber.org/nilaway/cmd/nilaway@$(NILAWAY_VERSION)
 	mkdir -p $(BUILD_DIR)
-	@nilaway -include-pkgs="github.com/DeBrosOfficial/network/chain" -test=false -tags nowasm ./... > $(BUILD_DIR)/nilaway.txt 2>&1; rc=$$?; \
+	@nilaway -include-pkgs="github.com/Orama-Network/orama/chain" -test=false -tags nowasm ./... > $(BUILD_DIR)/nilaway.txt 2>&1; rc=$$?; \
 		if [ $$rc -ne 0 ] && [ $$rc -ne 3 ]; then echo "nilaway could not run (exit $$rc)" >&2; tail -20 $(BUILD_DIR)/nilaway.txt >&2; exit 1; fi; \
 		echo "nilaway: $$(sed 's/\x1b\[[0-9;]*m//g' $(BUILD_DIR)/nilaway.txt | grep -c 'error:') findings in $(BUILD_DIR)/nilaway.txt (exit $$rc)"
 

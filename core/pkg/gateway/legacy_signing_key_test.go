@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 const legacyTestSecret = "cluster-secret-for-legacy-key-tests"

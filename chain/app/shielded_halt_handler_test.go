@@ -8,8 +8,8 @@ import (
 
 	"cosmossdk.io/log/v2"
 
-	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	shieldedkeeper "github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // A verifier halt ends the process with the documented status and logs the height and the bundle,

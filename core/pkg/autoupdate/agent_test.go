@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 // auto turns the cluster's policy to auto.

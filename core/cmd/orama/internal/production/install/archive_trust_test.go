@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	joinhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/join"
+	joinhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/join"
 )
 
 const testSigner = "0x1111111111111111111111111111111111111111"

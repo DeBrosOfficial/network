@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
 )
 
 // ToolDeploy stores a tenant deployment's environment and token where its

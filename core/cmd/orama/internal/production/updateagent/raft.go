@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/DeBrosOfficial/network/pkg/autoupdate"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/autoupdate"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // raftView reads the raft configuration from this node's index RQLite.

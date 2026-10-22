@@ -9,7 +9,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 func attrs(kv ...string) []abci.EventAttribute {

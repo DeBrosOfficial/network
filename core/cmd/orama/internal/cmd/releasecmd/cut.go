@@ -1,12 +1,13 @@
 package releasecmd
 
 import (
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/releasepub"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/releasepub"
 )
 
 func newCutCmd(d deps) *cobra.Command {
@@ -92,7 +93,7 @@ func printPlan(cmd *cobra.Command, plan *releasepub.CutPlan, dryRun bool, dir st
 			printf(w, "  %-7s %s\n", group.label, p)
 		}
 	}
-	printf(w, "  GitHub release %s\n", plan.Tag)
+	printf(w, "  Gitea release %s\n", plan.Tag)
 	if dryRun {
 		printf(w, "Nothing was signed or written. Run it without --dry-run to sign (3 approvals).\n")
 		return
@@ -135,21 +136,21 @@ the last one runs out. Then publish.`,
 
 func newPublishCmd(d deps) *cobra.Command {
 	var f struct {
-		dir, github, dest string
-		dryRun            bool
+		dir, gitea, giteaAPI, dest string
+		dryRun                     bool
 	}
 	cmd := &cobra.Command{
 		Use:   "publish --dir <dir>",
-		Short: "Upload what cut left: archives to GitHub, metadata to the release host",
+		Short: "Upload what cut left: archives to Gitea, metadata to the release host",
 		Long: `Upload the last cut or refresh. Before anything is sent the metadata in --dir is
 checked as a client would check it, and each archive against the hash the
-signed targets name. Then the archives go to the GitHub release for the tag
+signed targets name. Then the archives go to the Gitea release for the tag
 (created if it is not there; an archive already there is an error), then the
 root, targets and snapshot go to the release host with rsync, and the timestamp
 last.
 
-Needs gh (logged in, able to upload to the repository) and ssh access to the
-release host. --dry-run prints the commands.`,
+Needs GITEA_TOKEN (a Gitea token with repository write) and ssh access to the
+release host. --dry-run prints the plan.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			repo, err := repoFor(f.dir)
@@ -161,7 +162,7 @@ release host. --dry-run prints the commands.`,
 				run = releasepub.ExecRunner(cmd.OutOrStdout())
 			}
 			err = releasepub.Publish(cmd.Context(), releasepub.PublishParams{
-				Repo: repo, GitHubRepo: f.github, MetadataDest: f.dest, DryRun: f.dryRun, Now: d.now(), Run: run, Progress: cmd.OutOrStdout(),
+				Repo: repo, GiteaRepo: f.gitea, GiteaAPI: f.giteaAPI, GiteaToken: os.Getenv("GITEA_TOKEN"), MetadataDest: f.dest, DryRun: f.dryRun, Now: d.now(), Run: run, Progress: cmd.OutOrStdout(),
 			})
 			if err != nil {
 				return fail("publish", err)
@@ -172,9 +173,10 @@ release host. --dry-run prints the commands.`,
 	}
 	repoFlag(cmd, &f.dir)
 	fl := cmd.Flags()
-	fl.StringVar(&f.github, "github-repo", releasepub.DefaultGitHubRepo, "The GitHub repository whose releases hold the archives")
+	fl.StringVar(&f.gitea, "gitea-repo", releasepub.DefaultGiteaRepo, "The Gitea repository (owner/name) whose releases hold the archives")
+	fl.StringVar(&f.giteaAPI, "gitea-api", releasepub.DefaultGiteaAPI, "The Gitea instance API base")
 	fl.StringVar(&f.dest, "metadata-dest", releasepub.DefaultMetadataDest, "The rsync destination of the metadata on the release host")
-	fl.BoolVar(&f.dryRun, "dry-run", false, "Check the directory and print the commands; run nothing")
+	fl.BoolVar(&f.dryRun, "dry-run", false, "Check the directory and print the plan; send nothing")
 	return cmd
 }
 

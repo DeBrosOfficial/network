@@ -19,8 +19,8 @@ import (
 	snapshottypes "github.com/cosmos/cosmos-sdk/store/v2/snapshots/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/contracts/standard"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/contracts/standard"
 )
 
 const (

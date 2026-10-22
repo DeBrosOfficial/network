@@ -9,8 +9,8 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // What the index keeps for a wallet that scans the shielded pool. For every committed shielded

@@ -17,7 +17,7 @@ import (
 	gocid "github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // fakePins is the public Kubo as the runner sees it.

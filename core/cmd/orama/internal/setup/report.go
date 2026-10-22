@@ -7,7 +7,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/termtext"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/termtext"
 )
 
 // Step is one thing a run does to a machine, in the order it does them.

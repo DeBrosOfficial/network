@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
 )
 
 // The gateway lowercases the domain, strips a scheme and a trailing slash

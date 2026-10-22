@@ -10,8 +10,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // nameFixture is an operator with 10 ORAMA and one registered node.

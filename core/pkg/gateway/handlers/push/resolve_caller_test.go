@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // Bugboard #548 — a push device must be keyed on the stable identity (accountId)

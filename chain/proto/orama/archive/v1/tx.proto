@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.archive.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/archive/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/archive/types";
 
 import "cosmos/msg/v1/msg.proto";
 

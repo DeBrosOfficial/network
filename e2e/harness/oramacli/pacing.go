@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/pace"
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/e2e/harness/pace"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // Pacing the CLI (e2e/README.md, "Pacing"). The CLI calls the gateway's

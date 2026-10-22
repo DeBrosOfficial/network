@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/txgate"
+	"github.com/Orama-Network/orama/core/pkg/txgate"
 )
 
 // The gateway's transaction cap is the chain's own mempool limit, not a shielded figure: any

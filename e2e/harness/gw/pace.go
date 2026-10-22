@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/pace"
+	"github.com/Orama-Network/orama/e2e/harness/pace"
 )
 
 // Device-code and device-approval routes, rate-limited with the credential

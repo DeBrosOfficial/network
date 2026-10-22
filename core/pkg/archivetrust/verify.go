@@ -15,7 +15,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 

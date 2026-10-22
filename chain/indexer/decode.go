@@ -14,7 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 const (

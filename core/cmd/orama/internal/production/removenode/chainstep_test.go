@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/chainreach"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/decommission"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/chainreach"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/decommission"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
 )
 
 const operatorAddr = "orama1operator"

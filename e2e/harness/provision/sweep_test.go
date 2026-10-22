@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
 )
 
 func TestSweep_keepsDNSOfARunThatStartedMidSweep(t *testing.T) {

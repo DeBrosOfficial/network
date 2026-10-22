@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 // Isolated services (pkg/systemd isolatedServices) run as their own system

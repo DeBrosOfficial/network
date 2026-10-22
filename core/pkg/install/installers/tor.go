@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // Tor is installed from the Tor Project's own apt repository, as the Tor

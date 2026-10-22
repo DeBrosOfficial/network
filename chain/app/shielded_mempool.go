@@ -8,8 +8,8 @@ import (
 
 	"cosmossdk.io/log/v2"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchardproc"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify/orchardproc"
 )
 
 // mempoolRequestTimeout is how long CheckTx waits for the mempool's verifier child. A valid bundle

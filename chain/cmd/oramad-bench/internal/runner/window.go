@@ -3,8 +3,8 @@ package runner
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/profile"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/profile"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
 )
 
 // sendEnd is when a step's load actually stopped. A step normally sends for its whole duration,

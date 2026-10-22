@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
 )
 
 // Per-source-IP rate limits for the public vault proxy endpoints. These bound

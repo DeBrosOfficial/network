@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // rqliteNodesProbeTimeout is how long rqlite waits on each member when

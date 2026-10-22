@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 	olriclib "github.com/olric-data/olric"
 	"github.com/olric-data/olric/config"
 )

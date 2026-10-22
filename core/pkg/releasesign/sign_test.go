@@ -12,8 +12,8 @@ import (
 
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 
-	"github.com/DeBrosOfficial/network/pkg/releasesign"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/releasesign"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // localAgent stands in for the RootWallet agent with a local TEST key. Like

@@ -3,9 +3,9 @@ package node
 import (
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/logs"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/logs"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
 	"github.com/spf13/cobra"
 )
 

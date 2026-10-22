@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // BankKeeper is the subset of x/bank's keeper that x/emission needs: minting the validator share

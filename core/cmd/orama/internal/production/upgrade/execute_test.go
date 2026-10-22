@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // A check made before anything is stopped is a preflight refusal: the node is

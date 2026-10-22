@@ -21,7 +21,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 	"github.com/ethereum/go-ethereum/common"
 )
 

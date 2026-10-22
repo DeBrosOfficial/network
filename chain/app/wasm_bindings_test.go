@@ -14,13 +14,13 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/piece"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
-	"github.com/DeBrosOfficial/network/chain/x/wasmbindings"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/piece"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/wasmbindings"
 )
 
 // bindingChain is a chain with three funded users and a relay contract holding 100 ORAMA.

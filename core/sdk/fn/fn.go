@@ -7,7 +7,7 @@
 //
 //	package main
 //
-//	import "github.com/DeBrosOfficial/network/sdk/fn"
+//	import "github.com/Orama-Network/orama/core/sdk/fn"
 //
 //	func main() {
 //		fn.Run(func(input []byte) ([]byte, error) {

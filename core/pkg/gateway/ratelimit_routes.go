@@ -6,7 +6,7 @@ package gateway
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // rateLimitConfigDispatcher routes GET / PUT / DELETE on

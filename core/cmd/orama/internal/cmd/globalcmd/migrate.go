@@ -7,10 +7,10 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
-	"github.com/DeBrosOfficial/network/pkg/globalnode"
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/pkg/globalnode"
+	"github.com/Orama-Network/orama/core/pkg/install"
 	"github.com/spf13/cobra"
 )
 

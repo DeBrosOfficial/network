@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/nodescmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/nodescmd"
 )
 
 // listCmd is `orama node list`, the same inventory listing as `orama nodes`.

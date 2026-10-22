@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e"
+	"github.com/Orama-Network/orama/core/e2e"
 	"github.com/stretchr/testify/require"
 )
 

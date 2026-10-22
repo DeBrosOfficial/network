@@ -3,8 +3,8 @@ package install
 import (
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // Central path constants for the Orama Network production environment.

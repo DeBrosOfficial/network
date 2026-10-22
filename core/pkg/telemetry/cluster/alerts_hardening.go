@@ -1,6 +1,6 @@
 package cluster
 
-import "github.com/DeBrosOfficial/network/pkg/hardening"
+import "github.com/Orama-Network/orama/core/pkg/hardening"
 
 // hardeningAlerts raises one warning per hardened setting that no longer holds
 // on the node (core dumps, swap, ptrace, apport). Warning, not critical: the

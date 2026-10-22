@@ -11,7 +11,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types/query"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
+	"github.com/Orama-Network/orama/chain/client/node"
 )
 
 // WasmCall is the type name of a call to a standard contract.

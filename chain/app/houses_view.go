@@ -10,10 +10,10 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	powerkeeper "github.com/DeBrosOfficial/network/chain/x/power/keeper"
+	"github.com/Orama-Network/orama/chain/app/params"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	powerkeeper "github.com/Orama-Network/orama/chain/x/power/keeper"
 )
 
 // houseStaking reads bonded stake for the token house. Amounts are norama,

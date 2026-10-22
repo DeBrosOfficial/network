@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // What a pass writes: the plan as transactions of BatchSize rows.

@@ -3,9 +3,9 @@ package gateway
 import (
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // newCallerProof loads the secret this node's Caddy proves itself with. Behind Caddy every public

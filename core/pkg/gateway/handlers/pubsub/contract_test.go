@@ -3,7 +3,7 @@ package pubsub
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/contracttest"
+	"github.com/Orama-Network/orama/core/pkg/contracttest"
 )
 
 // The body the TypeScript SDK sends to /v1/pubsub/publish must decode into the

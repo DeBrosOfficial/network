@@ -3,7 +3,7 @@ package gateway
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // A member added on one node signed in on another got 403 NAMESPACE_NOT_OWNED:

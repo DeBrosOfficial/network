@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
 )
 
 // shutdownDrainPause lets sockets close after systemd has stopped the services

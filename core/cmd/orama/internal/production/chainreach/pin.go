@@ -1,9 +1,9 @@
 package chainreach
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 // expectedChainID is the chain id the environment is known to run (cli.ExpectedChainIDOf); a test

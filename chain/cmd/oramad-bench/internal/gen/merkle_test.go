@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 func leafHashes(n int) [][]byte {

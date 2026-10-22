@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
 )
 
 // filterStreams points os.Stdout and os.Stderr at pipes whose contents reach the

@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // The token house's tally sums the delegations it reads and refuses the tally when the sum passes

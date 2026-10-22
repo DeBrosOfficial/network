@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func hardenedLive() *hardening.Live {

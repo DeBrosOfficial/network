@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/pace"
-	"github.com/DeBrosOfficial/network/e2e/harness/runctx"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/pace"
+	"github.com/Orama-Network/orama/e2e/harness/runctx"
 )
 
 // The package's own TestMain is not harness.Main: these tests exercise Main

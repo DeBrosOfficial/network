@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
 )
 
 // deprecatedSign is the notice cobra prints for build's hidden --sign flag

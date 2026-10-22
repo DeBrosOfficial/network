@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/wssession"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // Issuer is what a function reaches through capability_mint and

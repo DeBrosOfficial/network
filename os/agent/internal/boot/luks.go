@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/orama-os/agent/internal/types"
-	"github.com/DeBrosOfficial/orama-os/agent/internal/wireguard"
+	"github.com/Orama-Network/orama/os/agent/internal/types"
+	"github.com/Orama-Network/orama/os/agent/internal/wireguard"
 )
 
 // GenerateLUKSKey generates a cryptographically random 32-byte key for LUKS encryption.

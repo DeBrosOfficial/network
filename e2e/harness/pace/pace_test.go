@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/config"
 )
 
 // fakeClock is a clock whose sleep advances it: a wait takes no real time.

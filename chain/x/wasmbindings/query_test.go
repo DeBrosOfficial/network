@@ -12,10 +12,10 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
-	"github.com/DeBrosOfficial/network/chain/x/wasmbindings"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/wasmbindings"
 )
 
 type fakeTokens struct{}

@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 )
 
 // sessionPolicyPath is the route that reads and sets a namespace's session

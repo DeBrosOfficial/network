@@ -3,7 +3,7 @@ package autoupdate
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/nodehealth"
+	"github.com/Orama-Network/orama/core/pkg/nodehealth"
 )
 
 // The time an install may take, fitted inside the two clocks that end it:

@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/artifacts"
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/artifacts"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // LoadRun reads a finished run's artifact dir into an Input. The caller adds

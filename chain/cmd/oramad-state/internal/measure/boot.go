@@ -8,7 +8,7 @@ import (
 
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-state/internal/stategen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-state/internal/stategen"
 )
 
 // BootBudget bounds a boot measurement: a node that holds the full-scale state loads and checks

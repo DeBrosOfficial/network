@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	operatorhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/operator"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	operatorhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/operator"
 	"go.uber.org/zap"
 )
 

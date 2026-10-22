@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
 )
 
 // StorageNodesJailForTest exposes the jail of x/storage's view of x/nodes to the black-box tests.

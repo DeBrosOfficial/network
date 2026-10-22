@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // envProposalBundles names a file written by the wallet crate's gen_bench (mode "shields", jobs of

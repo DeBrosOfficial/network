@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 )
 
 // contextKey for internal operations

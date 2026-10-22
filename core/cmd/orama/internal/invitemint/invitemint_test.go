@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/invite"
+	"github.com/Orama-Network/orama/core/pkg/invite"
 )
 
 func TestGatewayHost(t *testing.T) {

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/rqlite/rqlitetest"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite/rqlitetest"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 const (

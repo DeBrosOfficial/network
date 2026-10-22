@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 // Connection bounds; variables so tests can shorten them.

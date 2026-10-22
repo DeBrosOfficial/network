@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/push"
 )
 
 func TestSend_happy_path(t *testing.T) {

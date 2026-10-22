@@ -3,7 +3,7 @@ package gateway
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // Config holds configuration for the gateway server

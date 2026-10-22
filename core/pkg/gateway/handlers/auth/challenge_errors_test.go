@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A challenge for a namespace that does not exist used to create it. That is

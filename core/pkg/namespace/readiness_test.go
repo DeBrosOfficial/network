@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/olric/olrictest"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/olric/olrictest"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // hostPortOf strips the scheme so a probe can be pointed at a test server.

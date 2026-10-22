@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 	"gopkg.in/yaml.v3"
 )
 

@@ -3,7 +3,7 @@ package gateway
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // A namespace gateway holds two databases. Its deployment family used the

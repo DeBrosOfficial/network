@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite/rqlitetest"
+	"github.com/Orama-Network/orama/core/pkg/rqlite/rqlitetest"
 )
 
 // newRqliteStore is a store over a real rqlited: rqlite is not SQLite, and the

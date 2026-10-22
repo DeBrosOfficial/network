@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 )
 
 // rqlite read consistency levels a client can be configured with.

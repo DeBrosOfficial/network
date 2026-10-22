@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // SetCheckerClockForTest replaces a proposal checker's clock and deadline.

@@ -1,6 +1,6 @@
 package app
 
-import "github.com/DeBrosOfficial/network/chain/app/upgrades"
+import "github.com/Orama-Network/orama/chain/app/upgrades"
 
 // SetUpgradesForTest wires list as the registered upgrades of this app, as NewOramaApp wires
 // upgrades.Registered, without reading any upgrade info from disk.

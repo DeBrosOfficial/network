@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewaykeys"
+	"github.com/Orama-Network/orama/core/pkg/gatewaykeys"
 )
 
 // ToolGatewayKey stores the index gateway's signing keys in the root-only

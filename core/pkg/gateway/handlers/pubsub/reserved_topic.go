@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 const (

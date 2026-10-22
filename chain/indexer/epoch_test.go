@@ -9,9 +9,9 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 

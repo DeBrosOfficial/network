@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/chain/storagekey"
+	"github.com/Orama-Network/orama/chain/storagekey"
 )
 
 // Seed is one deal the delegate serves. The file is <home>/deals/<id>.json,

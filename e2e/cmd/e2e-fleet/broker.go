@@ -12,13 +12,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/broker"
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/provision"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/broker"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/provision"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // goCacheVars are the Go toolchain locations the runner resolves and hands

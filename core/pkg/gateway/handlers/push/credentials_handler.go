@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/push/credentials"
+	"github.com/Orama-Network/orama/core/pkg/push/credentials"
 
 	"go.uber.org/zap"
 )

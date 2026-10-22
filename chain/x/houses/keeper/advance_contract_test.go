@@ -11,7 +11,7 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // advanceReads names every collaborator read that advanceProposal makes while it closes a vote and

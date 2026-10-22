@@ -73,6 +73,6 @@ zig build test
 
 ## Security
 
-If you find a security vulnerability, **do not open a public issue**. Email security@debros.io instead.
+If you find a security vulnerability, **do not open a public issue**. Email info@orama.network instead.
 
 Thank you for contributing!

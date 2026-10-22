@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/releasefetch"
-	"github.com/DeBrosOfficial/network/pkg/releasepub/pubtest"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/releasefetch"
+	"github.com/Orama-Network/orama/core/pkg/releasepub/pubtest"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 func serve(t *testing.T, dir string) releaseverify.Repository {

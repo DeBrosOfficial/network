@@ -13,13 +13,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/artifacts"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
-	"github.com/DeBrosOfficial/network/e2e/harness/provision"
-	"github.com/DeBrosOfficial/network/e2e/harness/report"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/artifacts"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/provision"
+	"github.com/Orama-Network/orama/e2e/harness/report"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // Budgets of the run's own steps.

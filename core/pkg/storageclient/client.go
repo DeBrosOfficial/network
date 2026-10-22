@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/pieceroot"
-	"github.com/DeBrosOfficial/network/pkg/storagefile"
+	"github.com/Orama-Network/orama/core/pkg/pieceroot"
+	"github.com/Orama-Network/orama/core/pkg/storagefile"
 )
 
 const (

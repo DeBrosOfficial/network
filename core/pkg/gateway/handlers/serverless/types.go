@@ -4,14 +4,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/capability"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/gateway/wssession"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
-	"github.com/DeBrosOfficial/network/pkg/serverless/persistent"
-	"github.com/DeBrosOfficial/network/pkg/serverless/triggers"
-	"github.com/DeBrosOfficial/network/pkg/serverless/wsbridge"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/capability"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless/persistent"
+	"github.com/Orama-Network/orama/core/pkg/serverless/triggers"
+	"github.com/Orama-Network/orama/core/pkg/serverless/wsbridge"
 	"go.uber.org/zap"
 )
 

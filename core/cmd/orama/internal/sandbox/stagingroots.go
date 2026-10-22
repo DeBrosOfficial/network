@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
 )
 
 // Sandbox nodes get their certificates from Let's Encrypt staging

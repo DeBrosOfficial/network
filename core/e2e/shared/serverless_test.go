@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	e2e "github.com/DeBrosOfficial/network/e2e"
+	e2e "github.com/Orama-Network/orama/core/e2e"
 )
 
 func TestServerless_DeployAndInvoke(t *testing.T) {

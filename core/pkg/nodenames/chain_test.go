@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protowire"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 // pageRequest decodes the QueryNodeNamesRequest a gateway query carries: the pagination key and

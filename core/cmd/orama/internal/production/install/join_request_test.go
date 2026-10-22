@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	joinhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/join"
+	joinhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/join"
 )
 
 const (

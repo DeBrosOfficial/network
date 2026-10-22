@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 // ErrNotPublic is a provider address that resolves to loopback, a private

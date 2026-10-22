@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 func TestRetireNode_sendsMsgRetireNodeForTheSigningOperator(t *testing.T) {

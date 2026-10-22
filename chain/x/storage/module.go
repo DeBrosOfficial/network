@@ -17,9 +17,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/client/cli"
+	"github.com/Orama-Network/orama/chain/x/storage/keeper"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // ConsensusVersion is x/storage's initial consensus version.

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 // Server-sent events (text/event-stream, the WHATWG HTML "server-sent

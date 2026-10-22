@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/globalnetns"
+	"github.com/Orama-Network/orama/core/pkg/globalnetns"
 )
 
 func funcPC(f any) uintptr { return reflect.ValueOf(f).Pointer() }

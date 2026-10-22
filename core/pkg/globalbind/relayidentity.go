@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 // RelayIdentity is what registering a Tor relay on the chain needs from the relay's machine: the

@@ -10,7 +10,7 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // requireDealFinished checks a finished deal is gone from the state: its deal and slot queries answer

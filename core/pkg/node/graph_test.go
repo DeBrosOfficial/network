@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/node/boot"
-	"github.com/DeBrosOfficial/network/pkg/node/lifecycle"
+	"github.com/Orama-Network/orama/core/pkg/node/boot"
+	"github.com/Orama-Network/orama/core/pkg/node/lifecycle"
 )
 
 // clusterGraphGolden is the cluster role's start-up graph, one component per

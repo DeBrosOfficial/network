@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/sshx"
 )
 
 // Files BreakUpgrade and RestoreUpgrade use on the node.

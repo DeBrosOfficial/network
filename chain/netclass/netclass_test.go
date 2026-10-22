@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/netclass"
+	"github.com/Orama-Network/orama/chain/netclass"
 )
 
 func TestCheckHost_refusesEveryNonPublicOrObfuscatedForm(t *testing.T) {

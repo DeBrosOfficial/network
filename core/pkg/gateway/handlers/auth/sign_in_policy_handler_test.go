@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 const sessionPolicyPath = "/v1/namespace/session-policy"

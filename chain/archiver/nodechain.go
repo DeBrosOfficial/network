@@ -8,11 +8,11 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	"github.com/DeBrosOfficial/network/chain/repair"
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/repair"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // NodeChain is Chain over one oramad RPC, signing with the archiver key.

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	pushntfy "github.com/DeBrosOfficial/network/pkg/push/providers/ntfy"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	pushntfy "github.com/Orama-Network/orama/core/pkg/push/providers/ntfy"
 )
 
 const (

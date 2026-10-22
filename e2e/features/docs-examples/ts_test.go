@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/cliconf"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/cliconf"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // tsBudget bounds one TypeScript check or example run.

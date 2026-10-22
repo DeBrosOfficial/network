@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 func shieldedEnv(t *testing.T) (*shieldedType, []string) {

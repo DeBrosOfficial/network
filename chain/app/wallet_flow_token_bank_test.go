@@ -11,7 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // A token's powers are bank-level rules: a plain x/bank MsgSend is held to them

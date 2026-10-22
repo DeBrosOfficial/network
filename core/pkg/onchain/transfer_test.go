@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 const testRecipient = "orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53"

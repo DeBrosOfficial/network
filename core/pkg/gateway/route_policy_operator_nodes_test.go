@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // Listing the operator's nodes is a read: `orama ssh` and every command that

@@ -1,0 +1,249 @@
+name: Release
+
+# Gitea is the source of truth and builds every release here. Pushing a version
+# tag (v*) to Gitea:
+#   1. goreleaser   — builds the orama/orama-node binaries and .deb packages and
+#                     creates the Gitea release with them as assets.
+#   2. archive      — builds the reproducible cluster archive (amd64 carries the
+#                     global layer, arm64 is cluster-only) and attaches it to that
+#                     release. A signer rebuilds the tag, compares the hash and
+#                     signs the TUF metadata that names it.
+#   3. publish-sdk  — publishes @orama-network/orama and -vault to the Gitea npm
+#                     registry.
+#
+# GitHub is a code-only mirror; nothing releases there (its Actions are disabled).
+# RELEASE_GITEA_TOKEN is a Gitea token with package and repository write.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  goreleaser:
+    name: Binaries, .deb and the Gitea release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # full history for the changelog
+
+      - name: VERSION matches the tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          EXPECTED="${TAG#v}"
+          EXPECTED="${EXPECTED%-nightly}"
+          ACTUAL="$(tr -d '[:space:]' < VERSION)"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::tag $TAG implies version '$EXPECTED' but /VERSION says '$ACTUAL'. Run 'make -C core bump VER=$EXPECTED' and commit before tagging."
+            exit 1
+          fi
+          echo "VERSION matches the tag: $ACTUAL"
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.2'
+          cache-dependency-path: core/go.sum
+
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          # GoReleaser creates the Gitea release and uploads the binaries and
+          # .deb packages. gitea_urls in .goreleaser.yaml points it at the
+          # instance; this token authorises the upload.
+          GITEA_TOKEN: ${{ secrets.RELEASE_GITEA_TOKEN }}
+
+  archive:
+    name: Cluster archive linux/${{ matrix.arch }}
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    env:
+      # The zig release the vault needs (vault/build.zig.zon), and the digest the
+      # download is refused without (ziglang.org/download/index.json).
+      ZIG_VERSION: '0.15.2'
+      ZIG_SHA256: '02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239'
+      GITEA_API: https://git.icxcnika.io/api/v1/repos/ICXCNIKA/orama
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.2'
+          cache-dependency-path: core/go.sum
+
+      - name: Install zig
+        run: |
+          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/zig"
+          tar -xJf zig.tar.xz -C "${RUNNER_TEMP}/zig" --strip-components=1
+          echo "ORAMA_ZIG=${RUNNER_TEMP}/zig/zig" >> "$GITHUB_ENV"
+
+      # The amd64 archive carries the global layer (oramad, its orchard verifier,
+      # orama-global, cosmovisor). The chain links static against musl, built with
+      # the pinned toolchain the chain's Makefile names. The arm64 chain does not
+      # exist, so the arm64 archive is always cluster-only and needs no rust.
+      - name: Rust toolchain with the musl target (amd64 global layer)
+        if: matrix.arch == 'amd64'
+        run: |
+          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup default "$toolchain"
+          rustup target add --toolchain "$toolchain" x86_64-unknown-linux-musl
+
+      - name: Build the archive twice
+        working-directory: core
+        run: |
+          # The commit's time is the build date, so a signer rebuilding this tag
+          # later stamps the same one.
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          # The chain builds for amd64 only, so an arm64 archive cannot carry the
+          # global layer: it is always cluster-only.
+          global_layer=""
+          if [ "${{ matrix.arch }}" != "amd64" ]; then
+            global_layer="--skip-global-layer"
+          fi
+          go build -o "${RUNNER_TEMP}/orama" ./cmd/orama
+          for n in 1 2; do
+            "${RUNNER_TEMP}/orama" maint build --unsigned --arch "${{ matrix.arch }}" ${global_layer} --output "${RUNNER_TEMP}/build-${n}.tar.gz"
+          done
+          sha256sum "${RUNNER_TEMP}/build-1.tar.gz" "${RUNNER_TEMP}/build-2.tar.gz"
+
+      - name: The two builds must be identical
+        run: |
+          first="$(sha256sum "${RUNNER_TEMP}/build-1.tar.gz" | cut -d' ' -f1)"
+          second="$(sha256sum "${RUNNER_TEMP}/build-2.tar.gz" | cut -d' ' -f1)"
+          if [ "$first" != "$second" ]; then
+            echo "::error::two builds of ${GITHUB_SHA} differ ($first and $second): the archive is not reproducible"
+            exit 1
+          fi
+
+      - name: Name the archive
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          name="orama-${version}-linux-${{ matrix.arch }}.tar.gz"
+          mkdir -p dist
+          cp "${RUNNER_TEMP}/build-1.tar.gz" "dist/${name}"
+          (cd dist && sha256sum "${name}" > "${name}.sha256")
+          cat "dist/${name}.sha256"
+
+      - name: Attach to the Gitea release
+        env:
+          GITEA_TOKEN: ${{ secrets.RELEASE_GITEA_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          # Keep the token out of curl's argv (visible via ps): pass it through a
+          # 0600 header file that is removed on exit.
+          auth="${RUNNER_TEMP}/gitea-auth"
+          ( umask 077; printf 'Authorization: token %s' "${GITEA_TOKEN}" > "$auth" )
+          trap 'rm -f "$auth"' EXIT
+          rel="$(curl -fsS -H @"$auth" "${GITEA_API}/releases/tags/${tag}")"
+          rel_id="$(printf '%s' "$rel" | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')"
+          held="$(printf '%s' "$rel" | python3 -c 'import sys,json;print("\n".join(a["name"] for a in json.load(sys.stdin).get("assets") or []))')"
+          for f in dist/*; do
+            name="$(basename "$f")"
+            if printf '%s\n' "$held" | grep -qxF "$name"; then
+              echo "release already holds $name — a published archive is never overwritten; skipping"
+              continue
+            fi
+            echo "uploading $name"
+            curl -fsS -X POST -H @"$auth" \
+              -F "attachment=@${f};type=application/octet-stream" \
+              "${GITEA_API}/releases/${rel_id}/assets?name=${name}" >/dev/null
+          done
+
+  publish-sdk:
+    # Both packages are cut from the same /VERSION and published together. One at
+    # a time, first failure cancels the rest, so a broken build cannot publish
+    # half a release.
+    name: ${{ matrix.package }} to the Gitea npm registry
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        include:
+          - directory: sdk
+            package: "@orama-network/orama"
+          - directory: sdk-vault
+            package: "@orama-network/orama-vault"
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: VERSION matches the tag
+        working-directory: .
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag '$TAG' is not a version tag"; exit 1; }
+          EXPECTED="${TAG#v}"
+          EXPECTED="${EXPECTED%-nightly}"
+          ACTUAL="$(tr -d '[:space:]' < VERSION)"
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::tag $TAG implies version '$EXPECTED' but /VERSION says '$ACTUAL'. Run 'make -C core bump VER=$EXPECTED' and commit before tagging."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          registry-url: "https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
+          scope: "@orama-network"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: "9.15.9"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Bump version to the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # --allow-same-version: /VERSION is bumped on the branch before tagging,
+          # so package.json may already match the tag.
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run unit tests
+        run: pnpm test:unit
+
+      # The dist-tag follows the version, not the branch: a prerelease version
+      # (any -suffix) can only reach the `nightly` tag, never `latest`.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.RELEASE_GITEA_TOKEN }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "$VERSION is a prerelease — publishing under the 'nightly' tag"
+            npm publish --tag nightly
+          else
+            echo "$VERSION is a release — publishing under 'latest'"
+            npm publish --tag latest
+          fi

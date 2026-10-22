@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/nodeapi"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/nodeapi"
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 

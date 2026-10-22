@@ -3,8 +3,8 @@ package storage
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // writeStoreError answers a failed read of the namespace's own database (the

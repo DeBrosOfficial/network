@@ -7,10 +7,10 @@
     ":semanticCommitTypeAll(chore)"
   ],
 
-  "//": "30-day cooldown is the supply-chain defense — see DEBROS.md §1.1. Caught CVEs override via vulnerabilityAlerts below.",
+  "//": "30-day cooldown is the supply-chain defense (engineering rules live in CLAUDE.md). Caught CVEs override via vulnerabilityAlerts below.",
   "minimumReleaseAge": "30 days",
 
-  "//1": "Never auto-merge dependency upgrades. Humans review and merge per DEBROS.md §1.7.",
+  "//1": "Never auto-merge dependency upgrades. Humans review and merge (engineering rules live in CLAUDE.md).",
   "automerge": false,
 
   "//2": "Security findings bypass the cooldown — apply patched versions immediately.",

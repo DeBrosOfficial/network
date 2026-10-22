@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
 )
 
 const testProto = `syntax = "proto3";

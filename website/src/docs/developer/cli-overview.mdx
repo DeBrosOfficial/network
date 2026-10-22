@@ -6,12 +6,7 @@ The pages under "CLI commands" in the sidebar are generated from the command tre
 
 ## Install
 
-```bash
-brew install Orama-Network/tap/orama
-orama version
-```
-
-Debian and Ubuntu packages and tarballs for macOS and Linux (amd64 and arm64) are on the [releases page](https://github.com/Orama-Network/orama/releases):
+There is no Homebrew formula at the moment. Debian and Ubuntu packages and tarballs (`orama_<version>_linux_<arch>.tar.gz`) for macOS and Linux (amd64 and arm64) are on the [releases page](https://git.icxcnika.io/ICXCNIKA/orama/releases):
 
 ```bash
 sudo dpkg -i orama_<version>_linux_amd64.deb
@@ -24,7 +19,7 @@ make build
 ./core/bin/orama version
 ```
 
-Homebrew tracks the latest stable release, which can lag nightly pre-releases by several versions. `orama node upgrade` expects the CLI and the nodes to be on the same version.
+Download the release that matches your nodes: `orama node upgrade` expects the CLI and the nodes to be on the same version.
 
 ## First run: no cluster is configured
 

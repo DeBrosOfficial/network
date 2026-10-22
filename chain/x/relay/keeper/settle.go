@@ -12,8 +12,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	chainparams "github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	chainparams "github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // SettleEpoch settles epoch. The app calls this once the epoch has closed;

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/migrations"
+	"github.com/Orama-Network/orama/core/migrations"
 )
 
 // schemaEventRe finds every statement that creates, removes or renames a table,

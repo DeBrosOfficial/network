@@ -1,6 +1,6 @@
-# DeBros canonical security CI workflow (orama-specific).
+# Orama baseline security CI workflow (orama-specific).
 #
-# Runs supply-chain + vulnerability checks per the DeBros baseline rules.
+# Runs supply-chain + vulnerability checks per the Orama baseline rules.
 # Triggers on main pushes/PRs and weekly to catch newly-published CVEs.
 #
 

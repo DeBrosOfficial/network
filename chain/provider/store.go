@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
+	"github.com/Orama-Network/orama/chain/piece"
 )
 
 const (

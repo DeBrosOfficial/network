@@ -18,11 +18,11 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	wasmpolicytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	wasmpolicytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // enactmentApp is a running test chain, one epoch closed, with the height-1 block committed.

@@ -12,8 +12,8 @@ package onchain
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // Chain is the part of a chain node's REST API a transaction needs.

@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/runctx"
+	"github.com/Orama-Network/orama/e2e/harness/runctx"
 )
 
 // InterruptedMessage fails a test that asks for the fleet after the run was

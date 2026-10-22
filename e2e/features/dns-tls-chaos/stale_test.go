@@ -11,10 +11,10 @@ import (
 
 	"golang.org/x/net/dns/dnsmessage"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/edge"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // corednsUser is the account CoreDNS runs as (docs/whitepaper/technical-reference/vol1/05-privilege-and-filesystem-trust.md

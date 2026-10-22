@@ -1,8 +1,8 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
-	"github.com/DeBrosOfficial/network/pkg/version"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/version"
 	"github.com/spf13/cobra"
 )
 

@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // AlertsTable prints every distinct alert, most severe first, each critical

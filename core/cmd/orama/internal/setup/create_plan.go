@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // maxReleaseRootBytes bounds the release-root.json a creation reads: a TUF root is

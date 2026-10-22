@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/node/boot"
+	"github.com/Orama-Network/orama/core/pkg/node/boot"
 )
 
 func TestBootComponents_clusterStartsWireGuardRQLiteAndGateway(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
-	housestypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
+	housestypes "github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // Deps are the app parts a handler migrates with. The app fills them in before it registers the

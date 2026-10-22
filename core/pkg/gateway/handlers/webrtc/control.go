@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
-	"github.com/DeBrosOfficial/network/pkg/sfu/roomid"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/roomid"
 )
 
 // What the namespace's functions do to its rooms: admit a user, kick one, mute
