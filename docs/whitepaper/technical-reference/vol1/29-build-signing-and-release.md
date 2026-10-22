@@ -39,7 +39,7 @@ Two audiences need different things from a release. A fleet operator needs a sig
 
 **Release root.** An opt-in TUF root, `/etc/orama/release-root.json`, plus the rollback record `/etc/orama/release-seen.json`. It is checked in addition to the anchor, never instead of it.
 
-**Channel.** The fleet channel is `orama maint build` then `orama maint push`, `orama node setup` or `orama maint rollout`. The public channel is `core/scripts/release.sh`, the tag-triggered workflows and GoReleaser. Source lives on Gitea (`https://git.icxcnika.io/ICXCNIKA/orama`), which is the source of truth and runs all CI and releases: pull-request CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`release.yml`) are Gitea Actions. `.gitea/workflows/mirror-to-github.yml` pushes its branches and tags to the GitHub repository `Orama-Network/orama`, never forcing and never deleting a ref (it skips `gh-pages`); GitHub is a code-only mirror with Actions disabled, so nothing builds or releases there.
+**Channel.** The fleet channel is `orama maint build` then `orama maint push`, `orama node setup` or `orama maint rollout`. The public channel is `core/scripts/release.sh`, the tag-triggered workflows and GoReleaser. Source lives on Gitea (`https://git.icxcnika.io/ICXCNIKA/orama`), which is the source of truth and runs all CI and releases: pull-request CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`release.yml`) are Gitea Actions. `.gitea/workflows/mirror-to-github.yml` runs on a `v*` tag and pushes the tag to the GitHub repository `Orama-Network/orama` together with its branch (`main`, or `nightly` for a `-nightly` tag), never forcing and never deleting a ref, so GitHub follows releases rather than every commit; GitHub is a code-only mirror with Actions disabled, so nothing builds or releases there.
 
 **Book gate.** `core/tools/whitepaper check`, run by `make test`: it fails when `book.yaml` is not stamped with `/VERSION`, or when an anchor, link, diagram or section of this book is wrong.
 
@@ -274,7 +274,7 @@ None of this is signed by the wallet or the release root. A Gitea release carrie
 
 ### Continuous integration and supply-chain checks
 
-`ci.yml` runs on pushes and pull requests to `main` and `nightly` (`concurrency` cancels superseded runs):
+`ci.yml` runs on a `v*` tag, on pull requests to `main` and `nightly`, and on demand (`workflow_dispatch`), never on a plain branch push (`concurrency` cancels superseded runs):
 
 | Job | Runs |
 |---|---|
@@ -290,7 +290,7 @@ None of this is signed by the wallet or the release root. A Gitea release carrie
 
 `chain-nightly.yml` runs every night at 02:30 UTC and on demand: mutation testing of the money modules (`x/emission`, `x/fees`, `x/power`, the settlement code of `x/storage`), nilaway, and Miri and AddressSanitizer over the Orchard FFI crate. Its targets are in `chain/ci.mk`, as are those of the chain jobs above.
 
-`security.yml` runs on pull requests and pushes to `main` and every Monday at 08:00 UTC: `pnpm audit --prod --audit-level=high` on `sdk/` after checking that the lockfile is committed and `.npmrc` sets `ignore-scripts=true`; and, for `core/`, `go mod verify` and `govulncheck ./...` (v1.8.0). `renovate.json` imposes a 30-day minimum release age on dependency updates, no automerge, and zero age for vulnerability alerts. The pull request template asks for `make test`, a test plan, and the distributed-system impact (Raft, WireGuard, Olric, startup order, rolling-upgrade compatibility).
+`security.yml` runs on pull requests to `main`, on a `v*` tag, on demand and every Monday at 08:00 UTC: `pnpm audit --prod --audit-level=high` on `sdk/` after checking that the lockfile is committed and `.npmrc` sets `ignore-scripts=true`; and, for `core/`, `go mod verify` and `govulncheck ./...` (v1.8.0). `renovate.json` imposes a 30-day minimum release age on dependency updates, no automerge, and zero age for vulnerability alerts. The pull request template asks for `make test`, a test plan, and the distributed-system impact (Raft, WireGuard, Olric, startup order, rolling-upgrade compatibility).
 
 The root `make test` is wider than CI on some modules: it adds the Caddy modules' tests, the fleet e2e lint, the e2e coverage gate and the harness unit tests, and the book gate (below); it runs the chain's pure-Go tests, which CI also runs (with more). The scanners that cover the rest of the release (`govulncheck`, `staticcheck` and `gosec` on the modules other than `chain`, a secret scan of the built archive, fuzz targets, the race detector on the busiest packages) belong to the fleet e2e feature `scanners`, which the owner runs with `make e2e-fleet`.
 

@@ -1,7 +1,8 @@
 # Orama baseline security CI workflow (orama-specific).
 #
 # Runs supply-chain + vulnerability checks per the Orama baseline rules.
-# Triggers on main pushes/PRs and weekly to catch newly-published CVEs.
+# Triggers on release tags, PRs to main, on demand, and weekly to catch
+# newly-published CVEs. Not on branch pushes.
 #
 
 name: security
@@ -10,7 +11,8 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
   schedule:
     # Weekly scan even on quiet weeks — catches newly-published CVEs
     # in existing dependencies.

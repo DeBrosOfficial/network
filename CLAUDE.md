@@ -7,7 +7,7 @@ deploy to nodes, rolling upgrades), and `website/src/docs/developer/functions.md
 
 Hosting: **work happens on Gitea; the public sees GitHub.**
 - `git.icxcnika.io/ICXCNIKA/orama` is where development happens: push there, and it runs CI (Gitea Actions), releases and the npm and Debian packages. Never push to GitHub or use `gh`.
-- `github.com/Orama-Network/orama` is the public, code-only mirror. Only `.gitea/workflows/mirror-to-github.yml` writes to it.
+- `github.com/Orama-Network/orama` is the public, code-only mirror. Only `.gitea/workflows/mirror-to-github.yml` writes to it, on each release tag. The exception is the one-time catch-up push its header describes, done from a full clone with the owner's OK.
 - Public-facing links (website, docs, package metadata, unit `Documentation=`, issue templates) point to the GitHub repository, never to Gitea. The exception is install endpoints for things that exist only on Gitea: the npm and apt registries, and release downloads.
 
 Operational constraints:

@@ -1,14 +1,16 @@
 name: CI
 
+# Not on branch pushes: those are constant and would keep the runners busy for
+# nothing. CI runs on a release tag, on a pull request, and on demand.
 on:
   push:
-    branches:
-      - main
-      - nightly
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
       - nightly
+  workflow_dispatch:
 
 permissions:
   contents: read
