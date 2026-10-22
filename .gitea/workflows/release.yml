@@ -2,8 +2,9 @@ name: Release
 
 # Gitea is the source of truth and builds every release here. Pushing a version
 # tag (v*) to Gitea:
-#   1. goreleaser   — builds the orama/orama-node binaries and .deb packages and
-#                     creates the Gitea release with them as assets.
+#   1. goreleaser   — builds the orama/orama-node binaries and .deb packages,
+#                     creates the Gitea release with them as assets, and
+#                     publishes the .deb packages to the Gitea Debian registry.
 #   2. archive      — builds the reproducible cluster archive (amd64 carries the
 #                     global layer, arm64 is cluster-only) and attaches it to that
 #                     release. A signer rebuilds the tag, compares the hash and
@@ -46,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: '1.27.2'
+          go-version: '1.27.3'
           cache-dependency-path: core/go.sum
 
       - name: GoReleaser
@@ -60,6 +61,34 @@ jobs:
           # .deb packages. gitea_urls in .goreleaser.yaml points it at the
           # instance; this token authorises the upload.
           GITEA_TOKEN: ${{ secrets.RELEASE_GITEA_TOKEN }}
+
+      # The same .deb files go to the Gitea Debian registry, so `apt install orama`
+      # follows releases. Like the npm dist-tag, the distribution follows the
+      # version: a prerelease (any -suffix) reaches `nightly`, never `stable`.
+      # 201 is published, 409 is a file the registry already holds (a re-run);
+      # anything else fails the job.
+      - name: Publish .deb packages to the Gitea Debian registry
+        env:
+          GITEA_TOKEN: ${{ secrets.RELEASE_GITEA_TOKEN }}
+          DEBIAN_POOL: https://git.icxcnika.io/api/packages/ICXCNIKA/debian/pool
+        run: |
+          distribution=stable
+          [[ "${GITHUB_REF_NAME#v}" == *-* ]] && distribution=nightly
+          auth="$(mktemp)"
+          ( umask 077; printf 'Authorization: token %s' "${GITEA_TOKEN}" > "$auth" )
+          trap 'rm -f "$auth"' EXIT
+          shopt -s nullglob
+          debs=(dist/*.deb)
+          [ ${#debs[@]} -gt 0 ] || { echo "::error::GoReleaser produced no .deb in dist/"; exit 1; }
+          for deb in "${debs[@]}"; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' -X PUT -H @"$auth" \
+              --upload-file "$deb" "${DEBIAN_POOL}/${distribution}/main/upload")"
+            case "$code" in
+              201) echo "published $(basename "$deb") to ${distribution}/main" ;;
+              409) echo "${distribution}/main already holds $(basename "$deb")" ;;
+              *) echo "::error::uploading $(basename "$deb") returned HTTP $code"; exit 1 ;;
+            esac
+          done
 
   archive:
     name: Cluster archive linux/${{ matrix.arch }}
@@ -83,7 +112,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: '1.27.2'
+          go-version: '1.27.3'
           cache-dependency-path: core/go.sum
 
       - name: Install zig
@@ -100,22 +129,7 @@ jobs:
       # exist, so the arm64 archive is always cluster-only and needs no rust.
       - name: Rust toolchain with the musl target (amd64 global layer)
         if: matrix.arch == 'amd64'
-        run: |
-          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
-          # Gitea's ubuntu-latest runner image ships no Rust (and may lack make
-          # and rsync, which the global layer's build also needs); install
-          # what is missing, rustup with the pinned toolchain.
-          for tool in make rsync; do
-            command -v "$tool" >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make rsync; break; }
-          done
-          if ! command -v rustup >/dev/null; then
-            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$toolchain"
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-            export PATH="$HOME/.cargo/bin:$PATH"
-          fi
-          rustup toolchain install "$toolchain" --profile minimal
-          rustup default "$toolchain"
-          rustup target add --toolchain "$toolchain" x86_64-unknown-linux-musl
+        run: .gitea/scripts/setup-rust.sh --target x86_64-unknown-linux-musl
 
       - name: Build the archive twice
         working-directory: core

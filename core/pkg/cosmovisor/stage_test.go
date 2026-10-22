@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -17,10 +18,17 @@ var stageNow = time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 
 const oramadTarget = "oramad-linux-amd64"
 
+// unprivilegedID is the uid and gid that stand in for the chain account when
+// the test runs as root: nobody/nogroup, which root may chown to and which
+// the layout accepts as unprivileged.
+const unprivilegedID = 65534
+
 // fixture is a chain home, a candidate oramad on disk, and TUF metadata
 // under a generated root that names the good bytes. Running unprivileged,
-// the test's own uid stands in for root; foreign names a component to
-// treat as someone else's.
+// the test's own uid stands in for root and its own uid and gid for the
+// chain account, the only ones it may chown to; running as root, the chain
+// account is unprivilegedID, since the layout refuses 0:0. foreign names a
+// component to treat as someone else's.
 type fixture struct {
 	layout  Layout
 	binary  string
@@ -42,8 +50,12 @@ func newFixture(t *testing.T) *fixture {
 	}
 	f := &fixture{binary: filepath.Join(t.TempDir(), "oramad")}
 	self := uint32(os.Getuid())
+	chainUID, chainGID := os.Getuid(), os.Getgid()
+	if self == 0 {
+		chainUID, chainGID = unprivilegedID, unprivilegedID
+	}
 	f.layout = Layout{
-		Home: home, Daemon: "oramad", ChainUID: os.Getuid(), ChainGID: os.Getgid(),
+		Home: home, Daemon: "oramad", ChainUID: chainUID, ChainGID: chainGID,
 		trusted: func(uid uint32, name string) bool { return (uid == 0 || uid == self) && name != f.foreign },
 	}
 	f.verify = func(file *os.File) error {
@@ -70,6 +82,17 @@ func (f *fixture) mkdir(t *testing.T, rel string) string {
 		t.Fatal(err)
 	}
 	return p
+}
+
+// owner is the uid and gid of p itself, not of what a symlink points at.
+func (f *fixture) owner(t *testing.T, p string) (uid, gid int) {
+	t.Helper()
+	info, err := os.Lstat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := info.Sys().(*syscall.Stat_t)
+	return int(st.Uid), int(st.Gid)
 }
 
 // assertNoBinary fails if any oramad exists below the layout.
@@ -99,6 +122,9 @@ func TestStageUpgrade_placesAVerifiedBinaryWhereCosmovisorLooks(t *testing.T) {
 	root, err := os.Stat(f.layout.Root())
 	if err != nil || root.Mode()&os.ModeSticky == 0 || root.Mode().Perm() != 0o775 {
 		t.Fatalf("cosmovisor/ mode %v, %v; want sticky 0775", root.Mode(), err)
+	}
+	if _, gid := f.owner(t, f.layout.Root()); gid != f.layout.ChainGID {
+		t.Fatalf("cosmovisor/ group %d, want the chain group %d", gid, f.layout.ChainGID)
 	}
 	link, err := os.Readlink(filepath.Join(f.layout.Root(), "upgrades", "v2", "upgrade-info.json"))
 	if err != nil || link != "../../../cosmovisor-upgrade-info-v2.json" {
@@ -224,6 +250,9 @@ func TestStageGenesis_pointsCurrentAtGenesisOnce(t *testing.T) {
 	target, err := os.Readlink(f.layout.Current())
 	if err != nil || target != "genesis" {
 		t.Fatalf("current -> %q, %v", target, err)
+	}
+	if uid, gid := f.owner(t, f.layout.Current()); uid != f.layout.ChainUID || gid != f.layout.ChainGID {
+		t.Fatalf("current is %d:%d, want the chain account %d:%d", uid, gid, f.layout.ChainUID, f.layout.ChainGID)
 	}
 	if b, err := os.ReadFile(filepath.Join(f.layout.Current(), "bin", "oramad")); err != nil || string(b) != "oramad v2\n" {
 		t.Fatalf("current/bin/oramad %q, %v", b, err)

@@ -67,6 +67,16 @@ paths = [
 ]
 
 [[allowlists]]
+description = "Cosmos SDK x/auth parameter names the generic-api-key rule takes for a key (the locked-genesis table pairs each with its stock value); only these two names, only in this file"
+condition = "AND"
+paths = [
+  '''(^|/)chain/app/locked_genesis_test\.go$''',
+]
+regexes = [
+  '''^sig_verify_cost_(ed25519|secp256k1)$''',
+]
+
+[[allowlists]]
 description = "Public constants and labels that only look like keys: a GPG fingerprint, an HKDF purpose string, a key type name, the names of the files tor keeps its keys in, a doc sentence quoting an HKDF label, the scanner's own pattern for curl -u"
 paths = [
   '''(^|/)core/pkg/install/global_install_tor\.go$''',

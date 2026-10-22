@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"fmt"
 	"sort"
 
 	"cosmossdk.io/math"
@@ -131,8 +130,4 @@ func simDenoms(tokens map[string]*simToken) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-func describeSimTx(name string, signer int, extra string) string {
-	return fmt.Sprintf("%s by user %d %s", name, signer, extra)
 }

@@ -25,8 +25,7 @@ bundle for an API none of them had a route to.
 ## Install
 
 ```bash
-npm config set @orama-network:registry https://npm.pkg.github.com
-npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm config set @orama-network:registry https://git.icxcnika.io/api/packages/ICXCNIKA/npm/
 npm install @orama-network/orama-vault
 ```
 

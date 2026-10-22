@@ -1,11 +1,13 @@
 package sfu
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
+	"github.com/gorilla/websocket"
 )
 
 func nowMs() int64 { return time.Now().UnixMilli() }
@@ -22,6 +24,22 @@ func peerOf(s *Server, room, user string) *Peer {
 	return nil
 }
 
+// awaitMuteCorrection reads up to the forced participant-state that corrects
+// user's mute to muted on its join. The SFU settles the mute after it sends the
+// welcome, so the peer is only checked once the correction has arrived.
+func awaitMuteCorrection(t *testing.T, conn *websocket.Conn, user string, muted bool) {
+	t.Helper()
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	m := readType(t, conn, MessageTypeParticipantState)
+	var st ParticipantStateData
+	if err := json.Unmarshal(m.Data, &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.UserID != user || st.Kind != "audio" || st.Enabled == muted || !st.Forced {
+		t.Fatalf("state = %+v, want %s's audio forced to enabled=%v", st, user, !muted)
+	}
+}
+
 func muteUser(t *testing.T, s *Server, room, user string, muted bool, atMs int64) {
 	t.Helper()
 	control(t, s, ctrlauth.MutePath, ctrlauth.MuteRequest{Room: room, UserID: user, Muted: muted, AtMs: atMs})
@@ -35,7 +53,8 @@ func TestMute_rejoinWithAPreMuteTicketStaysMuted(t *testing.T) {
 	stale.IssuedAtMs = nowMs() - 1000
 
 	muteUser(t, s, "r1", "alice", true, nowMs()) // nobody of alice's is in the room
-	joinAs(t, s, stale, "")
+	conn, _ := joinAs(t, s, stale, "")
+	awaitMuteCorrection(t, conn, "alice", true)
 
 	if p := peerOf(s, "r1", "alice"); p == nil || !p.muted.Load() {
 		t.Fatal("a user muted after its ticket was issued rejoined unmuted")
@@ -51,6 +70,7 @@ func TestMute_joinInFlightWhenTheMuteLandsEndsMuted(t *testing.T) {
 	muteUser(t, s, "r1", "alice", true, nowMs())
 	sendJoin(t, conn, "r1")
 	readType(t, conn, MessageTypeWelcome)
+	awaitMuteCorrection(t, conn, "alice", true)
 
 	if p := peerOf(s, "r1", "alice"); p == nil || !p.muted.Load() {
 		t.Fatal("a join in flight when the mute landed ended unmuted")
@@ -65,7 +85,8 @@ func TestMute_unmuteThenRejoinWithAPreUnmuteTicketEndsUnmuted(t *testing.T) {
 
 	muteUser(t, s, "r1", "alice", true, nowMs()-1500)
 	muteUser(t, s, "r1", "alice", false, nowMs())
-	joinAs(t, s, stale, "")
+	conn, _ := joinAs(t, s, stale, "")
+	awaitMuteCorrection(t, conn, "alice", false)
 
 	if p := peerOf(s, "r1", "alice"); p == nil || p.muted.Load() {
 		t.Fatal("a user unmuted after its ticket was issued rejoined muted")

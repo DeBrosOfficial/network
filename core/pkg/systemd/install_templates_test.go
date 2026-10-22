@@ -67,14 +67,16 @@ func TestInstallTemplateUnits_unwritable_destination_fails(t *testing.T) {
 		}
 	}
 
-	dest := filepath.Join(t.TempDir(), "read-only")
-	if err := os.Mkdir(dest, 0500); err != nil {
+	// The destination is a file, so nothing can be written below it: a 0500
+	// directory would not stop the root that CI runs as.
+	dest := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(dest, nil, 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	err := newTestManager(t, dest).InstallTemplateUnits(source)
 	if err == nil {
-		t.Fatal("writing to a read-only directory reported success")
+		t.Fatal("writing below a file reported success")
 	}
 	if !strings.Contains(err.Error(), "write template") {
 		t.Fatalf("error does not identify the write failure: %v", err)

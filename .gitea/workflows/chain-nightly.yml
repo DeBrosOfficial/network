@@ -40,7 +40,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
 
       - name: Mutate ${{ matrix.package }}
@@ -67,7 +67,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
 
       - name: nilaway
@@ -99,16 +99,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: |
             chain/go.sum
             core/go.sum
 
       - name: Rust toolchain
-        run: |
-          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
-          rustup toolchain install "$toolchain" --profile minimal
-          rustup default "$toolchain"
+        run: .gitea/scripts/setup-rust.sh
 
       - name: Fuzz ${{ matrix.module }}
         run: make -C chain fuzz-long-${{ matrix.module }}
@@ -134,8 +131,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
+
+      - name: Rust toolchain
+        run: .gitea/scripts/setup-rust.sh
 
       - name: cargo-fuzz and the nightly toolchain
         run: make -C chain rust-fuzz-tools
@@ -165,14 +165,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
 
       - name: Nightly Rust with Miri and rust-src
         run: |
-          nightly="$(make -s -C chain print-RUST_NIGHTLY)"
-          rustup toolchain install "$nightly" --profile minimal --component miri,rust-src
-          cargo "+$nightly" miri setup
+          .gitea/scripts/setup-rust.sh --nightly --component miri --component rust-src
+          cargo "+$(make -s -C chain print-RUST_NIGHTLY)" miri setup
 
       - name: Miri
         run: make -C chain rust-miri

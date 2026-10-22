@@ -147,21 +147,42 @@ func TestGlobalCollectScript_kuboTokenReadRefusesLinksAndFIFOs(t *testing.T) {
 	}
 }
 
+// requireNofollowDD skips the test unless this host's dd takes the flags the
+// reads use (GNU's iflag=nofollow,nonblock): a regular file must come through
+// and a link to it must not. The check is the behaviour itself, not the wording
+// of an error, which differs between dd implementations and their versions.
+func requireNofollowDD(t *testing.T, bash string) {
+	t.Helper()
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	if err := os.WriteFile(target, []byte("PROBE"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	ddRead := func(path string) string {
+		out, _ := exec.Command(bash, "-c", "dd if="+path+" bs=16 count=1 iflag=nofollow,nonblock 2>&1").CombinedOutput()
+		return string(out)
+	}
+	if out := ddRead(target); !strings.Contains(out, "PROBE") {
+		t.Skipf("this dd cannot read with iflag=nofollow,nonblock: %s", out)
+	}
+	if out := ddRead(link); strings.Contains(out, "PROBE") {
+		t.Skipf("this dd follows a link under iflag=nofollow: %s", out)
+	}
+}
+
 func TestKuboTokenRead_behaviour(t *testing.T) {
 	bash, err := exec.LookPath("bash")
 	if err != nil {
 		t.Skip("bash not available")
 	}
-	probeDir := t.TempDir()
-	probeTarget := filepath.Join(probeDir, "t")
+	requireNofollowDD(t, bash)
+	probeTarget := filepath.Join(t.TempDir(), "t")
 	if err := os.WriteFile(probeTarget, []byte("ROOT-ONLY"), 0o600); err != nil {
 		t.Fatal(err)
-	}
-	if err := os.Symlink(probeTarget, filepath.Join(probeDir, "l")); err != nil {
-		t.Fatal(err)
-	}
-	if out, _ := exec.Command(bash, "-c", "dd if="+filepath.Join(probeDir, "l")+" bs=16 count=1 iflag=nofollow 2>&1").CombinedOutput(); strings.Contains(string(out), "ROOT-ONLY") || strings.Contains(string(out), "invalid") || strings.Contains(string(out), "unrecognized") {
-		t.Skipf("this dd has no working iflag=nofollow: %s", out)
 	}
 	// The script's own token command, with the host's sudo -n dropped (the test is its own user).
 	read := func(path string) string {
@@ -216,10 +237,7 @@ func TestMonitorRead_behaviour(t *testing.T) {
 	if err := os.WriteFile(secret, []byte("ROOT-ONLY"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	probe := exec.Command(bash, "-c", "ln -s "+secret+" "+filepath.Join(dir, "probe")+" && dd if="+filepath.Join(dir, "probe")+" bs=16 count=1 iflag=nofollow 2>&1 | head -c 200")
-	if out, _ := probe.CombinedOutput(); strings.Contains(string(out), "ROOT-ONLY") || strings.Contains(string(out), "invalid") || strings.Contains(string(out), "unrecognized") {
-		t.Skipf("this dd has no working iflag=nofollow: %s", out)
-	}
+	requireNofollowDD(t, bash)
 	read := func(home string) string {
 		// sudo -n is the host's; here the test is its own user.
 		line := strings.Replace(monitorRead(home), "sudo -n ", "", 1)

@@ -1,6 +1,6 @@
 module github.com/Orama-Network/orama/chain
 
-go 1.27.2
+go 1.27.3
 
 require (
 	cosmossdk.io/api v1.0.0

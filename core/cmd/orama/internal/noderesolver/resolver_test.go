@@ -5,19 +5,29 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
 )
 
+// The environments live in $HOME/.orama; each test gets its own, so the result
+// does not depend on which networks the machine running it has configured.
 func TestGatewayURLForEnv_knownEnv(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	const gateway = "https://devnet.example.org"
+	if err := cli.AddEnvironment("devnet", gateway, "test"); err != nil {
+		t.Fatal(err)
+	}
 	url, err := GatewayURLForEnv("devnet")
 	if err != nil {
 		t.Fatalf("GatewayURLForEnv(devnet): %v", err)
 	}
-	if url == "" {
-		t.Error("expected non-empty gateway URL for devnet")
+	if url != gateway {
+		t.Errorf("GatewayURLForEnv(devnet) = %q, want %q", url, gateway)
 	}
 }
 
 func TestGatewayURLForEnv_unknownEnv(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	_, err := GatewayURLForEnv("nonexistent")
 	if err == nil {
 		t.Error("expected error for unknown environment")

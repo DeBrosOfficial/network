@@ -1504,6 +1504,10 @@ func jsonBool(m map[string]interface{}, key string) bool {
 // IPv4:port, the block base must be all digits before any arithmetic (shell
 // arithmetic evaluates array subscripts, command substitutions included), and
 // the namespace name must be a valid namespace name before it is embedded.
+//
+// The rqlite command is a subshell, so its substitution is written "$( (...))":
+// "$((" opens an arithmetic expansion, which dash (Debian's and Ubuntu's
+// /bin/sh) does not take back, and the whole script fails to parse.
 func namespaceProbeScript(sudo, namespacesDir, name string) (string, error) {
 	if !validNamespaceName(name) {
 		return "", fmt.Errorf("%q is not a valid namespace name", name)
@@ -1526,9 +1530,9 @@ case "$BASE" in
   ''|*[!0-9]*) ADDR=""; BASE="" ;;
 esac
 HOST=${ADDR%%:*}
-if [ -n "$ADDR" ] && STATUS=$(%[4]s 2>/dev/null); then
+if [ -n "$ADDR" ] && STATUS=$( %[4]s 2>/dev/null); then
     STATE=$(echo "$STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('store',{}).get('raft',{}).get('state',''))" 2>/dev/null || echo "")
-    READYZ=$(%[5]s >/dev/null 2>&1 && echo "yes" || echo "no")
+    READYZ=$( %[5]s >/dev/null 2>&1 && echo "yes" || echo "no")
     echo "RQLITE:${BASE}:up:${STATE}:${READYZ}"
 fi
 if [ -n "$BASE" ]; then

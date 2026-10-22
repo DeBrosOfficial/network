@@ -103,7 +103,7 @@ function requireShieldedRecipient(to: string): void {
     decodeShieldedAddress(to);
   } catch (err) {
     const hint = isOramaAddress(to) ? "; this is a public account address, to pay it openly pass public: true explicitly" : "";
-    throw new Error(`${to} is not a shielded address (oramas1...): ${(err as Error).message}${hint}`);
+    throw new Error(`${to} is not a shielded address (oramas1...): ${(err as Error).message}${hint}`, { cause: err });
   }
 }
 

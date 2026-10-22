@@ -1,6 +1,6 @@
 module github.com/Orama-Network/orama/core/thirdparty/olric
 
-go 1.27.2
+go 1.27.3
 
 tool github.com/olric-data/olric/cmd/olric-server
 

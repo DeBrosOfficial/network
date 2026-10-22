@@ -69,13 +69,24 @@ func TestUsesSeparateAPIKeyRegistry(t *testing.T) {
 // tenant's own rqlite on a namespace gateway, whose api_keys table the tenant
 // can write. It does not start now.
 func TestConnectAPIKeyRegistry_anUnreachableRegistryIsFatal(t *testing.T) {
-	// A port nothing is listening on: bind one, read its number, close it.
+	// A registry that hangs up on every connection. The port stays bound for
+	// the whole test: a port bound and closed again is free for any other test
+	// process to listen on, and a server there could answer the probe.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
+	t.Cleanup(func() { listener.Close() })
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
 	addr := listener.Addr().String()
-	listener.Close()
 
 	cfg := &Config{
 		RQLiteDSN:       "http://127.0.0.1:1",

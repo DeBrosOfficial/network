@@ -17,6 +17,11 @@ type panicDriver struct{ mode string }
 
 func (d *panicDriver) Open(string) (driver.Conn, error) { return &panicConn{d: d}, nil }
 
+// Connect and Driver make panicDriver its own driver.Connector, opened with
+// sql.OpenDB: database/sql's registry refuses the same name twice under -count.
+func (d *panicDriver) Connect(context.Context) (driver.Conn, error) { return d.Open("") }
+func (d *panicDriver) Driver() driver.Driver                        { return d }
+
 type panicConn struct{ d *panicDriver }
 
 func (c *panicConn) Prepare(string) (driver.Stmt, error) { return &panicStmt{d: c.d}, nil }
@@ -52,12 +57,7 @@ func (r *noRows) Next(dest []driver.Value) error { return io.EOF }
 
 func openPanicDB(t *testing.T, mode string) *sql.DB {
 	t.Helper()
-	name := "panic-" + t.Name()
-	sql.Register(name, &panicDriver{mode: mode})
-	db, err := sql.Open(name, "")
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
+	db := sql.OpenDB(&panicDriver{mode: mode})
 	t.Cleanup(func() { db.Close() })
 	return db
 }

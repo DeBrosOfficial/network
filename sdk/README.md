@@ -14,8 +14,7 @@ A modern, isomorphic TypeScript SDK for the Orama Network gateway. Works seamles
 ## Installation
 
 ```bash
-npm config set @orama-network:registry https://npm.pkg.github.com
-npm config set //npm.pkg.github.com/:_authToken <token with read:packages>
+npm config set @orama-network:registry https://git.icxcnika.io/api/packages/ICXCNIKA/npm/
 npm install @orama-network/orama
 ```
 
@@ -845,4 +844,4 @@ MIT
 
 ## Support
 
-For issues, questions, or contributions, please open an issue on GitHub or visit [Orama Network Documentation](https://orama.network/docs/).
+For issues, questions, or contributions, please open an issue on [GitHub](https://github.com/Orama-Network/orama/issues) or visit [Orama Network Documentation](https://orama.network/docs/).

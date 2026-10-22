@@ -5,6 +5,11 @@ Documentation lives in exactly two places: the website docs (`website/src/docs/`
 `website/src/docs/developer/getting-started.mdx` (deploy apps/DBs/domains), `website/src/docs/contributor/dev-setup.mdx` (build,
 deploy to nodes, rolling upgrades), and `website/src/docs/developer/functions.mdx` (functions).
 
+Hosting: **work happens on Gitea; the public sees GitHub.**
+- `git.icxcnika.io/ICXCNIKA/orama` is where development happens: push there, and it runs CI (Gitea Actions), releases and the npm and Debian packages. Never push to GitHub or use `gh`.
+- `github.com/Orama-Network/orama` is the public, code-only mirror. Only `.gitea/workflows/mirror-to-github.yml` writes to it.
+- Public-facing links (website, docs, package metadata, unit `Documentation=`, issue templates) point to the GitHub repository, never to Gitea. The exception is install endpoints for things that exist only on Gitea: the npm and apt registries, and release downloads.
+
 Operational constraints:
 - **Rolling upgrades only** — never restart multiple RQLite voters at once (Raft quorum).
 - Drive nodes through the `orama` CLI (`orama node …`), never raw `systemctl`.
