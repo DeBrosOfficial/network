@@ -353,7 +353,7 @@ func (b *Builder) downloadIPFS() error {
 
 	arch := b.flags.Arch
 	tarball := fmt.Sprintf("kubo_%s_linux-%s.tar.gz", constants.IPFSKuboVersion, arch)
-	url := fmt.Sprintf("https://dist.ipfs.tech/kubo/%s/%s", constants.IPFSKuboVersion, tarball)
+	url := fmt.Sprintf("https://github.com/ipfs/kubo/releases/download/%s/%s", constants.IPFSKuboVersion, tarball)
 	tarPath := filepath.Join(b.tmpDir, tarball)
 
 	if err := fetchPinned(url, tarPath, tarball, arch, constants.IPFSKuboTarballSHA256); err != nil {

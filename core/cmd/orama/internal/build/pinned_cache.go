@@ -8,7 +8,7 @@ import (
 
 // pinnedCacheDirName is where release tarballs whose SHA-256 is pinned are
 // kept between builds, under the user's cache directory. Every build used to
-// download them again, and a network blip on dist.ipfs.tech failed a deploy
+// download them again, and a network blip on the Kubo download host failed a deploy
 // for a file it already had.
 const pinnedCacheDirName = "orama-build-pinned"
 

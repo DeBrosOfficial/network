@@ -91,10 +91,10 @@ Then eight steps, printed as `[1/8]` to `[8/8]`:
 | 4 | `ipfs-cluster-service` | the same, in `core/thirdparty/ipfs-cluster` (IPFS Cluster v1.1.6) |
 | 5 | `coredns` | `git clone --depth 1 --branch v1.14.7`, refused unless HEAD is `constants.CoreDNSCommit`, copy `core/pkg/coredns/rqlite/*.go` into `plugin/rqlite`, write `plugin.cfg`, `go mod tidy`, `go generate`, `go build` |
 | 6 | `caddy` | `go build -mod=readonly ./cmd/caddy` in the repository's `caddy/` module (Caddy v2.11.4 with the DNS provider and certificate storage modules) |
-| 7 | `ipfs` | Kubo v0.43.1 tarball from `dist.ipfs.tech`, SHA-256 checked, one file extracted |
+| 7 | `ipfs` | Kubo v0.43.1 tarball from the GitHub release of `ipfs/kubo`, SHA-256 checked, one file extracted |
 | 8 | `rqlited` | RQLite 10.4.0 tarball from GitHub, SHA-256 checked, one file extracted |
 
-The versions are constants in `core/pkg/constants/versions.go`. The two digests are in `core/pkg/constants/release_digests.go`, one per architecture. A download whose SHA-256 differs from the pin is refused with a message that it "is not the release the version pin names". A verified tarball is cached under the user cache directory (`orama-build-pinned/<sha>`), so a network blip on `dist.ipfs.tech` cannot fail a deploy for a file the machine already has; a cached copy that no longer matches is deleted and fetched again (`core/cmd/orama/internal/build/pinned_cache.go:fetchPinned`). Downloads time out after 5 minutes. A missing pin for the architecture is an error that names the file to edit.
+The versions are constants in `core/pkg/constants/versions.go`. The two digests are in `core/pkg/constants/release_digests.go`, one per architecture. A download whose SHA-256 differs from the pin is refused with a message that it "is not the release the version pin names". A verified tarball is cached under the user cache directory (`orama-build-pinned/<sha>`), so a network blip on the download host cannot fail a deploy for a file the machine already has; a cached copy that no longer matches is deleted and fetched again (`core/cmd/orama/internal/build/pinned_cache.go:fetchPinned`). Downloads time out after 5 minutes. A missing pin for the architecture is an error that names the file to edit.
 
 Only the Kubo and RQLite tarballs are pinned. Olric, IPFS Cluster, CoreDNS and Caddy are built from source at a version tag, and their dependency graphs are resolved when the build runs (see Known gaps).
 
