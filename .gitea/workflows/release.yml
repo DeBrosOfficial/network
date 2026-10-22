@@ -102,6 +102,17 @@ jobs:
         if: matrix.arch == 'amd64'
         run: |
           toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
+          # Gitea's ubuntu-latest runner image ships no Rust (and may lack make
+          # and rsync, which the global layer's build also needs); install
+          # what is missing, rustup with the pinned toolchain.
+          for tool in make rsync; do
+            command -v "$tool" >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make rsync; break; }
+          done
+          if ! command -v rustup >/dev/null; then
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$toolchain"
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
           rustup toolchain install "$toolchain" --profile minimal
           rustup default "$toolchain"
           rustup target add --toolchain "$toolchain" x86_64-unknown-linux-musl
