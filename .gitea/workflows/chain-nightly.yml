@@ -10,6 +10,13 @@ on:
     - cron: "30 2 * * *"
   workflow_dispatch:
 
+# Each job gets its own tool cache. The runner's act-toolcache volume is shared
+# by every job on a host, and @actions/tool-cache empties a version's directory
+# before filling it, so jobs installing a new Go or Node at the same moment
+# delete each other's files (ENOENT, then a half-installed toolchain).
+env:
+  RUNNER_TOOL_CACHE: /tmp/toolcache
+
 permissions:
   contents: read
 
