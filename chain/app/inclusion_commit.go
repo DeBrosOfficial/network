@@ -8,7 +8,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 // injectedCommitMagic is the prefix of the transaction a proposer puts first in

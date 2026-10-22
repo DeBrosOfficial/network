@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 func statusOf(state string, voter bool) *rqlite.RQLiteStatus {

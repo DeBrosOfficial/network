@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/pace"
+	"github.com/Orama-Network/orama/e2e/harness/pace"
 )
 
 // TestStream_pacedTooManyRequestsIsAPacingError: a paced stream to a

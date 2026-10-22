@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // TorHost is a Machine that can run a role of the Orama Tor network a creation

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 	"io"
 	"net/http"
 	"time"

@@ -7,11 +7,11 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 	"github.com/spf13/cobra"
 )
 

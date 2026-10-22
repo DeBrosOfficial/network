@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // TestRelayRegister_crossCertifiedRelay: an operator registers its node's Tor

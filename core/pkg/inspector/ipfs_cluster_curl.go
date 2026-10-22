@@ -3,7 +3,7 @@ package inspector
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // ipfsClusterSecretPath is the cluster secret on an installed node. The REST

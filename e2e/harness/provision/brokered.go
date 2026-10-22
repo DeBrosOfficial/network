@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/broker"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/broker"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // A feature process has no cloud credentials (stages.FeatureEnv): it has the

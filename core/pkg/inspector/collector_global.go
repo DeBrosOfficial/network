@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalnetns"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalnetns"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // collectGlobalNode reads the chain RPC, the slashing REST, and the global

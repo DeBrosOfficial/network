@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 const (

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // Uptime is recorded as minutes per component per UTC hour: one row per

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // ormRecorder notes every statement the ORM gateway hands the database.

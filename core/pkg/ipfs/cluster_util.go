@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
 )
 
 // clusterSecretHexLen is the length of the shared secret as stored: 32 random

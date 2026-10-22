@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 // url_guard.go — SSRF guard for TENANT-supplied push base URLs.

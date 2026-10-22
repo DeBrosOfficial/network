@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 var vectorNames = []string{"ironwood-1-action", "ironwood-2-action", "ironwood-transfer", "ironwood-unshield"}

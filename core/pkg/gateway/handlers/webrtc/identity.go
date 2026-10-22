@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // caller is who the gateway authenticated for a request.

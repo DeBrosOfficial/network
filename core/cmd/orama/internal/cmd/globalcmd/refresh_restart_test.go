@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalnode"
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalnode"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // refreshFixture is a node with some global services installed, whose systemd answers from a table

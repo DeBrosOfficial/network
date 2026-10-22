@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // An account's devices.

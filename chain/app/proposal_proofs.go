@@ -5,9 +5,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	shieldedante "github.com/DeBrosOfficial/network/chain/x/shielded/ante"
-	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	orchardverify "github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
+	shieldedante "github.com/Orama-Network/orama/chain/x/shielded/ante"
+	shieldedkeeper "github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	orchardverify "github.com/Orama-Network/orama/chain/x/shielded/verify/orchard"
 )
 
 // The proof check of a block proposal. A shielded bundle costs every validator a Halo 2 verification,

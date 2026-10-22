@@ -3,7 +3,7 @@ package install
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 func TestValidateFlags_missingVPSIPIsUsage(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // EnvEncryptionPurpose is the HKDF info label that separates the deployment

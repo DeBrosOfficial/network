@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/services"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/features/internal/services"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/pkg/shamir"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/core/pkg/shamir"
 )
 
 // The gateway's limits (core/pkg/gateway/handlers/vault).

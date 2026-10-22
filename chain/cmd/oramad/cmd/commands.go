@@ -31,11 +31,11 @@ import (
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissioncli "github.com/DeBrosOfficial/network/chain/x/emission/client/cli"
-	powercli "github.com/DeBrosOfficial/network/chain/x/power/client/cli"
-	wasmpolicycli "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/client/cli"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissioncli "github.com/Orama-Network/orama/chain/x/emission/client/cli"
+	powercli "github.com/Orama-Network/orama/chain/x/power/client/cli"
+	wasmpolicycli "github.com/Orama-Network/orama/chain/x/wasmpolicy/client/cli"
 )
 
 // initCometBFTConfig returns oramad's default CometBFT config: CometBFT's defaults with

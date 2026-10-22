@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"go.uber.org/zap"
 )
 

@@ -12,9 +12,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
 )
 
 // Signerless is Planned.Account for a transaction nobody signs.

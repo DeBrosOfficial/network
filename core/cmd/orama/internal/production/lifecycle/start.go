@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
 )
 
 // HandleStart starts all production services

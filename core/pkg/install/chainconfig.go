@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // The settings every Orama chain node runs with, the ones chain/scripts/stagenet/

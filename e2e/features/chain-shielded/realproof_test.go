@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/cliconf"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/cliconf"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // These tests put real Halo 2 proofs on the chain. Everything else in this feature

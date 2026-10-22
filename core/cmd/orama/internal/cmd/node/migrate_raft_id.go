@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/raftid"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/raftid"
 	"github.com/spf13/cobra"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // TorUnit is the node's client-only Tor daemon, run by the supervisor.

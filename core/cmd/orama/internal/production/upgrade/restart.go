@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/nodehealth"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/nodehealth"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 // clusterHealthBudget is how long this node has to rejoin after its own

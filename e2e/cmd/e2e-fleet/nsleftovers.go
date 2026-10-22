@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/nsledger"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/nsledger"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // Bounds and reasons of the namespace cleanup.

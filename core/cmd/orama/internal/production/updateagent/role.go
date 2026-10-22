@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/autoupdate"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/autoupdate"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // nodeRole is autoupdate.RoleValidator on a machine that runs the chain and

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/push"
 	"github.com/sideshow/apns2"
 )
 

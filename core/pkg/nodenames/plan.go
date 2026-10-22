@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // What a pass reads and decides: the rows other writers own, the rows this package owns, and the

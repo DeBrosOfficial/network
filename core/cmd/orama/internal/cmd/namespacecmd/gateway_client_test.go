@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 )
 
 // The namespace backup, restore and rqlite commands used a bare tls.Config,

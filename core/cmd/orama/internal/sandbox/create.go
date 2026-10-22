@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/build"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/build"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // Create orchestrates the creation of a new sandbox cluster.

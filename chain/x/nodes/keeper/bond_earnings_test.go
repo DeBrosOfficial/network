@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // Bonding from earnings happens inside MsgBondNode, after its own checks. A bond the handler

@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/push"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/invite"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/push"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/invite"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // A sandbox installs and rolls out builds exactly as a production cluster does

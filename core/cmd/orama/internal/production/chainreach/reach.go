@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalnetns"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalnetns"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
 )
 
 const (

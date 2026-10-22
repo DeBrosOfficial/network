@@ -11,8 +11,8 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // MaxSignerlessOverhead is the most bytes a signer-less tx may carry around its bundle. The tx pays no

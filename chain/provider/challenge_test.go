@@ -6,9 +6,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 func TestReplicaProofMatchesTheChainLeaf(t *testing.T) {

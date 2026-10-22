@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // Mode names where a Source reads the cluster from.

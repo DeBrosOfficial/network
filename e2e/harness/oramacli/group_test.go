@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // shortWaitDelay shortens cliWaitDelay for one test.

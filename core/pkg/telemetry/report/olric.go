@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/olric"
 )
 
 // indexOlricUnit is the index Olric service. It replaced the pre-namespace

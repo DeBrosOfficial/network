@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // Defaults for what the environment may leave out.

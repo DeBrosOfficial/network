@@ -10,19 +10,19 @@ package decommission
 
 import (
 	"fmt"
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalnetns"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalnetns"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
 )
 
 // wipeScript erases an Orama installation from a node.

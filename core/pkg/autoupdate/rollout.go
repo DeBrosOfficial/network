@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
 )
 
 // releaseLockBudget bounds freeing the lock after an install, on a context of

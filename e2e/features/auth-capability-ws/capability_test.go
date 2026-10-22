@@ -13,8 +13,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 // Capability rules (docs/whitepaper/technical-reference/vol1/13-identity.md#open-websockets, website/src/docs/developer/functions.mdx#capabilities).

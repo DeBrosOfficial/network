@@ -17,8 +17,8 @@ import (
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // relayChain is a chain with funded users and one relay contract that nobody funded.

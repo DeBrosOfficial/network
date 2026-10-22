@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // nsRequestTimeout bounds one namespace API call.

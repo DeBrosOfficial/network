@@ -3,7 +3,7 @@ package gateway
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // emptyRegistryNet is a registry with nothing in it. A Service with no database

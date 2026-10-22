@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // The Anyone network (the `anon` package, its relay and client) was removed in

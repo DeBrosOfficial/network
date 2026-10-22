@@ -14,7 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // Keeper is x/nodes' keeper.

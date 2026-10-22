@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 	_ "github.com/mattn/go-sqlite3"
 )
 

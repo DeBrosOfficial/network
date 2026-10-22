@@ -3,8 +3,8 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func checkRQLiteLeader(reports []*report.NodeReport) []Alert {

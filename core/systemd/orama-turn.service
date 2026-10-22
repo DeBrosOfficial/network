@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama TURN (shared, all namespaces on this host)
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 After=network.target
 
 # PartOf: a stop/restart of orama-node cycles this unit too, which drops every

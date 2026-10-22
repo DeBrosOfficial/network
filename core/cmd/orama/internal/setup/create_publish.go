@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // CreatedNetwork is what a creation leaves for its maintainer to publish.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // nodeView is `oramad query nodes node`.

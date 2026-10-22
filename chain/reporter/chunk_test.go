@@ -6,7 +6,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 func entriesOf(n int) []relaytypes.RelayObservation {

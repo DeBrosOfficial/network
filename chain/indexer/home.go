@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // What the home snapshot holds and how long it is reused.

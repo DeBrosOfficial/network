@@ -8,9 +8,9 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 	"github.com/spf13/cobra"
 )
 

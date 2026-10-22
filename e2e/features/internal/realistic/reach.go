@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // reachSeconds bounds the reachability probe of an outside URL from a node.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Reset tears down all sandbox infrastructure (floating IPs, firewall, SSH key)

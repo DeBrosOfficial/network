@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // envSealedFD names the inherited pipe a re-executed runner reads its

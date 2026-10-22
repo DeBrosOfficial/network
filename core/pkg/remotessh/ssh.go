@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 // SSHOption configures SSH command behavior.

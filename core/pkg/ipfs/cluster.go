@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/config"
 	"go.uber.org/zap"
 )
 

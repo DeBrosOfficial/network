@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/sdk"
+	"github.com/Orama-Network/orama/core/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -103,7 +103,7 @@ var vendoredSDK = "// Copied by 'orama function init' from " + sdkImportPath + "
 	sdk.FnSource
 
 // sdkImportPath is where the SDK lives in the Orama repository.
-const sdkImportPath = "github.com/DeBrosOfficial/network/sdk/fn"
+const sdkImportPath = "github.com/Orama-Network/orama/core/sdk/fn"
 
 // scaffoldHandler is the function.go of a new function named name, importing
 // the SDK copied into the project.

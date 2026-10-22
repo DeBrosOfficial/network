@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/legacylayout"
+	"github.com/Orama-Network/orama/core/pkg/legacylayout"
 	"golang.org/x/sys/unix"
 )
 

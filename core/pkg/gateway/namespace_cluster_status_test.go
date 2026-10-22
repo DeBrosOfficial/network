@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 type statusProvisioner struct {

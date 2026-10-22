@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	oramaversion "github.com/DeBrosOfficial/network/pkg/version"
+	oramaversion "github.com/Orama-Network/orama/core/pkg/version"
 )
 
 // buildInfo is what the version command reports.

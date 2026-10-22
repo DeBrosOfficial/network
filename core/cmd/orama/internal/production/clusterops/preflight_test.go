@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // A node holds a voter in the platform cluster and in every namespace it was

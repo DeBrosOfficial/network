@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
-	joinhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/join"
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
+	joinhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/join"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // Orchestrator manages the install process

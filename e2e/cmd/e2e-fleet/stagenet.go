@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // refuseStagenetEnv refuses cmd, which provisions, changes or destroys

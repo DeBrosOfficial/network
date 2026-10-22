@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // RunOpts are what one invocation adds to the runner's isolation. The

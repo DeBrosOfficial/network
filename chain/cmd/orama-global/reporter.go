@@ -13,9 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/reporter"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/reporter"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 const reporterInterval = 5 * time.Minute

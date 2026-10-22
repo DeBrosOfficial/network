@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 func node(host, role string) inspector.Node {

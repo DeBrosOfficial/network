@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/client/tx"
 )
 
 // KeyDomain separates the bench keys from any other use of SHA-256 over a seed.

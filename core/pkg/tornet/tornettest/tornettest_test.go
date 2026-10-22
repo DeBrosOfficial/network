@@ -3,7 +3,7 @@ package tornettest
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 func TestNetworkFile_isAValidNetwork(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 var (

@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
 )
 
 // fakeLoadGuard records the import's bracket.

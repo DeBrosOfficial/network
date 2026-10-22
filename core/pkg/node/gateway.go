@@ -11,11 +11,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/multiformats/go-multiaddr"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/namespace"
-	database "github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
+	database "github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 func (n *Node) startIndexPubsub(ctx context.Context) error {

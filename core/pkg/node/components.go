@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/node/boot"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/node/boot"
 )
 
 // Component names. They appear in logs and in the lifecycle reasoning below,

@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // statusTimeout bounds the one /status read the capture makes.

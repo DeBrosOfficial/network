@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // A build without the Rust verifier linked accepts no bundle, whatever the other verifier says.

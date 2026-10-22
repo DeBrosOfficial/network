@@ -7,8 +7,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // TxRecord is one transaction of a block as the scan needs it: whether it executed and what it

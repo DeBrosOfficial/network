@@ -17,9 +17,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/houses/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/client/cli"
+	"github.com/Orama-Network/orama/chain/x/houses/keeper"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // ConsensusVersion is x/houses' initial consensus version.

@@ -1,9 +1,17 @@
-# GoReleaser v2 Configuration for DeBros Network
+# GoReleaser v2 Configuration for Orama Network
 # Builds and releases orama (CLI) and orama-node binaries.
-# Publishes to: GitHub Releases, Homebrew (stable only), and apt (.deb packages).
+# Publishes to Gitea Releases: the binaries, the .deb packages and the tar.gz
+# archives all ride the release as downloadable assets (no separate apt repo).
+# Gitea is the source of truth; GitHub is a code-only mirror (no Actions).
 
 version: 2
 project_name: orama-network
+
+# The Gitea instance GoReleaser creates the release and uploads assets on.
+# GITEA_TOKEN (a package+repository write token) authenticates the upload.
+gitea_urls:
+  api: https://git.icxcnika.io/api/v1
+  download: https://git.icxcnika.io
 
 env:
   - GO111MODULE=on
@@ -76,9 +84,9 @@ nfpms:
     package_name: orama
     ids:
       - orama
-    vendor: DeBros
-    homepage: https://github.com/Orama-Network/orama
-    maintainer: DeBros <dev@debros.io>
+    vendor: Orama Network
+    homepage: https://git.icxcnika.io/ICXCNIKA/orama
+    maintainer: Orama Network <info@orama.network>
     description: CLI tool for the Orama decentralized network
     license: MIT
     formats:
@@ -98,9 +106,9 @@ nfpms:
     package_name: orama-node
     ids:
       - orama-node
-    vendor: DeBros
-    homepage: https://github.com/Orama-Network/orama
-    maintainer: DeBros <dev@debros.io>
+    vendor: Orama Network
+    homepage: https://git.icxcnika.io/ICXCNIKA/orama
+    maintainer: Orama Network <info@orama.network>
     description: Node daemon for the Orama decentralized network
     license: MIT
     formats:
@@ -114,27 +122,6 @@ nfpms:
     deb:
       lintian_overrides:
         - statically-linked-binary
-
-# Homebrew tap for macOS (orama CLI only).
-# Stable releases only — prereleases (nightly) are skipped so we don't
-# pollute the tap or fight a 401 on a missing HOMEBREW_TAP_TOKEN.
-brews:
-  - name: orama
-    ids:
-      - orama-archives
-    repository:
-      owner: Orama-Network
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
-    homepage: https://github.com/Orama-Network/orama
-    description: CLI tool for the Orama decentralized network
-    license: MIT
-    skip_upload: '{{ if .Prerelease }}true{{ else }}false{{ end }}'
-    install: |
-      bin.install "orama"
-    test: |
-      system "#{bin}/orama", "--version"
 
 checksum:
   name_template: "checksums.txt"
@@ -156,8 +143,8 @@ changelog:
       - Merge branch
 
 release:
-  github:
-    owner: Orama-Network
+  gitea:
+    owner: ICXCNIKA
     name: orama
   draft: false
   prerelease: auto

@@ -3,17 +3,17 @@ package push
 import (
 	"errors"
 	"fmt"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/noderesolver"
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
 )
 
 // Flags holds push command flags.

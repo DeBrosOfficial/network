@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // testNetwork is a valid three-authority network on public addresses.

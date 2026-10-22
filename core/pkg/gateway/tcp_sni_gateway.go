@@ -12,8 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // TCPSNIGateway handles SNI-based TCP routing for services like RQLite Raft, IPFS, etc.

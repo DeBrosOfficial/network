@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // LiveExtras are the run's servers that exist in Hetzner but not in st:

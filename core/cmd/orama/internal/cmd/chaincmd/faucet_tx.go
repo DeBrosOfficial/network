@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/chainfaucet"
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/chainfaucet"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 const (

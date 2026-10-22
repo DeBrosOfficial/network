@@ -3,8 +3,8 @@ package wasmpolicy
 import (
 	"strings"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // RefuseNoramaWrapper rejects a token wrapper that creates a norama denom, or that

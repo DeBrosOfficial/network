@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // StoragePut uploads data to IPFS and returns the CID.

@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/storagekey"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/storagekey"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 var (

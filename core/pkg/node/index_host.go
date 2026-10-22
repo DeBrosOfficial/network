@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
 )
 
 func (n *Node) indexSupervisor() (*namespace.IndexSupervisor, string, error) {

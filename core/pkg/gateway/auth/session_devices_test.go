@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // These run against the real schema, as the device-login tests do: what makes

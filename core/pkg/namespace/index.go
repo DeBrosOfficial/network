@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
-	"github.com/DeBrosOfficial/network/pkg/olric"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
+	"github.com/Orama-Network/orama/core/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 	"go.uber.org/zap"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 // hotKeyOf is the hot key address the fake machine at ip reports.

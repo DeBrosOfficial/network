@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // decodePushMessage is shared by push_send, push_send_v2 and push_send_topic,

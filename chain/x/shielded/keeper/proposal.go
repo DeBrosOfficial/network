@@ -8,9 +8,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // ProofCheck is a bundle a transaction carries and the binding its signatures must commit to.

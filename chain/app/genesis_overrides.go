@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // bankGenesisOverride wraps x/bank's own AppModuleBasic to register norama/ORAMA's

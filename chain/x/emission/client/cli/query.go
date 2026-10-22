@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 // GetQueryCmd returns the parent `emission` query command.

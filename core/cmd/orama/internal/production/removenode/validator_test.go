@@ -3,8 +3,8 @@ package removenode
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func snapshotOf(host string, rep *report.NodeReport) *cluster.ClusterSnapshot {

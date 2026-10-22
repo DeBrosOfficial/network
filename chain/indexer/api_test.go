@@ -14,7 +14,7 @@ import (
 	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 type fixedTip struct {

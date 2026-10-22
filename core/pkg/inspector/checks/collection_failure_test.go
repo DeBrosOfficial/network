@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 // An unreachable node has no data in any subsystem. It must produce one

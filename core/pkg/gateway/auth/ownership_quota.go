@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // The per-wallet namespace cap (cluster setting max_namespaces_per_wallet) is

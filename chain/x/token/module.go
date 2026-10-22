@@ -18,9 +18,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/token/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/token/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/token/client/cli"
+	"github.com/Orama-Network/orama/chain/x/token/keeper"
+	"github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // ConsensusVersion is x/token's initial consensus version.

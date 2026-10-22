@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalnetns"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalnetns"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 // colocatedFixture is a global fixture on a machine that already runs a

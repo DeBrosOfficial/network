@@ -18,10 +18,10 @@ import (
 	"testing/fstest"
 	"time"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/releasefetch"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/releasefetch"
 )
 
 // ---- releaseFetcher

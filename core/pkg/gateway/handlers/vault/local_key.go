@@ -3,7 +3,7 @@ package vault
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/shamir"
+	"github.com/Orama-Network/orama/core/pkg/shamir"
 )
 
 // thresholdsForGuardianCount returns the read threshold K and write quorum W

@@ -17,10 +17,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/nsledger"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/nsledger"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // Budgets.

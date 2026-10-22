@@ -4,11 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 	"net"
 	"strconv"
 
-	"github.com/DeBrosOfficial/network/pkg/wireguard"
+	"github.com/Orama-Network/orama/core/pkg/wireguard"
 )
 
 // ToolWireGuard is the helper's own WireGuard operations. /etc/wireguard is

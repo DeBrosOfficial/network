@@ -15,11 +15,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	powerkeeper "github.com/DeBrosOfficial/network/chain/x/power/keeper"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	powerkeeper "github.com/Orama-Network/orama/chain/x/power/keeper"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // TestApp_aValidatorCountsTowardTheOperatorOfTheNodeThatBindsItsConsensusKey proves the wiring from

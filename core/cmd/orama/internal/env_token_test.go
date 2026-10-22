@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 )
 
 // envJWT is shaped like a token, so ORAMA_TOKEN is sent as it is.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // Channel names a maintainer may cut: nightly (stagenet), main (testnet and
@@ -60,7 +60,7 @@ func (c Channel) TimestampValidity() time.Duration {
 	return ShortTimestampValidity
 }
 
-// Tag is the GitHub release the channel's version is uploaded to. "/" becomes
+// Tag is the Gitea release the channel's version is uploaded to. "/" becomes
 // "." (a channel segment has no dot), so dev/x and a channel dev-x never share
 // a tag; the release host's redirect builds the same name from the path.
 func (c Channel) Tag(version string) string {

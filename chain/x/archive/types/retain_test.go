@@ -3,9 +3,9 @@ package types_test
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/archive"
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/archive"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 func TestRetainHeight_minOfWindowAndLastArchived(t *testing.T) {

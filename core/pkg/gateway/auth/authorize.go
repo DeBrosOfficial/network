@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // A grant says what a principal may do; a selector says which part of it. This

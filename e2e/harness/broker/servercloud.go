@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // reserve claims name for an add; it fails when the run already has a member

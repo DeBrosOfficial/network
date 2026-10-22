@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify/releaserepo"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify/releaserepo"
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 )
 

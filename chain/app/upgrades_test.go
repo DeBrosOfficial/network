@@ -21,8 +21,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/upgrades"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/upgrades"
 )
 
 const examplePlanName = "example-plan"

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Bug: node resolution and `orama monitor` read only the stored session, so

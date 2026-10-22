@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 // failRecord is a Store whose writes of a failed install do not go through, as

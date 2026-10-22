@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments/process"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/deployments/process"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 	"go.uber.org/zap"
 )
 

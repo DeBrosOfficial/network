@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // AdvanceBaseFee runs once per EndBlock: it recomputes the per-gas-unit base fee for the NEXT

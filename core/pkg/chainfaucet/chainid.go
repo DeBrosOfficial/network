@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 // nodeInfoPath is a node's Cosmos REST route for its chain id.

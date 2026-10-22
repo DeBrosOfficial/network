@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // The repair endpoint stops a namespace's services and starts them again. It

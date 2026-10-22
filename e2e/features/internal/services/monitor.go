@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // rawReport is the part of `orama status report --json` these packages read

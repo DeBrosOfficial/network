@@ -12,8 +12,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	orchardverify "github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
+	"github.com/Orama-Network/orama/chain/app"
+	orchardverify "github.com/Orama-Network/orama/chain/x/shielded/verify/orchard"
 )
 
 // A stagenet, testnet or mainnet node without the verifiers voted on proposals it never verified

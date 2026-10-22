@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 	"go.uber.org/zap"
 )
 

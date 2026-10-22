@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	pkgpubsub "github.com/DeBrosOfficial/network/pkg/pubsub"
+	pkgpubsub "github.com/Orama-Network/orama/core/pkg/pubsub"
 )
 
 // pubSubBridge bridges between our PubSubClient interface and the pubsub package

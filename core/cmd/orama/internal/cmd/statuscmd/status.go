@@ -16,15 +16,15 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/display"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/tui"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/operatorview"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/display"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/tui"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/operatorview"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 // operatorPrefix is the start of an orama account address.

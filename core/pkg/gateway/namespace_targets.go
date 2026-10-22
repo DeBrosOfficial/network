@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // namespaceGatewayTarget is one live gateway of a namespace: where the main

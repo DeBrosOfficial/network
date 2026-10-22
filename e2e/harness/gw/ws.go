@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 // WSHandshakeBudget bounds the WebSocket handshake.

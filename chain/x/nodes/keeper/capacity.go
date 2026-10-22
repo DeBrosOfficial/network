@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 func (k Keeper) resyncCapacity(ctx sdk.Context, node *types.Node) error {

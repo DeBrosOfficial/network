@@ -12,12 +12,12 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/reporter"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/reporter"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // The "What do I earn" page (website/src/docs/blockchain/what-do-i-earn.mdx) holds tables computed

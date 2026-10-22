@@ -16,7 +16,7 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // Account is an Orama bech32 account for one 32-byte secp256k1 private key.

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	e2e "github.com/DeBrosOfficial/network/e2e"
+	e2e "github.com/Orama-Network/orama/core/e2e"
 )
 
 // uploadFile is a helper to upload a file to storage

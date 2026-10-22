@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 // sink is a namespace gateway's event endpoint: it records the events whose MAC

@@ -14,8 +14,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // Module queries: GET /v1/chain/query/<package.Service>/<Method> runs one gRPC query of an Orama

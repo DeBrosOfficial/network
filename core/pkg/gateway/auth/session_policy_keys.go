@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // ErrSignInKeySweepIncomplete is a policy that was recorded while the end

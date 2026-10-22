@@ -3,7 +3,7 @@ package testutil
 import (
 	"encoding/binary"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
 )
 
 // Bundle describes a bundle with the canonical framing. Its proof and signatures are filler, so

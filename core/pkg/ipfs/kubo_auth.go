@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // Kubo's RPC API binds loopback, and that was all that guarded it. A tenant

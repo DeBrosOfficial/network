@@ -8,10 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/tornet/tornettest"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/tornet/tornettest"
 )
 
 const (

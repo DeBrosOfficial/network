@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	chainparams "github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	chainparams "github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // These hex strings are the bytes core/pkg/clusterreg's EncodeRegisterRelay and EncodeUpdateRelay

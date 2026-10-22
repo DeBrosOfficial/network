@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
-	authhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/auth"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
+	authhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/auth"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 func TestNamespaceGatewayHost(t *testing.T) {

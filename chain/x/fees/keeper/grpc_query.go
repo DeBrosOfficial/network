@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 var _ types.QueryServer = queryServer{}

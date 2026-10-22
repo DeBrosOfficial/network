@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama Namespace WireGuard (%i)
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 After=network-online.target
 Wants=network-online.target
 # Deliberately NOT PartOf=orama-node.service. PartOf propagates stop AND

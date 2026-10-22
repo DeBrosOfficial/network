@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/globalnetns"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/globalnetns"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 // GlobalService is one service `orama global install` puts on a node.

@@ -7,10 +7,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // ExecuteUnshield applies an admitted MsgUnshield. The bundle's notes are spent and its amount

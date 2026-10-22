@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // globalPublic is what a global node publishes, read from the constants the

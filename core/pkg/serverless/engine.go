@@ -16,11 +16,11 @@ import (
 	"github.com/tetratelabs/wazero/sys"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/anonproxy"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/serverless/cache"
-	"github.com/DeBrosOfficial/network/pkg/serverless/execution"
+	"github.com/Orama-Network/orama/core/pkg/anonproxy"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/serverless/cache"
+	"github.com/Orama-Network/orama/core/pkg/serverless/execution"
 )
 
 // persistentFriendlyProcExit is our override of WASI's `proc_exit`.

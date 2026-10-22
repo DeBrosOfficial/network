@@ -9,8 +9,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 func (f *fixture) threeNodes(t *testing.T, capacity uint64) []*nodeInfo {

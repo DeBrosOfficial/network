@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 // control posts a signed control request straight to the SFU's handler.

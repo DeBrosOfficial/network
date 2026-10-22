@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // vitestConfig is the run's vitest configuration: the SDK's own e2e suite

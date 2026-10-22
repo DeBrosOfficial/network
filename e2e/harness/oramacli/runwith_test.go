@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 // promptOrama answers a typed confirmation like `namespace rqlite import`.

@@ -46,7 +46,7 @@ func genPorts(b *Book) ([]byte, error) {
 		if len(consts) == 0 {
 			continue
 		}
-		fmt.Fprintf(&sb, "\n## %s\n\n| Value | Constant | Meaning |\n|---|---|---|\n", strings.TrimPrefix(p.PkgPath, "github.com/DeBrosOfficial/network/"))
+		fmt.Fprintf(&sb, "\n## %s\n\n| Value | Constant | Meaning |\n|---|---|---|\n", strings.TrimPrefix(p.PkgPath, "github.com/Orama-Network/orama/core/"))
 		for _, c := range consts {
 			fmt.Fprintf(&sb, "| %d | `%s:%s` | %s |\n", c.value, c.file, c.name, tableCell(c.comment))
 		}

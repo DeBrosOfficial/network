@@ -3,7 +3,7 @@ package constants_test
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 func TestGlobalPorts_doNotCollideWithClusterOrChain(t *testing.T) {

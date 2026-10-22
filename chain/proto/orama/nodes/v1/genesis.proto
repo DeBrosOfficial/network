@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.nodes.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/nodes/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/nodes/types";
 
 import "gogoproto/gogo.proto";
 import "orama/nodes/v1/nodes.proto";

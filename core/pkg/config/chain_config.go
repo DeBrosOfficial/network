@@ -1,6 +1,6 @@
 package config
 
-import "github.com/DeBrosOfficial/network/pkg/constants"
+import "github.com/Orama-Network/orama/core/pkg/constants"
 
 // ChainConfig is the chain block in node.yaml: what this node's gateway does for the chain beside
 // it.

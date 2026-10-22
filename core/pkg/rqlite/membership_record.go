@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
 
 	"go.uber.org/zap"
 )

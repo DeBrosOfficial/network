@@ -24,13 +24,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 // BuildTag is the tag every feature file must require.
 const BuildTag = "e2e_fleet"
 
-const harnessImport = "github.com/DeBrosOfficial/network/e2e/harness"
+const harnessImport = "github.com/Orama-Network/orama/e2e/harness"
 
 // testName is Test{Function}_{scenario}.
 var testName = regexp.MustCompile(`^Test[A-Z][A-Za-z0-9]*_[A-Za-z0-9_]+$`)

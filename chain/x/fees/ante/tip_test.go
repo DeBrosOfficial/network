@@ -18,10 +18,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	feesante "github.com/DeBrosOfficial/network/chain/x/fees/ante"
-	"github.com/DeBrosOfficial/network/chain/x/fees/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	feesante "github.com/Orama-Network/orama/chain/x/fees/ante"
+	"github.com/Orama-Network/orama/chain/x/fees/keeper"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 type proposerStaking struct {

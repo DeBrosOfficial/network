@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func checkNodeRQLite(r *report.NodeReport, host string, nodeCtxMap map[string]*nodeContext) []Alert {

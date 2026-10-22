@@ -3,7 +3,7 @@ package gateway
 import (
 	"net/http"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // authorizeNetworkDetail admits the callers the network status routes serve:

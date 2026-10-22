@@ -12,9 +12,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/ante"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/ante"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 const sunsetHeight uint64 = 100

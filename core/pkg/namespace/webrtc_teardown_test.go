@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 // meetingTimeout bounds how long a unit waits for the other node's teardown to

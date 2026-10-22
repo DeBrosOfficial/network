@@ -14,7 +14,7 @@ import (
 	_ "github.com/caddyserver/caddy/v2/modules/standard"
 
 	// The Orama modules: dns.providers.orama and caddy.storage.orama.
-	_ "github.com/DeBrosOfficial/caddy-orama"
+	_ "github.com/Orama-Network/orama/caddy"
 )
 
 func main() {

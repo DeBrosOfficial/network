@@ -23,7 +23,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 
-	"github.com/DeBrosOfficial/network/pkg/pieceroot"
+	"github.com/Orama-Network/orama/core/pkg/pieceroot"
 )
 
 const (

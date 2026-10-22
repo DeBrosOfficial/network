@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // get_caller_device_id is to the device what get_caller_jwt_subject is to the

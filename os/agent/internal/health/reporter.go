@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/orama-os/agent/internal/sandbox"
+	"github.com/Orama-Network/orama/os/agent/internal/sandbox"
 )
 
 const (

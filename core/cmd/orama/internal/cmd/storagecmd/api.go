@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/storageclient"
-	"github.com/DeBrosOfficial/network/pkg/storagefile"
+	"github.com/Orama-Network/orama/core/pkg/storageclient"
+	"github.com/Orama-Network/orama/core/pkg/storagefile"
 )
 
 // Keys are the owner's two secrets a private deal needs, each read from a file

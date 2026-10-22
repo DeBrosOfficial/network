@@ -22,8 +22,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/netclass"
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // File names of a published network, the same in networks/<name>/, in the

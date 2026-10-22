@@ -17,10 +17,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/emission/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/emission/keeper"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // testBondedPoolAddr stands in for x/staking's real bonded-pool module account address in every

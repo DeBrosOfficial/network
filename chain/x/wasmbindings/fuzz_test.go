@@ -9,12 +9,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
-	"github.com/DeBrosOfficial/network/chain/x/wasmbindings"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/wasmbindings"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
 )
 
 // signerOf is the account a decoded message acts as. A binding that lets a contract name someone

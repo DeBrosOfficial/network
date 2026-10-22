@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // WireGuardSubnet is the internal WireGuard mesh CIDR.

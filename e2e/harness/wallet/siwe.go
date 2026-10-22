@@ -3,7 +3,7 @@ package wallet
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
 )
 
 // The sign-in message grammar is the gateway's own package, used directly: a

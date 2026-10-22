@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/autoupdate"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/autoupdate"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 func TestRaftView_readsTheLeaderAndCountsReachableVoters(t *testing.T) {

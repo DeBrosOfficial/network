@@ -7,10 +7,10 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // Storage and relay payments are minted against their ceilings. Before

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewaykeys"
+	"github.com/Orama-Network/orama/core/pkg/gatewaykeys"
 )
 
 // sharedUser is the uid every cluster unit outside isolatedServices runs as.

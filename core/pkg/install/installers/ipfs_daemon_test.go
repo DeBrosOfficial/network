@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // kuboBinEnv names the ipfs binary the daemon tests run. They are skipped

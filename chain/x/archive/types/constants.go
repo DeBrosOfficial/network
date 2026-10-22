@@ -1,6 +1,6 @@
 package types
 
-import "github.com/DeBrosOfficial/network/chain/app/params"
+import "github.com/Orama-Network/orama/chain/app/params"
 
 // Quorum and hash sizes from plans/open-network/track-c-chain.md C14.
 // They are not parameters: genesis cannot lower them, and there is no admin

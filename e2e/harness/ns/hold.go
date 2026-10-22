@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // held tracks, per test, the slots Hold pre-reserved and New has not used

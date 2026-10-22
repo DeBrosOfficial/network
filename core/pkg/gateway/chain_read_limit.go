@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // The limits of the two chain reads that cost more than their size: a head stream, which holds a

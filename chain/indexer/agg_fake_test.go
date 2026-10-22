@@ -20,10 +20,10 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // fakeValidator is a staking validator of the fake chain.

@@ -6,7 +6,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 // Where an emission epoch closes depends on params the chain can change (the epoch duration and the

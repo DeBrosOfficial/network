@@ -8,7 +8,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // A contract that burns a factory token with CosmosMsg::Bank(Burn) destroys supply behind

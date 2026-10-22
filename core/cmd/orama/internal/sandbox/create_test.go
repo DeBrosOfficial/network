@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 func TestIsSafeDNSName(t *testing.T) {

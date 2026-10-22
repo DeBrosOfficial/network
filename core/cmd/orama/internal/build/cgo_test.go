@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Bug: `build --arch sparc` exited 1 after the project-root and zig lookups;

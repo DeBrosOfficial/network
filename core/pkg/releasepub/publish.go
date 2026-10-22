@@ -3,28 +3,36 @@ package releasepub
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
+// giteaRepoRe matches an owner/name Gitea repository.
+var giteaRepoRe = regexp.MustCompile(`^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`)
+
 // Where releases go. Both are overridable by flag; they are the owner's
-// release host and the public repository whose releases carry the archives.
+// release host and the Gitea repository whose releases carry the archives.
 const (
-	// DefaultGitHubRepo holds the archives as release assets.
-	DefaultGitHubRepo = "Orama-Network/orama"
+	// DefaultGiteaRepo (owner/name) holds the archives as release assets.
+	DefaultGiteaRepo = "ICXCNIKA/orama"
+	// DefaultGiteaAPI is the Gitea instance's API base.
+	DefaultGiteaAPI = "https://git.icxcnika.io/api/v1"
 	// DefaultMetadataDest is the rsync destination of the metadata: the
 	// directory the release host's nginx serves (website/deploy/releases.orama.network.nginx.conf).
 	DefaultMetadataDest = "releases.orama.network:/opt/orama-releases/"
-	// releaseNotFound is what `gh release view` prints for a tag with no release.
-	releaseNotFound = "release not found"
 )
 
 // Runner runs a command and returns what it printed. A test replaces it.
@@ -45,25 +53,41 @@ func ExecRunner(out io.Writer) Runner {
 
 // PublishParams is one upload.
 type PublishParams struct {
-	Repo         Repo
-	GitHubRepo   string
+	Repo Repo
+	// GiteaRepo is the owner/name whose releases hold the archives, GiteaAPI
+	// the instance's API base and GiteaToken a token with repository write.
+	GiteaRepo    string
+	GiteaAPI     string
+	GiteaToken   string
 	MetadataDest string
-	// DryRun checks the directory and prints the commands without running them.
-	DryRun   bool
-	Now      time.Time
+	// DryRun checks the directory and prints the plan without sending anything.
+	DryRun bool
+	Now    time.Time
+	// Run runs rsync; the archives go over HTTP.
 	Run      Runner
+	HTTP     *http.Client
 	Progress io.Writer
 }
 
 // Publish uploads what the last cut or refresh left in the repository
 // directory. The order keeps a client from ever seeing metadata that points at
-// something absent: the archives go to GitHub first, then the root, targets and
+// something absent: the archives go to Gitea first, then the root, targets and
 // snapshot, and the timestamp, the file a client reads first, last. Before
 // anything is sent the directory is held to what a client does with it, and
 // each archive to the hash the signed targets name.
 func Publish(ctx context.Context, p PublishParams) error {
 	if p.Progress == nil {
 		p.Progress = io.Discard
+	}
+	if p.HTTP == nil {
+		// No overall client timeout: a large archive upload may run long and
+		// the context governs the whole call. The transport bounds a hung
+		// server at each stage instead.
+		p.HTTP = &http.Client{Transport: &http.Transport{
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 30 * time.Second,
+			IdleConnTimeout:       60 * time.Second,
+		}}
 	}
 	if err := p.checkLocal(); err != nil {
 		return err
@@ -76,6 +100,11 @@ func Publish(ctx context.Context, p PublishParams) error {
 		return err
 	}
 	if pending != nil {
+		// The token is needed only to upload archives; a timestamp-only refresh
+		// publishes metadata over rsync and needs none.
+		if !p.DryRun && p.GiteaToken == "" {
+			return errors.New("GITEA_TOKEN is not set: export a Gitea token with repository write access to upload the archives")
+		}
 		if err := p.uploadAssets(ctx, pending); err != nil {
 			return err
 		}
@@ -178,15 +207,32 @@ func baseNames(paths []string) []string {
 	return out
 }
 
-// checkDestinations refuses a destination that rsync or gh would read as an
-// option.
+// checkDestinations refuses a destination that rsync would read as an option,
+// a Gitea API base that is not an HTTP URL, and (outside a dry run) a missing
+// token.
 func (p PublishParams) checkDestinations() error {
-	for name, v := range map[string]string{"--github-repo": p.GitHubRepo, "--metadata-dest": p.MetadataDest} {
-		if v == "" || strings.HasPrefix(v, "-") {
-			return fmt.Errorf("%s %q is empty or starts with '-'", name, v)
-		}
+	if p.MetadataDest == "" || strings.HasPrefix(p.MetadataDest, "-") {
+		return fmt.Errorf("--metadata-dest %q is empty or starts with '-'", p.MetadataDest)
+	}
+	if !giteaRepoRe.MatchString(p.GiteaRepo) {
+		return fmt.Errorf("--gitea-repo %q is not an owner/name repository", p.GiteaRepo)
+	}
+	u, err := url.Parse(p.GiteaAPI)
+	// https only, so a typo or redirect can never send the token in the clear;
+	// plain http is allowed only to a loopback host, for tests.
+	if err != nil || u.Host == "" || (u.Scheme != "https" && !(u.Scheme == "http" && isLoopbackHost(u.Hostname()))) {
+		return fmt.Errorf("--gitea-api %q must be an https:// URL (http:// only for a loopback test host)", p.GiteaAPI)
 	}
 	return nil
+}
+
+// isLoopbackHost reports whether host is localhost or a loopback IP literal.
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // checkPending holds the pending record, a file the maintainer's account can

@@ -12,8 +12,8 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 // withEvents adds events to a transaction's result, after the ones it has.

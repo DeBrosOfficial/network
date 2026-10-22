@@ -9,8 +9,8 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // nativePool is the only pool that exists: vintage 1, the native asset. Multi-asset stays off

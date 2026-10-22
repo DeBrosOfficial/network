@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // The IPFS Cluster swarm is reachable only over the WireGuard mesh: no rule

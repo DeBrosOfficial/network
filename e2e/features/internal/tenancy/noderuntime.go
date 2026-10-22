@@ -5,7 +5,7 @@ package tenancy
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // The interpreters a Node.js deployment's units execute

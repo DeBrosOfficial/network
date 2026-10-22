@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/agent"
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/agent"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
 )
 
 // fakeDNS is an in-memory zone that behaves like cloudflare.Client.

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // gatewayAnswering is a gateway that answers every request with status, and a

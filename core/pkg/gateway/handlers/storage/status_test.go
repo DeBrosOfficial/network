@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
 )
 
 func statusAs(h *Handlers, ns, cid string) *httptest.ResponseRecorder {

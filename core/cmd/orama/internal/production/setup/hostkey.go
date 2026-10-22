@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // Enrollment is the one connection that bootstraps every later trust

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

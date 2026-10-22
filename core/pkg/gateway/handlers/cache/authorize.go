@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A grant may be narrowed to a key pattern — `cache:key=sessions/*` — and this

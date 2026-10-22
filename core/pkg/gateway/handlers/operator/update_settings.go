@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 // updateSettingNames maps the CLI's hyphenated names onto the stored

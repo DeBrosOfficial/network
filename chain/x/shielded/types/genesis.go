@@ -6,9 +6,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/nullifier"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
 )
 
 // MaxQueueRefusals is how many windows in a row a request's target may refuse before the queue

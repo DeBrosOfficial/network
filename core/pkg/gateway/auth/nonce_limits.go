@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // ErrNamespaceUnknown is returned when a challenge names a namespace that does

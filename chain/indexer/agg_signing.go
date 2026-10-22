@@ -15,7 +15,7 @@ import (
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 const (

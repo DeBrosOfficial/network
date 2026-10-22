@@ -10,7 +10,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 func settleEvents(ctx sdk.Context) []map[string]string {

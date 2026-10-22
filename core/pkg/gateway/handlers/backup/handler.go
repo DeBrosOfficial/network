@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 	"go.uber.org/zap"
 )
 

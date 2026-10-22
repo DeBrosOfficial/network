@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 const (

@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/push"
-	"github.com/DeBrosOfficial/network/pkg/rqlite/rqlitetest"
+	"github.com/Orama-Network/orama/core/migrations"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/rqlite/rqlitetest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )

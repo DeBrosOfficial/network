@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
 )
 
 // Sweep deletes what crashed runs left: every Hetzner server, firewall and

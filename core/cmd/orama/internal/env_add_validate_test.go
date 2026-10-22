@@ -3,8 +3,8 @@ package cli
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 )
 
 // An environment no command could use was stored as given (stagenet e2e,

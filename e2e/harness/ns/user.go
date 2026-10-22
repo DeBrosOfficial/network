@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // Routes and values this package relies on (docs/whitepaper/technical-reference/appendices/i-api-surface.md).

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tuf"
+	"github.com/Orama-Network/orama/e2e/features/internal/tuf"
 )
 
 // planInfoPath is the plan's info JSON on the node: what a SoftwareUpgrade proposal carried and

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/edge"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // servedLeaf is the SHA-256 of the leaf certificate node ip serves for sni.

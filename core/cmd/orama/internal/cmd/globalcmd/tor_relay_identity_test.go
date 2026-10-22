@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/globalbind"
+	"github.com/Orama-Network/orama/core/pkg/globalbind"
 )
 
 const (

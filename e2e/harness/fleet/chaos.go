@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // Chaos helpers inject failures on purpose. They use systemctl, iptables and

@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 // Limits copied from chain/x/nodes/types. A test reads that file so a change

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // MigratePlaintextAPIKeys HMAC-hashes leftover api_keys rows that still

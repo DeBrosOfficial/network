@@ -7,8 +7,8 @@
 package rolloutcmd
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/rollout"
-	rolloutplan "github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/rollout"
+	rolloutplan "github.com/Orama-Network/orama/core/pkg/rollout"
 	"github.com/spf13/cobra"
 )
 

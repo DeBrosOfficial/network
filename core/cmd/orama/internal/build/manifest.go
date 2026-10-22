@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
 
 // ManifestName is the manifest's path inside an archive and under /opt/orama.

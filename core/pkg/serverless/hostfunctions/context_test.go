@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 func TestGetWSClientID_unset_returns_empty(t *testing.T) {

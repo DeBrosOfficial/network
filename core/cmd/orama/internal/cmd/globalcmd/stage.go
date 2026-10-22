@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
-	"github.com/DeBrosOfficial/network/pkg/globalnode"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/planinfo"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/cosmovisor"
+	"github.com/Orama-Network/orama/core/pkg/globalnode"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/planinfo"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 	"github.com/spf13/cobra"
 )
 

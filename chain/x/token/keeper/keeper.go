@@ -16,8 +16,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 
-	feeskeeper "github.com/DeBrosOfficial/network/chain/x/fees/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/token/types"
+	feeskeeper "github.com/Orama-Network/orama/chain/x/fees/keeper"
+	"github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // The real keepers satisfy the interfaces x/token calls. The app does not

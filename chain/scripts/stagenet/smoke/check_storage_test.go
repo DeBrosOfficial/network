@@ -10,7 +10,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 var (

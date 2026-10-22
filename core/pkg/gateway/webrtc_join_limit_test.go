@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 func signalRequestAs(sub string) *http.Request {

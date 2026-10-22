@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
 	"github.com/spf13/cobra"
 )
 

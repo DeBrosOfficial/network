@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/client/tx"
 )
 
 // hotKeyLen is a secp256k1 private key.

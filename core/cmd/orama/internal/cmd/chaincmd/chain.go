@@ -22,9 +22,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 var readFlags struct{ gateway, node, rpc string }

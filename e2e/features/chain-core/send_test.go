@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // TestSend_userToUserMovesNorama: a bank MsgSend of norama from one user to another is a public

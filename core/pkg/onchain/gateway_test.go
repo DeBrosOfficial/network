@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 func gatewayChain(t *testing.T, h http.HandlerFunc) Gateway {

@@ -10,7 +10,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // openUptimeDB is a SQLite database holding the real migration's table.

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 )
 
 // ErrAmbiguousLegacyHost means a host of the legacy {name}.{baseDomain} shape

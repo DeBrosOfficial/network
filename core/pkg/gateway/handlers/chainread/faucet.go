@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/chainfaucet"
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/chainfaucet"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
 )
 
 // The faucet route of a test network's gateway:

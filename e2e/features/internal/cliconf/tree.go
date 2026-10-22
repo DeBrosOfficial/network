@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // rootPath is the binary's own name, the root of every command path.

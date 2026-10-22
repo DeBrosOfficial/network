@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/chain/indexer"
+	"github.com/Orama-Network/orama/chain/indexer"
 )
 
 func indexerMigrateCmd() *cobra.Command {

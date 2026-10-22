@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // httpStatus finds the "(HTTP nnn)" the CLI appends to a gateway refusal.

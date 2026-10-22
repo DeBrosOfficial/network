@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
 )
 
 const (

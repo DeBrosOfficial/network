@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // Percentiles a snapshot reports.

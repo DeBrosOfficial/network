@@ -10,9 +10,9 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // Operation weights, out of 100: the cumulative upper bound of each kind.

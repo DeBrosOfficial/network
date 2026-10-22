@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 )
 
 var withdrawCmd = &cobra.Command{

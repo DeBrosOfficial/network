@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/Orama-Network/orama/chain/app"
 )
 
 // `oramad export` carries the explicit opt-in for exporting a state that breaks conservation, and it

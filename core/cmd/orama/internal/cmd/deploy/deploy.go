@@ -1,7 +1,7 @@
 package deploy
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/deployments"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/deployments"
 	"github.com/spf13/cobra"
 )
 

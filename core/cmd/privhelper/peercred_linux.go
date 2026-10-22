@@ -5,7 +5,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 	"golang.org/x/sys/unix"
 )
 

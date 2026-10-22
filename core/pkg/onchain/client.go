@@ -11,10 +11,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 const (

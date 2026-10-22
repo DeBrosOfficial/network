@@ -14,11 +14,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/deployments/process"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/deployments/process"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 )

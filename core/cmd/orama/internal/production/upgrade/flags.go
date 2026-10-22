@@ -1,8 +1,8 @@
 package upgrade
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // Flags represents upgrade command flags

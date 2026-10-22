@@ -43,7 +43,7 @@ describe('package.json', () => {
   });
 
   it('points at the repository it actually lives in', () => {
-    // It said DeBrosOfficial/network, which is not where this is.
+    // It said Orama-Network/orama/core, which is not where this is.
     expect(pkg.repository.url).toContain('Orama-Network/orama');
     expect(pkg.bugs.url).toContain('Orama-Network/orama');
   });

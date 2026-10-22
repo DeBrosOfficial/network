@@ -3,8 +3,8 @@ package storagecmd
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/storageclient"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/storageclient"
 	"github.com/spf13/cobra"
 )
 

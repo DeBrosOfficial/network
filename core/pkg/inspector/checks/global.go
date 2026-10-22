@@ -3,8 +3,8 @@ package checks
 import (
 	"sort"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/globalhealth"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/globalhealth"
 )
 
 func init() {

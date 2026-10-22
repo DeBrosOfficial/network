@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/deployments"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 	"go.uber.org/zap"
 )
 

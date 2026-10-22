@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx"
+	"github.com/Orama-Network/orama/e2e/harness/sshx"
 )
 
 // Server is a running test sshd.

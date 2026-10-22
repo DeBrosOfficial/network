@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/tlsstatus"
 )
 
 // CertificateStatus runs `orama node tls status --json` on the machine: which

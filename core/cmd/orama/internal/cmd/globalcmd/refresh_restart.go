@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/globalnode"
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/globalnode"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // restartRefreshed restarts the services that run a replaced binary, and sees to the chain

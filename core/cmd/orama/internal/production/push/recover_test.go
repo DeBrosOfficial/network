@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
 
 func writeTree(t *testing.T, root string, files map[string]string) {

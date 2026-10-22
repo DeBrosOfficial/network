@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 	"go.uber.org/zap"
 )
 

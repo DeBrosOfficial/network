@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 const hostileText = "ok\x1b]0;pwned\x07\x1b[2J\nnext"

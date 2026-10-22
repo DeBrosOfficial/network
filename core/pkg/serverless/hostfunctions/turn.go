@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 )
 
 // turnCredentialTTL is the lifetime of credentials issued by the WASM host-fn

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // Tree shape of the tests: 16 leaves, an 8-root changelog buffer, no canopy

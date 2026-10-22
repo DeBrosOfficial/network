@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
 )
 
 // The embedded bundle is exactly the two pinned Let's Encrypt staging roots.

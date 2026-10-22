@@ -17,10 +17,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/app"
+	shieldedkeeper "github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // diesOnFirstRequest is a verifier binary that says it is ready and then exits at the first request

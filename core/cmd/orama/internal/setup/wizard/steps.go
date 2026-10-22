@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
 )
 
 // sshUserRE is a POSIX login name.

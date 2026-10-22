@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/noderesolver"
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 )
 
 // Operator telemetry endpoints on the cluster gateway.

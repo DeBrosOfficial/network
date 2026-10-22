@@ -1,8 +1,8 @@
 package gateway
 
 import (
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/sqlguard"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/sqlguard"
 )
 
 // deploymentRegistryScope names the deployment family in the errors a refused

@@ -47,10 +47,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"go.uber.org/zap"
 )
 

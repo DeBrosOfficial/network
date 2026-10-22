@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // Child process protocol: a child reserves one slot of childCap in

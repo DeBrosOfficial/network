@@ -25,7 +25,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // DefaultTorBinary is the tor a client starts when none is named.

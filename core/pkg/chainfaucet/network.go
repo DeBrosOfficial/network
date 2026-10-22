@@ -1,6 +1,6 @@
 package chainfaucet
 
-import "github.com/DeBrosOfficial/network/pkg/netclass"
+import "github.com/Orama-Network/orama/core/pkg/netclass"
 
 // IsTestNetwork reports whether chainID is a test network's: the only chain ids a faucet signs for.
 // The chain refuses MsgFaucet on any other chain id (x/emission keeper nonProductionChainIDMarkers,

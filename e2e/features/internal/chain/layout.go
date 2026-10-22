@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 // FleetHost is where a fleet run's validator serves RPC, REST and gRPC:

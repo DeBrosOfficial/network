@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/monitor"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/monitor"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // blockBudget: the run's chain is deployed with short epochs; a few blocks

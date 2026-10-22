@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/capability"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/capability"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
 

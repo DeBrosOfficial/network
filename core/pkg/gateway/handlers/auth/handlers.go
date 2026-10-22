@@ -11,9 +11,9 @@ import (
 
 	"go.uber.org/zap"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // Use shared context keys from ctxkeys package to ensure consistency with middleware

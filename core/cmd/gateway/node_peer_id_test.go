@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/encryption"
+	"github.com/Orama-Network/orama/core/pkg/encryption"
 )
 
 // A standalone gateway never received the node's peer id, so SQLite home-node

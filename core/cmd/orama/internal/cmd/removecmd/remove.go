@@ -4,7 +4,7 @@ package removecmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/removenode"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/removenode"
 )
 
 // Cmd is the top-level "remove" command.

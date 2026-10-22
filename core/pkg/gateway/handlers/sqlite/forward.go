@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 	"go.uber.org/zap"
 )
 

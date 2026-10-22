@@ -16,8 +16,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // seatFake is a machine that can be a seat: the join's fake machine, with a chain

@@ -14,9 +14,9 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/orchardffi"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
-	orchardverify "github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
+	"github.com/Orama-Network/orama/chain/x/shielded/orchardffi"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
+	orchardverify "github.com/Orama-Network/orama/chain/x/shielded/verify/orchard"
 )
 
 const (

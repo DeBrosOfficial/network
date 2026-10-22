@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // tenantRQLiteURL is the base URL of a namespace rqlited on the node with

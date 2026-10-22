@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/tx/signing"
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 func TestAttachReplicasSignedByArchiver(t *testing.T) {

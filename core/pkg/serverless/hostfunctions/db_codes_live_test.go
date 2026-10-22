@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/rqlite/rqlitetest"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite/rqlitetest"
 )
 
 // bugboard #267 against a real rqlite: the code a guest gets for a failure

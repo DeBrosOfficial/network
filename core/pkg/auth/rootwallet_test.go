@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // What the CLI signs is the whole of what the signature means. It used to sign

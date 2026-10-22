@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // probeMain is a Go backend that reports, from inside its own sandbox, what

@@ -9,7 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // InitGenesis loads genesis and rebuilds the replica index, reserved bytes and

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
 )
 
 // The list of flags to forward was written out by hand and had drifted:

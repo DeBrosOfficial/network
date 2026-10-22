@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 func TestParamsValidate_exitMultiplierBounds(t *testing.T) {

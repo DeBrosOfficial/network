@@ -11,7 +11,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // FuzzIndexerReadEnvelope: the explorer decodes every transaction it indexes from bytes a peer

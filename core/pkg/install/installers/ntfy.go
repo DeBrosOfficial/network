@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // ntfy.go — feature #72. Self-hosted ntfy server installer.

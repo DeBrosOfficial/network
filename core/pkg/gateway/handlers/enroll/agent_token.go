@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // agentTokenPurpose is the HKDF domain separator for encrypting node agent

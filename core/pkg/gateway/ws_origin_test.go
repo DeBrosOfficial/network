@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 const originHost = "ns-acme.example.test"

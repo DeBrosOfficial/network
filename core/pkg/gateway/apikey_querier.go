@@ -3,7 +3,7 @@ package gateway
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // apiKeyQuerier is the minimal query capability API-key lookups need.

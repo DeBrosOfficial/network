@@ -6,9 +6,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/olric"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 	"go.uber.org/zap"
 )
 

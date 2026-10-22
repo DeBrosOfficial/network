@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // Codespace and codes of the SDK errors the ante chain returns

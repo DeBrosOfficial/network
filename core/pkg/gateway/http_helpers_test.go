@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // TestStatusResponseWriter_extendIOReachesTheConnection: a request behind the

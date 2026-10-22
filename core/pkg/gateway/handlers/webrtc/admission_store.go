@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 // generationRetention is how long an expired or revoked admission is kept: its

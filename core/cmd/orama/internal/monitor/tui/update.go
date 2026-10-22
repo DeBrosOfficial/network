@@ -4,10 +4,10 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/operatorview"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/operatorview"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

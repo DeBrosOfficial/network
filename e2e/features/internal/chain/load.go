@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // Load fills blocks with gas so the x/fees base fee must rise

@@ -5,8 +5,8 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/client/node"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/client/node"
 )
 
 func TestPriceFor(t *testing.T) {

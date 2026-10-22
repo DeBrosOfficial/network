@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
-	"github.com/DeBrosOfficial/network/pkg/serverless/registry"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless/registry"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )

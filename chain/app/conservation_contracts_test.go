@@ -11,7 +11,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // stepChecked finalizes n empty blocks and runs the full conservation pass after each.

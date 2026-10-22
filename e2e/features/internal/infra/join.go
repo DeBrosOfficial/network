@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/pkg/invite"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/core/pkg/invite"
 )
 
 // Join route and its refusals (core/pkg/gateway/handlers/join/handler.go).

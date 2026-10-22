@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // registerUntracked adds a node to x/nodes' side (the fake) exactly as x/nodes does on a write:

@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	pushntfy "github.com/DeBrosOfficial/network/pkg/push/providers/ntfy"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	pushntfy "github.com/Orama-Network/orama/core/pkg/push/providers/ntfy"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // defaultNtfyFanoutTTL bounds how long the active-push-node list is cached

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/clusterops"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/dnsdelegation"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/clusterops"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/dnsdelegation"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // InstallGlobal puts the genesis (and the Tor network file) on the machine,

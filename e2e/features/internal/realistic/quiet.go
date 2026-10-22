@@ -5,8 +5,8 @@ package realistic
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // Quiet is a client of base with the run's pinned trust and credential

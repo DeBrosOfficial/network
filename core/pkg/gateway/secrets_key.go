@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // secretsEncryptionDerivePurpose is the HKDF info label used to derive the

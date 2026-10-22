@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // BeginBlock reconciles the tracked node set with x/nodes, assigns due deals, opens this epoch's challenges, and closes the

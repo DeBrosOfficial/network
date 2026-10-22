@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/server"
 
-	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/Orama-Network/orama/chain/app"
 )
 
 const (

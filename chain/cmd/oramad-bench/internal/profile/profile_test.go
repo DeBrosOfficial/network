@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
 )
 
 // A step the report would refuse to judge is a step that proves nothing: every step of the full

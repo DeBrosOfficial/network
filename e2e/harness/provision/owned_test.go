@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
 )
 
 // TestDestroyNode_refusesAServerOfAnotherRun: a state whose server id

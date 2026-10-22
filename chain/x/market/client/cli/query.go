@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 // GetQueryCmd returns the parent `market` query command.

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
 )
 
 // secret is a proof of the length the installer writes (32 bytes in hex).

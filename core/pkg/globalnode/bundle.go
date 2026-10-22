@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
 )
 
 // bundleKind names the plaintext inside a migration bundle.

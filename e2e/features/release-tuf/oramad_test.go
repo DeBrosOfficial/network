@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tuf"
+	"github.com/Orama-Network/orama/e2e/features/internal/tuf"
 )
 
 // stage-oramad on the extra: the chain account and home it stages into

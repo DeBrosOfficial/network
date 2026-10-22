@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // Output that is JSON is the function's answer, whatever its first byte. Only

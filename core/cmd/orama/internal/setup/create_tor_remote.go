@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 var _ TorHost = (*sshMachine)(nil)

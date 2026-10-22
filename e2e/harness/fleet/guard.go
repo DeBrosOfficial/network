@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/agent"
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/agent"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // CheckState applies the run guards to a state before anything acts on it:

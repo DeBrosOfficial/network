@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // APIKeyToJWTHandler issues a short-lived JWT from a valid API key.

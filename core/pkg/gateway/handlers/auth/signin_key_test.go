@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // mintAnswering is a key minter that answers key and err and counts its calls.

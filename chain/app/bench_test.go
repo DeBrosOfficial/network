@@ -9,8 +9,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	oramatx "github.com/DeBrosOfficial/network/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/app/params"
+	oramatx "github.com/Orama-Network/orama/chain/client/tx"
 )
 
 const (

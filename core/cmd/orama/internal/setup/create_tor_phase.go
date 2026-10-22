@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // torRun is a machine of the Tor step.

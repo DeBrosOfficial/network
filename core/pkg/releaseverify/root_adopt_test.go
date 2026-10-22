@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify/releaserepo"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify/releaserepo"
 )
 
 // rootChain is three consecutive versions of one release root, each signed by its predecessor.

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/olric"
 	olriclib "github.com/olric-data/olric"
 )
 

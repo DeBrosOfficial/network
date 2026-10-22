@@ -13,20 +13,20 @@ import (
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 
 	// The modules' Query services must be registered for the invariants check to find them.
-	_ "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/market/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/power/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/relay/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	_ "github.com/DeBrosOfficial/network/chain/x/token/types"
+	_ "github.com/Orama-Network/orama/chain/x/emission/types"
+	_ "github.com/Orama-Network/orama/chain/x/fees/types"
+	_ "github.com/Orama-Network/orama/chain/x/houses/types"
+	_ "github.com/Orama-Network/orama/chain/x/market/types"
+	_ "github.com/Orama-Network/orama/chain/x/nodes/types"
+	_ "github.com/Orama-Network/orama/chain/x/power/types"
+	_ "github.com/Orama-Network/orama/chain/x/relay/types"
+	_ "github.com/Orama-Network/orama/chain/x/shielded/types"
+	_ "github.com/Orama-Network/orama/chain/x/storage/types"
+	_ "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 const (

@@ -3,15 +3,15 @@ package uninstall
 import (
 	"bufio"
 	"fmt"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 // Handle executes the uninstall command

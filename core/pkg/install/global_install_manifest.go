@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // DefaultStagedManifest is the manifest of the release extracted at

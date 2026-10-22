@@ -13,8 +13,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 type fakeChain struct {

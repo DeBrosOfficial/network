@@ -13,8 +13,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
 )
 
 // Refusal codes (core/pkg/gateway/auth_errors.go).

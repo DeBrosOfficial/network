@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // BankKeeper is the subset of x/bank x/token needs. Every balance lives in

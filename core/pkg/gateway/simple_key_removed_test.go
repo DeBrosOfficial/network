@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/srcscan"
+	"github.com/Orama-Network/orama/core/pkg/srcscan"
 )
 
 // /v1/auth/simple-key required that *some* API key was present, then took the

@@ -13,7 +13,7 @@ package gateway
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // pushNotConfiguredMessage is the human-readable 503 body. Same text

@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/DeBrosOfficial/network/chain/contracts/standard"
+	"github.com/Orama-Network/orama/chain/contracts/standard"
 )
 
 // AddStandardContractsCmd returns the `genesis add-standard-contracts` command. It stores the

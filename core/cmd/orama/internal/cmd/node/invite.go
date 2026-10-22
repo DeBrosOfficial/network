@@ -3,7 +3,7 @@ package node
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/invite"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/invite"
 	"github.com/spf13/cobra"
 )
 

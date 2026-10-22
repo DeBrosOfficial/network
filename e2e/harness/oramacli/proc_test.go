@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 func writeBin(t *testing.T, r *Runner, script string) {

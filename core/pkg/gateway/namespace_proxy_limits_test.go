@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
+	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
 )
 
 func TestRefuseOversizedProxyBody(t *testing.T) {

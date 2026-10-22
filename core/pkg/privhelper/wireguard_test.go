@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/wireguard"
+	"github.com/Orama-Network/orama/core/pkg/wireguard"
 )
 
 // A real 32-byte key, base64.

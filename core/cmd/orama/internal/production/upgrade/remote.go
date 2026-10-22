@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/noderesolver"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/clusterops"
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/clusterops"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 )
 
 // RemoteUpgrader handles rolling upgrades across remote nodes.

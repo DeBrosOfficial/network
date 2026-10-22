@@ -8,7 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // CodeFee is the burned price of storing code: the uncompressed wasm size times deposit_per_byte,

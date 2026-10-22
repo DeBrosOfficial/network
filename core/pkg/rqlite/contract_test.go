@@ -3,7 +3,7 @@ package rqlite
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/contracttest"
+	"github.com/Orama-Network/orama/core/pkg/contracttest"
 )
 
 // The request bodies the TypeScript SDK sends to /v1/rqlite/* must decode into

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/olric"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/olric"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 	olriclib "github.com/olric-data/olric"
 )
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // fakeProvisioner records reconciler decisions instead of touching a real

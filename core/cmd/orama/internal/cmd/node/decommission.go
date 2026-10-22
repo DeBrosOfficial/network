@@ -3,10 +3,10 @@ package node
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/decommission"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/removenode"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/decommission"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/removenode"
 	"github.com/spf13/cobra"
 )
 

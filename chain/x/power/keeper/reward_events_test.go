@@ -9,7 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // eventsOf returns the attributes of every event of the given type, in emission order.

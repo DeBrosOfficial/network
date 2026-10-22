@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/cliconf"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/cliconf"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	// (website/src/docs/developer/functions.mdx, website/src/docs/developer/go-sdk.mdx "Examples").
 	functionExamples = "core/examples/functions"
 	corePath         = "core"
-	coreModule       = "github.com/DeBrosOfficial/network"
+	coreModule       = "github.com/Orama-Network/orama/core"
 )
 
 // goVersionRe reads the go directive of core/go.mod.

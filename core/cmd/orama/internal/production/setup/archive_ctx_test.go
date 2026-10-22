@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 func TestEnsureVerifiedArchive_aCancelledContextTouchesNoMachine(t *testing.T) {

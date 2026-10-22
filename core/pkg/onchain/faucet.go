@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 // Faucet asks the chain's faucet to mint amount norama to recipient (MsgFaucet), signed by the

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/lifecycle"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/lifecycle"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // newOramaBinaryPath is the on-disk path Phase 2b installs the new

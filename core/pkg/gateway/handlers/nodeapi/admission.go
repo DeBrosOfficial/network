@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/overlay"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/overlay"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // errNotAdmitted refuses a node that no join admitted.

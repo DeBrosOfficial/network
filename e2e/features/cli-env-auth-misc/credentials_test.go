@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // tokenEnvVar is the CI credential (docs/whitepaper/technical-reference/vol1/13-identity.md, website/src/docs/developer/deployments.mdx "In CI").

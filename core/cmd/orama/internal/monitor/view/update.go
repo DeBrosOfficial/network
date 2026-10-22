@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
 )
 
 // noUpdateCell fills the UPDATE cell of a node whose auto-update agent has nothing to report.

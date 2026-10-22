@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 func TestExecute_journalReadsOnlyTheNamedUnit(t *testing.T) {

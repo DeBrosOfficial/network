@@ -3,8 +3,8 @@ package node
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
 	"github.com/spf13/cobra"
 )
 

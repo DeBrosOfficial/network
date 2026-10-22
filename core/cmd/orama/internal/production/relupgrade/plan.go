@@ -6,8 +6,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/DeBrosOfficial/network/pkg/autoupdate"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/pkg/autoupdate"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 )
 
 // Action is what `orama upgrade` does with one node.

@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // The devices an account's sessions are bound to.

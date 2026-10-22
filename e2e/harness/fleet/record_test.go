@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 func TestSSHFor_recordsTransfersAttributedToTest(t *testing.T) {

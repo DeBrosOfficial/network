@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
 )
 
 const (

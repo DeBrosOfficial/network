@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // testClusterSecret is the cluster secret every test gateway shares.

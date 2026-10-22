@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 func fakeToolchain(missing []string, targets string) toolchain {

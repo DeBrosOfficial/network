@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/olric/olrictest"
+	"github.com/Orama-Network/orama/core/pkg/olric/olrictest"
 	"go.uber.org/zap"
 )
 

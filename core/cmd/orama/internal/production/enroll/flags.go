@@ -3,7 +3,7 @@ package enroll
 import (
 	"net/url"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Flags holds the parsed command-line flags for the enroll command.

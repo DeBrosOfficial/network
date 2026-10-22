@@ -26,15 +26,15 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/noderesolver"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/clusterops"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/clusterops"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 )
 
 // indexRQLiteDataDir is where the index rqlite keeps its raft state on a node.

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // codeMsg carries code bytes the way wasmd's store-code messages do.

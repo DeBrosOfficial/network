@@ -22,11 +22,11 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/contracts/standard"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/contracts/standard"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 //go:embed testdata/relay.wasm

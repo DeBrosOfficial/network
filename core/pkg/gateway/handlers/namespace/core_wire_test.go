@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gateway"
 )
 
 // The orama directory and the cluster secret both come from

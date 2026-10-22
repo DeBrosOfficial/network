@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // GetTxCmd returns the parent `archive` transaction command.

@@ -11,12 +11,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/piece"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	storagekeeper "github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/piece"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	storagekeeper "github.com/Orama-Network/orama/chain/x/storage/keeper"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // acceptSlots has every assigned slot of the deal accepted by its node's hot key.

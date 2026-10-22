@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"io"
 	"net/http"
 	"time"

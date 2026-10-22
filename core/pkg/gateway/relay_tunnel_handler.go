@@ -11,8 +11,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/pkg/anonproxy"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/anonproxy"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // The anonymous relay of a relayed fetch (bugboard #266).

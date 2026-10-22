@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/releasepub/pubtest"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releasepub/pubtest"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 func TestCut_refusesAnArchiveANodeCouldNotInstallFromARelease(t *testing.T) {

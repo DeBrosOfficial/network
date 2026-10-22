@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
 )
 
 var epoch = time.Unix(1_700_000_000, 0)

@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
 )
 
 // errSourceStopped is the link error when the source ends without saying why.

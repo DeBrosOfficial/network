@@ -9,7 +9,7 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // allowedMessageFields is the entire governance surface. A field that is not

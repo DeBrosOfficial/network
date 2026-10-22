@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // The device authorization grant (RFC 8628), which is how a machine with no

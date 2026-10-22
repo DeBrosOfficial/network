@@ -6,8 +6,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/push"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/push"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 	"golang.org/x/sync/errgroup"
 )
 

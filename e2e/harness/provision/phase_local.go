@@ -13,8 +13,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/agent"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/agent"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 	"golang.org/x/crypto/ssh"
 )
 

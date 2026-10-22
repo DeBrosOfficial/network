@@ -12,7 +12,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 func hashOf(tx fakeTx) string { return hex.EncodeToString(tx.raw.Hash()) }

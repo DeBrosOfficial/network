@@ -1,6 +1,6 @@
 package archive
 
-import "github.com/DeBrosOfficial/network/chain/x/archive/types"
+import "github.com/Orama-Network/orama/chain/x/archive/types"
 
 // RetainHeight is min(tip-blocksIn14Days, lastArchivedHeight).
 // It is never above lastArchivedHeight. CometBFT prunes blocks strictly

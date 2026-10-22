@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // oramaBinary defines a binary to cross-compile from the project source.
@@ -215,7 +215,7 @@ func (b *Builder) buildOramaBinaries() error {
 	ldflags := fmt.Sprintf("%s -X 'main.version=%s' -X 'main.commit=%s' -X 'main.date=%s'",
 		goLDFlags, b.version, b.commit, b.date)
 
-	gatewayLDFlags := fmt.Sprintf("%s -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildVersion=%s' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildCommit=%s' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildTime=%s'",
+	gatewayLDFlags := fmt.Sprintf("%s -X 'github.com/Orama-Network/orama/core/pkg/gateway.BuildVersion=%s' -X 'github.com/Orama-Network/orama/core/pkg/gateway.BuildCommit=%s' -X 'github.com/Orama-Network/orama/core/pkg/gateway.BuildTime=%s'",
 		ldflags, b.version, b.commit, b.date)
 
 	for _, bin := range oramaBinaries(gatewayLDFlags) {

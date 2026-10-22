@@ -12,8 +12,8 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 func TestNodes_pagesEveryNodeInIDOrder(t *testing.T) {

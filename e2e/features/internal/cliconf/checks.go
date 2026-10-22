@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
 )
 
 // JSONFlag is the root's persistent machine-output flag

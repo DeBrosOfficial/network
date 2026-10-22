@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // TestClassifyInvokeError verifies the invoke-error → (status, code, retryable)

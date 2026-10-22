@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 func TestUpdateSettings_aNewClusterNotifiesOnTheStableChannelWithNoRepository(t *testing.T) {

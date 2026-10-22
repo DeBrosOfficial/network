@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/anonproxy"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/anonproxy"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 	"go.uber.org/zap"
 )
 

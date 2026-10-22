@@ -20,10 +20,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	"github.com/DeBrosOfficial/network/chain/x/token/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/x/token/keeper"
+	"github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 func TestMain(m *testing.M) {

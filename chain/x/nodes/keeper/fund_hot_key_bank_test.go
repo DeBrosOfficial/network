@@ -7,8 +7,8 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // An operator with ORAMA in its bank balance and no earnings (a create-network operator runs no

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 func TestCappedBuffer_TruncatesAndSaysSo(t *testing.T) {

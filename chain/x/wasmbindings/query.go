@@ -6,9 +6,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 const (

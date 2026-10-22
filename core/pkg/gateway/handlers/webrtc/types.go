@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 // WebRTCHandlers handles all WebRTC-related HTTP and WebSocket endpoints.

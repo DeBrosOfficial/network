@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 func nowMs() int64 { return time.Now().UnixMilli() }

@@ -6,7 +6,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 func TestProposalRoundTrip(t *testing.T) {

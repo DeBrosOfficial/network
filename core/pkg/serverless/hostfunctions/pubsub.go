@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // maxPublishesPerInvocation caps how many pubsub messages a single function

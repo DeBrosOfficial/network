@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 func logsOf(t *testing.T, reg *mockRegistry, query string) *httptest.ResponseRecorder {

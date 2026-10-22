@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify/releasetest"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify/releasetest"
 )
 
 // Files a metadata directory holds, as the node reads them.

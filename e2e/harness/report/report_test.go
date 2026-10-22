@@ -10,17 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/artifacts"
-	"github.com/DeBrosOfficial/network/e2e/harness/coverage"
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/artifacts"
+	"github.com/Orama-Network/orama/e2e/harness/coverage"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files")
 
-const pkg = "github.com/DeBrosOfficial/network/e2e/features/"
+const pkg = "github.com/Orama-Network/orama/e2e/features/"
 
 func fixture() Input {
 	t0 := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)

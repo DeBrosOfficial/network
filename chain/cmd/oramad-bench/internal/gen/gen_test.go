@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 

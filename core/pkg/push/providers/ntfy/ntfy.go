@@ -34,9 +34,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/netguard"
-	"github.com/DeBrosOfficial/network/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/push"
 	"go.uber.org/zap"
 )
 

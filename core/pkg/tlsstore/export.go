@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // certificatesPrefix is where CertMagic keeps certificates: one directory per

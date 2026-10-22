@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 )
 
 // A three-voter cluster; 37.59.116.212 is the stagenet node from the bug.

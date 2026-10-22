@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
-	"github.com/DeBrosOfficial/network/pkg/planinfo"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/cosmovisor"
+	"github.com/Orama-Network/orama/core/pkg/planinfo"
 )
 
 // What ChainUpgrade.Checksums says about the staged files.

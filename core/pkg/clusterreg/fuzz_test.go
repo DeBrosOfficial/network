@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protowire"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 func strField(t *testing.T, fs []field, num protowire.Number) string {

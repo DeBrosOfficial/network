@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // InternalReportPath is where a cluster gateway serves its own node's report

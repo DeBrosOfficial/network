@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // proofFileRow is the JSON object `orama storage prove --file` reads.

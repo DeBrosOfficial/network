@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // Bundle is one height range and the two hashes an attestation carries.

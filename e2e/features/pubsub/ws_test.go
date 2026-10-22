@@ -16,10 +16,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // Pub/sub routes (docs/whitepaper/technical-reference/appendices/i-api-surface.md "Pub/sub"); shapes are

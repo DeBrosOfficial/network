@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
-	deploymentshandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/deployments"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey/clientkeytest"
+	deploymentshandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/deployments"
 )
 
 func TestExtractAPIKey(t *testing.T) {
@@ -31,8 +31,8 @@ func TestExtractAPIKey(t *testing.T) {
 	}
 }
 
-// TestDomainRoutingMiddleware_NonDebrosNetwork tests that non-orama domains pass through
-func TestDomainRoutingMiddleware_NonDebrosNetwork(t *testing.T) {
+// TestDomainRoutingMiddleware_NonOramaNetwork tests that non-orama domains pass through
+func TestDomainRoutingMiddleware_NonOramaNetwork(t *testing.T) {
 	nextCalled := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nextCalled = true

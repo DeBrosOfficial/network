@@ -8,7 +8,7 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 type msgServer struct{ Keeper }

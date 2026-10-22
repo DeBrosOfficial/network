@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // TokenEnvVar names a pre-issued credential, so a CI job can run without a

@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
-	"github.com/DeBrosOfficial/network/pkg/version"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/version"
 )
 
 // errNodeReportRunning is the answer while another helper instance collects.

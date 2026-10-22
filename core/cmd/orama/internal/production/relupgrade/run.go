@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/push"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/upgrade"
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/releasefetch"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/push"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/upgrade"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/releasefetch"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 )
 
 // Options are the flags of `orama upgrade`.

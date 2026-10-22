@@ -7,7 +7,7 @@ import (
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/v3/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
 )
 
 type mapStore struct{ m map[string][]byte }

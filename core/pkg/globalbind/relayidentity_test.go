@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 func torSecret() (expanded []byte, pub ed25519.PublicKey) {

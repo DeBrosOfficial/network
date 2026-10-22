@@ -9,7 +9,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 func setParams(t *testing.T, f *testFixture, mutate func(*types.Params)) {

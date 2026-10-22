@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
 )
 
 // nodeUpload is the Node.js upload route the CLI uses.

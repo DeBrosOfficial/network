@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama Vault Guardian
-Documentation=https://github.com/orama-network/debros
+Documentation=https://github.com/Orama-Network/orama
 After=network.target
 PartOf=orama-node.service
 

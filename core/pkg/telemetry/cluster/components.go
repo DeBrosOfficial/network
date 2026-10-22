@@ -3,8 +3,8 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/globalhealth"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/globalhealth"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // State is how well a component, or the whole cluster, is serving.

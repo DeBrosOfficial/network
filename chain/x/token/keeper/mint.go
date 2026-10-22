@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // Mint issues amount of the token to recipient. The signer must be the creator

@@ -18,9 +18,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/relay/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/x/relay/client/cli"
+	"github.com/Orama-Network/orama/chain/x/relay/keeper"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // ConsensusVersion is x/relay's initial consensus version.

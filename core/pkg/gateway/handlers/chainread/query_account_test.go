@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/protobuf/encoding/protowire"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 const accountQuery = "/v1/chain/query/cosmos.auth.v1beta1.Query/Account"

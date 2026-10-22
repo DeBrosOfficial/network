@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 func TestProtoRoundTrip(t *testing.T) {

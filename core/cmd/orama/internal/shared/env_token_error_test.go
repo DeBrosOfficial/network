@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // A key the gateway refuses is an auth failure (3); a gateway that says "not

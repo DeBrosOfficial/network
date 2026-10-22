@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // Append adds the commitments, in order, to the tree whose frontier is given and returns the

@@ -17,9 +17,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/client/cli"
+	"github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // ConsensusVersion is x/nodes' initial consensus version.

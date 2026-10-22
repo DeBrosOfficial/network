@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewaykeys"
+	"github.com/Orama-Network/orama/core/pkg/gatewaykeys"
 )
 
 func TestServiceUser_isolationSplitsGatewayAndIPFS(t *testing.T) {

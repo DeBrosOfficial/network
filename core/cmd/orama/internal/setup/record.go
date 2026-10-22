@@ -3,7 +3,7 @@ package setup
 import (
 	"fmt"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
 )
 
 // cliRecorder keeps what a run set up in the CLI's configuration

@@ -18,8 +18,8 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	policykeeper "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	policykeeper "github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // stubFees records what the code fee burns; every other FeesKeeper method is unused by it.

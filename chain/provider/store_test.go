@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
+	"github.com/Orama-Network/orama/chain/piece"
 )
 
 func TestIngestDeclinesABadRootDenylistAndFullDisk(t *testing.T) {

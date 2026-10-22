@@ -10,10 +10,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/nullifier"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // Invariants is the result of CheckInvariants.

@@ -18,8 +18,8 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 // panicLogger counts the "panic recovered" lines BaseApp logs. BaseApp turns a panic inside a

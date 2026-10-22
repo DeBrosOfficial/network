@@ -11,8 +11,8 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // checkBankConservation checks, for every denom, that the supply is the sum of all balances (module

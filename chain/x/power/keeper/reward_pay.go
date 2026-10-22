@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // rewardSplit is how one validator's epoch reward was paid. operator + delegators == amount;

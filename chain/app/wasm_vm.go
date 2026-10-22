@@ -29,11 +29,11 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	marketkeeper "github.com/DeBrosOfficial/network/chain/x/market/keeper"
-	tokenkeeper "github.com/DeBrosOfficial/network/chain/x/token/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/wasmbindings"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	policytypes "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	marketkeeper "github.com/Orama-Network/orama/chain/x/market/keeper"
+	tokenkeeper "github.com/Orama-Network/orama/chain/x/token/keeper"
+	"github.com/Orama-Network/orama/chain/x/wasmbindings"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	policytypes "github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // wasmModuleAccountPerms keeps the wasm module account, so its address stays blocked, with no

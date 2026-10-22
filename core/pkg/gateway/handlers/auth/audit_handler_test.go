@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // auditQueryDB is the registry the audit trail is written to and read from.

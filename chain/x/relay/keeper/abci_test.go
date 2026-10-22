@@ -11,8 +11,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/x/relay/keeper"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 func hasEpochResult(t *testing.T, f *testFixture, epoch uint64) bool {

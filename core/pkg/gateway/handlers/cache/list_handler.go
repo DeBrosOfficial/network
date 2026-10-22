@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	olriclib "github.com/olric-data/olric"
 )
 

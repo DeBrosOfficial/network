@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/ratelimit"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/ratelimit"
 )
 
 // Feature #69: the namespaceRateLimitMiddleware must emit the canonical

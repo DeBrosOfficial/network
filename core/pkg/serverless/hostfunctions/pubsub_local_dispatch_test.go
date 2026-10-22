@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // Bugboard #93 — PubSubPublish must fire local wildcard triggers, but

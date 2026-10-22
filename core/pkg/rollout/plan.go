@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 // RaftRole is what a node is doing in the raft configuration right now.

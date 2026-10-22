@@ -8,8 +8,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // Roles of an account in a reward.

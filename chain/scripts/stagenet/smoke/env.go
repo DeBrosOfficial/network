@@ -8,9 +8,9 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 const rawRPCTimeoutSeconds = 15

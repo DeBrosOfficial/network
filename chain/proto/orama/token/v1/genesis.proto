@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.token.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/token/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/token/types";
 
 import "gogoproto/gogo.proto";
 import "orama/token/v1/token.proto";

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/nodehealth"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/nodehealth"
 )
 
 func probeOutput(state, leader string, applied, commit uint64, gatewayCode string) string {

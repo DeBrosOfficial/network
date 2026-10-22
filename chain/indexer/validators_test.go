@@ -10,7 +10,7 @@ import (
 
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/Orama-Network/orama/chain/app"
 )
 
 func TestValidators_signingIsTalliedPerEpoch(t *testing.T) {

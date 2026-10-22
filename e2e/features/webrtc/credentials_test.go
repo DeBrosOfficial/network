@@ -16,11 +16,11 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/services"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/e2e/features/internal/services"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 )
 
 // TestCredentials_restShapeAndAccess: the REST credential is

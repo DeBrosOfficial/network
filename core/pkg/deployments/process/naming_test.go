@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 // The systemd instance and the deployment's directory have to agree exactly:

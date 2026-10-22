@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/provider"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/provider"
 )
 
 // Provider defaults. The files live in the unit's WorkingDirectory, which is

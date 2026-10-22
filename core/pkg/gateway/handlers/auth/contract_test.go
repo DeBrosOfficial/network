@@ -3,8 +3,8 @@ package auth
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/contracttest"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
+	"github.com/Orama-Network/orama/core/pkg/contracttest"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
 )
 
 // The bodies the TypeScript SDK sends to /v1/auth/* must decode into these

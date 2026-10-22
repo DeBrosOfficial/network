@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.token.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/token/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/token/types";
 
 import "amino/amino.proto";
 import "cosmos/msg/v1/msg.proto";

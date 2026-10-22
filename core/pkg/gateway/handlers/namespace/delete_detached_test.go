@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"go.uber.org/zap"
 )
 

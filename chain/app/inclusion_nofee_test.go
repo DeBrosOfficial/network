@@ -15,8 +15,8 @@ import (
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 // txWithFee is a transaction the SDK decoder accepts, with one message, one signer and one

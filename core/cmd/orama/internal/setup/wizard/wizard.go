@@ -10,7 +10,7 @@ package wizard
 import (
 	"context"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
 )
 
 // HostKey is one SSH host key a machine presents.

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 

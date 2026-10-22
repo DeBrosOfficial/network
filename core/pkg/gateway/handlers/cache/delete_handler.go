@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/olric"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/olric"
 )
 
 // DeleteHandler handles cache DELETE requests for removing a key from a distributed map.

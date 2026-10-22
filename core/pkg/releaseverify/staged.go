@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
 )
 
 // StagedPath records the archives this node staged because they verified

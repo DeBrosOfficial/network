@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A namespace operator's view of its users' devices: the way back when a user

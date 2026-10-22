@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/olric/olrictest"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/olric/olrictest"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 	olriclib "github.com/olric-data/olric"
 )
 

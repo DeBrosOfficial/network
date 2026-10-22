@@ -15,9 +15,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	cnftkeeper "github.com/DeBrosOfficial/network/chain/x/cnft/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	cnftkeeper "github.com/Orama-Network/orama/chain/x/cnft/keeper"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 // Keeper is x/market's keeper. It has no authority address.

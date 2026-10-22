@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/realistic"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
+	"github.com/Orama-Network/orama/e2e/features/internal/realistic"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
 )
 
 // Load shapes and upper bounds. The bounds are generous: they catch a

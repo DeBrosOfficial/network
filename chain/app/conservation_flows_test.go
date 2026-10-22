@@ -14,13 +14,13 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	oramatx "github.com/DeBrosOfficial/network/chain/client/tx"
-	"github.com/DeBrosOfficial/network/chain/piece"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	storagekeeper "github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	oramatx "github.com/Orama-Network/orama/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/piece"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	storagekeeper "github.com/Orama-Network/orama/chain/x/storage/keeper"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // A false positive of the conservation check halts the chain, so each flow below that moves coins through

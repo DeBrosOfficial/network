@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // rsaProofGoldenHex is RSAProofMessage("node-a", 32 x 0x55, false): the domain, a zero, the node id, a zero,

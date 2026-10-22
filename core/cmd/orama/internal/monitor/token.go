@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // tokenCacheTTL is how long a bearer is reused before the credential store is

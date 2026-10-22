@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	serverlesshandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/serverless"
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	serverlesshandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/serverless"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // Who may call what.

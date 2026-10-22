@@ -3,7 +3,7 @@ package pubsub
 import (
 	"net/http"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A grant may be narrowed to a topic pattern — `pubsub:topic=chat.*` — and this

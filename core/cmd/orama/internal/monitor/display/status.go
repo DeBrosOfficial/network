@@ -6,11 +6,11 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/operatorview"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/operatorview"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
 )
 
 // noChain is the CHAIN column of a node that runs no chain (a cluster-only node).

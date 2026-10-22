@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // evidenceExec writes one evidence line per run into the directory the

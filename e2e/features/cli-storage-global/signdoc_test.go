@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // Sizes of a storage proof (docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-storage-prove).

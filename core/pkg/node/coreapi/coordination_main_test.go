@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // TestMain waits out the second this test process started in: these tests sign

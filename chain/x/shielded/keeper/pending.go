@@ -6,8 +6,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // asOf is the height a nullifier read is made at: a record is spent when it was written at a

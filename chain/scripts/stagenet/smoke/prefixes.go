@@ -3,7 +3,7 @@ package main
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // init applies the chain's bech32 prefixes to the SDK config, as oramad does at start-up, so an

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/Orama-Network/orama/chain/app"
 )
 
 // x/power reads every bonded validator's key as raw ed25519 and returns an error from EndBlock

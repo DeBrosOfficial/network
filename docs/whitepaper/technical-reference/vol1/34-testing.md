@@ -145,7 +145,7 @@ None of these suites is part of any automatic gate. Their untagged parts (the gu
 
 ### The fleet suite
 
-`e2e/` is its own Go module (`e2e/go.mod`, module `github.com/DeBrosOfficial/network/e2e`) that replaces the core module with `../core`, so feature tests build the product's own code. The runner is `e2e/cmd/e2e-fleet` with the commands `run`, `provision`, `test`, `teardown`, `sweep`, `sweep-namespaces`, `report`, `coverage`, `target`, `hook` and an internal `broker-serve`.
+`e2e/` is its own Go module (`e2e/go.mod`, module `github.com/Orama-Network/orama/e2e`) that replaces the core module with `../core`, so feature tests build the product's own code. The runner is `e2e/cmd/e2e-fleet` with the commands `run`, `provision`, `test`, `teardown`, `sweep`, `sweep-namespaces`, `report`, `coverage`, `target`, `hook` and an internal `broker-serve`.
 
 ![A fleet run from provisioning to teardown](../diagrams/ch34-fleet-run.svg)
 
@@ -356,7 +356,7 @@ The book you are reading is tested like code. `core/tools/whitepaper check` (run
 | `govulncheck` on `core`, `pnpm audit --prod` on `sdk` | no | `security.yml`: pull requests and pushes to `main`, and Mondays 08:00 UTC |
 | `/VERSION` against the two `package.json` files | no (a core test checks `version.txt`) | warns only |
 
-CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) runs on Gitea Actions; the release workflows run on GitHub after `.gitea/workflows/mirror-to-github.yml` mirrors the tag. CI triggers on pushes and pull requests to `main` and `nightly`, with the concurrency group cancelling superseded runs; `security.yml` does not trigger on `nightly`. The release workflows run no tests: `release.yaml` and `release-apt.yml` check that `/VERSION` matches the tag and then build, and `publish-sdk.yml` runs typecheck, build and unit tests before publishing both packages to GitHub Packages. The fleet suite is run by the owner with `make e2e-fleet` (Infisical supplies the secrets and `E2E_RUNNER_CIDR` is required). `core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under every build-tag set (the race-detector tests stay in CI so the hook stays short); it unsets the `GIT_*` variables git sets for hooks before it runs anything.
+CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`release.yml`, run by a `v*` tag pushed to Gitea) run on Gitea Actions; GitHub is a code-only mirror with Actions disabled. CI triggers on pushes and pull requests to `main` and `nightly`, with the concurrency group cancelling superseded runs; `security.yml` does not trigger on `nightly`. The release workflow runs few tests: its `goreleaser` job checks that `/VERSION` matches the tag and then builds, its `archive` job builds the cluster archive twice and fails unless the two are byte-identical, and its `publish-sdk` job runs typecheck, build and unit tests before publishing both packages to the Gitea npm registry. The fleet suite is run by the owner with `make e2e-fleet` (Infisical supplies the secrets and `E2E_RUNNER_CIDR` is required). `core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under every build-tag set (the race-detector tests stay in CI so the hook stays short); it unsets the `GIT_*` variables git sets for hooks before it runs anything.
 
 ## State it owns
 

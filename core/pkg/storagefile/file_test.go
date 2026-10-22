@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/pieceroot"
+	"github.com/Orama-Network/orama/core/pkg/pieceroot"
 )
 
 func TestPrepareOpenRoundTrip(t *testing.T) {

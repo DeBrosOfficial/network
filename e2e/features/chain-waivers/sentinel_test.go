@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // unwired are the module names (proto package segment and genesis key) that

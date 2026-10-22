@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/chainfaucet"
+	"github.com/Orama-Network/orama/core/pkg/chainfaucet"
 )
 
 const faucetRecipient = "orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53"

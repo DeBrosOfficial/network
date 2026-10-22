@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/pkg/encryption"
+	"github.com/Orama-Network/orama/core/pkg/encryption"
 )
 
 func main() {

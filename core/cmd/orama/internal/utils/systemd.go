@@ -12,12 +12,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 
-	"github.com/DeBrosOfficial/network/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 var ErrServiceNotFound = errors.New("service not found")

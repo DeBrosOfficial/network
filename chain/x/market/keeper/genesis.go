@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 // InitGenesis writes x/market's genesis state.

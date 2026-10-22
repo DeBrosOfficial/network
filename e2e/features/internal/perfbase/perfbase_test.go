@@ -5,7 +5,7 @@ package perfbase
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/realistic"
+	"github.com/Orama-Network/orama/e2e/features/internal/realistic"
 )
 
 func summary(p95, throughput float64) realistic.Summary {

@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/broadcast"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/broadcast"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
 )
 
 // Runner is one run in progress.

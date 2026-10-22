@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/edge"
-	"github.com/DeBrosOfficial/network/e2e/harness/cgroupmem"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
+	"github.com/Orama-Network/orama/e2e/harness/cgroupmem"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 const (

@@ -1,6 +1,6 @@
 [Unit]
 Description=Orama Namespace Vault Guardian (%i)
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 After=network-online.target orama-namespace-wireguard@%i.service
 Wants=network-online.target
 PartOf=orama-node.service

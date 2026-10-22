@@ -1,8 +1,8 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/status"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/status"
 	"github.com/spf13/cobra"
 )
 

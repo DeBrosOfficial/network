@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 )
 
 // keyRegistryDB is enough of the registry for RevokeKey: it resolves the

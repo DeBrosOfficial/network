@@ -16,7 +16,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protowire"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
 )
 
 // txHashOf is the hash CometBFT and the explorer know a transaction by: the SHA-256 of its bytes,

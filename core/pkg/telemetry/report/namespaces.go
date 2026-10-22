@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
-	"github.com/DeBrosOfficial/network/pkg/turn"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 )
 
 // collectNamespaces discovers deployed namespaces and checks health of their

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/build"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/push"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/upgrade"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/build"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/push"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/upgrade"
 )
 
 // Flags holds rollout command flags.

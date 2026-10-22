@@ -9,7 +9,7 @@ dashboard: see the [CLI Reference](/docs/developer/cli-overview).
 ## Installation
 
 ```bash
-go get github.com/DeBrosOfficial/network/pkg/client
+go get github.com/Orama-Network/orama/core/pkg/client
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ import (
     "os"
     "strings"
 
-    "github.com/DeBrosOfficial/network/pkg/client"
+    "github.com/Orama-Network/orama/core/pkg/client"
 )
 
 func main() {
@@ -420,7 +420,7 @@ never listed.
 
 ## Sending ORAMA
 
-The chain is not in `pkg/client`. `github.com/DeBrosOfficial/network/pkg/onchain` sends one account's transactions, signed by the RootWallet agent, and `orama chain send` and `orama chain withdraw-earnings` are built on it.
+The chain is not in `pkg/client`. `github.com/Orama-Network/orama/core/pkg/onchain` sends one account's transactions, signed by the RootWallet agent, and `orama chain send` and `orama chain withdraw-earnings` are built on it.
 
 ```go
 chain := onchain.Gateway{Reader: &chainread.Reader{Gateway: gatewayURL}} // or onchain.REST{Base: nodeRESTURL}
@@ -524,7 +524,7 @@ anonymity client never receives a wallet address.
 All client methods return typed errors that can be checked:
 
 ```go
-import "github.com/DeBrosOfficial/network/pkg/errors"
+import "github.com/Orama-Network/orama/core/pkg/errors"
 
 resp, err := c.Storage().Upload(ctx, reader, "file.txt")
 if err != nil {
@@ -554,7 +554,7 @@ resp, err := c.Storage().Upload(ctx, reader, "file.txt")
 ### Retry Logic
 
 ```go
-import "github.com/DeBrosOfficial/network/pkg/errors"
+import "github.com/Orama-Network/orama/core/pkg/errors"
 
 maxRetries := 3
 for i := 0; i < maxRetries; i++ {
@@ -603,4 +603,4 @@ Serverless function examples (hello, echo) live in `core/examples/functions/`. `
 
 ## API reference
 
-Complete API documentation is on [GoDoc](https://pkg.go.dev/github.com/DeBrosOfficial/network/pkg/client). Issues go to the [GitHub issue tracker](https://github.com/Orama-Network/orama/issues).
+Complete API documentation is on [GoDoc](https://pkg.go.dev/github.com/Orama-Network/orama/core/pkg/client). Issues go to the [GitHub issue tracker](https://github.com/Orama-Network/orama/issues).

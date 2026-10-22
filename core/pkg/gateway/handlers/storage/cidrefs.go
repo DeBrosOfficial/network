@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"go.uber.org/zap"
 )
 

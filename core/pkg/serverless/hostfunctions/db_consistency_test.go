@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // feat-6: DBQueryBatch gained an opt-in "consistency":"none" field so

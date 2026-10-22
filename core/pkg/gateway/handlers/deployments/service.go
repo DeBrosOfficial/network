@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/deployments"
-	"github.com/DeBrosOfficial/network/pkg/deployments/process"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/storage"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments/process"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/storage"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

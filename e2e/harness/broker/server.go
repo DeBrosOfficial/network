@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // DNS is the run's Cloudflare zone as the broker uses it (*cloudflare.Client).

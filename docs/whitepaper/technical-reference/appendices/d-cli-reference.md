@@ -164,7 +164,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama maint release`](#orama-maint-release) - Cut and publish a signed release (maintainers)
     - [`orama maint release cut`](#orama-maint-release-cut) - List an archive on a channel and sign the metadata (3 approvals)
     - [`orama maint release init-root`](#orama-maint-release-init-root) - Make the repository's root from your RootWallet's release key
-    - [`orama maint release publish`](#orama-maint-release-publish) - Upload what cut left: archives to GitHub, metadata to the release host
+    - [`orama maint release publish`](#orama-maint-release-publish) - Upload what cut left: archives to Gitea, metadata to the release host
     - [`orama maint release refresh-timestamp`](#orama-maint-release-refresh-timestamp) - Re-sign only the timestamp (1 approval)
     - [`orama maint release renew-root`](#orama-maint-release-renew-root) - Make the next version of the root with a new expiry
   - [`orama maint rollout`](#orama-maint-rollout) - Build, push, and rolling upgrade every node in an environment
@@ -3170,7 +3170,7 @@ commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--channel` | — | Release channel: nightly, main or dev/&lt;branch> [required] |
 | `--dir` | `networks` | The repository's networks directory |
 | `--faucet` | `false` | The network funds new operators from a faucet |
-| `--min-version` | `0.3.1` | Oldest orama version that may join, X.Y.Z |
+| `--min-version` | `0.3.2` | Oldest orama version that may join, X.Y.Z |
 | `--name` | — | Network name, for example stagenet [required] |
 | `--release-repo` | — | https base URL of the release repository [required] |
 | `--release-root` | — | The release-root.json file its releases are verified against [required] |
@@ -3822,7 +3822,7 @@ orama maint release
 ```
 
 ```text
-Cut a release into the DeBros release repository and publish it.
+Cut a release into the Orama release repository and publish it.
 
 The metadata is TUF, signed with the one release key in your RootWallet. Every
 signature is approved by you in the RootWallet desktop app; the command says
@@ -3833,7 +3833,7 @@ root for all four roles, so the same wallet signs everything.
   renew-root         the next version of the root, same keys, a new expiry
   cut                list an archive on a channel and sign it (3 approvals)
   refresh-timestamp  re-sign only the timestamp (1 approval)
-  publish            upload the archives to GitHub and the metadata to the release host
+  publish            upload the archives to Gitea and the metadata to the release host
 
 A channel is nightly, main, or dev/<branch>. cut writes only to the repository
 directory (--dir); publish is the step that touches the network, so cut
@@ -3917,7 +3917,7 @@ threshold must be 1.
 
 ## orama maint release publish
 
-Upload what cut left: archives to GitHub, metadata to the release host
+Upload what cut left: archives to Gitea, metadata to the release host
 
 ```text
 orama maint release publish --dir <dir> [flags]
@@ -3926,20 +3926,21 @@ orama maint release publish --dir <dir> [flags]
 ```text
 Upload the last cut or refresh. Before anything is sent the metadata in --dir is
 checked as a client would check it, and each archive against the hash the
-signed targets name. Then the archives go to the GitHub release for the tag
+signed targets name. Then the archives go to the Gitea release for the tag
 (created if it is not there; an archive already there is an error), then the
 root, targets and snapshot go to the release host with rsync, and the timestamp
 last.
 
-Needs gh (logged in, able to upload to the repository) and ssh access to the
-release host. --dry-run prints the commands.
+Needs GITEA_TOKEN (a Gitea token with repository write) and ssh access to the
+release host. --dry-run prints the plan.
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--dir` | — | The release repository working directory (default ~/.orama/release-repo) |
-| `--dry-run` | `false` | Check the directory and print the commands; run nothing |
-| `--github-repo` | `Orama-Network/orama` | The GitHub repository whose releases hold the archives |
+| `--dry-run` | `false` | Check the directory and print the plan; send nothing |
+| `--gitea-api` | `https://git.icxcnika.io/api/v1` | The Gitea instance API base |
+| `--gitea-repo` | `ICXCNIKA/orama` | The Gitea repository (owner/name) whose releases hold the archives |
 | `--metadata-dest` | `releases.orama.network:/opt/orama-releases/` | The rsync destination of the metadata on the release host |
 
 

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/node/boot"
+	"github.com/Orama-Network/orama/core/pkg/node/boot"
 )
 
 // The storage units are watched after boot, without an IPFS outage blocking

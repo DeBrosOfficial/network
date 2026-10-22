@@ -8,8 +8,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // Msg is the JSON a contract puts in CosmosMsg::Custom. Exactly one field is set. Unknown fields

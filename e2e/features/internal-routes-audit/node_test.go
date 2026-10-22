@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/edge"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // Where a node-shell probe is aimed.

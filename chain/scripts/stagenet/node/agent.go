@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/client/tx"
 )
 
 const (

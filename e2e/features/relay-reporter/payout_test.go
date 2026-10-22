@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // settledEpochSearch is how many closed epochs back from the current one the test looks for one that paid.

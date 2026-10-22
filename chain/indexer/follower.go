@@ -17,7 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 // MaxBlocksPerStep bounds one Step, so a follower far behind the tip still

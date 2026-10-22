@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
 )
 
 func pinRequest(h *Handlers, ns, cid string) *httptest.ResponseRecorder {

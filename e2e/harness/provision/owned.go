@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
 )
 
 // deleteOwnedServer deletes server id only once it has read it back and

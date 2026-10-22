@@ -9,8 +9,8 @@ import (
 
 	"cosmossdk.io/collections"
 
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 func TestRefuseStorageNodeErr_marksOnlyTheNodeRefusals(t *testing.T) {

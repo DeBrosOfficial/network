@@ -3,8 +3,8 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
-	"github.com/DeBrosOfficial/network/pkg/updatenotice"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/updatenotice"
 )
 
 // checkNodeUpdate turns the node's auto-update finding into an alert. A newer

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/termtext"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/termtext"
 )
 
 // Caddy's JSON log: the loggers that obtain and renew certificates, and the

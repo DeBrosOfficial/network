@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/statuspage"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/gateway/statuspage"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 const (

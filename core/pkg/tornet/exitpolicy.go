@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 // exitRejectPorts are the ports an Orama exit refuses, in Tor's ExitPolicy

@@ -9,8 +9,8 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 func TestSplitSale_500BpsOf10000(t *testing.T) {

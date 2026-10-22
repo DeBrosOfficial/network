@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 const (

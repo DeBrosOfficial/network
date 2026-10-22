@@ -13,11 +13,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/nodeapi"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/nodeapi"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 )

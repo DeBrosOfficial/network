@@ -9,7 +9,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 var epochStart = time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)

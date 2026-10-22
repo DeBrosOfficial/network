@@ -18,8 +18,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	shieldedpool "github.com/DeBrosOfficial/network/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/app"
+	shieldedpool "github.com/Orama-Network/orama/chain/x/shielded/pool"
 )
 
 // lockedRow is one locked genesis parameter: its plan value and where the plan

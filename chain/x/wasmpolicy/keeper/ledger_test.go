@@ -12,7 +12,7 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func stranger(i int) sdk.AccAddress { return sdk.AccAddress(fmt.Sprintf("stranger_%011d", i)) }

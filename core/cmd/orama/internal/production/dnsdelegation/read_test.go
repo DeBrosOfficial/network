@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 // fakeCluster replaces the calls Read makes: one node, keys "prepared" by

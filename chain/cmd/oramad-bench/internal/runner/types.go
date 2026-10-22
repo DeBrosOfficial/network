@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/profile"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/profile"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
 )
 
 // runType prepares one transaction type, calibrates its gas, and runs its steps.

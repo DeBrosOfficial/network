@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 )
 
 // REST drives the chain's real endpoints, in the order a transaction needs them.

@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
 )
 
 // grantDB is the database grants are read from: the cluster registry. `grants`

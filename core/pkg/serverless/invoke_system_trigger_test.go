@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/srcscan"
+	"github.com/Orama-Network/orama/core/pkg/srcscan"
 	"go.uber.org/zap"
 )
 

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx/sshxtest"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/sshx/sshxtest"
 )
 
 // sshFleet is a fleet whose one node is an in-process sshd.

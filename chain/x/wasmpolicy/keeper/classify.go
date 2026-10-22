@@ -9,7 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // The wasmd messages that upload code. Their generated Go types carry no XXX_MessageName, so the

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	operatorhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/operator"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	operatorhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/operator"
 	"go.uber.org/zap"
 )
 

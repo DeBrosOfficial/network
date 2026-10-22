@@ -14,7 +14,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/client/tx"
 )
 
 // fakeAgent serves the agent protocol on a unix socket with the given key. tamper corrupts the

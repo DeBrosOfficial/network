@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 const stream = `{"Action":"start","Package":"e2e/features/smoke"}

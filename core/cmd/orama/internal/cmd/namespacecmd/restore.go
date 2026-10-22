@@ -11,10 +11,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
-	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
+	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 	"github.com/spf13/cobra"
 )
 

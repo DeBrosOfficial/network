@@ -13,8 +13,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // tokenTransferFixture is a real chain (real bank keeper, real store, real send restrictions) with one

@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
-	"github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 // GetQueryCmd returns the parent `cnft` query command.

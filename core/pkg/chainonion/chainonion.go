@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/anonproxy"
+	"github.com/Orama-Network/orama/core/pkg/anonproxy"
 )
 
 const (

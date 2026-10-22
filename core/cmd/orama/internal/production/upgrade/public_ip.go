@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	oramainstall "github.com/DeBrosOfficial/network/pkg/install"
+	oramainstall "github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // routeProbeAddr is any public address. Connecting a UDP socket to it sends

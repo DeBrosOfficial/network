@@ -17,12 +17,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/orama-os/agent/internal/command"
-	"github.com/DeBrosOfficial/orama-os/agent/internal/enroll"
-	"github.com/DeBrosOfficial/orama-os/agent/internal/health"
-	"github.com/DeBrosOfficial/orama-os/agent/internal/sandbox"
-	"github.com/DeBrosOfficial/orama-os/agent/internal/update"
-	"github.com/DeBrosOfficial/orama-os/agent/internal/wireguard"
+	"github.com/Orama-Network/orama/os/agent/internal/command"
+	"github.com/Orama-Network/orama/os/agent/internal/enroll"
+	"github.com/Orama-Network/orama/os/agent/internal/health"
+	"github.com/Orama-Network/orama/os/agent/internal/sandbox"
+	"github.com/Orama-Network/orama/os/agent/internal/update"
+	"github.com/Orama-Network/orama/os/agent/internal/wireguard"
 )
 
 const (

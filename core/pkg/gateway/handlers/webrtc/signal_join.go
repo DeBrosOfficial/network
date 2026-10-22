@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
-	"github.com/DeBrosOfficial/network/pkg/sfu/roomid"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/roomid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )

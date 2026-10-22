@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
 )
 
 // disableApport stops and masks apport where it is installed, so nothing turns

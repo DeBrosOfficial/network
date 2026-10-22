@@ -15,11 +15,11 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify/orchard"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify/orchard"
 )
 
 const walletScenarioPath = "../x/shielded/wallet/testdata/bundles/scenario.json"

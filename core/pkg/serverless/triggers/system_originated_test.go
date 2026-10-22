@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/srcscan"
+	"github.com/Orama-Network/orama/core/pkg/srcscan"
 )
 
 // Every invocation this package makes is the gateway firing something an

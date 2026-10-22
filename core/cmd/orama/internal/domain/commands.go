@@ -16,8 +16,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
 	"github.com/spf13/cobra"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
 
 // The archive trust anchor, its verification and the archive lock as install

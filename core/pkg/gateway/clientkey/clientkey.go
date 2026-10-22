@@ -17,7 +17,7 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 var wireGuardNet *net.IPNet

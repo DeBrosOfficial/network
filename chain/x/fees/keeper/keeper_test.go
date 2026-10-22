@@ -18,9 +18,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/fees/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/fees/keeper"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // fakeBankKeeper is a minimal, hand-written stand-in for x/bank, tracking module and account

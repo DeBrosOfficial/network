@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // maxLineBytes bounds one line of go test -json output kept for redaction,

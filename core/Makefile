@@ -102,7 +102,7 @@ build: deps
 	go build -ldflags "$(LDFLAGS)" -o bin/orama-privhelper ./cmd/privhelper
 	go build -ldflags "$(LDFLAGS)" -o bin/orama ./cmd/orama/
 	# Inject gateway build metadata via pkg path variables
-	go build -ldflags "$(LDFLAGS) -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildVersion=$(VERSION)' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildCommit=$(COMMIT)' -X 'github.com/DeBrosOfficial/network/pkg/gateway.BuildTime=$(DATE)'" -o bin/gateway ./cmd/gateway
+	go build -ldflags "$(LDFLAGS) -X 'github.com/Orama-Network/orama/core/pkg/gateway.BuildVersion=$(VERSION)' -X 'github.com/Orama-Network/orama/core/pkg/gateway.BuildCommit=$(COMMIT)' -X 'github.com/Orama-Network/orama/core/pkg/gateway.BuildTime=$(DATE)'" -o bin/gateway ./cmd/gateway
 	go build -ldflags "$(LDFLAGS)" -o bin/sfu ./cmd/sfu
 	go build -ldflags "$(LDFLAGS)" -o bin/turn ./cmd/turn
 	go build -ldflags "$(LDFLAGS)" -o bin/orama-sni-router ./cmd/sni-router

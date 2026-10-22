@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/invite"
+	"github.com/Orama-Network/orama/core/pkg/invite"
 )
 
 // A join used to need the gateway URL, the token and the certificate

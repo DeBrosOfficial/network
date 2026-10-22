@@ -9,7 +9,7 @@ import (
 	"regexp"
 
 	"filippo.io/edwards25519"
-	"github.com/DeBrosOfficial/network/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/clusterreg"
 	secp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 )

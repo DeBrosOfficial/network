@@ -6,7 +6,7 @@
 //
 //	root.json  <N>.root.json  targets.json  snapshot.json  timestamp.json
 //
-// The archives are not in it: they are GitHub release assets, and the host
+// The archives are not in it: they are Gitea release assets, and the host
 // answers a request for targets/<path> with a redirect to the asset.
 //
 // Every signature is made by the RootWallet agent under the purpose
@@ -28,7 +28,7 @@ import (
 	"crypto/ed25519"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releasesign"
+	"github.com/Orama-Network/orama/core/pkg/releasesign"
 )
 
 // Agent is the part of the RootWallet agent a release is made with.

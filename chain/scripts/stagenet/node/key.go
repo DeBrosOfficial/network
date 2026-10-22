@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/client/tx"
 )
 
 // keyHex is a 32-byte secp256k1 private key in hex, the one line `oramad keys export

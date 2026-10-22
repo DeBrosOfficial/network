@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 func TestLocalChainRPCURL_loopbackRPCPort(t *testing.T) {

@@ -22,7 +22,7 @@ import (
 	"github.com/secure-systems-lab/go-securesystemslib/cjson"
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // SigningChain is the chain value sent with a release request. The agent

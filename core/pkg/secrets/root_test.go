@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 

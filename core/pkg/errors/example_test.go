@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 
-	"github.com/DeBrosOfficial/network/pkg/errors"
+	"github.com/Orama-Network/orama/core/pkg/errors"
 )
 
 // Example demonstrates creating and using validation errors.

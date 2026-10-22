@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify/releaserepo"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify/releaserepo"
 )
 
 // releaseSeams points the adopted root and the staged-release record at a

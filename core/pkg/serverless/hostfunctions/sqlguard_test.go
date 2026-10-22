@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
-	"github.com/DeBrosOfficial/network/pkg/sqlguard"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/sqlguard"
 	"go.uber.org/zap"
 )
 

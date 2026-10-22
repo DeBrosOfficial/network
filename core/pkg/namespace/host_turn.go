@@ -9,11 +9,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

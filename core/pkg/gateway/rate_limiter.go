@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // wireGuardNet is the WireGuard mesh subnet, parsed once at init.

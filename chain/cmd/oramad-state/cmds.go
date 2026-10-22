@@ -11,8 +11,8 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-state/internal/measure"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-state/internal/stategen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-state/internal/measure"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-state/internal/stategen"
 )
 
 // defaultOramad is where `make build-oramad-state` puts the oramad the measurements drive.

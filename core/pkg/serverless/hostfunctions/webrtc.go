@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // WebRTC admission and moderation (bugboard #726): a namespace that requires

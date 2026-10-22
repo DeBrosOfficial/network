@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // Install and upgrade run as root over the orama user's .orama tree. These

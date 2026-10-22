@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/rqlite/rqlitetest"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite/rqlitetest"
 )
 
 // bugboard #267: per-op codes, checked against what a real rqlite returns.

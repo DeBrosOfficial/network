@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/cloudflare"
-	"github.com/DeBrosOfficial/network/e2e/harness/hetzner"
+	"github.com/Orama-Network/orama/e2e/harness/cloudflare"
+	"github.com/Orama-Network/orama/e2e/harness/hetzner"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 )

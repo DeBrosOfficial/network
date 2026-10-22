@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
 	"go.uber.org/zap"
 )
 

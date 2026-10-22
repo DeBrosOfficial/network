@@ -9,7 +9,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 const (

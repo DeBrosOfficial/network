@@ -11,7 +11,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/DeBrosOfficial/network/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 // The chain section reaches the public status page, and whatever answers on

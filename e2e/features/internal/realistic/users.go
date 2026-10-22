@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 // User is a simulated end user of a tenant's app: a wallet admitted to the

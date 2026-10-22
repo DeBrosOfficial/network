@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/cosmovisor"
-	"github.com/DeBrosOfficial/network/pkg/planinfo"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/cosmovisor"
+	"github.com/Orama-Network/orama/core/pkg/planinfo"
 )
 
 func writeInfo(t *testing.T, info string) string {

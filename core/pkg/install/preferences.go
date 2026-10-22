@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 	"gopkg.in/yaml.v3"
 )
 

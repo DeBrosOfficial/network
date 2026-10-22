@@ -3,8 +3,8 @@ package install
 import (
 	"os"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/invite"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/invite"
 	"github.com/mattn/go-isatty"
 )
 

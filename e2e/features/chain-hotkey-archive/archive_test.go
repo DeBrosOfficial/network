@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // A piece of 4 KiB is four 1 KiB leaves and a padded tree of four (chain/piece:

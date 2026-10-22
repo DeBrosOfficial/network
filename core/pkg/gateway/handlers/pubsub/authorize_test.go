@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/ctxkeys"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 )
 
 // A `pubsub` grant used to be every topic in the namespace, so one leaked

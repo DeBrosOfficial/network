@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // A device as a client holds it: its public JWK and a way to sign.

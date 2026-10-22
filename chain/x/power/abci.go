@@ -8,8 +8,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/power/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/x/power/keeper"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 // EndBlocker runs x/power's end-blocker: it is the ONLY source of CometBFT ValidatorUpdates this

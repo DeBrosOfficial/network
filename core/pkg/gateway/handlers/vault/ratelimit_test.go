@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey/clientkeytest"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey/clientkeytest"
 )
 
 // TestIPRateLimiter_PullBudget verifies the per-IP pull limiter admits exactly

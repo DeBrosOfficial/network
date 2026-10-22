@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // A namespace gateway's own RQLite is not the registry. The challenge was

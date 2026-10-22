@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.shielded.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/shielded/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/shielded/types";
 
 import "gogoproto/gogo.proto";
 import "orama/shielded/v1/shielded.proto";

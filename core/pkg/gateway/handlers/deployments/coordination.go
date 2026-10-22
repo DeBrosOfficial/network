@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // SetCoordinationSecret sets the cluster secret the replica coordination calls

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/services"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/features/internal/services"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // TestInput_malformedRefused: every malformed body is 400 (or 405 for the

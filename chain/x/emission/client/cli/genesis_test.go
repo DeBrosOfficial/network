@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 func faucetFlagsCmd(t *testing.T, args ...string) *cobra.Command {

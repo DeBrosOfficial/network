@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // deadlineServer serves longRequestDeadlines behind the logging middleware's

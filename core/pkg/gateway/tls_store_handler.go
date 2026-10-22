@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"time"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/tlsstore"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/tlsstore"
 	"go.uber.org/zap"
 )
 

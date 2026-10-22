@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 // fakeShell answers commands from a script and records what it was asked.

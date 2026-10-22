@@ -14,7 +14,7 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 func TestOperatorNetwork_comesFromActiveNodesWithEndpointAndASN(t *testing.T) {

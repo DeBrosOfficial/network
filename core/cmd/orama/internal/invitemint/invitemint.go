@@ -26,9 +26,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/shared"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/invite"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/invite"
 )
 
 // dialTimeout bounds the connection to the chosen node.

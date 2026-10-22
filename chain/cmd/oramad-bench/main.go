@@ -21,9 +21,9 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/profile"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/runner"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/profile"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/runner"
 )
 
 // Exit codes.

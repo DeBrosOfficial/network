@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // Socket placement: SocketPath(workDir) is <work dir>/broker/broker.sock.

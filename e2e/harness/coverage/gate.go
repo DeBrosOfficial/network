@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 // Status of one universe item.

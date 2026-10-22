@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // blockIDFlagCommit is CometBFT's BlockIDFlagCommit: the signature is a

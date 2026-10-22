@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/collections"
 
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // OperatorOfConsensusKey returns the operator of the live node whose consensus binding holds

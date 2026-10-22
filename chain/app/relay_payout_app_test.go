@@ -13,13 +13,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	relaykeeper "github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	relaykeeper "github.com/Orama-Network/orama/chain/x/relay/keeper"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // addRelayNodeFor registers another RELAY node under the operator that owns first.

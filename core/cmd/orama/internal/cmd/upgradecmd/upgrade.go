@@ -5,8 +5,8 @@ package upgradecmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/relupgrade"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/relupgrade"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 )
 
 // Cmd is the top-level "upgrade" command.

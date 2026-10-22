@@ -7,8 +7,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // storageHolderChain returns a chain where s1 holds a replica that x/storage has reserved bytes for.

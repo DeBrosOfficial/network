@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
 )
 
 const (

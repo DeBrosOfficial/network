@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/chainfaucet"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
-	"github.com/DeBrosOfficial/network/pkg/statesync"
+	"github.com/Orama-Network/orama/core/pkg/chainfaucet"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/statesync"
 )
 
 // faucetRequestTimeout bounds one seed's answer: the gateway answers when the drip is in a block,

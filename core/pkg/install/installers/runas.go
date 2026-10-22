@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // Install and upgrade run as root, and the IPFS repository and the IPFS

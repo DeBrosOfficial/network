@@ -1,6 +1,6 @@
 [Unit]
 Description=Look for a newer release on the cluster's channel
-Documentation=https://github.com/DeBrosOfficial/network
+Documentation=https://github.com/Orama-Network/orama
 
 [Timer]
 # OnBootSec, then every 15 minutes after a run ends (a run that installs takes

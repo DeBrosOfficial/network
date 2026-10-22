@@ -3,14 +3,14 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/chaincmd"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/clustercmd"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/globalcmd"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/maintcmd"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/node"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/nodescmd"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/releasecmd"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/chaincmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/clustercmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/globalcmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/maintcmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/node"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/nodescmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/releasecmd"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
 )
 
 // newMaintCmd returns `orama maint` with everything mounted under it.

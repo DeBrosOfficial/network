@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	backuphandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/backup"
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
+	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
 	"golang.org/x/crypto/nacl/box"
 )
 

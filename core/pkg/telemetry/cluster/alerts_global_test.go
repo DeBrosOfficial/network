@@ -3,7 +3,7 @@ package cluster
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func TestCheckGlobalHealth_jailedIsCritical(t *testing.T) {

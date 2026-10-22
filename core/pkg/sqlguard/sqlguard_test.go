@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // The escalation this guard exists to stop. A namespace database is both the

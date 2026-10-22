@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // validatorStatus is the node-summary words for a chain node that is in the

@@ -6,7 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/keeper"
+	"github.com/Orama-Network/orama/chain/x/emission/keeper"
 )
 
 // BeginBlocker counts this block toward the epoch in progress and, if that satisfies both closing

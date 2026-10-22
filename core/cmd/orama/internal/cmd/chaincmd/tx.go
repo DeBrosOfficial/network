@@ -12,13 +12,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cli "github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/chainread"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/netclass"
-	"github.com/DeBrosOfficial/network/pkg/onchain"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	cli "github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 const (

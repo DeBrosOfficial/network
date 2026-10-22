@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 func fixedReport() *report.NodeReport {

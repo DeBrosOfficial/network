@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // Gateway resolution for every command that calls a gateway.

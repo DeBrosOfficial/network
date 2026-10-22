@@ -6,7 +6,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // DefaultEpochDuration is the genesis default for Params.EpochDurationSeconds: 24 hours of BFT

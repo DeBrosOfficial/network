@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // torLine renders one line for the node's Tor client: unit state, SOCKS

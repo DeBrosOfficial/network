@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // collectGateway checks the index gateway's health endpoint and parses each

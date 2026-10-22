@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/build"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/build"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // DefaultReleaseChannel is the channel --release reads when --channel is not

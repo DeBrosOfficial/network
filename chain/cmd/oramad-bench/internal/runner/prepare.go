@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/account"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/shielded"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/account"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/shielded"
 )
 
 // Prepare builds the shielded bundle cache the profile needs and writes it to cfg.CachePath. It

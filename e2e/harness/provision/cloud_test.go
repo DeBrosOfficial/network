@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx"
+	"github.com/Orama-Network/orama/e2e/harness/sshx"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 )

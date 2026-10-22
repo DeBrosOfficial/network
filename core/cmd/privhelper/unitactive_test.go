@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 func TestSystemdUnitActive_stateMapping(t *testing.T) {

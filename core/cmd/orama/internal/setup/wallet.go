@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/setup"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // agentWait bounds a request to the RootWallet agent that may prompt its owner.

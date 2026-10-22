@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // topicNotFoundReason is the per-result reason a push_send_topic caller sees

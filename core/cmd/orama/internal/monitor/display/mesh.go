@@ -5,10 +5,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/printer"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // handshakeStaleSec is how old a WireGuard handshake may be before the peer

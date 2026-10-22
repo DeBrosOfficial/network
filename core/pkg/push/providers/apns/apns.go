@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/push"
 	"github.com/sideshow/apns2"
 	"github.com/sideshow/apns2/token"
 	"go.uber.org/zap"

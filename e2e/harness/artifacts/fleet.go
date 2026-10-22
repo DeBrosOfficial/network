@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/oramacli"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/oramacli"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // ItemBudget bounds one collected command.

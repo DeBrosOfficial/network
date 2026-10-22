@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/edge"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // The chain's local APIs on a node (e2e/scripts/chain-deploy.sh API_PORT,

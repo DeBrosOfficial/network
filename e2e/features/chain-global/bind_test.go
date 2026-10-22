@@ -14,9 +14,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // secretFileMode is how a service secret file is written (owner only).

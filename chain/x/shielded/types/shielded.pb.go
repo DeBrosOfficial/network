@@ -6,7 +6,7 @@ package types
 import (
 	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
-	types "github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	types "github.com/Orama-Network/orama/chain/x/nodes/types"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
 	io "io"

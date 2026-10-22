@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // Bugboard #837 — the function-secrets AES key must be DERIVED from the cluster

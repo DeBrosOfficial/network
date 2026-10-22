@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // /health is unauthenticated. The operator report keeps the error; the public

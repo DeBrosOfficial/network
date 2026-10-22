@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 const reporterTestOperator = "orama1tehv5km5e9y706rc2gzk9yyun9dljjjny06dv2"

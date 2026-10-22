@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // SetEnabledFunction handles POST /v1/functions/{name}/disable and

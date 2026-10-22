@@ -16,8 +16,8 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/verify"
 )
 
 // The differential harness (SA3). The two verifiers of x/shielded are the linked library and the

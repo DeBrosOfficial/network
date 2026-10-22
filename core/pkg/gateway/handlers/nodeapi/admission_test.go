@@ -11,11 +11,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/migrations"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/overlay"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/migrations"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/overlay"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // A node no join admitted — a key its caller made up, no peer row, a registry

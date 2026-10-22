@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/edge"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/services"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/features/internal/services"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
 )
 
 // exposure reads systemd-analyze's "Overall exposure level for X: 4.2 OK".

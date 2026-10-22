@@ -7,7 +7,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 func shortEpochFixture(t *testing.T) (*testFixture, time.Time) {

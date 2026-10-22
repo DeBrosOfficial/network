@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	nodeauth "github.com/DeBrosOfficial/network/pkg/auth"
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/hub"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/hub"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // Telemetry runs on the cluster gateway only: it is the one gateway per node,

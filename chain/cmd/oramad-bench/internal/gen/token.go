@@ -9,8 +9,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // TokenTransfer is the type name of a transfer of a non-norama token through x/token.

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/turn"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 )
 
 // writeTURNConfig is a test helper that lays out the on-disk shape the namespace

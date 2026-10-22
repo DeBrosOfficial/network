@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/app"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )

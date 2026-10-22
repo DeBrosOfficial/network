@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/provision"
-	"github.com/DeBrosOfficial/network/e2e/harness/report"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/provision"
+	"github.com/Orama-Network/orama/e2e/harness/report"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // fakeProvisioner replaces Up and Down for one test.

@@ -6,8 +6,8 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/ante"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/ante"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
 )
 
 // A simulation runs on the mempool's check state and then runs the message, which checks and marks

@@ -8,7 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // syncNodes reconciles x/storage's tracked node set with x/nodes. x/nodes queues every

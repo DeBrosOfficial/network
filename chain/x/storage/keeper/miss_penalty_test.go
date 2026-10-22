@@ -9,9 +9,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/storage/keeper"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // twoFullDeals opens two PRIVATE deals of three 1 KiB replicas on three nodes that each declare

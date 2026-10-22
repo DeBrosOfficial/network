@@ -3,7 +3,7 @@ package types
 import (
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // EpochsPerHalvingBracket is how many completed epochs each halving bracket covers before the

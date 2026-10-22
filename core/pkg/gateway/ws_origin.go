@@ -3,7 +3,7 @@ package gateway
 import (
 	"net/http"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // refuseCrossSiteUpgrade answers 403 to a WebSocket upgrade a browser on

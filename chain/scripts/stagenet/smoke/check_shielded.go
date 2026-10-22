@@ -12,7 +12,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 const (

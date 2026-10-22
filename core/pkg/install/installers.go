@@ -3,9 +3,9 @@ package install
 import (
 	"io"
 
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // BinaryInstaller handles downloading and installing external binaries

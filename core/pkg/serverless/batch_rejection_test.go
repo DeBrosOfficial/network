@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // Bugboard #175. The rejection envelope is the ONLY thing a WASM guest receives

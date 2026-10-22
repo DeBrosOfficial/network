@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 func TestNewWithTLS_fleetModeRequiresHTTPS(t *testing.T) {

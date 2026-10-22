@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 // NetworkFile is a valid private tor-network.json: three directory authorities on public

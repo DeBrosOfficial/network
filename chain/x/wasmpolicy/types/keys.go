@@ -3,7 +3,7 @@ package types
 import (
 	"cosmossdk.io/collections"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 const (

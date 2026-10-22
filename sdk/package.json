@@ -1,15 +1,14 @@
 {
   "name": "@orama-network/orama",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "TypeScript SDK for Orama Network - Database, PubSub, Cache, Storage, Functions, and more",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "license": "MIT",
-  "author": "DeBrosOfficial",
+  "author": "Orama Network",
   "keywords": [
-    "debros",
     "network",
     "sdk",
     "typescript",
@@ -83,7 +82,7 @@
     "test:unit": "vitest run tests/unit",
     "test:e2e": "vitest run tests/e2e",
     "example": "tsx examples/basic-usage.ts",
-    "release:gh": "npm publish --registry=https://npm.pkg.github.com"
+    "release:gitea": "npm publish --registry=https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
   },
   "dependencies": {
     "isomorphic-ws": "^5.0.0"
@@ -134,7 +133,7 @@
     "ws": "^8.22.0"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
   },
   "engines": {
     "node": ">=20.19"

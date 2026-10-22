@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
 )
 
 // tab is one page of the live view.

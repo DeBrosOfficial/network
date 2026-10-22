@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/coverage"
+	"github.com/Orama-Network/orama/e2e/harness/coverage"
 )
 
 var funcs = template.FuncMap{

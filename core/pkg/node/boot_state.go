@@ -1,9 +1,9 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/node/boot"
-	"github.com/DeBrosOfficial/network/pkg/node/lifecycle"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/node/boot"
+	"github.com/Orama-Network/orama/core/pkg/node/lifecycle"
 	"go.uber.org/zap"
 )
 

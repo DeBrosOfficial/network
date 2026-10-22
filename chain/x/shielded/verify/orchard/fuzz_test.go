@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
 )
 
 // FuzzOrchardSighash: the sighash is a deterministic function of the chain id, the binding and the

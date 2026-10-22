@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/config"
 )
 
 // Environment variables that override the budgets.

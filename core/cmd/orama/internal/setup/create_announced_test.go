@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 const (

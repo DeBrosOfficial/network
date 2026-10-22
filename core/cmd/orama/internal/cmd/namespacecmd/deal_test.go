@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmd/storagecmd"
-	"github.com/DeBrosOfficial/network/pkg/storagefile"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmd/storagecmd"
+	"github.com/Orama-Network/orama/core/pkg/storagefile"
 )
 
 const (

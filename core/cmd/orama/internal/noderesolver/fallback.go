@@ -3,9 +3,9 @@ package noderesolver
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal"
-	"github.com/DeBrosOfficial/network/pkg/inspector"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
 )
 
 // chooseNodes is the order ResolveNodes uses.

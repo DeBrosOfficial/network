@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
 )
 
 func TestPump_feedsEveryLine(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/DeBrosOfficial/network/chain/x/internal/pagebound"
-	"github.com/DeBrosOfficial/network/chain/x/nodes/types"
+	"github.com/Orama-Network/orama/chain/x/internal/pagebound"
+	"github.com/Orama-Network/orama/chain/x/nodes/types"
 )
 
 // namedNode builds the answer for one claim: the node it identifies and the literal IPs among that

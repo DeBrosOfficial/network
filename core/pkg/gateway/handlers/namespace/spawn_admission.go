@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	namespacepkg "github.com/DeBrosOfficial/network/pkg/namespace"
+	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
 	"go.uber.org/zap"
 )
 

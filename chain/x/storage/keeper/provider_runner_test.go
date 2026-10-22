@@ -18,12 +18,12 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
+	"github.com/Orama-Network/orama/chain/client/node"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/DeBrosOfficial/network/chain/provider"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/provider"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // chainSim runs the storage keeper fixture as a chain: every block gets a

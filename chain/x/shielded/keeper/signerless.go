@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/collections"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // ErrSignerlessBlockFull means the block already holds max_signerless_per_block signer-less

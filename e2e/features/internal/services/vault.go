@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // The gateway's vault routes (docs/whitepaper/technical-reference/appendices/i-api-surface.md#vault) and the ownership

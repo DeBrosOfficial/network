@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify/releasetest"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify/releasetest"
 )
 
 const fileTarget = "orama-linux-amd64.tar.gz"

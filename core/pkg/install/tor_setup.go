@@ -3,7 +3,7 @@ package install
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
 )
 
 // PhaseTorSetup gives the node its anonymity backend: it removes whatever the

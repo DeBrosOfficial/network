@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // NodeChain is Chain over one oramad RPC, signing with the reporter key.

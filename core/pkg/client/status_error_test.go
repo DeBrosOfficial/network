@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	orerrors "github.com/DeBrosOfficial/network/pkg/errors"
+	orerrors "github.com/Orama-Network/orama/core/pkg/errors"
 )
 
 // storageAnswering is a storage client whose gateway answers every request

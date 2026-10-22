@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"cosmossdk.io/log/v2"
-	"github.com/DeBrosOfficial/network/chain/app"
+	"github.com/Orama-Network/orama/chain/app"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -25,11 +25,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // These tests run the real thing: the orchard library linked through cgo and the separately built

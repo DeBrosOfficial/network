@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	serverlesshandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/serverless"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	serverlesshandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/serverless"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 // The cluster gateway does not run tenant functions (bugboard #427).

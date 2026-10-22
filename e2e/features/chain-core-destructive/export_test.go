@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // exportedModules are the custom modules whose state must be in an export

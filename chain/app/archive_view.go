@@ -7,10 +7,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	nodeskeeper "github.com/DeBrosOfficial/network/chain/x/nodes/keeper"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	storagekeeper "github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	nodeskeeper "github.com/Orama-Network/orama/chain/x/nodes/keeper"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	storagekeeper "github.com/Orama-Network/orama/chain/x/storage/keeper"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // archiveNodes is x/archive's view of x/nodes: an archiver is the hot key of

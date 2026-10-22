@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/netguard"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 )
 
 // Outbound HTTP from a WASM function is a request the tenant controls, made by

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
 
 const (

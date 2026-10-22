@@ -9,7 +9,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/emission/types"
+	"github.com/Orama-Network/orama/chain/x/emission/types"
 )
 
 func epochClosedEvents(ctx sdk.Context) []map[string]string {

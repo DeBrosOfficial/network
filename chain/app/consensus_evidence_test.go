@@ -13,9 +13,9 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 const evidenceBlockInterval = params.BlockIntervalSeconds * time.Second

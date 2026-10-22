@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
 )
 
 // DefaultLines is how much history `orama node logs` shows when neither

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // x/token genesis defaults (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "x/token"; x/token/types).

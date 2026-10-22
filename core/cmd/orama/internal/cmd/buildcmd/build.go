@@ -1,7 +1,7 @@
 package buildcmd
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/build"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/build"
 	"github.com/spf13/cobra"
 )
 

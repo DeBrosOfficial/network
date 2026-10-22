@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	e2e "github.com/DeBrosOfficial/network/e2e"
+	e2e "github.com/Orama-Network/orama/core/e2e"
 )
 
 // turnCredentialsResponse is the expected response from the TURN credentials endpoint.

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // The files `orama-global reporter` reads in its home (chain/cmd/orama-global/reporter.go).

@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/remotessh"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/remotessh"
 )
 
 // Staging a push.

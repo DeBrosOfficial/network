@@ -2,7 +2,7 @@
 
 package orchard
 
-import "github.com/DeBrosOfficial/network/chain/x/shielded/verify"
+import "github.com/Orama-Network/orama/chain/x/shielded/verify"
 
 // Linked reports whether this build carries the Rust verifier. This one does not: it was built
 // without cgo or without the orchardffi tag.

@@ -3,8 +3,8 @@ package decommission
 import (
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // ipv6DefaultValue is what the wipe puts IPv6 back to when the install recorded nothing: the

@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 type epochRewardsRow struct {

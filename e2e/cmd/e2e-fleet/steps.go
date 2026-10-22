@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/coverage"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
-	"github.com/DeBrosOfficial/network/e2e/harness/report"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/coverage"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/report"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 func newStageRunner(lay layout, statePath, artifactDir string) *stages.Runner {

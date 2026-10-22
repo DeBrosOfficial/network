@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/install/installers"
 )
 
 // fakeUnits records the stops.

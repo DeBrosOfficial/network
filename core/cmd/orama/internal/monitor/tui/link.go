@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor"
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/monitor/view"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/monitor/view"
 )
 
 // Link label limits.

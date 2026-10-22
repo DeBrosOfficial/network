@@ -12,9 +12,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	powerante "github.com/DeBrosOfficial/network/chain/x/power/ante"
-	"github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	powerante "github.com/Orama-Network/orama/chain/x/power/ante"
+	"github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 func TestRunEndBlock_jailedCommitteeMemberLosesPower(t *testing.T) {

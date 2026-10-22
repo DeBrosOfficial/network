@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
 )
 
 // Where a deployment lives, and what its unit is called.

@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	authhandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/operator"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/sqlguard"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	authhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/operator"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/sqlguard"
 	"go.uber.org/zap"
 )
 

@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.nodes.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/nodes/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/nodes/types";
 
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";

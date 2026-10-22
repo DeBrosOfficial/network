@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
 

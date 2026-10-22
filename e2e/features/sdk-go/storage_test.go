@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
-	"github.com/DeBrosOfficial/network/pkg/client"
-	orerrors "github.com/DeBrosOfficial/network/pkg/errors"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	orerrors "github.com/Orama-Network/orama/core/pkg/errors"
 )
 
 // Pin states the SDK reports (website/src/docs/developer/go-sdk.mdx "Check Pin Status").

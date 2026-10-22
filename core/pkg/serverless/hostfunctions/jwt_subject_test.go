@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // Bug #215: get_caller_jwt_subject must return the JWT `sub` exposed

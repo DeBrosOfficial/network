@@ -18,9 +18,9 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/encryption"
-	orerrors "github.com/DeBrosOfficial/network/pkg/errors"
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/encryption"
+	orerrors "github.com/Orama-Network/orama/core/pkg/errors"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 )
 
 // Client implements the NetworkClient interface

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/config"
-	"github.com/DeBrosOfficial/network/pkg/encryption"
-	"github.com/DeBrosOfficial/network/pkg/namespace"
-	"github.com/DeBrosOfficial/network/pkg/node/boot"
-	"github.com/DeBrosOfficial/network/pkg/node/lifecycle"
+	"github.com/Orama-Network/orama/core/pkg/config"
+	"github.com/Orama-Network/orama/core/pkg/encryption"
+	"github.com/Orama-Network/orama/core/pkg/namespace"
+	"github.com/Orama-Network/orama/core/pkg/node/boot"
+	"github.com/Orama-Network/orama/core/pkg/node/lifecycle"
 )
 
 func TestNextLifecycleState(t *testing.T) {

@@ -3,7 +3,7 @@ package rollout
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // Every refused flag combination is a usage error, decided before anything

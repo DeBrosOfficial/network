@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/install"
 )
 
 // fakeSystemd answers systemctl from a map of unit states and records every

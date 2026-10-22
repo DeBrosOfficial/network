@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 	"go.uber.org/zap"
 )
 

@@ -3,7 +3,7 @@ package constants_test
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
 // The index services are addressed from ~40 call sites. A wrong port here is

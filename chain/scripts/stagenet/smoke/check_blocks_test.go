@@ -10,7 +10,7 @@ import (
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
 )
 
 func TestHasInclusionCommit(t *testing.T) {

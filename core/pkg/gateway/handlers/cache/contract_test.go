@@ -3,7 +3,7 @@ package cache
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/contracttest"
+	"github.com/Orama-Network/orama/core/pkg/contracttest"
 )
 
 // The bodies the TypeScript SDK sends to /v1/cache/* must decode into these

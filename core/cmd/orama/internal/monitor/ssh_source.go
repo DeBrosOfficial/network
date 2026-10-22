@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // sshSource collects every node's report over SSH (CollectOnce). It does not

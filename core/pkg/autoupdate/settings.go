@@ -3,7 +3,7 @@ package autoupdate
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/updatepolicy"
+	"github.com/Orama-Network/orama/core/pkg/updatepolicy"
 )
 
 // SettingsFrom is the policy the cluster has stored (rows of cluster_settings

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

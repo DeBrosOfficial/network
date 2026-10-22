@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gatewayspec"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 )
 
 // A namespace gateway never serves /v1/proxy/relay: the route is a MainGateway

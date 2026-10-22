@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
-	"github.com/DeBrosOfficial/network/pkg/gateway/capability"
-	serverlesshandlers "github.com/DeBrosOfficial/network/pkg/gateway/handlers/serverless"
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/storage"
-	"github.com/DeBrosOfficial/network/pkg/serverless/hostfunctions"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/capability"
+	serverlesshandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/serverless"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/storage"
+	"github.com/Orama-Network/orama/core/pkg/serverless/hostfunctions"
 	"go.uber.org/zap"
 )
 

@@ -15,7 +15,7 @@ import (
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	policykeeper "github.com/DeBrosOfficial/network/chain/x/wasmpolicy/keeper"
+	policykeeper "github.com/Orama-Network/orama/chain/x/wasmpolicy/keeper"
 )
 
 // codeFeeModule is wasmd's module with its Msg service wrapped so every message that stores code

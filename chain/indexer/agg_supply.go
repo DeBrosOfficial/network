@@ -5,9 +5,9 @@ import (
 
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // supplyPoint builds the supply breakdown after an epoch's closing block. The total supply and each

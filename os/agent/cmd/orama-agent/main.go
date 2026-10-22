@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/DeBrosOfficial/orama-os/agent/internal/boot"
+	"github.com/Orama-Network/orama/os/agent/internal/boot"
 )
 
 func main() {

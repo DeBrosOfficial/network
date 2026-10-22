@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/cmdmeta"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/cmdmeta"
 )
 
 func gcEnv(base string) func(string) string {

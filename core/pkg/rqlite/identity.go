@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
 
-	"github.com/DeBrosOfficial/network/pkg/discovery"
+	"github.com/Orama-Network/orama/core/pkg/discovery"
 	"go.uber.org/zap"
 )
 

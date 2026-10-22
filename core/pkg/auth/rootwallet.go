@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 	"github.com/mattn/go-isatty"
 )
 

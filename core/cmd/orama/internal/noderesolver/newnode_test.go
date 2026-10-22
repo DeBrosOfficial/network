@@ -17,12 +17,12 @@ func TestNewNode_defaults_the_ssh_user_to_root(t *testing.T) {
 }
 
 func TestNewNode_keeps_an_explicit_ssh_user(t *testing.T) {
-	n := NewNode("1.2.3.4", "debros", "testnet")
-	if n.User != "debros" {
-		t.Errorf("User = %q, want debros", n.User)
+	n := NewNode("1.2.3.4", "orama", "testnet")
+	if n.User != "orama" {
+		t.Errorf("User = %q, want orama", n.User)
 	}
-	if n.VaultTarget != "1.2.3.4/debros" {
-		t.Errorf("VaultTarget = %q, want 1.2.3.4/debros", n.VaultTarget)
+	if n.VaultTarget != "1.2.3.4/orama" {
+		t.Errorf("VaultTarget = %q, want 1.2.3.4/orama", n.VaultTarget)
 	}
 }
 

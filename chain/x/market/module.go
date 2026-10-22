@@ -16,9 +16,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/market/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/market/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/market/types"
+	"github.com/Orama-Network/orama/chain/x/market/client/cli"
+	"github.com/Orama-Network/orama/chain/x/market/keeper"
+	"github.com/Orama-Network/orama/chain/x/market/types"
 )
 
 // ConsensusVersion is x/market's initial consensus version.

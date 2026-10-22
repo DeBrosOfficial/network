@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // loadPerValidator: three validators x 5 transactions of 7M gas wanted is

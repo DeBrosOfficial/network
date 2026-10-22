@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
 )
 
 // failingRegistry fails the Nth query that mentions substr.

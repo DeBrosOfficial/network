@@ -1,11 +1,11 @@
-module github.com/DeBrosOfficial/network/e2e
+module github.com/Orama-Network/orama/e2e
 
 go 1.27.2
 
-replace github.com/DeBrosOfficial/network => ../core
+replace github.com/Orama-Network/orama/core => ../core
 
 require (
-	github.com/DeBrosOfficial/network v0.122.74
+	github.com/Orama-Network/orama/core v0.122.74
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/ethereum/go-ethereum v1.17.6
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674

@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
-	gwchainread "github.com/DeBrosOfficial/network/pkg/gateway/handlers/chainread"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/nodenames"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
+	gwchainread "github.com/Orama-Network/orama/core/pkg/gateway/handlers/chainread"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/nodenames"
 )
 
 // startNodeNamesSync publishes the chain's node identification names in this cluster's DNS when

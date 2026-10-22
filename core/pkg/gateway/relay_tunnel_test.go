@@ -19,9 +19,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 // Bugboard #266 — the anonymous relay of a relayed fetch. It takes no

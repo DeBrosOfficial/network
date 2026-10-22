@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // maxWalletLen bounds the wallet a challenge is asked for: a 0x Ethereum

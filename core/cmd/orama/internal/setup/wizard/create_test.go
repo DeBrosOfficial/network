@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/setup"
-	"github.com/DeBrosOfficial/network/pkg/netregistry"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // toNetworks answers the questions up to the list of networks.

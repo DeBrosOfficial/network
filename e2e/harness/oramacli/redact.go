@@ -3,7 +3,7 @@ package oramacli
 import (
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // exactSecretFlags are flags whose value never reaches evidence or an error

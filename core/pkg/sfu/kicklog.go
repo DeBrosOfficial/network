@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
 )
 
 // kickSkewMargin is how far two gateways' clocks may disagree. A kick carries

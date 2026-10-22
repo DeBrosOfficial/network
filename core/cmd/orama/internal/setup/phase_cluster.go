@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 )
 
 // stageReleases puts the verified release of the network's channel on every

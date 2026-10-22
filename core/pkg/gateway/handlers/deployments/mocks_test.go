@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"io"
 
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // mockIPFSClient implements a mock IPFS client for testing

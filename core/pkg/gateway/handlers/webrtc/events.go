@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/sfu/ctrlauth"
-	"github.com/DeBrosOfficial/network/pkg/sfu/roomid"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/sfu/roomid"
 	"go.uber.org/zap"
 )
 

@@ -8,7 +8,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 // chunkOf builds a valid chunk whose addresses are written as given (a bech32 string is valid in

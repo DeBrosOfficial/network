@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/services"
-	"github.com/DeBrosOfficial/network/e2e/features/internal/tenancy"
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
-	"github.com/DeBrosOfficial/network/e2e/harness/ns"
-	"github.com/DeBrosOfficial/network/e2e/harness/wallet"
+	"github.com/Orama-Network/orama/e2e/features/internal/services"
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
+	"github.com/Orama-Network/orama/e2e/harness/wallet"
 )
 
 // Topology and limits (website/src/docs/operator/webrtc-operations.mdx).

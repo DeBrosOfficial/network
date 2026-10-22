@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/broadcast"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/gen"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/profile"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/broadcast"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/gen"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/profile"
 )
 
 func validConfig() Config {

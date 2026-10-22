@@ -16,7 +16,7 @@ import (
 
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
+	"github.com/Orama-Network/orama/chain/client/node"
 )
 
 // putTx puts a transaction in the block at height of the fake chain.

@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-state/internal/stategen"
-	"github.com/DeBrosOfficial/network/chain/indexer"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-state/internal/stategen"
+	"github.com/Orama-Network/orama/chain/indexer"
 )
 
 // HistoryBudget bounds how long the chain may take to produce the requested history.

@@ -23,7 +23,7 @@ package broker
 import (
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // EnvSock is the variable that carries the socket path to feature processes.

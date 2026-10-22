@@ -9,8 +9,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy"
-	"github.com/DeBrosOfficial/network/chain/x/wasmpolicy/types"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy"
+	"github.com/Orama-Network/orama/chain/x/wasmpolicy/types"
 )
 
 func TestContractMessageCannotOpenChannel(t *testing.T) {

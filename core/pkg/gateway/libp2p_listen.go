@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // libp2pListenAddrs is where this gateway's libp2p host accepts connections

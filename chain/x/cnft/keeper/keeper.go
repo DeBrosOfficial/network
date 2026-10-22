@@ -14,7 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 // Keeper is x/cnft's keeper. It has no authority address: collections, trees and

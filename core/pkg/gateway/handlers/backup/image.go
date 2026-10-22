@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/nsbackup"
-	"github.com/DeBrosOfficial/network/pkg/sqlguard"
+	"github.com/Orama-Network/orama/core/pkg/nsbackup"
+	"github.com/Orama-Network/orama/core/pkg/sqlguard"
 )
 
 // A database image is checked before it is loaded, not after.

@@ -11,10 +11,10 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/repair"
-	"github.com/DeBrosOfficial/network/chain/storagekey"
-	"github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/repair"
+	"github.com/Orama-Network/orama/chain/storagekey"
+	"github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // repairChain is the delegate's view of the simulated chain. Providers are

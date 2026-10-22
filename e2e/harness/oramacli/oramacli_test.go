@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
 )
 
 // fakeOrama prints its environment and arguments, then exits with $FAKE_EXIT.

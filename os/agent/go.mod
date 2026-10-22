@@ -1,4 +1,4 @@
-module github.com/DeBrosOfficial/orama-os/agent
+module github.com/Orama-Network/orama/os/agent
 
 go 1.27.2
 

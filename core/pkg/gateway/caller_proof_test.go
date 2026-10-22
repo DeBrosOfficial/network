@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/clientkey"
-	"github.com/DeBrosOfficial/network/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
 const testCallerProof = "feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface"

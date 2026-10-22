@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
 
 // requireGNUTools skips the test unless the machine has the tools a node has: GNU

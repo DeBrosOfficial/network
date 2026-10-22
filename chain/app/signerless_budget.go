@@ -5,7 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	shieldedante "github.com/DeBrosOfficial/network/chain/x/shielded/ante"
+	shieldedante "github.com/Orama-Network/orama/chain/x/shielded/ante"
 )
 
 // The app uses no mempool (NoOpMempool), so the SDK's ProcessProposal accepts any block and the

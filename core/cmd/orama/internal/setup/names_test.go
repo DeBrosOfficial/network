@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/onchain"
+	"github.com/Orama-Network/orama/core/pkg/onchain"
 )
 
 type fakeNameChain struct {

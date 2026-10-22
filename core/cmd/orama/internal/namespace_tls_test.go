@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 )
 
 // A namespace call used to build its own TLS config, so the CA trusted for the

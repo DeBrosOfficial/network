@@ -1,7 +1,7 @@
 /**
  * Basic Usage Example
  *
- * This example demonstrates the fundamental usage of the DeBros Network SDK.
+ * This example demonstrates the fundamental usage of the Orama Network SDK.
  * It covers client initialization, database operations, pub/sub, and caching.
  */
 

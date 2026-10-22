@@ -5,7 +5,7 @@ import (
 
 	"cosmossdk.io/collections"
 
-	"github.com/DeBrosOfficial/network/chain/x/houses/types"
+	"github.com/Orama-Network/orama/chain/x/houses/types"
 )
 
 // proposalRejection marks an error as a failure of the one proposal being advanced.

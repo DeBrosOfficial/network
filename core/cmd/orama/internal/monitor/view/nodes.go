@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
 )
 
 // unknownCell fills a cell with no data behind it.

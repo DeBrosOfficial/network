@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/tlsutil"
+	"github.com/Orama-Network/orama/core/pkg/tlsutil"
 )
 
 // ErrSessionEnded is what a renewal returns when the gateway refused the

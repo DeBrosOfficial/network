@@ -19,7 +19,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 var (

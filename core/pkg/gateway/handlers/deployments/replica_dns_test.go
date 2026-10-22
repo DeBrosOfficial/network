@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 )
 
 // A replica's A record published the node's WireGuard overlay address,

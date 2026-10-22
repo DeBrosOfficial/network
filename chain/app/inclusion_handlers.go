@@ -15,8 +15,8 @@ import (
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/inclusion"
-	shieldedkeeper "github.com/DeBrosOfficial/network/chain/x/shielded/keeper"
+	"github.com/Orama-Network/orama/chain/x/inclusion"
+	shieldedkeeper "github.com/Orama-Network/orama/chain/x/shielded/keeper"
 )
 
 // inclusionHandlers connects x/inclusion to BaseApp: the four ABCI handlers

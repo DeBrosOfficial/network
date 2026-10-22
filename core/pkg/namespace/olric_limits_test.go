@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	oramaolric "github.com/DeBrosOfficial/network/pkg/olric"
+	oramaolric "github.com/Orama-Network/orama/core/pkg/olric"
 	olricconfig "github.com/olric-data/olric/config"
 	"gopkg.in/yaml.v3"
 )

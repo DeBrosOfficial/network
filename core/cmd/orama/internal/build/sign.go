@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/archivetrust"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/rwagent"
+	"github.com/Orama-Network/orama/core/pkg/archivetrust"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
 
 // signingChain is the only chain the RootWallet agent signs for, and the one

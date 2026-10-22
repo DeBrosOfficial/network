@@ -6,9 +6,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/clierr"
-	"github.com/DeBrosOfficial/network/pkg/releasefetch"
-	"github.com/DeBrosOfficial/network/pkg/rollout"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/pkg/releasefetch"
+	"github.com/Orama-Network/orama/core/pkg/rollout"
 )
 
 // archByMachine maps `uname -m` to the architectures a release is built for.

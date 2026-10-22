@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/tlsstatus"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/tlsstatus"
 )
 
 const (

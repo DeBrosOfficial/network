@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // fakeJWTVerifier lets us drive ParseAndVerifyJWT outcomes from tests

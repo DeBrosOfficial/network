@@ -1,7 +1,7 @@
 syntax = "proto3";
 package orama.market.v1;
 
-option go_package = "github.com/DeBrosOfficial/network/chain/x/market/types";
+option go_package = "github.com/Orama-Network/orama/chain/x/market/types";
 
 import "gogoproto/gogo.proto";
 import "orama/market/v1/market.proto";

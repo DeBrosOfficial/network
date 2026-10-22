@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/agent"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/agent"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 func TestSaveState_firstSaveNeverOverwrites(t *testing.T) {

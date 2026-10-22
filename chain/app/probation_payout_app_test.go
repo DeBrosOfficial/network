@@ -9,9 +9,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	storagekeeper "github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	storagekeeper "github.com/Orama-Network/orama/chain/x/storage/keeper"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // proveEverySlot answers this epoch's challenge on every slot of the deal, as each slot's hot key.

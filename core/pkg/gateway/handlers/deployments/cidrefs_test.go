@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
-	"github.com/DeBrosOfficial/network/pkg/gateway/handlers/storage"
-	"github.com/DeBrosOfficial/network/pkg/ipfs"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/storage"
+	"github.com/Orama-Network/orama/core/pkg/ipfs"
 )
 
 // refsService is a service whose database is the real schema and which is its

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/chainread"
-	"github.com/DeBrosOfficial/network/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/chainread"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 )
 
 const (

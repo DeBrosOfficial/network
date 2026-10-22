@@ -13,10 +13,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/client/tx"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/ops"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/client/tx"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/ops"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 const (

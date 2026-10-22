@@ -11,8 +11,8 @@ import (
 
 	"cosmossdk.io/math"
 
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // runSmoke runs every check and prints its verdict. The exit code is 1 when any check failed.

@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/watch"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/watch"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 const (

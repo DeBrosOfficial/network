@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/trust"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/trust"
 	"github.com/spf13/cobra"
 )
 

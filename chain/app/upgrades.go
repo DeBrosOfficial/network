@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/upgrades"
+	"github.com/Orama-Network/orama/chain/app/upgrades"
 )
 
 // setUpgrades wires every registered governed upgrade (app/upgrades): its handler under the plan

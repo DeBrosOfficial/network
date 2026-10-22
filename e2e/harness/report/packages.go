@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gotest"
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
-	"github.com/DeBrosOfficial/network/e2e/harness/stages"
+	"github.com/Orama-Network/orama/e2e/harness/gotest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/stages"
 )
 
 // MaxStderrTail is how much of a failed package's go command stderr the

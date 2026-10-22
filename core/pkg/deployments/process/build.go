@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/deployments"
+	"github.com/Orama-Network/orama/core/pkg/deployments"
 )
 
 // Installing a Node.js deployment's dependencies.

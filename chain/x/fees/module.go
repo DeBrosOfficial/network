@@ -18,9 +18,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/fees/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/fees/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/fees/types"
+	"github.com/Orama-Network/orama/chain/x/fees/client/cli"
+	"github.com/Orama-Network/orama/chain/x/fees/keeper"
+	"github.com/Orama-Network/orama/chain/x/fees/types"
 )
 
 // ConsensusVersion is x/fees's initial consensus version.

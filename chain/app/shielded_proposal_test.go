@@ -6,9 +6,9 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	shieldedante "github.com/DeBrosOfficial/network/chain/x/shielded/ante"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/app"
+	shieldedante "github.com/Orama-Network/orama/chain/x/shielded/ante"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 const signerlessLimit = int(shieldedtypes.DefaultMaxSignerlessPerBlock)

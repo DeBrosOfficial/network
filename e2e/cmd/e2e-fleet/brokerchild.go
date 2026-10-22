@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/broker"
-	"github.com/DeBrosOfficial/network/e2e/harness/config"
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/broker"
+	"github.com/Orama-Network/orama/e2e/harness/config"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // The broker child: `e2e-fleet broker-serve`.

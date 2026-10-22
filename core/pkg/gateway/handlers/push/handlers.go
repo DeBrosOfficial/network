@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/push"
+	"github.com/Orama-Network/orama/core/pkg/push"
 	"go.uber.org/zap"
 )
 

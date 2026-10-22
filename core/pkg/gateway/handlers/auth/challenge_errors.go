@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	authsvc "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 const (

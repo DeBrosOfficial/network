@@ -12,10 +12,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/production/lifecycle"
-	"github.com/DeBrosOfficial/network/pkg/install"
-	"github.com/DeBrosOfficial/network/pkg/statesync"
-	"github.com/DeBrosOfficial/network/pkg/tornet"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/lifecycle"
+	"github.com/Orama-Network/orama/core/pkg/install"
+	"github.com/Orama-Network/orama/core/pkg/statesync"
+	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
 const (

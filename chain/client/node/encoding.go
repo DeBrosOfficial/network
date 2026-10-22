@@ -15,9 +15,9 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // register adds one module's interfaces to the client's registry.

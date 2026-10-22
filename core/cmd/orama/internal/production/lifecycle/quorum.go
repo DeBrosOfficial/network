@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/cmd/orama/internal/utils"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // QuorumRefusalFormat is the refusal of a stop or restart that would break the RQLite

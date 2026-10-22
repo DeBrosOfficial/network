@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/netclass"
+	"github.com/Orama-Network/orama/chain/netclass"
 )
 
 // inetAton reads host the way a C resolver's inet_aton does: one to four dot-separated numbers,

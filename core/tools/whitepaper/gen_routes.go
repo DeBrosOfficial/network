@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway"
-	"github.com/DeBrosOfficial/network/pkg/gateway/routepolicy"
+	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
 )
 
 // routeSources are the files whose mux.Handle and mux.HandleFunc calls name a

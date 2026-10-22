@@ -3,7 +3,7 @@ package checks
 import (
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
 func init() {

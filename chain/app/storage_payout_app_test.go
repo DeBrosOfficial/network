@@ -10,11 +10,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/piece"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	storagekeeper "github.com/DeBrosOfficial/network/chain/x/storage/keeper"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/piece"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	storagekeeper "github.com/Orama-Network/orama/chain/x/storage/keeper"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // TestApp_aStorageProviderIsPaidForEveryEpochItProvesACustomersDeal drives a customer-paid PUBLIC_PIN

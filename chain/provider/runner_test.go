@@ -12,7 +12,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
+	"github.com/Orama-Network/orama/chain/piece"
 )
 
 func TestNewRunner_refusesMissingConfig(t *testing.T) {

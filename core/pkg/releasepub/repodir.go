@@ -12,9 +12,9 @@ import (
 
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 
-	"github.com/DeBrosOfficial/network/pkg/durablefile"
-	"github.com/DeBrosOfficial/network/pkg/releasesign"
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/durablefile"
+	"github.com/Orama-Network/orama/core/pkg/releasesign"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
 // Names in a repository directory. The metadata is served as it is; the

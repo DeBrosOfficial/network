@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // A spawn request is stamped for the node it is sent to, and a request that

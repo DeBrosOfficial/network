@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
-	"github.com/DeBrosOfficial/network/pkg/systemd"
-	"github.com/DeBrosOfficial/network/pkg/telemetry/report"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/systemd"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/report"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 )
 
 // ClusterData holds all collected data from the cluster.

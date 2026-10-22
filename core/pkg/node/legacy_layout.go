@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DeBrosOfficial/network/pkg/legacylayout"
-	"github.com/DeBrosOfficial/network/pkg/logging"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/legacylayout"
+	"github.com/Orama-Network/orama/core/pkg/logging"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
 )
 
 // legacyLayout is the migration with everything but the orama directory and

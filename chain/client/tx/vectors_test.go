@@ -22,17 +22,17 @@ import (
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	oramatx "github.com/DeBrosOfficial/network/chain/client/tx"
-	archivetypes "github.com/DeBrosOfficial/network/chain/x/archive/types"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	housetypes "github.com/DeBrosOfficial/network/chain/x/houses/types"
-	markettypes "github.com/DeBrosOfficial/network/chain/x/market/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	relaytypes "github.com/DeBrosOfficial/network/chain/x/relay/types"
-	shieldedtypes "github.com/DeBrosOfficial/network/chain/x/shielded/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
-	tokentypes "github.com/DeBrosOfficial/network/chain/x/token/types"
+	oramatx "github.com/Orama-Network/orama/chain/client/tx"
+	archivetypes "github.com/Orama-Network/orama/chain/x/archive/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	housetypes "github.com/Orama-Network/orama/chain/x/houses/types"
+	markettypes "github.com/Orama-Network/orama/chain/x/market/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	relaytypes "github.com/Orama-Network/orama/chain/x/relay/types"
+	shieldedtypes "github.com/Orama-Network/orama/chain/x/shielded/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
+	tokentypes "github.com/Orama-Network/orama/chain/x/token/types"
 )
 
 // The fixtures are the cross-language contract between this builder and the

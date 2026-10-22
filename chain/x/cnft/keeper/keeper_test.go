@@ -15,9 +15,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	"github.com/DeBrosOfficial/network/chain/x/cnft/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/app/params"
+	"github.com/Orama-Network/orama/chain/x/cnft/keeper"
+	"github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 func init() {

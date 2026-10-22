@@ -7,11 +7,11 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/pool"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/testutil"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/nullifier"
+	"github.com/Orama-Network/orama/chain/x/shielded/pool"
+	"github.com/Orama-Network/orama/chain/x/shielded/testutil"
+	"github.com/Orama-Network/orama/chain/x/shielded/types"
 )
 
 // busyEnv has shielded value, a transfer, a top-up and a queued bond.

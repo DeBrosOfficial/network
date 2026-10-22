@@ -43,7 +43,7 @@ Edit `plugin.cfg` in the CoreDNS root directory and add the rqlite plugin in the
 ```
 # plugin.cfg
 cache:cache
-rqlite:github.com/DeBrosOfficial/network/pkg/coredns/rqlite
+rqlite:github.com/Orama-Network/orama/core/pkg/coredns/rqlite
 forward:forward
 ```
 
@@ -61,10 +61,10 @@ cp -r pkg/coredns/rqlite /tmp/coredns/plugin/
 cd /tmp/coredns
 
 # Add your module as a dependency
-go mod edit -replace github.com/DeBrosOfficial/network=/path/to/network
+go mod edit -replace github.com/Orama-Network/orama/core=/path/to/network
 
 # Get dependencies
-go get github.com/DeBrosOfficial/network/pkg/coredns/rqlite
+go get github.com/Orama-Network/orama/core/pkg/coredns/rqlite
 go mod tidy
 ```
 

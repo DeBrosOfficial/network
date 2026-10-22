@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/secrets"
+	"github.com/Orama-Network/orama/e2e/harness/secrets"
 )
 
 // copyRedacted writes src to dst (0600) through redact, line by line. A

@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/sshx"
+	"github.com/Orama-Network/orama/e2e/harness/sshx"
 )
 
 // sshPort is the port the known_hosts entries are pinned for.

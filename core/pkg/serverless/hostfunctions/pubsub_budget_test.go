@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
-	"github.com/DeBrosOfficial/network/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/serverless"
 )
 
 // feat-6 follow-up: the per-invocation publish budget bounds gossipsub flooding

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/gateway/auth/siw"
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth/siw"
 	"github.com/ethereum/go-ethereum/common"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/mr-tron/base58"

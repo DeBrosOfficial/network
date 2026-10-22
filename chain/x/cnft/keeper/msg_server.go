@@ -12,7 +12,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 type msgServer struct {

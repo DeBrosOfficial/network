@@ -13,7 +13,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/manifest"
+	"github.com/Orama-Network/orama/e2e/harness/manifest"
 )
 
 // FilePath is stages.yaml relative to the e2e module root.

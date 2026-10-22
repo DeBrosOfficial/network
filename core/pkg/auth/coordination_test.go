@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // The header this replaces was `X-Orama-Internal-Auth: namespace-coordination`

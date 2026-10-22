@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/auth"
+	"github.com/Orama-Network/orama/core/pkg/auth"
 )
 
 // logoutRecorder is a gateway that answers /v1/auth/logout with status and

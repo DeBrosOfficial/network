@@ -23,11 +23,11 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	"github.com/DeBrosOfficial/network/chain/app/params"
-	emissiontypes "github.com/DeBrosOfficial/network/chain/x/emission/types"
-	nodestypes "github.com/DeBrosOfficial/network/chain/x/nodes/types"
-	powertypes "github.com/DeBrosOfficial/network/chain/x/power/types"
+	"github.com/Orama-Network/orama/chain/app"
+	"github.com/Orama-Network/orama/chain/app/params"
+	emissiontypes "github.com/Orama-Network/orama/chain/x/emission/types"
+	nodestypes "github.com/Orama-Network/orama/chain/x/nodes/types"
+	powertypes "github.com/Orama-Network/orama/chain/x/power/types"
 )
 
 type committeeKey struct {

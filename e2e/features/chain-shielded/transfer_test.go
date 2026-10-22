@@ -5,7 +5,7 @@ package chainshielded
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/chain"
+	"github.com/Orama-Network/orama/e2e/features/internal/chain"
 )
 
 // transferGas is the gas a signer-less transfer of actions actions must

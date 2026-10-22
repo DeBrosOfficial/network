@@ -15,8 +15,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/evidence"
-	"github.com/DeBrosOfficial/network/e2e/harness/fleet"
+	"github.com/Orama-Network/orama/e2e/harness/evidence"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 func testTLS() *tls.Config { return &tls.Config{MinVersion: tls.VersionTLS12} }

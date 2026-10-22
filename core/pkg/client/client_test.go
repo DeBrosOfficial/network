@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/pubsub"
+	"github.com/Orama-Network/orama/core/pkg/pubsub"
 )
 
 // MakeJWT creates a minimal JWT-like token with a json payload

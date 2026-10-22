@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 // trapScript stands in for `go test`: it cleans up on SIGINT, and leaves a

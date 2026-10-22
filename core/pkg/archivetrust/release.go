@@ -10,8 +10,8 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/DeBrosOfficial/network/pkg/releaseverify"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/releaseverify"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 )
 
 // A cluster may adopt the TUF release root of the Orama releases

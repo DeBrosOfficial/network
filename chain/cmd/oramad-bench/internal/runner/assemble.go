@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/apphash"
-	"github.com/DeBrosOfficial/network/chain/cmd/oramad-bench/internal/report"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/apphash"
+	"github.com/Orama-Network/orama/chain/cmd/oramad-bench/internal/report"
 )
 
 // compareHeaders compares every node's header at every height in [from, to].

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
 )
 
 // Finding and stopping runtime units no deployment owns.

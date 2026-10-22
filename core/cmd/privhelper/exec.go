@@ -13,13 +13,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/constants"
-	"github.com/DeBrosOfficial/network/pkg/deploysecrets"
-	"github.com/DeBrosOfficial/network/pkg/gatewaykeys"
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
-	"github.com/DeBrosOfficial/network/pkg/rootfs"
-	"github.com/DeBrosOfficial/network/pkg/unitenv"
-	"github.com/DeBrosOfficial/network/pkg/wireguard"
+	"github.com/Orama-Network/orama/core/pkg/constants"
+	"github.com/Orama-Network/orama/core/pkg/deploysecrets"
+	"github.com/Orama-Network/orama/core/pkg/gatewaykeys"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
+	"github.com/Orama-Network/orama/core/pkg/unitenv"
+	"github.com/Orama-Network/orama/core/pkg/wireguard"
 )
 
 // toolPaths are where each external tool lives on the supported releases. The

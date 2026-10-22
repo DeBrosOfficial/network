@@ -7,7 +7,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/client"
 	"go.uber.org/zap"
 )
 

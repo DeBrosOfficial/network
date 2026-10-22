@@ -8,10 +8,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/DeBrosOfficial/network/chain/app"
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/bundle"
-	"github.com/DeBrosOfficial/network/chain/x/shielded/nullifier"
+	"github.com/Orama-Network/orama/chain/app"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/shielded/bundle"
+	"github.com/Orama-Network/orama/chain/x/shielded/nullifier"
 )
 
 const (

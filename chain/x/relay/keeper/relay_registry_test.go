@@ -14,8 +14,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 
-	"github.com/DeBrosOfficial/network/chain/x/relay/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/relay/types"
+	"github.com/Orama-Network/orama/chain/x/relay/keeper"
+	"github.com/Orama-Network/orama/chain/x/relay/types"
 )
 
 // updateMsg is a MsgUpdateRelay for rk's node that gives it the RSA identity id, cross-signed by key and

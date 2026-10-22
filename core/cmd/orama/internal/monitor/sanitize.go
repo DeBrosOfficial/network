@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/DeBrosOfficial/network/pkg/telemetry/cluster"
+	"github.com/Orama-Network/orama/core/pkg/telemetry/cluster"
 )
 
 // CleanText replaces every control character in s with a space and drops

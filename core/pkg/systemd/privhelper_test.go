@@ -3,7 +3,7 @@ package systemd
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/pkg/privhelper"
+	"github.com/Orama-Network/orama/core/pkg/privhelper"
 )
 
 // allServiceTypes lists every ServiceType; a new one added without a place

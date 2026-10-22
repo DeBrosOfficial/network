@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/rqlite"
+	"github.com/Orama-Network/orama/core/pkg/rqlite"
 )
 
 // ErrLockNotHeld is returned when a renewal or release names a lock its caller

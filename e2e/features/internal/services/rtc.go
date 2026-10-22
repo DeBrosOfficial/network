@@ -16,7 +16,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // The SFU's signalling protocol (core/pkg/sfu/signaling.go), reached through

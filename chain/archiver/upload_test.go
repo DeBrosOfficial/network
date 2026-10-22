@@ -16,10 +16,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DeBrosOfficial/network/chain/piece"
-	"github.com/DeBrosOfficial/network/chain/provider"
-	"github.com/DeBrosOfficial/network/chain/repair"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/piece"
+	"github.com/Orama-Network/orama/chain/provider"
+	"github.com/Orama-Network/orama/chain/repair"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // fakeProvider is a real provider piece handler on an httptest server. ready reports whether its

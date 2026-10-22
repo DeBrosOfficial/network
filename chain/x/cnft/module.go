@@ -16,9 +16,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/DeBrosOfficial/network/chain/x/cnft/client/cli"
-	"github.com/DeBrosOfficial/network/chain/x/cnft/keeper"
-	"github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	"github.com/Orama-Network/orama/chain/x/cnft/client/cli"
+	"github.com/Orama-Network/orama/chain/x/cnft/keeper"
+	"github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 // ConsensusVersion is x/cnft's initial consensus version.

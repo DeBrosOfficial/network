@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	orerrors "github.com/DeBrosOfficial/network/pkg/errors"
+	orerrors "github.com/Orama-Network/orama/core/pkg/errors"
 )
 
 // gatewayStatusError is a gateway answering with an error status. It is one of

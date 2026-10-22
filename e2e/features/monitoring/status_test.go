@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/harness"
-	"github.com/DeBrosOfficial/network/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
 // healthy is `orama status`'s status of a serving node

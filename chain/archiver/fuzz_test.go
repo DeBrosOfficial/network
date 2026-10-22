@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeBrosOfficial/network/chain/x/archive/types"
+	"github.com/Orama-Network/orama/chain/x/archive/types"
 )
 
 // FuzzArchiverBundle: the bundle files the archiver pulls from the network are untrusted bytes.

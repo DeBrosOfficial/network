@@ -6,7 +6,7 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/DeBrosOfficial/network/chain/app/params"
+	"github.com/Orama-Network/orama/chain/app/params"
 )
 
 // MaxAdvanceAttempts is how many blocks in a row advancing one proposal may fail before the

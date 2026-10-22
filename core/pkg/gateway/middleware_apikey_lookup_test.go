@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/client"
-	gwauth "github.com/DeBrosOfficial/network/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/client"
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // fakeAPIKeyQuerier is a configurable apiKeyQuerier stand-in for exercising

@@ -14,7 +14,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	cnfttypes "github.com/DeBrosOfficial/network/chain/x/cnft/types"
+	cnfttypes "github.com/Orama-Network/orama/chain/x/cnft/types"
 )
 
 // smallPlan has three steps of each kind.

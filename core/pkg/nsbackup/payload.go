@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/DeBrosOfficial/network/pkg/httputil"
-	"github.com/DeBrosOfficial/network/pkg/secrets"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/secrets"
 )
 
 // A namespace backup is one frame, sealed with Seal:

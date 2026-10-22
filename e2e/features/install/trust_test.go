@@ -5,8 +5,8 @@ package install
 import (
 	"testing"
 
-	"github.com/DeBrosOfficial/network/e2e/features/internal/infra"
-	"github.com/DeBrosOfficial/network/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/features/internal/infra"
+	"github.com/Orama-Network/orama/e2e/harness"
 )
 
 // The pushes that reach a node's stage-archive are in install-extra, against

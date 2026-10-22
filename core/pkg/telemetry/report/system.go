@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/pkg/hardening"
+	"github.com/Orama-Network/orama/core/pkg/hardening"
 )
 
 // collectHardening reads the live values of the settings install hardened.

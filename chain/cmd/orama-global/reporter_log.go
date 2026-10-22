@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DeBrosOfficial/network/chain/reporter"
+	"github.com/Orama-Network/orama/chain/reporter"
 )
 
 // passLog logs the outcome of each reporter pass. A failure is an error on

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeBrosOfficial/network/chain/client/node"
-	feestypes "github.com/DeBrosOfficial/network/chain/x/fees/types"
-	storagetypes "github.com/DeBrosOfficial/network/chain/x/storage/types"
+	"github.com/Orama-Network/orama/chain/client/node"
+	feestypes "github.com/Orama-Network/orama/chain/x/fees/types"
+	storagetypes "github.com/Orama-Network/orama/chain/x/storage/types"
 )
 
 // checkStoragePrivate runs the product path of a private storage deal from the operator's machine:
