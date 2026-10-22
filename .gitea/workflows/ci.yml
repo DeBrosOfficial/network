@@ -20,7 +20,7 @@ concurrency:
 jobs:
   go-test:
     name: Go tests
-    runs-on: ubuntu-latest
+    runs-on: orama
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -58,7 +58,7 @@ jobs:
   # exactly what runs here.
   chain-test:
     name: Chain build and race tests
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -94,7 +94,7 @@ jobs:
 
   chain-static:
     name: Chain static analysis
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -134,7 +134,7 @@ jobs:
 
   chain-rust:
     name: Chain Rust crates (clippy, audit, deny)
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -172,7 +172,7 @@ jobs:
   # kept in the package's testdata/fuzz/ and uploaded below; commit it with the fix.
   chain-fuzz:
     name: Fuzz (short budget)
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -205,7 +205,7 @@ jobs:
 
   secrets:
     name: Secret scan of the committed tree
-    runs-on: ubuntu-latest
+    runs-on: orama
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -224,7 +224,7 @@ jobs:
 
   agent-test:
     name: OramaOS agent tests
-    runs-on: ubuntu-latest
+    runs-on: orama
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -259,7 +259,7 @@ jobs:
 
   sdk-build:
     name: SDK lint, typecheck, build, unit tests
-    runs-on: ubuntu-latest
+    runs-on: orama
     defaults:
       run:
         working-directory: sdk
@@ -298,7 +298,7 @@ jobs:
 
   vault-sdk-build:
     name: Vault SDK lint, typecheck, build, unit tests
-    runs-on: ubuntu-latest
+    runs-on: orama
     defaults:
       run:
         working-directory: sdk-vault
@@ -332,7 +332,7 @@ jobs:
 
   vault-guardian:
     name: Vault guardian (Zig) build and tests
-    runs-on: ubuntu-latest
+    runs-on: orama
     defaults:
       run:
         working-directory: vault
@@ -358,7 +358,7 @@ jobs:
 
   version-sanity:
     name: Verify VERSION ↔ package.json sync
-    runs-on: ubuntu-latest
+    runs-on: orama
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Compare versions
