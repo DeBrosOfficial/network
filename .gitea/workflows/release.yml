@@ -25,7 +25,7 @@ permissions:
 jobs:
   goreleaser:
     name: Binaries, .deb and the Gitea release
-    runs-on: ubuntu-latest
+    runs-on: orama
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -64,7 +64,7 @@ jobs:
   archive:
     name: Cluster archive linux/${{ matrix.arch }}
     needs: goreleaser
-    runs-on: ubuntu-latest
+    runs-on: orama
     strategy:
       fail-fast: false
       matrix:
@@ -173,7 +173,7 @@ jobs:
     # a time, first failure cancels the rest, so a broken build cannot publish
     # half a release.
     name: ${{ matrix.package }} to the Gitea npm registry
-    runs-on: ubuntu-latest
+    runs-on: orama
     strategy:
       max-parallel: 1
       fail-fast: true

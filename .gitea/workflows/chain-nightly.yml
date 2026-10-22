@@ -22,7 +22,7 @@ jobs:
   # slow one does not hide the others; MUTATION_EFFICACY in chain/ci.mk is the gate.
   mutation:
     name: Mutation testing (${{ matrix.package }})
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 240
     strategy:
       fail-fast: false
@@ -59,7 +59,7 @@ jobs:
   # read by a person; the job fails only if nilaway itself cannot run.
   nilaway:
     name: nilaway report
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -87,7 +87,7 @@ jobs:
   # of the run, so commit it with the fix: a plain `go test` then replays it for good.
   fuzz-go:
     name: Fuzz (${{ matrix.module }})
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 240
     strategy:
       fail-fast: false
@@ -126,7 +126,7 @@ jobs:
   # out-of-process verifier against the library's. Dated nightly Rust (RUST_NIGHTLY in chain/ci.mk).
   fuzz-rust:
     name: Fuzz (Orchard crates, cargo-fuzz)
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -157,7 +157,7 @@ jobs:
   # suite, real proof vectors included) over the Rust Orchard verifier library.
   rust-sanitizers:
     name: Orchard FFI under Miri and AddressSanitizer
-    runs-on: ubuntu-latest
+    runs-on: orama
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

@@ -24,7 +24,7 @@ jobs:
   # JavaScript / TypeScript (sdk/)
   # ------------------------------------------------------------------
   npm-audit:
-    runs-on: ubuntu-latest
+    runs-on: orama
     defaults:
       run:
         working-directory: sdk
@@ -65,7 +65,7 @@ jobs:
   # Go (core/)
   # ------------------------------------------------------------------
   go-vuln:
-    runs-on: ubuntu-latest
+    runs-on: orama
     defaults:
       run:
         working-directory: core
