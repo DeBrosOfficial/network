@@ -11,7 +11,7 @@ import { createClient } from '../src/index';
  * The gateway and credentials come from the environment, so an example can be
  * run against a real namespace without editing it:
  *
- *   GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network \
+ *   GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network \
  *   ORAMA_API_KEY=ak_... pnpm example
  *
  * The default is a node's index gateway on this machine. This used to be a

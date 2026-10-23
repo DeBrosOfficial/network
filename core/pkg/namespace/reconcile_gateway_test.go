@@ -23,7 +23,7 @@ func desiredEnabled() gatewayspec.InstanceConfig {
 	return gatewayspec.InstanceConfig{
 		WebRTCEnabled: true,
 		SFUPort:       30000,
-		TURNDomain:    "turn.ns-anchat-test.orama-devnet.network",
+		TURNDomain:    "turn.ns-anchat-test.devnet.orama.network",
 		TURNSecret:    "the-secret",
 	}
 }
@@ -46,7 +46,7 @@ func TestGatewayWebRTCInSync_matchingBlock_returnsTrue(t *testing.T) {
 	onDisk := gatewayspec.GatewayYAMLWebRTC{
 		Enabled:    true,
 		SFUPort:    30000,
-		TURNDomain: "turn.ns-anchat-test.orama-devnet.network",
+		TURNDomain: "turn.ns-anchat-test.devnet.orama.network",
 		TURNSecret: "the-secret",
 	}
 	if !gatewayWebRTCInSync(onDisk, desiredEnabled()) {
@@ -60,7 +60,7 @@ func TestGatewayWebRTCInSync_eachFieldDriftDetected(t *testing.T) {
 	// drops one would silently let that field drift forever).
 	base := gatewayspec.GatewayYAMLWebRTC{
 		Enabled: true, SFUPort: 30000,
-		TURNDomain: "turn.ns-anchat-test.orama-devnet.network", TURNSecret: "the-secret",
+		TURNDomain: "turn.ns-anchat-test.devnet.orama.network", TURNSecret: "the-secret",
 	}
 	mutations := []struct {
 		name string
@@ -70,7 +70,7 @@ func TestGatewayWebRTCInSync_eachFieldDriftDetected(t *testing.T) {
 		{"sfu port changed", func(w *gatewayspec.GatewayYAMLWebRTC) { w.SFUPort = 30001 }},
 		{"turn domain changed", func(w *gatewayspec.GatewayYAMLWebRTC) { w.TURNDomain = "turn.other" }},
 		{"turn secret rotated", func(w *gatewayspec.GatewayYAMLWebRTC) { w.TURNSecret = "rotated" }},
-		{"stealth domain changed", func(w *gatewayspec.GatewayYAMLWebRTC) { w.TURNStealthDomain = "cdn-deadbeef0000.orama-devnet.network" }},
+		{"stealth domain changed", func(w *gatewayspec.GatewayYAMLWebRTC) { w.TURNStealthDomain = "cdn-deadbeef0000.devnet.orama.network" }},
 	}
 	for _, tc := range mutations {
 		t.Run(tc.name, func(t *testing.T) {
@@ -289,10 +289,10 @@ func TestGatewayWebRTCInSync_stealthEnableDetectedAsDrift(t *testing.T) {
 	// it — that's how turn.credentials starts advertising turns:<host>:443.
 	onDisk := gatewayspec.GatewayYAMLWebRTC{
 		Enabled: true, SFUPort: 30000,
-		TURNDomain: "turn.ns-anchat-test.orama-devnet.network", TURNSecret: "the-secret",
+		TURNDomain: "turn.ns-anchat-test.devnet.orama.network", TURNSecret: "the-secret",
 	}
 	desired := desiredEnabled()
-	desired.TURNStealthDomain = "cdn-abc123def456.orama-devnet.network"
+	desired.TURNStealthDomain = "cdn-abc123def456.devnet.orama.network"
 	if gatewayWebRTCInSync(onDisk, desired) {
 		t.Error("stealth enable not detected as drift — gateway would never advertise the stealth URI")
 	}

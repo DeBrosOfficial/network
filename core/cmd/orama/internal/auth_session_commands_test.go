@@ -4,10 +4,10 @@ import "testing"
 
 func TestDomainOf(t *testing.T) {
 	for url, want := range map[string]string{
-		"https://orama-devnet.network":                 "orama-devnet.network",
-		"https://orama-devnet.network/v1/auth/whoami":  "orama-devnet.network",
+		"https://devnet.orama.network":                 "devnet.orama.network",
+		"https://devnet.orama.network/v1/auth/whoami":  "devnet.orama.network",
 		"http://localhost:10104/v1/auth/sessions":      "localhost",
-		"https://ns-anchat.orama-devnet.network:8443/": "ns-anchat.orama-devnet.network",
+		"https://ns-anchat.devnet.orama.network:8443/": "ns-anchat.devnet.orama.network",
 		"": "",
 	} {
 		if got := domainOf(url); got != want {

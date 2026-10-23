@@ -37,17 +37,17 @@ func spawnedGateway(t *testing.T) (*SystemdSpawner, gatewayspec.InstanceConfig, 
 		// parallel test before SpawnGateway checks it, which then waits and returns before it
 		// writes anything. ensurePortsFree skips a port of 0.
 		HTTPPort:             0,
-		BaseDomain:           "orama-devnet.network",
+		BaseDomain:           "devnet.orama.network",
 		RQLiteDSN:            tenantRQLiteURL("10.0.0.5", 10200),
 		GlobalRQLiteDSN:      "http://orama:" + testRQLitePass + "@10.0.0.1:10100",
 		OlricServers:         []string{"10.0.0.5:10202", "10.0.0.6:10202"},
 		OlricTimeout:         30 * time.Second,
 		IPFSTimeout:          time.Minute,
 		SecretsEncryptionKey: "the-secrets-key",
-		NtfyBaseURL:          "https://push.orama-devnet.network",
+		NtfyBaseURL:          "https://push.devnet.orama.network",
 		WebRTCEnabled:        true,
 		SFUPort:              30000,
-		TURNDomain:           "turn.ns-anchat-test.orama-devnet.network",
+		TURNDomain:           "turn.ns-anchat-test.devnet.orama.network",
 		TURNSecret:           "the-turn-secret",
 	}
 	// Without systemd the start fails after the config is written; that error is expected.

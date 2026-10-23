@@ -17,7 +17,7 @@ import (
 
 func TestEncodeDecode_roundTrip(t *testing.T) {
 	want := Invite{
-		JoinURL:       "https://node1.orama-devnet.network",
+		JoinURL:       "https://node1.devnet.orama.network",
 		Token:         strings.Repeat("a", 64),
 		CAFingerprint: strings.Repeat("b", 64),
 	}

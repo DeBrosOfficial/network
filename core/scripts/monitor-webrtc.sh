@@ -3,7 +3,7 @@
 # Usage: ./scripts/monitor-webrtc.sh
 
 API_KEY="ak_SiODBDJFHrfE3HxjOtSe4CYm:anchat-test"
-BASE="https://ns-anchat-test.orama-devnet.network"
+BASE="https://ns-anchat-test.devnet.orama.network"
 
 while true; do
   TS=$(date '+%H:%M:%S')
@@ -16,7 +16,7 @@ while true; do
 
   # 3. WebSocket signal (connect, send join, read response, disconnect)
   WS_OUT=$(echo '{"type":"join","data":{"roomId":"monitor-room","userId":"monitor"}}' \
-    | timeout 5 websocat -k --no-close -t "wss://ns-anchat-test.orama-devnet.network/v1/webrtc/signal?room=monitor-room&token=${API_KEY}" 2>&1 \
+    | timeout 5 websocat -k --no-close -t "wss://ns-anchat-test.devnet.orama.network/v1/webrtc/signal?room=monitor-room&token=${API_KEY}" 2>&1 \
     | head -1)
 
   if echo "$WS_OUT" | grep -q '"welcome"'; then

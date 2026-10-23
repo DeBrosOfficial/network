@@ -22,14 +22,14 @@ func TestGenerateConfig_includesDiscoveryAndFallback(t *testing.T) {
 	dir := t.TempDir()
 	si := newTestSNIRouterInstaller(dir)
 
-	cfg := si.generateConfig("orama-devnet.network")
+	cfg := si.generateConfig("devnet.orama.network")
 
 	for _, want := range []string{
 		`listen: ":443"`,
 		"fallback:",
 		`addr: "127.0.0.1:8443"`,
 		"turn_discovery:",
-		"base_domain: \"orama-devnet.network\"",
+		"base_domain: \"devnet.orama.network\"",
 		"rescan_interval: 30s",
 		"routes: []",
 	} {

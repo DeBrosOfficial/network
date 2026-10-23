@@ -10,7 +10,7 @@ import "testing"
 // the login overwrote anchat-test's entry with anchat-v2's, then deleting anchat-v2
 // removed the only row left.
 
-const testGateway = "https://orama-devnet.network"
+const testGateway = "https://devnet.orama.network"
 
 func TestAddCredential_keepsCredentialsForDifferentNamespaces(t *testing.T) {
 	store := &EnhancedCredentialStore{}

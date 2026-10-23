@@ -15,7 +15,7 @@ npm install @orama-network/orama
 import { createClient } from "@orama-network/orama";
 
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: process.env.ORAMA_API_KEY, // ak_<id>:<namespace>
 });
 ```
@@ -71,7 +71,7 @@ never returned — in a terminal or in CI.
 These need a gateway and an API key for it:
 
 ```bash
-export GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network
+export GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network
 export GATEWAY_API_KEY=ak_your_api_key:default
 pnpm test:e2e
 ```

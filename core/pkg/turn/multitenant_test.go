@@ -26,7 +26,7 @@ func multiTenantConfig() Config {
 	return Config{
 		ListenAddr:     "0.0.0.0:3478",
 		PublicIP:       "203.0.113.1",
-		Realm:          "orama-devnet.network",
+		Realm:          "devnet.orama.network",
 		RelayPortStart: 49152,
 		RelayPortEnd:   50000,
 		Tenants: []TenantConfig{

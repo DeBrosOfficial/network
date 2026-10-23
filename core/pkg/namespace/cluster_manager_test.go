@@ -9,12 +9,12 @@ import (
 
 func TestClusterManagerConfig(t *testing.T) {
 	cfg := ClusterManagerConfig{
-		BaseDomain:  "orama-devnet.network",
+		BaseDomain:  "devnet.orama.network",
 		BaseDataDir: "~/.orama/data/namespaces",
 	}
 
-	if cfg.BaseDomain != "orama-devnet.network" {
-		t.Errorf("BaseDomain = %s, want orama-devnet.network", cfg.BaseDomain)
+	if cfg.BaseDomain != "devnet.orama.network" {
+		t.Errorf("BaseDomain = %s, want devnet.orama.network", cfg.BaseDomain)
 	}
 	if cfg.BaseDataDir != "~/.orama/data/namespaces" {
 		t.Errorf("BaseDataDir = %s, want ~/.orama/data/namespaces", cfg.BaseDataDir)
@@ -25,7 +25,7 @@ func TestNewClusterManager(t *testing.T) {
 	mockDB := newMockRQLiteClient()
 	logger := zap.NewNop()
 	cfg := ClusterManagerConfig{
-		BaseDomain:  "orama-devnet.network",
+		BaseDomain:  "devnet.orama.network",
 		BaseDataDir: "/tmp/test-namespaces",
 	}
 
@@ -126,7 +126,7 @@ func TestNewProvisioningCluster_serviceCountsFromBlueprint(t *testing.T) {
 
 func TestNewClusterManager_registersTenantDrivers(t *testing.T) {
 	manager := NewClusterManager(newMockRQLiteClient(), ClusterManagerConfig{
-		BaseDomain:  "orama-devnet.network",
+		BaseDomain:  "devnet.orama.network",
 		BaseDataDir: "/tmp/test-namespaces",
 	}, zap.NewNop())
 
@@ -389,10 +389,10 @@ func TestClusterManager_PortAllocationOrder(t *testing.T) {
 
 func TestClusterManager_DNSFormat(t *testing.T) {
 	// Test the DNS domain format for namespace gateways
-	baseDomain := "orama-devnet.network"
+	baseDomain := "devnet.orama.network"
 	namespaceName := "alice"
 
-	expectedDomain := "ns-alice.orama-devnet.network"
+	expectedDomain := "ns-alice.devnet.orama.network"
 	actualDomain := "ns-" + namespaceName + "." + baseDomain
 
 	if actualDomain != expectedDomain {

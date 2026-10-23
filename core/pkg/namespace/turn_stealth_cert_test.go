@@ -32,7 +32,7 @@ func writeWildcard(t *testing.T, s *SystemdSpawner, base string) (string, string
 // The wildcard covers every TURNS host of the shared listener; it is the cert.
 func TestResolveTURNSCert_usesTheWildcard(t *testing.T) {
 	s := &SystemdSpawner{logger: zap.NewNop(), oramaDirOverride: t.TempDir()}
-	base := "orama-devnet.network"
+	base := "devnet.orama.network"
 	wantCrt, wantKey := writeWildcard(t, s, base)
 
 	crt, key, err := s.resolveTURNSCert(base)
@@ -84,10 +84,10 @@ func TestIsSingleLabelSubdomain(t *testing.T) {
 		host, base string
 		want       bool
 	}{
-		{"cdn-a1b2c3d4e5f6.orama-devnet.network", "orama-devnet.network", true},
-		{"turn.ns-anchat-test.orama-devnet.network", "orama-devnet.network", false}, // multi-label
-		{"orama-devnet.network", "orama-devnet.network", false},                     // empty label
-		{"cdn-x.other.network", "orama-devnet.network", false},                      // wrong base
+		{"cdn-a1b2c3d4e5f6.devnet.orama.network", "devnet.orama.network", true},
+		{"turn.ns-anchat-test.devnet.orama.network", "devnet.orama.network", false}, // multi-label
+		{"devnet.orama.network", "devnet.orama.network", false},                     // empty label
+		{"cdn-x.other.network", "devnet.orama.network", false},                      // wrong base
 		{"cdn-x.example.com", "example.com", true},
 	}
 	for _, c := range cases {
@@ -110,7 +110,7 @@ func TestResolveStealthCert_rejectsMultiLabelHost(t *testing.T) {
 	s := testSpawner(t)
 	// A host that needs *.ns-x.<base> (multi-label) is NOT covered by the
 	// *.<base> wildcard — must error rather than present a mismatched cert.
-	_, _, err := s.resolveStealthCert("turn.ns-x.orama-devnet.network", "orama-devnet.network")
+	_, _, err := s.resolveStealthCert("turn.ns-x.devnet.orama.network", "devnet.orama.network")
 	if err == nil {
 		t.Fatal("multi-label host must be rejected (wildcard wouldn't cover it)")
 	}
