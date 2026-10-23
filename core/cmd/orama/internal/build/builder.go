@@ -328,15 +328,22 @@ func (b *Builder) buildVaultGuardian() error {
 	return nil
 }
 
-// copyFile copies a file from src to dst, preserving executable permissions.
+// copyFile copies an executable. The archive takes an entry's mode from the
+// file's executable bit, so the mode a copy is created with is the mode the
+// file ships with.
 func copyFile(src, dst string) error {
+	return copyFileMode(src, dst, archiveExecMode)
+}
+
+// copyFileMode copies src to dst, creating dst with perm.
+func copyFileMode(src, dst string, perm os.FileMode) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
 
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
 	if err != nil {
 		return err
 	}

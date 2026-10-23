@@ -15,7 +15,10 @@ const pinnedCacheDirName = "orama-build-pinned"
 // fetchPinned puts the tarball at url into destPath, verified against its
 // pinned SHA-256. A cached copy with that digest is used without the network;
 // a download is verified, then cached under its digest. A cached copy whose
-// digest no longer matches is removed and downloaded again.
+// digest no longer matches is removed and downloaded again. destPath is a data
+// file either way (archiveFileMode, what a download is created with): the
+// archive takes an entry's mode from the file, so the first build on a machine
+// and every later one ship the same bytes.
 func fetchPinned(url, destPath, name, arch string, pins map[string]string) error {
 	want, ok := pins[arch]
 	if !ok {
@@ -25,7 +28,7 @@ func fetchPinned(url, destPath, name, arch string, pins map[string]string) error
 	if err != nil {
 		return err
 	}
-	if err := copyFile(cached, destPath); err == nil {
+	if err := copyFileMode(cached, destPath, archiveFileMode); err == nil {
 		if verifyPinnedSHA256(destPath, name, arch, pins) == nil {
 			return nil
 		}
@@ -57,7 +60,7 @@ func storeInPinnedCache(src, cached string) error {
 		return fmt.Errorf("create the release cache %s: %w", filepath.Dir(cached), err)
 	}
 	tmp := cached + ".tmp"
-	if err := copyFile(src, tmp); err != nil {
+	if err := copyFileMode(src, tmp, archiveFileMode); err != nil {
 		os.Remove(tmp)
 		return fmt.Errorf("cache %s: %w", src, err)
 	}

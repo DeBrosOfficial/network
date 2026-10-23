@@ -53,6 +53,14 @@ func TestPlanGlobalLayer_archIsAmd64OnlyAndSkippable(t *testing.T) {
 	}
 }
 
+func TestChainMakeArgs_stampTheManifestVersionAndCommit(t *testing.T) {
+	got := strings.Join(chainMakeArgs("/src/chain", "/opt/zig/zig", "0.3.4", "63a5a05e"), " ")
+	want := "-C /src/chain build-linux-amd64-full build-linux-amd64-global ORAMA_ZIG=/opt/zig/zig VERSION=0.3.4 COMMIT=63a5a05e"
+	if got != want {
+		t.Fatalf("make args\n got %s\nwant %s", got, want)
+	}
+}
+
 // chainOutputs writes a chain build directory: a verifier, its digest, an
 // oramad that pins it and orama-global.
 func chainOutputs(t *testing.T, pinned, sidecar string) (buildDir string, sum string) {
