@@ -131,6 +131,10 @@ type ServiceInfo struct {
 	CPUUsageNSec    int64  `json:"cpu_usage_nsec"`
 	MainPID         int    `json:"main_pid"`
 	RestartLoopRisk bool   `json:"restart_loop_risk"`
+	// NotNeeded marks a reconciler-owned unit (the shared TURN unit) that its
+	// reconciler does not want running on this node now: inactive is its
+	// intended state, not a fault.
+	NotNeeded bool `json:"not_needed,omitempty"`
 }
 
 // --- RQLite ---

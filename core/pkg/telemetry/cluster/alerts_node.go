@@ -183,8 +183,9 @@ func checkNodeServices(r *report.NodeReport, host string, nc *nodeContext) []Ale
 	}
 	var alerts []Alert
 	for _, svc := range r.Services.Services {
-		// Skip services that are expected to be inactive based on node role/mode
-		if shouldSkipServiceAlert(svc.Name, svc.ActiveState, nc) {
+		// Skip services that are expected to be inactive based on node role/mode,
+		// and reconciler-owned units their reconciler does not need here.
+		if shouldSkipServiceAlert(svc.Name, svc.ActiveState, nc) || (svc.NotNeeded && svc.ActiveState != "failed") {
 			continue
 		}
 

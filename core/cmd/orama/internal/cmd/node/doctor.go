@@ -64,6 +64,17 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			stopped++
 		}
 	}
+	// The reconciler-owned host units (the shared TURN unit): a stopped one is
+	// counted only when its reconciler wants it running.
+	for _, svc := range utils.GetReconciledServices() {
+		active, _ := utils.IsServiceActive(svc.Name)
+		switch {
+		case active:
+			running++
+		case svc.Wanted:
+			stopped++
+		}
+	}
 	if stopped > 0 {
 		checks = append(checks, check{"Services running", "WARN", fmt.Sprintf("%d running, %d stopped", running, stopped)})
 	} else if running > 0 {

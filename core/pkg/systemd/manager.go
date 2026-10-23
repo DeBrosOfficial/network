@@ -945,6 +945,17 @@ func (m *Manager) InstallTemplateUnits(sourceDir string) error {
 // same shape as orama-ipfs.service and orama-sni-router.service.
 const HostTURNServiceName = "orama-turn.service"
 
+// HostTURNWanted reports whether the TURN reconciler wants the shared TURN
+// unit running on this host. The reconciler (pkg/namespace host_turn.go)
+// writes the shared config at configPath (constants.HostTURNConfigPath) while
+// the node holds a TURN allocation, and stops the unit and deletes the config
+// when it holds none. So an inactive unit with no config is the reconciler's
+// choice, and an inactive unit with a config is a fault.
+func HostTURNWanted(configPath string) bool {
+	_, err := os.Stat(configPath)
+	return err == nil
+}
+
 // StartHostTURN enables and starts the shared TURN unit.
 //
 // Enabling is what makes the unit's [Install] section mean anything: without it

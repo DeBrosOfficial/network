@@ -6,6 +6,8 @@ import (
 	"go/token"
 	"strings"
 	"testing"
+
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/utils"
 )
 
 // node status probed a fixed list — orama-ipfs, orama-ipfs-cluster,
@@ -117,4 +119,26 @@ func TestHandle_readsTheLiveServiceList(t *testing.T) {
 	}
 	t.Errorf("Handle does not call utils.GetProductionServices, so its service list "+
 		"can go stale against the units that actually run. Calls found: %v", calls)
+}
+
+// bug-386: the shared TURN unit is shown, and on a node with no TURN
+// allocation an inactive one says it is not needed rather than looking down.
+func TestReconciledState(t *testing.T) {
+	for _, tc := range []struct {
+		wanted, active bool
+		want           string
+	}{
+		{true, true, "active"},
+		{false, true, "active"},
+		{true, false, "inactive"},
+		{false, false, "inactive (not needed)"},
+	} {
+		got := reconciledState(utils.ReconciledService{Name: turnUnit, Wanted: tc.wanted}, tc.active)
+		if got != tc.want {
+			t.Errorf("wanted=%v active=%v: %q, want %q", tc.wanted, tc.active, got, tc.want)
+		}
+	}
+	if describe(turnUnit) == "" {
+		t.Error("the shared TURN unit must be described")
+	}
 }
