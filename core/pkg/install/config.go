@@ -673,7 +673,11 @@ func (cg *ConfigGenerator) persistTURNSecret(secret string) error {
 
 // GenerateVaultConfig generates vault.yaml configuration for the Vault Guardian.
 // The vault config uses key=value format (not YAML, despite the file extension).
-// Peer discovery is dynamic via RQLite — no static peer list needed.
+// The guardian reads its guardian list from the index RQLite's dns_nodes
+// (vault/src/membership/node_list.zig), authenticated as the cluster's RQLite
+// user with the password file EnsureRQLiteAuth writes, so it keeps working
+// once rqlite_enforce_auth is on. The file is read at every refresh, never
+// copied into vault.yaml.
 func (cg *ConfigGenerator) GenerateVaultConfig(vpsIP string) string {
 	dataDir := filepath.Join(cg.oramaDir, "data", "vault")
 
@@ -692,7 +696,10 @@ client_port = %d
 peer_port = 7501
 data_dir = %s
 rqlite_url = http://%s
-`, bindAddr, constants.VaultHTTPPort, dataDir, net.JoinHostPort(bindAddr, strconv.Itoa(constants.RQLiteHTTPPort)))
+rqlite_username = %s
+rqlite_password_file = %s
+`, bindAddr, constants.VaultHTTPPort, dataDir, net.JoinHostPort(bindAddr, strconv.Itoa(constants.RQLiteHTTPPort)),
+		rqliteUsername, filepath.Join(cg.oramaDir, "secrets", rqlitePasswordFile))
 }
 
 // GenerateOlricConfig generates Olric configuration.
@@ -773,13 +780,20 @@ func (sg *SecretGenerator) EnsureClusterSecret() (string, error) {
 	return secret, nil
 }
 
+// rqliteUsername is the cluster's RQLite user; rqlitePasswordFile, under
+// secrets/, holds its password.
+const (
+	rqliteUsername     = "orama"
+	rqlitePasswordFile = "rqlite-password"
+)
+
 // EnsureRQLiteAuth generates the RQLite auth credentials and JSON auth file.
 // Returns (username, password). The auth JSON file is written to secrets/rqlite-auth.json.
 func (sg *SecretGenerator) EnsureRQLiteAuth() (string, string, error) {
-	passwordPath := filepath.Join(sg.oramaDir, "secrets", "rqlite-password")
+	passwordPath := filepath.Join(sg.oramaDir, "secrets", rqlitePasswordFile)
 	authFilePath := filepath.Join(sg.oramaDir, "secrets", "rqlite-auth.json")
 	secretDir := filepath.Dir(passwordPath)
-	username := "orama"
+	username := rqliteUsername
 	root := OramaRoot(sg.oramaDir)
 
 	if err := root.MkdirAll(secretDir, 0700); err != nil {

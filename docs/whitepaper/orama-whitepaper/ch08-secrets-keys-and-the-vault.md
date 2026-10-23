@@ -64,4 +64,4 @@ The order of the push matters. A per-source-address limiter runs before signatur
 
 A guardian writes `share.bin`, then `checksum.bin`, then `meta.json`, each by temporary file and rename, with no fsync. The checksum is an HMAC under a node-local `integrity.key`: it detects corruption, not tampering by anyone who can write the directory.
 
-The largest limit is that the guardians do not know about each other. Peer discovery, repair and proactive re-sharing exist in the Zig tree but are not linked into the daemon, so a guardian that joins holds nothing for existing secrets and a guardian that leaves takes its shares until the owner pushes a new version.
+The largest limit is that the guardians do not talk to each other. Each reads the guardian set from the cluster database, but the peer protocol, repair and proactive re-sharing exist in the Zig tree and are not linked into the daemon, so a guardian that joins holds nothing for existing secrets and a guardian that leaves takes its shares until the owner pushes a new version.

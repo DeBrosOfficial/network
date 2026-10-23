@@ -8,7 +8,7 @@ wired: "Linked into vault-guardian" {
   store: "storage/file_store, vault_store"
   hmac: "crypto/hmac"
   guard: "guardian.zig\nserver_secret, integrity_key, NodeList"
-  mem: "membership/node_list (fetchFromRqlite stub), quorum"
+  mem: "membership/node_list (fetchFromRqlite: dns_nodes), quorum"
   hb: "peer/heartbeat (evaluateNodeStates,\nsendHeartbeat, countShares), peer/protocol"
 }
 

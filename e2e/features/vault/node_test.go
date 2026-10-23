@@ -3,11 +3,14 @@
 package vault
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Orama-Network/orama/e2e/harness"
+	"github.com/Orama-Network/orama/e2e/harness/eventually"
 )
 
 const (
@@ -45,9 +48,49 @@ func TestGuardian_unitAndOverlayOnly(t *testing.T) {
 	}
 }
 
+// guardianList is a guardian's GET /v1/vault/guardians answer.
+type guardianList struct {
+	Guardians []struct {
+		Address string `json:"address"`
+		Port    int    `json:"port"`
+	} `json:"guardians"`
+	Threshold int `json:"threshold"`
+	Total     int `json:"total"`
+}
+
+// TestGuardian_discoversTheClusterFromRqlite: every guardian reads the
+// cluster's active nodes from the index RQLite (dns_nodes, authenticated as
+// the cluster's RQLite user) and counts each as a guardian; it lists itself as
+// alive, because liveness of the others needs the peer protocol
+// (docs/whitepaper/technical-reference/vol1/28-vault.md, "Guardian membership,
+// heartbeats and the peer protocol"). The list is re-read every 30 s.
+func TestGuardian_discoversTheClusterFromRqlite(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	for _, n := range f.State.Nodes {
+		base := fmt.Sprintf("http://%s:%d", n.WGIP, guardianPort)
+		eventually.Require(t, 5*time.Second, 2*time.Minute, n.Name+": the guardian knows the cluster", func() (bool, error) {
+			out := f.MustExec(t, n, "curl -sS --max-time 10 "+base+"/v1/vault/guardians").Stdout
+			var list guardianList
+			if err := json.Unmarshal([]byte(out), &list); err != nil {
+				return false, fmt.Errorf("guardian list %.200s: %w", out, err)
+			}
+			if list.Total < len(f.State.Nodes) {
+				return false, fmt.Errorf("total %d guardians, the fleet has %d nodes", list.Total, len(f.State.Nodes))
+			}
+			for _, g := range list.Guardians {
+				if g.Address == n.WGIP && g.Port == guardianPort {
+					return true, nil
+				}
+			}
+			return false, fmt.Errorf("the guardian does not list itself (%s) as alive: %.200s", n.WGIP, out)
+		})
+	}
+}
+
 // TestGuardian_documentedNotDone: what docs/whitepaper/technical-reference/vol1/28-vault.md says is not built
-// yet is not: guardian health is "degraded" (no peer discovery), the
-// guardian list is empty, and nothing listens on the peer port 7501.
+// yet is not: no guardian learns that another is alive (nothing listens on the
+// peer port 7501), so guardian health stays "degraded".
 func TestGuardian_documentedNotDone(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
@@ -55,11 +98,7 @@ func TestGuardian_documentedNotDone(t *testing.T) {
 		base := fmt.Sprintf("http://%s:%d", n.WGIP, guardianPort)
 		health := f.MustExec(t, n, "curl -sS --max-time 10 "+base+"/v1/vault/health").Stdout
 		if !strings.Contains(health, `"degraded"`) {
-			t.Errorf("%s: guardian health %.200s, documented as degraded until peer discovery exists", n.Name, health)
-		}
-		list := f.MustExec(t, n, "curl -sS --max-time 10 "+base+"/v1/vault/guardians").Stdout
-		if !strings.Contains(strings.ReplaceAll(list, " ", ""), `"guardians":[]`) {
-			t.Errorf("%s: guardian list %.200s, documented as empty", n.Name, list)
+			t.Errorf("%s: guardian health %.200s, documented as degraded until the peer protocol runs", n.Name, health)
 		}
 		for _, l := range f.Listeners(t, n) {
 			if l.Port == peerPort {

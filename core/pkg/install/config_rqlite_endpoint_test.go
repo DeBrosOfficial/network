@@ -62,3 +62,18 @@ func TestGenerateVaultConfig_rqliteURLIsTheWireGuardAddress(t *testing.T) {
 		t.Errorf("vault config:\n%s", cfg)
 	}
 }
+
+// The guardian authenticates its guardian-list read as the cluster's RQLite
+// user, from the password file, never a copy of the password.
+func TestGenerateVaultConfig_rqliteCredentialsAreTheClusterUsersFile(t *testing.T) {
+	dir := t.TempDir()
+	cfg := NewConfigGenerator(dir).GenerateVaultConfig("10.0.0.5")
+	for _, want := range []string{
+		"rqlite_username = orama\n",
+		"rqlite_password_file = " + filepath.Join(dir, "secrets", "rqlite-password") + "\n",
+	} {
+		if !strings.Contains(cfg, want) {
+			t.Errorf("vault config lacks %q:\n%s", want, cfg)
+		}
+	}
+}
