@@ -201,36 +201,7 @@ func (a *Agent) waitForGenesisUnlock() ([]byte, error) {
 	errCh := make(chan error, 1)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/agent/unlock", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req struct {
-			Key string `json:"key"` // base64-encoded LUKS key
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-
-		keyBytes, err := base64.StdEncoding.DecodeString(req.Key)
-		if err != nil {
-			http.Error(w, "invalid base64 key", http.StatusBadRequest)
-			return
-		}
-
-		if len(keyBytes) != 32 {
-			http.Error(w, "key must be 32 bytes", http.StatusBadRequest)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "unlocking"})
-
-		keyCh <- keyBytes
-	})
+	mux.Handle("/v1/agent/unlock", genesisUnlockHandler(keyCh))
 
 	server := &http.Server{
 		Addr:         ":9998",
@@ -257,6 +228,53 @@ func (a *Agent) waitForGenesisUnlock() ([]byte, error) {
 	case err := <-errCh:
 		return nil, err
 	}
+}
+
+// genesisUnlockKeySize is the size of the LUKS key the operator sends.
+const genesisUnlockKeySize = 32
+
+// genesisUnlockHandler serves POST /v1/agent/unlock with {"key":"<base64>"}:
+// a 32-byte key is handed to keyCh and answered {"status":"unlocking"};
+// anything else, and a key sent once keyCh holds one, is refused with nothing
+// sent.
+func genesisUnlockHandler(keyCh chan<- []byte) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			Key string `json:"key"` // base64-encoded LUKS key
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		keyBytes, err := base64.StdEncoding.DecodeString(req.Key)
+		if err != nil {
+			http.Error(w, "invalid base64 key", http.StatusBadRequest)
+			return
+		}
+
+		if len(keyBytes) != genesisUnlockKeySize {
+			http.Error(w, "key must be 32 bytes", http.StatusBadRequest)
+			return
+		}
+
+		// One key is taken. A second, sent while the first is being used,
+		// is refused rather than left blocked on the channel for ever.
+		select {
+		case keyCh <- keyBytes:
+		default:
+			http.Error(w, "an unlock is already in progress", http.StatusConflict)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "unlocking"})
+	})
 }
 
 // startServices launches all node services in sandboxes and starts background tasks.

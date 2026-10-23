@@ -69,6 +69,8 @@ curl -X POST "http://<node-ip>:9998/v1/agent/unlock" \
   -H "Content-Type: application/json" -d '{"key":"<base64 32-byte LUKS key>"}'
 ```
 
+It answers `{"status":"unlocking"}` and takes the first 32-byte key it is sent. A second key sent while the first is being used is refused with 409.
+
 **Known issue (bugboard #89).** This server is plain HTTP with no credential, and it binds `:9998`, which is every network interface, including the public one. Nothing in the agent or the image restricts it: the agent installs no firewall rule (the image ships `iptables`, but no code configures it), so it is reachable from wherever your provider's firewall lets port 9998 through. Only the command receiver, which starts after the node is unlocked, is deliberately bound to the overlay address. Until the unlock server is bound to the overlay address too, block port 9998 in your provider's firewall except from the operator machine. The same applies to the enrollment port 9999, which the agent also binds on every interface (it is protected by the sealed registration code, not by the network).
 
 ## Not yet implemented
@@ -106,7 +108,7 @@ A/B partition scheme:
 
 1. The agent checks for new versions hourly, at `https://updates.orama.network/v1/latest` unless the image was built with `ORAMA_UPDATE_URL` (written to `/etc/orama/update-url` on the read-only rootfs; it must be an absolute `https` URL without a query, and an image with a malformed one refuses to start its services). Only whoever builds the image can change it, so a QEMU test image can be pointed at a test release server; the signature check below still applies.
 2. Downloads the signed image over HTTPS.
-3. Verifies the SHA-256 and the RootWallet EVM signature against the embedded public key.
+3. Verifies the image's SHA-256, then the RootWallet EVM signature: an EIP-191 `personal_sign` over that SHA-256 in hex, which must recover to the signer address built into the agent. An unsigned update, or one signed by any other key, is refused before anything is written.
 4. Writes to the standby partition.
 5. Sets systemd-boot to boot from it with `tries_left=3`.
 6. On the next reboot (the agent does not reboot by itself), the node boots into it.

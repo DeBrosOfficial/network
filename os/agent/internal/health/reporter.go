@@ -20,7 +20,17 @@ const (
 
 	// GatewayHealthEndpoint is the gateway endpoint for health reports.
 	GatewayHealthEndpoint = "/v1/node/health"
+
+	// localGatewayURL is the node's own gateway, which forwards reports to
+	// the cluster.
+	localGatewayURL = "http://127.0.0.1:10104"
 )
+
+// statusSource reports whether each service is running; *sandbox.Supervisor
+// is the one the agent uses.
+type statusSource interface {
+	GetStatus() map[string]bool
+}
 
 // Report represents a health report sent to the cluster.
 type Report struct {
@@ -34,7 +44,8 @@ type Report struct {
 
 // Reporter periodically sends health reports.
 type Reporter struct {
-	supervisor *sandbox.Supervisor
+	supervisor statusSource
+	reportURL  string
 	startTime  time.Time
 	mu         sync.Mutex
 	stopCh     chan struct{}
@@ -43,8 +54,13 @@ type Reporter struct {
 
 // NewReporter creates a new health reporter.
 func NewReporter(supervisor *sandbox.Supervisor) *Reporter {
+	return newReporter(supervisor, localGatewayURL+GatewayHealthEndpoint)
+}
+
+func newReporter(supervisor statusSource, reportURL string) *Reporter {
 	return &Reporter{
 		supervisor: supervisor,
+		reportURL:  reportURL,
 		startTime:  time.Now(),
 		stopCh:     make(chan struct{}),
 	}
@@ -107,7 +123,7 @@ func (r *Reporter) sendReport() {
 	// Send to local gateway (which forwards to the cluster)
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Post(
-		"http://127.0.0.1:10104"+GatewayHealthEndpoint,
+		r.reportURL,
 		"application/json",
 		bytes.NewReader(body),
 	)
