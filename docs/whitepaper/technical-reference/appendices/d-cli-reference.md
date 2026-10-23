@@ -37,7 +37,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama chain balance`](#orama-chain-balance) - Show an account's bank balances
   - [`orama chain deal`](#orama-chain-deal) - Show a storage deal (x/storage)
   - [`orama chain earnings`](#orama-chain-earnings) - Show an account's earnings balance (x/fees)
-  - [`orama chain faucet`](#orama-chain-faucet) - Fund an account on a test network (stagenet, devnet)
+  - [`orama chain faucet`](#orama-chain-faucet) - Fund an account on a test network (testnet, devnet)
   - [`orama chain node`](#orama-chain-node) - Show a registered node (x/nodes)
   - [`orama chain query`](#orama-chain-query) - Run any Orama module query through the gateway or --rpc
   - [`orama chain send`](#orama-chain-send) - Send ORAMA, privately by default; --public sends openly
@@ -728,7 +728,7 @@ the bank balance.
 
 ## orama chain faucet
 
-Fund an account on a test network (stagenet, devnet)
+Fund an account on a test network (testnet, devnet)
 
 ```text
 orama chain faucet <recipient> [flags]
@@ -737,7 +737,7 @@ orama chain faucet <recipient> [flags]
 ```text
 Send test ORAMA to an account from the chain's faucet (MsgFaucet).
 
-The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
+The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
 command reads the chain id from the node first and refuses any other chain
 before it signs anything. The chain refuses a drip over its maximum and a second
 drip to the same recipient inside its cooldown (24 hours by default).
@@ -751,8 +751,8 @@ exist yet. --amount is in norama (1 ORAMA = 1000000000 norama).
 Prints the transaction hash, the amount, and the recipient's bank balance once
 the transaction is in a block.
 
-  orama chain faucet orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53 --env stagenet
-  orama chain faucet <address> --env stagenet --amount 5000000000 --node 57.129.166.16
+  orama chain faucet orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53 --env testnet
+  orama chain faucet <address> --env testnet --amount 5000000000 --node 57.129.166.16
 
 --node is the SSH host of the node that signs (here it is not the REST URL the
 other 'orama chain' commands take); without it the environment's first node
@@ -1857,7 +1857,7 @@ the network's --genesis in place. It is never done without the flag, and it is
 refused when the home already has a genesis.
 
 --external-address <public ip>:31000 writes the chain's config.toml and app.toml
-(the settings chain/scripts/stagenet/deploy.sh used to sed in): the address the
+(the settings chain/scripts/testnet/deploy.sh used to sed in): the address the
 node announces to its peers (the chain itself listens at the namespace address,
 198.18.0.2, which no peer can reach), peer exchange off, Prometheus on 127.0.0.1,
 custom pruning (keep 100, every 10 blocks), and a state-sync snapshot every 1000
@@ -2426,7 +2426,7 @@ it belongs to. Run it on the node, as root.
 
 The faucet gives test ORAMA to whoever asks (POST /v1/chain/faucet): the gateway
 signs MsgFaucet for the recipient with this key and the chain mints the drip.
-It exists only on a test network (a chain id of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
+It exists only on a test network (a chain id of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
 limits (a maximum drip, a cooldown per recipient, a cap per epoch), and it must
 be on in the genesis (faucet_enabled).
 
@@ -2434,7 +2434,7 @@ The key file is created owned by the gateway's account with mode 0600, and an
 existing key is never replaced: running init again prints the same account. The
 faucet account pays the transaction fee of every drip and mints the drip itself,
 so it needs a small balance and nothing more: fund it from the genesis
-(chain/scripts/stagenet/deploy.sh does this on stagenet) or from another faucet.
+(chain/scripts/testnet/deploy.sh does this on testnet) or from another faucet.
 
 Then turn it on in node.yaml and restart the node:
 
@@ -3171,7 +3171,7 @@ commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--dir` | `networks` | The repository's networks directory |
 | `--faucet` | `false` | The network funds new operators from a faucet |
 | `--min-version` | `0.3.3` | Oldest orama version that may join, X.Y.Z |
-| `--name` | — | Network name, for example stagenet [required] |
+| `--name` | — | Network name, for example testnet [required] |
 | `--release-repo` | — | https base URL of the release repository [required] |
 | `--release-root` | — | The release-root.json file its releases are verified against [required] |
 | `--seed` | — | A seed DNS name (repeatable; default: the creator's ns&lt;N>.&lt;name>.orama.network) |
@@ -3198,7 +3198,7 @@ different thing from the chain, so a reset of the chain keeps the file.
 An unset field keeps its value from the manifest already published; the first
 publish of a network sets --seeds, --channel, --min-version, --release-repo and
 --release-root. A chain id that is already published keeps its genesis: a reset
-of the network needs a new chain id (orama-stagenet-5 becomes orama-stagenet-6),
+of the network needs a new chain id (orama-testnet-5 becomes orama-testnet-6),
 and publishing the old id with another genesis is refused.
 
 Afterwards run 'make -C core sync-networks' so the binary embeds the new manifest,
@@ -3213,7 +3213,7 @@ and commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--faucet` | `false` | Whether the network funds new operators from a faucet (default: the published one) |
 | `--genesis` | — | The genesis.json file [required] |
 | `--min-version` | — | Oldest orama version that may join, X.Y.Z (default: the published one) |
-| `--name` | — | Network name, for example stagenet [required] |
+| `--name` | — | Network name, for example testnet [required] |
 | `--release-repo` | — | https base URL of the release repository (default: the published one) |
 | `--release-root` | — | The release-root.json file (default: the published one) |
 | `--seeds` | — | Seed DNS names, comma-separated (default: the published ones) |
@@ -4807,7 +4807,7 @@ orama network
 List, choose, add and remove the networks the CLI knows.
 
 A network is a name for something you can reach: a cluster, through its
-gateway, and, for a network of the registry such as stagenet, the chain it runs,
+gateway, and, for a network of the registry such as testnet, the chain it runs,
 the seeds to join through and the release root its software is verified against.
 Every other command talks to the active network, or to the one --env names.
 
@@ -5544,7 +5544,7 @@ machine's chain keys, builds the genesis on the first machine from all the keys,
 the others, starts the chains one after the other, waits for blocks, and then registers your
 operator and the nodes as it does for a join. It writes networks/<name>/ (manifest, genesis,
 release root) to --publish-dir and prints what to do to publish it. --chain-id is the chain's
-id: a test network's is of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
+id: a test network's is of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
 setup refuses: it creates test networks only, because it keeps each seat's key in an unencrypted test keyring
 (a production network needs seat accounts held by the RootWallet, which is not built). --release-root is the release-root.json the network's
 releases are verified against. A network that was announced in the registry before it was created (orama maint network announce)
@@ -5577,7 +5577,7 @@ machine until every machine passes.
 | `--allow-quorum-loss` | `false` | Restart a cluster of fewer than three voters with --force when the global layer is installed: the cluster is unavailable while the node restarts (without it, a run with --yes stops there) |
 | `--asn` | `0` | Autonomous system number to declare for the nodes (default: looked up from the address; 0 leaves it undeclared) |
 | `--bootstrap-key` | — | A private key that opens the machines today (key-only images); used once to install the RootWallet key, never stored |
-| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&lt;name>-]stagenet-&lt;id>, orama-[&lt;name>-]devnet-&lt;id> or orama-[&lt;name>-]localnet-&lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
+| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&lt;name>-]testnet-&lt;id>, orama-[&lt;name>-]devnet-&lt;id> or orama-[&lt;name>-]localnet-&lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
 | `--channel` | — | With --create-network: the release channel, nightly, main or dev/&lt;branch> (default nightly, main for a production chain id) |
 | `--cluster-only` | `false` | Install the cluster node only, without the chain, storage or relay |
 | `--contact` | — | Where an abuse complaint about the relay goes (default: your operator account) |

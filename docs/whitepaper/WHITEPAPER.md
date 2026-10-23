@@ -95,7 +95,7 @@ A normal genesis mints nothing. New coins are created once per epoch, and an epo
 
 Voting power is capped, ramped over 30 epochs, and bounded so redistribution cannot more than double a validator's raw stake share. Fees use a base fee that is entirely burned. Tips go to the block proposer. There is no on-chain governance, no IBC, and no shielded transfer.
 
-The chain is not installed by `orama maint node install`. A separate script can place it on a devnet or stagenet chain id. App requests do not pass through it. The pages under the docs site's Blockchain tab are the full description.
+The chain is not installed by `orama maint node install`. A separate script can place it on a devnet or testnet chain id. App requests do not pass through it. The pages under the docs site's Blockchain tab are the full description.
 
 ## 4. Services
 
@@ -267,7 +267,7 @@ OramaOS is **built but has never been booted** on a live network. Known gaps inc
 - **Tenant monitoring and alerting.** Tenants have health endpoints, namespace status, deployment logs and the audit trail. There is no metrics endpoint and no alerting.
 - **Enforced storage quotas.** Quotas exist but are opt-in, and no namespace has one by default.
 - **Scale evidence.** The design allows 20 namespaces per node and grows by adding nodes, but it has been exercised only at the scale of a few nodes and a few tenants.
-- **A public chain.** The ledger in Section 3.6 is implemented and tested in the repository. It is not what `orama maint node install` starts, storage and relay rewards are not paid, there is no governance, and app traffic does not use it. A devnet or stagenet chain id can be brought up with `chain/scripts/stagenet/deploy.sh`. That is not a network you can treat as carrying value.
+- **A public chain.** The ledger in Section 3.6 is implemented and tested in the repository. It is not what `orama maint node install` starts, storage and relay rewards are not paid, there is no governance, and app traffic does not use it. A devnet or testnet chain id can be brought up with `chain/scripts/testnet/deploy.sh`. That is not a network you can treat as carrying value.
 
 **Self-audit.** We audit our own system and publish what we find. An earlier review that treated the hosting provider as the adversary produced ninety findings. Two further audits in September 2026 covered stability (35 items) and authentication and authorization (29 items). All stability items and all but three authentication items are now implemented in code and awaiting review. Several of the changes described in this paper, including authenticated RQLite, the WebAssembly egress filter, per-gateway signing keys, secret rotation and encrypt-before-add storage, landed in the current release line in September 2026 and are being rolled out to the live networks. The remaining open findings are concentrated in OramaOS and the vault and are tracked openly.
 

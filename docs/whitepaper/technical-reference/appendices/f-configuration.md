@@ -112,7 +112,7 @@ The node's configuration, written by `orama maint node install` and read by `ora
 | `http_gateway.webrtc.turn_domain` | `string` | TURN domain (e.g., "turn.ns-myapp.dbrs.space") |
 | `http_gateway.webrtc.turn_secret` | `string` | HMAC-SHA1 shared secret for TURN credential generation |
 | `dns` | `config.DNSConfig` |  |
-| `dns.node_names_zone` | `string` | NodeNamesZone is the zone this cluster publishes node identification names under, for example nodes.stagenet.orama.network. A node of the cluster whose nameservers answer the zone reads the chain's claimed names and serves &lt;name>.&lt;zone> as an A or AAAA record per literal IP of the named node. Empty publishes none. It must be a dedicated sub-zone strictly below the cluster's http_gateway.base_domain, never the base domain itself (a claimed name would sit next to the hostnames the cluster publishes there), and the node must have the chain reachable (a co-located global layer). |
+| `dns.node_names_zone` | `string` | NodeNamesZone is the zone this cluster publishes node identification names under, for example nodes.testnet.orama.network. A node of the cluster whose nameservers answer the zone reads the chain's claimed names and serves &lt;name>.&lt;zone> as an A or AAAA record per literal IP of the named node. Empty publishes none. It must be a dedicated sub-zone strictly below the cluster's http_gateway.base_domain, never the base domain itself (a claimed name would sit next to the hostnames the cluster publishes there), and the node must have the chain reachable (a co-located global layer). |
 | `chain` | `config.ChainConfig` |  |
 | `chain.faucet` | `config.FaucetConfig` |  |
 | `chain.faucet.enabled` | `bool` | Enabled turns the faucet on. |

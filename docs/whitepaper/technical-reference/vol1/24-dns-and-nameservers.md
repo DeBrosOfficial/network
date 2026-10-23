@@ -22,7 +22,7 @@ So the cluster is its own authoritative DNS. The constraints that shaped the des
 
 ## The model
 
-**Base domain.** The one DNS name the cluster is authoritative for, for example `stagenet.example.org`. The installer writes it as the zone of the Corefile, and the plugin treats it as the only zone (`core/pkg/install/installers/coredns.go:generateCorefile`). Every other name in this chapter is a name under it.
+**Base domain.** The one DNS name the cluster is authoritative for, for example `testnet.example.org`. The installer writes it as the zone of the Corefile, and the plugin treats it as the only zone (`core/pkg/install/installers/coredns.go:generateCorefile`). Every other name in this chapter is a name under it.
 
 **Nameserver node.** A node installed with `--nameserver`. It is recorded in `preferences.yaml` as `nameserver: true` (`core/pkg/node/dns_registration.go:isNameserverPreference`), runs CoreDNS, and also runs the Caddy edge. A node that has additionally claimed a slot is a nameserver node in the registry's eyes (`isNameserverNode` reads `dns_nameservers`). Only those publish the apex and wildcard records.
 
