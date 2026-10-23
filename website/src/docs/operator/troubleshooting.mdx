@@ -74,6 +74,14 @@ Dependency order matters: WireGuard, RQLite, then Olric, then the gateway; the C
 2. **Olric bound to `0.0.0.0`.** `cat …/configs/olric-*.yaml`. A `bindAddr` of `0.0.0.0` makes dual-stack hosts bind IPv6 and breaks gossip. Fixed in code for new namespaces.
 3. **Constant "Failed UDP ping" in `orama node logs orama-namespace-olric@<name> -n 30`.** If UDP fails but TCP succeeds, it is the WireGuard problem in 1.
 
+## Index Olric partitioned: "N of M members"
+
+**Symptom.** `sudo orama node doctor` fails `Olric reachable` with `Responding on 10.0.0.x:10102 with 1 of 5 members: this node's Olric is partitioned from the cluster`, and `orama status` warns `Olric member count: 1 (expected 5 active nodes)`. Rate limits, sessions and cached reads differ between nodes, because each side of the split keeps its own cache.
+
+**Cause.** Memberlist declared the other members dead after its probes failed (CPU starvation, a burst of packet loss on `wg0`), and it never merges a partition by itself: only a join does, and `olric-server` joins its peers only when it starts. Doctor compares the member count with the index cluster's node count (its raft configuration), so a split fails it on both sides.
+
+**Fix.** Check the overlay first (`sudo orama node doctor`, the WireGuard section). Once the overlay is healthy, restart the nodes on the smaller side one at a time with `sudo orama node restart`. Their Olric joins the others when it starts, and doctor shows `5 of 5 members` again.
+
 ## Namespace gateway: missing config fields
 
 `global_rqlite_dsn` missing, `olric_timeout: 0s`, or `olric_servers` listing only `localhost`: gateways spawned before a fix. A remote spawn request only says whether the gateway needs a registry; the receiving node fills in its own address. Re-spawning or restarting the gateway fixes it. A node with no registry address refuses the spawn.

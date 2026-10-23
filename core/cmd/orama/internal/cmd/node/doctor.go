@@ -38,6 +38,25 @@ type check struct {
 // olricProbeTimeout bounds doctor's call to the index Olric.
 const olricProbeTimeout = 5 * time.Second
 
+// olricMembershipCheck compares the index Olric's member count with the number
+// of nodes in the index cluster (its raft configuration): every core node runs
+// orama-namespace-olric@index, so fewer members means this node's Olric is
+// partitioned from the others and its gateway reads and writes a cache shard
+// of its own (bug-933). It used to pass on any member count.
+func olricMembershipCheck(addr string, members, clusterNodes int, clusterErr error) check {
+	const name = "Olric reachable"
+	switch {
+	case clusterErr != nil:
+		return check{name, "WARN", fmt.Sprintf("Responding on %s, %d member(s); the cluster's node count is unknown (%v), so a partition cannot be ruled out", addr, members, clusterErr)}
+	case members < clusterNodes:
+		return check{name, "FAIL", fmt.Sprintf("Responding on %s with %d of %d members: this node's Olric is partitioned from the cluster", addr, members, clusterNodes)}
+	case members > clusterNodes:
+		return check{name, "WARN", fmt.Sprintf("Responding on %s with %d members, more than the cluster's %d nodes: a removed node is still a member", addr, members, clusterNodes)}
+	default:
+		return check{name, "PASS", fmt.Sprintf("Responding on %s, %d of %d members", addr, members, clusterNodes)}
+	}
+}
+
 func runDoctor(cmd *cobra.Command, args []string) error {
 	fmt.Println("Node Doctor")
 	fmt.Println("===========")
@@ -81,13 +100,20 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		checks = append(checks, check{"Services running", "PASS", fmt.Sprintf("All %d services running", running)})
 	}
 
-	// 3. Check RQLite health, where it binds and with its credentials.
+	// 3. Check RQLite health, where it binds and with its credentials. Its raft
+	// configuration is also how many nodes the index cluster has, which is the
+	// member count the index Olric must report.
+	clusterNodes, clusterErr := 0, error(nil)
 	if ep, err := rqlite.LocalNodeEndpoint(); err != nil {
 		checks = append(checks, check{"RQLite reachable", "FAIL", err.Error()})
+		clusterErr = err
 	} else if _, err := ep.Admin().Status(context.Background()); err != nil {
 		checks = append(checks, check{"RQLite reachable", "FAIL", fmt.Sprintf("Cannot read %s/status: %v", ep, err)})
+		clusterErr = err
 	} else {
 		checks = append(checks, check{"RQLite reachable", "PASS", fmt.Sprintf("HTTP API responding on %s", ep)})
+		nodes, err := ep.Admin().Nodes(context.Background())
+		clusterNodes, clusterErr = len(nodes), err
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -99,7 +125,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	} else if members, err := olric.Members(context.Background(), addr, olricProbeTimeout); err != nil {
 		checks = append(checks, check{"Olric reachable", "FAIL", fmt.Sprintf("Cannot reach: %v", err)})
 	} else {
-		checks = append(checks, check{"Olric reachable", "PASS", fmt.Sprintf("Responding on %s, %d member(s)", addr, len(members))})
+		checks = append(checks, olricMembershipCheck(addr, len(members), clusterNodes, clusterErr))
 	}
 
 	// 5. Check Gateway health
