@@ -364,7 +364,7 @@ PROFILE_SCOPES["app-runtime"];          // ["invoke", "push", "webrtc", "proxy"]
 satisfiesScope(["admin"], "storage");   // true: admin is a wildcard
 ```
 
-The grants are `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage` and `webrtc`. They mirror the gateway's own list, and a test in the SDK fails if the two ever disagree.
+The grants are `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `push-send`, `storage` and `webrtc`. `push` registers devices and topics; `push-send` sends to any user or topic, so it belongs on a server's key, never in an app. They mirror the gateway's own list, and a test in the SDK fails if the two ever disagree.
 
 ## Retries and failover
 
