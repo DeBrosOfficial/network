@@ -58,6 +58,7 @@ func TestWriteRPCError_empty_message_is_filled_with_default(t *testing.T) {
 		{ErrCodeFunctionExecution, "function execution"},
 		{ErrCodeNamespaceGatewayUnavailable, "no namespace gateway"},
 		{ErrCodeFunctionTimeout, "timeout"},
+		{ErrCodeFunctionVersionSuperseded, "superseded"},
 	}
 	for _, c := range cases {
 		t.Run(string(c.code), func(t *testing.T) {

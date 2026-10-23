@@ -1,7 +1,10 @@
 # Serverless functions end to end with TinyGo fixtures (testdata/svcfn, and
 # testdata/badimport for an unknown host module) deployed by the operator's
 # CLI: init/build/deploy/list/get/invoke/logs/versions/disable/enable/delete,
-# secrets and triggers; invocation access (private, public, keys, name@N,
+# secrets and triggers; only the current version runs (name@N of a superseded
+# version is 404 FUNCTION_VERSION_SUPERSEDED on both invoke routes, rollback,
+# list --all, delete --version, purge refused to a developer and a runtime
+# member and done by the owner); invocation access (private, public, keys,
 # /v1/invoke, another namespace, the main gateway), limits (timeout -> 504 FUNCTION_TIMEOUT,
 # memory, per-namespace concurrency, server-side range), function rate limits
 # (per_ip across wallets, per_caller by API key, range refused at deploy),
@@ -37,6 +40,7 @@ covers:
     - orama function invoke
     - orama function list
     - orama function logs
+    - orama function rollback
     - orama function secrets
     - orama function secrets delete
     - orama function secrets list
@@ -60,7 +64,10 @@ covers:
     - "website/src/docs/developer/functions.mdx#functionyaml: a rate_limit window outside 1 s to 24 h is refused at deploy, naming the field"
     - "website/src/docs/developer/functions.mdx#functionyaml: a private function needs a signed-in wallet or the invoke grant; a storage-only key is refused"
     - "website/src/docs/developer/access-control.mdx#api-keys: a client holding no key invokes a public function, signs in (challenge, verify) and refreshes on the namespace gateway, and its session invokes the function (bugboard #946)"
-    - "website/src/docs/developer/functions.mdx#versioning: name@N invokes version N"
+    - "website/src/docs/developer/functions.mdx#versioning: only the current version is invoked; name@N of a superseded version answers 404 FUNCTION_VERSION_SUPERSEDED, a version that does not exist 404 NOT_FOUND"
+    - "website/src/docs/developer/functions.mdx#versioning: rollback makes an earlier version current; the next deploy is current again with the next number"
+    - "website/src/docs/developer/functions.mdx#versioning: list --all shows every version row with its status, deleted ones included"
+    - "website/src/docs/developer/functions.mdx#versioning: delete --purge removes every row, trigger and log of a function; only the owner or an admin can purge, a developer gets 403"
     - "website/src/docs/developer/functions.mdx#http-api-reference: management acts on the credential's namespace; another namespace is refused"
     - "website/src/docs/developer/functions.mdx#host-functions-api: an import from a module other than env, host or orama fails to instantiate"
     - "docs/whitepaper/technical-reference/vol1/18-cache.md#what-each-attacker-can-do: http_fetch refuses loopback, RFC 1918, link-local, CGNAT and wrapped IPv4, by name and by redirect"

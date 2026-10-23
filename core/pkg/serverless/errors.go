@@ -16,6 +16,10 @@ var (
 	// ErrVersionNotFound is returned when a specific function version does not exist.
 	ErrVersionNotFound = errors.New("function version not found")
 
+	// ErrVersionSuperseded is returned for a version a later deploy or a
+	// rollback replaced: only the current version of a function is invocable.
+	ErrVersionSuperseded = errors.New("function version superseded: only the current version of a function can be invoked; roll back to make this version current")
+
 	// ErrSecretNotFound is returned when a secret does not exist.
 	ErrSecretNotFound = errors.New("secret not found")
 
@@ -215,6 +219,7 @@ func IsRetryable(err error) bool {
 func IsNotFound(err error) bool {
 	return errors.Is(err, ErrFunctionNotFound) ||
 		errors.Is(err, ErrVersionNotFound) ||
+		errors.Is(err, ErrVersionSuperseded) ||
 		errors.Is(err, ErrSecretNotFound) ||
 		errors.Is(err, ErrJobNotFound) ||
 		errors.Is(err, ErrTriggerNotFound) ||

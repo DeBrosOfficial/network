@@ -20,6 +20,11 @@ const (
 	// FunctionStatusDeleted marks a deleted version. It is distinct from
 	// inactive (a disabled function) so enabling can never revive a delete.
 	FunctionStatusDeleted FunctionStatus = "deleted"
+	// FunctionStatusSuperseded marks a version a later deploy or a rollback
+	// replaced. It is kept as a rollback target and is never invoked: only the
+	// current version of a function runs, so code its owner replaced cannot be
+	// reached at name@N. Enabling and disabling leave it alone.
+	FunctionStatusSuperseded FunctionStatus = "superseded"
 )
 
 // TriggerType identifies the type of event that triggered a function invocation.
@@ -88,15 +93,28 @@ type FunctionRegistry interface {
 	Register(ctx context.Context, fn *FunctionDefinition, wasmBytes []byte) (*Function, error)
 
 	// Get retrieves a function by name and optional version.
-	// If version is 0, returns the latest active version; otherwise exactly that
-	// version if it is active.
+	// If version is 0, returns the current version; otherwise exactly that
+	// version if it is the current one. A version that was replaced is
+	// ErrVersionSuperseded.
 	Get(ctx context.Context, namespace, name string, version int) (*Function, error)
 
-	// List returns all functions for a namespace.
+	// List returns the current version of every function in a namespace.
 	List(ctx context.Context, namespace string) ([]*Function, error)
 
-	// Delete removes a function. If version is 0, removes all versions.
+	// ListAll returns every version row the namespace holds, whatever its
+	// status: current, disabled, superseded and deleted.
+	ListAll(ctx context.Context, namespace string) ([]*Function, error)
+
+	// Delete marks a function deleted. If version is 0, marks all versions.
 	Delete(ctx context.Context, namespace, name string, version int) error
+
+	// Purge removes a function's rows for good, with its environment,
+	// triggers and history. If version is 0, removes every version.
+	Purge(ctx context.Context, namespace, name string, version int) error
+
+	// Rollback makes version the function's current version and supersedes
+	// the one it replaces; the triggers move to it.
+	Rollback(ctx context.Context, namespace, name string, version int) error
 
 	// SetEnabled toggles a function's status between active and inactive
 	// without redeploying. Plan 11.5 — lets operators pause a misbehaving

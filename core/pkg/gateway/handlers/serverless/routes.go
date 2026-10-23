@@ -20,7 +20,7 @@ func (h *ServerlessHandlers) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/serverless/ws/connections/", h.WSConnections)
 }
 
-// handleFunctions handles GET /v1/functions (list) and POST /v1/functions (deploy)
+// handleFunctions handles GET /v1/functions[?all=true] (list) and POST /v1/functions (deploy)
 func (h *ServerlessHandlers) handleFunctions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -35,7 +35,8 @@ func (h *ServerlessHandlers) handleFunctions(w http.ResponseWriter, r *http.Requ
 // handleFunctionByName handles operations on a specific function
 // Routes:
 //   - GET    /v1/functions/{name}                    - Get function info
-//   - DELETE /v1/functions/{name}                    - Delete function
+//   - DELETE /v1/functions/{name}[?purge=true]       - Delete (or purge) function
+//   - POST   /v1/functions/{name}@{version}/rollback - Make that version current
 //   - POST   /v1/functions/{name}/invoke             - Invoke function
 //   - POST   /v1/functions/{name}/disable            - Pause without redeploy (plan 11.5)
 //   - POST   /v1/functions/{name}/enable             - Resume (plan 11.5)
@@ -96,6 +97,8 @@ func (h *ServerlessHandlers) handleFunctionByName(w http.ResponseWriter, r *http
 		h.SetEnabledFunction(w, r, name, false)
 	case "enable":
 		h.SetEnabledFunction(w, r, name, true)
+	case "rollback":
+		h.RollbackFunction(w, r, name, version)
 	case "ws":
 		h.HandleWebSocket(w, r, name, version)
 	case "versions":

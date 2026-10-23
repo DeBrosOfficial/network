@@ -50,8 +50,8 @@ func invokeKey(t *testing.T, fx *fixture, fn, key string) *gw.Response {
 }
 
 // TestInvoke_accessMatrix: a private function needs a signed-in wallet or
-// the invoke grant (a storage-only key is refused); a public one is open;
-// `name@N` runs that version (website/src/docs/developer/functions.mdx#functionyaml, #versioning).
+// the invoke grant (a storage-only key is refused); a public one is open
+// (website/src/docs/developer/functions.mdx#functionyaml).
 func TestInvoke_accessMatrix(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
@@ -82,23 +82,6 @@ func TestInvoke_accessMatrix(t *testing.T) {
 	}
 	if r := invoke(t, fx.c, "e2e-no-such-fn", fx.admin, map[string]any{}); r.Status != http.StatusNotFound || rpcCode(r) != codeNotFound {
 		t.Errorf("unknown function: want 404 NOT_FOUND, got %d %s", r.Status, rpcCode(r))
-	}
-}
-
-// TestInvoke_versionPinned: after a second deploy, name@1 still runs the
-// first version and the bare name runs the latest.
-func TestInvoke_versionPinned(t *testing.T) {
-	t.Parallel()
-	fx := setup(t)
-	dir := deploy(t, fx, fnSpec{name: "e2e-ver", yaml: "env:\n  MARK: v1\n"})
-	redeploy(t, fx, dir, "env:\n  MARK: v2\n")
-	for fn, want := range map[string]string{"e2e-ver@1": "v1", "e2e-ver@2": "v2", "e2e-ver": "v2"} {
-		if got := call(t, fx, fn, map[string]any{"op": "whoami", "key": "MARK"})["env"]; got != want {
-			t.Errorf("%s ran MARK=%v, want %s", fn, got, want)
-		}
-	}
-	if r := invoke(t, fx.c, "e2e-ver@99", fx.admin, map[string]any{}); r.Status != http.StatusNotFound {
-		t.Errorf("a version that does not exist: want 404, got %d", r.Status)
 	}
 }
 

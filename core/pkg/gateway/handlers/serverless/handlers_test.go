@@ -3,6 +3,7 @@ package serverless
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -28,6 +29,9 @@ type mockRegistry struct {
 	listErr     error
 	deleteErr   error
 	logsErr     error
+	purged      []string // name@version of each Purge call
+	rolledBack  []string // name@version of each Rollback call
+	listedAll   bool
 }
 
 func newMockRegistry() *mockRegistry {
@@ -67,6 +71,21 @@ func (m *mockRegistry) List(_ context.Context, namespace string) ([]*serverless.
 
 func (m *mockRegistry) Delete(_ context.Context, _, _ string, _ int) error {
 	return m.deleteErr
+}
+
+func (m *mockRegistry) ListAll(ctx context.Context, namespace string) ([]*serverless.Function, error) {
+	m.listedAll = true
+	return m.List(ctx, namespace)
+}
+
+func (m *mockRegistry) Purge(_ context.Context, _, name string, version int) error {
+	m.purged = append(m.purged, fmt.Sprintf("%s@%d", name, version))
+	return m.deleteErr
+}
+
+func (m *mockRegistry) Rollback(_ context.Context, _, name string, version int) error {
+	m.rolledBack = append(m.rolledBack, fmt.Sprintf("%s@%d", name, version))
+	return m.getErr
 }
 
 func (m *mockRegistry) SetEnabled(_ context.Context, _, _ string, _ bool) error {

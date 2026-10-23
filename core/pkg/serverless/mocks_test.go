@@ -79,6 +79,23 @@ func (m *MockRegistry) Delete(ctx context.Context, namespace, name string, versi
 	return nil
 }
 
+func (m *MockRegistry) ListAll(ctx context.Context, namespace string) ([]*Function, error) {
+	return m.List(ctx, namespace)
+}
+
+func (m *MockRegistry) Purge(ctx context.Context, namespace, name string, version int) error {
+	return m.Delete(ctx, namespace, name, version)
+}
+
+func (m *MockRegistry) Rollback(ctx context.Context, namespace, name string, version int) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if _, ok := m.functions[namespace+"/"+name]; !ok {
+		return ErrVersionNotFound
+	}
+	return nil
+}
+
 func (m *MockRegistry) SetEnabled(ctx context.Context, namespace, name string, enabled bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

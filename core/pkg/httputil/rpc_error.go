@@ -90,6 +90,10 @@ const (
 	// an upstream call, a broadcast) may have happened. Not retryable by
 	// default — only a caller that knows the call is idempotent repeats it.
 	ErrCodeFunctionTimeout RPCErrorCode = "FUNCTION_TIMEOUT"
+	// ErrCodeFunctionVersionSuperseded is a request for a version of a
+	// function that a later deploy or a rollback replaced (404). Only the
+	// current version runs; a rollback makes an earlier one current again.
+	ErrCodeFunctionVersionSuperseded RPCErrorCode = "FUNCTION_VERSION_SUPERSEDED"
 )
 
 // RPCErrorEnvelope is the canonical wire shape. Use WriteRPCError to emit;
@@ -212,6 +216,8 @@ func defaultMessageFor(code RPCErrorCode) string {
 		return "function temporarily unavailable, retry"
 	case ErrCodeFunctionTimeout:
 		return "function ran past its timeout; its effects may have happened"
+	case ErrCodeFunctionVersionSuperseded:
+		return "function version superseded; only the current version can be invoked"
 	case ErrCodeFunctionDeploy:
 		return "function deployment failed"
 	case ErrCodeSchemaMismatch:

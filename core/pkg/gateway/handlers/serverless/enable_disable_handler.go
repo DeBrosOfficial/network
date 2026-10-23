@@ -12,8 +12,8 @@ import (
 // POST /v1/functions/{name}/enable.
 //
 // Plan 11.5 — operators flip a function's status without redeploying
-// during incident response. Targets ALL versions by name; the registry
-// SetEnabled call does the UPDATE atomically.
+// during incident response. Acts on the current version, the only one that
+// runs; the registry SetEnabled call does the UPDATE atomically.
 //
 // On success returns {"status":"ok","function":<name>,"enabled":<bool>}.
 // On 404 returns {"error":"function not found"}.

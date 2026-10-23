@@ -65,6 +65,22 @@ func TestClassifyInvokeError(t *testing.T) {
 			wantRetryable: true,
 		},
 		{
+			// bug-939/bug-940: name@N of a replaced version names why it is
+			// refused, and an absent version stays plain NOT_FOUND.
+			name:          "a superseded version is 404 FUNCTION_VERSION_SUPERSEDED",
+			err:           serverless.ErrVersionSuperseded,
+			wantStatus:    http.StatusNotFound,
+			wantCode:      httputil.ErrCodeFunctionVersionSuperseded,
+			wantRetryable: false,
+		},
+		{
+			name:          "a version that does not exist is 404 NOT_FOUND",
+			err:           serverless.ErrVersionNotFound,
+			wantStatus:    http.StatusNotFound,
+			wantCode:      httputil.ErrCodeNotFound,
+			wantRetryable: false,
+		},
+		{
 			name:          "generic function error is non-retryable FUNCTION_EXECUTION_FAILED",
 			err:           errors.New("panic: index out of range"),
 			wantStatus:    http.StatusInternalServerError,

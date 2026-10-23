@@ -78,6 +78,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama function invoke`](#orama-function-invoke) - Invoke a deployed function
   - [`orama function list`](#orama-function-list) - List deployed functions
   - [`orama function logs`](#orama-function-logs) - Get invocation history for a function
+  - [`orama function rollback`](#orama-function-rollback) - Make an earlier version of a function the current one
   - [`orama function secrets`](#orama-function-secrets) - Manage function secrets
     - [`orama function secrets delete`](#orama-function-secrets-delete) - Delete a secret
     - [`orama function secrets list`](#orama-function-secrets-list) - List secret names
@@ -482,7 +483,7 @@ grants given and taken away, deployments, functions, secrets and namespace chang
 Events are shown oldest first. --follow keeps the command running and prints new
 ones as they are recorded.
 
-Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, node.register, node.key.enrol
+Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, function.purge, function.rollback, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, node.register, node.key.enrol
 ```
 
 | Flag | Default | Description |
@@ -1390,7 +1391,7 @@ Quick start:
   orama function invoke my-function --data '{"name": "World"}'
 ```
 
-Subcommands: `build`, `delete`, `deploy`, `disable`, `enable`, `get`, `init`, `invoke`, `list`, `logs`, `secrets`, `triggers`, `versions`
+Subcommands: `build`, `delete`, `deploy`, `disable`, `enable`, `get`, `init`, `invoke`, `list`, `logs`, `rollback`, `secrets`, `triggers`, `versions`
 
 ## orama function build
 
@@ -1415,11 +1416,22 @@ orama function delete <name> [flags]
 ```
 
 ```text
-Deletes a function from the Orama Network. This action cannot be undone.
+Deletes a function from the Orama Network: every version, or only the one
+named with --version. A deleted version is never invoked again and cannot be
+enabled or rolled back to, but its row stays and 'orama function list --all'
+still shows it.
+
+--purge removes the rows for good, with the function's environment variables,
+triggers, invocation history, logs and jobs. Purging takes the namespace's
+owner or an admin. The namespace's secrets are shared by every function and
+stay. Purging the current version leaves the function with none until
+'orama function rollback'.
 ```
 
 | Flag | Default | Description |
 |---|---|---|
+| `--purge` | `false` | Remove the function's rows, triggers and history for good (owner or admin) |
+| `--version` | `0` | Delete only this version |
 | `-f`, `--force` | `false` | Skip confirmation prompt |
 
 
@@ -1516,12 +1528,21 @@ Sends a request to invoke the named function with optional JSON payload.
 List deployed functions
 
 ```text
-orama function list
+orama function list [flags]
 ```
 
 ```text
-Lists all functions deployed in the current namespace.
+Lists the current version of every function deployed in the current namespace.
+
+--all lists every version row the namespace holds instead, whatever its
+status: active, inactive (disabled), superseded (replaced by a later deploy
+or a rollback) and deleted. A row stays until it is pruned (past the newest
+10 versions) or purged ('orama function delete --purge').
 ```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--all` | `false` | List every version, including disabled, superseded and deleted ones |
 
 
 ## orama function logs
@@ -1547,6 +1568,26 @@ behavior; rarely useful on functions that don't call log_info).
 |---|---|---|
 | `--limit` | `50` | Maximum number of records to retrieve |
 | `--wasm-only` | `false` | Show only WASM-emitted log entries (legacy view) |
+
+
+## orama function rollback
+
+Make an earlier version of a function the current one
+
+```text
+orama function rollback <name> <version>
+```
+
+```text
+Makes <version> the function's current version. Only the current version
+of a function is invoked: a deploy supersedes the version before it, and
+name@N of a superseded version answers 404 FUNCTION_VERSION_SUPERSEDED.
+Rolling back supersedes the version that was current, moves the function's
+triggers to <version>, and serves it on every path (HTTP, WebSocket,
+triggers). A deleted or pruned version cannot be rolled back to; see
+'orama function versions <name>' for what is kept. The next deploy becomes
+current again with the next version number.
+```
 
 
 ## orama function secrets

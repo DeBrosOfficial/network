@@ -359,7 +359,6 @@ From [Serverless functions](../vol1/21-serverless.md#known-gaps).
 - **`ws_broadcast` reaches no one**, and aggregation cannot be configured: nothing calls `WSManager.Subscribe` (`core/pkg/serverless/websocket.go:Broadcast`) and `AddWithAggregation` has no caller (`core/pkg/serverless/triggers/pubsub_store.go`).
 - **A rate-limit refusal is mis-typed.** `RateLimitedError` does not satisfy `errors.Is(err, ErrRateLimited)`, so the invoker retries it when `retry_count` is above 0 and a stateless socket reports it as a non-retryable execution failure (`core/pkg/serverless/ratelimit.go:RateLimitedError`, `core/pkg/gateway/handlers/serverless/invoke_handler.go:classifyInvokeError`). This is a bug.
 - **`exec_and_publish` can hand two callers the same sequence**, because it is read in a separate query after the commit and a concurrent commit can advance it first (`core/pkg/rqlite/batch.go:BatchWithSeq`). It also publishes without recording trigger depth, so a trigger chain through it restarts at depth 0. This is a bug.
-- **`core/pkg/serverless/registry/` is an unused second registry.** No package imports it; the live registry is `core/pkg/serverless/registry.go`, and the claims provider tests the invoker's `serverless.ErrFunctionNotFound` (`core/pkg/gateway/claims_provider.go:ResolveClaims`).
 - **Sizes are bounded by the deadline, not by a limit.** Guest stdout, `http_fetch` response bodies and WebSocket frames are read fully into gateway memory (`core/pkg/serverless/execution/executor.go:ExecuteModule`, `core/pkg/serverless/hostfunctions/http.go:doFetch`).
 - **Telemetry grows without bound.** Nothing prunes `function_invocations` or `function_logs`, `LogRetention` is unread, and `input_size` and `memory_used_mb` are never set.
 - **Triggers need JSON, and wildcards are gateway-local.** A payload that is not valid JSON fails the event marshal and never fires, and one such event drops a whole aggregated batch (`core/pkg/serverless/triggers/dispatcher.go:dispatch`).
@@ -367,7 +366,7 @@ From [Serverless functions](../vol1/21-serverless.md#known-gaps).
 - **Socket writes are not serialized.** The handlers write replies with `conn.WriteMessage` while `WSManager.Send` writes under its own lock, so a `ws_send` can interleave with a reply (`core/pkg/serverless/websocket.go:Send`).
 - **Persistent instances leak guest allocations.** `callExport` and `WriteToGuest` never free, and persistent and reactor modules have only the runtime-wide 256 MB cap (`core/pkg/serverless/persistent/instance.go:callExport`).
 - **The 300 s timeout appears in the CLI and the proxy message.** The gateway refuses above 60 s (`core/cmd/orama/internal/functions/helpers.go:LoadConfig`, `core/pkg/gateway/middleware.go:proxyTimeoutMessage`).
-- **Deploy is not atomic, and pins outlive versions.** A gateway that dies between the version insert and the trigger hand-over leaves a version without its triggers or environment (`core/pkg/serverless/registry.go:Register`), and nothing unpins the CID of a pruned or deleted version.
+- **Deploy is not atomic, and pins outlive versions.** A gateway that dies between the version insert and the trigger hand-over leaves a version without its triggers or environment (`core/pkg/serverless/registry.go:Register`), and nothing unpins the CID of a pruned, deleted or purged version.
 
 ## 22. Push notifications
 

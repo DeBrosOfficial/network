@@ -47,6 +47,8 @@ const (
 	AuditSecretDeleted              = "secret.delete"
 	AuditFunctionDeployed           = "function.deploy"
 	AuditFunctionDeleted            = "function.delete"
+	AuditFunctionPurged             = "function.purge"
+	AuditFunctionRolledBack         = "function.rollback"
 	AuditDeploymentCreated          = "deployment.deploy"
 	AuditDeploymentDeleted          = "deployment.delete"
 	AuditOperatorAction             = "operator.action"
@@ -91,7 +93,8 @@ var AuditActions = []string{
 	AuditChallengeIssued, AuditVerifySucceeded, AuditRefreshed, AuditRefreshReplayed,
 	AuditLoggedOut, AuditKeyIssued, AuditKeyRevoked, AuditKeyRotated, AuditKeysRevokedBulk,
 	AuditNamespaceCreated, AuditNamespaceDeleted, AuditNamespaceRemovedByOperator, AuditSecretSet, AuditSecretDeleted,
-	AuditFunctionDeployed, AuditFunctionDeleted, AuditDeploymentCreated, AuditDeploymentDeleted,
+	AuditFunctionDeployed, AuditFunctionDeleted, AuditFunctionPurged, AuditFunctionRolledBack,
+	AuditDeploymentCreated, AuditDeploymentDeleted,
 	AuditOperatorAction, AuditLegacyCredential,
 	AuditGrantAdded, AuditGrantRevoked, AuditOwnerTransferred,
 	AuditNamespaceBackedUp, AuditNamespaceRestored,
