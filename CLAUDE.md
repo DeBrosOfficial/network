@@ -12,7 +12,7 @@ Hosting: **work happens on Gitea; the public sees GitHub.**
 
 Branches map to networks: `nightly` is devnet (what is on devnet, or about to be deployed there), `main` is testnet (merged to main = on testnet, or about to be).
 
-Working tree: work in the main checkout on its current branch (`nightly`). Use a separate git worktree or branch only when parallel agents would otherwise conflict on the same files, and merge it back as soon as it is done.
+Working tree: work in the main checkout on its current branch (`nightly`). Use a separate git worktree or branch only when parallel agents would otherwise conflict on the same files. When the work in it is done, merge it into the branch it belongs to (`nightly` or `main`) in the main checkout, push, and delete the worktree and its branch: no worktree outlives its work.
 
 Bugboard status follows the work, so the owner can see it:
 - `in_progress` the moment work on a task starts (including by a subagent).
