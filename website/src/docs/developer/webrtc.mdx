@@ -397,10 +397,25 @@ client sends.
 
 ### Identity
 
-The peer's identity in a room is the **subject of the token the gateway authenticated** (a wallet, or a
-deployed app's workload) and, when the session is bound to a device, the **device id** (the `did` claim).
-They are what `welcome`, `participant-joined`, `track-added` and the membership events name
-(`userId`, `deviceId`).
+The peer's identity in a room is **who the user is to the namespace**, read from the token the gateway
+authenticated, and, when the session is bound to a device, the **device id** (the `did` claim):
+
+- When the token carries the `account_id` custom claim, the identity is that account id. A namespace puts it
+  there with its `auth-claims-provider` function: the namespace gateway runs it when a wallet signs in, signs
+  the string claims it returns into the token, and keeps them on every refresh. The wallet that signed in is
+  then never sent to another participant.
+- Otherwise it is the token's subject: the wallet, or a deployed app's workload.
+
+The rule is applied per session, when the socket joins: a session whose token was minted before the claims
+provider named an account joins by its subject until it is refreshed. The claim cannot come from the client: it
+is inside the signed token, and the provider is the only thing that sets it.
+
+This one identity is what `welcome`, `participant-joined`, `track-added`, `participant-state` and the
+membership events name (`userId` / `user_id`, with `deviceId`), and what admissions, `webrtc_kick` and
+`webrtc_mute` are keyed on, so a function acts on the participant the clients see. A namespace that names
+accounts should name one for every session it lets into a call: a session the provider named no account for
+joins by its wallet, which the other participants then see, and which its functions must use to admit, kick or
+mute it.
 
 The `userId` in the client's `join` frame is **ignored** (and no longer required): a client cannot say who
 it is. A client that kept sending one sees the authenticated id come back instead.
@@ -448,7 +463,9 @@ admission is still good. A function admits with the `webrtc_admit` host function
 webrtc_admit(room, user, device, ttl_seconds) -> {"room","user_id","device_id","expires_at"}
 ```
 
-- `user` is the authenticated subject the user will join as (the `subject` of their session).
+- `user` is the identity the user will join as ([Identity](#identity)): their `account_id` when the
+  namespace's claims provider names one, otherwise the subject of their session. `webrtc_kick` and
+  `webrtc_mute` take the same identity.
 - `device` is empty to admit the user from any device, or a device id to admit that device only. A session
   bound to no device is matched only by an admission with no device.
 - `ttl_seconds` is 1 to 86400 (24 hours). Admitting again extends the admission and lifts a revocation, and

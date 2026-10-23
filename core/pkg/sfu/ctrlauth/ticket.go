@@ -75,7 +75,8 @@ func Key(turnSecret string) ([]byte, error) {
 type Ticket struct {
 	Namespace string `json:"ns"`
 	Room      string `json:"room"`
-	// UserID is the authenticated subject of the token the client presented.
+	// UserID is who the client is to the namespace: the account its claims
+	// provider signed into the token, else the token's authenticated subject.
 	UserID string `json:"uid"`
 	// DeviceID is the device the session is bound to ("" when bound to none).
 	DeviceID string `json:"did,omitempty"`

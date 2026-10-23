@@ -103,6 +103,24 @@ type JWTClaims struct {
 	Custom map[string]string `json:"custom,omitempty"`
 }
 
+// AccountIDClaim is the custom claim a namespace sets, through its
+// auth-claims-provider function, to name the account a session belongs to
+// (e.g. AnChat's users.user_id). The subject is the credential that signed in —
+// a wallet — and one account may sign in with several; the account is who the
+// user is to the namespace.
+const AccountIDClaim = "account_id"
+
+// AccountIdentity is who the caller is to the namespace: the account the
+// namespace named in the AccountIDClaim custom claim, or the subject when the
+// token carries no such claim. The claim is signed into the token at mint time
+// by the gateway, so a client cannot choose it.
+func (c *JWTClaims) AccountIdentity() string {
+	if account := c.Custom[AccountIDClaim]; account != "" {
+		return account
+	}
+	return c.Sub
+}
+
 // revocationSubjectKeys returns the names a token's subject may have been
 // revoked under.
 //

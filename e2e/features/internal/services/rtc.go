@@ -32,6 +32,8 @@ const (
 	MsgRefreshCreds   = "refresh-credentials"
 	MsgServerDraining = "server-draining"
 	MsgError          = "error"
+	// MsgParticipantJoined tells the room a peer joined, named as the welcome names it.
+	MsgParticipantJoined = "participant-joined"
 	// Participant state and moderation (website/src/docs/developer/webrtc.mdx#audio-and-video-state,
 	// #kick-and-mute).
 	MsgAudioState       = "audio-state"

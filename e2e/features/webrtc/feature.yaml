@@ -12,7 +12,10 @@
 # reaching the publisher, and stealth enable/disable or its rollback. Node
 # death, SFU draining, the role reconciler and signalling-socket failover are
 # webrtc-chaos. Admission (bugboard #726): a peer's identity is the user the
-# gateway authenticated, a namespace that requires admission admits only users
+# gateway authenticated, and the account the namespace's auth-claims-provider
+# signed into the token (account_id) when it names one: the room, admissions,
+# the kick and the membership events name the account and no peer is shown a
+# wallet (chg-945). A namespace that requires admission admits only users
 # its functions admitted (webrtc_admit) to that room, expired and revoked
 # admissions are refused with typed errors, joins and leaves are published on
 # _orama/webrtc/<room>, a kick closes the connection and blocks the rejoin, a
@@ -21,7 +24,7 @@
 id: webrtc
 title: WebRTC (SFU and TURN)
 area: webrtc
-subtasks: [2838, 726]
+subtasks: [2838, 726, 4074]
 stage: 6
 destructive: false
 requires:
@@ -54,6 +57,7 @@ covers:
     - "website/src/docs/operator/webrtc-operations.mdx#what-happens-on-enable: a 32-byte TURN secret; DNS for turn.ns-<ns> and turn-<ns> names the TURN nodes"
     - "website/src/docs/operator/stealth-turn.mdx#enabling-stealth-for-a-namespace: stealth adds turns:cdn-<hash>:443 or rolls back; disable keeps the baseline ladder; requires WebRTC"
     - "website/src/docs/developer/webrtc.mdx#identity: a peer is the user the gateway authenticated (and its device); the userId in the join frame is ignored"
+    - "website/src/docs/developer/webrtc.mdx#identity: when the namespace's claims provider signs an account_id into the token, the participant is that account in the welcome, participant-joined, the membership events, admissions and webrtc_kick, and no peer is shown the wallet"
     - "website/src/docs/developer/webrtc.mdx#admission: with require_admission on, only a user a function admitted to the room, from that device, whose admission has not expired or been revoked, joins; every other join is refused with WEBRTC_ADMISSION_REQUIRED, _EXPIRED or _REVOKED (an admission_* error frame without ?room=)"
     - "website/src/docs/developer/webrtc.mdx#membership-events: every join and leave is published on _orama/webrtc/<room> with the authenticated user, device and peer, and a leave says why"
     - "website/src/docs/developer/webrtc.mdx#kick-and-mute: webrtc_kick closes the user's connection and the revoked admission refuses the rejoin; webrtc_mute stops forwarding the user's audio on the SFU, through a rejoin, until unmuted"

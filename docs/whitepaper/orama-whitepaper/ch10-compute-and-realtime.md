@@ -64,7 +64,7 @@ WebRTC is opt-in per namespace. Enabling it generates a 32-byte TURN secret, all
 
 A room lives in exactly one SFU, which every gateway must find without coordination. The gateway ranks the namespace's SFU nodes by SHA-256 of namespace, room and node id (rendezvous hashing), probes each `GET /health?room=` with a 1.5 s timeout, and picks the first healthy node already hosting the room, else the top-ranked healthy one. Nothing is written, so no lease can go stale. With no healthy SFU the join fails, because a local fallback would split the call.
 
-The gateway authenticates the user, checks admission in the namespace database when the namespace requires it, and signs a 30 s ticket (HMAC under a key derived from the TURN secret) naming user, device, room, mute flag and admission end. It proxies the socket to the SFU's WireGuard address. The SFU takes identity only from the ticket, and kicks the peer when its admission ends.
+The gateway authenticates the user, checks admission in the namespace database when the namespace requires it, and signs a 30 s ticket (HMAC under a key derived from the TURN secret) naming user, device, room, mute flag and admission end. The user is the account the namespace's claims provider signed into the token (`account_id`), else the token subject, so peers never see a wallet the namespace named an account for. It proxies the socket to the SFU's WireGuard address. The SFU takes identity only from the ticket, and kicks the peer when its admission ends.
 
 ### Media and TURN
 

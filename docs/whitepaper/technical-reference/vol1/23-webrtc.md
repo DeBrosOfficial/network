@@ -31,7 +31,7 @@ Fourth, the namespace owns its policy. Who may join, who is removed and who is m
 
 **Room.** A set of peers in one SFU process, named by a room id of 1 to 128 printable ASCII characters, none of them a space (`core/pkg/sfu/roomid/roomid.go:Validate`). The gateway and the SFU apply the same function, so they cannot disagree about a name. A room has no row anywhere: it exists while a peer is in it, and for 60 s after the last one leaves.
 
-**Peer.** One client connection in a room. It carries an id (a UUID the SFU makes), the user id and device id the gateway authenticated, and a PeerConnection. A user connected from two devices is two peers.
+**Peer.** One client connection in a room. It carries an id (a UUID the SFU makes), the user id (the namespace's `account_id` claim, else the token subject) and device id the gateway authenticated, and a PeerConnection. A user connected from two devices is two peers.
 
 **Owner.** The one SFU that hosts a room. It is not stored. Every gateway computes it (see Room placement).
 
@@ -93,7 +93,7 @@ The client opens `wss://ns-<ns>.<base>/v1/webrtc/signal`. The cluster gateway pr
 
 1. **Per-identity limit.** `webrtcJoinAllowed` allows 60 sockets a minute with a burst of 20, keyed on the token subject (`core/pkg/gateway/webrtc_join_limit.go`). It keys on the subject, not the address, because the namespace gateway sees only the overlay address of the gateway that proxied the client; a token whose subject is an API-key exchange has no end-user subject and falls back to the client address, and internal traffic is not limited. Over the limit the answer is 429 with `Retry-After: 10`. A join costs the gateway a registry read and a health probe per SFU node, so a reconnect loop must not turn into SFU load.
 2. **Room name.** With `?room=<id>` the gateway validates it and decides at the upgrade; the socket is then piped through as raw TCP. Without it the gateway upgrades the socket itself, waits up to 5 s for the first frame, requires a text `join` frame of at most 4096 bytes naming a valid room, and later replays that frame to the SFU (`core/pkg/gateway/handlers/webrtc/signal_join.go`). Frames after the join are capped at 1 MiB on this path.
-3. **Authorize.** `authorizeJoin` reads the identity from the context the auth middleware set: the token subject and, when the session is bound to one, the `did` claim (`identity.go:callerOf`). It never reads a header or the join frame, which a client controls. It then checks admission (next section) and signs a ticket.
+3. **Authorize.** `authorizeJoin` reads the identity from the context the auth middleware set: who the user is to the namespace and, when the session is bound to one, the `did` claim (`identity.go:callerOf`). Who the user is comes from `auth.JWTClaims.AccountIdentity` (`core/pkg/gateway/auth/jwt.go`): the `account_id` custom claim when the token carries one, which the namespace's `auth-claims-provider` function returns at sign-in and the gateway signs into the token, otherwise the token subject (a wallet, or a workload). Push keys devices by the same rule. That identity is the ticket's user, so it is the `userId` every other peer sees and the key of admissions, kicks, mutes and membership events; a session the namespace named an account for never shows its wallet to the room. It never reads a header or the join frame, which a client controls. It then checks admission (next section) and signs a ticket.
 4. **Place.** `ownerOf` ranks and probes the SFUs (see Room placement).
 5. **Proxy.** The gateway sets `X-Orama-SFU-Ticket`, replacing whatever the client sent under that name, rewrites the path to `/ws/signal` and proxies to the owner's `<WireGuard IP>:<port>`.
 6. **SFU upgrade check.** A draining SFU answers 503 before it reads anything. Otherwise `openTicket` verifies the MAC, the expiry, that the ticket's namespace is this SFU's, and that the kick log does not refuse it (Kick and mute). The failures are 401, 401, 403 and 403.
@@ -475,6 +475,10 @@ At 10x the load: join cost is one registry read (cached 10 s) and one health pro
 ### Identity and policy come from a signed ticket
 
 **Chosen:** the gateway signs a 30 s ticket; the SFU trusts nothing from the client or from overlay membership. **Rejected:** a client-named user id (the original join frame). **Why:** the overlay carries every namespace's services and a client controls its frames. The ticket also carries the mute flag and the admission's end, so enforcement is the SFU's.
+
+### A participant is named by the namespace's account, not the wallet
+
+**Chosen:** the ticket's user is the token's `account_id` custom claim when the namespace's claims provider set one, else the subject. **Rejected:** always the subject; a per-namespace setting naming the claim. **Why:** the subject is the credential that signed in, and every peer in a room sees the user id, so naming peers by it shows each participant's wallet to everyone in the call and leaves the namespace's functions unable to admit, kick or mute by the id they know. `account_id` is the name push already keys devices on, so one claim means the account everywhere, and a fixed name needs no configuration to drift between gateways. The claim is read from the validated token, so the cost is nothing per join.
 
 ### A kick compares generations, not clocks
 
