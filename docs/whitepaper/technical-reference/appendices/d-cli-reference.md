@@ -3835,7 +3835,8 @@ root for all four roles, so the same wallet signs everything.
 
   init-root          make the repository's root (once); prints the digest networks pin
   renew-root         the next version of the root, same keys, a new expiry
-  cut                list an archive on a channel and sign it (3 approvals)
+  cut                list an archive on a channel and sign it (3 approvals);
+                     nightly and main need a passing, runner-signed fleet e2e report
   refresh-timestamp  re-sign only the timestamp (1 approval)
   publish            upload the archives to Gitea and the metadata to the release host
 
@@ -3851,7 +3852,7 @@ Subcommands: `cut`, `init-root`, `publish`, `refresh-timestamp`, `renew-root`
 List an archive on a channel and sign the metadata (3 approvals)
 
 ```text
-orama maint release cut --channel nightly|main|dev/<branch> --archive <path> [flags]
+orama maint release cut --channel nightly|main|dev/<branch> --archive <path> --fleet-report <dir> [flags]
 ```
 
 ```text
@@ -3868,6 +3869,13 @@ a release is immutable (--replace is for a dev/<branch> build that reuses a vers
 Only the newest --retention versions of the channel stay listed. The timestamp
 is valid 7 days for nightly and dev, 30 for main.
 
+A nightly or main release stands on a fleet e2e run of the archives' commit:
+--fleet-report is that run's artifact directory, and its report.json must be
+signed by a runner key compiled into this binary (core/pkg/releasepub/runner-keys.txt),
+name exactly that commit with a clean working tree, and have the verdict PASS
+(every feature green, the coverage gate held). A dev/<branch> build needs none,
+but one it names is checked the same way.
+
 --dry-run plans the release and stops: nothing is signed, written or uploaded,
 and the RootWallet is not contacted.
 ```
@@ -3879,6 +3887,7 @@ and the RootWallet is not contacted.
 | `--channel` | — | nightly, main or dev/&lt;branch> [required] |
 | `--dir` | — | The release repository working directory (default ~/.orama/release-repo) |
 | `--dry-run` | `false` | Plan the release; sign, write and upload nothing |
+| `--fleet-report` | — | The artifact directory of the passing, runner-signed fleet e2e run of the archives' commit [required for nightly and main] |
 | `--replace` | `false` | Let a listed path change its bytes (dev builds only) |
 | `--retention` | `3` | How many versions of the channel stay listed |
 

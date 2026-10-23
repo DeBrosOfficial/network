@@ -22,6 +22,25 @@ import (
 
 var testNow = time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
 
+// testRunner is the runner key the commands under test allow.
+var testRunner = func() ed25519.PrivateKey {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	return priv
+}()
+
+func testRunnerKeys() ([]ed25519.PublicKey, error) {
+	return []ed25519.PublicKey{testRunner.Public().(ed25519.PublicKey)}, nil
+}
+
+// fleetReport is a run of the test archives' commit with verdict, signed by testRunner.
+func fleetReport(t *testing.T, verdict string) string {
+	t.Helper()
+	return pubtest.FleetReportSignedBy(t, testRunner, pubtest.FullCommit, verdict)
+}
+
 // agent signs with a TEST key and counts approvals.
 type agent struct {
 	priv      ed25519.PrivateKey
@@ -53,7 +72,7 @@ func newAgent(t *testing.T) *agent {
 // and error.
 func exec(t *testing.T, a releasepub.Agent, run releasepub.Runner, args ...string) (string, error) {
 	t.Helper()
-	cmd := newCommand(deps{agent: func() releasepub.Agent { return a }, run: run, now: func() time.Time { return testNow }})
+	cmd := newCommand(deps{agent: func() releasepub.Agent { return a }, run: run, now: func() time.Time { return testNow }, runnerKeys: testRunnerKeys})
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -75,11 +94,12 @@ func TestRelease_theWholeFlowFromRootToPublish(t *testing.T) {
 	if err != nil || !strings.Contains(out, "root sha256: ") {
 		t.Fatalf("init-root: %v\n%s", err, out)
 	}
-	out, err = exec(t, a, nil, "cut", "--dir", dir, "--channel", "nightly", "--archive", archiveFile(t, "0.3.1", "amd64"), "--archive", archiveFile(t, "0.3.1", "arm64"))
+	out, err = exec(t, a, nil, "cut", "--dir", dir, "--channel", "nightly", "--archive", archiveFile(t, "0.3.1", "amd64"), "--archive", archiveFile(t, "0.3.1", "arm64"),
+		"--fleet-report", fleetReport(t, "PASS"))
 	if err != nil {
 		t.Fatalf("cut: %v\n%s", err, out)
 	}
-	for _, want := range []string{"Approval 1 of 3", "Approval 3 of 3", "list    nightly/orama-0.3.1-linux-arm64.tar.gz", "Gitea release release-nightly-0.3.1"} {
+	for _, want := range []string{"fleet e2e run " + pubtest.FleetRun + " passed", "Approval 1 of 3", "Approval 3 of 3", "list    nightly/orama-0.3.1-linux-arm64.tar.gz", "Gitea release release-nightly-0.3.1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("cut output lacks %q:\n%s", want, out)
 		}
@@ -103,7 +123,7 @@ func TestCut_dryRunNeverContactsTheWallet(t *testing.T) {
 		t.Fatal(err)
 	}
 	approved := a.approvals
-	cmd := newCommand(deps{agent: func() releasepub.Agent { t.Fatal("the dry run asked for the agent"); return nil }, now: func() time.Time { return testNow }})
+	cmd := newCommand(deps{agent: func() releasepub.Agent { t.Fatal("the dry run asked for the agent"); return nil }, now: func() time.Time { return testNow }, runnerKeys: testRunnerKeys})
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"cut", "--dir", dir, "--channel", "dev/Feat/X", "--archive", archiveFile(t, "0.3.1", "amd64"), "--dry-run"})
@@ -138,6 +158,28 @@ func TestCut_usageErrorsCarryTheUsageExitCode(t *testing.T) {
 	}
 }
 
+func TestCut_refusesANightlyReleaseWithoutAPassingFleetReport(t *testing.T) {
+	a := newAgent(t)
+	dir := filepath.Join(t.TempDir(), "repo")
+	if _, err := exec(t, a, nil, "init-root", "--dir", dir); err != nil {
+		t.Fatal(err)
+	}
+	approved := a.approvals
+	for name, extra := range map[string][]string{
+		"no report":    nil,
+		"a failed run": {"--fleet-report", fleetReport(t, "FAIL")},
+	} {
+		args := append([]string{"cut", "--dir", dir, "--channel", "nightly", "--archive", archiveFile(t, "0.3.1", "amd64")}, extra...)
+		out, err := exec(t, a, nil, args...)
+		if err == nil || !strings.Contains(err.Error(), "refusing to release "+pubtest.Commit+" on nightly") {
+			t.Errorf("%s: %v\n%s", name, err, out)
+		}
+	}
+	if a.approvals != approved {
+		t.Fatalf("a refused cut asked for %d approvals", a.approvals-approved)
+	}
+}
+
 func TestCut_aRepositoryWithNoRootSaysHowToMakeOne(t *testing.T) {
 	_, err := exec(t, newAgent(t), nil, "cut", "--dir", t.TempDir(), "--channel", "nightly", "--archive", archiveFile(t, "0.3.1", "amd64"))
 	if err == nil || !strings.Contains(err.Error(), "init-root") {
@@ -151,7 +193,7 @@ func TestPublish_runsTheCommandsThroughTheRunner(t *testing.T) {
 	if _, err := exec(t, a, nil, "init-root", "--dir", dir); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := exec(t, a, nil, "cut", "--dir", dir, "--channel", "main", "--archive", archiveFile(t, "0.3.0", "amd64")); err != nil {
+	if _, err := exec(t, a, nil, "cut", "--dir", dir, "--channel", "main", "--archive", archiveFile(t, "0.3.0", "amd64"), "--fleet-report", fleetReport(t, "PASS")); err != nil {
 		t.Fatal(err)
 	}
 	gitea := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

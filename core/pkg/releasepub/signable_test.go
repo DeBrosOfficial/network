@@ -53,7 +53,7 @@ func TestCheckSignable_refusals(t *testing.T) {
 func TestCheckSignable_everyRoleOfARealReleaseIsAFixedPoint(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err != nil {
 		t.Fatal(err)
 	}
 	if agent.approvals() != 4 {

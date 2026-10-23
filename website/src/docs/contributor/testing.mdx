@@ -137,6 +137,26 @@ make e2e-test-unit                                   # the harness's own unit te
 
 Destructive packages run alone at the end of their stage. A skipped test counts as **not covered**, a re-run only labels a failure deterministic or flaky and never turns it green, and the exit code is 0 for PASS, 1 for FAIL and 3 for INCOMPLETE. The report (`report.html`, `report.json`, JUnit, optional Bugboard drafts) lands in the run's artifact directory next to the collected journals and node state.
 
+### Signed reports, the push and the release gate
+
+Two more secrets are optional, and a value that is set but unusable refuses the run before any server is created:
+
+| Variable | Infisical folder | What it does |
+|---|---|---|
+| `E2E_RUNNER_SIGNING_KEY` | `/release` | The runner's Ed25519 private key, PKCS #8 PEM. Every report the run writes is signed: `report.attestation.json` beside `report.json` is a DSSE envelope over the run id, the commit (full SHA, `-dirty` when the tree had uncommitted changes), the verdict and the SHA-256 of `report.json`. Unset, the report is unsigned and no release can stand on it. |
+| `NTFY_URL` | `/notify` | The ntfy topic URL, `https://push.<base domain>/<topic>`. When the run is over, after teardown, the final verdict is pushed once: the title names the verdict, the body is the `summary.txt` line, a FAIL is high priority. The Orama ntfy has no auth file, so the topic name is the credential; the URL is sealed and redacted like the cloud tokens. A push ntfy does not accept fails the run (exit 1). Unset, nothing is pushed. |
+
+`e2e-fleet report` rewrites `report.json` from the artifacts and deletes the attestation: that report is not the one the runner signed.
+
+**The release gate.** `core/scripts/release.sh` refuses to tag, and `orama maint release cut` refuses to sign a nightly or main release, unless the commit has a report that is signed by a key listed in `core/pkg/releasepub/runner-keys.txt` (compiled into the CLI), names exactly that commit with a clean tree, and has the verdict PASS: every feature green, and the coverage gate held, so anything uncovered is waived. An edited `report.json` no longer matches its signed digest. There is no override flag; changing who may vouch for a release is a reviewed commit to `runner-keys.txt`. To create the runner key and list it:
+
+```bash
+openssl genpkey -algorithm ed25519 -out runner.pem       # store the file's contents as E2E_RUNNER_SIGNING_KEY in Infisical /release
+openssl pkey -in runner.pem -pubout -outform DER | tail -c 32 | base64   # the line for core/pkg/releasepub/runner-keys.txt
+```
+
+`release.sh` reads the run's artifact directory from `ORAMA_FLEET_REPORT`, or asks for it, and checks it with `go run ./tools/fleetgate -report <dir> -commit <sha>` from `core/`. A stable release tags the head of `main` after the merge, so a merge commit needs its own run.
+
 ### Chain chaos
 
 `chain-chaos` is a destructive package of stage 11 that breaks one validator of the chain at a time, restores it at cleanup, and ends each test on a chain that moves on every validator with the same blocks and app hash on all of them:

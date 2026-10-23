@@ -103,7 +103,7 @@ func TestCut_aFirstReleaseIsThreeApprovalsAndAClientAcceptsIt(t *testing.T) {
 	before := agent.approvals()
 	var progress bytes.Buffer
 	arm := archive(t, "0.3.1", "arm64", "arm64 bytes")
-	p := cutParams(repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "amd64 bytes"), arm)
+	p := cutParams(t, repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "amd64 bytes"), arm)
 	p.Progress = &progress
 
 	plan, err := Cut(t.Context(), p)
@@ -151,7 +151,7 @@ func TestCut_aFirstReleaseIsThreeApprovalsAndAClientAcceptsIt(t *testing.T) {
 func TestCut_everyRoleReEncodesToTheBytesTheAgentSigned(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, "main"), archive(t, "0.3.0", "amd64", "x"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, "main"), archive(t, "0.3.0", "amd64", "x"))); err != nil {
 		t.Fatal(err)
 	}
 	seen := map[string]bool{}
@@ -179,7 +179,7 @@ func TestCut_aSecondVersionRaisesEveryVersionAndRetentionDropsTheOldest(t *testi
 	repo := newRepo(t, agent)
 	ch := mustChannel(t, "nightly")
 	for i, v := range []string{"0.3.1", "0.3.2", "0.3.3"} {
-		p := cutParams(repo, agent, ch, archive(t, v, "amd64", "bytes "+v))
+		p := cutParams(t, repo, agent, ch, archive(t, v, "amd64", "bytes "+v))
 		p.Retention = 2
 		plan, err := Cut(t.Context(), p)
 		if err != nil {
@@ -206,7 +206,7 @@ func TestCut_channelsShareOneTargetsFileAndRetentionIsPerChannel(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
 	for _, c := range []struct{ channel, version string }{{"nightly", "0.3.1"}, {"main", "0.3.0"}, {"dev/my-branch", "0.3.2"}, {"nightly", "0.3.2"}} {
-		p := cutParams(repo, agent, mustChannel(t, c.channel), archive(t, c.version, "amd64", c.channel+c.version))
+		p := cutParams(t, repo, agent, mustChannel(t, c.channel), archive(t, c.version, "amd64", c.channel+c.version))
 		p.Retention = 1
 		if _, err := Cut(t.Context(), p); err != nil {
 			t.Fatalf("%s %s: %v", c.channel, c.version, err)
@@ -232,7 +232,7 @@ func TestCut_refusals(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
 	ch := mustChannel(t, "nightly")
-	if _, err := Cut(t.Context(), cutParams(repo, agent, ch, archive(t, "0.3.5", "amd64", "five"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, archive(t, "0.3.5", "amd64", "five"))); err != nil {
 		t.Fatal(err)
 	}
 	cases := map[string][]string{
@@ -247,7 +247,7 @@ func TestCut_refusals(t *testing.T) {
 	}
 	for name, archives := range cases {
 		before := agent.approvals()
-		if _, err := Cut(t.Context(), cutParams(repo, agent, ch, archives...)); err == nil {
+		if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, archives...)); err == nil {
 			t.Errorf("%s was released", name)
 		}
 		if agent.approvals() != before {
@@ -258,10 +258,10 @@ func TestCut_refusals(t *testing.T) {
 	if err := os.WriteFile(bad, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Cut(t.Context(), cutParams(repo, agent, ch, bad)); err == nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, bad)); err == nil {
 		t.Error("a file that is not named like a release archive was released")
 	}
-	if _, err := Cut(t.Context(), cutParams(repo, agent, ch, filepath.Join(t.TempDir(), "orama-0.3.6-linux-amd64.tar.gz"))); err == nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, filepath.Join(t.TempDir(), "orama-0.3.6-linux-amd64.tar.gz"))); err == nil {
 		t.Error("an archive that does not exist was released")
 	}
 }
@@ -270,12 +270,12 @@ func TestCut_replaceChangesTheBytesOfAListedPath(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
 	ch := mustChannel(t, "dev/my-branch")
-	if _, err := Cut(t.Context(), cutParams(repo, agent, ch, archive(t, "0.3.5", "amd64", "one"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, archive(t, "0.3.5", "amd64", "one"))); err != nil {
 		t.Fatal(err)
 	}
 	published(t, repo)
 	two := archive(t, "0.3.5", "amd64", "two")
-	p := cutParams(repo, agent, ch, two)
+	p := cutParams(t, repo, agent, ch, two)
 	p.Replace = true
 	plan, err := Cut(t.Context(), p)
 	if err != nil || len(plan.Replaced) != 1 {
@@ -293,7 +293,7 @@ func TestCut_replaceChangesTheBytesOfAListedPath(t *testing.T) {
 func TestCut_dryRunNeedsNoAgentAndWritesNothing(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	p := cutParams(repo, nil, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))
+	p := cutParams(t, repo, nil, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))
 	p.DryRun = true
 
 	plan, err := Cut(t.Context(), p)
@@ -313,7 +313,7 @@ func TestCut_dryRunNeedsNoAgentAndWritesNothing(t *testing.T) {
 func TestCut_aWalletThatIsNotTheRootsKeyIsRefusedBeforeAnyApproval(t *testing.T) {
 	repo := newRepo(t, newFakeAgent(t))
 	other := newFakeAgent(t)
-	if _, err := Cut(t.Context(), cutParams(repo, other, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err == nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, other, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err == nil {
 		t.Fatal("a release was signed by a key the root does not list")
 	}
 	if other.approvals() != 0 {
@@ -325,7 +325,7 @@ func TestCut_aDeniedApprovalWritesNothing(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
 	agent.refuseAt, agent.refuseErr = agent.approvals()+2, errors.New("denied")
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err == nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err == nil {
 		t.Fatal("a release was cut after a denied approval")
 	}
 	for _, name := range []string{TargetsFile, SnapshotFile, TimestampFile, PendingFile} {
@@ -338,7 +338,7 @@ func TestCut_aDeniedApprovalWritesNothing(t *testing.T) {
 func TestCut_anExpiredRootIsRefused(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	p := cutParams(repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))
+	p := cutParams(t, repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))
 	p.Now = testNow.Add(RootValidity + time.Hour)
 	if _, err := Cut(t.Context(), p); err == nil || !strings.Contains(err.Error(), "renew-root") {
 		t.Fatalf("err = %v, want the expired root named with the way out", err)
@@ -348,7 +348,7 @@ func TestCut_anExpiredRootIsRefused(t *testing.T) {
 func TestCut_metadataNeverOutlivesTheRoot(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	p := cutParams(repo, agent, mustChannel(t, "main"), archive(t, "0.3.0", "amd64", "x"))
+	p := cutParams(t, repo, agent, mustChannel(t, "main"), archive(t, "0.3.0", "amd64", "x"))
 	p.Now = testNow.Add(RootValidity - 48*time.Hour)
 	plan, err := Cut(t.Context(), p)
 	if err != nil {
@@ -363,7 +363,7 @@ func TestCut_metadataNeverOutlivesTheRoot(t *testing.T) {
 func TestRefreshTimestamp_isOneApprovalAndKeepsTheSnapshot(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err != nil {
 		t.Fatal(err)
 	}
 	snapshot := mustRead(t, filepath.Join(repo.Dir, SnapshotFile))
@@ -395,7 +395,7 @@ func TestRefreshTimestamp_isOneApprovalAndKeepsTheSnapshot(t *testing.T) {
 func TestRefreshTimestamp_mainGetsThirtyDaysAndAFrozenOneIsAFreeze(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, "main"), archive(t, "0.3.0", "amd64", "x"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, "main"), archive(t, "0.3.0", "amd64", "x"))); err != nil {
 		t.Fatal(err)
 	}
 	ts, _ := metadata.Timestamp().FromFile(filepath.Join(repo.Dir, TimestampFile))
@@ -413,7 +413,7 @@ func TestRefreshTimestamp_needsAReleaseAndTheRootsWallet(t *testing.T) {
 	if _, err := RefreshTimestamp(t.Context(), agent, repo, mustChannel(t, "nightly"), testNow, nil); err == nil {
 		t.Fatal("a timestamp was refreshed in a repository with no release")
 	}
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, "nightly"), archive(t, "0.3.1", "amd64", "x"))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := RefreshTimestamp(t.Context(), newFakeAgent(t), repo, mustChannel(t, "nightly"), testNow, nil); err == nil {
@@ -434,11 +434,11 @@ func TestCut_aSecondCutBeforeThePublishIsRefused(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
 	ch := mustChannel(t, "nightly")
-	if _, err := Cut(t.Context(), cutParams(repo, agent, ch, archive(t, "0.3.1", "amd64", "one"))); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, archive(t, "0.3.1", "amd64", "one"))); err != nil {
 		t.Fatal(err)
 	}
 	before := agent.approvals()
-	_, err := Cut(t.Context(), cutParams(repo, agent, ch, archive(t, "0.3.2", "amd64", "two")))
+	_, err := Cut(t.Context(), cutParams(t, repo, agent, ch, archive(t, "0.3.2", "amd64", "two")))
 	if err == nil || !strings.Contains(err.Error(), "never published") {
 		t.Fatalf("err = %v", err)
 	}
@@ -451,7 +451,7 @@ func TestCut_replaceIsForDevChannelsOnly(t *testing.T) {
 	agent := newFakeAgent(t)
 	repo := newRepo(t, agent)
 	for _, channel := range []string{"nightly", "main"} {
-		p := cutParams(repo, agent, mustChannel(t, channel), archive(t, "0.3.1", "amd64", "x"))
+		p := cutParams(t, repo, agent, mustChannel(t, channel), archive(t, "0.3.1", "amd64", "x"))
 		p.Replace = true
 		if _, err := Cut(t.Context(), p); err == nil || !strings.Contains(err.Error(), "dev/<branch>") {
 			t.Errorf("%s: err = %v", channel, err)

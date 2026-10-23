@@ -14,9 +14,6 @@ waivers:
   - id: cli:orama maint release
     reason: "Signing a release asks the owner's RootWallet for a human approval of every signature (the headless agent refuses wallet:sign:orama-release), and publish writes to the release host and the Gitea release; a fleet run has neither. cut --dry-run and the TUF metadata are unit-tested in core/pkg/releasepub and core/cmd/orama/internal/cmd/releasecmd."
     trigger: "Epic 3306 I1: the first signed nightly release published to releases.orama.network, after which a fleet test fetches and verifies it (autoupdate-agent nightly-channel test)"
-  - id: cli:orama maint release cut
-    reason: "Signing a release asks the owner's RootWallet for a human approval of every signature (the headless agent refuses wallet:sign:orama-release), and publish writes to the release host and the Gitea release; a fleet run has neither. cut --dry-run and the TUF metadata are unit-tested in core/pkg/releasepub and core/cmd/orama/internal/cmd/releasecmd."
-    trigger: "Epic 3306 I1: the first signed nightly release published to releases.orama.network, after which a fleet test fetches and verifies it (autoupdate-agent nightly-channel test)"
   - id: cli:orama maint release init-root
     reason: "Signing a release asks the owner's RootWallet for a human approval of every signature (the headless agent refuses wallet:sign:orama-release), and publish writes to the release host and the Gitea release; a fleet run has neither. cut --dry-run and the TUF metadata are unit-tested in core/pkg/releasepub and core/cmd/orama/internal/cmd/releasecmd."
     trigger: "Epic 3306 I1: the first signed nightly release published to releases.orama.network, after which a fleet test fetches and verifies it (autoupdate-agent nightly-channel test)"

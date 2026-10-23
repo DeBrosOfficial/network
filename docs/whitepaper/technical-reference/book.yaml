@@ -319,6 +319,8 @@ volumes:
               - core/pkg/releasesign/
               - core/pkg/releaseverify/
               - core/pkg/releasepub/
+              - core/pkg/fleetattest/
+              - core/tools/fleetgate/
               - core/pkg/releasefetch/
               - core/cmd/orama/internal/cmd/releasecmd/
               - core/pkg/version/

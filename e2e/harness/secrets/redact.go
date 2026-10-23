@@ -57,6 +57,7 @@ var SecretEnvNames = []string{
 	"BUGBOARD_MCP_TOKEN",
 	"NTFY_URL",
 	"RW_TEST_MNEMONIC",
+	"E2E_RUNNER_SIGNING_KEY",
 }
 
 // Redactor removes known secret values and recognised secret shapes from text.

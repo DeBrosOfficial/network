@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Orama-Network/orama/core/pkg/fleetattest"
 	"github.com/Orama-Network/orama/e2e/harness/config"
 	"github.com/Orama-Network/orama/e2e/harness/fleet"
 	"github.com/Orama-Network/orama/e2e/harness/provision"
@@ -241,6 +242,9 @@ func writeReport(lay layout, run reportRun, bugs bool) (int, error) {
 		return exitFail, err
 	}
 	if err := report.WriteAll(run.artifactDir, rep, bugs); err != nil {
+		return exitFail, err
+	}
+	if err := fleetattest.Remove(run.artifactDir); err != nil {
 		return exitFail, err
 	}
 	fmt.Println(rep.Notification)

@@ -32,6 +32,10 @@ type CutParams struct {
 	// AllowClusterOnly lets an amd64 archive without the global layer be
 	// released. A node cannot `orama global install` from it.
 	AllowClusterOnly bool
+	// Fleet is the fleet e2e report the release stands on. A nightly or main
+	// release requires one for the archives' commit; a dev/<branch> build is
+	// checked only when it names one.
+	Fleet FleetGate
 	// DryRun plans the release and stops: nothing is signed or written, and
 	// Agent may be nil.
 	DryRun   bool
@@ -45,6 +49,10 @@ type CutPlan struct {
 	Channel string
 	Version string
 	Tag     string
+	// Commit is the commit the archives were built from; FleetRun the fleet
+	// e2e run that passed on it ("" for a dev build released without one).
+	Commit   string
+	FleetRun string
 	// Added, Replaced and Dropped are target paths.
 	Added, Replaced, Dropped         []string
 	TargetsVersion, SnapshotVersion  int64
@@ -63,7 +71,7 @@ type CutPlan struct {
 // approvals), checks that a client would accept the result, and writes it to
 // the repository directory together with the record of what to upload.
 func Cut(ctx context.Context, p CutParams) (*CutPlan, error) {
-	plan, err := planCut(p)
+	plan, err := planCut(ctx, p)
 	if err != nil || p.DryRun {
 		return plan, err
 	}
@@ -85,7 +93,7 @@ func Cut(ctx context.Context, p CutParams) (*CutPlan, error) {
 }
 
 // planCut works out the release without signing anything.
-func planCut(p CutParams) (*CutPlan, error) {
+func planCut(ctx context.Context, p CutParams) (*CutPlan, error) {
 	rootBytes, root, err := p.Repo.ReadRoot()
 	if err != nil {
 		return nil, err
@@ -102,7 +110,11 @@ func planCut(p CutParams) (*CutPlan, error) {
 	if p.Replace && !strings.HasPrefix(p.Channel.Name, devPrefix) {
 		return nil, fmt.Errorf("--replace changes the bytes of a published archive and is for dev/<branch> channels only; %s is immutable", p.Channel.Name)
 	}
-	version, assets, entries, err := readArchives(p.Channel, p.Archives, p.AllowClusterOnly)
+	set, err := readArchives(p.Channel, p.Archives, p.AllowClusterOnly)
+	if err != nil {
+		return nil, err
+	}
+	fleetRun, err := checkFleet(ctx, p, set.commit)
 	if err != nil {
 		return nil, err
 	}
@@ -110,52 +122,78 @@ func planCut(p CutParams) (*CutPlan, error) {
 	if err != nil {
 		return nil, err
 	}
-	plan := &CutPlan{Channel: p.Channel.Name, Version: version, Tag: p.Channel.Tag(version), assets: assets, root: root, rootBytes: rootBytes}
-	if err := plan.buildTargets(p, old, entries); err != nil {
+	plan := &CutPlan{Channel: p.Channel.Name, Version: set.version, Tag: p.Channel.Tag(set.version), Commit: set.commit, FleetRun: fleetRun, assets: set.assets, root: root, rootBytes: rootBytes}
+	if err := plan.buildTargets(p, old, set.entries); err != nil {
 		return nil, err
 	}
 	return plan, plan.buildSnapshotAndTimestamp(p)
 }
 
+// archiveSet is the archives of one release: one version, one commit, one
+// archive per architecture.
+type archiveSet struct {
+	version, commit string
+	assets          []Asset
+	entries         map[string]*metadata.TargetFiles
+}
+
 // readArchives checks the archive files' names against the channel and each
-// other and describes them as targets. They are one version, one per
-// architecture.
-func readArchives(channel Channel, paths []string, clusterOnly bool) (version string, assets []Asset, entries map[string]*metadata.TargetFiles, err error) {
+// other and describes them as targets. They are one version built from one
+// commit, one per architecture.
+func readArchives(channel Channel, paths []string, clusterOnly bool) (archiveSet, error) {
+	set := archiveSet{entries: map[string]*metadata.TargetFiles{}}
 	if len(paths) == 0 {
-		return "", nil, nil, fmt.Errorf("no archive to release: pass --archive orama-<version>-linux-<arch>.tar.gz")
+		return set, fmt.Errorf("no archive to release: pass --archive orama-<version>-linux-<arch>.tar.gz")
 	}
-	entries = map[string]*metadata.TargetFiles{}
 	for _, path := range paths {
 		ref, err := releaseverify.ParseArchiveTarget(channel.Name + "/" + filepath.Base(path))
 		if err != nil {
-			return "", nil, nil, err
+			return set, err
 		}
-		if version != "" && ref.Version != version {
-			return "", nil, nil, fmt.Errorf("archives of versions %s and %s in one release; cut one version at a time", version, ref.Version)
+		if set.version != "" && ref.Version != set.version {
+			return set, fmt.Errorf("archives of versions %s and %s in one release; cut one version at a time", set.version, ref.Version)
 		}
-		version = ref.Version
+		set.version = ref.Version
 		if err := checkReleasable(ref); err != nil {
-			return "", nil, nil, err
+			return set, err
 		}
-		if err := checkArchive(path, ref, clusterOnly); err != nil {
-			return "", nil, nil, err
+		commit, err := checkArchive(path, ref, clusterOnly)
+		if err != nil {
+			return set, err
 		}
+		if set.commit != "" && commit != set.commit {
+			return set, fmt.Errorf("archives built from commits %s and %s in one release; build every architecture from one commit", set.commit, commit)
+		}
+		set.commit = commit
 		target := releaseverify.ArchiveTarget(channel.Name, ref.Version, ref.Arch)
-		if entries[target] != nil {
-			return "", nil, nil, fmt.Errorf("two archives for linux/%s", ref.Arch)
+		if set.entries[target] != nil {
+			return set, fmt.Errorf("two archives for linux/%s", ref.Arch)
 		}
 		info, err := describe(path, ref)
 		if err != nil {
-			return "", nil, nil, err
+			return set, err
 		}
-		entries[target] = info
+		set.entries[target] = info
 		abs, err := filepath.Abs(path)
 		if err != nil {
-			return "", nil, nil, fmt.Errorf("resolve %s: %w", path, err)
+			return set, fmt.Errorf("resolve %s: %w", path, err)
 		}
-		assets = append(assets, Asset{Name: filepath.Base(path), Path: abs, Target: target, SHA256: fmt.Sprintf("%x", info.Hashes["sha256"])})
+		set.assets = append(set.assets, Asset{Name: filepath.Base(path), Path: abs, Target: target, SHA256: fmt.Sprintf("%x", info.Hashes["sha256"])})
 	}
-	return version, assets, entries, nil
+	return set, nil
+}
+
+// checkFleet holds the release to its fleet e2e report and returns the run
+// that vouches for it. A dev/<branch> build without a report has none.
+func checkFleet(ctx context.Context, p CutParams, commit string) (string, error) {
+	if strings.HasPrefix(p.Channel.Name, devPrefix) && p.Fleet.ReportDir == "" {
+		return "", nil
+	}
+	s, err := p.Fleet.Check(ctx, commit)
+	if err != nil {
+		return "", fmt.Errorf("refusing to release %s on %s: %w", commit, p.Channel.Name, err)
+	}
+	return s.RunID, nil
 }
 
 // checkReleasable refuses a version clients cannot order, or whose name the

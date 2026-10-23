@@ -1,0 +1,7 @@
+# Runner keys whose signed fleet e2e report a release of nightly or main accepts.
+# One Ed25519 public key per line, the standard base64 of its 32 raw bytes.
+# The private key is E2E_RUNNER_SIGNING_KEY of the machine that runs
+# `make e2e-fleet` (Infisical project orama-e2e, folder /release).
+# Print a key's line with:
+#   openssl pkey -in runner.pem -pubout -outform DER | tail -c 32 | base64
+# See website/src/docs/contributor/testing.mdx, "Signed reports, the push and the release gate".

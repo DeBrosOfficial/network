@@ -27,7 +27,7 @@ func TestCut_refusesAnArchiveANodeCouldNotInstallFromARelease(t *testing.T) {
 	}
 	for name, c := range cases {
 		before := agent.approvals()
-		_, err := Cut(t.Context(), cutParams(repo, agent, ch, c.path))
+		_, err := Cut(t.Context(), cutParams(t, repo, agent, ch, c.path))
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: err = %v, want one containing %q", name, err, c.want)
 		}
@@ -42,11 +42,11 @@ func TestCut_clusterOnlyArchivesAreReleasableOnRequestAndArm64NeedsNoGlobalLayer
 	repo := newRepo(t, agent)
 	ch := mustChannel(t, "nightly")
 	arm := pubtest.ArchiveWith(t, "0.3.1", "arm64", "a", pubtest.Options{ClusterOnly: true})
-	if _, err := Cut(t.Context(), cutParams(repo, agent, ch, arm)); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, ch, arm)); err != nil {
 		t.Fatalf("an arm64 archive: %v", err)
 	}
 	published(t, repo)
-	p := cutParams(repo, agent, ch, pubtest.ArchiveWith(t, "0.3.2", "amd64", "b", pubtest.Options{ClusterOnly: true}))
+	p := cutParams(t, repo, agent, ch, pubtest.ArchiveWith(t, "0.3.2", "amd64", "b", pubtest.Options{ClusterOnly: true}))
 	p.AllowClusterOnly = true
 	if _, err := Cut(t.Context(), p); err != nil {
 		t.Fatalf("a cluster-only archive asked for: %v", err)
@@ -62,13 +62,13 @@ func TestCheckArchive_notAnArchive(t *testing.T) {
 	if err := os.WriteFile(plain, []byte("not gzip"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkArchive(plain, ref, false); err == nil {
+	if _, err := checkArchive(plain, ref, false); err == nil {
 		t.Error("a file that is not gzip passed")
 	}
-	if err := checkArchive(filepath.Join(t.TempDir(), "missing.tar.gz"), ref, false); err == nil {
+	if _, err := checkArchive(filepath.Join(t.TempDir(), "missing.tar.gz"), ref, false); err == nil {
 		t.Error("a missing file passed")
 	}
-	if err := checkArchive(pubtest.Archive(t, "0.3.1", "amd64", "x"), ref, false); err != nil {
-		t.Errorf("a good archive: %v", err)
+	if commit, err := checkArchive(pubtest.Archive(t, "0.3.1", "amd64", "x"), ref, false); err != nil || commit != pubtest.Commit {
+		t.Errorf("a good archive: commit %q, %v", commit, err)
 	}
 }

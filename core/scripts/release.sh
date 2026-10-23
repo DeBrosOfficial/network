@@ -127,6 +127,23 @@ confirm_release() {
     fi
 }
 
+# The release gate: the commit about to be tagged must have a fleet e2e run that
+# passed, signed by an allowed runner key (core/tools/fleetgate). The run's
+# artifact directory comes from ORAMA_FLEET_REPORT, or is asked for.
+check_fleet_report() {
+    local commit=$1
+    local report="${ORAMA_FLEET_REPORT:-}"
+
+    if [[ -z "$report" ]]; then
+        read -p "Artifact directory of the passing fleet e2e run of $commit: " report
+    fi
+    log "Checking the fleet e2e report for $commit..."
+    if ! (cd "$(dirname "$0")/.." && go run ./tools/fleetgate -report "$report" -commit "$commit"); then
+        error "No passing, runner-signed fleet e2e report for $commit. Run make e2e-fleet on this commit first."
+        exit 1
+    fi
+}
+
 handle_stable_release() {
     local version=$1
     
@@ -158,7 +175,9 @@ handle_stable_release() {
     log "Switching to main and pulling latest..."
     git checkout main
     git pull origin main
-    
+
+    check_fleet_report "$(git rev-parse HEAD)"
+
     # Create tag
     log "Creating tag v$version on main..."
     git tag -a "v$version" -m "Release v$version"
@@ -182,7 +201,9 @@ handle_nightly_release() {
     fi
     
     log "Current branch: nightly"
-    
+
+    check_fleet_report "$(git rev-parse HEAD)"
+
     # Create tag
     log "Creating tag v$version-nightly on nightly..."
     git tag -a "v$version-nightly" -m "Nightly Release v$version"

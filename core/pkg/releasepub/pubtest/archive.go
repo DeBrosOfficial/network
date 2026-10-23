@@ -14,6 +14,10 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
+// Commit is the short commit a test archive's manifest names unless
+// Options.Commit replaces it.
+const Commit = "abc1234"
+
 // Options say what an archive carries beyond a plain release's.
 type Options struct {
 	// Signed adds a manifest.sig. Signers and ReleaseRoot put a signer list and
@@ -26,6 +30,8 @@ type Options struct {
 	ClusterOnly bool
 	// ManifestVersion and ManifestArch, when set, replace what the file name says.
 	ManifestVersion, ManifestArch string
+	// Commit, when set, replaces Commit in the manifest.
+	Commit string
 }
 
 // Archive writes orama-<version>-linux-<arch>.tar.gz in a new directory, its
@@ -38,12 +44,15 @@ func Archive(t testing.TB, version, arch, content string) string {
 // ArchiveWith is Archive with options.
 func ArchiveWith(t testing.TB, version, arch, content string, o Options) string {
 	t.Helper()
-	manifest := archivetrust.Manifest{Version: version, Commit: "abc1234", Date: "2026-10-10T00:00:00Z", Arch: arch, Checksums: map[string]string{"orama": "00"}, Signers: o.Signers, ReleaseRoot: o.ReleaseRoot}
+	manifest := archivetrust.Manifest{Version: version, Commit: Commit, Date: "2026-10-10T00:00:00Z", Arch: arch, Checksums: map[string]string{"orama": "00"}, Signers: o.Signers, ReleaseRoot: o.ReleaseRoot}
 	if o.ManifestVersion != "" {
 		manifest.Version = o.ManifestVersion
 	}
 	if o.ManifestArch != "" {
 		manifest.Arch = o.ManifestArch
+	}
+	if o.Commit != "" {
+		manifest.Commit = o.Commit
 	}
 	if arch == "amd64" && !o.ClusterOnly {
 		for _, name := range []string{constants.ChainDaemonName, constants.ChainVerifierBinary, constants.ChainVerifierSHA256File, "orama-global", constants.CosmovisorTarball(arch)} {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Orama-Network/orama/core/pkg/fleetattest"
 	"github.com/Orama-Network/orama/e2e/harness/artifacts"
 	"github.com/Orama-Network/orama/e2e/harness/coverage"
 	"github.com/Orama-Network/orama/e2e/harness/evidence"
@@ -23,7 +24,8 @@ import (
 
 // Verdicts.
 const (
-	VerdictPass = "PASS"
+	// VerdictPass is the verdict a release gate accepts (pkg/fleetattest).
+	VerdictPass = fleetattest.VerdictPass
 	// VerdictIncomplete is nothing failed but something was not covered: a
 	// skipped test, a feature that never ran, a coverage gap.
 	VerdictIncomplete = "INCOMPLETE"

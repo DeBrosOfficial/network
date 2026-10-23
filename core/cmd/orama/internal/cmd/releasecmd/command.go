@@ -6,6 +6,7 @@
 package releasecmd
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"io"
 	"os"
@@ -29,13 +30,16 @@ type deps struct {
 	agent func() releasepub.Agent
 	run   releasepub.Runner
 	now   func() time.Time
+	// runnerKeys are the runner keys whose fleet report a release accepts.
+	runnerKeys func() ([]ed25519.PublicKey, error)
 }
 
 // NewCommand is the `release` command group, to be mounted under `orama maint`.
 func NewCommand() *cobra.Command {
 	return newCommand(deps{
-		agent: func() releasepub.Agent { return rwagent.New(os.Getenv("RW_AGENT_SOCK")) },
-		now:   time.Now,
+		agent:      func() releasepub.Agent { return rwagent.New(os.Getenv("RW_AGENT_SOCK")) },
+		now:        time.Now,
+		runnerKeys: releasepub.RunnerKeys,
 	})
 }
 
@@ -52,7 +56,8 @@ root for all four roles, so the same wallet signs everything.
 
   init-root          make the repository's root (once); prints the digest networks pin
   renew-root         the next version of the root, same keys, a new expiry
-  cut                list an archive on a channel and sign it (3 approvals)
+  cut                list an archive on a channel and sign it (3 approvals);
+                     nightly and main need a passing, runner-signed fleet e2e report
   refresh-timestamp  re-sign only the timestamp (1 approval)
   publish            upload the archives to Gitea and the metadata to the release host
 

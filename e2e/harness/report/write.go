@@ -6,11 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Orama-Network/orama/core/pkg/fleetattest"
 )
 
 // Output file names, in the run's artifact dir.
 const (
-	FileJSON    = "report.json"
+	FileJSON    = fleetattest.ReportFile
 	FileJUnit   = "report.junit.xml"
 	FileHTML    = "report.html"
 	FileSummary = "summary.txt"

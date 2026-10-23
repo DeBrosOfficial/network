@@ -833,6 +833,18 @@ host running the suite slept for 30s or more fails with "the host running the
 suite was asleep for ..." instead of being taken as a verdict on the fleet).
 Exit codes 0, 3, 1 (2 for usage).
 
+**Signed reports and the push.** With `E2E_RUNNER_SIGNING_KEY` (the runner's
+Ed25519 private key, PKCS #8 PEM, Infisical `/release`) `run` signs every
+report it writes: `report.attestation.json` is a DSSE envelope over the run
+id, the commit (`-dirty` for an unclean tree), the verdict and the SHA-256 of
+`report.json` (`core/pkg/fleetattest`). `report` rewrites `report.json` and
+deletes the attestation. `orama maint release cut` (nightly, main) and
+`core/scripts/release.sh` accept a commit only with a PASS report signed by a
+key in `core/pkg/releasepub/runner-keys.txt`. With `NTFY_URL` (the ntfy topic
+URL on `push.<base domain>`, Infisical `/notify`) `run` pushes the final
+verdict once, after teardown (`harness/notify`); a refused push fails the run.
+Either variable set but unusable refuses the run at preflight.
+
 **The runner's host must stay awake.** A sleeping laptop freezes the tests
 while the fleet keeps running: connections drop, deadlines and timings span
 the sleep, and the run fills with failures the fleet never had. On macOS
@@ -921,7 +933,8 @@ stale waivers).
 ## Secrets and safety
 
 - Secrets come only from `infisical run` (project `orama-e2e`, env `e2e`):
-  `HCLOUD_TOKEN`, `CF_API_TOKEN`, `CF_ZONE`. Missing ones are named, never
+  `HCLOUD_TOKEN`, `CF_API_TOKEN`, `CF_ZONE`, and optionally
+  `E2E_RUNNER_SIGNING_KEY` and `NTFY_URL`. Missing ones are named, never
   printed. Neither the CLI under test nor any feature process sees them.
   **`HCLOUD_TOKEN` must belong to a Hetzner project used only by e2e runs**:
   teardown and sweep delete by label, and every delete is checked against the
