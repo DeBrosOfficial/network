@@ -169,21 +169,45 @@ left out keeps its value.
                       what their grant says. A function's socket that bridges
                       topics to its users is not affected.
 
+  --per-ip-limits     on | off (the default): ceilings on what one client
+                      network (an IP address, an IPv6 /64) does, whatever
+                      wallets it presents. For a namespace with open sign-in,
+                      where a wallet costs nothing. Off by default because many
+                      people can share one address (an office, carrier NAT).
+  --new-wallets-per-ip-hour
+                      when on, how many wallets that never signed in to the
+                      namespace one network may sign in per hour, as end users
+                      (default 20). Past it: 429 SIGN_IN_RATE_LIMITED.
+  --invokes-per-ip-minute
+                      when on, how many authenticated function invokes one
+                      network may make per minute on each gateway (default
+                      1200). Past it: 429 RATE_LIMITED scope=per_ip_authenticated.
+
 Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
-  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'`,
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+  orama namespace session-policy --namespace myapp --per-ip-limits on --new-wallets-per-ip-hour 10`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ns, _ := cmd.Flags().GetString("namespace")
-		signIn, _ := cmd.Flags().GetString("sign-in")
-		device, _ := cmd.Flags().GetString("device-policy")
-		var topics *[]string
+		var change cli.SessionPolicyChange
+		change.SignIn, _ = cmd.Flags().GetString("sign-in")
+		change.DevicePolicy, _ = cmd.Flags().GetString("device-policy")
+		change.PerIPLimits, _ = cmd.Flags().GetString("per-ip-limits")
 		if cmd.Flags().Changed("end-user-topics") {
 			list, _ := cmd.Flags().GetStringSlice("end-user-topics")
-			topics = &list
+			change.EndUserTopics = &list
 		}
-		return cli.NamespaceSessionPolicy(printer.For(cmd), ns, signIn, device, topics)
+		if cmd.Flags().Changed("new-wallets-per-ip-hour") {
+			n, _ := cmd.Flags().GetInt("new-wallets-per-ip-hour")
+			change.NewWalletsPerIPHour = &n
+		}
+		if cmd.Flags().Changed("invokes-per-ip-minute") {
+			n, _ := cmd.Flags().GetInt("invokes-per-ip-minute")
+			change.InvokesPerIPMinute = &n
+		}
+		return cli.NamespaceSessionPolicy(printer.For(cmd), ns, change)
 	},
 }
 
@@ -242,6 +266,9 @@ func init() {
 	sessionPolicyCmd.Flags().String("sign-in", "", "Who may sign in: members | open")
 	sessionPolicyCmd.Flags().String("device-policy", "", "What an end user's sign-in must bind: optional | required | approval")
 	sessionPolicyCmd.Flags().StringSlice("end-user-topics", nil, "Pub/sub topic patterns end users may read, comma-separated; '' clears the list")
+	sessionPolicyCmd.Flags().String("per-ip-limits", "", "Per-client-network ceilings: on | off")
+	sessionPolicyCmd.Flags().Int("new-wallets-per-ip-hour", 0, "When per-IP limits are on: new wallets one network may sign in per hour")
+	sessionPolicyCmd.Flags().Int("invokes-per-ip-minute", 0, "When per-IP limits are on: authenticated invokes one network may make per minute per gateway")
 
 	// The grant list comes from the gateway rather than a hand-written string,
 	// which is how the help came to advertise grants the validator refused.

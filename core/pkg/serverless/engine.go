@@ -307,8 +307,11 @@ func (e *Engine) Execute(ctx context.Context, fn *Function, input []byte, invCtx
 			}
 			d, err := tl.AllowRequest(ctx, req)
 			if err != nil {
-				e.logger.Warn("Rate limiter error", zap.Error(err))
-			} else if !d.Allowed {
+				// A limiter that cannot judge the call does not let it past
+				// a ceiling the namespace may have set.
+				return nil, err
+			}
+			if !d.Allowed {
 				return nil, &RateLimitedError{Scope: d.Scope, RetryAfter: d.RetryAfter}
 			}
 		} else {

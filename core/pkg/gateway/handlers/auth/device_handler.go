@@ -208,7 +208,7 @@ func (h *Handlers) DeviceTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// of the account's active devices as the login is collected.
 	var deviceID, namespace string
 	claimed, err := h.authService.ClaimDeviceAuthorization(ctx, req.DeviceCode,
-		h.claimCheck(ctx, req.DeviceCode, req.DeviceProof, &deviceID, &namespace))
+		h.claimCheck(ctx, signInClient(r), req.DeviceCode, req.DeviceProof, &deviceID, &namespace))
 	if err != nil {
 		if isSignInRefusal(err) {
 			writeCredentialError(w, namespace, err)
@@ -324,5 +324,7 @@ var deviceErrorDescriptions = map[string]string{
 // session, as opposed to a failure to decide.
 func isSignInRefusal(err error) bool {
 	var owned *authsvc.ErrNamespaceOwnedByAnother
-	return errors.As(err, &owned) || errors.Is(err, authsvc.ErrNamespaceUnowned)
+	var exceeded *authsvc.ErrNewWalletsPerIPExceeded
+	return errors.As(err, &owned) || errors.Is(err, authsvc.ErrNamespaceUnowned) ||
+		errors.As(err, &exceeded) || errors.Is(err, authsvc.ErrNewWalletCountUnavailable)
 }

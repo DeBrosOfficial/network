@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -60,4 +61,27 @@ func parseTimestamp(cell any) (at time.Time, present, readable bool) {
 		}
 	}
 	return time.Time{}, true, false
+}
+
+// parseIntCell reads an INTEGER column: an int64 from go-sqlite3, a JSON
+// number from rqlite, or its text. A value that is none of them is an error,
+// not a zero.
+func parseIntCell(cell any) (int, error) {
+	switch value := cell.(type) {
+	case int64:
+		return int(value), nil
+	case int:
+		return value, nil
+	case float64:
+		if value != float64(int(value)) {
+			return 0, fmt.Errorf("%v is not an integer", value)
+		}
+		return int(value), nil
+	}
+	text := strings.TrimSpace(getStringVal(cell))
+	n, err := strconv.Atoi(text)
+	if err != nil {
+		return 0, fmt.Errorf("%q is not an integer", text)
+	}
+	return n, nil
 }

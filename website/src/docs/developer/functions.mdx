@@ -1047,6 +1047,7 @@ the message and a `Retry-After` header:
 | `per_key` | namespace, API key, address (callers with a key and no wallet) | 600 a minute (10 a second) | 60 |
 | `per_wallet` | namespace, wallet | 600 a minute (10 a second) | 60 |
 | `per_ip` | namespace, address (callers with no credential) | 120 a minute (2 a second) | 30 |
+| `per_ip_authenticated` | namespace, client network (callers with a wallet or a key) | the namespace's `invokes_per_ip_minute` (default 1,200), only when it turned per-IP limits on | a tenth of that |
 | `per_namespace` | namespace | 250,000 a minute (about 4,166 a second) | 6,000 |
 
 The caller is a signed-in wallet; for a call with an API key (or a key's or
@@ -1056,6 +1057,16 @@ users therefore gives each user, by address, a budget of their own, and one
 leaked or busy key does not spend another key's. The address is the real
 client address the gateway resolves from its own proxy chain, never a header
 the caller wrote.
+
+`per_ip_authenticated` is for a namespace with open sign-in, where one host can
+hold any number of wallets and would otherwise get `per_wallet` once for each.
+It is off until the namespace turns it on (`orama namespace session-policy
+--per-ip-limits on`, [Per-IP limits](/docs/developer/sign-in#per-ip-limits)),
+and then holds every signed-in caller, members included, to one budget per
+network (an IPv4 address or an IPv6 /64) after its own per-wallet or per-key
+bucket. A change reaches every gateway within 5 seconds. If a gateway cannot
+read the setting the invoke is refused `503 SERVICE_UNAVAILABLE`, retryable,
+rather than run past it.
 
 A `rate_limit` rule allows `requests` calls per `window`: the first `requests`
 pass at once, then one more every `window / requests`. Two signups an hour per

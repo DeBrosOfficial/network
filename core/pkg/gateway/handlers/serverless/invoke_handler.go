@@ -29,6 +29,8 @@ func classifyInvokeError(err error) (int, httputil.RPCErrorCode, bool) {
 	switch {
 	case errors.Is(err, serverless.ErrWASMFetchTimeout):
 		return http.StatusServiceUnavailable, httputil.ErrCodeFunctionUnavailable, true
+	case errors.Is(err, serverless.ErrInvokeLimitsUnavailable):
+		return http.StatusServiceUnavailable, httputil.ErrCodeServiceUnavailable, true
 	case serverless.IsTimeout(err):
 		return http.StatusGatewayTimeout, httputil.ErrCodeFunctionTimeout, false
 	case errors.Is(err, serverless.ErrVersionSuperseded):

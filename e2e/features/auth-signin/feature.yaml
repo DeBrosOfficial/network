@@ -55,5 +55,7 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: an open sign-in writes no grant or claim: the end user is refused the namespace's keys, publishing, /v1/rqlite and the function control plane"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: closing sign-in refuses a grantless wallet's refresh (SIGN_IN_CLOSED) and any new sign-in"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: orama namespace session-policy shows and sets the policy, a field left out keeps its value"
+    - "website/src/docs/developer/sign-in.mdx#per-ip-limits: with sign-in open and per_ip_limits on, a network past new_wallets_per_ip_hour is refused 429 SIGN_IN_RATE_LIMITED with Retry-After, and a wallet it already signed in is not"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#per-ip-limits: orama namespace session-policy shows the per-IP limits off with defaults 20 and 1200, --per-ip-limits on|off keeps the ceilings, and a ceiling out of range is refused"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#namespace-management: namespace names are validated and the platform's names are reserved"
     - "docs/whitepaper/technical-reference/vol1/06-the-wireguard-mesh.md: removed auth endpoints (simple-key, register, phantom) are gone"

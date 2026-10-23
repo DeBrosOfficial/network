@@ -210,6 +210,10 @@ func TestOwnershipIsCheckedBeforeAnythingIsIssued(t *testing.T) {
 		"GetOrCreateAPIKey":         true,
 	}
 
+	// The calls that are the check: AdmitSignIn is RequireSignInAllowed plus
+	// the namespace's new-wallet ceiling.
+	signInGates := map[string]bool{"RequireSignInAllowed": true, "AdmitSignIn": true}
+
 	checked := map[string]bool{}
 
 	for path, file := range files {
@@ -235,7 +239,7 @@ func TestOwnershipIsCheckedBeforeAnythingIsIssued(t *testing.T) {
 				if !ok {
 					return true
 				}
-				if sel.Sel.Name == "RequireSignInAllowed" && gate == token.NoPos {
+				if signInGates[sel.Sel.Name] && gate == token.NoPos {
 					gate = call.Pos()
 				}
 				if costly[sel.Sel.Name] && firstCostly == token.NoPos {

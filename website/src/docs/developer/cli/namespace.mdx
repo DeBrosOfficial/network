@@ -548,17 +548,35 @@ left out keeps its value.
                       what their grant says. A function's socket that bridges
                       topics to its users is not affected.
 
+  --per-ip-limits     on | off (the default): ceilings on what one client
+                      network (an IP address, an IPv6 /64) does, whatever
+                      wallets it presents. For a namespace with open sign-in,
+                      where a wallet costs nothing. Off by default because many
+                      people can share one address (an office, carrier NAT).
+  --new-wallets-per-ip-hour
+                      when on, how many wallets that never signed in to the
+                      namespace one network may sign in per hour, as end users
+                      (default 20). Past it: 429 SIGN_IN_RATE_LIMITED.
+  --invokes-per-ip-minute
+                      when on, how many authenticated function invokes one
+                      network may make per minute on each gateway (default
+                      1200). Past it: 429 RATE_LIMITED scope=per_ip_authenticated.
+
 Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
   orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+  orama namespace session-policy --namespace myapp --per-ip-limits on --new-wallets-per-ip-hour 10
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--device-policy` | — | What an end user's sign-in must bind: optional \| required \| approval |
 | `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
+| `--invokes-per-ip-minute` | `0` | When per-IP limits are on: authenticated invokes one network may make per minute per gateway |
 | `--namespace` | — | Namespace name |
+| `--new-wallets-per-ip-hour` | `0` | When per-IP limits are on: new wallets one network may sign in per hour |
+| `--per-ip-limits` | — | Per-client-network ceilings: on \| off |
 | `--sign-in` | — | Who may sign in: members \| open |
 
 ## orama namespace webrtc-status

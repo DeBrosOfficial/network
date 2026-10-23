@@ -6,7 +6,8 @@ t1c: "Tier 1 per_function_caller\nnamespace/function/caller\nonly if the functio
 t2k: "Tier 2 per_key (credential, no wallet)\nnamespace/key/address\n600/min burst 60" {shape: diamond}
 t2w: "Tier 2 per_wallet\nnamespace/wallet\n600/min burst 60" {shape: diamond}
 t2i: "Tier 2 per_ip (anonymous)\nnamespace/address\n120/min burst 30" {shape: diamond}
-t3: "Tier 3 per_namespace\nnamespace\n250,000/min burst 6,000" {shape: diamond}
+t3a: "Tier 3 per_ip_authenticated (wallet or key)\nnamespace/client network (/64)\nonly if the namespace turned it on\ndefault 1,200/min" {shape: diamond}
+t3: "Tier 4 per_namespace\nnamespace\n250,000/min burst 6,000" {shape: diamond}
 run: "Instantiate and run the module"
 rl: "RateLimitedError(scope, retry_after)\n429 RATE_LIMITED + Retry-After"
 
@@ -15,13 +16,15 @@ t1i -> t1c: "allowed or not declared"
 t1c -> t2k: "key present"
 t1c -> t2w: "wallet, no key"
 t1c -> t2i: "neither"
-t2k -> t3: "allowed"
-t2w -> t3: "allowed"
+t2k -> t3a: "allowed"
+t2w -> t3a: "allowed"
 t2i -> t3: "allowed"
+t3a -> t3: "allowed or not set"
 t3 -> run: "allowed"
 t1i -> rl: "refused"
 t1c -> rl: "refused"
 t2k -> rl: "refused"
 t2w -> rl: "refused"
 t2i -> rl: "refused"
+t3a -> rl: "refused"
 t3 -> rl: "refused"

@@ -792,6 +792,9 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `updated_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
 | `sign_in` | TEXT | yes | `'members'` |  |
 | `end_user_topics` | TEXT | yes | `'[]'` |  |
+| `per_ip_limits` | TEXT | yes | `'off'` |  |
+| `new_wallets_per_ip_hour` | INTEGER | yes | `20` |  |
+| `invokes_per_ip_minute` | INTEGER | yes | `1200` |  |
 
 ## namespace_sqlite_backups
 

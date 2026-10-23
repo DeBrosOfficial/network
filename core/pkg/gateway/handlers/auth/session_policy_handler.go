@@ -12,15 +12,20 @@ import (
 	"go.uber.org/zap"
 )
 
-// GET /v1/namespace/session-policy   the namespace's device and sign-in policy
-//                                    and the topics its end users read
+// GET /v1/namespace/session-policy   the namespace's device and sign-in policy,
+//                                    the topics its end users read and its
+//                                    per-IP limits
 // PUT /v1/namespace/session-policy   {"device_policy": "optional"|"required"|"approval",
 //                                     "sign_in": "members"|"open",
-//                                     "end_user_topics": ["presence/*", ...]}
+//                                     "end_user_topics": ["presence/*", ...],
+//                                     "per_ip_limits": "on"|"off",
+//                                     "new_wallets_per_ip_hour": 20,
+//                                     "invokes_per_ip_minute": 1200}
 //
 // Every field of a PUT is optional but at least one is sent, and one left out
 // keeps what it was. All are validated before any is written. end_user_topics
-// replaces the list, and [] clears it.
+// replaces the list, and [] clears it. The two ceilings are kept while
+// per_ip_limits is off, and apply once it is on.
 //
 // The route policy requires the namespace-write permission; this handler reads
 // the namespace from the caller's credential, never from the request.
@@ -28,9 +33,12 @@ import (
 // SessionPolicyRequest sets a namespace's device policy, its sign-in policy, or
 // both. A field left out is left as it is.
 type SessionPolicyRequest struct {
-	DevicePolicy  *string   `json:"device_policy"`
-	SignIn        *string   `json:"sign_in"`
-	EndUserTopics *[]string `json:"end_user_topics"`
+	DevicePolicy        *string   `json:"device_policy"`
+	SignIn              *string   `json:"sign_in"`
+	EndUserTopics       *[]string `json:"end_user_topics"`
+	PerIPLimits         *string   `json:"per_ip_limits"`
+	NewWalletsPerIPHour *int      `json:"new_wallets_per_ip_hour"`
+	InvokesPerIPMinute  *int      `json:"invokes_per_ip_minute"`
 }
 
 // maxSessionPolicyBody bounds a PUT: a full end-user topic list
@@ -58,7 +66,7 @@ func (h *Handlers) SessionPolicyHandler(w http.ResponseWriter, r *http.Request) 
 	case http.MethodPut:
 		h.setSessionPolicy(w, r, namespace)
 	default:
-		writeError(w, http.StatusMethodNotAllowed, "GET to read, PUT {\"device_policy\": ..., \"sign_in\": ..., \"end_user_topics\": [...]} to set")
+		writeError(w, http.StatusMethodNotAllowed, "GET to read, PUT {\"device_policy\": ..., \"sign_in\": ..., \"end_user_topics\": [...], \"per_ip_limits\": ...} to set")
 	}
 }
 
@@ -80,8 +88,14 @@ func (h *Handlers) sessionPolicyBody(w http.ResponseWriter, r *http.Request, nam
 		h.writeUnavailable(w, "read the end-user topics", err)
 		return nil, false
 	}
+	limits, err := h.authService.PerIPLimitsOf(r.Context(), namespace)
+	if err != nil {
+		h.writeUnavailable(w, "read the per-IP limits", err)
+		return nil, false
+	}
 	return map[string]any{"namespace": namespace, "device_policy": string(device), "sign_in": string(signIn),
-		"end_user_topics": topics}, true
+		"end_user_topics": topics, "per_ip_limits": authsvc.PerIPLimitsSwitch(limits.Enabled),
+		"new_wallets_per_ip_hour": limits.NewWalletsPerHour, "invokes_per_ip_minute": limits.InvokesPerMinute}, true
 }
 
 // sessionPolicyChange is a validated PUT. A nil field is one the request did
@@ -90,6 +104,7 @@ type sessionPolicyChange struct {
 	device        *authsvc.DevicePolicy
 	signIn        *authsvc.SignInPolicy
 	endUserTopics *[]string
+	perIPLimits   authsvc.PerIPLimitsChange
 }
 
 // parseSessionPolicyRequest reads and validates a PUT.
@@ -97,11 +112,12 @@ func parseSessionPolicyRequest(w http.ResponseWriter, r *http.Request) (sessionP
 	r.Body = http.MaxBytesReader(w, r.Body, maxSessionPolicyBody)
 	var req SessionPolicyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid json body: expected {\"device_policy\": \"optional|required|approval\", \"sign_in\": \"members|open\", \"end_user_topics\": [\"pattern\", ...]}")
+		writeError(w, http.StatusBadRequest, "invalid json body: expected {\"device_policy\": \"optional|required|approval\", \"sign_in\": \"members|open\", \"end_user_topics\": [\"pattern\", ...], \"per_ip_limits\": \"on|off\", \"new_wallets_per_ip_hour\": n, \"invokes_per_ip_minute\": n}")
 		return sessionPolicyChange{}, false
 	}
-	if req.DevicePolicy == nil && req.SignIn == nil && req.EndUserTopics == nil {
-		writeError(w, http.StatusBadRequest, "send device_policy (optional|required|approval), sign_in (members|open), end_user_topics (a list of topic patterns), or several")
+	if req.DevicePolicy == nil && req.SignIn == nil && req.EndUserTopics == nil &&
+		req.PerIPLimits == nil && req.NewWalletsPerIPHour == nil && req.InvokesPerIPMinute == nil {
+		writeError(w, http.StatusBadRequest, "send device_policy (optional|required|approval), sign_in (members|open), end_user_topics (a list of topic patterns), per_ip_limits (on|off), new_wallets_per_ip_hour, invokes_per_ip_minute, or several")
 		return sessionPolicyChange{}, false
 	}
 	var change sessionPolicyChange
@@ -129,7 +145,26 @@ func parseSessionPolicyRequest(w http.ResponseWriter, r *http.Request) (sessionP
 		}
 		change.endUserTopics = &topics
 	}
+	limits, err := parsePerIPLimitsChange(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return sessionPolicyChange{}, false
+	}
+	change.perIPLimits = limits
 	return change, true
+}
+
+// parsePerIPLimitsChange reads and validates the per-IP limit fields of a PUT.
+func parsePerIPLimitsChange(req SessionPolicyRequest) (authsvc.PerIPLimitsChange, error) {
+	change := authsvc.PerIPLimitsChange{NewWalletsPerHour: req.NewWalletsPerIPHour, InvokesPerMinute: req.InvokesPerIPMinute}
+	if req.PerIPLimits != nil {
+		on, err := authsvc.ParsePerIPLimitsSwitch(*req.PerIPLimits)
+		if err != nil {
+			return authsvc.PerIPLimitsChange{}, err
+		}
+		change.Enabled = &on
+	}
+	return change, change.Validate()
 }
 
 func (h *Handlers) setSessionPolicy(w http.ResponseWriter, r *http.Request, namespace string) {
@@ -139,9 +174,12 @@ func (h *Handlers) setSessionPolicy(w http.ResponseWriter, r *http.Request, name
 	}
 	device, signIn := change.device, change.signIn
 	actor := authsvc.ActorFromRequest(r)
-	// The topics go first: they only take effect for end users, who exist
-	// only once sign-in is open, which goes last.
+	// The topics and the per-IP limits go first and opening sign-in last, so
+	// a request that opens it with them never leaves it open without them.
 	if change.endUserTopics != nil && !h.applyEndUserTopics(w, r, namespace, *change.endUserTopics, actor) {
+		return
+	}
+	if !change.perIPLimits.Empty() && !h.applyPerIPLimits(w, r, namespace, change.perIPLimits, actor) {
 		return
 	}
 	// The two fields are two writes. Opening sign-in goes last and closing it
@@ -190,6 +228,29 @@ func (h *Handlers) applyEndUserTopics(w http.ResponseWriter, r *http.Request, na
 		Result:    authsvc.AuditSuccess,
 		Resource:  "end_user_topics",
 		Metadata:  map[string]string{"end_user_topics": strings.Join(topics, ",")},
+	})
+	return true
+}
+
+// applyPerIPLimits records a change to the namespace's per-IP limits and
+// audits it. It answers the request itself when the write fails.
+func (h *Handlers) applyPerIPLimits(w http.ResponseWriter, r *http.Request, namespace string, change authsvc.PerIPLimitsChange, actor string) bool {
+	limits, err := h.authService.SetPerIPLimits(r.Context(), namespace, change, actor)
+	if err != nil {
+		h.writeUnavailable(w, "record the per-IP limits", err)
+		return false
+	}
+	h.authService.Audit().RecordFromRequest(r.Context(), r, authsvc.AuditEvent{
+		Namespace: namespace,
+		Actor:     actor,
+		Action:    authsvc.AuditSessionPolicySet,
+		Result:    authsvc.AuditSuccess,
+		Resource:  "per_ip_limits",
+		Metadata: map[string]string{
+			"per_ip_limits":           authsvc.PerIPLimitsSwitch(limits.Enabled),
+			"new_wallets_per_ip_hour": strconv.Itoa(limits.NewWalletsPerHour),
+			"invokes_per_ip_minute":   strconv.Itoa(limits.InvokesPerMinute),
+		},
 	})
 	return true
 }

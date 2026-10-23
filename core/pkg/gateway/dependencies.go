@@ -944,6 +944,12 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 
 	deps.AuthService = authService
 
+	// A namespace's per-IP limits (bugboard #749): the invoke ceiling is read
+	// by the limiter through the auth service's cache, and new-wallet sign-ins
+	// are counted in this gateway's Olric, shared by every gateway on it.
+	rateLimiter.SetNamespaceLimits(authService)
+	authService.SetNewWalletCounter(olricWindowCounter{client: deps.OlricCurrent.Underlying})
+
 	// Create HTTP handlers. Built after the auth service because the deploy,
 	// delete and secret endpoints write to the audit trail.
 	deps.ServerlessHandlers = serverlesshandlers.NewServerlessHandlers(

@@ -62,6 +62,12 @@ type Service struct {
 	// endUserTopics is the same for the topics a namespace's end users may
 	// read (bugboard #733), asked on every pub/sub read by one.
 	endUserTopics policyCache[[]string]
+	// perIPLimits is the same for the namespace's per-network ceilings
+	// (bugboard #749), asked on every authenticated invoke.
+	perIPLimits policyCache[PerIPLimits]
+	// newWallets counts the wallets new to a namespace each client network
+	// signs in (bugboard #749); nil until SetNewWalletCounter.
+	newWallets WindowCounter
 
 	// attestationPolicies is this gateway's copy of every namespace's
 	// attestation policy, and attestVerifier what checks a device's proof

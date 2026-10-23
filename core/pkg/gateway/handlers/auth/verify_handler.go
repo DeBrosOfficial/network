@@ -52,8 +52,9 @@ func (h *Handlers) VerifyHandler(w http.ResponseWriter, r *http.Request) {
 	wallet, namespace := in.Wallet, in.Namespace
 
 	// Refuse before anything is issued or provisioned: a namespace that belongs
-	// to another wallet is not this caller's to sign in to.
-	if err := h.authService.RequireSignInAllowed(ctx, wallet, namespace); err != nil {
+	// to another wallet is not this caller's to sign in to, and an open one
+	// may cap how many new wallets this caller's network signs in.
+	if err := h.authService.AdmitSignIn(ctx, wallet, namespace, signInClient(r)); err != nil {
 		writeCredentialError(w, namespace, err)
 		return
 	}

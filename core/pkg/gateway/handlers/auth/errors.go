@@ -2,9 +2,13 @@ package auth
 
 import (
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
+	"time"
 
 	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
 )
 
 // ErrCodeNamespaceNotOwned is the machine-readable code for a login against a
@@ -25,6 +29,18 @@ const ErrCodeNoKeysHere = "NAMESPACE_HAS_NO_KEYS"
 
 // ErrCodeNoKeyForRole is minting a key for a member whose role holds no grant.
 const ErrCodeNoKeyForRole = "ROLE_HAS_NO_KEY"
+
+// ErrCodeSignInRateLimited is a sign-in refused because the caller's network
+// signed in as many new wallets to the namespace this hour as it allows.
+const ErrCodeSignInRateLimited = "SIGN_IN_RATE_LIMITED"
+
+// signInClient is the client network a sign-in is charged to: the address the
+// request is attributed to (clientkey.Attribute, which believes a forwarded
+// address only from the node's own Caddy or a gateway on the mesh), an IPv6
+// one folded to its /64.
+func signInClient(r *http.Request) string {
+	return clientkey.BucketKey(clientkey.Attribute(r))
+}
 
 // writeCredentialError turns a credential-issuing failure into a response.
 //
@@ -55,6 +71,21 @@ func writeCredentialError(w http.ResponseWriter, namespace string, err error) {
 		})
 		return
 	}
+	var exceeded *authsvc.ErrNewWalletsPerIPExceeded
+	if errors.As(err, &exceeded) {
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(exceeded.RetryAfter)))
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{
+			"error":     err.Error(),
+			"code":      ErrCodeSignInRateLimited,
+			"hint":      "wallets that signed in before are not counted; a new one may sign in from this network after Retry-After",
+			"namespace": namespace,
+		})
+		return
+	}
+	if errors.Is(err, authsvc.ErrNewWalletCountUnavailable) {
+		writeError(w, http.StatusServiceUnavailable, "could not count this network's new sign-ins; retry")
+		return
+	}
 	if errors.Is(err, authsvc.ErrNoKeyForRole) {
 		writeJSON(w, http.StatusForbidden, map[string]any{
 			"error": err.Error(),
@@ -75,4 +106,10 @@ func writeCredentialError(w http.ResponseWriter, namespace string, err error) {
 		return
 	}
 	writeError(w, http.StatusInternalServerError, err.Error())
+}
+
+// retryAfterSeconds is a wait as a Retry-After value: whole seconds, rounded
+// up, at least one.
+func retryAfterSeconds(d time.Duration) int {
+	return max(1, int(math.Ceil(d.Seconds())))
 }

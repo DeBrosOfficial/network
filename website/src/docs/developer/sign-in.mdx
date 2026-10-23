@@ -93,6 +93,31 @@ The lobby has no policy and refuses to be given one, and a namespace with no own
 
 **Closing sign-in** refuses new sign-ins at once, including sessions a device link or the device-code flow would hand out. A session already issued ends at its next refresh, which answers 403 `SIGN_IN_CLOSED` within 10 seconds of the closing; an access token already issued lives out its 15 minutes.
 
+### Per-IP limits
+
+With sign-in open a wallet costs nothing, so one host can make as many as it likes: fill your app with accounts, and multiply the per-wallet invoke limit by the wallets it holds. Turn on per-IP limits to bound what one client network does, whatever wallets it presents:
+
+```bash
+orama namespace session-policy --per-ip-limits on                 # defaults: 20 and 1200
+orama namespace session-policy --new-wallets-per-ip-hour 10 --invokes-per-ip-minute 600
+orama namespace session-policy --per-ip-limits off                # the ceilings are kept
+```
+
+or `PUT /v1/namespace/session-policy {"per_ip_limits": "on", "new_wallets_per_ip_hour": 10, "invokes_per_ip_minute": 600}`.
+
+| Setting | Default | Range | When on |
+|---|---|---|---|
+| `per_ip_limits` | `off` | `on`, `off` | Turns both ceilings on |
+| `new_wallets_per_ip_hour` | 20 | 1 to 10,000 | Wallets that never signed in to the namespace that one network may sign in per clock hour, as end users. Past it: `429 SIGN_IN_RATE_LIMITED` with `Retry-After` until the hour ends |
+| `invokes_per_ip_minute` | 1,200 | 1 to 60,000 | Authenticated function invokes one network may make per minute on each gateway. Past it: `429 RATE_LIMITED` with `scope=per_ip_authenticated` ([Functions](/docs/developer/functions#invoke-rate-limits)) |
+
+They are off by default because many people can share one address: an office, a school, a mobile carrier's NAT. Choose the numbers for the largest group of real users you expect behind one address.
+
+- A network is an IPv4 address or an IPv6 /64, as the gateway sees it through its own proxies, never a header the caller wrote.
+- Only new end users are counted: not members, and not a wallet that signed in before. A wallet keeps its place for the hour, so retrying a failed sign-in costs nothing, and a refused wallet stays refused until the hour ends.
+- The count is approximate: it is kept in the cache, shared by the gateways of one kind, so sign-ins through both the base domain and `ns-<name>` may reach twice the ceiling, and a cache restart forgets it.
+- When the count cannot be made the sign-in is answered `503`; retry.
+
 ## Signing in from a machine with no wallet
 
 On a server reached over SSH, in a container, or in CI there is no wallet. The device authorization grant (RFC 8628) splits the two halves.
@@ -202,6 +227,7 @@ Signing in has its own codes:
 | `NAMESPACE_HAS_NO_KEYS` | The lobby has no keys. Create a namespace first |
 | `ROLE_HAS_NO_KEY` | A key was asked for by a member whose role cannot carry one (`reader`, `developer`), or by an end user |
 | `SIGN_IN_CLOSED` | The wallet holds no grant and the namespace is not open: its session was refused a refresh |
+| `SIGN_IN_RATE_LIMITED` | 429: this network signed in as many new wallets this hour as the namespace allows ([Per-IP limits](#per-ip-limits)). Retry after `Retry-After` |
 | `TOO_MANY_CHALLENGES` | Too many challenges asked for. Slow down |
 
 Device codes are on [Devices](/docs/developer/devices#error-codes).
