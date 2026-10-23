@@ -108,7 +108,8 @@ func TestInvoke_callerContext(t *testing.T) {
 // TestInvoke_nested: function_invoke runs another function of the namespace
 // with the caller's identity; from an anonymous public call a private target
 // is not reachable (website/src/docs/developer/functions.mdx#capabilities: a nested call with no
-// caller reaches only public functions).
+// caller reaches only public functions), and function_invoke_last_error names
+// the refusal, a missing target, and nothing after a success.
 func TestInvoke_nested(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
@@ -124,6 +125,18 @@ func TestInvoke_nested(t *testing.T) {
 	}
 	if anon["result"] != nil {
 		t.Errorf("an anonymous nested call reached a private function: %v", anon["result"])
+	}
+	// function_invoke_last_error tells the refusal apart (bugboard #263) and
+	// clears on the next call that succeeds.
+	if code := sub(anon, "last_error")["code"]; code != "AUTH_FORBIDDEN" {
+		t.Errorf("function_invoke_last_error after the refused nested call = %v, want AUTH_FORBIDDEN", anon["last_error"])
+	}
+	missing := map[string]any{"op": "nested", "name": "e2e-no-such-function", "data": map[string]any{}}
+	if code := sub(call(t, fx, "e2e-outer", missing), "last_error")["code"]; code != "NOT_FOUND" {
+		t.Errorf("function_invoke_last_error after invoking a missing function = %v, want NOT_FOUND", code)
+	}
+	if res := call(t, fx, "e2e-outer", nested); res["last_error"] != nil {
+		t.Errorf("a nested call that succeeded reports last_error %v", res["last_error"])
 	}
 }
 

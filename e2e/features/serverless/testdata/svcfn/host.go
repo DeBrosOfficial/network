@@ -79,6 +79,9 @@ func ephemeralStateList(tp, tn uint32) uint64
 //go:wasmimport env function_invoke
 func functionInvoke(np, nn, pp, pn uint32) uint64
 
+//go:wasmimport env function_invoke_last_error
+func functionInvokeLastError() uint64
+
 //go:wasmimport host log_info
 func logInfo(p, n uint32)
 

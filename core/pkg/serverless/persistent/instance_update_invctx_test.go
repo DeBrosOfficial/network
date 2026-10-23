@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"go.uber.org/zap"
 )
 
 // TestUpdateInvocationContext_swapVisibleToWithInvCtx verifies the
@@ -152,4 +153,19 @@ func TestUpdateInvocationContext_swapDoesNotAffectInFlightCtx(t *testing.T) {
 func withInvCtxOnly(i *Instance) context.Context {
 	ctx, _ := i.withInvCtx(context.Background())
 	return ctx
+}
+
+// feat-263: every export call of a reused persistent instance gets its own
+// function_invoke_last_error slot, so one frame never reads the error of a
+// nested invoke another frame made.
+func TestWithInvCtx_freshInvokeErrorSlotPerCall(t *testing.T) {
+	i := &Instance{invCtx: &serverless.InvocationContext{Namespace: "ns"}, logger: zap.NewNop()}
+	first := withInvCtxOnly(i)
+	serverless.RecordInvokeOutcome(first, serverless.ErrUnauthorized)
+	if serverless.LastInvokeErrorJSON(first) == nil {
+		t.Fatal("the first call's slot did not record the error, so the test checks nothing")
+	}
+	if got := serverless.LastInvokeErrorJSON(withInvCtxOnly(i)); got != nil {
+		t.Fatalf("the next call on the same instance reads %s", got)
+	}
 }

@@ -185,7 +185,8 @@ func dispatchNet(req request) any {
 		return map[string]any{"result": raw(unpack(turnCredentials()))}
 	case "nested":
 		p := string(req.Data)
-		return map[string]any{"result": raw(unpack(functionInvoke(ptr(req.Name), size(req.Name), ptr(p), size(p))))}
+		out := unpack(functionInvoke(ptr(req.Name), size(req.Name), ptr(p), size(p)))
+		return map[string]any{"result": raw(out), "last_error": raw(unpack(functionInvokeLastError()))}
 	}
 	return dispatchEphemeral(req)
 }

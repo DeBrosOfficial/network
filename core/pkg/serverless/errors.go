@@ -110,6 +110,11 @@ var (
 	// negative, or longer than olric.MaxEntryTTL. A guest mistake, not a
 	// gateway fault.
 	ErrInvalidCacheTTL = errors.New("invalid cache ttl")
+
+	// ErrAsyncInvokeSaturated is returned when function_invoke_async is
+	// refused because the gateway already runs its maximum of in-flight async
+	// invocations. Nothing ran; the guest may retry or call synchronously.
+	ErrAsyncInvokeSaturated = errors.New("too many in-flight async invocations")
 )
 
 // ConfigError represents a configuration validation error.

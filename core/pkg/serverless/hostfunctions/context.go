@@ -173,7 +173,7 @@ func (h *HostFunctions) FunctionInvokeAsync(ctx context.Context, name string, pa
 		default:
 			return &serverless.HostFunctionError{
 				Function: "function_invoke_async",
-				Cause:    fmt.Errorf("too many in-flight async invocations (max %d)", asyncInvokeMaxInFlight),
+				Cause:    fmt.Errorf("%w (max %d)", serverless.ErrAsyncInvokeSaturated, asyncInvokeMaxInFlight),
 			}
 		}
 	}

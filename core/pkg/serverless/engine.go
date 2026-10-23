@@ -362,6 +362,10 @@ func (e *Engine) Execute(ctx context.Context, fn *Function, input []byte, invCtx
 	execCtx = WithWebRTCCounter(execCtx)
 	// And for the gateway log lines its host calls write (bugboard #424).
 	execCtx, logBudget := WithHostLogBudget(execCtx)
+	// And an empty function_invoke_last_error slot (bugboard #263): it is new
+	// for every invocation, so a reused reactor instance cannot report a
+	// previous request's error.
+	execCtx = WithInvokeErrorSlot(execCtx)
 	defer logBudget.Summarize(e.logger, zap.String("namespace", invCtx.Namespace),
 		zap.String("function", fn.Name), zap.String("request_id", invCtx.RequestID))
 
@@ -978,6 +982,7 @@ func (e *Engine) registerHostModule(ctx context.Context) error {
 			NewFunctionBuilder().WithFunc(e.hEphemeralStateList).Export("ephemeral_state_list").
 			NewFunctionBuilder().WithFunc(e.hFunctionInvoke).Export("function_invoke").
 			NewFunctionBuilder().WithFunc(e.hFunctionInvokeAsync).Export("function_invoke_async").
+			NewFunctionBuilder().WithFunc(e.hFunctionInvokeLastError).Export("function_invoke_last_error").
 			NewFunctionBuilder().WithFunc(e.hLogInfo).Export("log_info").
 			NewFunctionBuilder().WithFunc(e.hLogError).Export("log_error").
 			Instantiate(ctx)
@@ -1595,24 +1600,19 @@ func (e *Engine) hWSPubSubUnbridge(ctx context.Context, mod api.Module,
 // decode the output (target functions ack with JSON envelopes).
 func (e *Engine) hFunctionInvoke(ctx context.Context, mod api.Module,
 	namePtr, nameLen, payloadPtr, payloadLen uint32) uint64 {
-	name, ok := e.executor.ReadFromGuest(mod, namePtr, nameLen)
-	if !ok {
-		return 0
-	}
-	payload, ok := e.executor.ReadFromGuest(mod, payloadPtr, payloadLen)
+	name, payload, ok := e.readInvokeArgs(ctx, mod, namePtr, nameLen, payloadPtr, payloadLen)
 	if !ok {
 		return 0
 	}
 	out, err := e.hostServices.FunctionInvoke(ctx, string(name), payload)
+	RecordInvokeOutcome(ctx, err)
 	if err != nil {
-		// The guest ABI can only signal "no result" (0), so an authorization
-		// refusal is indistinguishable from a transient failure to the guest
-		// (bugboard #159 ask 2 — still open, it needs an ABI/SDK change).
-		// Until then, at least make the two loudly distinguishable HOST-side:
-		// an unauthorized nested invoke is a permanent misconfiguration that
-		// will silently no-op forever, not something a retry fixes. AnChat's
-		// cron reconciler reported SUCCESS while settling nothing for weeks
-		// because this was one undifferentiated Warn.
+		// The return value can only say "no result" (0); the guest reads why
+		// from function_invoke_last_error (bugboard #263). The host log keeps
+		// an unauthorized nested invoke apart as well: it is a permanent
+		// misconfiguration that will silently no-op forever, not something a
+		// retry fixes. AnChat's cron reconciler reported SUCCESS while settling
+		// nothing for weeks because this was one undifferentiated Warn.
 		if IsUnauthorized(err) {
 			HostLogger(ctx, e.logger).Error("function_invoke unauthorized",
 				zap.String("name", string(name)),
@@ -1622,6 +1622,41 @@ func (e *Engine) hFunctionInvoke(ctx context.Context, mod api.Module,
 				zap.String("name", string(name)),
 				zap.Error(err))
 		}
+		return 0
+	}
+	packed := e.executor.WriteToGuest(ctx, mod, out)
+	if packed == 0 && len(out) > 0 {
+		RecordInvokeOutcome(ctx, errors.New("the target's output could not be written into guest memory"))
+	}
+	return packed
+}
+
+// readInvokeArgs reads function_invoke's name and payload from guest memory,
+// recording a failed read for function_invoke_last_error.
+func (e *Engine) readInvokeArgs(ctx context.Context, mod api.Module, namePtr, nameLen, payloadPtr, payloadLen uint32) ([]byte, []byte, bool) {
+	name, ok := e.executor.ReadFromGuest(mod, namePtr, nameLen)
+	if !ok {
+		RecordInvokeArgumentError(ctx, "the function name could not be read from guest memory")
+		return nil, nil, false
+	}
+	payload, ok := e.executor.ReadFromGuest(mod, payloadPtr, payloadLen)
+	if !ok {
+		RecordInvokeArgumentError(ctx, "the payload could not be read from guest memory")
+		return nil, nil, false
+	}
+	return name, payload, true
+}
+
+// hFunctionInvokeLastError returns why the invocation's last function_invoke
+// or function_invoke_async call failed, as JSON {"error","code"} (codes:
+// InvokeCode*), packed ptr<<32|len; 0 when that call succeeded or none was
+// made in this invocation (bugboard #263). The slot is the invocation's own
+// (WithInvokeErrorSlot), so it never reports another invocation's call.
+// function_invoke returns 0 both for "no output" and for a failure; a guest
+// that needs to know which calls this after a 0.
+func (e *Engine) hFunctionInvokeLastError(ctx context.Context, mod api.Module) uint64 {
+	out := LastInvokeErrorJSON(ctx)
+	if out == nil {
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, out)
@@ -1639,15 +1674,15 @@ func (e *Engine) hFunctionInvoke(ctx context.Context, mod api.Module,
 // surface "busy" to the client.
 func (e *Engine) hFunctionInvokeAsync(ctx context.Context, mod api.Module,
 	namePtr, nameLen, payloadPtr, payloadLen uint32) uint32 {
-	name, ok := e.executor.ReadFromGuest(mod, namePtr, nameLen)
+	name, payload, ok := e.readInvokeArgs(ctx, mod, namePtr, nameLen, payloadPtr, payloadLen)
 	if !ok {
 		return 0
 	}
-	payload, ok := e.executor.ReadFromGuest(mod, payloadPtr, payloadLen)
-	if !ok {
-		return 0
-	}
-	if err := e.hostServices.FunctionInvokeAsync(ctx, string(name), payload); err != nil {
+	// Only acceptance is recorded: the target runs after this call returns,
+	// so its own failure reaches the host log, not the guest.
+	err := e.hostServices.FunctionInvokeAsync(ctx, string(name), payload)
+	RecordInvokeOutcome(ctx, err)
+	if err != nil {
 		HostLogger(ctx, e.logger).Warn("function_invoke_async rejected",
 			zap.String("name", string(name)),
 			zap.Error(err))

@@ -256,6 +256,9 @@ func (i *Instance) withInvCtx(ctx context.Context) (context.Context, func()) {
 	// stateless Execute would otherwise see them.
 	ctx = serverless.WithLogBuffer(ctx, serverless.NewLogBuffer())
 	ctx, budget := serverless.WithHostLogBudget(ctx)
+	// A fresh function_invoke_last_error slot per call, so one frame never
+	// reads the error of a nested invoke another frame made.
+	ctx = serverless.WithInvokeErrorSlot(ctx)
 	summarize := func() {
 		fields := []zap.Field{zap.String("client_id", i.clientID)}
 		if cur != nil {
