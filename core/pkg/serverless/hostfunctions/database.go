@@ -244,10 +244,12 @@ func opResultsCarryError(results []rqlite.OpResult) bool {
 type dbQueryBatchRequest struct {
 	Ops []rqlite.BatchOp `json:"ops"`
 	// Consistency is the optional rqlite read level for this batch.
-	// "" / "weak" (default): leader-routed, always fresh. "none": fast LOCAL
-	// read (~1ms, no leader hop) — ONLY safe for reads that don't need
-	// read-your-own-writes freshness (see rqlite.ReadConsistency / bug #235).
-	// feat-6: lets read-heavy functions skip the cross-region weak-read hop.
+	// "" / "weak" (default): leader-routed; misses a write only in the moment
+	// of a leadership change. "none": fast LOCAL read (~1ms, no leader hop) —
+	// ONLY safe for reads that don't need read-your-own-writes freshness (see
+	// rqlite.ReadConsistency / bug #235; feat-6). "linearizable": observes
+	// every write committed before the read began, at the cost of one more
+	// leader-to-quorum round trip; it fails rather than degrade (feat-802).
 	Consistency string `json:"consistency,omitempty"`
 	// Freshness (#1021) is an optional Go duration string ("2s", "500ms"). When
 	// set with consistency="none", the local read is REJECTED by rqlite if this
@@ -284,8 +286,10 @@ type batchQueryConsistencyClient interface {
 // weak only when the client can't serve an explicit level — weak is always
 // correct). When freshness is set (#1021) the none-read is routed to
 // BatchQueryFresh so rqlite rejects it if this node is staler than the bound.
-// All invalid combinations are rejected here at the boundary rather than
-// silently downgraded.
+// "linearizable" → the consistency-capable client's linearizable read, and an
+// error when the client has none: no weaker level gives its guarantee
+// (feat-802). All invalid combinations are rejected here at the boundary
+// rather than silently downgraded.
 func (h *HostFunctions) resolveBatchQuery(ctx context.Context, ops []rqlite.BatchOp, consistency, freshness string, strict bool) ([]rqlite.OpResult, error) {
 	// Parse + validate freshness at the boundary before any DB work.
 	freshDur, err := parseFreshness(consistency, freshness)
@@ -309,8 +313,14 @@ func (h *HostFunctions) resolveBatchQuery(ctx context.Context, ops []rqlite.Batc
 			return ext.BatchQueryConsistency(ctx, ops, rqlite.ReadConsistencyNone)
 		}
 		return h.db.BatchQuery(ctx, ops)
+	case string(rqlite.ReadConsistencyLinearizable):
+		ext, ok := h.db.(batchQueryConsistencyClient)
+		if !ok {
+			return nil, fmt.Errorf("consistency \"linearizable\" requested but this gateway's database client cannot serve it")
+		}
+		return ext.BatchQueryConsistency(ctx, ops, rqlite.ReadConsistencyLinearizable)
 	default:
-		return nil, fmt.Errorf("invalid consistency %q (allowed: \"none\", \"weak\")", consistency)
+		return nil, fmt.Errorf("invalid consistency %q (allowed: \"none\", \"weak\", \"linearizable\")", consistency)
 	}
 }
 

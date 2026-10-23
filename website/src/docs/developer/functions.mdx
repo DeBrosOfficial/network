@@ -506,10 +506,30 @@ if !res.Committed {
 **Read consistency** — `db_query_batch` (not `db_transaction`) accepts an optional
 `consistency` field on the request body:
 
-- omitted / `"weak"` (default) — leader-routed, always sees the latest committed
-  write. Costs one round trip to the raft leader.
+- omitted / `"weak"` (default) — routed to the node that believes it is the raft
+  leader, which answers from its own SQLite. Costs one round trip to the leader.
+  It sees every committed write except in the moment of a leadership change: a
+  deposed leader that has not yet noticed can answer without a write the new
+  leader committed.
 - `"none"` — served from the local node's SQLite. Much faster, but may be stale;
   only safe for reads that do not need read-your-own-writes.
+- `"linearizable"` — sees every write committed before the read began. The
+  leader confirms it is still leader with a heartbeat round to a quorum of
+  voters and waits until its commit index is applied before reading; nothing
+  goes through the raft log. It costs the weak read's round trip plus one
+  leader-to-quorum round trip (on a cross-region cluster, roughly double a weak
+  read), and every such read takes a heartbeat round from the leader, so keep
+  it to the rare reads whose answer is used to delete or overwrite what the
+  caller holds — for example a reconcile that drops rows the server no longer
+  lists. When no leader can confirm a quorum the batch fails with the
+  rejection envelope (`error` and `code`, typically `UNAVAILABLE`); it is never
+  answered at a weaker level. `freshness` cannot be combined with it. RQLite's
+  `strong` level, which sends the read through the raft log, is not offered:
+  it gives the same guarantee for a log write and an fsync on a quorum per read.
+
+`freshness` (a duration from `1ms` to `24h`) is accepted only with `"none"`: the
+read is refused with `stale_rejected: true` if the local node is staler than the
+bound. Any other `consistency` value is refused.
 
 `db_query_v2` does **not** accept `consistency`; wrap a single read as a one-op
 `db_query_batch` if you need it.

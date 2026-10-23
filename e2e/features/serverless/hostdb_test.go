@@ -79,3 +79,38 @@ func TestHostDB_tenantTriggers(t *testing.T) {
 		}
 	}
 }
+
+// TestHostDB_linearizableRead: db_query_batch serves consistency
+// "linearizable" and the read sees a write committed before it; an unknown
+// level ("strong") and a freshness bound with linearizable are refused, never
+// served at another level (website/src/docs/developer/functions.mdx#database-transactions).
+func TestHostDB_linearizableRead(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn = "e2e-dblinear"
+	deploy(t, fx, fnSpec{name: fn})
+	call(t, fx, fn, map[string]any{"op": "db_exec", "sql": "CREATE TABLE IF NOT EXISTS e2e_lin (v TEXT)"})
+	marker := fmt.Sprintf("lin-%s", t.Name())
+	if res := call(t, fx, fn, map[string]any{"op": "db_exec", "sql": "INSERT INTO e2e_lin (v) VALUES (?)", "args": []any{marker}}); hostCallRefused(res) {
+		t.Fatalf("insert: %v", res)
+	}
+	read := func(extra map[string]any) map[string]any {
+		ops := map[string]any{"ops": []map[string]any{{"sql": "SELECT v FROM e2e_lin WHERE v = ?", "args": []any{marker}}}}
+		for k, v := range extra {
+			ops[k] = v
+		}
+		return call(t, fx, fn, map[string]any{"op": "db_batch", "ops": ops})
+	}
+	if res := read(map[string]any{"consistency": "linearizable"}); !strings.Contains(fmt.Sprint(res["results"]), marker) {
+		t.Errorf("a linearizable read missed the committed write: %v", res)
+	}
+	for name, extra := range map[string]map[string]any{
+		"an unknown level":            {"consistency": "strong"},
+		"freshness with linearizable": {"consistency": "linearizable", "freshness": "2s"},
+	} {
+		// A refused batch read is the rejection envelope: an error and no rows.
+		if res := read(extra); res == nil || res["error"] == nil || strings.Contains(fmt.Sprint(res["results"]), marker) {
+			t.Errorf("%s was not refused: %v", name, res)
+		}
+	}
+}

@@ -322,6 +322,8 @@ func (c *client) BatchQuery(ctx context.Context, ops []BatchOp) ([]OpResult, err
 //
 // none-level reads run on connNone; if that connection isn't configured the
 // batch transparently uses the weak connection (correct, just slower).
+// ReadConsistencyLinearizable runs on connLinearizable and fails with
+// ErrNoNativeConnection when it isn't configured (feat-802).
 func (c *client) BatchQueryConsistency(ctx context.Context, ops []BatchOp, rc ReadConsistency) ([]OpResult, error) {
 	if len(ops) == 0 {
 		return []OpResult{}, nil
@@ -331,7 +333,7 @@ func (c *client) BatchQueryConsistency(ctx context.Context, ops []BatchOp, rc Re
 	}
 	conn := c.queryConn(rc)
 	if conn == nil {
-		return nil, fmt.Errorf("rqlite.BatchQuery: %w", ErrNoNativeConnection)
+		return nil, fmt.Errorf("rqlite.BatchQuery (level %s): %w", rc, ErrNoNativeConnection)
 	}
 
 	// #1022: gate none-reads on local-follower freshness. When the dedicated
