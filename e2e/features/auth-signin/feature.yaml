@@ -37,6 +37,7 @@ covers:
     - /v1/namespace/session-policy
     - /v1/namespaces
   claims:
+    - "website/src/docs/developer/access-control.mdx#the-end-users-special-case: orama namespace session-policy --end-user-topics sets the end-user topics (none by default), '' clears them, and a reserved pattern is refused"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-signed-message: the message goes back verbatim; a message naming another domain is refused (AUTH_DOMAIN_MISMATCH)"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#access-tokens: the access token lasts 15 minutes, the refresh token 30 days"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#refresh-tokens-and-sessions: the refresh token rotates on every use; presenting one twice is a replay, refused and recorded"

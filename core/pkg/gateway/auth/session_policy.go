@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/client"
@@ -53,36 +52,6 @@ func ParseDevicePolicy(raw string) (DevicePolicy, error) {
 	default:
 		return "", fmt.Errorf("device policy is one of optional, required, approval (got %q)", raw)
 	}
-}
-
-// devicePolicyCache holds what each namespace's policy was, briefly.
-type devicePolicyCache struct {
-	mu      sync.Mutex
-	entries map[string]cachedDevicePolicy
-}
-
-type cachedDevicePolicy struct {
-	policy DevicePolicy
-	readAt time.Time
-}
-
-func (c *devicePolicyCache) get(namespace string, now time.Time) (DevicePolicy, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	e, ok := c.entries[namespace]
-	if !ok || now.Sub(e.readAt) >= devicePolicyStaleness {
-		return "", false
-	}
-	return e.policy, true
-}
-
-func (c *devicePolicyCache) put(namespace string, policy DevicePolicy, now time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.entries == nil {
-		c.entries = map[string]cachedDevicePolicy{}
-	}
-	c.entries[namespace] = cachedDevicePolicy{policy: policy, readAt: now}
 }
 
 // DevicePolicyOf returns a namespace's policy, as recorded now.

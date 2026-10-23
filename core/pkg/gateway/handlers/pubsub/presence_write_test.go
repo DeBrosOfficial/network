@@ -28,7 +28,7 @@ func subscribeRequest(topic, query string, perms gwauth.PermissionSet) *http.Req
 func TestWebsocketHandler_presenceNeedsPublishPermission(t *testing.T) {
 	h := newTestHandlers(&mockNetworkClient{pubsub: &mockPubSubClient{}})
 	w := httptest.NewRecorder()
-	h.WebsocketHandler(w, subscribeRequest("chat.general", "&presence=true&member_id=alice", gwauth.NoGrantPermissions()))
+	h.WebsocketHandler(w, subscribeRequest("chat.general", "&presence=true&member_id=alice", gwauth.NoGrantPermissions([]string{"*"})))
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("status %d, want 403 for presence from a subscriber-only caller: %s", w.Code, w.Body.String())
 	}
@@ -38,7 +38,7 @@ func TestWebsocketHandler_presenceNeedsPublishPermission(t *testing.T) {
 func TestWebsocketHandler_aSubscriberOnlyCallerPassesTheChecksWithoutPresence(t *testing.T) {
 	h := newTestHandlers(&mockNetworkClient{pubsub: &mockPubSubClient{}})
 	w := httptest.NewRecorder()
-	h.WebsocketHandler(w, subscribeRequest("chat.general", "", gwauth.NoGrantPermissions()))
+	h.WebsocketHandler(w, subscribeRequest("chat.general", "", gwauth.NoGrantPermissions([]string{"*"})))
 	if w.Code == http.StatusForbidden {
 		t.Fatalf("a subscriber-only caller without presence was refused: %s", w.Body.String())
 	}

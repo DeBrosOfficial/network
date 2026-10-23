@@ -314,11 +314,19 @@ func DataPlanePermissions() PermissionSet {
 // publishing from a function or by granting the wallet pubsub write. Without
 // it any end user could publish to any topic of the namespace, including the
 // ones the application's own functions publish authoritative events on.
-func NoGrantPermissions() PermissionSet {
-	return append(
+//
+// It reads only the topics the namespace lists for its end users,
+// endUserTopics (Service.EndUserTopicsOf), and none when the list is empty, so
+// an application's internal topics are not readable by every user who signs
+// in.
+func NoGrantPermissions(endUserTopics []string) PermissionSet {
+	out := append(
 		wholeDomains(DomainStorage, DomainCache, DomainWebRTC, DomainProxy),
 		pushRegistration,
-		Permission{Domain: DomainPubsub, Action: ActionRead, Resource: PermissionWildcard},
 		Permission{Domain: DomainFn, Action: ActionInvoke, Resource: PermissionWildcard},
 	)
+	for _, topic := range endUserTopics {
+		out = append(out, Permission{Domain: DomainPubsub, Action: ActionRead, Resource: topic})
+	}
+	return out
 }

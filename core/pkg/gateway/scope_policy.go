@@ -79,9 +79,9 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			return auth.PermissionSet{}
 		}
 		// A logged-in user with no grant in this namespace gets the data
-		// plane, as they always have, except publishing to pub/sub: see
-		// auth.NoGrantPermissions.
-		return auth.NoGrantPermissions()
+		// plane, except publishing to pub/sub, and reads only the topics the
+		// namespace lists for its end users: see auth.NoGrantPermissions.
+		return auth.NoGrantPermissions(endUserTopicsOf(ctx))
 	}
 
 	if scopes, ok := ctx.Value(ctxKeyScopes).(auth.ScopeSet); ok {
@@ -151,6 +151,10 @@ func (g *Gateway) scopeMiddleware(next http.Handler) http.Handler {
 		policy := g.policyFor(r)
 		if r.Method == http.MethodOptions || policy.Access.Anonymous() {
 			next.ServeHTTP(w, r)
+			return
+		}
+		r, ok := g.withEndUserTopics(w, r, policy)
+		if !ok {
 			return
 		}
 		perms := g.callerPermissions(r)

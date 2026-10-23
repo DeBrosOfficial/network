@@ -231,8 +231,9 @@ func (p *PubSubHandlers) TopicsHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// Client returns topics already trimmed to its namespace; return as-is
-	writeJSON(w, http.StatusOK, map[string]any{"topics": withoutReservedTopics(r, all)})
+	// Client returns topics already trimmed to its namespace; a caller is shown
+	// only the ones it may subscribe to.
+	writeJSON(w, http.StatusOK, map[string]any{"topics": subscribableTopics(r, all)})
 }
 
 // writeError writes an error response

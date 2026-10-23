@@ -172,6 +172,9 @@ type Gateway struct {
 	// Authentication service
 	authService  *auth.Service
 	authHandlers *authhandlers.Handlers
+	// endUserTopics reads the pub/sub topics a namespace's end users may
+	// read; nil reads them through authService (end_user_topics.go).
+	endUserTopics endUserTopicSource
 
 	// wsSessions is every token-authorized WebSocket open on this gateway,
 	// swept for expired and revoked tokens (see ws_sessions.go).

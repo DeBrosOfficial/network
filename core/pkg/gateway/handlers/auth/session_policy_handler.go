@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	authsvc "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/logging"
@@ -12,11 +13,14 @@ import (
 )
 
 // GET /v1/namespace/session-policy   the namespace's device and sign-in policy
+//                                    and the topics its end users read
 // PUT /v1/namespace/session-policy   {"device_policy": "optional"|"required"|"approval",
-//                                     "sign_in": "members"|"open"}
+//                                     "sign_in": "members"|"open",
+//                                     "end_user_topics": ["presence/*", ...]}
 //
-// Both fields of a PUT are optional but at least one is sent, and the one left
-// out keeps what it was. Both are validated before either is written.
+// Every field of a PUT is optional but at least one is sent, and one left out
+// keeps what it was. All are validated before any is written. end_user_topics
+// replaces the list, and [] clears it.
 //
 // The route policy requires the namespace-write permission; this handler reads
 // the namespace from the caller's credential, never from the request.
@@ -24,9 +28,15 @@ import (
 // SessionPolicyRequest sets a namespace's device policy, its sign-in policy, or
 // both. A field left out is left as it is.
 type SessionPolicyRequest struct {
-	DevicePolicy *string `json:"device_policy"`
-	SignIn       *string `json:"sign_in"`
+	DevicePolicy  *string   `json:"device_policy"`
+	SignIn        *string   `json:"sign_in"`
+	EndUserTopics *[]string `json:"end_user_topics"`
 }
+
+// maxSessionPolicyBody bounds a PUT: a full end-user topic list
+// (authsvc.MaxEndUserTopics patterns of up to 256 characters) and the two
+// policies, JSON-quoted.
+const maxSessionPolicyBody = 24 << 10
 
 // SessionPolicyHandler reads or sets the calling namespace's session policy.
 func (h *Handlers) SessionPolicyHandler(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +58,7 @@ func (h *Handlers) SessionPolicyHandler(w http.ResponseWriter, r *http.Request) 
 	case http.MethodPut:
 		h.setSessionPolicy(w, r, namespace)
 	default:
-		writeError(w, http.StatusMethodNotAllowed, "GET to read, PUT {\"device_policy\": ..., \"sign_in\": ...} to set")
+		writeError(w, http.StatusMethodNotAllowed, "GET to read, PUT {\"device_policy\": ..., \"sign_in\": ..., \"end_user_topics\": [...]} to set")
 	}
 }
 
@@ -65,49 +75,75 @@ func (h *Handlers) sessionPolicyBody(w http.ResponseWriter, r *http.Request, nam
 		h.writeUnavailable(w, "read the sign-in policy", err)
 		return nil, false
 	}
-	return map[string]any{"namespace": namespace, "device_policy": string(device), "sign_in": string(signIn)}, true
+	topics, err := h.authService.EndUserTopicsOf(r.Context(), namespace)
+	if err != nil {
+		h.writeUnavailable(w, "read the end-user topics", err)
+		return nil, false
+	}
+	return map[string]any{"namespace": namespace, "device_policy": string(device), "sign_in": string(signIn),
+		"end_user_topics": topics}, true
 }
 
-// parseSessionPolicyRequest reads and validates a PUT. A nil policy is a field
-// the request did not send.
-func parseSessionPolicyRequest(w http.ResponseWriter, r *http.Request) (*authsvc.DevicePolicy, *authsvc.SignInPolicy, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1024)
+// sessionPolicyChange is a validated PUT. A nil field is one the request did
+// not send.
+type sessionPolicyChange struct {
+	device        *authsvc.DevicePolicy
+	signIn        *authsvc.SignInPolicy
+	endUserTopics *[]string
+}
+
+// parseSessionPolicyRequest reads and validates a PUT.
+func parseSessionPolicyRequest(w http.ResponseWriter, r *http.Request) (sessionPolicyChange, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxSessionPolicyBody)
 	var req SessionPolicyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid json body: expected {\"device_policy\": \"optional|required|approval\", \"sign_in\": \"members|open\"}")
-		return nil, nil, false
+		writeError(w, http.StatusBadRequest, "invalid json body: expected {\"device_policy\": \"optional|required|approval\", \"sign_in\": \"members|open\", \"end_user_topics\": [\"pattern\", ...]}")
+		return sessionPolicyChange{}, false
 	}
-	if req.DevicePolicy == nil && req.SignIn == nil {
-		writeError(w, http.StatusBadRequest, "send device_policy (optional|required|approval), sign_in (members|open), or both")
-		return nil, nil, false
+	if req.DevicePolicy == nil && req.SignIn == nil && req.EndUserTopics == nil {
+		writeError(w, http.StatusBadRequest, "send device_policy (optional|required|approval), sign_in (members|open), end_user_topics (a list of topic patterns), or several")
+		return sessionPolicyChange{}, false
 	}
-	var device *authsvc.DevicePolicy
-	var signIn *authsvc.SignInPolicy
+	var change sessionPolicyChange
 	if req.DevicePolicy != nil {
 		p, err := authsvc.ParseDevicePolicy(*req.DevicePolicy)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
-			return nil, nil, false
+			return sessionPolicyChange{}, false
 		}
-		device = &p
+		change.device = &p
 	}
 	if req.SignIn != nil {
 		p, err := authsvc.ParseSignInPolicy(*req.SignIn)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
-			return nil, nil, false
+			return sessionPolicyChange{}, false
 		}
-		signIn = &p
+		change.signIn = &p
 	}
-	return device, signIn, true
+	if req.EndUserTopics != nil {
+		topics, err := authsvc.ParseEndUserTopics(*req.EndUserTopics)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return sessionPolicyChange{}, false
+		}
+		change.endUserTopics = &topics
+	}
+	return change, true
 }
 
 func (h *Handlers) setSessionPolicy(w http.ResponseWriter, r *http.Request, namespace string) {
-	device, signIn, ok := parseSessionPolicyRequest(w, r)
+	change, ok := parseSessionPolicyRequest(w, r)
 	if !ok {
 		return
 	}
+	device, signIn := change.device, change.signIn
 	actor := authsvc.ActorFromRequest(r)
+	// The topics go first: they only take effect for end users, who exist
+	// only once sign-in is open, which goes last.
+	if change.endUserTopics != nil && !h.applyEndUserTopics(w, r, namespace, *change.endUserTopics, actor) {
+		return
+	}
 	// The two fields are two writes. Opening sign-in goes last and closing it
 	// first, so a request that fails between them leaves the namespace closed,
 	// never open under a device policy the request meant to replace.
@@ -136,6 +172,25 @@ func (h *Handlers) applySignInPolicy(w http.ResponseWriter, r *http.Request, nam
 		return false
 	}
 	h.recordSignInPolicy(r, namespace, actor, policy)
+	return true
+}
+
+// applyEndUserTopics records the topics a namespace's end users read and
+// audits the change: naming a topic opens it to every wallet that signs in.
+// It answers the request itself when the write fails.
+func (h *Handlers) applyEndUserTopics(w http.ResponseWriter, r *http.Request, namespace string, topics []string, actor string) bool {
+	if _, err := h.authService.SetEndUserTopics(r.Context(), namespace, topics, actor); err != nil {
+		h.writeUnavailable(w, "record the end-user topics", err)
+		return false
+	}
+	h.authService.Audit().RecordFromRequest(r.Context(), r, authsvc.AuditEvent{
+		Namespace: namespace,
+		Actor:     actor,
+		Action:    authsvc.AuditSessionPolicySet,
+		Result:    authsvc.AuditSuccess,
+		Resource:  "end_user_topics",
+		Metadata:  map[string]string{"end_user_topics": strings.Join(topics, ",")},
+	})
 	return true
 }
 

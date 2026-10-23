@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
@@ -20,13 +21,13 @@ const sessionPolicyPath = "/v1/namespace/session-policy"
 // `--sign-in open` changes nothing about devices. Neither field is checked
 // here: the gateway validates both before writing either and says which value
 // it refused, and a second copy of its list would be the one that drifts.
-func NamespaceSessionPolicy(out *printer.Printer, ns, signIn, devicePolicy string) error {
+func NamespaceSessionPolicy(out *printer.Printer, ns, signIn, devicePolicy string, endUserTopics *[]string) error {
 	gatewayURL, token, err := loadAuthForNamespace(ns)
 	if err != nil {
 		return err
 	}
 
-	fields, err := sessionPolicyFields(signIn, devicePolicy)
+	fields, err := sessionPolicyFields(signIn, devicePolicy, endUserTopics)
 	if err != nil {
 		return err
 	}
@@ -45,21 +46,39 @@ func NamespaceSessionPolicy(out *printer.Printer, ns, signIn, devicePolicy strin
 	fmt.Fprintf(out.Out(), "Session policy for namespace '%v'\n\n", result["namespace"])
 	fmt.Fprintf(out.Out(), "  Sign-in:        %v\n", result["sign_in"])
 	fmt.Fprintf(out.Out(), "  Device policy:  %v\n", result["device_policy"])
+	fmt.Fprintf(out.Out(), "  End-user topics: %s\n", endUserTopicsLine(result["end_user_topics"]))
 	if revoked, ok := result["revoked_sign_in_keys"].(float64); ok && revoked > 0 {
 		fmt.Fprintf(out.Out(), "\n  Revoked %.0f end-user sign-in keys: requiring devices ends the keys a sign-in minted.\n", revoked)
 	}
 	return nil
 }
 
+// endUserTopicsLine prints the topics a namespace's end users read.
+func endUserTopicsLine(v any) string {
+	topics, _ := v.([]any)
+	if len(topics) == 0 {
+		return "none (end users read no pub/sub topic)"
+	}
+	parts := make([]string, len(topics))
+	for i, t := range topics {
+		parts[i] = fmt.Sprint(t)
+	}
+	return strings.Join(parts, ", ")
+}
+
 // sessionPolicyFields is the body of a PUT carrying only the fields the caller
-// named, or nil when it named none and the command reads instead.
-func sessionPolicyFields(signIn, devicePolicy string) ([]byte, error) {
-	fields := map[string]string{}
+// named, or nil when it named none and the command reads instead. A nil
+// endUserTopics is a list the caller did not name; an empty one clears it.
+func sessionPolicyFields(signIn, devicePolicy string, endUserTopics *[]string) ([]byte, error) {
+	fields := map[string]any{}
 	if signIn != "" {
 		fields["sign_in"] = signIn
 	}
 	if devicePolicy != "" {
 		fields["device_policy"] = devicePolicy
+	}
+	if endUserTopics != nil {
+		fields["end_user_topics"] = *endUserTopics
 	}
 	if len(fields) == 0 {
 		return nil, nil

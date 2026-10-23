@@ -68,7 +68,18 @@ A selector can only narrow. `storage:avatars/*` on a `reader`, who holds nothing
 
 ### The end user's special case
 
-A wallet that holds no grant holds the data plane, as every signed-in user does, with one exception: it may *read* pub/sub (subscribe, list topics, see who is present) and may not *publish*. Announcing presence also needs pub/sub write. The refusal is `403 INSUFFICIENT_SCOPE` with `required_permission: pubsub:write:*`. A topic an end user may write to is the application's decision: grant the wallet `pubsub` write, or publish from a function.
+A wallet that holds no grant holds the data plane, as every signed-in user does, with two exceptions in pub/sub. It may not *publish*: the refusal is `403 INSUFFICIENT_SCOPE` with `required_permission: pubsub:write:*`, and announcing presence also needs pub/sub write. A topic an end user may write to is the application's decision: grant the wallet `pubsub` write, or publish from a function.
+
+And it *reads* (subscribes to, sees in the topic listing, sees who is present on) only the topics the namespace lists for its end users. **The list starts empty**, so an end user reads no topic until the owner names it:
+
+```bash
+orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+orama namespace session-policy --namespace myapp --end-user-topics ''   # none again
+```
+
+Over HTTP it is `end_user_topics` on `PUT /v1/namespace/session-policy` (a list of at most 64 patterns, replacing the previous one; `[]` clears it), and `GET` returns it. A pattern matches like a `pubsub:topic=` selector: `*` matches any run of characters, `/` included. Topics under `_orama/` cannot be listed. Setting it needs `namespace:write` (the owner or an admin), and every gateway applies a change within 5 seconds. With nothing listed, `/v1/pubsub/ws`, `/v1/pubsub/topics` and `/v1/pubsub/presence` answer an end user `403 INSUFFICIENT_SCOPE`; with a list, a topic outside it is refused `403` and left out of the listing.
+
+Members holding a grant are not affected: their grant (and its `pubsub:topic=` selector, if any) says what they read. Neither is a function socket that bridges topics to its users (`ws_pubsub_bridge`): the function chooses those topics, so an app whose realtime goes through its own socket lists only the topics its client subscribes to directly. Before Orama 0.3.5 an end user read every topic of the namespace.
 
 ### Reserved pub/sub topics
 

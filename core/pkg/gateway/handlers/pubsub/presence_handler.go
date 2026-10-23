@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -25,6 +26,13 @@ func (p *PubSubHandlers) PresenceHandler(w http.ResponseWriter, r *http.Request)
 	topic := r.URL.Query().Get("topic")
 	if topic == "" {
 		writeError(w, http.StatusBadRequest, "missing 'topic'")
+		return
+	}
+	// Who is present on a topic is read access to it: a caller that may not
+	// subscribe to the topic does not see its members (bugboard #733), and a
+	// reserved topic's members are shown only to a caller holding a grant on
+	// it, as its messages are.
+	if !authorizeTopic(w, r, topic, gwauth.ActionRead) || refuseReservedSubscribe(w, r, topic) {
 		return
 	}
 

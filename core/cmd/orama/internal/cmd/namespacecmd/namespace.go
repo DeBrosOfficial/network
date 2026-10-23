@@ -161,15 +161,29 @@ left out keeps its value.
                       sign-in must bind. Requiring devices revokes the sign-in
                       keys end users already hold.
 
-Changing either needs write access to the namespace.
+  --end-user-topics   the pub/sub topics an end user may subscribe to, list and
+                      see presence on, comma-separated patterns ('*' matches any
+                      run of characters, '/' included). It replaces the list,
+                      and '' clears it. The default is none: an end user reads
+                      no topic until it is listed. Members holding a grant read
+                      what their grant says. A function's socket that bridges
+                      topics to its users is not affected.
 
-  orama namespace session-policy --namespace myapp --sign-in open`,
+Changing any of them needs write access to the namespace.
+
+  orama namespace session-policy --namespace myapp --sign-in open
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ns, _ := cmd.Flags().GetString("namespace")
 		signIn, _ := cmd.Flags().GetString("sign-in")
 		device, _ := cmd.Flags().GetString("device-policy")
-		return cli.NamespaceSessionPolicy(printer.For(cmd), ns, signIn, device)
+		var topics *[]string
+		if cmd.Flags().Changed("end-user-topics") {
+			list, _ := cmd.Flags().GetStringSlice("end-user-topics")
+			topics = &list
+		}
+		return cli.NamespaceSessionPolicy(printer.For(cmd), ns, signIn, device, topics)
 	},
 }
 
@@ -227,6 +241,7 @@ func init() {
 	sessionPolicyCmd.Flags().String("namespace", "", "Namespace name")
 	sessionPolicyCmd.Flags().String("sign-in", "", "Who may sign in: members | open")
 	sessionPolicyCmd.Flags().String("device-policy", "", "What an end user's sign-in must bind: optional | required | approval")
+	sessionPolicyCmd.Flags().StringSlice("end-user-topics", nil, "Pub/sub topic patterns end users may read, comma-separated; '' clears the list")
 
 	// The grant list comes from the gateway rather than a hand-written string,
 	// which is how the help came to advertise grants the validator refused.

@@ -240,3 +240,45 @@ func TestDeviceTokenHandler_closingSignInRefusesALinkClaim(t *testing.T) {
 		t.Errorf("the refused claim spent its code: %d %v", code, body)
 	}
 }
+
+// bugboard #733: the session policy carries the topics the namespace's end
+// users read. None until set; a PUT replaces the list, [] clears it, and a
+// bad pattern changes nothing.
+func TestSessionPolicyHandler_endUserTopics(t *testing.T) {
+	f := newFlow(t)
+	f.owner("0xowner")
+	read := func() []any {
+		t.Helper()
+		operator := &authsvc.JWTClaims{Sub: "0xowner", Namespace: flowNamespace}
+		code, body := f.do(f.h.SessionPolicyHandler, http.MethodGet, sessionPolicyPath, nil, operator)
+		if code != http.StatusOK {
+			t.Fatalf("GET: %d %v", code, body)
+		}
+		topics, ok := body["end_user_topics"].([]any)
+		if !ok {
+			t.Fatalf("GET carries no end_user_topics list: %v", body)
+		}
+		return topics
+	}
+	if got := read(); len(got) != 0 {
+		t.Fatalf("a namespace that named none lists %v", got)
+	}
+	if code, body := f.setPolicy(map[string]any{"end_user_topics": []string{"users/global", "presence/*"}}); code != http.StatusOK {
+		t.Fatalf("set topics: %d %v", code, body)
+	}
+	if got := read(); len(got) != 2 || got[0] != "presence/*" || got[1] != "users/global" {
+		t.Fatalf("listed %v, want [presence/* users/global]", got)
+	}
+	if code, _ := f.setPolicy(map[string]any{"end_user_topics": []string{"_orama/webrtc/*"}}); code != http.StatusBadRequest {
+		t.Errorf("a reserved pattern: %d, want 400", code)
+	}
+	if got := read(); len(got) != 2 {
+		t.Errorf("a refused PUT changed the list to %v", got)
+	}
+	if code, body := f.setPolicy(map[string]any{"end_user_topics": []string{}}); code != http.StatusOK {
+		t.Fatalf("clear topics: %d %v", code, body)
+	}
+	if got := read(); len(got) != 0 {
+		t.Errorf("clearing left %v", got)
+	}
+}

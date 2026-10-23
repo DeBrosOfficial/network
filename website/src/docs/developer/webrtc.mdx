@@ -542,7 +542,7 @@ topic name.
 caller: `POST /v1/pubsub/publish`, `publish-batch` and a frame on a pubsub WebSocket are all refused
 (`403`, `PUBSUB_RESERVED_TOPIC`; a WebSocket on the topic is read-only and `presence` on it is refused). The
 platform publishes these in-process. **Subscribing** needs a grant: a signed-in user who holds no grant in
-the namespace (the end user of an application) can read pub/sub topics in general, but not these, because
+the namespace (the end user of an application) can read the pub/sub topics its namespace lists for end users, but not these, because
 they say who is in rooms that user was not admitted to; they are refused (`403`, `PUBSUB_RESERVED_TOPIC`) and
 left out of `GET /v1/pubsub/topics`. A caller holding a grant (an API key of role `runtime` or above, or a
 wallet with a pubsub grant covering the topic) may subscribe. The exact set is the credentials that can

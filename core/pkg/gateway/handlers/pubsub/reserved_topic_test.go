@@ -92,7 +92,7 @@ func TestPublishBatchHandler_oneReservedTopicRefusesTheWholeBatch(t *testing.T) 
 func TestWebsocketHandler_reservedTopicNeedsAGrant(t *testing.T) {
 	h := newTestHandlers(&mockNetworkClient{pubsub: &mockPubSubClient{}})
 	w := httptest.NewRecorder()
-	h.WebsocketHandler(w, subscribeRequest(membershipTopic, "", gwauth.NoGrantPermissions()))
+	h.WebsocketHandler(w, subscribeRequest(membershipTopic, "", gwauth.NoGrantPermissions([]string{"*"})))
 	if w.Code != http.StatusForbidden || errorCode(t, w) != CodeReservedTopic {
 		t.Fatalf("status %d %s, want 403 %s for a wallet with no grant", w.Code, w.Body, CodeReservedTopic)
 	}
@@ -150,7 +150,7 @@ func TestTopicsHandler_hidesReservedTopicsFromACallerWithoutAGrant(t *testing.T)
 		h.TopicsHandler(rr, r)
 		return rr.Body.String()
 	}
-	if got := list(gwauth.NoGrantPermissions()); strings.Contains(got, "_orama") || !strings.Contains(got, "chat") {
+	if got := list(gwauth.NoGrantPermissions([]string{"*"})); strings.Contains(got, "_orama") || !strings.Contains(got, "chat") {
 		t.Errorf("no grant: %s", got)
 	}
 	if got := list(gwauth.DataPlanePermissions()); !strings.Contains(got, membershipTopic) {

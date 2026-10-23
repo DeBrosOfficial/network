@@ -112,7 +112,9 @@ func TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt(t *testing.T) {
 }
 
 // TestSignInPolicy_cliShowsAndSets: `orama namespace session-policy` reads with
-// no flags, sets with --sign-in, and keeps the field it was not given.
+// no flags, sets with --sign-in, and keeps the field it was not given; it
+// lists no end-user topic until --end-user-topics names some, and '' clears
+// them (bug-733).
 func TestSignInPolicy_cliShowsAndSets(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
@@ -136,5 +138,22 @@ func TestSignInPolicy_cliShowsAndSets(t *testing.T) {
 	}
 	if got := read("--sign-in", signInMembers); got["sign_in"] != signInMembers {
 		t.Errorf("--sign-in members answered %v", got)
+	}
+
+	if got, _ := read()["end_user_topics"].([]any); len(got) != 0 {
+		t.Errorf("a new namespace lists end-user topics %v, want none", got)
+	}
+	got := read("--end-user-topics", "users/global,presence/*")
+	if topics, _ := got["end_user_topics"].([]any); len(topics) != 2 || topics[0] != "presence/*" || topics[1] != "users/global" {
+		t.Errorf("--end-user-topics answered %v, want [presence/* users/global]", got["end_user_topics"])
+	}
+	if got["sign_in"] != signInMembers {
+		t.Errorf("setting the end-user topics changed sign-in: %v", got)
+	}
+	if res, err := n.CLI.For(t).Run(t.Context(), "namespace", "session-policy", "--end-user-topics", "_orama/webrtc/*"); err != nil || res.Exit == 0 {
+		t.Errorf("a reserved end-user topic was accepted: exit %d, %v", res.Exit, err)
+	}
+	if topics, _ := read("--end-user-topics", "")["end_user_topics"].([]any); len(topics) != 0 {
+		t.Errorf("--end-user-topics '' left %v", topics)
 	}
 }

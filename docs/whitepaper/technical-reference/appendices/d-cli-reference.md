@@ -4899,7 +4899,15 @@ left out keeps its value.
                       sign-in must bind. Requiring devices revokes the sign-in
                       keys end users already hold.
 
-Changing either needs write access to the namespace.
+  --end-user-topics   the pub/sub topics an end user may subscribe to, list and
+                      see presence on, comma-separated patterns ('*' matches any
+                      run of characters, '/' included). It replaces the list,
+                      and '' clears it. The default is none: an end user reads
+                      no topic until it is listed. Members holding a grant read
+                      what their grant says. A function's socket that bridges
+                      topics to its users is not affected.
+
+Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
 ```
@@ -4956,11 +4964,13 @@ Add a network by its manifest, or a cluster by its gateway
 
 ```text
 orama network add <manifest-url> | <name> <gateway-url> [description] [flags]
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
 ```
 
 ```text
 Add a network, one of two ways.
 
+| `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
 With one argument, a manifest URL: https://<host>/<path>/manifest.json. The
 manifest names the chain id, the genesis digest, the seeds, the release channel
 and the digest of the release root the network's software is verified against.

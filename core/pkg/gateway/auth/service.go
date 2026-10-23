@@ -54,10 +54,13 @@ type Service struct {
 
 	// devicePolicies remembers each namespace's session policy for
 	// devicePolicyStaleness, because every account-level refresh asks.
-	devicePolicies devicePolicyCache
+	devicePolicies policyCache[DevicePolicy]
 	// signInPolicies is the same for the sign-in policy, which shares the
 	// row and the staleness bound.
-	signInPolicies signInPolicyCache
+	signInPolicies policyCache[SignInPolicy]
+	// endUserTopics is the same for the topics a namespace's end users may
+	// read (bugboard #733), asked on every pub/sub read by one.
+	endUserTopics policyCache[[]string]
 }
 
 // minRSAKeyBits is the smallest RSA signing key this gateway will use. 2048 is

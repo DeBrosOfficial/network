@@ -114,7 +114,7 @@ func TestPushSend_heldByTheServerSideOnly(t *testing.T) {
 		"runtime deployed app":   {AppPermissions(RoleRuntime, ""), true, true},
 		"reader deployed app":    {AppPermissions(RoleReader, ""), false, false},
 		"reader":                 {PermissionsFor(RoleReader, ""), false, false},
-		"signed in, no grant":    {NoGrantPermissions(), false, true},
+		"signed in, no grant":    {NoGrantPermissions(nil), false, true},
 		"push key, no grant row": {PermissionsFromScopes(ScopePush), false, true},
 	} {
 		if got := c.set.Permits(send); got != c.sends {

@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,6 +50,20 @@ func TestNoGrantWallet_directPublishIsRefused(t *testing.T) {
 	}
 }
 
+// fixedEndUserTopics is a namespace's end-user topic list, or the error
+// reading it gave.
+type fixedEndUserTopics struct {
+	topics []string
+	err    error
+}
+
+func (f fixedEndUserTopics) CachedEndUserTopicsOf(context.Context, string) ([]string, error) {
+	return f.topics, f.err
+}
+
+// pubsubReads are the routes that read pub/sub.
+var pubsubReads = []string{"/v1/pubsub/ws", "/v1/pubsub/topics", "/v1/pubsub/presence"}
+
 func TestNoGrantWallet_keepsSubscribeAndTheRestOfTheDataPlane(t *testing.T) {
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/v1/pubsub/ws"},
@@ -58,11 +74,40 @@ func TestNoGrantWallet_keepsSubscribeAndTheRestOfTheDataPlane(t *testing.T) {
 	} {
 		t.Run(route.path, func(t *testing.T) {
 			g, _ := namespaceGatewayForHops(t, "")
+			g.endUserTopics = fixedEndUserTopics{topics: []string{"presence/*"}}
 
 			rec, reached := serveHop(g, hop(t, g, route.method, route.path, hopNamespace, hopWallet))
 
 			if !reached {
 				t.Errorf("a wallet with no grant was refused %s: %d %s", route.path, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+// bugboard #733: a namespace that lists no end-user topic gives its end users
+// no pub/sub read at all, the scope gate refusing each read route; one whose
+// list cannot be read refuses them 503, not as empty and not as everything;
+// and a member reads whatever the list says.
+func TestNoGrantWallet_readsPubsubOnlyWhenTheNamespaceListsTopics(t *testing.T) {
+	for _, path := range pubsubReads {
+		t.Run(path, func(t *testing.T) {
+			g, _ := namespaceGatewayForHops(t, "")
+			g.endUserTopics = fixedEndUserTopics{topics: []string{}}
+			rec, reached := serveHop(g, hop(t, g, http.MethodGet, path, hopNamespace, hopWallet))
+			if reached || rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), CodeScopeMissing) {
+				t.Errorf("nothing listed: reached %v, %d %s; want 403 %s", reached, rec.Code, rec.Body.String(), CodeScopeMissing)
+			}
+
+			g.endUserTopics = fixedEndUserTopics{err: errors.New("registry unreachable")}
+			if rec, reached := serveHop(g, hop(t, g, http.MethodGet, path, hopNamespace, hopWallet)); reached || rec.Code != http.StatusServiceUnavailable {
+				t.Errorf("an unreadable list: reached %v, %d; want 503", reached, rec.Code)
+			}
+
+			member, _ := namespaceGatewayForHops(t, "runtime")
+			member.endUserTopics = fixedEndUserTopics{topics: []string{}}
+			if rec, reached := serveHop(member, hop(t, member, http.MethodGet, path, hopNamespace, hopWallet)); !reached {
+				t.Errorf("a runtime member was held to the end-user list: %d %s", rec.Code, rec.Body.String())
 			}
 		})
 	}
@@ -120,8 +165,10 @@ func TestNoGrantWallet_aReaderIsStillRefusedPublishing(t *testing.T) {
 	}
 }
 
+// With a topic listed for end users, publishing is the only data-plane loss;
+// reading pub/sub is limited to what the namespace lists (bugboard #733).
 func TestNoGrantPermissions_publishIsTheOnlyDataPlaneLoss(t *testing.T) {
-	noGrant, full := auth.NoGrantPermissions(), auth.DataPlanePermissions()
+	noGrant, full := auth.NoGrantPermissions([]string{"presence/*"}), auth.DataPlanePermissions()
 	if noGrant.PermitsDomain(auth.DomainPubsub, auth.ActionWrite) {
 		t.Error("a wallet with no grant may publish")
 	}
@@ -142,5 +189,25 @@ func TestNoGrantPermissions_publishIsTheOnlyDataPlaneLoss(t *testing.T) {
 	}
 	if noGrant.PermitsDomain(auth.DomainDB, auth.ActionRead) || noGrant.IsAdmin() {
 		t.Error("a wallet with no grant holds more than the data plane")
+	}
+}
+
+// bugboard #733: an end user reads the topics the namespace lists and no
+// other, and none at all when it lists none.
+func TestNoGrantPermissions_readsOnlyTheListedTopics(t *testing.T) {
+	read := func(topic string) auth.Resource {
+		return auth.Resource{Domain: auth.DomainPubsub, Action: auth.ActionRead, Name: topic}
+	}
+	listed := auth.NoGrantPermissions([]string{"presence/*", "users/global"})
+	for topic, want := range map[string]bool{
+		"presence/global": true, "presence/rooms/a": true, "users/global": true,
+		"messages:new": false, "user/0xbob/feed": false, "users/global2": false,
+	} {
+		if got := listed.Permits(read(topic)); got != want {
+			t.Errorf("listed topics: may read %q = %v, want %v", topic, got, want)
+		}
+	}
+	if none := auth.NoGrantPermissions(nil); none.PermitsDomain(auth.DomainPubsub, auth.ActionRead) {
+		t.Error("an end user of a namespace that lists no topic reads pub/sub")
 	}
 }
