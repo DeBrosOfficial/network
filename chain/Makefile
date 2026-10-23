@@ -7,7 +7,11 @@ BUILD_DIR := build
 BINARY := oramad
 PKG := ./cmd/oramad
 
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# The version is the repository's VERSION file and the commit is HEAD's, which `orama maint build`
+# passes on the command line as the ones its manifest names. Neither depends on the working tree:
+# a build that stamped its state (git describe --dirty, Go's VCS stamp) would differ from the one
+# before it as soon as anything in the checkout changed, and a release archive must not.
+VERSION := $(shell tr -d '[:space:]' < $(CURDIR)/../VERSION)
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 VERSION_PKG := github.com/cosmos/cosmos-sdk/version
 LDFLAGS := -s -w \
@@ -15,7 +19,9 @@ LDFLAGS := -s -w \
 	-X $(VERSION_PKG).AppName=oramad \
 	-X $(VERSION_PKG).Version=$(VERSION) \
 	-X $(VERSION_PKG).Commit=$(COMMIT)
-BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
+# -trimpath keeps the build machine's paths out of a binary, -buildvcs=false the checkout's VCS state.
+GO_REPRO_FLAGS := -trimpath -buildvcs=false
+BUILD_FLAGS := $(GO_REPRO_FLAGS) -ldflags "$(LDFLAGS)"
 
 # Static cross-compiles pass -tags nowasm. They do not link libwasmvm and do not include CosmWasm.
 # The default host build (build-wasm, and `go test` without -tags nowasm when cgo is on) links
@@ -30,8 +36,8 @@ LIBWASMVM := $(firstword $(wildcard $(WASMVM_DIR)/internal/api/libwasmvm.dylib $
 ## build: cross-compile oramad for linux/amd64, darwin/amd64 and darwin/arm64.
 ## CGO_ENABLED=0 and -tags nowasm: these binaries are static and do not include CosmWasm.
 ## A nowasm binary refuses to start a node that claims the wasm module.
-## -trimpath drops local filesystem paths from the binary; the version ldflags embed `git describe`
-## and the short commit hash, so `oramad version` reports something meaningful.
+## The version ldflags embed VERSION and the short commit hash, so `oramad version` reports the
+## release it belongs to.
 build:
 	mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=linux  GOARCH=amd64 go build -tags nowasm $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY)-linux-amd64  $(PKG)
@@ -145,13 +151,13 @@ build-linux-amd64-orchard: orchard-lib-linux-amd64 orchard-verifier-linux-amd64
 		CGO_LDFLAGS="-lunwind" \
 		CC="$(ORAMA_ZIG) cc -target $(ORCHARD_LINUX_AMD64_ZIG_TARGET)" \
 		CXX="$(ORAMA_ZIG) c++ -target $(ORCHARD_LINUX_AMD64_ZIG_TARGET)" \
-		go build -tags "nowasm orchardffi netgo osusergo" -trimpath -ldflags "$(LDFLAGS) $(VERIFIER_PIN_LDFLAG) -linkmode external -extldflags -static" \
+		go build -tags "nowasm orchardffi netgo osusergo" $(GO_REPRO_FLAGS) -ldflags "$(LDFLAGS) $(VERIFIER_PIN_LDFLAG) -linkmode external -extldflags -static" \
 		-o $(BUILD_DIR)/$(BINARY)-linux-amd64-orchard $(PKG)
 
 ## orchard-smoke: build and run the smoke binary on this machine (host static library).
 orchard-smoke: orchard-lib
 	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=1 go build -tags "nowasm orchardffi" -trimpath -o $(BUILD_DIR)/orchard-smoke ./cmd/orchard-smoke
+	CGO_ENABLED=1 go build -tags "nowasm orchardffi" $(GO_REPRO_FLAGS) -o $(BUILD_DIR)/orchard-smoke ./cmd/orchard-smoke
 	$(BUILD_DIR)/orchard-smoke
 
 ## orchard-smoke-linux-amd64: the smoke binary for linux/amd64, built with the same zig/musl
@@ -164,12 +170,13 @@ orchard-smoke-linux-amd64: orchard-lib-linux-amd64
 		CGO_LDFLAGS="-lunwind" \
 		CC="$(ORAMA_ZIG) cc -target $(ORCHARD_LINUX_AMD64_ZIG_TARGET)" \
 		CXX="$(ORAMA_ZIG) c++ -target $(ORCHARD_LINUX_AMD64_ZIG_TARGET)" \
-		go build -tags "nowasm orchardffi netgo osusergo" -trimpath -ldflags "$(LDFLAGS) -linkmode external -extldflags -static" \
+		go build -tags "nowasm orchardffi netgo osusergo" $(GO_REPRO_FLAGS) -ldflags "$(LDFLAGS) -linkmode external -extldflags -static" \
 		-o $(BUILD_DIR)/orchard-smoke-linux-amd64 ./cmd/orchard-smoke
 
 ## native-lib-linux-amd64: libwasmvm and the Orchard verifier in one static musl library, built from
 ## source (libwasmvm from the module cache at the pinned wasmvm version) through zig. Needs
-## `rustup target add x86_64-unknown-linux-musl`. Records the sha256 in native/.
+## `rustup target add x86_64-unknown-linux-musl`. Prints the sha256 and writes nothing tracked;
+## `./native/build.sh record` records it in native/, `./native/build.sh verify` checks it.
 native-lib-linux-amd64:
 	./native/build.sh build
 
@@ -183,7 +190,7 @@ build-linux-amd64-full: native-lib-linux-amd64 orchard-verifier-linux-amd64
 		CGO_LDFLAGS="-L$(CURDIR)/$(BUILD_DIR)/native -lunwind" \
 		CC="$(ORAMA_ZIG) cc -target $(ORCHARD_LINUX_AMD64_ZIG_TARGET)" \
 		CXX="$(ORAMA_ZIG) c++ -target $(ORCHARD_LINUX_AMD64_ZIG_TARGET)" \
-		go build -tags "muslc orchardffi netgo osusergo" -trimpath -ldflags "$(LDFLAGS) $(VERIFIER_PIN_LDFLAG) -linkmode external -extldflags -static" \
+		go build -tags "muslc orchardffi netgo osusergo" $(GO_REPRO_FLAGS) -ldflags "$(LDFLAGS) $(VERIFIER_PIN_LDFLAG) -linkmode external -extldflags -static" \
 		-o $(BUILD_DIR)/$(BINARY)-linux-amd64-full $(PKG)
 
 ## build-linux-amd64-global: the static linux/amd64 orama-global (the provider, archiver, indexer and repair

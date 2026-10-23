@@ -77,7 +77,7 @@ Blocks come about every 5 seconds when the validators are healthy. `oramad init`
 
 A `nowasm` binary refuses to start a node that claims the wasm module, either in its options or in its genesis (`chain/app/wasm_novm.go:guardWasmClaim`). A binary without the Orchard library refuses to start a testnet or mainnet node; on a localnet or a scripted devnet it starts and accepts no shielded bundle (`chain/app/shielded_verifiers.go:verifiersOptional`).
 
-The `chain/native/` crate exists because two Rust static libraries linked into one binary each carry their own copy of the standard library and collide. It builds libwasmvm and the Orchard verifier as rlibs of one crate and archives them once (`chain/native/Cargo.toml`). `chain/native/build.sh` copies libwasmvm from the module cache at the version `chain/go.mod` pins, builds with a pinned Rust toolchain and zig for the C parts, and records the SHA-256 of the archive in `chain/native/libwasmvm_muslc.x86_64.a.sha256`; the `verify` mode fails if a rebuild hashes differently. The crate supplies `__rust_probestack` itself, because the unmangled symbol that wasmer needs is exported only mangled by current `compiler_builtins` (`chain/native/src/probestack.rs`); the host libwasmvm that `make test-race` builds (`wasmvm-lib` in `chain/ci.mk`) gets the same file on Linux, so the race tests link the same routine.
+The `chain/native/` crate exists because two Rust static libraries linked into one binary each carry their own copy of the standard library and collide. It builds libwasmvm and the Orchard verifier as rlibs of one crate and archives them once (`chain/native/Cargo.toml`). `chain/native/build.sh` copies libwasmvm from the module cache at the version `chain/go.mod` pins, builds with a pinned Rust toolchain and zig for the C parts, and prints the SHA-256 of the archive. It writes nothing tracked, because `orama maint build` runs it and a release build leaves the checkout as it found it; the `record` mode writes the hash to `chain/native/libwasmvm_muslc.x86_64.a.sha256` and the `verify` mode fails if a rebuild hashes differently. The crate supplies `__rust_probestack` itself, because the unmangled symbol that wasmer needs is exported only mangled by current `compiler_builtins` (`chain/native/src/probestack.rs`); the host libwasmvm that `make test-race` builds (`wasmvm-lib` in `chain/ci.mk`) gets the same file on Linux, so the race tests link the same routine.
 
 ### The module set
 
@@ -361,7 +361,7 @@ The module queries are also on each node's own REST API (`api.enable`, port 3100
 | Power state | the `power` store, see [state](#state) | `x/power` | `x/power`, rewards, `UndelegateGuard` |
 | Module accounts | bank | their modules | invariants |
 | Embedded query descriptors | `core/pkg/chainread/queries.binpb` | `gen.sh` | the CLI and the gateway |
-| Native library hash | `chain/native/libwasmvm_muslc.x86_64.a.sha256` | `native/build.sh` | `native/build.sh verify` |
+| Native library hash | `chain/native/libwasmvm_muslc.x86_64.a.sha256` | `native/build.sh record` | `native/build.sh verify` |
 
 ## Lifecycle
 

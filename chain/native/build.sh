@@ -2,10 +2,13 @@
 # Build the static native library for linux/amd64 (musl, C parts through zig): libwasmvm and the
 # Orchard verifier in one archive, from source. Nothing prebuilt is downloaded.
 #
-# Usage: build.sh [build|verify]
+# Usage: build.sh [build|record|verify]
 #   build   writes $OUT/libwasmvm_muslc.x86_64.a (both Rust halves) and $OUT/liborama_orchard.a (empty:
 #           the Go cgo directives of both libraries name their own archive, and the symbols of both are
-#           in the first), and records the sha256 in native/libwasmvm_muslc.x86_64.a.sha256
+#           in the first), and prints the sha256. It writes nothing in the checkout outside $OUT and the
+#           ignored vendor/: `orama maint build` runs it, and a release build must leave the tracked
+#           tree as it found it.
+#   record  builds, then records the sha256 in native/libwasmvm_muslc.x86_64.a.sha256
 #   verify  builds, then fails unless the sha256 equals the recorded one
 #
 # The wasmvm sources are libwasmvm from the Go module cache at the version chain/go.mod pins. The
@@ -13,6 +16,13 @@
 set -euo pipefail
 
 mode="${1:-build}"
+case "$mode" in
+build | record | verify) ;;
+*)
+	echo "usage: build.sh [build|record|verify]" >&2
+	exit 2
+	;;
+esac
 here="$(cd "$(dirname "$0")" && pwd)"
 chain="$(cd "$here/.." && pwd)"
 target="x86_64-unknown-linux-musl"
@@ -71,14 +81,20 @@ rm -f "$out/liborama_orchard.a"
 sum="$(shasum -a 256 "$out/libwasmvm_muslc.x86_64.a" | cut -d' ' -f1)"
 line="$sum  libwasmvm_muslc.x86_64.a  wasmvm=$wasmvm_ver rustc=$(rustup run "$toolchain" rustc --version | cut -d' ' -f2) zig=$("$zig" version)"
 record="$here/libwasmvm_muslc.x86_64.a.sha256"
-if [ "$mode" = "verify" ]; then
+case "$mode" in
+verify)
 	want="$(cut -d' ' -f1 "$record")"
 	if [ "$sum" != "$want" ]; then
 		echo "MISMATCH: built $sum, recorded $want" >&2
 		exit 1
 	fi
 	echo "verified $sum"
-else
+	;;
+record)
 	echo "$line" >"$record"
 	echo "$line"
-fi
+	;;
+build)
+	echo "$line"
+	;;
+esac
