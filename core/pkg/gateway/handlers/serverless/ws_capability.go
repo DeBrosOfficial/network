@@ -201,6 +201,15 @@ func (h *ServerlessHandlers) socketCaller(r *http.Request) (wallet string, isAdm
 	return h.getWalletFromRequest(r), h.getCallerIsAdminFromRequest(r), h.getCallerHasInvokeFromRequest(r)
 }
 
+// socketCallerKey is the credential fingerprint the socket's invocations are
+// rate-limited by: none for a capability, which names no account.
+func (h *ServerlessHandlers) socketCallerKey(r *http.Request) string {
+	if requestCapability(r) != nil {
+		return ""
+	}
+	return h.getCallerKeyFromRequest(r)
+}
+
 // socketClaims is what a socket is held to: the verified token it was opened
 // with, or its capability, which the sweeper checks the same way.
 func (h *ServerlessHandlers) socketClaims(r *http.Request) *auth.JWTClaims {

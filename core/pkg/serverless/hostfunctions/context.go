@@ -111,6 +111,7 @@ func (h *HostFunctions) FunctionInvoke(ctx context.Context, name string, payload
 		// A caller-started one never becomes gateway-started.
 		SystemOriginated: cur.SystemOriginated,
 		CallerIP:         cur.CallerIP,
+		CallerKey:        cur.CallerKey,
 		WSClientID:       cur.WSClientID,
 		CallerClaims:     cur.CallerClaims,
 		CallerJWTSubject: cur.CallerJWTSubject,
@@ -213,6 +214,7 @@ func (h *HostFunctions) FunctionInvokeAsync(ctx context.Context, name string, pa
 			CallerHasInvoke:  snapshot.CallerHasInvoke,
 			SystemOriginated: snapshot.SystemOriginated,
 			CallerIP:         snapshot.CallerIP,
+			CallerKey:        snapshot.CallerKey,
 			WSClientID:       snapshot.WSClientID,
 			CallerClaims:     snapshot.CallerClaims,
 			CallerJWTSubject: snapshot.CallerJWTSubject,

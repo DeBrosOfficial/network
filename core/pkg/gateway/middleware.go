@@ -162,9 +162,9 @@ func setInternalAuthJWTHeaders(h http.Header, claims *auth.JWTClaims) {
 	}
 }
 
-// setInternalAuthKeyHeaders writes an API-key caller's effective scopes (#148)
-// and the resources narrowing them onto an outbound proxy request. No-op for a
-// caller that is not a key.
+// setInternalAuthKeyHeaders writes an API-key caller's effective scopes (#148),
+// the resources narrowing them and the key's fingerprint onto an outbound proxy
+// request. No-op for a caller that is not a key.
 func setInternalAuthKeyHeaders(h http.Header, key keyAuthority) {
 	if key.scopes == "" {
 		return
@@ -172,6 +172,12 @@ func setInternalAuthKeyHeaders(h http.Header, key keyAuthority) {
 	h.Set(HeaderInternalAuthScopes, key.scopes)
 	if len(key.resources) > 0 {
 		h.Set(HeaderInternalAuthKeyResources, key.resources.Stored())
+	}
+	if key.fingerprint != "" {
+		h.Set(HeaderInternalAuthKeyFingerprint, key.fingerprint)
+	}
+	if key.id > 0 {
+		h.Set(HeaderInternalAuthKeyID, strconv.FormatInt(key.id, 10))
 	}
 }
 
@@ -404,33 +410,46 @@ func (g *Gateway) validateAuthForNamespaceProxy(r *http.Request) (namespace stri
 // apiKeyDB in apikey_querier.go), never a namespace's own RQLite.
 // Returns the namespace name or an error if the key is invalid.
 //
-// Dual lookup strategy for rolling upgrade: tries HMAC-hashed key first (new keys),
-// then falls back to raw key lookup (existing unhashed keys during transition).
+// The key is looked up by its HMAC hash only; api_keys never holds a raw key.
 func (g *Gateway) lookupAPIKeyNamespace(ctx context.Context, key string, q apiKeyQuerier) (string, error) {
 	entry, err := g.lookupAPIKeyEntry(ctx, key, q)
 	return entry.namespace, err
 }
 
-// apiKeyEntry is what a key's row says: the namespace it belongs to, its raw
-// api_keys.scopes value, and the resources it is narrowed to (migration 082).
+// apiKeyEntry is what a key's row says: its registry id, the namespace it
+// belongs to, its raw api_keys.scopes value, and the resources it is narrowed
+// to (migration 082).
 type apiKeyEntry struct {
+	id        int64
 	namespace string
 	scopes    string
 	resources auth.KeyResources
+	// stored is the key as api_keys.key holds it (HashAPIKey of the raw key,
+	// or an exchanged token's subject), which both spellings of one key share.
+	stored string
 }
 
 // authority is the part of the row that says what the key may reach, in the
-// form the proxy hop forwards.
+// form the proxy hop forwards, with the fingerprint that names the key.
 func (e apiKeyEntry) authority() keyAuthority {
-	return keyAuthority{scopes: auth.ScopesFromStored(e.scopes).Canonical(), resources: e.resources}
+	return keyAuthority{
+		scopes:      auth.ScopesFromStored(e.scopes).Canonical(),
+		resources:   e.resources,
+		fingerprint: auth.KeyFingerprint(e.stored),
+		id:          e.id,
+	}
 }
 
-// keyAuthority is what an API key may reach, as the main gateway forwards it
-// to a namespace gateway: its canonical scopes and the resources narrowing
-// them. Both empty for a caller that is not a key.
+// keyAuthority is an API key as the main gateway forwards it to a namespace
+// gateway: its canonical scopes and the resources narrowing them (what it may
+// reach), its fingerprint (what the invoke rate limiter buckets it by) and its
+// registry id (what request_logs.api_key_id records). All empty for a caller
+// that is not a key.
 type keyAuthority struct {
-	scopes    string
-	resources auth.KeyResources
+	scopes      string
+	resources   auth.KeyResources
+	fingerprint string
+	id          int64
 }
 
 // lookupAPIKeyEntry resolves an API key to its row (namespace, scopes,
@@ -481,6 +500,7 @@ func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQue
 		return apiKeyEntry{}, fmt.Errorf("lookupAPIKeyEntry: hashed-key query failed: %w", err)
 	}
 	if entry, ok := apiKeyEntryFromRow(res); ok {
+		entry.stored = hashedKey
 		if g.mwCache != nil {
 			g.mwCache.SetAPIKeyEntry(key, entry)
 		}
@@ -500,7 +520,7 @@ func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQue
 // value is the HMAC when one is configured and the raw key when it is not.
 // An exchanged token's subject is already that value, so it must not be
 // hashed a second time.
-const apiKeyByStoredSQL = "SELECT namespaces.name, api_keys.scopes, api_keys.resources FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? AND api_keys.revoked_at IS NULL AND api_keys.expires_at > datetime('now') LIMIT 1"
+const apiKeyByStoredSQL = "SELECT namespaces.name, api_keys.scopes, api_keys.resources, api_keys.id FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? AND api_keys.revoked_at IS NULL AND api_keys.expires_at > datetime('now') LIMIT 1"
 
 // apiKeyEntryFromRow reads the row apiKeyByStoredSQL returns. ok is false when
 // it names no namespace.
@@ -518,6 +538,9 @@ func apiKeyEntryFromRow(res *client.QueryResult) (apiKeyEntry, bool) {
 	}
 	if len(row) > 2 {
 		entry.resources = auth.KeyResourcesFromStored(getString(row[2]))
+	}
+	if len(row) > 3 {
+		entry.id = int64(getInt(row[3]))
 	}
 	return entry, true
 }
@@ -554,6 +577,7 @@ func (g *Gateway) lookupStoredAPIKey(ctx context.Context, stored string) (apiKey
 		return apiKeyEntry{}, fmt.Errorf("lookupStoredAPIKey: query failed: %w", err)
 	}
 	if entry, ok := apiKeyEntryFromRow(res); ok {
+		entry.stored = stored
 		if g.mwCache != nil {
 			g.mwCache.SetAPIKeyEntry(stored, entry)
 		}
@@ -610,7 +634,8 @@ func (g *Gateway) withExchangedKeyScopes(w http.ResponseWriter, ctx context.Cont
 		unauthorized(w, CodeAuthInvalidKey, errMsg, nil)
 		return ctx, false
 	}
-	return withKeyAuthority(ctx, key.scopes, key.resources), true
+	markRequestKey(ctx, key.id)
+	return withKeyFingerprint(withKeyAuthority(ctx, key.scopes, key.resources), key.fingerprint), true
 }
 
 // withKeyAuthority attaches what an API key may reach: its scopes, and the
@@ -619,6 +644,33 @@ func withKeyAuthority(ctx context.Context, scopes string, resources auth.KeyReso
 	ctx = context.WithValue(ctx, ctxKeyScopes, auth.ParseScopes(scopes))
 	if len(resources) > 0 {
 		ctx = context.WithValue(ctx, ctxKeyKeyResources, resources)
+	}
+	return ctx
+}
+
+// markHopRequestKey records, for request_logs, the registry id of the API key
+// the main gateway authenticated, as the hop carries it. The MAC verified, so
+// a value that is not an id is the main gateway's own bug; it is reported and
+// the row records no key rather than a guessed one.
+func (g *Gateway) markHopRequestKey(r *http.Request) {
+	raw := strings.TrimSpace(r.Header.Get(HeaderInternalAuthKeyID))
+	if raw == "" {
+		return
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		g.logger.ComponentWarn("gateway", "dropped a hop API key id that is not one",
+			zap.String("path", r.URL.Path), zap.String("key_id", raw))
+		return
+	}
+	markRequestKey(r.Context(), id)
+}
+
+// withKeyFingerprint attaches the fingerprint of the API key that
+// authenticated the request, when there is one.
+func withKeyFingerprint(ctx context.Context, fingerprint string) context.Context {
+	if fingerprint = strings.TrimSpace(fingerprint); fingerprint != "" {
+		ctx = context.WithValue(ctx, ctxKeyKeyFingerprint, fingerprint)
 	}
 	return ctx
 }
@@ -854,13 +906,7 @@ func (g *Gateway) loggingMiddleware(next http.Handler) http.Handler {
 
 		// Enqueue log entry for batched persistence (replaces per-request DB writes)
 		if g.logBatcher != nil {
-			apiKey := ""
-			if v := r.Context().Value(ctxKeyAPIKey); v != nil {
-				if s, ok := v.(string); ok {
-					apiKey = s
-				}
-			}
-			g.logBatcher.Add(newRequestLogEntry(r, policy, srw.status, srw.bytes, dur, apiKey))
+			g.logBatcher.Add(newRequestLogEntry(r, policy, srw.status, srw.bytes, dur, attribution.keyID))
 		}
 	})
 }
@@ -933,6 +979,8 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 				if raw := strings.TrimSpace(r.Header.Get(HeaderInternalAuthScopes)); raw != "" {
 					reqCtx = withKeyAuthority(reqCtx, raw,
 						auth.KeyResourcesFromStored(r.Header.Get(HeaderInternalAuthKeyResources)))
+					reqCtx = withKeyFingerprint(reqCtx, r.Header.Get(HeaderInternalAuthKeyFingerprint))
+					g.markHopRequestKey(r)
 				}
 				next.ServeHTTP(w, r.WithContext(reqCtx))
 				return
@@ -1078,6 +1126,8 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 		reqCtx := context.WithValue(r.Context(), ctxKeyAPIKey, key)
 		reqCtx = context.WithValue(reqCtx, CtxKeyNamespaceOverride, entry.namespace)
 		reqCtx = withKeyAuthority(reqCtx, entry.scopes, entry.resources)
+		reqCtx = withKeyFingerprint(reqCtx, entry.authority().fingerprint)
+		markRequestKey(reqCtx, entry.id)
 		g.recordDeprecatedCredential(r, entry.namespace, form)
 		next.ServeHTTP(w, r.WithContext(reqCtx))
 	})
@@ -1289,11 +1339,8 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 
 		// grantFor reports the live grant (ot, oid) holds in this namespace, if
 		// any. API keys are stored HMAC-hashed (see service.HashAPIKey) while
-		// the presented value here is the RAW key — so for a key we look under
-		// the hashed form first and the raw form second (rolling-upgrade
-		// legacy), mirroring lookupAPIKeyNamespace. Without this, a
-		// key-authenticated member never matched and got a 403 on a namespace
-		// they actually belong to (blocked function deploy / push config).
+		// the presented value here is the RAW key, so a key is looked up under
+		// its hashed form only.
 		grantFor := func(ot, oid string) *auth.Grant {
 			hashed := ""
 			if ot == "api_key" {
@@ -1454,9 +1501,9 @@ func loggableOwnerID(ownerType, ownerID string) string {
 // principalIdentifierCandidates returns the identifiers to look a principal up
 // under.
 //
-// API keys are stored HMAC-hashed, so for a key the hashed form is checked
-// first and the raw key second (rolling-upgrade legacy, mirroring
-// lookupAPIKeyNamespace).
+// API keys are stored HMAC-hashed, and MigratePlaintextAPIKeys moves any
+// leftover raw-key principal to the hashed form before the gateway serves, so
+// a key is looked up under its hashed form only.
 //
 // Wallets are stored normalised (auth.NormalizeWallet), but rows written before
 // that was true kept whatever case the client sent — so a checksummed address
@@ -1466,8 +1513,8 @@ func loggableOwnerID(ownerType, ownerID string) string {
 //
 // For every other owner type the value is used as-is.
 func principalIdentifierCandidates(ownerType, ownerID, hashed string) []string {
-	if ownerType == "api_key" && hashed != "" && hashed != ownerID {
-		return []string{hashed, ownerID}
+	if ownerType == "api_key" {
+		return []string{hashed}
 	}
 	if ownerType == "wallet" {
 		if normalized := auth.NormalizeWallet(ownerID); normalized != ownerID {
@@ -1690,6 +1737,7 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 		return
 	}
 	validatedNamespace, validatedClaims, validatedKey, authErr := a.namespace, a.claims, a.key, a.errMsg
+	markRequestKey(r.Context(), validatedKey.id)
 	isWS := isWebSocketUpgrade(r)
 	isPublic := g.policyFor(r).Access.Anonymous()
 

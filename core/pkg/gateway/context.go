@@ -15,6 +15,7 @@ const (
 	ctxKeyScopes            = ctxkeys.Scopes
 	ctxKeyGrant             = ctxkeys.Grant
 	ctxKeyKeyResources      = ctxkeys.KeyResources
+	ctxKeyKeyFingerprint    = ctxkeys.KeyFingerprint
 )
 
 // hostNamespaceKey carries the namespace named by an ns-<name> host for a

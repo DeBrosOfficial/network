@@ -199,6 +199,7 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 
 	callerWallet, callerIsAdmin, callerHasInvoke := h.socketCaller(r)
 	callerIP := extractRemoteIP(r)
+	callerKey := h.socketCallerKey(r)
 	// Capture custom claims at upgrade time and reuse for every frame —
 	// the JWT context is request-scoped and won't survive past upgrade.
 	callerClaims := h.getCallerClaimsFromRequest(r)
@@ -230,6 +231,7 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 			CallerIsAdmin:    callerIsAdmin,
 			CallerHasInvoke:  callerHasInvoke,
 			CallerIP:         callerIP,
+			CallerKey:        callerKey,
 			CallerClaims:     callerClaims,
 			CallerJWTSubject: callerJWTSubject,
 			CallerDeviceID:   callerDeviceID,

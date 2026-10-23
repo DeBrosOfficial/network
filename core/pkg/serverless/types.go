@@ -271,6 +271,10 @@ type FunctionDefinition struct {
 	// credential, as every function has been, or WSAuthCapability to also
 	// accept a capability minted through the function (feat-264).
 	WSAuth string `json:"ws_auth,omitempty"`
+
+	// RateLimit is the function's own invoke limits (function.yaml
+	// rate_limit), nil for none. See function_rate_limit.go.
+	RateLimit *FunctionRateLimit `json:"rate_limit,omitempty"`
 }
 
 // DBTriggerConfig defines a database trigger configuration.
@@ -318,6 +322,10 @@ type Function struct {
 	// credential, as every function has been, or WSAuthCapability to also
 	// accept a capability minted through the function (feat-264).
 	WSAuth string `json:"ws_auth,omitempty"`
+
+	// RateLimit is the function's own invoke limits (function.yaml
+	// rate_limit), nil for none. See function_rate_limit.go.
+	RateLimit *FunctionRateLimit `json:"rate_limit,omitempty"`
 }
 
 // InvocationContext provides context for a function invocation.
@@ -331,6 +339,10 @@ type InvocationContext struct {
 	// Used by the multi-tier rate limiter as a fallback bucket for anonymous
 	// (no-wallet) callers.
 	CallerIP string `json:"caller_ip,omitempty"`
+	// CallerKey names the credential of a caller with no wallet; see
+	// InvokeRequest.CallerKey. Carried into nested invocations so a function's
+	// own calls are charged to the caller that started them.
+	CallerKey string `json:"caller_key,omitempty"`
 	// CallerIsAdmin marks the caller as holding the admin (control-plane)
 	// grant (bugboard #152). Propagated into child WASM→WASM invocations so
 	// an internal→internal call works while external→internal stays blocked.

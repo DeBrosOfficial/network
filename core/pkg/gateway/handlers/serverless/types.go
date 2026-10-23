@@ -304,6 +304,29 @@ func (h *ServerlessHandlers) getWalletFromRequest(r *http.Request) string {
 	return ""
 }
 
+// getCallerKeyFromRequest names the credential of a caller with no wallet, for
+// the invoke rate limiter (bug-934): the fingerprint of the API key the auth
+// middleware looked up (or the main gateway forwarded), else of the subject of
+// the key's or workload's token. "" for a wallet, whose bucket is its own, and
+// for a request with no credential, which is bucketed by address.
+//
+// It exists because getWalletFromRequest answers the namespace for every such
+// caller, so every user of an app's shared key drew on one bucket.
+func (h *ServerlessHandlers) getCallerKeyFromRequest(r *http.Request) string {
+	ctx := r.Context()
+	claims, _ := ctx.Value(ctxkeys.JWT).(*auth.JWTClaims)
+	if claims != nil && auth.IsWalletSubject(claims.Sub) {
+		return ""
+	}
+	if fp, _ := ctx.Value(ctxkeys.KeyFingerprint).(string); fp != "" {
+		return fp
+	}
+	if claims != nil {
+		return auth.KeyFingerprint(claims.Sub)
+	}
+	return ""
+}
+
 // recordAudit records one control-plane event for this namespace: who deployed,
 // deleted, or changed a secret, and when. Invokes are not recorded — they are
 // the data plane, and one row per call would fill a replicated table.

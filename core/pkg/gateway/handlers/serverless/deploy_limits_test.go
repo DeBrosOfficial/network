@@ -51,6 +51,9 @@ func TestDeployFunction_refusesInvalidLimits(t *testing.T) {
 		{"retry delay negative", "", map[string]string{"retry_delay_seconds": "-1"}, "retry_delay_seconds"},
 		{"metadata memory above the maximum", `{"memory_limit_mb":4096}`, nil, "memory_limit_mb"},
 		{"metadata timeout negative", `{"timeout_seconds":-1}`, nil, "timeout_seconds"},
+		{"rate limit with no window", `{"rate_limit":{"per_ip":{"requests":2}}}`, nil, "rate_limit.per_ip.window"},
+		{"rate limit window over a day", `{"rate_limit":{"per_caller":{"requests":5,"window_seconds":90000}}}`, nil, "rate_limit.per_caller.window"},
+		{"rate limit negative requests", `{"rate_limit":{"per_caller":{"requests":-1,"window_seconds":60}}}`, nil, "rate_limit.per_caller.requests"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -161,5 +164,25 @@ func TestDeployFunction_usesConfiguredMaxima(t *testing.T) {
 	h.DeployFunction(rec, limitsDeployRequest(t, "", map[string]string{"retry_count": "5"}))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("retry_count at the maximum: status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// bug-740: a function's own invoke limits arrive in the metadata and reach the
+// registry as they were declared.
+func TestDeployFunction_carriesTheRateLimitToTheRegistry(t *testing.T) {
+	reg := &recordingRegistry{mockRegistry: newMockRegistry()}
+	h := newTestHandlers(reg)
+	rec := httptest.NewRecorder()
+
+	h.DeployFunction(rec, limitsDeployRequest(t,
+		`{"rate_limit":{"per_caller":{"requests":5,"window_seconds":60},"per_ip":{"requests":2,"window_seconds":3600}}}`, nil))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	got := reg.registered[0].RateLimit
+	if got == nil || got.PerCaller.Requests != 5 || got.PerCaller.WindowSeconds != 60 ||
+		got.PerIP.Requests != 2 || got.PerIP.WindowSeconds != 3600 {
+		t.Errorf("registered rate limit %+v", got)
 	}
 }

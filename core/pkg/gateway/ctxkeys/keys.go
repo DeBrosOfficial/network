@@ -40,4 +40,11 @@ const (
 	// the handler knows which object; the handler asks again with the object.
 	// They used to be computed separately, from different inputs.
 	Permissions ContextKey = "permissions"
+
+	// KeyFingerprint holds auth.KeyFingerprint of the stored form of the API
+	// key that authenticated the request — set where the key was looked up,
+	// or read off the hop that forwarded it. It names the caller to the
+	// function invoke rate limiter without being the credential, and a key
+	// presented bare or exchanged for a token has the same one.
+	KeyFingerprint ContextKey = "api_key_fingerprint"
 )

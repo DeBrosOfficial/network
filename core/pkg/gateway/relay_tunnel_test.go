@@ -343,8 +343,8 @@ func TestRequestLogEntry_relayRoutesKeepNoAddress(t *testing.T) {
 		if policy.RequestLog == routepolicy.LogFull {
 			t.Fatalf("%s declares no reduced request log", path)
 		}
-		entry := newRequestLogEntry(r, policy, 200, 10, time.Second, "")
-		_, args := buildRequestLogInsert([]requestLogEntry{entry}, nil)
+		entry := newRequestLogEntry(r, policy, 200, 10, time.Second, 0)
+		_, args := buildRequestLogInsert([]requestLogEntry{entry})
 		for _, a := range args {
 			if s, ok := a.(string); ok && strings.Contains(s, "198.51.100.7") {
 				t.Errorf("%s: the INSERT carries the address: %v", path, args)
@@ -362,10 +362,10 @@ func TestRequestLogEntry_relayRoutesKeepNoAddress(t *testing.T) {
 	if policy.RequestLog != routepolicy.LogFull {
 		t.Error("an ordinary route declares a reduced request log")
 	}
-	if entry := newRequestLogEntry(r, policy, 200, 1, time.Millisecond, ""); entry.ip == "" {
+	if entry := newRequestLogEntry(r, policy, 200, 1, time.Millisecond, 0); entry.ip == "" {
 		t.Error("an ordinary route's row lost its address")
 	}
-	if newRequestLogEntry(r, routepolicy.Policy{RequestLog: routepolicy.LogNoAddress}, 200, 1, 0, "").ip != "" {
+	if newRequestLogEntry(r, routepolicy.Policy{RequestLog: routepolicy.LogNoAddress}, 200, 1, 0, 0).ip != "" {
 		t.Error("the flag does not blank the address")
 	}
 }

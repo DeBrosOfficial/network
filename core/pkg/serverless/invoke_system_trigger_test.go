@@ -243,6 +243,7 @@ func TestNewInvocationContext_carriesTheCallersIdentityAndGrants(t *testing.T) {
 	req := &InvokeRequest{
 		CallerWallet:     "0xUser",
 		CallerIP:         "203.0.113.4",
+		CallerKey:        "key_0123456789ab",
 		CallerIsAdmin:    true,
 		CallerHasInvoke:  true,
 		SystemOriginated: true,
@@ -269,6 +270,9 @@ func TestNewInvocationContext_carriesTheCallersIdentityAndGrants(t *testing.T) {
 	}
 	if got.TriggerType != TriggerTypeCron {
 		t.Errorf("trigger type = %q", got.TriggerType)
+	}
+	if got.CallerKey != "key_0123456789ab" {
+		t.Errorf("caller key = %q: the function's nested calls would be charged to no one", got.CallerKey)
 	}
 	if got.CallerIP != "203.0.113.4" || got.WSClientID != "client-9" ||
 		got.CallerJWTSubject != "0xUser" || got.CallerDeviceID != "device-1" || got.TriggerDepth != 2 {

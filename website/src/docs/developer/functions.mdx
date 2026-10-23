@@ -81,6 +81,18 @@ ws_auth: capability     # Optional. Also let the function's WebSocket be opened
                         # with a capability it minted, instead of a credential
                         # (see "Capabilities" below). Empty (default): a
                         # credential only. Refused on an internal function.
+rate_limit:             # Optional. The function's own invoke limits, on top of
+                        # the gateway's (see "Invoke rate limits" below).
+  per_caller:           # Each caller: a wallet; a caller with an API key and
+    requests: 5         # no wallet by key and address; an anonymous caller by
+    window: 1m          # address.
+  per_ip:               # Each client address, whichever wallet signs the call:
+    requests: 2         # the limit for account creation, where every call
+    window: 1h          # brings a fresh wallet.
+                        # requests 1-100,000; window 1s-24h in whole seconds
+                        # (30s, 1m, 1h). Out of range is refused at deploy
+                        # 400 VALIDATION_FAILED naming the field. A redeploy
+                        # changes the limits from the next call.
 ```
 
 ### function.go
@@ -981,16 +993,36 @@ the message and a `Retry-After` header:
 
 | Scope | Key | Sustained | Burst |
 |-------|-----|-----------|-------|
-| `per_function_wallet` | namespace, function, wallet | the function's own limit, only when it declares one | its own burst |
+| `per_function_ip` | namespace, function, address | the function's `rate_limit.per_ip`, only when it declares one | its `requests` |
+| `per_function_caller` | namespace, function, caller | the function's `rate_limit.per_caller`, only when it declares one | its `requests` |
+| `per_key` | namespace, API key, address (callers with a key and no wallet) | 600 a minute (10 a second) | 60 |
 | `per_wallet` | namespace, wallet | 600 a minute (10 a second) | 60 |
-| `per_ip` | namespace, address (callers with no wallet) | 120 a minute (2 a second) | 30 |
+| `per_ip` | namespace, address (callers with no credential) | 120 a minute (2 a second) | 30 |
 | `per_namespace` | namespace | 250,000 a minute (about 4,166 a second) | 6,000 |
+
+The caller is a signed-in wallet; for a call with an API key (or a key's or
+an app's token) and no wallet, the key together with the client address; for a
+call with no credential, the address. An app that ships one key to all its
+users therefore gives each user, by address, a budget of their own, and one
+leaked or busy key does not spend another key's. The address is the real
+client address the gateway resolves from its own proxy chain, never a header
+the caller wrote.
+
+A `rate_limit` rule allows `requests` calls per `window`: the first `requests`
+pass at once, then one more every `window / requests`. Two signups an hour per
+address (`per_ip: {requests: 2, window: 1h}`) is two at once from an address,
+then one every 30 minutes, whichever wallet signs each one; the refusal is
+`429 RATE_LIMITED`, `retryable`, with `scope=per_function_ip` and a
+`Retry-After` of the wait. To raise a limit before a launch, change the
+function.yaml and redeploy: no gateway release is involved.
 
 An invoke is charged once, by the gateway that runs it; the hop that proxies a
 request to a namespace gateway is not charged. The buckets are per gateway, not
-shared across a namespace's gateways. A caller that sends 100 invokes at 30 a
-second from one wallet spends the 60-invoke burst in about two seconds and then
-gets 429s at the 10-a-second refill (the `per_wallet` scope).
+shared across a namespace's gateways, so a rule of n requests admits up to n on
+each of them: a namespace served by three gateways that needs at most n in all
+declares n / 3. A caller that sends 100 invokes at 30 a second from one wallet
+spends the 60-invoke burst in about two seconds and then gets 429s at the
+10-a-second refill (the `per_wallet` scope).
 
 ## WebSockets
 

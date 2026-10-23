@@ -45,7 +45,11 @@ import (
 // revocation could reach it. v3 adds the device and session the token is bound
 // to. v4 adds the resources an API key is narrowed to, without which a key
 // limited to some functions reached every function through a namespace
-// gateway.
+// gateway. v5 adds the key's fingerprint, without which the namespace
+// gateway's invoke rate limiter could not tell one key's callers from another's
+// and bucketed every key-only caller of a namespace together. v6 adds the key's
+// registry id, without which the namespace gateway's request log could not say
+// which key made a request.
 //
 // A signer stamps every version, so a namespace gateway that predates the
 // newest still accepts what an upgraded main gateway sends it. A verifier
@@ -65,12 +69,13 @@ const (
 	// "<unix seconds>.<hex hmac>".
 	HeaderInternalAuthMAC = "X-Internal-Auth-MAC"
 
-	// HeaderInternalAuthMACv2, HeaderInternalAuthMACv3 and
-	// HeaderInternalAuthMACv4 authenticate the v2, v3 and v4 fields, in the
-	// same format.
+	// HeaderInternalAuthMACv2 to HeaderInternalAuthMACv6 authenticate the v2
+	// to v6 fields, in the same format.
 	HeaderInternalAuthMACv2 = "X-Internal-Auth-MAC-V2"
 	HeaderInternalAuthMACv3 = "X-Internal-Auth-MAC-V3"
 	HeaderInternalAuthMACv4 = "X-Internal-Auth-MAC-V4"
+	HeaderInternalAuthMACv5 = "X-Internal-Auth-MAC-V5"
+	HeaderInternalAuthMACv6 = "X-Internal-Auth-MAC-V6"
 
 	// HeaderInternalAuthJWTExp and HeaderInternalAuthJWTIat carry the verified
 	// token's exp and iat (unix seconds), HeaderInternalAuthJWTJti its jti.
@@ -89,6 +94,16 @@ const (
 	// narrow. Covered by the v4 MAC only.
 	HeaderInternalAuthKeyResources = "X-Internal-Auth-Key-Resources"
 
+	// HeaderInternalAuthKeyFingerprint carries auth.KeyFingerprint of an
+	// API-key caller's stored key, which the invoke rate limiter buckets the
+	// caller by. Covered by the v5 MAC only.
+	HeaderInternalAuthKeyFingerprint = "X-Internal-Auth-Key-Fingerprint"
+
+	// HeaderInternalAuthKeyID carries the registry id (api_keys.id) of an
+	// API-key caller's key, which request_logs.api_key_id records. Covered by
+	// the v6 MAC only.
+	HeaderInternalAuthKeyID = "X-Internal-Auth-Key-ID"
+
 	// internalAuthKeyPurpose is the HKDF domain separator for the hop key, so
 	// it is unrelated to the TURN, push and secrets keys derived from the same
 	// cluster secret.
@@ -105,6 +120,8 @@ const (
 	internalAuthPayloadV2 = "orama-internal-auth-v2"
 	internalAuthPayloadV3 = "orama-internal-auth-v3"
 	internalAuthPayloadV4 = "orama-internal-auth-v4"
+	internalAuthPayloadV5 = "orama-internal-auth-v5"
+	internalAuthPayloadV6 = "orama-internal-auth-v6"
 )
 
 // hopVersion is one version of the hop MAC: its payload prefix, the header it
@@ -125,6 +142,10 @@ var hopVersions = []hopVersion{
 		[]string{HeaderInternalAuthJWTDid, HeaderInternalAuthJWTSid}},
 	{internalAuthPayloadV4, HeaderInternalAuthMACv4,
 		[]string{HeaderInternalAuthKeyResources}},
+	{internalAuthPayloadV5, HeaderInternalAuthMACv5,
+		[]string{HeaderInternalAuthKeyFingerprint}},
+	{internalAuthPayloadV6, HeaderInternalAuthMACv6,
+		[]string{HeaderInternalAuthKeyID}},
 }
 
 // internalAuthVersionedHeaders are the fields only a MAC newer than v1 covers.

@@ -30,12 +30,17 @@ var (
 type trafficAttributionKey struct{}
 
 // trafficAttribution is where the middlewares below loggingMiddleware note
-// the namespace a request served. loggingMiddleware reads it after the
-// handler chain returns: a context value set further in is not visible out
-// there, so it hands the chain this slot instead. Every write happens on the
-// serving goroutine before the chain returns.
+// the namespace a request served and the API key that made it.
+// loggingMiddleware reads it after the handler chain returns: a context value
+// set further in is not visible out there, so it hands the chain this slot
+// instead. Every write happens on the serving goroutine before the chain
+// returns.
 type trafficAttribution struct {
 	namespace string
+	// keyID is the registry id (api_keys.id) of the API key that
+	// authenticated the request, bare or exchanged for a token, on this
+	// gateway or on the main gateway that forwarded it; 0 when no key did.
+	keyID int64
 }
 
 func withTrafficAttribution(r *http.Request) (*http.Request, *trafficAttribution) {
@@ -47,6 +52,14 @@ func withTrafficAttribution(r *http.Request) (*http.Request, *trafficAttribution
 func markTrafficNamespace(r *http.Request, namespace string) {
 	if a, ok := r.Context().Value(trafficAttributionKey{}).(*trafficAttribution); ok && namespace != "" {
 		a.namespace = namespace
+	}
+}
+
+// markRequestKey attributes the request ctx belongs to to the API key with
+// registry id id, for its request_logs row. An id of 0 is no key.
+func markRequestKey(ctx context.Context, id int64) {
+	if a, ok := ctx.Value(trafficAttributionKey{}).(*trafficAttribution); ok && id > 0 {
+		a.keyID = id
 	}
 }
 

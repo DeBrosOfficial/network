@@ -301,7 +301,9 @@ func (e *Engine) Execute(ctx context.Context, fn *Function, input []byte, invCtx
 				Namespace: invCtx.Namespace,
 				Function:  invCtx.FunctionName,
 				Wallet:    invCtx.CallerWallet,
+				Key:       invCtx.CallerKey,
 				IP:        invCtx.CallerIP,
+				Override:  fn.RateLimit,
 			}
 			d, err := tl.AllowRequest(ctx, req)
 			if err != nil {

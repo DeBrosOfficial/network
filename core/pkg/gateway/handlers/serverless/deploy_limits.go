@@ -62,7 +62,10 @@ func (h *ServerlessHandlers) validateDefinitionLimits(def *serverless.FunctionDe
 	if err := checkDeployInt(fieldRetryCount, def.RetryCount, h.maxRetryCount, minRetryValue); err != nil {
 		return err
 	}
-	return checkDeployInt(fieldRetryDelaySeconds, def.RetryDelaySeconds, noMaximum, minRetryValue)
+	if err := checkDeployInt(fieldRetryDelaySeconds, def.RetryDelaySeconds, noMaximum, minRetryValue); err != nil {
+		return err
+	}
+	return def.RateLimit.Validate()
 }
 
 // SetFunctionLimits sets the ceilings a deploy is checked against: the

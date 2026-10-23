@@ -209,9 +209,12 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
+	callerRequests, callerWindow, ipRequests, ipWindow := fn.RateLimit.columns()
 	_, err = r.db.Exec(ctx, query,
 		id, fn.Name, fn.Namespace, version, wasmCID,
 		memoryLimit, timeout, fn.IsPublic, fn.IsInternal,
@@ -219,6 +222,7 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 		string(FunctionStatusActive), now, now, fn.Namespace,
 		fn.WSPersistent, fn.WSIdleTimeoutSec, fn.WSMaxFrameBytes, fn.WSMaxInflightPerConn,
 		fn.RawHTTPResponse, fn.WSAuth,
+		callerRequests, callerWindow, ipRequests, ipWindow,
 	)
 	if err != nil {
 		return nil, &DeployError{FunctionName: fn.Name, Cause: fmt.Errorf("failed to register function: %w", err)}
@@ -271,7 +275,9 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 				retry_count, retry_delay_seconds, dlq_topic,
 				status, created_at, updated_at, created_by,
 				ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 			FROM functions
 			WHERE namespace = ? AND name = ? AND status = ?
 			ORDER BY version DESC
@@ -285,7 +291,9 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 				retry_count, retry_delay_seconds, dlq_topic,
 				status, created_at, updated_at, created_by,
 				ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 			FROM functions
 			WHERE namespace = ? AND name = ? AND version = ? AND status = ?
 		`
@@ -320,7 +328,9 @@ func (r *Registry) List(ctx context.Context, namespace string) ([]*Function, err
 			f.retry_count, f.retry_delay_seconds, f.dlq_topic,
 			f.status, f.created_at, f.updated_at, f.created_by,
 			f.ws_persistent, f.ws_idle_timeout_sec, f.ws_max_frame_bytes, f.ws_max_inflight_per_conn,
-			f.raw_http_response, f.ws_auth
+			f.raw_http_response, f.ws_auth,
+			f.rate_limit_caller_requests, f.rate_limit_caller_window_sec,
+			f.rate_limit_ip_requests, f.rate_limit_ip_window_sec
 		FROM functions f
 		INNER JOIN (
 			SELECT namespace, name, MAX(version) as max_version
@@ -643,7 +653,9 @@ func (r *Registry) GetByID(ctx context.Context, id string) (*Function, error) {
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 		FROM functions
 		WHERE id = ?
 	`
@@ -668,7 +680,9 @@ func (r *Registry) ListVersions(ctx context.Context, namespace, name string) ([]
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 		FROM functions
 		WHERE namespace = ? AND name = ?
 		ORDER BY version DESC
@@ -996,7 +1010,9 @@ func (r *Registry) getByNameInternal(ctx context.Context, namespace, name string
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 		FROM functions
 		WHERE namespace = ? AND name = ?
 		ORDER BY version DESC
@@ -1077,6 +1093,12 @@ func (r *Registry) rowToFunction(row *functionRow) *Function {
 		// reading it back a function declaring `ws_auth: capability`
 		// would refuse every capability.
 		WSAuth: row.WSAuth,
+
+		// The function's own invoke limits (bug-740). Without reading them
+		// back the limiter's per-function tier never runs, which is how it
+		// stayed dead before this column existed.
+		RateLimit: rateLimitFromColumns(row.RateLimitCallerRequests, row.RateLimitCallerWindowSec,
+			row.RateLimitIPRequests, row.RateLimitIPWindowSec),
 	}
 }
 
@@ -1135,6 +1157,13 @@ type functionRow struct {
 	// WSAuth is how the function's WebSocket may be opened (feat-264).
 	// Backed by migration 061; '' is a credential, as before.
 	WSAuth string `db:"ws_auth"`
+
+	// The function's own invoke limits (bug-740, migration 083). Zero is no
+	// rule, which every function deployed before the columns has.
+	RateLimitCallerRequests  int `db:"rate_limit_caller_requests"`
+	RateLimitCallerWindowSec int `db:"rate_limit_caller_window_sec"`
+	RateLimitIPRequests      int `db:"rate_limit_ip_requests"`
+	RateLimitIPWindowSec     int `db:"rate_limit_ip_window_sec"`
 }
 
 type envVarRow struct {

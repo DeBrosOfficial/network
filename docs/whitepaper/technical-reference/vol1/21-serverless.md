@@ -187,18 +187,24 @@ The platform treats a function as the namespace's own code, so host calls do not
 
 ### Rate limiting
 
-Admission to a run is a token-bucket check in the engine, at the start of `Execute` and before the module is loaded. `MultiTierLimiter` evaluates up to four tiers in order and the first refusal wins (`core/pkg/serverless/ratelimit.go:AllowRequest`).
+Admission to a run is a token-bucket check in the engine, at the start of `Execute` and before the module is loaded. `MultiTierLimiter` evaluates the tiers in order and the first refusal wins (`core/pkg/serverless/ratelimit.go:AllowRequest`). The engine hands it the namespace, the function, the caller's wallet, the caller's key fingerprint, the caller's address and the function's own `rate_limit` (`Override`).
 
 | Scope | Key | Sustained | Burst | When |
 |---|---|---|---|---|
-| `per_function_wallet` | namespace, function, wallet | the override | its own | only if an override is set and there is a wallet |
-| `per_wallet` | namespace, wallet | 600 a minute (10/s) | 60 | a wallet, which includes the namespace-name pseudo-wallet of an API key |
-| `per_ip` | namespace, address | 120 a minute (2/s) | 30 | no wallet and an address |
+| `per_function_ip` | namespace, function, address | the function's `per_ip` | its `requests` | the function declares `per_ip` |
+| `per_function_caller` | namespace, function, caller | the function's `per_caller` | its `requests` | the function declares `per_caller` |
+| `per_key` | namespace, key fingerprint, address | 600 a minute (10/s) | 60 | a credential (API key, a key's or a workload's token) and no wallet |
+| `per_wallet` | namespace, wallet | 600 a minute (10/s) | 60 | a wallet |
+| `per_ip` | namespace, address | 120 a minute (2/s) | 30 | no credential |
 | `per_namespace` | namespace | 250,000 a minute | 6,000 | always |
 
-The per-namespace rate is the engine's `GlobalRateLimitPerMinute` (250,000), which the gateway installs as the namespace ceiling (`core/pkg/gateway/dependencies.go`). Each tier holds its buckets in a 16-shard LRU of 100,000 keys; an evicted bucket resets. A refusal returns `RateLimitedError` with the scope and the wait until a token exists, which the HTTP handler serves as 429 with a `Retry-After`.
+**The caller.** A request is charged to one identity, the same in the `per_function_caller` and second tiers (`RateLimitRequest.caller`): a wallet by itself; a caller with a credential and no wallet by (key fingerprint, address); an anonymous caller by address. The key fingerprint is `auth.KeyFingerprint` of the key's stored form, so a key presented bare and the same key exchanged for a token are one caller. It is set where the key is looked up and crosses the proxy hop under the v5 MAC ([inter-node trust](15-inter-node-trust.md#the-internal-auth-hop)); the invoke handler reads it with `getCallerKeyFromRequest`, falling back to the fingerprint of a non-wallet token subject. Such a caller used to be charged to the namespace, which `get_caller_wallet` reports for it, so every caller of every key of a namespace drew on one bucket: one heavy or leaked key starved the rest, and an application that ships one key to all its users gave all of them a single 10-per-second bucket. The address half keeps the users of one shared key apart; the key half keeps two applications behind one address apart.
 
-The charge is per `Execute`, not per request. A retry is charged again. A nested `function_invoke` is charged again, as the original caller. Triggers carry no wallet and no address, so they pay only the namespace tier. The per-function override is never set by the engine, so the first tier is dormant. All API-key callers of a namespace share one wallet key, so an application that serves its users with one API key shares a single 10-per-second bucket for all of them. Buckets are per gateway, not per namespace.
+**A function's own limits.** `rate_limit` in function.yaml declares up to two rules, each `requests` per `window` (1 s to 24 h, whole seconds; `requests` 1 to 100,000), validated at deploy (`serverless.FunctionRateLimit.Validate`, 400 naming the field). A rule is a bucket holding `requests` that refills them evenly over the window, so `2` per `1h` passes two at once and then one every 30 minutes. `per_caller` is charged to the caller above; `per_ip` to the address whoever is signed in, which is what limits account creation by a client that brings a fresh wallet to every call. The rules are stored on the function's row (`rate_limit_*` columns, migration 083), read back on every read path and put in `Override` by the engine. They tighten and never loosen: a call that passes them is still charged to the second and third tiers. A redeploy that changes them applies on the next call, because a bucket takes the rate and capacity it is asked with.
+
+The per-namespace rate is the engine's `GlobalRateLimitPerMinute` (250,000), which the gateway installs as the namespace ceiling (`core/pkg/gateway/dependencies.go`). Each tier holds its buckets in a 16-shard LRU of 100,000 keys; an evicted bucket resets. A bucket is about 200 bytes, so a tier at its cap is about 20 MB, and the function tiers hold buckets only for functions that declare a rule. A refusal returns `RateLimitedError` with the scope and the wait until a token exists, which the HTTP handler serves as 429 with a `Retry-After`.
+
+The charge is per `Execute`, not per request. A retry is charged again. A nested `function_invoke` is charged again, as the original caller (the key fingerprint and address travel with the invocation context). Triggers carry no wallet, key or address, so they pay only the namespace tier. Buckets are per gateway, not per namespace: a function rule of n requests admits up to n on each of the namespace's gateways, so a namespace that wants a cluster-wide n sets n divided by its gateway count.
 
 ### Secrets, environment and logs
 
@@ -419,7 +425,7 @@ A function owns no port, file or process. Its state is rows in the namespace's d
 | Invocation exceeds its deadline | wazero closes the module; status `timeout`; the invoker does not re-run it | 504 `FUNCTION_TIMEOUT` (not retryable), record status `timeout` |
 | Guest grows past its memory limit | `memory.grow` returns -1; the guest traps | 500 `FUNCTION_EXECUTION_FAILED` |
 | All 5 namespace slots busy | The call waits for a slot against its own deadline | Latency, then a timeout |
-| Rate limit | `RateLimitedError` before the module loads; the invoker does not re-run it | 429 with `Retry-After` and `scope=`; on a stateless socket the frame reports `RATE_LIMITED`, retryable |
+| Rate limit (a tier, or the function's own `rate_limit`) | `RateLimitedError` before the module loads; the invoker does not re-run it | 429 with `Retry-After` and `scope=`; on a stateless socket the frame reports `RATE_LIMITED`, retryable |
 | Invoke body over 1 MiB | The body is cut at 1 MiB without an error | The function receives truncated input |
 | Corrupt or unsupported WASM | Compilation fails; the cause is dropped | Every call 500; the log shows only `WASM compilation failed` |
 | Olric down | `cache_*` return 0; dispatch claims fail open; recording a depth for a triggered publish fails | Duplicate trigger invocations; a function's publish at depth 1 or more returns 0 |
@@ -515,7 +521,6 @@ At 10 times the invocation rate the first limit reached is the five command-mode
 - **Database triggers, timers and background jobs do not run.** Types, tables and config fields exist (`DBTrigger`, `Timer`, `JobManager`, `JobWorkers`, `TimerPollInterval`, `DBPollInterval`, `EnablePrewarm`); `EnqueueBackground` and `ScheduleOnce` return "not implemented" (`core/pkg/serverless/hostfunctions/logging.go`).
 - **`ws_broadcast` reaches no one**, and aggregation cannot be configured: nothing calls `WSManager.Subscribe` (`core/pkg/serverless/websocket.go:Broadcast`) and `AddWithAggregation` has no caller (`core/pkg/serverless/triggers/pubsub_store.go`).
 - **A rate-limit refusal is mis-typed.** `RateLimitedError` does not satisfy `errors.Is(err, ErrRateLimited)`, so the invoker retries it when `retry_count` is above 0 and a stateless socket reports it as a non-retryable execution failure (`core/pkg/serverless/ratelimit.go:RateLimitedError`, `core/pkg/gateway/handlers/serverless/invoke_handler.go:classifyInvokeError`). This is a bug.
-- **API-key callers share one wallet bucket.** Their wallet is the namespace name, so all of them draw from a single 10 per second bucket; the per-function tier is never set (`core/pkg/serverless/engine.go:Execute`).
 - **`exec_and_publish` can hand two callers the same sequence**, because it is read in a separate query after the commit and a concurrent commit can advance it first (`core/pkg/rqlite/batch.go:BatchWithSeq`). It also publishes without recording trigger depth, so a trigger chain through it restarts at depth 0. This is a bug.
 - **`core/pkg/serverless/registry/` is an unused second registry.** No package imports it; the live registry is `core/pkg/serverless/registry.go`, and the claims provider tests the invoker's `serverless.ErrFunctionNotFound` (`core/pkg/gateway/claims_provider.go:ResolveClaims`).
 - **Sizes are bounded by the deadline, not by a limit.** Guest stdout, `http_fetch` response bodies and WebSocket frames are read fully into gateway memory (`core/pkg/serverless/execution/executor.go:ExecuteModule`, `core/pkg/serverless/hostfunctions/http.go:doFetch`).

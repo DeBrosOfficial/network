@@ -117,7 +117,9 @@ func TestInternalAuthMiddleware_aV2HopKeepsTheTimesAndDropsTheBinding(t *testing
 	claims := hopClaims()
 	claims.Did, claims.Sid = "device-1", "session-1"
 	r := signedJWTHop(t, g.internalAuthKey, claims)
-	r.Header.Del(HeaderInternalAuthMACv4) // what a v2 gateway sends
+	r.Header.Del(HeaderInternalAuthMACv6) // what a v2 gateway sends
+	r.Header.Del(HeaderInternalAuthMACv5)
+	r.Header.Del(HeaderInternalAuthMACv4)
 	r.Header.Del(HeaderInternalAuthMACv3)
 
 	var seen http.Header
@@ -141,6 +143,8 @@ func TestInternalAuthMiddleware_aV1HopIsAcceptedWithoutWhatV1DoesNotCover(t *tes
 	r.Header.Del(HeaderInternalAuthMACv2) // what an old gateway sends
 	r.Header.Del(HeaderInternalAuthMACv3)
 	r.Header.Del(HeaderInternalAuthMACv4)
+	r.Header.Del(HeaderInternalAuthMACv5)
+	r.Header.Del(HeaderInternalAuthMACv6)
 	r.Header.Set(HeaderInternalAuthJWTExp, "9999999999")
 
 	var seen http.Header
@@ -155,7 +159,7 @@ func TestInternalAuthMiddleware_aV1HopIsAcceptedWithoutWhatV1DoesNotCover(t *tes
 			t.Errorf("%s, which no MAC covered, reached the handler as %q", name, v)
 		}
 	}
-	if seen.Get(HeaderInternalAuthMACv4) != "" || seen.Get(HeaderInternalAuthMACv3) != "" ||
+	if seen.Get(HeaderInternalAuthMACv6) != "" || seen.Get(HeaderInternalAuthMACv5) != "" || seen.Get(HeaderInternalAuthMACv4) != "" || seen.Get(HeaderInternalAuthMACv3) != "" ||
 		seen.Get(HeaderInternalAuthMACv2) != "" || seen.Get(HeaderInternalAuthMAC) != "" {
 		t.Error("a MAC was forwarded past the hop it authenticates")
 	}

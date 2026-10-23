@@ -294,6 +294,7 @@ func (h *ServerlessHandlers) buildPersistentInvocationContext(
 		CallerIsAdmin:    callerIsAdmin,
 		CallerHasInvoke:  callerHasInvoke,
 		CallerIP:         extractRemoteIP(r),
+		CallerKey:        h.socketCallerKey(r),
 		CallerClaims:     h.getCallerClaimsFromRequest(r),
 		CallerJWTSubject: h.getJWTSubjectFromRequest(r),
 		CallerDeviceID:   h.getDeviceIDFromRequest(r),

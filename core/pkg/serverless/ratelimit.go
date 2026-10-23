@@ -3,11 +3,18 @@ package serverless
 // ratelimit.go provides a multi-tier token-bucket rate limiter for serverless
 // function invocations. Three tiers, applied in order; first rejection wins:
 //
-//   1. Per-(namespace, function, wallet) — only when a function declares an override
-//   2. Per-(namespace, wallet) — gateway-wide default per-user limit
-//   3. Per-namespace total — protects against single-namespace exhaustion
+//  1. The function's own limits — only when it declares them (rate_limit in
+//     function.yaml, FunctionRateLimit): per (function, caller) and per
+//     (function, client address)
+//  2. Per-caller — gateway-wide default per-user limit
+//  3. Per-namespace total — protects against single-namespace exhaustion
 //
-// Anonymous callers (no wallet) fall back to per-IP buckets at tier 2.
+// Tier 2 knows three kinds of caller. A wallet has its own bucket. A caller
+// with no wallet that presented a credential (an API key, a key's or a
+// workload's token) is bucketed by (key fingerprint, IP): an app ships one key
+// to all its users, so the key alone would put them all in one bucket, and the
+// namespace — what such a caller used to be bucketed by — did exactly that for
+// every key of the namespace (bug-934). An anonymous caller is bucketed by IP.
 //
 // Per-bucket state is held in a sharded LRU to bound memory: configurable
 // MaxBucketsPerScope (default 100k per tier) — buckets evicted are
@@ -28,16 +35,10 @@ import (
 type RateLimitRequest struct {
 	Namespace string
 	Function  string
-	Wallet    string                // empty = anonymous; per-wallet tier falls back to per-IP
-	IP        string                // remote IP, used when Wallet is empty
-	Override  *PerFunctionRateLimit // optional per-function tightening
-}
-
-// PerFunctionRateLimit overrides the default per-wallet limits for one function.
-// Set zero values to inherit defaults.
-type PerFunctionRateLimit struct {
-	PerWalletPerMinute int
-	PerWalletBurst     int
+	Wallet    string             // empty = anonymous; per-wallet tier falls back to per-IP
+	Key       string             // credential fingerprint of a caller with no wallet; see InvokeRequest.CallerKey
+	IP        string             // remote IP: the anonymous bucket, and half of a key caller's
+	Override  *FunctionRateLimit // the function's own limits, nil when it declares none
 }
 
 // LimiterConfig holds gateway-wide rate-limiter defaults. Zero values mean
@@ -77,7 +78,7 @@ func DefaultLimiterConfig() LimiterConfig {
 type Decision struct {
 	Allowed    bool
 	RetryAfter time.Duration
-	Scope      string // "per_function_wallet" | "per_wallet" | "per_namespace" | "per_ip"
+	Scope      string // "per_function_caller" | "per_function_ip" | "per_wallet" | "per_key" | "per_ip" | "per_namespace"
 }
 
 // RateLimitedError is returned by the engine when a request is rejected.
@@ -102,8 +103,10 @@ type MultiTierLimiter struct {
 	cfg LimiterConfig
 
 	// Tier buckets — each scope owns its own LRU.
-	fnWalletBuckets  *lruBuckets // (ns, fn, wallet) — only populated when override exists
+	fnCallerBuckets  *lruBuckets // (ns, fn, caller) — only for functions that declare per_caller
+	fnIPBuckets      *lruBuckets // (ns, fn, ip) — only for functions that declare per_ip
 	walletBuckets    *lruBuckets // (ns, wallet)
+	keyBuckets       *lruBuckets // (ns, key, ip) — callers with a credential and no wallet
 	namespaceBuckets *lruBuckets // (ns)
 	ipBuckets        *lruBuckets // (ns, ip) — for anonymous callers
 }
@@ -134,8 +137,10 @@ func NewMultiTierLimiter(cfg LimiterConfig) *MultiTierLimiter {
 	}
 	return &MultiTierLimiter{
 		cfg:              cfg,
-		fnWalletBuckets:  newLRUBuckets(cfg.MaxBucketsPerScope),
+		fnCallerBuckets:  newLRUBuckets(cfg.MaxBucketsPerScope),
+		fnIPBuckets:      newLRUBuckets(cfg.MaxBucketsPerScope),
 		walletBuckets:    newLRUBuckets(cfg.MaxBucketsPerScope),
+		keyBuckets:       newLRUBuckets(cfg.MaxBucketsPerScope),
 		namespaceBuckets: newLRUBuckets(cfg.MaxBucketsPerScope),
 		ipBuckets:        newLRUBuckets(cfg.MaxBucketsPerScope),
 	}
@@ -148,26 +153,35 @@ func NewMultiTierLimiter(cfg LimiterConfig) *MultiTierLimiter {
 // legacy `Allow(ctx, key)` method below remains for back-compat with the
 // simple RateLimiter interface.
 func (l *MultiTierLimiter) AllowRequest(ctx context.Context, req RateLimitRequest) (Decision, error) {
-	// Tier 1: per-(ns, fn, wallet) override — only when the function declared one.
-	if req.Override != nil && req.Override.PerWalletPerMinute > 0 && req.Wallet != "" {
-		key := req.Namespace + "/" + req.Function + "/" + req.Wallet
-		burst := req.Override.PerWalletBurst
-		if burst <= 0 {
-			burst = req.Override.PerWalletPerMinute / 10
-			if burst <= 0 {
-				burst = 1
+	// Tier 1: the function's own limits — only when it declared them.
+	if o := req.Override; o != nil {
+		fn := req.Namespace + "/" + req.Function + "/"
+		if o.PerIP.Set() && req.IP != "" {
+			if d := l.fnIPBuckets.tryConsume(fn+req.IP, o.PerIP.ratePerSecond(), o.PerIP.burst()); !d.Allowed {
+				d.Scope = "per_function_ip"
+				return d, nil
 			}
 		}
-		if d := l.fnWalletBuckets.tryConsume(key,
-			float64(req.Override.PerWalletPerMinute)/60.0,
-			float64(burst)); !d.Allowed {
-			d.Scope = "per_function_wallet"
-			return d, nil
+		if caller := req.caller(); o.PerCaller.Set() && caller != "" {
+			if d := l.fnCallerBuckets.tryConsume(fn+caller, o.PerCaller.ratePerSecond(), o.PerCaller.burst()); !d.Allowed {
+				d.Scope = "per_function_caller"
+				return d, nil
+			}
 		}
 	}
 
-	// Tier 2: per-(ns, wallet) OR per-(ns, ip) for anonymous.
-	if req.Wallet != "" {
+	// Tier 2: per-(ns, key, ip) for a credential with no wallet, per-(ns,
+	// wallet), or per-(ns, ip) for anonymous. A key caller has the per-wallet
+	// limits: it is one user of an app, like a wallet.
+	if req.Key != "" {
+		key := req.Namespace + "/" + req.caller()
+		if d := l.keyBuckets.tryConsume(key,
+			float64(l.cfg.PerWalletPerMinute)/60.0,
+			float64(l.cfg.PerWalletBurst)); !d.Allowed {
+			d.Scope = "per_key"
+			return d, nil
+		}
+	} else if req.Wallet != "" {
 		key := req.Namespace + "/" + req.Wallet
 		if d := l.walletBuckets.tryConsume(key,
 			float64(l.cfg.PerWalletPerMinute)/60.0,
@@ -196,6 +210,23 @@ func (l *MultiTierLimiter) AllowRequest(ctx context.Context, req RateLimitReques
 	}
 
 	return Decision{Allowed: true}, nil
+}
+
+// caller is the identity a request is charged to, the same one the per-caller
+// tier buckets it by: a credential with no wallet by (key, address), a wallet
+// by itself, an anonymous caller by address. Each kind has its own prefix so
+// no value of one can collide with another.
+func (req RateLimitRequest) caller() string {
+	switch {
+	case req.Key != "":
+		return "k:" + req.Key + "/" + req.IP
+	case req.Wallet != "":
+		return "w:" + req.Wallet
+	case req.IP != "":
+		return "ip:" + req.IP
+	default:
+		return ""
+	}
 }
 
 // Allow satisfies the legacy serverless.RateLimiter interface. Treats `key`

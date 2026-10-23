@@ -32,6 +32,7 @@ const (
 	roleAdmin    = "admin"
 	roleRuntime  = "runtime"
 	// Error envelope codes (core/pkg/httputil/rpc_error.go).
+	codeRateLimited     = "RATE_LIMITED"
 	codeFunctionTimeout = "FUNCTION_TIMEOUT"
 	codeExecFailed      = "FUNCTION_EXECUTION_FAILED"
 	codeNotFound        = "NOT_FOUND"

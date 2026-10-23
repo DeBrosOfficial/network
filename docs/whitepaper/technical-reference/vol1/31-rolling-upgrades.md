@@ -200,7 +200,7 @@ The distinction between starting and blocked is what makes a roll survivable. "T
 
 The readiness state reaches the rest of the cluster. The DNS reconcile probes each local namespace gateway's `/v1/health` and reports `starting` as its own status and `blocked` as an error, so a gateway that cannot serve is not advertised, while subsystem degradation (a cache blip) is deliberately not a reason to withdraw a node (`core/pkg/gateway/namespace_health.go:probeGatewayReadiness`).
 
-Two further expand-only habits appear in the stored shapes. The pubsub trigger writer fills both the legacy `topic` column and the new `topic_pattern` column so old binaries running concurrently keep reading triggers (`core/pkg/serverless/triggers/pubsub_store.go`). The API-key lookup tries the HMAC-hashed form first and the raw form second (`core/pkg/gateway/middleware.go`, "Dual lookup strategy for rolling upgrade").
+Two further expand-only habits appear in the stored shapes. The pubsub trigger writer fills both the legacy `topic` column and the new `topic_pattern` column so old binaries running concurrently keep reading triggers (`core/pkg/serverless/triggers/pubsub_store.go`). The API-key path is the opposite case: the gateway hashes any leftover raw key, and moves its principal, before it serves (`MigratePlaintextAPIKeys`, a post-schema step), so a key and its grants are looked up by the HMAC hash alone (`core/pkg/gateway/middleware.go`).
 
 #### MACs: signers write every version, verifiers read the newest
 

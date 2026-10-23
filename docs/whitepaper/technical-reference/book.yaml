@@ -147,6 +147,7 @@ volumes:
             template: subsystem
             verified: "0.3.4"
             owns:
+              - core/pkg/clustertrust/
               - core/pkg/deployments/
               - core/pkg/deploysecrets/
               - core/pkg/gateway/handlers/deployments/
