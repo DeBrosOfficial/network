@@ -4,6 +4,7 @@ package clienvauthmisc
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -178,5 +179,35 @@ func TestInspect_unknownEnvironmentFindsNoNodes(t *testing.T) {
 	res := infra.RunFor(t, isolated(t), inspectBudget, "maint", "inspect", "--env", e2eEnvPrefix+"absent")
 	if res.Exit == exitOK {
 		t.Fatalf("inspect of an unconfigured environment succeeded:\n%s", output(res))
+	}
+}
+
+// TestInspect_refusesUnpinnedHostKeys: inspect holds every node to the host
+// key `orama node setup` pinned in ~/.orama/known_hosts and never trusts one
+// on first use (website/src/docs/operator/inspector.mdx#configuration). A
+// signed-in HOME that pinned nothing is refused before any node is collected,
+// and no key is learnt into its known_hosts.
+func TestInspect_refusesUnpinnedHostKeys(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	cli := signedInHome(t)
+	res := infra.RunFor(t, cli, inspectBudget,
+		"inspect", "--env", f.State.Env, "--subsystem", "system", "--format", "json")
+	if res.Exit != exitFailure || !strings.Contains(output(res), "Host key verification failed") {
+		t.Fatalf("inspect with no pinned host key: exit %d, want %d refusing the host key\n%s", res.Exit, exitFailure, output(res))
+	}
+	if strings.Contains(res.Stdout, `"checks"`) {
+		t.Errorf("inspect reported checks without a pinned host key:\n%s", res.Stdout)
+	}
+	for _, rel := range knownHostsPaths {
+		raw, err := os.ReadFile(filepath.Join(cli.Home, rel))
+		if err != nil {
+			continue
+		}
+		for _, n := range f.State.Nodes {
+			if strings.Contains(string(raw), n.PublicIP) {
+				t.Errorf("inspect learnt %s's host key into %s on first contact", n.PublicIP, rel)
+			}
+		}
 	}
 }

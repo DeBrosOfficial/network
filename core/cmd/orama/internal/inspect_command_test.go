@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -69,5 +71,29 @@ func TestInspectNodes_jsonStdoutIsOneDocument(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "Inspecting") {
 		t.Errorf("the progress line is on stdout: %q", stdout.String())
+	}
+}
+
+// Bug: inspect loaded a .env from whatever directory it was run in, so a file
+// planted there set the OpenRouter key (and every other variable) of the run.
+// The key comes from --api-key or the environment and nowhere else.
+func TestRunInspect_doesNotReadADotEnvInTheWorkingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("OPENROUTER_API_KEY=planted\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	t.Setenv("OPENROUTER_API_KEY", "")
+	if err := os.Unsetenv("OPENROUTER_API_KEY"); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := validInspectOptions()
+	opts.Env = ""
+	if err := RunInspect(opts); clierr.CodeOf(err) != clierr.CodeUsage {
+		t.Fatalf("RunInspect without --env: %v, want a usage error", err)
+	}
+	if v, ok := os.LookupEnv("OPENROUTER_API_KEY"); ok {
+		t.Errorf("OPENROUTER_API_KEY = %q after RunInspect: the working directory's .env was read", v)
 	}
 }

@@ -6,7 +6,8 @@
 # in end to end, CA scoping and a lost CA file, invalid values, concurrent
 # adds); every credential-needing command without a credential is an auth
 # error naming `orama auth login`; ORAMA_TOKEN garbage and hostile values;
-# `orama maint inspect` over SSH (JSON, --output, bad arguments); `orama ssh` with
+# `orama maint inspect` over SSH (JSON, --output, bad arguments, unpinned host
+# keys refused); `orama ssh` with
 # pinned, missing and forged host keys; `orama maint rollout` refusing bad flags
 # before it builds; `orama network add` refuses a manifest URL that is not https
 # or does not end in /manifest.json; `orama maint network publish` writes a
@@ -54,3 +55,4 @@ covers:
     - "website/src/docs/operator/node-setup.mdx: a missing CA file is an error naming the environment"
     - "docs/whitepaper/technical-reference/vol1/35-the-cli.md: ORAMA_TOKEN is the CI credential; a garbage one is refused"
     - "website/src/docs/operator/node-setup.mdx: node host keys are pinned in ~/.orama/known_hosts; orama ssh must not trust on first use"
+    - "website/src/docs/operator/inspector.mdx#configuration: every node's host key must be pinned in ~/.orama/known_hosts; inspect refuses an unpinned node and never trusts on first use"

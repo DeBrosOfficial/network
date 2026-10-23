@@ -165,7 +165,9 @@ orama maint inspect --env devnet --ai --api-key sk-or-...
 The API key can be set via:
 1. `--api-key` flag
 2. `OPENROUTER_API_KEY` environment variable
-3. `.env` file in the current directory
+
+No `.env` file is read: a file in whatever directory the command runs from
+does not set the key, or anything else.
 
 The AI receives the full check results plus cluster metadata and returns a structured analysis with likely root causes and suggested fixes.
 
@@ -203,7 +205,13 @@ devnet|ubuntu@5.6.7.8|nameserver-ns1
 | `role` | `node` or `nameserver-ns1`, `nameserver-ns2`, etc. |
 
 SSH keys are resolved from the RootWallet agent over its Unix socket, not by
-shelling out to `rw`. See [Troubleshooting](/docs/operator/troubleshooting#rootwallet-agent-locked-waiting-or-unreachable).
+shelling out to `rw`.
+
+Every node's host key must be pinned in `~/.orama/known_hosts`, where
+`orama node setup` writes it, and is checked strictly against that file. A node
+with no pinned key refuses the whole run with `Host key verification failed`
+before any SSH key is fetched: the inspector never trusts a host on first use,
+and a key that differs from the pinned one is refused by `ssh`. See [Troubleshooting](/docs/operator/troubleshooting#rootwallet-agent-locked-waiting-or-unreachable).
 
 Blank lines and lines starting with `#` are ignored.
 
