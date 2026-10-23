@@ -253,7 +253,7 @@ type client struct {
 //     snapshot when this node is a follower lagging in Raft replay, so it is
 //     ONLY safe for reads that do not need to observe a write made earlier in
 //     the same invocation (bug #235). Read-your-own-writes flows must stay on
-//     weak, or fold the read into a DBTransaction post-commit query.
+//     weak, or fold the read into the DBTransaction that wrote it.
 type ReadConsistency string
 
 const (

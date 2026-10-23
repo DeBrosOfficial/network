@@ -5,7 +5,9 @@ package serverless
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 // TestHostDB_tenantTriggers: a namespace schema may keep its invariants with
@@ -112,5 +114,68 @@ func TestHostDB_linearizableRead(t *testing.T) {
 		if res := read(extra); res == nil || res["error"] == nil || strings.Contains(fmt.Sprint(res["results"]), marker) {
 			t.Errorf("%s was not refused: %v", name, res)
 		}
+	}
+}
+
+// TestHostDB_transactionReadsItsOwnWrites: a db_transaction query runs inside
+// the transaction, after the ops before it (feat-950). Commits that each
+// allocate a sequence number and read it back get one value each, the one they
+// wrote, however many land at once; a failing query rolls the batch back
+// (website/src/docs/developer/functions.mdx#database-transactions).
+func TestHostDB_transactionReadsItsOwnWrites(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn = "e2e-dbtxread"
+	deploy(t, fx, fnSpec{name: fn})
+	topic := fmt.Sprintf("seq-%d", time.Now().UnixNano())
+	for _, sql := range []string{
+		"CREATE TABLE IF NOT EXISTS e2e_txseq (topic TEXT PRIMARY KEY, next_seq INTEGER NOT NULL)",
+		"INSERT INTO e2e_txseq (topic, next_seq) VALUES ('" + topic + "', 0)",
+	} {
+		if res := call(t, fx, fn, map[string]any{"op": "db_exec", "sql": sql}); hostCallRefused(res) {
+			t.Fatalf("setup %q: %v", sql, res)
+		}
+	}
+	allocate := map[string]any{"ops": []map[string]any{
+		{"kind": "exec", "sql": "UPDATE e2e_txseq SET next_seq = next_seq + 1 WHERE topic = ?", "args": []any{topic}},
+		{"kind": "query", "sql": "SELECT next_seq FROM e2e_txseq WHERE topic = ?", "args": []any{topic}},
+	}}
+
+	const commits = 12
+	var mu sync.Mutex
+	got := map[string]int{}
+	t.Run("concurrent", func(t *testing.T) {
+		for i := range commits {
+			t.Run(fmt.Sprint(i), func(t *testing.T) {
+				t.Parallel()
+				res := call(t, fx, fn, map[string]any{"op": "db_tx", "ops": allocate})
+				results, _ := res["results"].([]any)
+				if res["committed"] != true || len(results) != 2 {
+					t.Fatalf("allocation did not commit: %v", trim(res))
+				}
+				read, _ := results[1].(map[string]any)
+				mu.Lock()
+				got[fmt.Sprint(read["rows"])]++
+				mu.Unlock()
+			})
+		}
+	})
+	for seq := 1; seq <= commits; seq++ {
+		if key := fmt.Sprintf("[map[next_seq:%d]]", seq); got[key] != 1 {
+			t.Errorf("seq %d read back by %d commits, want exactly one; reads: %v", seq, got[key], got)
+		}
+	}
+
+	rollback := map[string]any{"ops": []map[string]any{
+		{"kind": "exec", "sql": "UPDATE e2e_txseq SET next_seq = 1000 WHERE topic = ?", "args": []any{topic}},
+		{"kind": "query", "sql": "SELECT nosuch FROM e2e_txseq"},
+	}}
+	if res := call(t, fx, fn, map[string]any{"op": "db_tx", "ops": rollback}); res["committed"] != false || fmt.Sprint(res["failed_index"]) != "1" {
+		t.Errorf("a failing query did not roll the batch back at op 1: %v", trim(res))
+	}
+	after := call(t, fx, fn, map[string]any{"op": "db_query",
+		"sql": "SELECT next_seq FROM e2e_txseq WHERE topic = '" + topic + "'"})
+	if rows := fmt.Sprint(after["rows"]); !strings.Contains(rows, fmt.Sprintf("next_seq:%d", commits)) {
+		t.Errorf("after the rollback next_seq rows = %s, want %d", rows, commits)
 	}
 }

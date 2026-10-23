@@ -241,7 +241,7 @@ const users = await client.db.find(
 
 ### Transactions
 
-Group multiple operations into a sequence. Each statement specifies its `kind` (`exec` or `query`) along with the SQL and arguments:
+Group multiple operations into one atomic transaction. Each statement specifies its `kind` (`exec` or `query`) along with the SQL and arguments. The statements run in order inside the transaction, so a `query` sees what the statements before it wrote; any failing statement rolls the whole transaction back (HTTP 409 with `failed_index`):
 
 ```typescript
 const results = await client.db.transaction([

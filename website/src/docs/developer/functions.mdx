@@ -464,12 +464,28 @@ namespace outage diagnosable only by guessing.
 
 **Semantics**
 
-- All `exec` ops go to RQLite in one transactional request. Any failure rolls back
-  the entire batch.
-- `query` ops are sequenced **after** the exec batch commits, on the same node, and
-  see the committed writes. A failing query does **not** roll back the writes — its
-  own `results` entry gets `error` and `committed` stays `true`.
+- Every op, `exec` and `query` alike, goes to RQLite in one transactional
+  request and runs in input order inside one transaction. A `query` sees every
+  write the ops before it made, and nothing another commit wrote after this one
+  began: a function that allocates a sequence number (`UPDATE … SET next_seq =
+  next_seq + 1`) and reads it back (`SELECT next_seq …`) in the same batch gets
+  the value its own commit wrote, however many commits land at once.
+- Any failing statement, `exec` or `query`, rolls back the entire batch: nothing
+  is written, `committed` is `false`, and only `results[failed_index]` is filled
+  in. The entries before it describe statements that were rolled back, so they
+  are left empty.
+- SQLite, not `kind`, decides whether a statement reads or writes. `kind` names
+  what its `results` entry carries: an `exec` has `rows_affected` and
+  `last_insert_id`, plus `rows` when its statement has a `RETURNING` clause; a
+  `query` has `rows`.
+- A batch with a write is one Raft log entry, and its queries are applied with it
+  on every node, which is what makes their answers part of the commit. A batch of
+  only queries reads on the leader, in one transaction, and writes nothing to the
+  log.
 - Result order always matches input order.
+
+Before 0.3.5 the `query` ops ran as separate reads after the writes committed, so
+one could see a later commit's value and a failing query left the writes durable.
 
 **Limits** — exceeding the statement cap or the deadline fails the whole batch
 with `error` set. The row cap truncates only that op's rows; the byte cap is

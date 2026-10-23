@@ -12,7 +12,8 @@
 # caller context and device id, host functions (http_fetch SSRF matrix and
 # its failure log naming only the origin,
 # cache atomics and TTL, the SQL guard, tenant triggers, batch limits and
-# transactions, the linearizable batch read,
+# transactions, a transaction's query reading its own writes, the
+# linearizable batch read,
 # ephemeral state limits, TTL and disconnect), the socket registry, cron
 # fired once per slot across gateways, and the pubsub depth limit.
 # Needs tinygo on the runner's PATH (otherwise not applicable, not covered).
@@ -76,6 +77,7 @@ covers:
     - "website/src/docs/developer/functions.mdx#database-rqlite: ATTACH, PRAGMA, VACUUM, a trigger on a platform table, two statements and reserved tables in every quoting are refused"
     - "website/src/docs/developer/functions.mdx#database-rqlite: a trigger on a tenant table touching only tenant tables is created through db_execute_v2 and db_transaction and fires; one whose body names a platform table, runs PRAGMA, creates a trigger or reads the clock, a TEMP trigger and a statement after END are refused"
     - "website/src/docs/developer/functions.mdx#database-transactions: db_query_batch consistency linearizable sees a committed write; an unknown level and freshness with linearizable are refused, never served at another level"
+    - "website/src/docs/developer/functions.mdx#database-transactions: a db_transaction query runs inside the transaction after the ops before it; concurrent commits that allocate a sequence and read it back each read their own value, and a failing query rolls the batch back"
     - "website/src/docs/developer/functions.mdx#database-transactions: 100 statements per batch (TOO_MANY_STATEMENTS at 101), 10,000 rows per query op, rollback on a failed op"
     - "website/src/docs/developer/functions.mdx#cache-olric-distributed-cache: cache_incr is atomic (concurrent calls return 1..n once each, a refused call is reported as one); ttl 0 never expires, negative is refused; cache_delete of a missing key is 1; cache_incr_ttl creates a counter that expires and starts over"
     - "website/src/docs/developer/functions.mdx#other-host-functions: function_invoke_last_error names a refused nested call AUTH_FORBIDDEN and a missing target NOT_FOUND, and is empty after a call that succeeded"
