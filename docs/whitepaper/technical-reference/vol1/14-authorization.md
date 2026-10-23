@@ -379,7 +379,6 @@ Every credential, namespace, scope and operator refusal carries `{error, code, h
 | `FETCH_CAP_DEVICE_REQUIRED` | 403 | a capability was minted from a session bound to no device (an API key or a workload token has none) |
 | `FETCH_CAP_UNAVAILABLE` | 503, `Retry-After` | the gateway could not check or revoke the capability right now |
 | `FETCH_CAP_REVOCATION_LIMIT` | 429 | the namespace already has 1,000 capability revocations in force; each stops counting when its capability expires, and revoking the issuing device refuses all of its capabilities in one row |
-| `FETCH_CAP_REVOCATION_LIMIT` | 429 | the namespace already has 1,000 capability revocations in force; each stops counting when its capability expires, and revoking the issuing device refuses all of its capabilities in one row |
 
 **Signing in** (`core/pkg/gateway/handlers/auth/signin_errors.go`, `challenge_errors.go`, `errors.go`). "Your signature did not verify" and "you signed the wrong message" are different problems:
 
@@ -412,8 +411,6 @@ Every credential, namespace, scope and operator refusal carries `{error, code, h
 | `DEVICE_PENDING` | 403 (202 on sign-in) | the device waits for another of the account's devices to approve it |
 | `DEVICE_NOT_FOUND` | 404 | the account has no such device |
 | `DEVICE_KEY_TAKEN` | 403 | the key is enrolled for another account |
-| `DEVICE_USER_CODE_MALFORMED` | 400 | a device-flow user code is not the shape the gateway issues |
-| `DEVICE_LOGIN_MISMATCH` | 400 | the pending login is for another namespace or account, or is the other kind (a device link offered to a wallet, a plain login to a device) |
 | `DEVICE_USER_CODE_MALFORMED` | 400 | a device-flow user code is not the shape the gateway issues |
 | `DEVICE_LOGIN_MISMATCH` | 400 | the pending login is for another namespace or account, or is the other kind (a device link offered to a wallet, a plain login to a device) |
 | `POLICY_SWEEP_INCOMPLETE` | 503 | the session policy is set, but revoking the end users' existing sign-in keys stopped partway; repeat the `PUT` |
