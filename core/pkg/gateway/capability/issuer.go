@@ -67,7 +67,11 @@ func (i *Issuer) Revoke(ctx context.Context, namespace, token string) error {
 	// Kept through the sweeper's grace past expiry, which is how long a socket
 	// opened with the capability may stay open.
 	expiresAt := claims.ExpiresAt + int64(wssession.ExpiryGrace/time.Second)
-	if err := i.revocations.RevokeToken(ctx, RevocationID(namespace, claims.ID), expiresAt, "capability revoked"); err != nil {
+	err = i.revocations.RevokeCapability(ctx, namespace, RevocationID(namespace, claims.ID), expiresAt, "capability revoked")
+	switch {
+	case errors.Is(err, auth.ErrCapabilityRevocationLimit):
+		return fmt.Errorf("revoke capability %s: %w", claims.ID, err)
+	case err != nil:
 		return fmt.Errorf("revoke capability %s in %q: %w: %w", claims.ID, namespace, serverless.ErrCapabilityUnavailable, err)
 	}
 	return nil
@@ -111,7 +115,8 @@ var ErrFetchRevokeKeyInvalid = errors.New("the revoke key is not the one issued 
 // The proof is what keeps the table small: an id alone is a string any caller
 // can invent, and every invented one would be a week-long row in a table every
 // gateway reloads every few seconds. A capability already revoked writes no
-// second row.
+// second row, and a namespace holds at most auth.MaxLiveCapabilityRevocations
+// in force (auth.ErrCapabilityRevocationLimit past that).
 func (i *Issuer) RevokeFetchCap(ctx context.Context, namespace, id, revokeKey string) error {
 	if !ValidFetchCapID(id) {
 		return fmt.Errorf("%q is not a fetch capability id", id)
@@ -132,7 +137,7 @@ func (i *Issuer) RevokeFetchCap(ctx context.Context, namespace, id, revokeKey st
 		return nil
 	}
 	expiresAt := i.now().Add(MaxTTL).Unix()
-	if err := i.revocations.RevokeToken(ctx, revocationID, expiresAt, "fetch capability revoked"); err != nil {
+	if err := i.revocations.RevokeCapability(ctx, namespace, revocationID, expiresAt, "fetch capability revoked"); err != nil {
 		return fmt.Errorf("revoke fetch capability %s in %q: %w", id, namespace, err)
 	}
 	return nil

@@ -346,7 +346,7 @@ Closing sign-in refuses every new session at once, because every issuing path re
 
 ![Revocation: write, reload, check, fail closed](../diagrams/ch13-revocation.svg)
 
-A JWT verifies on its signature alone, so something must say that a valid-looking token has to stop working. `revoked_tokens` (migration 047) holds a `jti` that names one token, or a `subject` with an `issued_before` instant that denies every token issued to it up to then. The subject column also carries `device:<id>` and `session:<id>`, which no wallet or key can collide with. Each row has an `expires_at`, when the last token it could deny has itself expired; rows past it are deleted hourly.
+A JWT verifies on its signature alone, so something must say that a valid-looking token has to stop working. `revoked_tokens` (migration 047) holds a `jti` that names one token, or a `subject` with an `issued_before` instant that denies every token issued to it up to then. The subject column also carries `device:<id>` and `session:<id>`, which no wallet or key can collide with. Each row has an `expires_at`, when the last token it could deny has itself expired; rows past it are neither loaded nor counted, and are deleted hourly. `jti` is unique (migration 088), and every write is `INSERT … ON CONFLICT(jti) DO NOTHING`, so concurrent revokes of one token leave one row. Capability revocations are the one kind a tenant can write in bulk (a device-bound function can mint and revoke in a loop), so they carry their `namespace`, and `RevokeCapability` admits a row only while the namespace has fewer than `MaxLiveCapabilityRevocations` (1,000) in force, the count and the insert being one statement; past that it is refused `ErrCapabilityRevocationLimit` (`capability_revoke` fails with it, `DELETE /v1/storage/fetch-caps/{id}` answers `429 FETCH_CAP_REVOCATION_LIMIT`). Whatever a tenant does, its capability rows in the list every gateway reloads are at most 1,000.
 
 | Event | Entry | Kept |
 |---|---|---|
@@ -354,6 +354,7 @@ A JWT verifies on its signature alone, so something must say that a valid-lookin
 | Logout of every session | subject, under its raw and hashed names | 1 h |
 | End one session | `session:<sid>` | 1 h |
 | Revoke a device | `device:<id>` | 7 days |
+| Revoke a WebSocket or fetch capability | `cap:<namespace>:<id>` as a `jti`, with `namespace` set | until the capability expires (plus the socket grace); a fetch capability, whose expiry the revoke does not see, 7 days |
 | Revoke an API key | the key's subject ([authorization](14-authorization.md)) | 1 h |
 
 `Denies` matches as follows. A `jti` entry denies that token. A `device:` or `session:` entry denies any token carrying that `did` or `sid`, whenever minted, since neither can mint another after the revocation. A subject entry denies a token whose `iat` is at or before `issued_before`; the boundary is inclusive because `iat` has one-second resolution and a token minted in the same second is what a revoking operator means to catch, at the price that a sign-in in that second must be retried. A token minted after the revocation is a new grant and is not covered. Subjects match lower-cased on both sides.
@@ -419,7 +420,7 @@ With no agent, `deviceLogin` starts an RFC 8628 login, prints the user code and 
 | `session_devices` | registry | Thumbprint id, namespace, subject, public JWK, label, state (`pending`, `active`, `revoked`), approver, timestamps. Never deleted. | `EnrolDevice`, `RevokeDevice` | refresh, proofs, push dispatch (`RevokedDevices`) |
 | `device_authorizations` | registry | Pending logins: hashed device code, user code, namespace, subject, `approved_at`, `denied_at`, `claimed_at`, `last_polled_at`, `expires_at`, device key, label, approving device. | the RFC 8628 and device-link flows | the same; pruned whenever a new login starts |
 | `namespace_session_policy` | registry | Per namespace: `device_policy`, `sign_in`, `updated_by`, `updated_at`. | `SetDevicePolicy`, `SetSignInPolicy` | sign-in, refresh, every credential-issuing path |
-| `revoked_tokens` | registry | `jti` or subject, `issued_before`, `expires_at`, reason. | `RevocationList.insert` | every gateway's reload |
+| `revoked_tokens` | registry | `jti` (unique) or subject, `issued_before`, `expires_at`, reason; `namespace` on capability rows. | `RevocationList.insert`, `RevocationList.RevokeCapability` | every gateway's reload |
 | `signing_keys` | registry | `kid`, bound namespace or NULL, algorithm, public key, `retired_at`, `last_seen_at`. | `Publish`, `Retire`, `Stamp`, `RetireUnusedKeys` | every gateway's `SigningKeys` cache, the JWKS |
 | `audit_events` | registry | The sign-in, refresh, replay, logout, device and policy events of this chapter ([the audit trail](14-authorization.md#the-audit-trail)). | `AuditLog.Record` | `GET /v1/audit` |
 | Index gateway key files | `/var/lib/orama-gateway-keys/index/` | `jwt-signing-key.pem`, `jwt-eddsa-key.pem`, root `0400`. | `gatewaykeys.Ensure`, helper `gateway-key put` | systemd `LoadCredential=` |

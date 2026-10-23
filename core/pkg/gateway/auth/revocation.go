@@ -293,32 +293,96 @@ func (r *RevocationList) RevokeToken(ctx context.Context, jti string, expiresAt 
 	return r.insert(ctx, revocation{jti: jti, expiresAt: expiresAt}, reason)
 }
 
+// MaxLiveCapabilityRevocations is how many revocations of one namespace's
+// capabilities may be in force at once. A capability revocation lasts until
+// the capability it names expires (a week at most), and every gateway reloads
+// the whole list every few seconds, so without a ceiling one tenant looping
+// mint and revoke grows that reload for every tenant. With it, the list holds
+// at most this many capability rows per namespace however a tenant behaves;
+// a revocation stops counting the moment the capability it names expires.
+const MaxLiveCapabilityRevocations = 1000
+
+// ErrCapabilityRevocationLimit is a capability revocation refused because its
+// namespace already has MaxLiveCapabilityRevocations in force.
+var ErrCapabilityRevocationLimit = fmt.Errorf(
+	"this namespace already has %d capability revocations in force; each stops counting when the capability it names expires",
+	MaxLiveCapabilityRevocations)
+
+// RevokeCapability refuses one capability of namespace, named jti on the list,
+// until expiresAt. It is refused with ErrCapabilityRevocationLimit when the
+// namespace is at its ceiling. A capability already revoked writes nothing.
+//
+// The ceiling and the write are one statement, so concurrent revokes cannot
+// overshoot it between a count and an insert.
+func (r *RevocationList) RevokeCapability(ctx context.Context, namespace, jti string, expiresAt int64, reason string) error {
+	if r == nil {
+		return fmt.Errorf("no revocation list: this capability would keep working")
+	}
+	namespace, jti = strings.TrimSpace(namespace), strings.TrimSpace(jti)
+	if namespace == "" || jti == "" {
+		return fmt.Errorf("a capability revocation names its namespace and its id")
+	}
+	db := r.database()
+	if db == nil {
+		return fmt.Errorf("no database: the revocation cannot be recorded, so the capability would keep working")
+	}
+	internalCtx := client.WithInternalAuth(ctx)
+	res, err := db.Query(internalCtx,
+		`INSERT INTO revoked_tokens(jti, namespace, issued_before, expires_at, reason)
+		 SELECT ?, ?, 0, ?, ?
+		  WHERE (SELECT COUNT(*) FROM revoked_tokens WHERE namespace = ? AND expires_at > ?) < ?
+		 ON CONFLICT(jti) DO NOTHING`,
+		jti, namespace, expiresAt, reason, namespace, r.now().Unix(), MaxLiveCapabilityRevocations)
+	if err != nil {
+		return fmt.Errorf("record the revocation: %w", err)
+	}
+	if res == nil || res.RowsAffected == 0 {
+		// Nothing written: the capability is already on the list, or the
+		// namespace is at its ceiling. Only the first is a revocation.
+		existing, err := db.Query(internalCtx, `SELECT 1 FROM revoked_tokens WHERE jti = ? LIMIT 1`, jti)
+		if err != nil {
+			return fmt.Errorf("read back the revocation: %w", err)
+		}
+		if existing == nil || len(existing.Rows) == 0 {
+			return ErrCapabilityRevocationLimit
+		}
+	}
+	r.applyLocal(revocation{jti: jti, expiresAt: expiresAt})
+	return nil
+}
+
 func (r *RevocationList) insert(ctx context.Context, rev revocation, reason string) error {
 	db := r.database()
 	if db == nil {
 		return fmt.Errorf("no database: the revocation cannot be recorded, so the token would keep working")
 	}
+	// A token already on the list keeps its row: the write is the check, so
+	// two concurrent revokes of one token cannot write two rows.
 	internalCtx := client.WithInternalAuth(ctx)
 	if _, err := db.Query(internalCtx,
 		`INSERT INTO revoked_tokens(jti, subject, issued_before, expires_at, reason)
-		 VALUES (?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(jti) DO NOTHING`,
 		nullable(rev.jti), nullable(rev.subject), rev.issuedBefore, rev.expiresAt, reason,
 	); err != nil {
 		return fmt.Errorf("record the revocation: %w", err)
 	}
+	r.applyLocal(rev)
+	return nil
+}
 
-	// Apply it here immediately rather than waiting for the next refresh: the
-	// gateway that performed the revocation should not be the last to honour
-	// it.
-	//
-	// A reload whose read began before this write committed would replace the
-	// maps without it, so the revocation is also kept in local and re-applied
-	// over any reload that began no later than now.
+// applyLocal applies a revocation this gateway recorded here immediately
+// rather than waiting for the next refresh: the gateway that performed the
+// revocation should not be the last to honour it.
+//
+// A reload whose read began before the write committed would replace the maps
+// without it, so the revocation is also kept in local and re-applied over any
+// reload that began no later than now.
+func (r *RevocationList) applyLocal(rev revocation) {
 	r.mu.Lock()
 	r.apply(rev)
 	r.local = append(r.local, localRevocation{rev: rev, at: r.now()})
 	r.mu.Unlock()
-	return nil
 }
 
 // apply puts one revocation into the maps. The caller holds r.mu.

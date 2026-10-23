@@ -30,6 +30,9 @@ const (
 	// CodeFetchCapUnavailable — the gateway could not check the capability right
 	// now (no cluster secret, or the revocation list cannot be read). Retryable.
 	CodeFetchCapUnavailable = "FETCH_CAP_UNAVAILABLE"
+	// CodeFetchCapRevocationLimit — the namespace already has
+	// auth.MaxLiveCapabilityRevocations capability revocations in force.
+	CodeFetchCapRevocationLimit = "FETCH_CAP_REVOCATION_LIMIT"
 )
 
 // fetchCapHints say what to do about each refusal.
@@ -41,6 +44,7 @@ var fetchCapHints = map[string]string{
 	CodeFetchCapDeviceRequired:   "mint from a session bound to a device; an API key or a workload token has none",
 	CodeFetchCapRevokeKeyInvalid: "send the revoke_key the mint returned for this id in the X-Orama-Revoke-Key header",
 	CodeFetchCapUnavailable:      "this is temporary; retry in a few seconds with the same capability",
+	CodeFetchCapRevocationLimit:  "revoke the device that issued the capabilities instead, or mint shorter-lived ones; a revocation stops counting when its capability expires",
 }
 
 // writeFetchCapError writes {error, code, hint}.

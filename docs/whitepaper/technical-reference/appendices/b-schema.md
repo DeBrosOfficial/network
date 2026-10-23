@@ -950,6 +950,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `expires_at` | INTEGER | yes | - |  |
 | `reason` | TEXT | no | - |  |
 | `revoked_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
+| `namespace` | TEXT | no | - |  |
 
 ## rqlite_backups
 

@@ -307,7 +307,7 @@ Every host function is a Go method on `Engine` registered by `registerHostModule
 | Module | Name | Signature | Capability | Limits and failure |
 |---|---|---|---|---|
 | env, host, orama | `capability_mint` | `(s resource, i64 ttl_seconds) -> P64` | a device-bound caller; the issuer needs the cluster secret | Opens this function's own socket; `resource` at most 256 bytes; lifetime 60 s to 7 days; result `token`, `cap_id`, `resource`, `issuer_device`, `expires_at` |
-| env, host, orama | `capability_revoke` | `(s token) -> i32` | the namespace's capabilities | The token proves the namespace was issued it; 1 including for one already revoked; 0 for a foreign token |
+| env, host, orama | `capability_revoke` | `(s token) -> i32` | the namespace's capabilities | The token proves the namespace was issued it; 1 including for one already revoked; 0 for a foreign token, and while the namespace has 1,000 capability revocations in force |
 | env, host, orama | `storage_fetch_cap_mint` | `(s cid, i32 count, i64 ttl_seconds) -> P64` | a device-bound caller; any CID of the namespace | Canonical CID; `count` 1 to 64; lifetime 1 h to 7 days; result `namespace`, `cid`, `caps` with `id`, `token`, `revoke_key`, `expires_at` |
 
 **Composition and logging.**

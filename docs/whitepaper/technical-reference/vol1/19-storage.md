@@ -292,6 +292,7 @@ A namespace's storage budget is `namespace_quotas.max_storage_bytes`, in raw, re
 | Unauthorized or foreign CID | Ownership or selector check fails before IPFS is asked | `403`; status for a foreign CID is `404 pin not found` |
 | Fetch capability forged, expired, wrong CID or wrong namespace | One HMAC, then refusal | `403 FETCH_CAP_INVALID` |
 | Revocation list unreadable | The capability cannot be judged | `503 FETCH_CAP_UNAVAILABLE`, `Retry-After: 2` |
+| Namespace at its capability-revocation ceiling | 1,000 revocations of its capabilities in force; the revoke writes nothing | `429 FETCH_CAP_REVOCATION_LIMIT` |
 | Gateway without cluster secret | Fetch-capability routes answer 503 and say why | `FETCH_CAP_UNAVAILABLE` "it has no cluster secret" |
 
 ## Trust and security
