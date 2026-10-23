@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -120,12 +119,17 @@ func TestServeAgent_servesOverAUnixSocketAndRemovesItOnStop(t *testing.T) {
 	acct := testAccount(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- serveAgent(ctx, newAgentHandler(acct), []listenSpec{{Path: sock, UID: os.Getuid()}}) }()
+	// listenAgent returning is the readiness signal: the socket is listening, with its final mode.
+	l, err := listenAgent([]listenSpec{{Path: sock, UID: os.Getuid()}})
+	require.NoError(t, err)
+	go func() { done <- l.serve(ctx, newAgentHandler(acct)) }()
 
-	require.Eventually(t, func() bool { _, err := os.Lstat(sock); return err == nil }, 5*time.Second, 20*time.Millisecond)
 	fi, err := os.Lstat(sock)
 	require.NoError(t, err)
 	require.Equal(t, os.FileMode(0o600), fi.Mode().Perm())
+	entries, err := os.ReadDir(filepath.Dir(sock))
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "the staging directory the socket was bound in is gone")
 
 	client := &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		var d net.Dialer

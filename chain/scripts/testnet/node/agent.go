@@ -120,6 +120,10 @@ func parseListen(s string) (listenSpec, error) {
 
 // openSocket creates the socket owned by spec.UID, mode 0600, in a directory of the same owner.
 // A stale socket file from an earlier run is replaced; anything else at the path is an error.
+//
+// The socket is bound in a private 0700 directory beside spec.Path, given its mode and owner there,
+// and only then renamed onto spec.Path. A client can never reach it before its permissions are
+// set, and a client that finds spec.Path finds a socket that is already listening.
 func openSocket(spec listenSpec) (net.Listener, error) {
 	dir := filepath.Dir(spec.Path)
 	if err := os.MkdirAll(dir, socketDirMode); err != nil {
@@ -128,42 +132,75 @@ func openSocket(spec listenSpec) (net.Listener, error) {
 	if err := os.Chown(dir, spec.UID, -1); err != nil {
 		return nil, fmt.Errorf("chown %s: %w", dir, err)
 	}
-	if fi, err := os.Lstat(spec.Path); err == nil {
-		if fi.Mode()&os.ModeSocket == 0 {
-			return nil, fmt.Errorf("%s exists and is not a socket", spec.Path)
-		}
-		if err := os.Remove(spec.Path); err != nil {
-			return nil, fmt.Errorf("remove the stale socket %s: %w", spec.Path, err)
-		}
+	if fi, err := os.Lstat(spec.Path); err == nil && fi.Mode()&os.ModeSocket == 0 {
+		return nil, fmt.Errorf("%s exists and is not a socket", spec.Path)
 	}
-	ln, err := net.Listen("unix", spec.Path)
+	staging, err := os.MkdirTemp(dir, ".agent")
 	if err != nil {
-		return nil, fmt.Errorf("listen on %s: %w", spec.Path, err)
+		return nil, fmt.Errorf("create a staging directory in %s: %w", dir, err)
 	}
-	if err := os.Chmod(spec.Path, socketMode); err != nil {
-		ln.Close()
-		return nil, fmt.Errorf("chmod %s: %w", spec.Path, err)
+	defer os.RemoveAll(staging)
+	bound := filepath.Join(staging, "s")
+	ln, err := net.Listen("unix", bound)
+	if err != nil {
+		return nil, fmt.Errorf("listen on %s: %w", bound, err)
 	}
-	if err := os.Chown(spec.Path, spec.UID, -1); err != nil {
+	// The socket leaves the path it was bound at; serveAgent removes spec.Path itself.
+	ln.(*net.UnixListener).SetUnlinkOnClose(false)
+	if err := os.Chmod(bound, socketMode); err != nil {
 		ln.Close()
-		return nil, fmt.Errorf("chown %s: %w", spec.Path, err)
+		return nil, fmt.Errorf("chmod %s: %w", bound, err)
+	}
+	if err := os.Chown(bound, spec.UID, -1); err != nil {
+		ln.Close()
+		return nil, fmt.Errorf("chown %s: %w", bound, err)
+	}
+	if err := os.Rename(bound, spec.Path); err != nil {
+		ln.Close()
+		return nil, fmt.Errorf("move the socket onto %s: %w", spec.Path, err)
 	}
 	return ln, nil
 }
 
-// serveAgent serves handler on every socket until ctx is done.
-func serveAgent(ctx context.Context, handler http.Handler, specs []listenSpec) error {
+// agentListeners are the agent's open sockets. Every socket is reachable, with its final mode and
+// owner, once listenAgent returns.
+type agentListeners struct {
+	specs []listenSpec
+	lns   []net.Listener
+}
+
+// listenAgent opens a socket for every spec. On an error it closes and removes the ones it opened.
+func listenAgent(specs []listenSpec) (*agentListeners, error) {
 	if len(specs) == 0 {
-		return errors.New("at least one --listen path:uid is required")
+		return nil, errors.New("at least one --listen path:uid is required")
 	}
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
-	errc := make(chan error, len(specs))
+	l := &agentListeners{}
 	for _, spec := range specs {
 		ln, err := openSocket(spec)
 		if err != nil {
-			return err
+			l.close()
+			return nil, err
 		}
-		defer os.Remove(spec.Path)
+		l.specs = append(l.specs, spec)
+		l.lns = append(l.lns, ln)
+	}
+	return l, nil
+}
+
+// close closes every socket and removes its file.
+func (l *agentListeners) close() {
+	for i, ln := range l.lns {
+		ln.Close()
+		os.Remove(l.specs[i].Path)
+	}
+}
+
+// serve serves handler on every socket until ctx is done, then removes the sockets.
+func (l *agentListeners) serve(ctx context.Context, handler http.Handler) error {
+	defer l.close()
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	errc := make(chan error, len(l.lns))
+	for _, ln := range l.lns {
 		go func() { errc <- srv.Serve(ln) }()
 	}
 	select {
@@ -174,4 +211,13 @@ func serveAgent(ctx context.Context, handler http.Handler, specs []listenSpec) e
 	case err := <-errc:
 		return err
 	}
+}
+
+// serveAgent serves handler on every socket until ctx is done.
+func serveAgent(ctx context.Context, handler http.Handler, specs []listenSpec) error {
+	l, err := listenAgent(specs)
+	if err != nil {
+		return err
+	}
+	return l.serve(ctx, handler)
 }
