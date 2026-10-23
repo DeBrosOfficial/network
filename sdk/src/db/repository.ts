@@ -57,7 +57,8 @@ export class Repository<T extends Record<string, any>> {
         table: this.tableName,
         criteria,
         options,
-      }
+      },
+      { idempotent: true }
     );
     return response.items || [];
   }
@@ -69,7 +70,8 @@ export class Repository<T extends Record<string, any>> {
         {
           table: this.tableName,
           criteria,
-        }
+        },
+        { idempotent: true }
       );
       return response;
     } catch (error) {

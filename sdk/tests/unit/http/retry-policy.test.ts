@@ -170,3 +170,82 @@ describe('retry backoff', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * bug-426: every method was retried on 5xx, POST included. A write whose
+ * response was lost after the database committed it was sent again and could
+ * land twice. A request is now resent only when a repeat is safe: the gateway
+ * said so, the method is idempotent, or the gateway refused it unprocessed
+ * (429).
+ */
+describe('retry safety', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function envelope(status: number, code: string, retryable: boolean) {
+    return vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: false, error: { code, message: 'no', retryable } }), {
+          status,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+  }
+
+  it('does not resend a POST whose outcome is unknown', async () => {
+    for (const status of [500, 502, 503, 504]) {
+      const fetchImpl = failing(status);
+      await expect(client(fetchImpl, 3).post('/v1/rqlite/exec', { sql: 'INSERT' })).rejects.toMatchObject({
+        httpStatus: status,
+      });
+      expect(fetchImpl, `POST answered ${status} was sent again`).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('does not resend an upload whose outcome is unknown', async () => {
+    const fetchImpl = failing(502);
+    await expect(client(fetchImpl, 3).uploadFile('/v1/storage/upload', new FormData())).rejects.toMatchObject({
+      httpStatus: 502,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('resends a POST the gateway refused before doing any work', async () => {
+    captureDelays();
+    const fetchImpl = failing(429);
+    await expect(client(fetchImpl, 1).post('/v1/rqlite/exec', {})).rejects.toMatchObject({ httpStatus: 429 });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('resends a POST the gateway marked retryable', async () => {
+    captureDelays();
+    const fetchImpl = envelope(503, 'NAMESPACE_GATEWAY_UNAVAILABLE', true);
+    await expect(client(fetchImpl, 1).post('/v1/invoke/ns/fn', {})).rejects.toMatchObject({ httpStatus: 503 });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not resend a POST the gateway marked not retryable', async () => {
+    const fetchImpl = envelope(500, 'FUNCTION_EXECUTION_FAILED', false);
+    await expect(client(fetchImpl, 3).post('/v1/invoke/ns/fn', {})).rejects.toMatchObject({
+      code: 'FUNCTION_EXECUTION_FAILED',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes the gateway at its word for an idempotent method too', async () => {
+    const fetchImpl = envelope(500, 'INTERNAL', false);
+    await expect(client(fetchImpl, 3).get('/v1/x')).rejects.toMatchObject({ httpStatus: 500 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('resends the idempotent methods on a status that can change', async () => {
+    for (const method of ['get', 'put', 'delete'] as const) {
+      captureDelays();
+      const fetchImpl = failing(503);
+      const c = client(fetchImpl, 1);
+      const call = method === 'put' ? c.put('/v1/x', {}) : c[method]('/v1/x');
+      await expect(call).rejects.toMatchObject({ httpStatus: 503 });
+      expect(fetchImpl, `${method} was not retried`).toHaveBeenCalledTimes(2);
+      vi.restoreAllMocks();
+    }
+  });
+});

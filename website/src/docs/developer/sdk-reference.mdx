@@ -52,7 +52,7 @@ const client = createClient({
 | `apiKey` | | `orama_<type>_<payload>_<checksum>`. Exchanged for a token before the first request; the key itself never goes on the wire again |
 | `jwt` | | An existing session token |
 | `timeout` | `60000` | Per-request timeout, ms |
-| `maxRetries` | `3` | Attempts for a retryable status (408, 429, 5xx) |
+| `maxRetries` | `3` | Attempts for a retryable status (408, 429, 5xx) when a repeat is safe; see [Retries and failover](#retries-and-failover) |
 | `retryDelayMs` | `1000` | Base backoff, multiplied by the attempt and jittered |
 | `debug` | `false` | Print diagnostics. Off, the SDK writes nothing to the console |
 | `storage` | memory | Where tokens persist. `LocalStorageAdapter` in a browser |
@@ -127,6 +127,8 @@ await client.auth.logout();                      // tell the gateway, clear ever
 await client.auth.logout({ keepApiKey: true });  // the user signs out; the app key stays
 await client.auth.logout({ server: false });     // clear local state only
 ```
+
+`logout` always clears the session on the device. When the gateway could not be told, it then rejects with a `LogoutError`: the client is signed out, but the session's tokens stay valid on the gateway until they expire, which on a shared device is worth telling the user. `error.serverError` is the failed request's error.
 
 `client.auth.whoami()` answers `{ authenticated: false }` for a rejected credential and **throws** for anything else, so a gateway that is down is not reported as a signed-out user.
 
@@ -219,7 +221,7 @@ const hit = await client.cache.get("sessions", userId);    // null on a miss
 await client.cache.delete("sessions", userId);
 ```
 
-Methods: `health`, `get`, `put`, `delete`, `multiGet`, `scan`. Limits and TTLs are on [Cache](/docs/developer/cache).
+Methods: `health`, `get`, `put`, `delete`, `multiGet`, `scan`. `multiGet` answers a `Map` of every requested key, `null` for a key the cache does not hold, and rejects with the `SDKError` when the request fails, so a cache that is down is never read as a run of misses. Limits and TTLs are on [Cache](/docs/developer/cache).
 
 ## Storage
 
@@ -339,8 +341,9 @@ Every failure is an `SDKError`.
 | `NamespaceError` | 403 `NAMESPACE_MISMATCH`: wrong gateway, or the key came from the wrong environment | `namespace`, `credentialNamespace` |
 | `NotFoundError` | 404 | |
 | `NetworkError` | No HTTP response. `httpStatus` is 0 | `code` is `NETWORK_ERROR`, `TIMEOUT` or `ABORTED` |
+| `LogoutError` | `logout` cleared the device's session but the gateway did not end it | `serverError` |
 
-`error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)); `FunctionCode` names the codes a function invoke fails with (`RATE_LIMITED`, `FUNCTION_TIMEOUT`, `FUNCTION_UNAVAILABLE`, `FUNCTION_EXECUTION_FAILED`). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
+`error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)); `FunctionCode` names the codes a function invoke fails with (`RATE_LIMITED`, `FUNCTION_TIMEOUT`, `FUNCTION_UNAVAILABLE`, `FUNCTION_EXECUTION_FAILED`, `FUNCTION_VERSION_SUPERSEDED`). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
 
 ```ts
 import { NetworkError, ScopeError } from "@orama-network/orama";
@@ -365,7 +368,13 @@ The grants are `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage` 
 
 ## Retries and failover
 
-A retryable status (408, 429, 500, 502, 503, 504) is retried up to `maxRetries` times, except a function's 504 `FUNCTION_TIMEOUT` (`FunctionCode.Timeout`): the function ran, so what it did may have happened, and only the caller knows whether the call is safe to repeat. A `Retry-After` header is honoured, capped at thirty seconds; otherwise the delay grows with the attempt and carries up to 25% jitter. Failing over to another gateway is the application's decision, made in `onNetworkError`:
+A retryable status (408, 429, 500, 502, 503, 504) is retried up to `maxRetries` times, but only when sending the request again is safe:
+
+- When the gateway gives a verdict (`error.retryable`), the verdict decides. A function's 504 `FUNCTION_TIMEOUT` says `false`: the function ran, so what it did may have happened. A rate limit or an unreachable namespace gateway says `true`.
+- Without a verdict, `GET`, `HEAD`, `OPTIONS`, `PUT` and `DELETE` are retried, as are the SDK's reads that travel as `POST` (cache `get`, `multiGet`, `scan`; database `find`, `findOne` and query-builder selects), and any 429, which the gateway answers before doing any work.
+- Anything else is not retried. A write such as `db.exec`, `db.transaction` or a function invoke answered 5xx with no verdict may already have landed, so the error comes back to you. Resend it only if the write is idempotent; the gateway has no idempotency keys.
+
+A `Retry-After` header is honoured, capped at thirty seconds; otherwise the delay grows with the attempt and carries up to 25% jitter. Failing over to another gateway is the application's decision, made in `onNetworkError`:
 
 ```ts
 const client = createClient({

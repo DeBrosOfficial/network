@@ -1,6 +1,6 @@
 import { HttpClient } from "../core/http";
 import { Logger } from "../core/logger";
-import { AuthError, SDKError } from "../errors";
+import { AuthError, LogoutError, SDKError } from "../errors";
 import { WhoAmI, StorageAdapter, MemoryStorage } from "./types";
 import {
   DeviceInfo,
@@ -243,25 +243,36 @@ export class AuthClient {
    * credential again. For a signed-in user leaving an application whose key is
    * application-level.
    * @param options.server Ask the gateway to invalidate the session first.
+   *
+   * The local session is cleared whether or not the gateway answered. When
+   * the gateway could not be told, the promise then rejects with a
+   * `LogoutError`: this client is signed out, but the session's tokens stay
+   * valid on the gateway until they expire.
    */
   async logout(options: LogoutOptions = {}): Promise<void> {
     const { keepApiKey = false, server = true } = options;
 
     // Only a JWT has a server-side session; an API key has nothing to end.
+    let serverError: SDKError | undefined;
     if (server && this.currentJwt) {
+      const body = await this.logoutBody();
       try {
-        await this.httpClient.post("/v1/auth/logout", await this.logoutBody());
+        await this.httpClient.post("/v1/auth/logout", body);
       } catch (error) {
-        // Local cleanup matters more than the gateway's acknowledgement, so
-        // this is reported and not raised. Tracked separately: an application
-        // cannot currently tell that the server was not told.
-        this.log.warn(
-          "Server-side logout failed, continuing with local cleanup:",
-          error
-        );
+        // HttpClient raises nothing but SDKError.
+        serverError = error as SDKError;
       }
     }
 
+    await this.clearLocalSession(keepApiKey);
+
+    if (serverError) {
+      throw new LogoutError(serverError);
+    }
+  }
+
+  /** Forget the session on this device, keeping the API key if asked. */
+  private async clearLocalSession(keepApiKey: boolean): Promise<void> {
     this.currentJwt = undefined;
     this.httpClient.setJwt(undefined);
 

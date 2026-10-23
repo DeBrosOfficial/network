@@ -3,7 +3,8 @@
 # additions under tests/ (auth verify with a real signature, whoami, refresh
 # rotation, refresh-on-401 replay, logout, renew refused for a user, device
 # list and device link pending, storage getBinary, db Repository and
-# dropTable, functions.invoke not-found, the chain read proxy, every key
+# dropTable, functions.invoke not-found, cache multiGet misses and a refusal
+# raised rather than answered as misses, the chain read proxy, every key
 # profile minted with exactly the SDK's scopes, the workload client's
 # refusals, a WebSocket closed when its session ends, a PubSubClient with no
 # wsURL subscribing on its HTTP client's gateway, network connect and
@@ -35,6 +36,7 @@ covers:
     - /v1/network/disconnect
   claims:
     - "website/src/docs/developer/sdk-reference.mdx: the SDK's methods work against a live gateway with a namespace session"
+    - "website/src/docs/developer/sdk-reference.mdx: multiGet answers null for a key the cache does not hold and rejects with the SDKError when the request fails"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md: ending a session closes the sockets its tokens hold open within ten seconds"
     - "docs/whitepaper/technical-reference/vol1/36-sdks.md: a pub/sub WebSocket goes to the HttpClient base URL with http replaced by ws unless the PubSubClient was given a wsURL"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md: the chain proxy is read-only and refuses every other path"

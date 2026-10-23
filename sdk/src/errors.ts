@@ -337,6 +337,12 @@ export const FunctionCode = {
   Unavailable: "FUNCTION_UNAVAILABLE",
   /** 500: the function ran and returned or raised an error. */
   ExecutionFailed: "FUNCTION_EXECUTION_FAILED",
+  /**
+   * 404: `name@N` named a version a later deploy or a rollback replaced. Only
+   * the current version of a function runs; call it by name, or have the
+   * owner roll back to make that version current. Not retryable.
+   */
+  VersionSuperseded: "FUNCTION_VERSION_SUPERSEDED",
 } as const;
 
 export type FunctionCode = (typeof FunctionCode)[keyof typeof FunctionCode];
@@ -419,5 +425,29 @@ export class FetchCapError extends SDKError {
   ) {
     super(message, httpStatus, code, details);
     this.name = "FetchCapError";
+  }
+}
+
+/**
+ * The gateway was not told about a logout.
+ *
+ * `logout` always clears the local session, so this client is signed out when
+ * it is raised. What failed is ending the session on the gateway: its tokens
+ * stay valid there until they expire, which on a shared or public device is
+ * worth telling the user. `httpStatus` and `code` are the failed request's,
+ * and `serverError` is that error itself.
+ */
+export class LogoutError extends SDKError {
+  public readonly serverError: SDKError;
+
+  constructor(serverError: SDKError) {
+    super(
+      `signed out on this device, but the gateway did not end the session: ${serverError.message}`,
+      serverError.httpStatus,
+      serverError.code,
+      serverError.details
+    );
+    this.name = "LogoutError";
+    this.serverError = serverError;
   }
 }

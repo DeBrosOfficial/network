@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -124,6 +125,65 @@ func TestNamespaceProxy_aReachedMemberIsNotRetried(t *testing.T) {
 	}
 	if n := hits.Load(); n != 1 {
 		t.Fatalf("the member was hit %d times, want 1", n)
+	}
+	if proxiedRetryable(t, rec) {
+		t.Fatal("a POST that reached a member was marked retryable: the client would send it again")
+	}
+}
+
+// proxiedRetryable is the retryable bit of the envelope the proxy answered.
+func proxiedRetryable(t *testing.T, rec *httptest.ResponseRecorder) bool {
+	t.Helper()
+	var env httputil.RPCErrorEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil || env.Error == nil {
+		t.Fatalf("not an RPC error envelope: %q (%v)", rec.Body.String(), err)
+	}
+	return env.Error.Retryable
+}
+
+// The retryable bit says whether the client may send the request again as it
+// is: always when no member was reached, and for a reached member only when the
+// method is idempotent.
+func TestNamespaceProxy_retryableOnlyWhenARepeatIsSafe(t *testing.T) {
+	hangUp := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		conn.Close()
+	})
+	cases := []struct {
+		name    string
+		method  string
+		reached bool
+		want    bool
+	}{
+		{"a POST no member received", http.MethodPost, false, true},
+		{"a GET a member received", http.MethodGet, true, true},
+		{"a DELETE a member received", http.MethodDelete, true, true},
+		{"a POST a member received", http.MethodPost, true, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			port := freePort(t)
+			if tc.reached {
+				upstream := httptest.NewServer(hangUp)
+				t.Cleanup(upstream.Close)
+				port = serverPort(upstream)
+			}
+			g := proxyGateway(t, gatewayTarget{ip: "127.0.0.1", port: port})
+
+			r := httptest.NewRequest(tc.method, "/v1/rqlite/exec", strings.NewReader("x"))
+			rec := httptest.NewRecorder()
+			g.proxyToNamespaceGateway(rec, r, "acme", namespaceProxyAuth{namespace: "acme"})
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status %d (%s), want 503", rec.Code, rec.Body.String())
+			}
+			if got := proxiedRetryable(t, rec); got != tc.want {
+				t.Fatalf("retryable = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

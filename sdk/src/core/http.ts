@@ -1,4 +1,4 @@
-import { FunctionCode, NetworkError, SDKError } from "../errors";
+import { NetworkError, SDKError } from "../errors";
 import { Logger } from "./logger";
 
 /**
@@ -115,6 +115,14 @@ export interface RequestOptions {
    * else should set it.
    */
   ownCredential?: boolean;
+  /**
+   * This `POST` only reads, so sending it twice has the effect of sending it
+   * once, and a 5xx may be retried like a `GET`. The SDK sets it on its own
+   * reads that travel as `POST` (cache `get`, `multiGet` and `scan`; database
+   * `find`, `findOne` and query-builder selects). Leave it unset for anything
+   * that writes: a write whose response was lost may already have landed.
+   */
+  idempotent?: boolean;
 }
 
 /**
@@ -125,6 +133,44 @@ const MAX_RETRY_DELAY_MS = 30_000;
 
 /** Fraction of the computed delay added as random jitter. */
 const RETRY_JITTER_RATIO = 0.25;
+
+/** Statuses whose answer may be different a moment later. */
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+
+/**
+ * Methods whose repeat has the effect of one request (RFC 9110, section
+ * 9.2.2). Sending one again after a failure cannot apply it twice.
+ */
+const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
+
+/**
+ * Whether a failed request may be sent again as it is. `repeatable` says
+ * whether sending the request twice has the effect of sending it once: an
+ * idempotent method, or a `POST` its caller marked `idempotent`.
+ *
+ * Only a status that can change is retried, and only when a repeat is safe:
+ *
+ * - The gateway's `retryable` verdict wins when it gave one. It means "safe
+ *   to resend as is": a function that ran out of time (`FUNCTION_TIMEOUT`)
+ *   says false, a rate-limit refusal or an unreachable namespace says true.
+ * - Without a verdict, a repeatable request is retried, and so is a 429: the
+ *   gateway answers 429 only for a request it refused before doing any work.
+ * - Anything else is not. A `POST` answered 500, 502, 503 or 504 with no
+ *   verdict may have done its work first (a database write the leader
+ *   committed before the response was lost), and sending it again could
+ *   apply it twice. Only the caller knows whether the write is idempotent,
+ *   so the error is the caller's to retry (bug-426).
+ */
+function isSafeToRetry(repeatable: boolean, error: unknown): boolean {
+  if (!(error instanceof SDKError) || !RETRYABLE_STATUSES.has(error.httpStatus)) {
+    return false;
+  }
+  const verdict = error.retryable;
+  if (verdict !== undefined) {
+    return verdict;
+  }
+  return repeatable || error.httpStatus === 429;
+}
 
 /**
  * Parse a `Retry-After` header, which is either a number of seconds or an
@@ -549,6 +595,7 @@ export class HttpClient {
       return await this.requestWithRetry(
         url.toString(),
         fetchOptions,
+        options.idempotent ?? IDEMPOTENT_METHODS.has(method),
         0,
         startTime
       );
@@ -632,6 +679,7 @@ export class HttpClient {
   private async requestWithRetry(
     url: string,
     options: RequestInit,
+    repeatable: boolean,
     attempt: number = 0,
     startTime?: number // Track start time for timing across retries
   ): Promise<any> {
@@ -658,13 +706,7 @@ export class HttpClient {
       }
       return response.text();
     } catch (error) {
-      // A function that ran out of time ran: sending it again could repeat
-      // what it already did (a payment broadcast), so its 504 is the caller's
-      // to retry, not this loop's.
-      const isRetryableError =
-        error instanceof SDKError &&
-        [408, 429, 500, 502, 503, 504].includes(error.httpStatus) &&
-        error.code !== FunctionCode.Timeout;
+      const isRetryableError = isSafeToRetry(repeatable, error);
 
       // Never retry once the request's signal has been aborted (caller cancel
       // or timeout) — bugboard #144. A retry would ignore a user's Cancel.
@@ -677,7 +719,7 @@ export class HttpClient {
           `Retrying request in ${delay}ms (attempt ${attempt + 1}/${this.maxRetries})`
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
-        return this.requestWithRetry(url, options, attempt + 1, startTime);
+        return this.requestWithRetry(url, options, repeatable, attempt + 1, startTime);
       }
 
       // All retries exhausted - throw error for app to handle
@@ -776,6 +818,7 @@ export class HttpClient {
       const result = await this.requestWithRetry(
         url.toString(),
         fetchOptions,
+        false,
         0,
         startTime
       );

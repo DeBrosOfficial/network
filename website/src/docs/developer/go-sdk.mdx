@@ -303,6 +303,13 @@ Through the gateway, `DropTable` of a table that is not there succeeds, and
 `GetSchema` leaves out the platform's own tables that the gateway does not let
 a tenant query.
 
+Neither mode resends a write. Through the gateway each call is one request;
+dialing directly, only finding a node that answers is retried, up to three
+times, and a read that fails is asked again. A write that fails after it was
+sent comes back as an error, because the leader may have committed it before
+the failure arrived; resend it only if the statement is idempotent.
+`Transaction` is one request in both modes, applied all or nothing.
+
 ### Write Query
 
 Writes (INSERT, UPDATE, DELETE, CREATE, DROP, ...) go through `Query` as well — the client detects write statements and executes them accordingly:

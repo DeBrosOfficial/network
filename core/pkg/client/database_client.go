@@ -51,29 +51,42 @@ func (d *DatabaseClientImpl) checkConnection() error {
 	return nil
 }
 
-// withRetry executes an operation with retry logic
-func (d *DatabaseClientImpl) withRetry(operation func(*gorqlite.Connection) error) error {
-	maxRetries := 3
+// connectAttempts bounds how often a connection to rqlite is sought before an
+// operation gives up. Seeking one is always safe to repeat: nothing has been
+// sent to the database until a connection is held.
+const connectAttempts = 3
+
+// connect returns a connection to rqlite, trying again when no node answered.
+func (d *DatabaseClientImpl) connect() (*gorqlite.Connection, error) {
 	var lastErr error
-
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= connectAttempts; attempt++ {
 		conn, err := d.getRQLiteConnection()
-		if err != nil {
-			lastErr = err
-			d.clearConnection()
-			continue
+		if err == nil {
+			return conn, nil
 		}
-
-		if err := operation(conn); err != nil {
-			lastErr = err
-			d.clearConnection()
-			continue
-		}
-
-		return nil
+		lastErr = err
+		d.clearConnection()
 	}
+	return nil, fmt.Errorf("no rqlite connection after %d attempts: %w", connectAttempts, lastErr)
+}
 
-	return fmt.Errorf("operation failed after %d attempts. Last error: %w", maxRetries, lastErr)
+// write sends one write to rqlite, once.
+//
+// Only reaching a node is retried. A write that fails after it was sent is
+// returned, never sent again: a deadline, EOF or reset can arrive after the
+// leader committed it, and sending it again would apply it twice. Whether to
+// repeat it is the caller's decision, because only the caller knows whether
+// the statement is idempotent.
+func (d *DatabaseClientImpl) write(operation func(*gorqlite.Connection) error) error {
+	conn, err := d.connect()
+	if err != nil {
+		return err
+	}
+	if err := operation(conn); err != nil {
+		d.clearConnection()
+		return err
+	}
+	return nil
 }
 
 // Query executes a SQL query
@@ -86,91 +99,79 @@ func (d *DatabaseClientImpl) Query(ctx context.Context, sql string, args ...inte
 		return nil, fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
-	// Determine if this is a read or write operation
-	isWriteOperation := d.isWriteOperation(sql)
+	if d.isWriteOperation(sql) {
+		var wr gorqlite.WriteResult
+		err := d.write(func(conn *gorqlite.Connection) error {
+			var err error
+			wr, err = safeWriteOne(conn, gorqlite.ParameterizedStatement{
+				Query:     sql,
+				Arguments: args,
+			})
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("write failed: %w", err)
+		}
+		// A statement error comes back on the result, with a nil function
+		// error. Treating that as a stored row would hand the caller an id
+		// for a write that did not happen.
+		if wr.Err != nil {
+			return nil, fmt.Errorf("write failed: %w", wr.Err)
+		}
 
-	// Retry logic for resilient querying
-	maxRetries := 3
+		// The id is part of the commit the leader already acknowledged.
+		// Reading the new row back is a local (level=none) read, and a
+		// follower applies the log after this response, so the row is not
+		// there yet.
+		return &QueryResult{
+			Columns:      []string{"affected"},
+			Rows:         [][]interface{}{{"success"}},
+			Count:        1,
+			LastInsertID: wr.LastInsertID,
+			RowsAffected: wr.RowsAffected,
+		}, nil
+	}
+
+	// A read changes nothing, so a failed one is asked again, of another node
+	// when the first stopped answering.
 	var lastErr error
+	for attempt := 1; attempt <= connectAttempts; attempt++ {
+		conn, err := d.connect()
+		if err != nil {
+			return nil, err
+		}
 
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Get RQLite connection (tries multiple nodes)
-		conn, err := d.getRQLiteConnection()
+		result, err := conn.QueryOneParameterized(gorqlite.ParameterizedStatement{
+			Query:     sql,
+			Arguments: args,
+		})
 		if err != nil {
 			lastErr = err
-
-			// Clear any cached connection and try again
 			d.clearConnection()
 			continue
 		}
 
-		if isWriteOperation {
-			// Execute write operation with parameters
-			wr, err := safeWriteOne(conn, gorqlite.ParameterizedStatement{
-				Query:     sql,
-				Arguments: args,
-			})
-			if err != nil {
-				lastErr = err
-				d.clearConnection()
-				continue
-			}
-			// A statement error comes back on the result, with a nil function
-			// error. Treating that as a stored row would hand the caller an
-			// id for a write that did not happen.
-			if wr.Err != nil {
-				lastErr = wr.Err
-				d.clearConnection()
-				continue
-			}
+		columns := result.Columns()
+		numRows := int(result.NumRows())
 
-			// The id is part of the commit the leader already acknowledged.
-			// Reading the new row back is a local (level=none) read, and a
-			// follower applies the log after this response, so the row is
-			// not there yet.
-			return &QueryResult{
-				Columns:      []string{"affected"},
-				Rows:         [][]interface{}{{"success"}},
-				Count:        1,
-				LastInsertID: wr.LastInsertID,
-				RowsAffected: wr.RowsAffected,
-			}, nil
-		} else {
-			// Execute read operation with parameters
-			result, err := conn.QueryOneParameterized(gorqlite.ParameterizedStatement{
-				Query:     sql,
-				Arguments: args,
-			})
-			if err != nil {
-				lastErr = err
-				d.clearConnection()
-				continue
-			}
-
-			// Convert gorqlite.QueryResult to our QueryResult
-			columns := result.Columns()
-			numRows := int(result.NumRows())
-
-			queryResult := &QueryResult{
-				Columns: columns,
-				Rows:    make([][]interface{}, 0, numRows),
-				Count:   result.NumRows(),
-			}
-
-			// Iterate through rows
-			for result.Next() {
-				row, err := result.Slice()
-				if err != nil {
-					continue
-				}
-				queryResult.Rows = append(queryResult.Rows, row)
-			}
-
-			return queryResult, nil
+		queryResult := &QueryResult{
+			Columns: columns,
+			Rows:    make([][]interface{}, 0, numRows),
+			Count:   result.NumRows(),
 		}
+
+		for result.Next() {
+			row, err := result.Slice()
+			if err != nil {
+				continue
+			}
+			queryResult.Rows = append(queryResult.Rows, row)
+		}
+
+		return queryResult, nil
 	}
 
-	return nil, fmt.Errorf("query failed after %d attempts. Last error: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("query failed after %d attempts. Last error: %w", connectAttempts, lastErr)
 }
 
 // isWriteOperation determines if a SQL statement is a write operation
@@ -320,36 +321,12 @@ func (d *DatabaseClientImpl) Transaction(ctx context.Context, queries []string) 
 		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
-	maxRetries := 3
-	var lastErr error
-
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Get RQLite connection
-		conn, err := d.getRQLiteConnection()
-		if err != nil {
-			lastErr = err
-			d.clearConnection()
-			continue
-		}
-
-		// Execute all queries in the transaction
-		success := true
-		for _, query := range queries {
-			_, err := safeWriteOneRaw(conn, query)
-			if err != nil {
-				lastErr = err
-				success = false
-				d.clearConnection()
-				break
-			}
-		}
-
-		if success {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("transaction failed after %d attempts. Last error: %w", maxRetries, lastErr)
+	// One request: rqlite runs the statements in a single transaction, so
+	// they land together or not at all, and the request is sent once.
+	return d.write(func(conn *gorqlite.Connection) error {
+		_, err := conn.Write(queries)
+		return err
+	})
 }
 
 // CreateTable creates a new table
@@ -362,7 +339,7 @@ func (d *DatabaseClientImpl) CreateTable(ctx context.Context, schema string) err
 		return fmt.Errorf("authentication required: %w - run CLI commands to authenticate automatically", err)
 	}
 
-	return d.withRetry(func(conn *gorqlite.Connection) error {
+	return d.write(func(conn *gorqlite.Connection) error {
 		_, err := safeWriteOneRaw(conn, schema)
 		return err
 	})
@@ -374,7 +351,7 @@ func (d *DatabaseClientImpl) DropTable(ctx context.Context, tableName string) er
 		return err
 	}
 
-	return d.withRetry(func(conn *gorqlite.Connection) error {
+	return d.write(func(conn *gorqlite.Connection) error {
 		dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 		_, err := safeWriteOneRaw(conn, dropSQL)
 		return err

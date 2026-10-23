@@ -76,7 +76,8 @@ export class QueryBuilder {
       {
         table: this.table,
         ...this.options,
-      }
+      },
+      { idempotent: true }
     );
     return response.items || [];
   }
@@ -89,7 +90,8 @@ export class QueryBuilder {
         ...this.options,
         one: true,
         limit: 1,
-      }
+      },
+      { idempotent: true }
     );
     const items = response.items || [];
     return items.length > 0 ? items[0] : null;
@@ -103,7 +105,8 @@ export class QueryBuilder {
         select: ["COUNT(*) AS count"],
         where: this.options.where,
         one: true,
-      }
+      },
+      { idempotent: true }
     );
     const items = response.items || [];
     return items.length > 0 ? items[0].count : 0;

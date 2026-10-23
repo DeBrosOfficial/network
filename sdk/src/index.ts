@@ -100,6 +100,7 @@ export {
   FunctionCode,
   RelayError,
   FetchCapError,
+  LogoutError,
   RelayCode,
 } from "./errors";
 export { DirectFetch } from "./storage/fetch-transport";

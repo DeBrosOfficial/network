@@ -332,6 +332,10 @@ console.log(info.authenticated, info.namespace);
 await client.auth.logout();
 ```
 
+The session is always cleared on the device. If the gateway could not be told,
+`logout` then rejects with a `LogoutError`: the session's tokens stay valid on
+the gateway until they expire.
+
 ### Network Operations
 
 #### Check Health
@@ -403,7 +407,7 @@ interface ClientConfig {
   apiKey?: string; // API key (optional, if using JWT instead)
   jwt?: string; // JWT token (optional, if using API key instead)
   timeout?: number; // Request timeout in ms (default: 60000)
-  maxRetries?: number; // Max retry attempts (default: 3)
+  maxRetries?: number; // Max retry attempts, only for requests safe to resend (default: 3)
   retryDelayMs?: number; // Delay between retries (default: 1000)
   debug?: boolean; // Print diagnostics to the console (default: false)
   storage?: StorageAdapter; // For persisting JWT/API key (default: MemoryStorage)
@@ -521,7 +525,7 @@ const results = await client.cache.multiGet("sessions", [
   "user:alice",
   "user:bob",
 ]);
-// Returns Map<string, any | null> — null for misses
+// Returns Map<string, any | null> — null for misses; a failed request rejects
 results.forEach((value, key) => {
   console.log(key, value);
 });

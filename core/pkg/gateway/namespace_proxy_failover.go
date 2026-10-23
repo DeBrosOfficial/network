@@ -53,6 +53,29 @@ func isDialFailure(err error) bool {
 	return errors.As(err, &opErr) && opErr.Op == "dial"
 }
 
+// idempotentMethods are the methods whose repeat has the effect of one request
+// (RFC 9110, section 9.2.2).
+var idempotentMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+	http.MethodPut:     true,
+	http.MethodDelete:  true,
+}
+
+// proxyFailureRetryable sets the envelope's retryable bit for a request the
+// proxy got no answer to, after lastErr. The bit tells a client the request is
+// safe to send again as it is. That holds when no member was reached (every
+// attempt failed to connect, so nothing was sent) or when the method is
+// idempotent. A POST that reached a member and then timed out or lost its
+// connection may have done its work there: a database write committed, a
+// function ran. Marking it retryable made the SDK send it again (bug-426).
+func proxyFailureRetryable(method string, lastErr error) httputil.RPCErrorOption {
+	safe := isDialFailure(lastErr) || idempotentMethods[method]
+	return func(d *httputil.RPCErrorDetail) { d.Retryable = safe }
+}
+
 // errNoClusterSecret is returned by namespaceProxyRequest when the hop cannot
 // be signed.
 var errNoClusterSecret = errors.New("this gateway has no cluster secret, so it cannot authenticate itself to the namespace gateway")
