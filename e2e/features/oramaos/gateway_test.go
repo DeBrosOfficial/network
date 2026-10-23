@@ -87,10 +87,11 @@ func TestOramaOSNodeRoutes_refuseNonOperators(t *testing.T) {
 // Shamir unlock needs K = max(2, floor(N/3)) peer vault-guardians on the
 // overlay, and enrollment of a node with no peers fails ("no peers available
 // for key distribution", website/src/docs/operator/orama-os.mdx "Genesis Node"); an A/B
-// update is fetched only from https://updates.orama.network/v1/latest
-// (os/agent/internal/update/manager.go UpdateURL), which the harness cannot
-// serve a signed test release on.
+// update can be pointed at a test server (ORAMA_UPDATE_URL baked into the
+// image, os/agent/internal/update ResolveUpdateURL), but the agent installs
+// only a release signed by the embedded RootWallet SignerAddress, which the
+// harness does not hold.
 func TestOramaOS_luksShamirUnlockAndABUpdates(t *testing.T) {
 	harness.Fleet(t)
-	harness.SkipNotApplicable(t, "needs an enrolled OramaOS cluster of K+ nodes (Shamir unlock) and an update-URL override in os/agent (A/B signature and 3-boot rollback); neither exists")
+	harness.SkipNotApplicable(t, "needs an enrolled OramaOS cluster of K+ nodes (Shamir unlock) and a release signed by the OramaOS SignerAddress key (A/B signature and 3-boot rollback); the harness has neither")
 }

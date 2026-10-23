@@ -7,8 +7,8 @@
 # and the enrollment port closed afterwards. Against the fleet: the gateway's
 # enroll route refuses a node_ip that is not a public IPv4 before it spends
 # an invite, and the node management routes refuse non-operators. What a
-# single VM cannot reach (Shamir unlock needs K peers, A/B updates come only
-# from updates.orama.network) is not applicable and says why.
+# single VM cannot reach (Shamir unlock needs K peers, an A/B update needs a
+# release signed by the OramaOS signer key) is not applicable and says why.
 id: oramaos
 title: OramaOS first boot, enrollment and node management contract
 area: infrastructure

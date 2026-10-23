@@ -68,6 +68,13 @@ if [ -n "${ORAMA_VERSION:-}" ]; then
     echo "$ORAMA_VERSION" > "$TARGET_DIR/etc/orama-version"
 fi
 
+# --- Update endpoint override ---
+# Absent, the agent checks https://updates.orama.network/v1/latest
+# (os/agent/internal/update DefaultUpdateURL).
+if [ -n "${ORAMA_UPDATE_URL:-}" ]; then
+    echo "$ORAMA_UPDATE_URL" > "$TARGET_DIR/etc/orama/update-url"
+fi
+
 # --- systemd-boot loader config ---
 cat > "$TARGET_DIR/boot/loader/loader.conf" <<'LOADER'
 default orama-*

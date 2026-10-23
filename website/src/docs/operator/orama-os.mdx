@@ -104,7 +104,7 @@ curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bear
 
 A/B partition scheme:
 
-1. The agent checks for new versions hourly (`https://updates.orama.network/v1/latest`).
+1. The agent checks for new versions hourly, at `https://updates.orama.network/v1/latest` unless the image was built with `ORAMA_UPDATE_URL` (written to `/etc/orama/update-url` on the read-only rootfs; it must be an absolute `https` URL without a query, and an image with a malformed one refuses to start its services). Only whoever builds the image can change it, so a QEMU test image can be pointed at a test release server; the signature check below still applies.
 2. Downloads the signed image over HTTPS.
 3. Verifies the SHA-256 and the RootWallet EVM signature against the embedded public key.
 4. Writes to the standby partition.

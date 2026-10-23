@@ -261,6 +261,13 @@ func (a *Agent) waitForGenesisUnlock() ([]byte, error) {
 
 // startServices launches all node services in sandboxes and starts background tasks.
 func (a *Agent) startServices() error {
+	// Resolve the update endpoint first: an image built with a bad one fails
+	// here, before any service starts.
+	updateURL, err := update.ResolveUpdateURL(update.UpdateURLPath)
+	if err != nil {
+		return fmt.Errorf("cannot start the update checker: %w", err)
+	}
+
 	// Start service supervisor
 	a.supervisor = sandbox.NewSupervisor()
 	if err := a.supervisor.StartAll(); err != nil {
@@ -280,7 +287,7 @@ func (a *Agent) startServices() error {
 	go a.cmdRecv.Listen()
 
 	// Start update checker (periodic)
-	a.updater = update.NewManager()
+	a.updater = update.NewManager(updateURL)
 	go a.updater.RunLoop()
 
 	// Start health reporter (periodic)
