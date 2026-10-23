@@ -59,7 +59,10 @@ type Policy struct {
 	AppleTeamID   string
 	AppleBundleID string
 	// AllowDevelopment accepts keys from the App Attest development
-	// environment and development-signed builds. Devnet only.
+	// environment and development-signed builds. Devnet only. Where iOS
+	// signs the build's validation category (iOS 27 and later), App Store
+	// and TestFlight builds are accepted, development-signed builds only
+	// with AllowDevelopment, and every other category is refused.
 	AllowDevelopment bool
 	// MinIOSBundleVersion is the oldest CFBundleVersion accepted, one to
 	// three period-separated integers ("" sets no minimum). Only iOS 27 and
@@ -131,6 +134,9 @@ type Verdict struct {
 	// ValidationCategory is Apple's signed launch category of the build
 	// (4 = App Store); 0 when the OS signs none (iOS 26 and earlier).
 	ValidationCategory uint32
+	// Receipt is Apple's attestation receipt, kept for a later fraud-metric
+	// request to Apple.
+	Receipt []byte
 
 	// SecurityLevel is the Android attestation security level (TEE or
 	// StrongBox; the KeyMint level is equal).

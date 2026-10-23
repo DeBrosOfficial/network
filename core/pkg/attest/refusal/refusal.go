@@ -44,7 +44,6 @@ const (
 	ReasonMalformed           Reason = "malformed"
 	ReasonChain               Reason = "chain"
 	ReasonRevoked             Reason = "revoked"
-	ReasonRevocationUnknown   Reason = "revocation_unknown"
 	ReasonNonce               Reason = "nonce"
 	ReasonKeyID               Reason = "key_id"
 	ReasonAppID               Reason = "app_id"
