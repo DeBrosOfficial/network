@@ -12,6 +12,11 @@ Hosting: **work happens on Gitea; the public sees GitHub.**
 
 Working tree: work in the main checkout on its current branch (`nightly`). Use a separate git worktree or branch only when parallel agents would otherwise conflict on the same files, and merge it back as soon as it is done.
 
+Bugboard status follows the work, so the owner can see it:
+- `in_progress` the moment work on a task starts (including by a subagent).
+- `review` once it is built and committed, but not yet deployed.
+- `done_devnet` or `done_testnet` once it is live on that network.
+
 Operational constraints:
 - **Rolling upgrades only** — never restart multiple RQLite voters at once (Raft quorum).
 - Drive nodes through the `orama` CLI (`orama node …`), never raw `systemctl`.
