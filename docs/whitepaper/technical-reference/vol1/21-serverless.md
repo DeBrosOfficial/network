@@ -320,6 +320,8 @@ A function's outbound request is controlled by the tenant and made from the clus
 
 `anon_fetch` uses a client whose transport dials the node's Tor SOCKS port for every connection and sends the host name unresolved, so the exit does DNS. The same `denyInternalURL` runs first, and Tor refuses private and local addresses itself (`ClientRejectInternalAddresses`), including on redirects. With Tor down the call returns `status` 0; there is no direct path (`core/pkg/anonproxy/socks.go`). Neither client limits the response body: it is read fully into gateway memory, bounded by the 30 s timeout.
 
+A failed fetch is logged, and told to the function, without the URL. `http_fetch` logs the origin (scheme and host, with the port when the URL names one) and the cause, never the path, the query or the user info: a provider key rides in the path (`/v2/<key>`) as often as in the query (`?api-key=`), and a path can name a user (`/address/<wallet>`). The client's error quotes the whole URL, so the log and the envelope's `error` carry only its cause (`httputil.FailureReason`); the function already knows the URL it asked for. `anon_fetch` logs only the class of the failure (`timeout`, `canceled`, `transport`), not the origin or the cause, which names the destination (`core/pkg/serverless/hostfunctions/http.go:fetchLogFields`, `core/pkg/serverless/engine.go:hHTTPFetch`).
+
 ### Triggers
 
 Two kinds of trigger run. Both start a system-originated invocation with no caller, and the function's rate limit, retry and DLQ apply as for any call.

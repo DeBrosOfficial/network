@@ -4,7 +4,8 @@
 # secrets and triggers; invocation access (private, public, keys, name@N,
 # /v1/invoke, another namespace, the main gateway), limits (timeout -> 429,
 # memory, per-namespace concurrency, server-side range), nested invoke, the
-# caller context and device id, host functions (http_fetch SSRF matrix,
+# caller context and device id, host functions (http_fetch SSRF matrix and
+# its failure log naming only the origin,
 # cache atomics and TTL, the SQL guard, batch limits and transactions,
 # ephemeral state limits, TTL and disconnect), the socket registry, cron
 # fired once per slot across gateways, and the pubsub depth limit.
@@ -56,6 +57,7 @@ covers:
     - "website/src/docs/developer/functions.mdx#http-api-reference: management acts on the credential's namespace; another namespace is refused"
     - "website/src/docs/developer/functions.mdx#host-functions-api: an import from a module other than env, host or orama fails to instantiate"
     - "docs/whitepaper/technical-reference/vol1/18-cache.md#what-each-attacker-can-do: http_fetch refuses loopback, RFC 1918, link-local, CGNAT and wrapped IPv4, by name and by redirect"
+    - "website/src/docs/developer/functions.mdx#host-functions-api: a failed http_fetch is logged by origin and cause only; the URL's path, query and user info reach neither the function's error nor any node's journal"
     - "website/src/docs/developer/functions.mdx#database-rqlite: ATTACH, PRAGMA, VACUUM, CREATE TRIGGER, two statements and reserved tables in every quoting are refused"
     - "website/src/docs/developer/functions.mdx#database-transactions: 100 statements per batch (TOO_MANY_STATEMENTS at 101), 10,000 rows per query op, rollback on a failed op"
     - "website/src/docs/developer/functions.mdx#cache-olric-distributed-cache: cache_incr is atomic (concurrent calls return 1..n once each, a refused call is reported as one); ttl 0 never expires, negative is refused; cache_delete of a missing key is 1"

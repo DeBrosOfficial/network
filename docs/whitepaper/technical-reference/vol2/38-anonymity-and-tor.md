@@ -122,7 +122,7 @@ Refusals before the upgrade carry `{error, code, hint}`: 400 `RELAY_DESTINATION_
 
 #### anon_fetch
 
-`core/pkg/serverless/hostfunctions/http.go:AnonFetch` is the same guarantee for WASM functions. Its HTTP client is `anonproxy.NewHTTPClient()` with the host function timeout (30 s by default). A request goes through `denyInternalURL` first; Tor down comes back as a transport-error envelope with status 0 and an error naming the SOCKS address, never as a direct request. A failed `anon_fetch` is logged with the class of the failure only (`anonproxy.ErrorClass`), not the URL or the error text; `http_fetch` logs the URL without its query string. The deprecated export `anyone_fetch` is kept as an alias. [Serverless](../vol1/21-serverless.md) covers the host-function ABI.
+`core/pkg/serverless/hostfunctions/http.go:AnonFetch` is the same guarantee for WASM functions. Its HTTP client is `anonproxy.NewHTTPClient()` with the host function timeout (30 s by default). A request goes through `denyInternalURL` first; Tor down comes back as a transport-error envelope with status 0 and an error naming the SOCKS address, never as a direct request. A failed `anon_fetch` is logged with the class of the failure only (`anonproxy.ErrorClass`), not the URL or the error text; `http_fetch` logs only the origin (scheme and host) and the cause, never the path, the query or the user info. The deprecated export `anyone_fetch` is kept as an alias. [Serverless](../vol1/21-serverless.md) covers the host-function ABI.
 
 #### Health
 

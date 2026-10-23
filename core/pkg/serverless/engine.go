@@ -1207,9 +1207,10 @@ func (e *Engine) hHTTPFetch(ctx context.Context, mod api.Module, methodPtr, meth
 
 	resp, err := e.hostServices.HTTPFetch(ctx, string(method), string(u), headers, body)
 	if err != nil {
-		// The client's error quotes the whole URL, and a credential may be in its query.
+		// The client's error quotes the whole URL, and a credential or the
+		// user's address may be in its path or query: only the origin is named.
 		e.logger.Error("host function http_fetch failed",
-			zap.String("error", httputil.FailureReason(err)), zap.String("url", httputil.WithoutQuery(string(u))))
+			zap.String("error", httputil.FailureReason(err)), zap.String("origin", httputil.Origin(string(u))))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, resp)

@@ -15,10 +15,16 @@ import (
 )
 
 const (
-	fetchSecret = "SECRET-QUERY-VALUE"
-	fetchHost   = "hidden-destination.example"
-	fetchURL    = "https://" + fetchHost + "/private/path?api_key=" + fetchSecret
+	fetchSecret     = "SECRET-QUERY-VALUE"
+	fetchPathSecret = "SECRET-PATH-KEY"
+	fetchUserinfo   = "SECRET-USERINFO"
+	fetchHost       = "hidden-destination.example"
+	fetchURL        = "https://" + fetchUserinfo + "@" + fetchHost + "/v2/" + fetchPathSecret + "/private/path?api_key=" + fetchSecret
 )
+
+// fetchURLParts is every part of fetchURL after the origin: none may reach the
+// node log, nor the error the function is handed.
+var fetchURLParts = []string{fetchSecret, fetchPathSecret, fetchUserinfo, "api_key", "/v2/", "/private/path"}
 
 func observedHostFunctions(httpRT, anonRT roundTripperFunc) (*HostFunctions, func() string) {
 	core, logs := observer.New(zapcore.DebugLevel)
@@ -44,42 +50,73 @@ type brokenBody struct{ msg string }
 
 func (b brokenBody) Read([]byte) (int, error) { return 0, errors.New(b.msg) }
 
-// A function's http_fetch URL can carry a credential in its query string, and
-// the client's error quotes the whole URL. The node log keeps the endpoint and
-// the cause but not the query.
-func TestHTTPFetch_failureLogDropsTheQueryString(t *testing.T) {
+// A function's http_fetch URL can carry a credential in its path, query or
+// user info, and a path can name the user. The node log keeps the origin and
+// the cause, nothing after the host; the client's error, which quotes the whole
+// URL, is not repeated to the function either.
+func TestHTTPFetch_failureLogNamesOnlyTheOrigin(t *testing.T) {
 	h, logged := observedHostFunctions(failingRT("connection reset by peer"), nil)
 
-	if _, err := h.HTTPFetch(context.Background(), "GET", fetchURL, nil, nil); err != nil {
+	raw, err := h.HTTPFetch(context.Background(), "GET", fetchURL, nil, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 	got := logged()
 	if got == "" {
 		t.Fatal("nothing was logged, so the test checks nothing")
 	}
-	for _, leaked := range []string{fetchSecret, "api_key"} {
-		if strings.Contains(got, leaked) {
-			t.Errorf("the log quotes the query (%q): %s", leaked, got)
-		}
-	}
-	for _, kept := range []string{fetchHost + "/private/path", "connection reset by peer"} {
+	assertNoURLParts(t, "the log", got)
+	assertNoURLParts(t, "the envelope", string(raw))
+	for _, kept := range []string{"origin:https://" + fetchHost, "connection reset by peer"} {
 		if !strings.Contains(got, kept) {
 			t.Errorf("the log lost %q: %s", kept, got)
 		}
 	}
+	if !strings.Contains(string(raw), "connection reset by peer") {
+		t.Errorf("the envelope lost the cause: %s", raw)
+	}
 }
 
-func TestHTTPFetch_readFailureLogDropsTheQueryString(t *testing.T) {
+func TestHTTPFetch_readFailureLogNamesOnlyTheOrigin(t *testing.T) {
 	h, logged := observedHostFunctions(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{}, Request: r, Body: io.NopCloser(brokenBody{"body cut"})}, nil
 	}, nil)
 
-	if _, err := h.HTTPFetch(context.Background(), "GET", fetchURL, nil, nil); err != nil {
+	raw, err := h.HTTPFetch(context.Background(), "GET", fetchURL, nil, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 	got := logged()
-	if got == "" || strings.Contains(got, fetchSecret) || strings.Contains(got, "api_key") {
-		t.Fatalf("read failure log: %q", got)
+	if got == "" {
+		t.Fatal("nothing was logged, so the test checks nothing")
+	}
+	assertNoURLParts(t, "the read failure log", got)
+	assertNoURLParts(t, "the read failure envelope", string(raw))
+}
+
+// A URL the client cannot turn into a request is answered and logged without
+// repeating it.
+func TestHTTPFetch_requestCreationFailureNamesNoPath(t *testing.T) {
+	h, logged := observedHostFunctions(failingRT("unreachable"), nil)
+
+	raw, err := h.HTTPFetch(context.Background(), "BAD METHOD", fetchURL, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := logged()
+	if got == "" {
+		t.Fatal("nothing was logged, so the test checks nothing")
+	}
+	assertNoURLParts(t, "the request creation log", got)
+	assertNoURLParts(t, "the request creation envelope", string(raw))
+}
+
+func assertNoURLParts(t *testing.T, where, got string) {
+	t.Helper()
+	for _, leaked := range fetchURLParts {
+		if strings.Contains(got, leaked) {
+			t.Errorf("%s repeats %q: %s", where, leaked, got)
+		}
 	}
 }
 
@@ -99,7 +136,7 @@ func TestAnonFetch_failureLogNamesNoDestination(t *testing.T) {
 	if got == "" {
 		t.Fatal("nothing was logged, so the test checks nothing")
 	}
-	for _, leaked := range []string{fetchHost, "/private/path", fetchSecret, "api_key", "9050"} {
+	for _, leaked := range append([]string{fetchHost, "9050"}, fetchURLParts...) {
 		if strings.Contains(got, leaked) {
 			t.Errorf("the anon_fetch log names %q: %s", leaked, got)
 		}

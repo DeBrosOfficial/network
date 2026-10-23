@@ -54,16 +54,19 @@ func (h *HostFunctions) AnonFetch(ctx context.Context, method, url string, heade
 // anonFetchName is the host function whose destination the node does not log.
 const anonFetchName = "anon_fetch"
 
-// fetchLogFields describe a failed fetch for the node log without the request's
-// query string, where a credential may be, and the client's error, which quotes
-// the whole URL. An anon_fetch caller chose Tor so the node could not say where
-// the function went: its log names neither the URL nor the cause (the cause of
-// a SOCKS failure names the destination), only the class of the failure.
+// fetchLogFields describe a failed fetch for the node log by the origin it went
+// to (scheme and host) and the cause, never the path, query or user info: a
+// provider key rides in the path (`/v2/<key>`) or the query (`?api-key=`), and
+// a path can name the user (`/address/<wallet>`). The client's error quotes the
+// whole URL, so only its cause is kept. An anon_fetch caller chose Tor so the
+// node could not say where the function went: its log names neither the origin
+// nor the cause (the cause of a SOCKS failure names the destination), only the
+// class of the failure.
 func fetchLogFields(fnName, rawURL string, err error) []zap.Field {
 	if fnName == anonFetchName {
 		return []zap.Field{zap.String("error_class", anonproxy.ErrorClass(err))}
 	}
-	return []zap.Field{zap.String("url", httputil.WithoutQuery(rawURL)), zap.String("error", httputil.FailureReason(err))}
+	return []zap.Field{zap.String("origin", httputil.Origin(rawURL)), zap.String("error", httputil.FailureReason(err))}
 }
 
 // doFetch is the shared request/response machinery for HTTPFetch and
@@ -88,7 +91,7 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 	if err != nil {
 		h.logger.Error(fnName+" request creation error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
-			"error":  "failed to create request: " + err.Error(),
+			"error":  "failed to create request: " + httputil.FailureReason(err),
 			"status": 0,
 		}
 		return json.Marshal(errorResp)
@@ -102,7 +105,7 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 	if err != nil {
 		h.logger.Error(fnName+" transport error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
-			"error":  err.Error(),
+			"error":  httputil.FailureReason(err),
 			"status": 0, // Transport error
 		}
 		return json.Marshal(errorResp)
@@ -113,7 +116,7 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 	if err != nil {
 		h.logger.Error(fnName+" response read error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
-			"error":  "failed to read response: " + err.Error(),
+			"error":  "failed to read response: " + httputil.FailureReason(err),
 			"status": resp.StatusCode,
 		}
 		return json.Marshal(errorResp)

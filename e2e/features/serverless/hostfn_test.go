@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
@@ -79,6 +81,51 @@ func TestHostHTTPFetch_ssrfMatrix(t *testing.T) {
 		t.Errorf("a redirect to loopback was followed: %v", res)
 	}
 }
+
+// TestHostHTTPFetch_failureNamesOnlyTheOrigin: a failed http_fetch is logged by
+// its origin and cause only. A marker in the user info, the path and the query
+// of the URL reaches neither the function's error nor any node's journal, and
+// the origin does (website/src/docs/developer/functions.mdx#host-functions-api:
+// the node logs a failed fetch by its origin and cause only).
+func TestHostHTTPFetch_failureNamesOnlyTheOrigin(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn = "e2e-fetch-log"
+	deploy(t, fx, fnSpec{name: fn, yaml: "timeout: 60\n"})
+	mark := fmt.Sprintf("e2emark%d", time.Now().UnixNano())
+	since := time.Now().Add(-time.Minute).Unix()
+	origin := "https://" + unresolvableHost
+	u := "https://u" + mark + "@" + unresolvableHost + "/v2/" + mark + "/address/" + mark + "?api-key=" + mark
+	res := sub(call(t, fx, fn, map[string]any{"op": "fetch", "url": u}), "result")
+	if res["status"] != float64(0) {
+		t.Fatalf("a fetch to %s did not fail: %v", unresolvableHost, res)
+	}
+	if e, _ := res["error"].(string); e == "" || strings.Contains(e, mark) {
+		t.Errorf("the function's error is empty or repeats the URL: %q", e)
+	}
+	grep := func(n fleet.Node, needle string) int {
+		out := fx.f.MustExec(t, n, fmt.Sprintf("journalctl --no-pager -q -o cat --since @%d | grep -c -F %s; true", since, fleet.ShellQuote(needle)))
+		c, err := strconv.Atoi(strings.TrimSpace(out.Stdout))
+		if err != nil {
+			t.Fatalf("%s: grep printed %q", n.Name, out.Stdout)
+		}
+		return c
+	}
+	logged := 0
+	for _, n := range fx.f.State.Nodes {
+		if c := grep(n, mark); c != 0 {
+			t.Errorf("%s: the journal repeats the URL's path, query or user info %d times", n.Name, c)
+		}
+		logged += grep(n, origin)
+	}
+	if logged == 0 {
+		t.Errorf("no node logged the failed fetch to %s, so the check proves nothing", origin)
+	}
+}
+
+// unresolvableHost is a name that never resolves (RFC 2606 reserves .invalid),
+// so a fetch to it fails on every node without leaving the cluster.
+const unresolvableHost = "orama-e2e-fetch.invalid"
 
 // TestHostCache_atomicsAndTTL: cache_incr is atomic under concurrent
 // invocations; set/get/delete round-trip; a TTL expires; a negative TTL is
