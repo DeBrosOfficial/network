@@ -10,6 +10,8 @@ Hosting: **work happens on Gitea; the public sees GitHub.**
 - `github.com/Orama-Network/orama` is the public, code-only mirror. Only `.gitea/workflows/mirror-to-github.yml` writes to it, on each release tag. The exception is the one-time catch-up push its header describes, done from a full clone with the owner's OK.
 - Public-facing links (website, docs, package metadata, unit `Documentation=`, issue templates) point to the GitHub repository, never to Gitea. The exception is install endpoints for things that exist only on Gitea: the npm and apt registries, and release downloads.
 
+Branches map to networks: `nightly` is devnet (what is on devnet, or about to be deployed there), `main` is testnet (merged to main = on testnet, or about to be).
+
 Working tree: work in the main checkout on its current branch (`nightly`). Use a separate git worktree or branch only when parallel agents would otherwise conflict on the same files, and merge it back as soon as it is done.
 
 Bugboard status follows the work, so the owner can see it:
