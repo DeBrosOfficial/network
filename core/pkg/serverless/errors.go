@@ -88,6 +88,11 @@ var (
 	// retryable and surface a retryable error envelope to clients.
 	ErrWASMFetchTimeout = errors.New("wasm fetch from IPFS timed out")
 
+	// ErrWASMNotStored is returned when a function's WASM is not in the
+	// cluster's pinset: nothing the cluster knows of stores it, so no retry
+	// can fetch it, and the function cannot run until it is deployed again.
+	ErrWASMNotStored = errors.New("function WASM is not stored in the cluster")
+
 	// ErrDatabaseUnavailable is returned when the database is unavailable.
 	ErrDatabaseUnavailable = errors.New("database unavailable")
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -488,7 +489,8 @@ var (
 // GetWASMBytes retrieves the compiled WASM bytecode for a function. On a cold
 // block it retries with a bounded per-attempt deadline and returns the typed
 // ErrWASMFetchTimeout (retryable infra failure) so callers don't misreport a
-// transient IPFS stall as a permanent function error.
+// transient IPFS stall as a permanent function error. WASM the cluster's
+// pinset does not list is ErrWASMNotStored at once.
 func (r *Registry) GetWASMBytes(ctx context.Context, wasmCID string) ([]byte, error) {
 	if wasmCID == "" {
 		return nil, &ValidationError{Field: "wasmCID", Message: "cannot be empty"}
@@ -499,6 +501,12 @@ func (r *Registry) GetWASMBytes(ctx context.Context, wasmCID string) ([]byte, er
 		data, err := r.fetchWASMOnce(ctx, wasmCID)
 		if err == nil {
 			return data, nil
+		}
+		// A CID the cluster's pinset does not list is stored nowhere it knows
+		// of: no retry, re-pin or wait can bring it back, and each would only
+		// spend the invocation's time (bugboard #432).
+		if errors.Is(err, ipfs.ErrNotInPinset) {
+			return nil, fmt.Errorf("%w: cid=%s: %v", ErrWASMNotStored, wasmCID, err)
 		}
 		lastErr = err
 
@@ -580,13 +588,13 @@ func (r *Registry) fetchWASMOnce(ctx context.Context, wasmCID string) ([]byte, e
 	fetchCtx, cancel := context.WithTimeout(ctx, wasmFetchTimeout)
 	defer cancel()
 
-	reader, err := r.ipfs.Get(fetchCtx, wasmCID, r.ipfsAPIURL)
+	content, err := r.ipfs.GetStored(fetchCtx, wasmCID, r.ipfsAPIURL, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get WASM from IPFS: %w", err)
 	}
-	defer reader.Close()
+	defer content.Body.Close()
 
-	data, err := io.ReadAll(reader)
+	data, err := io.ReadAll(content.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM data: %w", err)
 	}

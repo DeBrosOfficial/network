@@ -24,19 +24,21 @@ func (h *HostFunctions) StoragePut(ctx context.Context, data []byte) (string, er
 	return resp.Cid, nil
 }
 
-// StorageGet retrieves data from IPFS by CID.
+// StorageGet retrieves data from IPFS by CID. The CID must be bare.
 func (h *HostFunctions) StorageGet(ctx context.Context, cid string) ([]byte, error) {
 	if h.storage == nil {
 		return nil, &serverless.HostFunctionError{Function: "storage_get", Cause: serverless.ErrStorageUnavailable}
 	}
 
-	reader, err := h.storage.Get(ctx, cid, h.ipfsAPIURL)
+	// GetStored, not Get: a CID nobody pins is ipfs.ErrNotInPinset at once,
+	// instead of a networked search that can only run out the deadline.
+	content, err := h.storage.GetStored(ctx, cid, h.ipfsAPIURL, 0)
 	if err != nil {
 		return nil, &serverless.HostFunctionError{Function: "storage_get", Cause: err}
 	}
-	defer reader.Close()
+	defer content.Body.Close()
 
-	data, err := io.ReadAll(reader)
+	data, err := io.ReadAll(content.Body)
 	if err != nil {
 		return nil, &serverless.HostFunctionError{Function: "storage_get", Cause: fmt.Errorf("failed to read data: %w", err)}
 	}
