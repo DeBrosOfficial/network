@@ -397,6 +397,7 @@ Every credential, namespace, scope and operator refusal carries `{error, code, h
 | `ROLE_HAS_NO_KEY` | 403 | a key was asked for by a member whose role a key cannot carry (`reader`, `developer`), or by an end user of an open namespace who holds no grant |
 | `SIGN_IN_CLOSED` | 403 | the wallet holds no grant (never invited, or revoked, expired or disabled) and the namespace is not open: its session was refused a refresh. Issuing a new session is refused `NAMESPACE_NOT_OWNED` |
 | `TOO_MANY_CHALLENGES` | 429, `Retry-After: 300` | the wallet holds as many unanswered challenges as it is allowed |
+| `SIGN_IN_RATE_LIMITED` | 429, `Retry-After` | the namespace's per-IP limits are on and the caller's network signed in as many new wallets this hour as `new_wallets_per_ip_hour` allows; a wallet that signed in before is not counted ([identity](13-identity.md#per-ip-limits)) |
 
 **Device-bound sessions** (`core/pkg/gateway/handlers/auth/device_errors.go`). The next move differs: sign a proof, ask another device, or accept that this key is done:
 
