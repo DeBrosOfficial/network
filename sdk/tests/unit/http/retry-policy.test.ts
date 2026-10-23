@@ -65,16 +65,16 @@ describe('retry backoff', () => {
 
   it('understands a Retry-After given as a date', async () => {
     const waits = captureDelays();
-    const when = new Date(Date.now() + 4000).toUTCString();
+    // An HTTP date has whole seconds, so the clock is pinned to one: the wait is
+    // then exactly the four seconds the header names.
+    const now = Date.UTC(2026, 9, 24, 12, 0, 0);
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const when = new Date(now + 4000).toUTCString();
     const fetchImpl = failing(503, { 'retry-after': when });
 
     await expect(client(fetchImpl, 1).get('/v1/x')).rejects.toMatchObject({ httpStatus: 503 });
 
-    const backoff = waits;
-    expect(backoff).toHaveLength(1);
-    // Allow a little slack for the clock between building and reading it.
-    expect(backoff[0]).toBeGreaterThan(3000);
-    expect(backoff[0]).toBeLessThanOrEqual(4000);
+    expect(waits).toEqual([4000]);
   });
 
   it('ignores a Retry-After it cannot read', async () => {
