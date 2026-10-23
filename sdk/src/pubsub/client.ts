@@ -129,8 +129,11 @@ export class PubSubClient {
     topic: string,
     options: SubscribeOptions = {}
   ): Promise<Subscription> {
-    // Build WebSocket URL for this topic
-    const wsUrl = new URL(this.wsConfig.wsURL || "ws://127.0.0.1:6001");
+    // Build WebSocket URL for this topic: the gateway the HTTP client talks
+    // to, over ws:// or wss://, unless the caller named another.
+    const wsUrl = new URL(
+      this.wsConfig.wsURL ?? this.httpClient.getBaseURL().replace(/^http/, "ws")
+    );
     wsUrl.pathname = "/v1/pubsub/ws";
     wsUrl.searchParams.set("topic", topic);
 

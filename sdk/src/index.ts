@@ -51,13 +51,9 @@ export function createClient(config: ClientConfig): Client {
     jwt: config.jwt,
   });
 
-  // Derive WebSocket URL from baseURL
-  const wsURL = config.baseURL.replace(/^http/, "ws").replace(/\/$/, "");
-
   const db = new DBClient(httpClient);
   const pubsub = new PubSubClient(httpClient, {
     ...config.wsConfig,
-    wsURL,
     onNetworkError: config.onNetworkError,
   });
   const network = new NetworkClient(httpClient);

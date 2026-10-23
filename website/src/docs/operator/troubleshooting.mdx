@@ -53,7 +53,7 @@ sudo orama node logs <service> -n 100
 sudo orama node restart              # dependency order and quorum safety
 ```
 
-Dependency order matters: WireGuard, RQLite, then Olric, then the gateway. Starting a gateway before Olric is ready causes a permanent initialization failure because the Olric client does not retry; the CLI orders them for you. `sudo orama node restart --force` bypasses the quorum safety check.
+Dependency order matters: WireGuard, RQLite, then Olric, then the gateway; the CLI orders them for you. A gateway that starts before Olric is ready still comes up: it tries Olric five times with backoff (0.5 s, doubling to 5 s), then answers cache requests with 503 while a background supervisor reconnects every 5 to 30 s. Once connected, it drops the client again after three failed probes 10 s apart, so a cache that goes away later also turns into 503s rather than hung requests. `sudo orama node restart --force` bypasses the quorum safety check.
 
 | Cause | Symptom | Resolution |
 |---|---|---|

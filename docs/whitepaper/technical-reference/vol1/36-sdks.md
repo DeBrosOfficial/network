@@ -57,7 +57,7 @@ The package is built by `tsup` to both ESM and CommonJS, with separate type decl
 
 ### Building a client
 
-`createClient(config)` takes a gateway `baseURL` and builds, in order, the `HttpClient`, the `AuthClient`, then the other sub-clients (`sdk/src/index.ts:createClient`). The WebSocket URL is the base URL with `http` replaced by `ws`. Nothing connects at construction. The `AuthClient` constructor installs two hooks on the `HttpClient` that carry most of the SDK's behaviour:
+`createClient(config)` takes a gateway `baseURL` and builds, in order, the `HttpClient`, the `AuthClient`, then the other sub-clients (`sdk/src/index.ts:createClient`). A pub/sub WebSocket goes to the `HttpClient` base URL with `http` replaced by `ws`, unless the `PubSubClient` was given a `wsURL` (`sdk/src/pubsub/client.ts:subscribe`). Nothing connects at construction. The `AuthClient` constructor installs two hooks on the `HttpClient` that carry most of the SDK's behaviour:
 
 - a **key exchanger**, which turns an API key into a token;
 - a **token refresher**, which renews an expired session.
@@ -418,7 +418,6 @@ At ten times the load the first bottleneck is the client's per-process shape rat
 - **Non-idempotent requests are retried.** The retry loop ignores the HTTP method, so a `POST /v1/rqlite/exec` that the gateway executed and answered with 502 or 504 is repeated and can insert twice. The gateway marks errors `retryable` in the envelope and the SDK reads that flag only for 404 handling (`sdk/src/core/http.ts:requestWithRetry`).
 - **`onNetworkError` is not only for network errors.** The documentation says it fires on network failures, and `isRetry` is always false; the code calls it for any failed request except an abort, including 401, 403 and 404 (`sdk/src/core/http.ts:request`). The `find-one` 404 that `db.findOne` converts to `null` is reported through the callback first.
 - **A `Retry-After` over 30 s is shortened.** The gateway's credential bucket answers `Retry-After: 60`; the SDK waits 30 s and asks again (`MAX_RETRY_DELAY_MS`).
-- **A stale comment on `WSClient`.** The class comment says "no complex reconnection, no failover" above the reconnect implementation (`sdk/src/core/ws.ts:WSClient`). The default WebSocket URL when `wsURL` is empty is `ws://127.0.0.1:6001`, a port no longer used (`sdk/src/pubsub/client.ts:subscribe`); `createClient` always supplies one.
 - **`cache.get` still treats a 500 "key not found" as a miss.** The gateway answers 404 for a missing key now, so the branch is dead, and a retried 500 would delay the answer by the full retry budget (`sdk/src/cache/client.ts:get`).
 - **Chain broadcast errors have two shapes.** The gateway path raises `ChainTxRefusedError` (422); the node-REST `broadcast` raises a plain `SDKError` with the same code and status 400 (`sdk/src/chain/client.ts:broadcast`). Code that catches the class misses the second.
 - **Go `Transaction` in direct mode is not atomic.** It sends each statement as its own write and, on a failure, retries from the first statement, replaying earlier ones (`core/pkg/client/database_client.go:Transaction`). Gateway mode sends one `transaction` request and is all-or-nothing. This is a bug.
