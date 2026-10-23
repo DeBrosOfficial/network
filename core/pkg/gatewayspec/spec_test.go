@@ -1,12 +1,9 @@
-package gateway
+package gatewayspec
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -138,44 +135,6 @@ func TestGatewayYAMLConfig_secretsKeyOmitWhenEmpty(t *testing.T) {
 	}
 }
 
-// TestGenerateConfig_writesSecretsKeyWith0600 verifies the spawned namespace
-// gateway YAML carries the secrets key AND is written 0600 (the file now
-// holds key material — bugboard #837).
-func TestGenerateConfig_writesSecretsKeyWith0600(t *testing.T) {
-	const key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	dir := t.TempDir()
-	is := NewInstanceSpawner(dir, zap.NewNop())
-	configPath := filepath.Join(dir, "gateway-node-1.yaml")
-
-	cfg := InstanceConfig{
-		Namespace:            "anchat-test",
-		NodeID:               "node-1",
-		HTTPPort:             6001,
-		RQLiteDSN:            "http://localhost:10000",
-		OlricServers:         []string{"localhost:3320"},
-		SecretsEncryptionKey: key,
-	}
-	if err := is.generateConfig(configPath, cfg, dir); err != nil {
-		t.Fatalf("generateConfig: %v", err)
-	}
-
-	info, err := os.Stat(configPath)
-	if err != nil {
-		t.Fatalf("stat: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0600 {
-		t.Errorf("config perms = %o, want 0600 (file holds the secrets key)", perm)
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	if !strings.Contains(string(data), "secrets_encryption_key: "+key) {
-		t.Errorf("generated config missing secrets_encryption_key:\n%s", data)
-	}
-}
-
 // TestGatewayYAMLConfig_omitWhenEmpty: when the host has no cluster secret,
 // the field is omitted from the YAML so legacy single-node test rigs don't
 // see a stray "cluster_secret_path: " line that operators might mistake for
@@ -194,5 +153,33 @@ func TestGatewayYAMLConfig_omitWhenEmpty(t *testing.T) {
 	}
 	if strings.Contains(string(out), "cluster_secret_path") {
 		t.Errorf("empty ClusterSecretPath should be omitted from YAML; got:\n%s", out)
+	}
+}
+
+// TestGatewayYAMLConfig_ntfyBaseURLRoundTrip pins the YAML tag the standalone
+// gateway binary reads the value back from.
+func TestGatewayYAMLConfig_ntfyBaseURLRoundTrip(t *testing.T) {
+	const base = "https://push.devnet.orama.network"
+	cfg := GatewayYAMLConfig{
+		ListenAddr:      ":6001",
+		ClientNamespace: "anchat-v2",
+		RQLiteDSN:       "http://localhost:10005",
+		NtfyBaseURL:     base,
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(data), "ntfy_base_url: "+base) {
+		t.Fatalf("ntfy_base_url missing from marshalled YAML:\n%s", data)
+	}
+
+	var back GatewayYAMLConfig
+	if err := yaml.Unmarshal(data, &back); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if back.NtfyBaseURL != base {
+		t.Errorf("NtfyBaseURL = %q; want %q", back.NtfyBaseURL, base)
 	}
 }
