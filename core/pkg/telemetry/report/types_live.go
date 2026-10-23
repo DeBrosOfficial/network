@@ -154,6 +154,35 @@ type TrafficReport struct {
 
 	// Namespaces is the busiest namespaces over the window, most requests first.
 	Namespaces []NamespaceTraffic `json:"namespaces,omitempty"`
+
+	// Attestation counts, since the gateway started, the requests device
+	// attestation refused, and in monitor mode the ones it would have refused,
+	// by code, platform and mode. A namespace gateway's requests are judged and
+	// counted by the cluster gateway that forwards them.
+	Attestation []AttestationRefusals `json:"attestation,omitempty"`
+}
+
+// AttestationListsReport is when the cluster gateway last fetched Google's
+// Android attestation revocation list and GrapheneOS's verified-boot key list,
+// and whether each is stale. A stale list is still used; a revocation list
+// that was never fetched refuses Android attestations with a server error.
+type AttestationListsReport struct {
+	RevocationFetchedAt time.Time `json:"revocation_fetched_at"`
+	RevocationStale     bool      `json:"revocation_stale"`
+	GrapheneFetchedAt   time.Time `json:"grapheneos_fetched_at"`
+	GrapheneStale       bool      `json:"grapheneos_stale"`
+}
+
+// AttestationRefusals is one row of TrafficReport.Attestation.
+type AttestationRefusals struct {
+	// Code is ATTESTATION_REQUIRED, ATTESTATION_INVALID or APP_UPDATE_REQUIRED.
+	Code string `json:"code"`
+	// Platform is the platform the caller's attestation named: ios, android,
+	// or none when it carried none.
+	Platform string `json:"platform"`
+	// Mode is enforce (refused) or monitor (would have been refused).
+	Mode  string `json:"mode"`
+	Count int64  `json:"count"`
 }
 
 // NamespaceTraffic is one namespace's share of a TrafficReport window.

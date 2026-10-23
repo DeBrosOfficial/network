@@ -53,4 +53,10 @@ const (
 	// read off the hop that forwarded it. A socket the key opens is held to
 	// the key's revocation by it (bug-702).
 	KeyID ContextKey = "api_key_id"
+
+	// AttestationNamespace holds, on a WebSocket upgrade, the namespace whose
+	// attestation policy holds the socket once it is open: set by the
+	// attestation middleware for a caller it judges, absent for one it does
+	// not. The socket sweeper closes a socket the policy stops admitting.
+	AttestationNamespace ContextKey = "attestation_namespace"
 )

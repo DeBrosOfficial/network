@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Orama-Network/orama/core/pkg/attest"
 	"github.com/Orama-Network/orama/core/pkg/client"
 	"github.com/Orama-Network/orama/core/pkg/logging"
 	"github.com/Orama-Network/orama/core/pkg/rqlite"
@@ -61,6 +62,12 @@ type Service struct {
 	// endUserTopics is the same for the topics a namespace's end users may
 	// read (bugboard #733), asked on every pub/sub read by one.
 	endUserTopics policyCache[[]string]
+
+	// attestationPolicies is this gateway's copy of every namespace's
+	// attestation policy, and attestVerifier what checks a device's proof
+	// (feat-941). Built alongside the revocations.
+	attestationPolicies *AttestationPolicies
+	attestVerifier      attest.Verifier
 }
 
 // minRSAKeyBits is the smallest RSA signing key this gateway will use. 2048 is
@@ -99,6 +106,7 @@ func NewService(logger *logging.ColoredLogger, orm client.NetworkClient, signing
 	if orm != nil {
 		s.revocations = NewRevocationList(s.registryDatabase, logger)
 		s.audit = NewAuditLog(s.registryDatabase, logger)
+		s.attestationPolicies = NewAttestationPolicies(s.registryDatabase, logger)
 	}
 	// Always present, database or not: a gateway with no database still has to
 	// verify what it minted itself.
@@ -478,7 +486,11 @@ func (s *Service) IssueDeviceTokens(ctx context.Context, wallet, namespace, devi
 	if err != nil {
 		return "", "", 0, err
 	}
-	binding := SessionBinding{DeviceID: deviceID, SessionID: sessionID}
+	att, err := s.attestationForToken(ctx, namespace, deviceID, nil)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("read the device's attestation: %w", err)
+	}
+	binding := SessionBinding{DeviceID: deviceID, SessionID: sessionID, Attestation: att}
 	token, expUnix, err := s.GenerateBoundJWT(namespace, wallet, AccessTokenLifetime, custom, binding)
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to generate JWT: %w", err)
@@ -754,6 +766,14 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken, namespace stri
 		}
 	}
 
+	// What the device's attestation proved, when its namespace attests. Read
+	// before the rotation below, so a registry that cannot say leaves the
+	// refresh token unspent for the client's retry.
+	att, err := s.attestationForToken(ctx, namespace, session.deviceID, proof)
+	if err != nil {
+		return "", "", "", 0, fmt.Errorf("%w: read the device's attestation: %v", ErrRefreshTransient, err)
+	}
+
 	// Step 2: atomic CAS — revoke the old row. RowsAffected is the lock.
 	// Two concurrent calls with the same refresh token: exactly one wins
 	// the UPDATE (RowsAffected == 1); the other sees RowsAffected == 0
@@ -795,7 +815,7 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken, namespace stri
 	// Step 3: mint the new access JWT, carrying forward the stored custom
 	// claims so a rotated token keeps the same account_id etc. (bugboard #548).
 	accessToken, expUnix, err = s.GenerateBoundJWT(namespace, subject, AccessTokenLifetime, custom,
-		SessionBinding{DeviceID: session.deviceID, SessionID: session.sessionID})
+		SessionBinding{DeviceID: session.deviceID, SessionID: session.sessionID, Attestation: att})
 	if err != nil {
 		return "", "", "", 0, fmt.Errorf("%w: generate access token: %v", ErrRefreshTransient, err)
 	}

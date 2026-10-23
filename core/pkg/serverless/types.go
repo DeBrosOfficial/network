@@ -399,6 +399,12 @@ type InvocationContext struct {
 	// `get_caller_device_id`; like the subject, it is set only by the gateway.
 	CallerDeviceID string `json:"caller_device_id,omitempty"`
 
+	// CallerAttestation is what the caller's device attestation proved
+	// (feat-941), or nil when the caller's token carries none. Read via host
+	// fn `get_caller_attestation`; set only by the gateway, from the verified
+	// token's `att` claim.
+	CallerAttestation *CallerAttestation `json:"caller_attestation,omitempty"`
+
 	// CallerCapability is what the capability the caller's socket was opened
 	// with grants, or nil for a caller who came in on a credential. Read via
 	// host fn `get_caller_capability`. A nested function_invoke does not
@@ -775,6 +781,9 @@ type HostServices interface {
 	// GetCallerDeviceID returns the device the caller's session is bound to,
 	// or empty when it is bound to none.
 	GetCallerDeviceID(ctx context.Context) string
+	// GetCallerAttestation returns what the caller's device attestation
+	// proved, as JSON, or empty when the caller's token carries none.
+	GetCallerAttestation(ctx context.Context) string
 	// GetCallerCapability returns what the caller's capability grants, as
 	// JSON, or empty when the caller came in on a credential.
 	GetCallerCapability(ctx context.Context) string
@@ -832,4 +841,20 @@ type WebRTCController interface {
 	Admit(ctx context.Context, namespace, room, user, device string, ttl time.Duration) (time.Time, error)
 	Kick(ctx context.Context, namespace, room, user string) error
 	Mute(ctx context.Context, namespace, room, user string, muted bool) error
+}
+
+// CallerAttestation is what a caller's device attestation proved (feat-941):
+// the platform, the app and the build it attested, and when. The gateway sets
+// it from the token's signed `att` claim; nothing in a request body or header
+// reaches it.
+type CallerAttestation struct {
+	// Platform is "ios" or "android".
+	Platform string `json:"platform"`
+	// AppID is "TEAMID.bundle.id" on iOS, the package name on Android.
+	AppID string `json:"app_id"`
+	// AppVersion is the build the platform signed (CFBundleVersion on iOS 27
+	// and later, versionCode on Android); "" when it signed none.
+	AppVersion string `json:"app_version"`
+	// AttestedAt is when the device last attested, unix seconds.
+	AttestedAt int64 `json:"attested_at"`
 }

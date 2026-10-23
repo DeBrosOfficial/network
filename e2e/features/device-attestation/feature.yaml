@@ -1,0 +1,32 @@
+# Device attestation at the gateway (feat-941): a namespace's attestation
+# policy is set with the CLI and the route; under enforce a script holding a
+# valid session JWT and the app's API key is refused by name on HTTP invoke,
+# the function WebSocket and a pub/sub subscription; under monitor nothing is
+# refused and the cluster's would-refuse count rises; the attestation routes
+# issue single-use challenges to a device-bound session only and refuse a
+# forged proof without telling which check failed. A genuine attestation needs
+# a real iPhone or Android device and is accepted by hand (the task's
+# real-device acceptance), not here. Needs tinygo on the runner's PATH.
+id: device-attestation
+title: Device attestation policy, monitor and enforce
+area: auth
+subtasks: [4022]
+stage: 3
+destructive: false
+requires:
+  extra_nodes: 0
+  probe: false
+  chain: false
+covers:
+  cli:
+    - orama namespace attestation-policy
+  routes:
+    - /v1/namespace/attestation-policy
+    - /v1/attest/challenge
+    - /v1/attest/ios
+    - /v1/attest/android
+  claims:
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#device-attestation-at-the-gateway: under enforce a valid JWT and API key without an attestation are refused with ATTESTATION_REQUIRED on invoke, the function WebSocket and pub/sub subscriptions"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#device-attestation-at-the-gateway: under monitor nothing is refused and the would-refuse count rises"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#device-attestation-at-the-gateway: a challenge is for a device-bound session, used once; a forged proof is ATTESTATION_INVALID"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#device-attestation-at-the-gateway: the policy is validated whole and set only with namespace write; the owner is not judged"

@@ -31,7 +31,7 @@ Every table in this chapter is a cluster-registry table, out of reach of tenant 
 
 **Challenge and nonce.** The challenge is the text the wallet signs. Its nonce is 256 random bits as 64 hex characters, recorded in `nonces` and spent by one conditional `UPDATE`.
 
-**Access token.** A JWT with `alg` `EdDSA`, a `kid`, and claims `iss` (`orama-gateway`), `sub`, `aud` (`gateway`), `iat`, `nbf`, `exp`, `jti`, `namespace`, optional `did`, `sid` and `custom`. It lives 15 minutes (`core/pkg/gateway/auth/jwt.go:AccessTokenLifetime`).
+**Access token.** A JWT with `alg` `EdDSA`, a `kid`, and claims `iss` (`orama-gateway`), `sub`, `aud` (`gateway`), `iat`, `nbf`, `exp`, `jti`, `namespace`, optional `did`, `sid`, `att` and `custom`. `att` is what the device's attestation proved, for a namespace that attests ([device attestation at the gateway](14-authorization.md#device-attestation-at-the-gateway)). It lives 15 minutes (`core/pkg/gateway/auth/jwt.go:AccessTokenLifetime`).
 
 **Refresh token and session.** A refresh token is 32 random bytes in base64url, stored as a SHA-256 hash, valid 30 days, replaced on every use. A **session** is the chain of rows one sign-in starts; its id (`sid`, 128 random bits) is minted at sign-in and survives every rotation, so ending the session refuses every access token it minted.
 
@@ -166,7 +166,7 @@ No key is returned in the lobby, for a device-bound sign-in (the device is the c
 
 #### Minting
 
-`GenerateBoundJWT` (`core/pkg/gateway/auth/jwt.go`) builds the claims above with a 128-bit random `jti` and signs with the gateway's Ed25519 key; it falls back to RSA only when no Ed25519 key was set, which cannot happen in a running gateway. `did`, `sid` and `jti` are gateway-controlled: the custom map has those names removed however it arrived.
+`GenerateBoundJWT` (`core/pkg/gateway/auth/jwt.go`) builds the claims above with a 128-bit random `jti` and signs with the gateway's Ed25519 key; it falls back to RSA only when no Ed25519 key was set, which cannot happen in a running gateway. `did`, `sid`, `jti` and `att` are gateway-controlled: the custom map has those names removed however it arrived, and `att` is set only on a token bound to a device.
 
 **Custom claims.** A namespace can deploy a function named `auth-claims-provider` to add claims, such as a stable account id, to its users' tokens. The gateway invokes it once, at sign-in, with the wallet and namespace (`core/pkg/gateway/claims_provider.go`). It is fail-open by contract: a missing, slow, erroring or malformed provider yields no claims and never breaks authentication. The call has a 2 s timeout, is retried up to 3 attempts with a 150 ms pause only on a cold WASM fetch timeout, and the output is sanitised (`sanitizeProviderClaims`): a reply over 4096 bytes is discarded whole; otherwise it must be a JSON object, non-string values are dropped, and at most 16 claims and 4096 bytes of keys and values together are kept, taken in sorted key order so truncation is deterministic, with `sub`, `iss`, `aud`, `iat`, `nbf`, `exp`, `namespace`, `custom`, `scopes`, `jti`, `did`, `sid` dropped. `scopes` is the authoritative grant set of the API-key exchange, and a tenant must not be able to put it in an end user's token.
 

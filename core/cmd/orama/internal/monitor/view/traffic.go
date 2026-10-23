@@ -39,18 +39,25 @@ type TrafficSummary struct {
 	Nodes      []NodeTraffic
 	Totals     TrafficTotals
 	Namespaces []report.NamespaceTraffic
+	// Attestation is device attestation's refusals summed over the nodes, by
+	// code, platform and mode.
+	Attestation []report.AttestationRefusals
 }
 
 // AggregateTraffic sums the snapshot's per-node traffic.
 func AggregateTraffic(snap *cluster.ClusterSnapshot) TrafficSummary {
 	var s TrafficSummary
 	ns := map[string]*report.NamespaceTraffic{}
+	refusals := map[report.AttestationRefusals]int64{}
 	for _, n := range snap.Nodes {
 		row := NodeTraffic{Host: n.Node.Host}
 		if n.Report != nil && n.Report.Traffic != nil {
 			row.Traffic = n.Report.Traffic
 			addTraffic(&s.Totals, n.Report.Traffic)
 			mergeNamespaces(ns, n.Report.Traffic.Namespaces)
+			for _, a := range n.Report.Traffic.Attestation {
+				refusals[report.AttestationRefusals{Code: a.Code, Platform: a.Platform, Mode: a.Mode}] += a.Count
+			}
 		}
 		s.Nodes = append(s.Nodes, row)
 	}
@@ -58,7 +65,28 @@ func AggregateTraffic(snap *cluster.ClusterSnapshot) TrafficSummary {
 		s.Totals.ErrorRate = float64(s.Totals.Errors5xx) / float64(s.Totals.Requests)
 	}
 	s.Namespaces = topNamespaces(ns, TopNamespaceRows)
+	s.Attestation = sumAttestation(refusals)
 	return s
+}
+
+// sumAttestation lists the summed refusal counts by mode, code and platform.
+func sumAttestation(refusals map[report.AttestationRefusals]int64) []report.AttestationRefusals {
+	out := make([]report.AttestationRefusals, 0, len(refusals))
+	for k, n := range refusals {
+		k.Count = n
+		out = append(out, k)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Mode != b.Mode {
+			return a.Mode < b.Mode
+		}
+		if a.Code != b.Code {
+			return a.Code < b.Code
+		}
+		return a.Platform < b.Platform
+	})
+	return out
 }
 
 func addTraffic(t *TrafficTotals, tr *report.TrafficReport) {

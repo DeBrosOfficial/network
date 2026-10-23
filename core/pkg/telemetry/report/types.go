@@ -42,6 +42,10 @@ type NodeReport struct {
 	// requests, not by a collector: it is what the gateway counted in memory.
 	Traffic *TrafficReport `json:"traffic,omitempty"`
 
+	// AttestationLists is filled in by the cluster gateway: the state of the
+	// two lists Android device attestation reads (feat-941).
+	AttestationLists *AttestationListsReport `json:"attestation_lists,omitempty"`
+
 	// Breakers is filled in by the cluster gateway: its circuit breakers toward
 	// the namespace gateways, and which of them are not closed.
 	Breakers *BreakersReport `json:"breakers,omitempty"`

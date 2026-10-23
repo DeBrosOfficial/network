@@ -344,6 +344,10 @@ func (m *MockHostServices) GetCallerDeviceID(ctx context.Context) string {
 	return ""
 }
 
+func (m *MockHostServices) GetCallerAttestation(ctx context.Context) string {
+	return ""
+}
+
 func (m *MockHostServices) GetCallerCapability(ctx context.Context) string {
 	return ""
 }

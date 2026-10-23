@@ -2,6 +2,7 @@ package hostfunctions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -116,6 +117,8 @@ func (h *HostFunctions) FunctionInvoke(ctx context.Context, name string, payload
 		CallerClaims:     cur.CallerClaims,
 		CallerJWTSubject: cur.CallerJWTSubject,
 		CallerDeviceID:   cur.CallerDeviceID,
+		// The same caller down the chain, attested or not.
+		CallerAttestation: cur.CallerAttestation,
 		// Propagate trigger depth so a wildcard-triggered handler that
 		// calls function_invoke(B) — and B then publishes a topic that
 		// matches A's own wildcard — still hits the maxTriggerDepth
@@ -213,16 +216,17 @@ func (h *HostFunctions) FunctionInvokeAsync(ctx context.Context, name string, pa
 			CallerWallet: snapshot.CallerWallet,
 			// Inherit the parent's admin bit (bugboard #152): internal→internal
 			// async calls work; external→internal stay blocked.
-			CallerIsAdmin:    snapshot.CallerIsAdmin,
-			CallerHasInvoke:  snapshot.CallerHasInvoke,
-			SystemOriginated: snapshot.SystemOriginated,
-			CallerIP:         snapshot.CallerIP,
-			CallerKey:        snapshot.CallerKey,
-			WSClientID:       snapshot.WSClientID,
-			CallerClaims:     snapshot.CallerClaims,
-			CallerJWTSubject: snapshot.CallerJWTSubject,
-			CallerDeviceID:   snapshot.CallerDeviceID,
-			TriggerDepth:     snapshot.TriggerDepth,
+			CallerIsAdmin:     snapshot.CallerIsAdmin,
+			CallerHasInvoke:   snapshot.CallerHasInvoke,
+			SystemOriginated:  snapshot.SystemOriginated,
+			CallerIP:          snapshot.CallerIP,
+			CallerKey:         snapshot.CallerKey,
+			WSClientID:        snapshot.WSClientID,
+			CallerClaims:      snapshot.CallerClaims,
+			CallerJWTSubject:  snapshot.CallerJWTSubject,
+			CallerDeviceID:    snapshot.CallerDeviceID,
+			CallerAttestation: snapshot.CallerAttestation,
+			TriggerDepth:      snapshot.TriggerDepth,
 		}
 		if _, err := inv.Invoke(bgCtx, req); err != nil && logger != nil {
 			// An async invoke gives the guest NO signal at all — it is
@@ -342,4 +346,20 @@ func (h *HostFunctions) GetCallerDeviceID(ctx context.Context) string {
 		return ""
 	}
 	return cur.CallerDeviceID
+}
+
+// GetCallerAttestation returns what the caller's device attestation proved,
+// as JSON ({"platform", "app_id", "app_version", "attested_at"}), or "" when
+// the caller's token carries none. Like the device id it is the gateway's
+// verdict, never a value the client stated.
+func (h *HostFunctions) GetCallerAttestation(ctx context.Context) string {
+	cur := h.currentInvocationContext(ctx)
+	if cur == nil || cur.CallerAttestation == nil {
+		return ""
+	}
+	buf, err := json.Marshal(cur.CallerAttestation)
+	if err != nil {
+		return ""
+	}
+	return string(buf)
 }

@@ -187,6 +187,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama members remove`](#orama-members-remove) - Take a wallet's grant away
   - [`orama members transfer`](#orama-members-transfer) - Hand this namespace to another wallet
 - [`orama namespace`](#orama-namespace) - Manage namespaces
+  - [`orama namespace attestation-policy`](#orama-namespace-attestation-policy) - Show or set which app builds may call a namespace (device attestation)
   - [`orama namespace backup`](#orama-namespace-backup) - Take a backup of the namespace, sealed to your X25519 public key
   - [`orama namespace backup-open`](#orama-namespace-backup-open) - Decrypt a backup file with an X25519 private key
   - [`orama namespace backup-seal`](#orama-namespace-backup-seal) - Encrypt a backup file to an X25519 public key
@@ -489,7 +490,7 @@ deleted. Only a wallet on the cluster's operator list may read them.
 Events are shown oldest first. --follow keeps the command running and prints new
 ones as they are recorded.
 
-Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, function.purge, function.rollback, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, node.register, node.key.enrol
+Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, function.purge, function.rollback, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, namespace.attestation_policy, node.register, node.key.enrol
 ```
 
 | Flag | Default | Description |
@@ -4412,7 +4413,60 @@ Aliases: `ns`
 List, delete, and repair namespaces on the Orama network.
 ```
 
-Subcommands: `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+Subcommands: `attestation-policy`, `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+
+## orama namespace attestation-policy
+
+Show or set which app builds may call a namespace (device attestation)
+
+```text
+orama namespace attestation-policy [flags]
+```
+
+```text
+With no flags, show the namespace's attestation policy. With flags, change them; a
+flag left out keeps its value.
+
+A namespace that attests admits to its functions and data plane only the genuine
+build of its app on a genuine device: iOS through App Attest, Android (GrapheneOS
+included) through hardware key attestation. A script holding a valid session and
+the app's API key is refused.
+
+  --mode off|monitor|enforce   monitor refuses nothing and counts what enforce
+                               would refuse (orama status traffic); enforce refuses
+  --ios-team-id, --ios-bundle-id   the iOS App ID accepted
+  --allow-development          accept App Attest's development environment (devnet)
+  --min-ios-version            the oldest CFBundleVersion accepted (iOS 27 and later
+                               sign it; older iOS is accepted with the version unknown)
+  --android-package            the Android package accepted
+  --android-signing-digest     a lowercase-hex SHA-256 of an accepted signing
+                               certificate; repeat for several (replaces the list)
+  --allow-grapheneos           accept GrapheneOS beside stock verified boot
+  --min-android-version-code   the oldest versionCode accepted
+  --max-patch-age-months       refuse an Android OS patch older than this (0: no limit)
+  --reattest-interval          how long an Android attestation lasts (default 168h)
+
+Changing the policy needs write access to the namespace.
+
+  orama namespace attestation-policy --namespace anchat --mode monitor \
+    --android-package chat.anchat --android-signing-digest <sha256> --allow-grapheneos
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--allow-development` | `false` | Accept App Attest's development environment (devnet) |
+| `--allow-grapheneos` | `false` | Accept GrapheneOS beside stock verified boot |
+| `--android-package` | — | Package name of the Android app |
+| `--android-signing-digest` | — | Lowercase-hex SHA-256 of an accepted signing certificate; repeat for several |
+| `--ios-bundle-id` | — | Bundle id of the iOS app |
+| `--ios-team-id` | — | Apple team id of the iOS app |
+| `--max-patch-age-months` | `0` | Refuse an Android OS patch older than this many months (0: no limit) |
+| `--min-android-version-code` | `0` | Oldest versionCode accepted (0 for none) |
+| `--min-ios-version` | — | Oldest CFBundleVersion accepted ("" for none) |
+| `--mode` | — | off \| monitor \| enforce |
+| `--namespace` | — | Namespace name |
+| `--reattest-interval` | — | How long an Android attestation lasts, e.g. 168h |
+
 
 ## orama namespace backup
 

@@ -64,6 +64,18 @@ const (
 	// somebody else's account; the refusal itself still tells the caller that
 	// the wallet is at its cap (one bit). The reason is in the audit record.
 	CodeTransferRefused = "TRANSFER_REFUSED"
+
+	// Device attestation (feat-941): a namespace that attests refuses, on its
+	// app surface, a caller its policy does not admit.
+
+	// CodeAttestationRequired — the caller has not attested its device, or its
+	// attestation ran out. The app attests and refreshes its session.
+	CodeAttestationRequired = "ATTESTATION_REQUIRED"
+	// CodeAttestationInvalid — the attestation is of something the namespace
+	// does not admit, or the proof was refused.
+	CodeAttestationInvalid = "ATTESTATION_INVALID"
+	// CodeAppUpdateRequired — the build is older than the namespace admits.
+	CodeAppUpdateRequired = "APP_UPDATE_REQUIRED"
 )
 
 // authHints are what to do about each refusal. They are here rather than at the
@@ -83,6 +95,9 @@ var authHints = map[string]string{
 	CodeNamespaceQuota:        "the wallet has to delete a namespace, or hand one on, before it can own another",
 	CodeTransferRefused:       "the namespace stays yours; ask the recipient to check their account, or choose another wallet",
 	CodeDestinationNotAllowed: "a different credential will not help; the destination itself is refused",
+	CodeAttestationRequired:   "attest this device (POST /v1/attest/challenge, then /v1/attest/ios or /v1/attest/android) and use the token it returns",
+	CodeAttestationInvalid:    "this build, device or OS is not one the namespace admits; only the namespace's own app on a genuine device is",
+	CodeAppUpdateRequired:     "update the app to a build the namespace still admits",
 }
 
 // writeAuthError writes a refusal a client can act on without reading English.

@@ -78,6 +78,9 @@ const (
 	// Who a namespace lets sign in: the owner opening it to wallets it has not
 	// invited, or closing it again.
 	AuditSignInPolicySet = "namespace.sign_in_policy"
+	// Which app builds a namespace admits (feat-941): its attestation policy
+	// set, enforced, relaxed or turned off.
+	AuditAttestationPolicySet = "namespace.attestation_policy"
 
 	// A node recording itself, and a node's own key being recorded. The
 	// heartbeat is deliberately not here: it fires every 30 seconds from every
@@ -99,7 +102,7 @@ var AuditActions = []string{
 	AuditGrantAdded, AuditGrantRevoked, AuditOwnerTransferred,
 	AuditNamespaceBackedUp, AuditNamespaceRestored,
 	AuditDeviceLoginStarted, AuditDeviceLoginApproved, AuditDeviceLoginDenied, AuditDeviceLoginClaimed,
-	AuditDeviceRevoked, AuditSessionPolicySet, AuditSignInPolicySet,
+	AuditDeviceRevoked, AuditSessionPolicySet, AuditSignInPolicySet, AuditAttestationPolicySet,
 	AuditNodeRegistered, AuditNodeKeyEnrolled,
 }
 

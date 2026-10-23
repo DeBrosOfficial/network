@@ -70,6 +70,12 @@ type DeviceProof struct {
 	ID string `json:"id"`
 	// Signature is base64url, over DeviceProofMessage.
 	Signature string `json:"sig"`
+	// AppAttest is, on a refresh from an iOS device whose namespace attests,
+	// an App Attest assertion (standard base64) over AttestationBinding(ID,
+	// device id): the device proving again, once per refresh, that it is the
+	// genuine app. The proof's own freshness and single use are the
+	// assertion's.
+	AppAttest string `json:"app_attest,omitempty"`
 }
 
 // DeviceProofMessage is the exact text a device signs for a proof.

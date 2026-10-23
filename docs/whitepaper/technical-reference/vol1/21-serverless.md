@@ -185,7 +185,7 @@ A function that sets `ws_auth: capability` may also be opened with a capability 
 
 ### Identity inside a function
 
-A function has no identity of its own: no key, no token. What it sees is the caller's. `get_caller_wallet` is the wallet JWT subject, else the namespace's name when the credential is an API key (a pseudo-identity), else empty. `get_caller_jwt_subject` is the verified Bearer token's subject whatever else the request carried; a function that must bind to the signed identity uses it. `get_caller_device_id` is the token's `did`, the RFC 7638 thumbprint of the key the device proved at sign-in. Everything a function does to the platform is done as the namespace, and a trigger-started function has no caller at all.
+A function has no identity of its own: no key, no token. What it sees is the caller's. `get_caller_wallet` is the wallet JWT subject, else the namespace's name when the credential is an API key (a pseudo-identity), else empty. `get_caller_jwt_subject` is the verified Bearer token's subject whatever else the request carried; a function that must bind to the signed identity uses it. `get_caller_device_id` is the token's `did`, the RFC 7638 thumbprint of the key the device proved at sign-in. `get_caller_attestation` is what the device's attestation proved, from the token's signed `att` claim ([device attestation at the gateway](14-authorization.md#device-attestation-at-the-gateway)); a nested `function_invoke` carries it. Everything a function does to the platform is done as the namespace, and a trigger-started function has no caller at all.
 
 The platform treats a function as the namespace's own code, so host calls do not re-check the caller: `ws_send` does not check a client id belongs to the caller, `storage_fetch_cap_mint` mints for any CID of the namespace, `webrtc_kick` removes any user. The check is the one that decided whether the caller could run the function.
 
@@ -237,6 +237,7 @@ Every host function is a Go method on `Engine` registered by `registerHostModule
 | env, host, orama | `get_caller_wallet` | `() -> P64` | the invocation | Subject of a wallet token; the namespace name for an API key; empty for a trigger |
 | env, host, orama | `get_caller_jwt_subject` | `() -> P64` | the invocation | `sub` of the verified Bearer token, whatever else the request carried; empty if none |
 | env, host, orama | `get_caller_device_id` | `() -> P64` | the invocation | The token's `did`; empty for an account-bound session, an API key or no credential |
+| env, host, orama | `get_caller_attestation` | `() -> P64` | the invocation | JSON `{"platform","app_id","app_version","attested_at"}` from the token's `att` claim; empty when it carries none |
 | env, host, orama | `get_caller_capability` | `() -> P64` | a socket opened on a capability | JSON `cap_id`, `resource`, `issuer_device`, `expires_at`; empty for a credential; not passed to nested invokes |
 | env, host, orama | `get_caller_claim` | `(s name) -> P64` | the invocation | Custom claim value; empty if absent. The claims provider cannot set `sub`, `scopes`, `did`, `jti`, `sid` and other reserved keys |
 | env, host, orama | `get_request_id` | `() -> P64` | the invocation | UUID chosen once per `Invoke`; retries share it |
@@ -306,9 +307,9 @@ Every host function is a Go method on `Engine` registered by `registerHostModule
 
 | Module | Name | Signature | Capability | Limits and failure |
 |---|---|---|---|---|
-| env, host, orama | `capability_mint` | `(s resource, i64 ttl_seconds) -> P64` | a device-bound caller; the issuer needs the cluster secret | Opens this function's own socket; `resource` at most 256 bytes; lifetime 60 s to 7 days; result `token`, `cap_id`, `resource`, `issuer_device`, `expires_at` |
+| env, host, orama | `capability_mint` | `(s resource, i64 ttl_seconds) -> P64` | a device-bound caller, attested in a namespace that enforces device attestation; the issuer needs the cluster secret | Opens this function's own socket; `resource` at most 256 bytes; lifetime 60 s to 7 days; result `token`, `cap_id`, `resource`, `issuer_device`, `expires_at` |
 | env, host, orama | `capability_revoke` | `(s token) -> i32` | the namespace's capabilities | The token proves the namespace was issued it; 1 including for one already revoked; 0 for a foreign token, and while the namespace has 1,000 capability revocations in force |
-| env, host, orama | `storage_fetch_cap_mint` | `(s cid, i32 count, i64 ttl_seconds) -> P64` | a device-bound caller; any CID of the namespace | Canonical CID; `count` 1 to 64; lifetime 1 h to 7 days; result `namespace`, `cid`, `caps` with `id`, `token`, `revoke_key`, `expires_at` |
+| env, host, orama | `storage_fetch_cap_mint` | `(s cid, i32 count, i64 ttl_seconds) -> P64` | a device-bound caller, attested in a namespace that enforces device attestation; any CID of the namespace | Canonical CID; `count` 1 to 64; lifetime 1 h to 7 days; result `namespace`, `cid`, `caps` with `id`, `token`, `revoke_key`, `expires_at` |
 
 **Composition and logging.**
 
@@ -320,7 +321,7 @@ Every host function is a Go method on `Engine` registered by `registerHostModule
 | env, host, orama | `log_info` | `(s message) -> ()` | the invocation | Truncated at 16 KiB; 1,000 entries per invocation |
 | env, host, orama | `log_error` | `(s message) -> ()` | the invocation | As `log_info` |
 
-That is 48 exports. `StoragePut` and `StorageGet` exist on `HostFunctions` but are not exported, so a function cannot read or write IPFS directly; `EnqueueBackground` and `ScheduleOnce` are stubs and not exported either.
+That is 51 exports. `StoragePut` and `StorageGet` exist on `HostFunctions` but are not exported, so a function cannot read or write IPFS directly; `EnqueueBackground` and `ScheduleOnce` are stubs and not exported either.
 
 ### Outbound HTTP and the egress guard
 

@@ -61,6 +61,10 @@ var protectedTables = map[string]string{
 	// Adding a row lets another site read the namespace's answers with its
 	// users' credentials.
 	"namespace_cors_origins": "which sites may read a namespace's answers",
+	// Device attestation (feat-941). Lowering the policy admits builds the
+	// namespace refused; a forged attestation row is an attested device.
+	"namespace_attestation_policy": "which app builds a namespace admits",
+	"device_attestations":          "what each device's attestation proved",
 	// Public keys, but writing one publishes a key the cluster will accept
 	// tokens from — which is minting authority by another route.
 	"signing_keys": "which keys may sign a token",

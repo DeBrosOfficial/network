@@ -60,7 +60,7 @@ orama-device-proof-v1
 <id>
 ```
 
-`iat` must be within 60 seconds of the gateway's clock, and `id` is spent in the nonce table, so a proof is good once, for one action on one credential. A refresh without the proof is refused before anything is spent, so a thief holding only the refresh token cannot use it up.
+`iat` must be within 60 seconds of the gateway's clock, and `id` is spent in the nonce table, so a proof is good once, for one action on one credential. In a namespace that attests devices, an iOS app's refresh proof also carries `app_attest`, an App Attest assertion over `SHA-256(id ‖ device_id)` ([Device attestation](/docs/developer/device-attestation)). A refresh without the proof is refused before anything is spent, so a thief holding only the refresh token cannot use it up.
 
 ## Revoking a device
 

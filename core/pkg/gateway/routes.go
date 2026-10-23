@@ -144,6 +144,15 @@ func (g *Gateway) Routes() http.Handler {
 		mux.HandleFunc("/v1/operator/audit", g.authHandlers.OperatorAuditHandler)
 	}
 
+	// Device attestation (feat-941): a device's challenge and its proof, and
+	// what the namespace admits.
+	if g.attestHandlers != nil {
+		mux.HandleFunc("/v1/attest/challenge", g.attestHandlers.ChallengeHandler)
+		mux.HandleFunc("/v1/attest/ios", g.attestHandlers.IOSHandler)
+		mux.HandleFunc("/v1/attest/android", g.attestHandlers.AndroidHandler)
+		mux.HandleFunc("/v1/namespace/attestation-policy", g.attestHandlers.PolicyHandler)
+	}
+
 	// RQLite native backup/restore proxy (namespace auth via /v1/rqlite/ prefix)
 	mux.HandleFunc("/v1/rqlite/export", g.rqliteExportHandler)
 	mux.HandleFunc("/v1/rqlite/import", g.rqliteImportHandler)

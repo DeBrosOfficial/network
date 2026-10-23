@@ -175,6 +175,15 @@ func buildRoutePolicies() *routepolicy.Table {
 		"/v1/namespace/webrtc/status",
 	)
 
+	// Device attestation (feat-941): a signed-in device asks for a challenge
+	// and posts its proof. The handler refuses anything but a device-bound
+	// session's token. MainGateway: the index gateway is the one that keeps
+	// Google's and GrapheneOS's lists fresh, so a namespace gateway never
+	// verifies an Android chain.
+	attestRoute := policyCredential
+	attestRoute.MainGateway = true
+	t.Add(attestRoute, "/v1/attest/challenge", "/v1/attest/ios", "/v1/attest/android")
+
 	// --- Control plane -------------------------------------------------
 	//
 	// Each of these says what it does rather than that it is "admin". A key
@@ -237,6 +246,8 @@ func buildRoutePolicies() *routepolicy.Table {
 	t.Add(corsOrigins, "/v1/namespace/cors-origins")
 	t.Add(control(auth.DomainNamespace, auth.ActionWrite),
 		"/v1/namespace/rate-limit", "/v1/namespace/session-policy",
+		// Which app builds the namespace admits (feat-941).
+		"/v1/namespace/attestation-policy",
 		"/v1/namespace/webrtc/enable", "/v1/namespace/webrtc/disable",
 		// The namespace's own WebRTC policy: whether its rooms admit only
 		// users its functions admitted.

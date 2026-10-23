@@ -173,6 +173,7 @@ func TestRequestLog_theNamespaceGatewayRecordsTheForwardedID(t *testing.T) {
 func TestRequestLog_aV5HopRecordsNoID(t *testing.T) {
 	g := loggedNamespaceGateway(t)
 	r := keyIDHop(t, g, requestLogTestKeyID)
+	r.Header.Del(HeaderInternalAuthMACv7)
 	r.Header.Del(HeaderInternalAuthMACv6)
 	g.internalAuthMiddleware(g.loggingMiddleware(g.authMiddleware(okHandler))).ServeHTTP(httptest.NewRecorder(), r)
 	if len(g.logBatcher.entries) != 1 || g.logBatcher.entries[0].apiKeyID != 0 {

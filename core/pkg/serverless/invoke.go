@@ -99,6 +99,9 @@ type InvokeRequest struct {
 	// `did` of a token the gateway verified — or "" for a session bound to the
 	// account alone, an API key, or no credential.
 	CallerDeviceID string `json:"caller_device_id,omitempty"`
+	// CallerAttestation is what the caller's device attestation proved, from
+	// the verified token's `att` claim, or nil.
+	CallerAttestation *CallerAttestation `json:"caller_attestation,omitempty"`
 	// CallerCapability is what the capability the caller's socket was opened
 	// with grants (feat-264), or nil. Only the gateway's WebSocket handler
 	// sets it, after checking the token before the upgrade.
@@ -257,8 +260,10 @@ func newInvocationContext(req *InvokeRequest, fn *Function, requestID string, en
 		CallerClaims:     req.CallerClaims,
 		CallerJWTSubject: req.CallerJWTSubject,
 		CallerDeviceID:   req.CallerDeviceID,
-		CallerCapability: req.CallerCapability,
-		TriggerDepth:     req.TriggerDepth,
+		// A nested call is the same caller: its attestation goes with it.
+		CallerAttestation: req.CallerAttestation,
+		CallerCapability:  req.CallerCapability,
+		TriggerDepth:      req.TriggerDepth,
 	}
 }
 

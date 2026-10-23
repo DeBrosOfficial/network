@@ -45,6 +45,9 @@ func isCapabilityUpgrade(r *http.Request) bool {
 // at start and on every attempt.
 func wireCapabilities(clusterSecret string, authService *auth.Service,
 	handlers *serverlesshandlers.ServerlessHandlers, hostFuncs *hostfunctions.HostFunctions, logger *zap.Logger) error {
+	// In a namespace that enforces device attestation only an attested
+	// caller mints a capability (feat-941).
+	hostFuncs.SetAttestationEnforcement(authService)
 	if strings.TrimSpace(clusterSecret) == "" {
 		logger.Warn("no cluster secret: this gateway cannot mint or check capabilities, " +
 			"and refuses every capability-opened WebSocket with 503")

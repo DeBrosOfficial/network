@@ -189,6 +189,19 @@ export const AuthCode = {
    * or ask the namespace's owner for an invitation.
    */
   SignInClosed: "SIGN_IN_CLOSED",
+
+  // --- Device attestation --------------------------------------------------
+  /**
+   * The namespace admits only its own app on an attested device, and this
+   * session's device has not attested (or its attestation ran out). Attest
+   * (`/v1/attest/challenge`, then `/v1/attest/ios` or `/v1/attest/android`) and
+   * use the token it returns.
+   */
+  AttestationRequired: "ATTESTATION_REQUIRED",
+  /** The attestation is of an app, platform, environment or OS the namespace does not admit, or the proof was refused. */
+  AttestationInvalid: "ATTESTATION_INVALID",
+  /** The build is older than the namespace admits: update the app. */
+  AppUpdateRequired: "APP_UPDATE_REQUIRED",
 } as const;
 
 export type AuthCode = (typeof AuthCode)[keyof typeof AuthCode];

@@ -20,7 +20,59 @@ Aliases: `ns`
 List, delete, and repair namespaces on the Orama network.
 ```
 
-Subcommands: `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+Subcommands: `attestation-policy`, `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+
+## orama namespace attestation-policy
+
+Show or set which app builds may call a namespace (device attestation)
+
+```text
+orama namespace attestation-policy [flags]
+```
+
+```text
+With no flags, show the namespace's attestation policy. With flags, change them; a
+flag left out keeps its value.
+
+A namespace that attests admits to its functions and data plane only the genuine
+build of its app on a genuine device: iOS through App Attest, Android (GrapheneOS
+included) through hardware key attestation. A script holding a valid session and
+the app's API key is refused.
+
+  --mode off|monitor|enforce   monitor refuses nothing and counts what enforce
+                               would refuse (orama status traffic); enforce refuses
+  --ios-team-id, --ios-bundle-id   the iOS App ID accepted
+  --allow-development          accept App Attest's development environment (devnet)
+  --min-ios-version            the oldest CFBundleVersion accepted (iOS 27 and later
+                               sign it; older iOS is accepted with the version unknown)
+  --android-package            the Android package accepted
+  --android-signing-digest     a lowercase-hex SHA-256 of an accepted signing
+                               certificate; repeat for several (replaces the list)
+  --allow-grapheneos           accept GrapheneOS beside stock verified boot
+  --min-android-version-code   the oldest versionCode accepted
+  --max-patch-age-months       refuse an Android OS patch older than this (0: no limit)
+  --reattest-interval          how long an Android attestation lasts (default 168h)
+
+Changing the policy needs write access to the namespace.
+
+  orama namespace attestation-policy --namespace anchat --mode monitor \
+    --android-package chat.anchat --android-signing-digest <sha256> --allow-grapheneos
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--allow-development` | `false` | Accept App Attest's development environment (devnet) |
+| `--allow-grapheneos` | `false` | Accept GrapheneOS beside stock verified boot |
+| `--android-package` | — | Package name of the Android app |
+| `--android-signing-digest` | — | Lowercase-hex SHA-256 of an accepted signing certificate; repeat for several |
+| `--ios-bundle-id` | — | Bundle id of the iOS app |
+| `--ios-team-id` | — | Apple team id of the iOS app |
+| `--max-patch-age-months` | `0` | Refuse an Android OS patch older than this many months (0: no limit) |
+| `--min-android-version-code` | `0` | Oldest versionCode accepted (0 for none) |
+| `--min-ios-version` | — | Oldest CFBundleVersion accepted ("" for none) |
+| `--mode` | — | off \| monitor \| enforce |
+| `--namespace` | — | Namespace name |
+| `--reattest-interval` | — | How long an Android attestation lasts, e.g. 168h |
 
 ## orama namespace backup
 
@@ -222,9 +274,13 @@ Which key goes where:
     narrowed with --resource to those functions.
   - A function that reclaims storage gets its own key, --scope storage, kept
     in the namespace's secrets. No key that ships in an app holds storage.
+  - A backend that sends push notifications over HTTP gets its own key,
+    --scope push-send, kept on the server. 'push' registers devices; only
+    push-send sends, to any user or topic of the namespace.
 
 Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
-never storage), admin (the control plane; CI and a developer's machine only).
+never storage or push-send), admin (the control plane; CI and a developer's
+machine only).
 
 --resource narrows the key to the functions it names: the gateway refuses it on
 every other function, on HTTP invoke and the function WebSocket alike, with the
@@ -238,7 +294,7 @@ reaches the whole of its scopes.
 | `--label` | — | Human label for the key |
 | `--namespace` | — | Namespace name |
 | `--resource` | — | Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. Repeat for several; the key then reaches only these. Each must narrow one of its scopes (fn: needs invoke), and every scope must be narrowed by one |
-| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, storage, webrtc) |
+| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, push-send, storage, webrtc) |
 
 ## orama namespace keys list
 
@@ -484,14 +540,24 @@ left out keeps its value.
                       sign-in must bind. Requiring devices revokes the sign-in
                       keys end users already hold.
 
-Changing either needs write access to the namespace.
+  --end-user-topics   the pub/sub topics an end user may subscribe to, list and
+                      see presence on, comma-separated patterns ('*' matches any
+                      run of characters, '/' included). It replaces the list,
+                      and '' clears it. The default is none: an end user reads
+                      no topic until it is listed. Members holding a grant read
+                      what their grant says. A function's socket that bridges
+                      topics to its users is not affected.
+
+Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--device-policy` | — | What an end user's sign-in must bind: optional \| required \| approval |
+| `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
 | `--namespace` | — | Namespace name |
 | `--sign-in` | — | Who may sign in: members \| open |
 

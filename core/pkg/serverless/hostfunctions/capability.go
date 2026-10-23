@@ -43,6 +43,9 @@ func (h *HostFunctions) MintCapability(ctx context.Context, resource string, ttl
 	if h.capabilityIssuer == nil {
 		return "", capabilityErr("capability_mint", errNoCapabilityIssuer)
 	}
+	if err := h.requireAttestedMint(ctx); err != nil {
+		return "", capabilityErr("capability_mint", err)
+	}
 	grant, token, err := h.capabilityIssuer.Mint(ctx, cur.Namespace, cur.FunctionName, resource, cur.CallerDeviceID, ttl)
 	if err != nil {
 		return "", capabilityErr("capability_mint", err)

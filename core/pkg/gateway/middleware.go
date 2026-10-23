@@ -161,6 +161,13 @@ func setInternalAuthJWTHeaders(h http.Header, claims *auth.JWTClaims) {
 	if sid := strings.TrimSpace(claims.Sid); sid != "" {
 		h.Set(HeaderInternalAuthJWTSid, sid)
 	}
+	// What the device's attestation proved, so the namespace gateway judges
+	// the request by its namespace's policy and tells the function.
+	if claims.Att != nil {
+		if buf, err := json.Marshal(claims.Att); err == nil {
+			h.Set(HeaderInternalAuthJWTAtt, base64.StdEncoding.EncodeToString(buf))
+		}
+	}
 }
 
 // setInternalAuthKeyHeaders writes an API-key caller's effective scopes (#148),
@@ -272,7 +279,31 @@ func claimsFromInternalAuthHeaders(h http.Header, namespace string, now time.Tim
 			}
 		}
 	}
+	// An attestation is only ever of the device the token is bound to; one
+	// with no device asserts nothing.
+	if raw := strings.TrimSpace(h.Get(HeaderInternalAuthJWTAtt)); raw != "" && claims.Did != "" {
+		att, err := decodeHopAttestation(raw)
+		if err != nil {
+			return nil, err
+		}
+		claims.Att = att
+	}
 	return claims, nil
+}
+
+// decodeHopAttestation reads HeaderInternalAuthJWTAtt. The MAC verified it, so
+// a value that cannot be read is the main gateway's own bug, and the identity
+// is refused rather than served without the attestation it was sent with.
+func decodeHopAttestation(raw string) (*auth.AttestationClaim, error) {
+	decoded, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("the forwarded attestation is not base64: %w", err)
+	}
+	var att auth.AttestationClaim
+	if err := json.Unmarshal(decoded, &att); err != nil {
+		return nil, fmt.Errorf("the forwarded attestation is not one: %w", err)
+	}
+	return &att, nil
 }
 
 // sessionRevokedMessage is what a refused revoked token says. The namespace
@@ -798,8 +829,8 @@ func (g *Gateway) tunnelWebSocket(w http.ResponseWriter, r *http.Request, target
 func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 	// Order: internal-auth -> route policy -> logging -> security headers ->
 	// CORS -> rate limit -> readiness -> domain routing -> cluster serverless
-	// routing -> auth -> authorization -> scope -> namespace rate limit ->
-	// long-request deadlines -> handler
+	// routing -> auth -> traffic attribution -> attestation -> authorization ->
+	// scope -> namespace rate limit -> long-request deadlines -> handler
 	//
 	// CORS is above the rate limit so that a refusal by the limiter (a 429)
 	// carries the same CORS headers as any answer: a browser page from an
@@ -854,9 +885,10 @@ func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 									g.clusterServerlessRoutingMiddleware(
 										g.authMiddleware(
 											g.trafficAttributionMiddleware(
-												g.authorizationMiddleware(
-													g.scopeMiddleware(
-														g.namespaceRateLimitMiddleware(longRequestDeadlines(next))))))))))))))))
+												g.attestationMiddleware(
+													g.authorizationMiddleware(
+														g.scopeMiddleware(
+															g.namespaceRateLimitMiddleware(longRequestDeadlines(next)))))))))))))))))
 }
 
 // securityHeadersMiddleware adds standard security headers to all responses
@@ -1819,6 +1851,12 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 		)
 		forbidden(w, CodeNamespaceMismatch, "this credential belongs to another namespace",
 			map[string]any{"namespace": namespaceName, "credential_namespace": validatedNamespace})
+		return
+	}
+
+	// The namespace's attestation policy, judged and counted here, where the
+	// cluster's request metrics are kept (attestation_middleware.go).
+	if !g.admitAttestedProxy(w, r, namespaceName, a) {
 		return
 	}
 

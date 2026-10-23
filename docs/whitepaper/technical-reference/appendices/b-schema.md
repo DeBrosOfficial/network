@@ -20,6 +20,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `deployment_history` | Cluster | Platform | a deployment's versions, which rollback restores |
 | `deployment_replicas` | Cluster | Platform | which nodes run a deployment, read while serving and checking it |
 | `deployments` | Cluster | Platform | deployment rows: written by `orama deploy` through the main gateway and read by host routing, recovery and every gateway's deployment service; a tenant copy was an empty table every namespace-host call read |
+| `device_attestations` | Cluster | Platform | what each device's attestation proved; a forged row is an attested device |
 | `device_authorizations` | Cluster | Platform | started on one gateway, approved on another |
 | `dns_nameservers` | Cluster | Platform | read and written by the node process, CoreDNS (which dials the registry) and the CLI; no gateway package names it |
 | `dns_nodes` | Namespace | Platform | cluster DNS; read on a namespace gateway through g.sqlDB (namespace_health.go) and by the deployment home-node and replica managers on ORMClient |
@@ -43,6 +44,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `invite_tokens` | Namespace | Platform | cluster join; the join, enrol and operator-invite handlers are built on ORMClient and mounted on every gateway (gateway.go, routes.go) |
 | `ipfs_cid_refs` | Cluster | Platform | the cross-namespace reference count that decides whether an unpin may remove the shared cluster pin; a namespace RQLite only sees its own references |
 | `ipfs_content_ownership` | Namespace | Platform | read through ORMClient by the storage handlers |
+| `namespace_attestation_policy` | Cluster | Platform | which app builds a namespace admits; read by every gateway that serves it |
 | `namespace_cluster_events` | Cluster | Platform | the cluster manager's log, written and read through cm.db, which exists only on the index gateway (WireCoreGateway) |
 | `namespace_cluster_nodes` | Namespace | Platform | cluster topology; a namespace gateway reads it through g.sqlDB in the namespace health loop, which starts on every gateway (gateway.go) |
 | `namespace_clusters` | Namespace | Platform | cluster topology; a namespace gateway reads it through g.sqlDB in the namespace health loop, which starts on every gateway (gateway.go) |
@@ -253,6 +255,23 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `created_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
 | `updated_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
 | `deployed_by` | TEXT | yes | - |  |
+
+## device_attestations
+
+| Column | Type | Not null | Default | Key |
+|---|---|---|---|---|
+| `namespace_id` | INTEGER | yes | - | primary |
+| `device_id` | TEXT | yes | - | primary |
+| `platform` | TEXT | yes | - |  |
+| `app_id` | TEXT | yes | - |  |
+| `app_version` | TEXT | yes | `''` |  |
+| `development` | INTEGER | yes | `0` |  |
+| `verified_boot_key` | TEXT | yes | `''` |  |
+| `grapheneos` | INTEGER | yes | `0` |  |
+| `ios_key_id` | TEXT | yes | `''` |  |
+| `ios_public_key` | TEXT | yes | `''` |  |
+| `ios_counter` | INTEGER | yes | `0` |  |
+| `attested_at` | TIMESTAMP | yes | - |  |
 
 ## device_authorizations
 
@@ -571,6 +590,25 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `uploaded_at` | TIMESTAMP | yes | - |  |
 | `uploaded_by` | TEXT | yes | - |  |
 | `pin_requested_at` | TIMESTAMP | no | - |  |
+
+## namespace_attestation_policy
+
+| Column | Type | Not null | Default | Key |
+|---|---|---|---|---|
+| `namespace_id` | INTEGER | no | - | primary |
+| `mode` | TEXT | yes | - |  |
+| `ios_team_id` | TEXT | yes | `''` |  |
+| `ios_bundle_id` | TEXT | yes | `''` |  |
+| `ios_allow_development` | INTEGER | yes | `0` |  |
+| `ios_min_bundle_version` | TEXT | yes | `''` |  |
+| `android_package` | TEXT | yes | `''` |  |
+| `android_signing_digests` | TEXT | yes | `'[]'` |  |
+| `android_allow_graphene` | INTEGER | yes | `0` |  |
+| `android_min_version_code` | INTEGER | yes | `0` |  |
+| `android_max_patch_age_months` | INTEGER | yes | `0` |  |
+| `reattest_interval_sec` | INTEGER | yes | `604800` |  |
+| `updated_by` | TEXT | yes | - |  |
+| `updated_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
 
 ## namespace_cluster_events
 

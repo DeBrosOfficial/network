@@ -32,6 +32,7 @@ require (
 	github.com/dunglas/httpsfv v1.1.2 // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.4 // indirect
 	github.com/google/go-containerregistry v0.22.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -97,6 +98,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.etcd.io/bbolt v1.5.0 // indirect
 	go.uber.org/dig v1.19.0 // indirect

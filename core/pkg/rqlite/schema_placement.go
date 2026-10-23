@@ -107,6 +107,11 @@ var tablePlacement = map[string]tableNote{
 	"encryption_roots":         {PlacementCluster, TrustPlatform, "the IKM stored secrets are derived from; a tenant copy would be a KEK they can rewrite"},
 	"ipfs_cid_refs":            {PlacementCluster, TrustPlatform, "the cross-namespace reference count that decides whether an unpin may remove the shared cluster pin; a namespace RQLite only sees its own references"},
 
+	// Device attestation (feat-941), read through the auth service's registry
+	// handle like the device tables above.
+	"namespace_attestation_policy": {PlacementCluster, TrustPlatform, "which app builds a namespace admits; read by every gateway that serves it"},
+	"device_attestations":          {PlacementCluster, TrustPlatform, "what each device's attestation proved; a forged row is an attested device"},
+
 	// --- the tenant's data plane: the namespace's own RQLite --------------
 	//
 	// Read through ORMClient by the handlers that serve one namespace.

@@ -27,6 +27,14 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 | `/status` | `g.statusHandler` | open |  | any |  |
 | `/status/assets/` | `statuspage.Assets()` | open |  | any |  |
 
+## /v1/attest
+
+| Route | Handler | Access | Grant | Token | Notes |
+|---|---|---|---|---|---|
+| `/v1/attest/android` | `g.attestHandlers.AndroidHandler` | credential |  | any | main |
+| `/v1/attest/challenge` | `g.attestHandlers.ChallengeHandler` | credential |  | any | main |
+| `/v1/attest/ios` | `g.attestHandlers.IOSHandler` | credential |  | any | main |
+
 ## /v1/audit
 
 | Route | Handler | Access | Grant | Token | Notes |
@@ -159,6 +167,7 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 
 | Route | Handler | Access | Grant | Token | Notes |
 |---|---|---|---|---|---|
+| `/v1/namespace/attestation-policy` | `g.attestHandlers.PolicyHandler` | credential | `namespace:write` | any |  |
 | `/v1/namespace/backup` | `g.namespaceBackupHandler` | credential | `secrets:read` | any | owned |
 | `/v1/namespace/cors-origins` | `g.corsOriginsHandler` | credential | `namespace:write` | any | main |
 | `/v1/namespace/delete` | `g.namespaceDeleteHandler` | credential | `namespace:write` | any | main |

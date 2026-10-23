@@ -938,6 +938,7 @@ func (e *Engine) registerHostModule(ctx context.Context) error {
 			NewFunctionBuilder().WithFunc(e.hGetCallerWallet).Export("get_caller_wallet").
 			NewFunctionBuilder().WithFunc(e.hGetCallerJWTSubject).Export("get_caller_jwt_subject").
 			NewFunctionBuilder().WithFunc(e.hGetCallerDeviceID).Export("get_caller_device_id").
+			NewFunctionBuilder().WithFunc(e.hGetCallerAttestation).Export("get_caller_attestation").
 			NewFunctionBuilder().WithFunc(e.hGetCallerCapability).Export("get_caller_capability").
 			NewFunctionBuilder().WithFunc(e.hCapabilityMint).Export("capability_mint").
 			NewFunctionBuilder().WithFunc(e.hCapabilityRevoke).Export("capability_revoke").
@@ -1026,6 +1027,13 @@ func (e *Engine) hGetCallerJWTSubject(ctx context.Context, mod api.Module) uint6
 func (e *Engine) hGetCallerDeviceID(ctx context.Context, mod api.Module) uint64 {
 	did := e.hostServices.GetCallerDeviceID(ctx)
 	return e.executor.WriteToGuest(ctx, mod, []byte(did))
+}
+
+// hGetCallerAttestation returns what the caller's device attestation proved,
+// as JSON, or an empty string when the caller's token carries none.
+func (e *Engine) hGetCallerAttestation(ctx context.Context, mod api.Module) uint64 {
+	att := e.hostServices.GetCallerAttestation(ctx)
+	return e.executor.WriteToGuest(ctx, mod, []byte(att))
 }
 
 // hGetCallerClaim reads a claim name from guest memory, looks it up on the

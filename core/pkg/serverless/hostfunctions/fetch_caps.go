@@ -54,6 +54,9 @@ func (h *HostFunctions) MintStorageFetchCaps(ctx context.Context, cid string, co
 	if err := ipfs.CanonicalCID(cid); err != nil {
 		return "", capabilityErr("storage_fetch_cap_mint", err)
 	}
+	if err := h.requireAttestedMint(ctx); err != nil {
+		return "", capabilityErr("storage_fetch_cap_mint", err)
+	}
 	caps, err := h.fetchCapIssuer.MintFetchCaps(ctx, cur.Namespace, cid, cur.CallerDeviceID, count, ttl)
 	if err != nil {
 		return "", capabilityErr("storage_fetch_cap_mint", err)

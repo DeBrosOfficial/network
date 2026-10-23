@@ -205,6 +205,7 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 	callerClaims := h.getCallerClaimsFromRequest(r)
 	callerJWTSubject := h.getJWTSubjectFromRequest(r)
 	callerDeviceID := h.getDeviceIDFromRequest(r)
+	callerAttestation := h.getAttestationFromRequest(r)
 	callerCapability := socketCapability(r)
 
 	// Message loop
@@ -222,21 +223,22 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 		req := &serverless.InvokeRequest{
-			Namespace:        namespace,
-			FunctionName:     name,
-			Version:          version,
-			Input:            message,
-			TriggerType:      serverless.TriggerTypeWebSocket,
-			CallerWallet:     callerWallet,
-			CallerIsAdmin:    callerIsAdmin,
-			CallerHasInvoke:  callerHasInvoke,
-			CallerIP:         callerIP,
-			CallerKey:        callerKey,
-			CallerClaims:     callerClaims,
-			CallerJWTSubject: callerJWTSubject,
-			CallerDeviceID:   callerDeviceID,
-			CallerCapability: callerCapability,
-			WSClientID:       clientID,
+			Namespace:         namespace,
+			FunctionName:      name,
+			Version:           version,
+			Input:             message,
+			TriggerType:       serverless.TriggerTypeWebSocket,
+			CallerWallet:      callerWallet,
+			CallerIsAdmin:     callerIsAdmin,
+			CallerHasInvoke:   callerHasInvoke,
+			CallerIP:          callerIP,
+			CallerKey:         callerKey,
+			CallerClaims:      callerClaims,
+			CallerJWTSubject:  callerJWTSubject,
+			CallerDeviceID:    callerDeviceID,
+			CallerAttestation: callerAttestation,
+			CallerCapability:  callerCapability,
+			WSClientID:        clientID,
 		}
 
 		resp, err := h.invoker.Invoke(ctx, req)

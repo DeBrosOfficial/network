@@ -49,7 +49,10 @@ import (
 // gateway's invoke rate limiter could not tell one key's callers from another's
 // and bucketed every key-only caller of a namespace together. v6 adds the key's
 // registry id, without which the namespace gateway's request log could not say
-// which key made a request.
+// which key made a request. v7 adds what the token's device attestation proved
+// (its `att` claim), without which a namespace gateway could not judge the
+// request against its namespace's attestation policy, nor tell a function who
+// called (get_caller_attestation).
 //
 // A signer stamps every version, so a namespace gateway that predates the
 // newest still accepts what an upgraded main gateway sends it. A verifier
@@ -69,13 +72,14 @@ const (
 	// "<unix seconds>.<hex hmac>".
 	HeaderInternalAuthMAC = "X-Internal-Auth-MAC"
 
-	// HeaderInternalAuthMACv2 to HeaderInternalAuthMACv6 authenticate the v2
-	// to v6 fields, in the same format.
+	// HeaderInternalAuthMACv2 to HeaderInternalAuthMACv7 authenticate the v2
+	// to v7 fields, in the same format.
 	HeaderInternalAuthMACv2 = "X-Internal-Auth-MAC-V2"
 	HeaderInternalAuthMACv3 = "X-Internal-Auth-MAC-V3"
 	HeaderInternalAuthMACv4 = "X-Internal-Auth-MAC-V4"
 	HeaderInternalAuthMACv5 = "X-Internal-Auth-MAC-V5"
 	HeaderInternalAuthMACv6 = "X-Internal-Auth-MAC-V6"
+	HeaderInternalAuthMACv7 = "X-Internal-Auth-MAC-V7"
 
 	// HeaderInternalAuthJWTExp and HeaderInternalAuthJWTIat carry the verified
 	// token's exp and iat (unix seconds), HeaderInternalAuthJWTJti its jti.
@@ -104,6 +108,10 @@ const (
 	// the v6 MAC only.
 	HeaderInternalAuthKeyID = "X-Internal-Auth-Key-ID"
 
+	// HeaderInternalAuthJWTAtt carries a verified token's attestation
+	// (auth.AttestationClaim) as base64(JSON). Covered by the v7 MAC only.
+	HeaderInternalAuthJWTAtt = "X-Internal-Auth-JWT-Att"
+
 	// internalAuthKeyPurpose is the HKDF domain separator for the hop key, so
 	// it is unrelated to the TURN, push and secrets keys derived from the same
 	// cluster secret.
@@ -122,6 +130,7 @@ const (
 	internalAuthPayloadV4 = "orama-internal-auth-v4"
 	internalAuthPayloadV5 = "orama-internal-auth-v5"
 	internalAuthPayloadV6 = "orama-internal-auth-v6"
+	internalAuthPayloadV7 = "orama-internal-auth-v7"
 )
 
 // hopVersion is one version of the hop MAC: its payload prefix, the header it
@@ -146,6 +155,8 @@ var hopVersions = []hopVersion{
 		[]string{HeaderInternalAuthKeyFingerprint}},
 	{internalAuthPayloadV6, HeaderInternalAuthMACv6,
 		[]string{HeaderInternalAuthKeyID}},
+	{internalAuthPayloadV7, HeaderInternalAuthMACv7,
+		[]string{HeaderInternalAuthJWTAtt}},
 }
 
 // internalAuthVersionedHeaders are the fields only a MAC newer than v1 covers.

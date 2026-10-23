@@ -99,19 +99,20 @@ func (h *ServerlessHandlers) InvokeFunction(w http.ResponseWriter, r *http.Reque
 	defer cancel()
 
 	req := &serverless.InvokeRequest{
-		Namespace:        namespace,
-		FunctionName:     name,
-		Version:          version,
-		Input:            input,
-		TriggerType:      serverless.TriggerTypeHTTP,
-		CallerWallet:     callerWallet,
-		CallerIsAdmin:    h.getCallerIsAdminFromRequest(r),
-		CallerHasInvoke:  h.getCallerHasInvokeFromRequest(r),
-		CallerIP:         extractRemoteIP(r),
-		CallerKey:        h.getCallerKeyFromRequest(r),
-		CallerClaims:     h.getCallerClaimsFromRequest(r),
-		CallerJWTSubject: h.getJWTSubjectFromRequest(r),
-		CallerDeviceID:   h.getDeviceIDFromRequest(r),
+		Namespace:         namespace,
+		FunctionName:      name,
+		Version:           version,
+		Input:             input,
+		TriggerType:       serverless.TriggerTypeHTTP,
+		CallerWallet:      callerWallet,
+		CallerIsAdmin:     h.getCallerIsAdminFromRequest(r),
+		CallerHasInvoke:   h.getCallerHasInvokeFromRequest(r),
+		CallerIP:          extractRemoteIP(r),
+		CallerKey:         h.getCallerKeyFromRequest(r),
+		CallerClaims:      h.getCallerClaimsFromRequest(r),
+		CallerJWTSubject:  h.getJWTSubjectFromRequest(r),
+		CallerDeviceID:    h.getDeviceIDFromRequest(r),
+		CallerAttestation: h.getAttestationFromRequest(r),
 	}
 
 	// From here the response is the function's: its output, its own status, or

@@ -222,13 +222,19 @@ func (h *ServerlessHandlers) socketClaims(r *http.Request) *auth.JWTClaims {
 
 // registerSocket holds a socket to the credential that opened it: its token
 // or capability (socketClaims), or the bare API key, by the key's registry id,
-// so revoking the key closes it too (bug-702).
+// so revoking the key closes it too (bug-702). A socket whose upgrade the
+// attestation middleware judged is held to its namespace's policy as well.
 func (h *ServerlessHandlers) registerSocket(r *http.Request, closeFn wssession.Closer) *wssession.Socket {
+	var sock *wssession.Socket
 	if claims := h.socketClaims(r); claims != nil {
-		return h.sessions.Register(claims, closeFn)
+		sock = h.sessions.Register(claims, closeFn)
+	} else {
+		keyID, _ := r.Context().Value(ctxkeys.KeyID).(int64)
+		sock = h.sessions.RegisterKey(keyID, closeFn)
 	}
-	keyID, _ := r.Context().Value(ctxkeys.KeyID).(int64)
-	return h.sessions.RegisterKey(keyID, closeFn)
+	ns, _ := r.Context().Value(ctxkeys.AttestationNamespace).(string)
+	sock.HoldToAttestation(ns)
+	return sock
 }
 
 // socketCounter counts the sockets each capability holds open.

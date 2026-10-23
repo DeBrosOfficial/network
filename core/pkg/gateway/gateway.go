@@ -28,6 +28,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
 	"github.com/Orama-Network/orama/core/pkg/gateway/corsorigins"
+	attesthandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/attest"
 	authhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/auth"
 	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
 	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/cache"
@@ -175,6 +176,11 @@ type Gateway struct {
 	// endUserTopics reads the pub/sub topics a namespace's end users may
 	// read; nil reads them through authService (end_user_topics.go).
 	endUserTopics endUserTopicSource
+	// attestHandlers serves device attestation (feat-941), and
+	// attestationLists are the Android lists the index gateway refreshes for
+	// it (attestation_wiring.go); nil on a namespace gateway.
+	attestHandlers   *attesthandlers.Handlers
+	attestationLists *attestationLists
 
 	// wsSessions is every token-authorized WebSocket open on this gateway,
 	// swept for expired and revoked tokens (see ws_sessions.go).
@@ -223,6 +229,10 @@ type Gateway struct {
 	// traffic is the live, in-memory request metrics loggingMiddleware
 	// records into and TrafficSnapshot reports (see traffic.go).
 	traffic *traffic.Recorder
+
+	// attestationLogs throttles the monitor-mode "would refuse" log line, one
+	// per namespace, reason and platform a minute (attestation_middleware.go).
+	attestationLogs logThrottle
 
 	// telemetry is the cluster monitoring state (telemetry.go): this node's
 	// own report, the snapshot assembled from its peers', and uptime history.
@@ -661,6 +671,9 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	// validate against it.
 	gw.authHandlers.SetAPIKeyDB(&authDatabaseAdapter{db: gw.apiKeyDB()})
 	bindNamespaceSignIn(gw.authHandlers, cfg)
+	if err := gw.wireAttestation(); err != nil {
+		return nil, err
+	}
 
 	// Expired revocations deny nothing. Pruning keeps the table the size
 	// of the revocations still in flight rather than growing forever.

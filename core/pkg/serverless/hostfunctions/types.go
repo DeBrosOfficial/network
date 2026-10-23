@@ -138,6 +138,11 @@ type HostFunctions struct {
 	// storage_fetch_cap_mint fails and says why.
 	fetchCapIssuer serverless.FetchCapIssuer
 
+	// attestation says whether a namespace enforces device attestation, which
+	// gates both mints (attestation.go). Set once at gateway start; nil checks
+	// nothing.
+	attestation AttestationEnforcement
+
 	// webrtc admits, kicks and mutes users in the namespace's rooms. Set once
 	// at gateway start via SetWebRTCController; nil means webrtc_admit,
 	// webrtc_kick and webrtc_mute fail and say why.
