@@ -9,7 +9,8 @@
 # an invite, and the node management routes refuse non-operators: nobody,
 # a lobby wallet, a namespace's owner and its admin key (NOT_AN_OPERATOR),
 # and the admin key of a namespace an operator owns, while that operator's
-# own session passes the gate. What a
+# own session passes the gate, and that session's leave of an address no
+# agent answers is 502 NODE_STOP_UNCONFIRMED and removes nothing. What a
 # single VM cannot reach (Shamir unlock needs K peers, an A/B update needs a
 # release signed by the OramaOS signer key) is not applicable and says why.
 id: oramaos
@@ -35,4 +36,5 @@ covers:
     - "website/src/docs/operator/orama-os.mdx: the gateway proves it holds the code with a payload that decrypts under it; a second POST to /complete is 409"
     - "website/src/docs/operator/orama-os.mdx#3-enroll-from-cli: port 9999 closes after enrollment"
     - "website/src/docs/operator/orama-os.mdx#node-management: status, command, logs and leave need an operator"
+    - "website/src/docs/operator/orama-os.mdx: a leave the agent does not confirm removes nothing and answers 502 NODE_STOP_UNCONFIRMED"
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md#operators: a namespace owner, an admin and any API key, even one of an operator's namespace, are refused NOT_AN_OPERATOR on the node routes"

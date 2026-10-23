@@ -110,7 +110,8 @@ func TestOramaOSNodeRoutes_refuseNonOperators(t *testing.T) {
 // owner is on the operator list still hands out no operator credential: its
 // admin key is refused NOT_AN_OPERATOR on every node route, while the owner's
 // own session passes the gate (a status naming no node is the handler's 400,
-// so nothing is proxied).
+// so nothing is proxied, and a leave of an address no agent answers is 502
+// NODE_STOP_UNCONFIRMED, so nothing is removed).
 func TestOramaOSNodeRoutes_operatorListIsTheOnlyAuthority(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
@@ -124,7 +125,19 @@ func TestOramaOSNodeRoutes_operatorListIsTheOnlyAuthority(t *testing.T) {
 	if r.Status != http.StatusBadRequest {
 		t.Errorf("an operator's session at /v1/node/status naming no node: HTTP %d %.200s, want the handler's 400", r.Status, r.Body)
 	}
+	// bug-720: a leave whose node does not confirm the stop (no agent answers
+	// at nodeRouteTarget) removes nothing and says so.
+	leave := nodeRouteRequests()[3]
+	r = sendNodeRoute(t, c, leave, tenancy.Owner(op))
+	if r.Status != http.StatusBadGateway || r.ErrorCode() != codeNodeStopUnconfirmed {
+		t.Errorf("an operator's leave of a node with no agent: HTTP %d %q %.300s, want 502 %s", r.Status, r.ErrorCode(), r.Body, codeNodeStopUnconfirmed)
+	}
 }
+
+// codeNodeStopUnconfirmed is the code POST /v1/node/leave answers when the
+// node's agent did not confirm that it stopped (core/pkg/gateway/handlers/enroll
+// ErrCodeNodeStopUnconfirmed).
+const codeNodeStopUnconfirmed = "NODE_STOP_UNCONFIRMED"
 
 // TestOramaOS_luksShamirUnlockAndABUpdates records what a single VM cannot
 // reach, so the report shows it uncovered rather than silently absent: the

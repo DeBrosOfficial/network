@@ -134,7 +134,7 @@ Each service runs in its own mount namespace, UTS namespace and dedicated UID an
 
 `orama node wipe` cannot reach it (no SSH).
 
-- **Graceful departure:** `POST /v1/node/leave` (there is no `orama node leave` subcommand). It stops services and removes the WireGuard peer.
+- **Graceful departure:** `POST /v1/node/leave` (there is no `orama node leave` subcommand). It asks the node's agent to stop its services and removes the WireGuard peer only once the agent confirms the stop (HTTP 200 `{"status":"stopped"}`). When the agent does not confirm (it is unreachable, refuses, or the node has no agent), nothing is removed and the call answers `502 NODE_STOP_UNCONFIRMED`; a dead node leaves through the cluster-side removal below.
 - **Cluster-side removal:** `orama node remove --env <env> --node <ip> --offline` from a survivor. `--offline` is required: the command never tries to reach an OramaOS node.
 - **Factory reset:** reflash the image at your provider. Data is unrecoverable, because the key is distributed across peers.
 
