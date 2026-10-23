@@ -184,6 +184,7 @@ volumes:
               - core/pkg/gateway/auth/keyformat.go
               - core/pkg/gateway/auth/workload.go
               - core/pkg/gateway/routepolicy/
+              - core/pkg/attest/
           - file: vol1/15-inter-node-trust.md
             title: Inter-node trust
             template: subsystem
