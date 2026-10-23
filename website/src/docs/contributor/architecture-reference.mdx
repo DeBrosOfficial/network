@@ -225,7 +225,7 @@ On a cluster node, components come in two tiers:
 
 | Tier | Components | Needs |
 |---|---|---|
-| **local** | `data-dir`, `wireguard`, `libp2p`, `peer-info`, `monitoring`, `pubsub`, `ipfs-cluster-config`, `storage`, `storage-watch`, `cluster-discovery`, `rqlite-local`, `nameserver`, `gateway`, `edge-serving`, `edge-aux`, `wireguard-sync`, `ipfs-swarm-sync` | this machine only |
+| **local** | `data-dir`, `wireguard`, `libp2p`, `peer-info`, `monitoring`, `pubsub`, `ipfs-cluster-config`, `storage`, `storage-watch`, `cluster-discovery`, `rqlite-local`, `nameserver`, `gateway`, `edge-serving`, `edge-aux`, `wireguard-sync`, `ipfs-swarm-sync`, `olric-heal` | this machine only |
 | **cluster** | `rqlite-cluster`, `membership`, `membership-record`, `dns-registration` | a raft quorum |
 
 `storage` starts the IPFS daemon, the IPFS Cluster peer and the GC timer;
@@ -1621,7 +1621,16 @@ app's requests there.
 
 - **What counts as a failure:** the proxy request not completing (connection
   refused, reset, timeout) and a 502, 503 or 504 the namespace gateway itself
-  answered. A 4xx, a 500, a function's own answer (a status it chose in a raw
+  answered outside the canonical error envelope, such as its readiness gate
+  refusing everything while it is starting or blocked. A 502, 503 or 504 in the
+  envelope (`{"ok":false,"error":{"code":...}}`) is an error the gateway
+  classified for one request, for example a storage read's
+  `SERVICE_UNAVAILABLE` while the node's IPFS Cluster peer restarts or its
+  `TIMEOUT`: the gateway is serving, so it is relayed and counts for nothing,
+  and one service's dependency cannot move the namespace's database and
+  function traffic off that member (bugboard #429). The proxy reads at most
+  16 KiB of such a body to tell, and the client gets it unchanged. A 4xx, a
+  500, a function's own answer (a status it chose in a raw
   HTTP response, `FUNCTION_TIMEOUT` (504) when it ran past its timeout, or
   `FUNCTION_UNAVAILABLE` when its code could not be loaded;
   the namespace gateway marks these `X-Orama-Tenant-Origin`, and the proxy

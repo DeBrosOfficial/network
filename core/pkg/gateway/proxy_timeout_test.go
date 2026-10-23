@@ -19,6 +19,8 @@ func TestIsLongRunningProxyPath(t *testing.T) {
 		{"/v1/storage/upload", true},
 		{"/v1/storage/upload/foo", true},
 		{"/v1/storage/pin", true},
+		{"/v1/storage/get/bafyabc", true},     // a stored object of any size, streamed (bugboard #428)
+		{"/v1/storage/relayed/bafyabc", true}, // the same, through a relay
 		{"/v1/invoke/myns/myfn", true},
 		{"/v1/functions/abc/invoke", true},
 		{"/v1/functions", true}, // deploy: WASM upload + IPFS pin
@@ -33,6 +35,7 @@ func TestIsLongRunningProxyPath(t *testing.T) {
 		{"/v1/auth/verify", false},
 		{"/v1/pubsub/publish", false}, // single-publish, fast
 		{"/v1/functions/abc/logs", false},
+		{"/v1/storage/status/bafyabc", false},
 		{"/v1/db/query", false},
 		{"/v1/namespace/restore-key", false},
 		{"/v1/namespace/status", false},

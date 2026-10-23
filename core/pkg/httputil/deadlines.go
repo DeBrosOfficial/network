@@ -3,6 +3,7 @@ package httputil
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -33,3 +34,41 @@ func ExtendIO(w http.ResponseWriter, budget time.Duration) error {
 	}
 	return nil
 }
+
+// StreamWithIdleWrites copies src to w, moving the write deadline to idle
+// from the start of each write. It replaces the server's whole-response write
+// timeout (and any budget ExtendIO set) with one that tracks progress, for a
+// response whose size and duration are the client's and the content's, such as
+// a stored object: a body that keeps moving is never cut off, and a client that
+// stops reading still is, idle after the write it stalled. How long src may
+// take to produce the next bytes is src's to bound.
+//
+// A ResponseWriter that cannot move its deadline (a test recorder) is copied
+// to without one.
+func StreamWithIdleWrites(w http.ResponseWriter, src io.Reader, idle time.Duration) (int64, error) {
+	rc := http.NewResponseController(w)
+	buf := make([]byte, streamChunkBytes)
+	var written int64
+	for {
+		n, readErr := src.Read(buf)
+		if n > 0 {
+			if err := rc.SetWriteDeadline(time.Now().Add(idle)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+				return written, fmt.Errorf("move the write deadline: %w", err)
+			}
+			m, err := w.Write(buf[:n])
+			written += int64(m)
+			if err != nil {
+				return written, err
+			}
+		}
+		if readErr == io.EOF {
+			return written, nil
+		}
+		if readErr != nil {
+			return written, readErr
+		}
+	}
+}
+
+// streamChunkBytes is StreamWithIdleWrites's copy buffer, io.Copy's size.
+const streamChunkBytes = 32 << 10

@@ -1,6 +1,7 @@
 package serverless
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -449,8 +450,17 @@ func (m *MockIPFSClient) Get(ctx context.Context, cid, apiURL string) (io.ReadCl
 }
 
 func (m *MockIPFSClient) Unpin(ctx context.Context, cid string) error { return nil }
-func (m *MockIPFSClient) GetStored(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error) {
-	return m.Get(ctx, cid, ipfsAPIURL)
+func (m *MockIPFSClient) GetStored(ctx context.Context, cid string, ipfsAPIURL string, _ time.Duration) (*ipfs.StoredContent, error) {
+	r, err := m.Get(ctx, cid, ipfsAPIURL)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	return &ipfs.StoredContent{Body: io.NopCloser(bytes.NewReader(b)), Size: int64(len(b))}, nil
 }
 
 func (m *MockIPFSClient) EvictLocal(ctx context.Context, cid string) (int, error) { return 0, nil }

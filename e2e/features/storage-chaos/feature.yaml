@@ -2,6 +2,8 @@
 # readable through the other nodes, uploads keep working, and after the
 # daemon returns the node serves again and every CID is back at the
 # replication factor (ipfs-cluster recovery or the 15-minute pin sweep).
+# Meanwhile storage reads through that node get its classified 503, which
+# leaves the namespace's circuit breaker there closed.
 id: storage-chaos
 title: IPFS storage with a node's daemon down
 area: storage
@@ -16,3 +18,4 @@ covers:
   claims:
     - "website/src/docs/contributor/architecture-reference.mdx#node-process-model: ipfs-cluster@ and ipfs-gc@ Require ipfs@; stopping the daemon stops them and they return with it"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#storage: content pinned at RF 3 survives one node's IPFS being down and returns to RF 3 after"
+    - "docs/whitepaper/technical-reference/vol1/12-gateway-architecture.md#namespace-proxying: a namespace gateway's classified storage 503/504 does not open the namespace's breaker on that node; its database keeps answering there"

@@ -1,9 +1,11 @@
 package deployments
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"io"
+	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/ipfs"
 	"github.com/Orama-Network/orama/core/pkg/rqlite"
@@ -68,8 +70,17 @@ func (m *mockIPFSClient) Unpin(ctx context.Context, cid string) error {
 	return nil
 }
 
-func (m *mockIPFSClient) GetStored(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error) {
-	return m.Get(ctx, cid, ipfsAPIURL)
+func (m *mockIPFSClient) GetStored(ctx context.Context, cid string, ipfsAPIURL string, _ time.Duration) (*ipfs.StoredContent, error) {
+	r, err := m.Get(ctx, cid, ipfsAPIURL)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	return &ipfs.StoredContent{Body: io.NopCloser(bytes.NewReader(b)), Size: int64(len(b))}, nil
 }
 
 func (m *mockIPFSClient) EvictLocal(ctx context.Context, cid string) (int, error) {

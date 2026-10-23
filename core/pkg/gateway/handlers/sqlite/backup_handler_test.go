@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
@@ -117,7 +118,7 @@ func (stubIPFS) Pin(context.Context, string, string, int) (*ipfs.PinResponse, er
 }
 func (stubIPFS) PinStatus(context.Context, string) (*ipfs.PinStatus, error) { return nil, nil }
 func (stubIPFS) Get(context.Context, string, string) (io.ReadCloser, error) { return nil, nil }
-func (stubIPFS) GetStored(context.Context, string, string) (io.ReadCloser, error) {
+func (stubIPFS) GetStored(context.Context, string, string, time.Duration) (*ipfs.StoredContent, error) {
 	return nil, nil
 }
 func (stubIPFS) Unpin(context.Context, string) error             { return nil }

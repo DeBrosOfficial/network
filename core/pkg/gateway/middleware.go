@@ -35,6 +35,7 @@ import (
 //   - /v1/functions/.../invoke and /v1/invoke/...        — up to 300s per fn
 //   - /v1/functions/.../ws                                — long-lived WS
 //   - /v1/storage/upload, /v1/storage/pin                 — IPFS add can be slow
+//   - /v1/storage/get/, /v1/storage/relayed/              — a stored object of any size, streamed
 //   - /v1/namespace/backup, /v1/namespace/restore         — a database of up to 256 MiB, sealed or applied
 //   - /v1/rqlite/export, /v1/rqlite/import                — the whole database, streamed
 //
@@ -44,6 +45,11 @@ func isLongRunningProxyPath(p string) bool {
 	switch {
 	case strings.HasPrefix(p, "/v1/storage/upload"),
 		strings.HasPrefix(p, "/v1/storage/pin"),
+		// A download's body is relayed under the proxy's whole-request budget:
+		// at 30 s, a fetch that took 18 s left 12 s to relay the object, and
+		// a 200 already sent was cut off (bugboard #428).
+		strings.HasPrefix(p, "/v1/storage/get/"),
+		strings.HasPrefix(p, "/v1/storage/relayed/"),
 		isWholeDatabasePath(p),
 		// Deploys reach a namespace gateway through this proxy since bugboard
 		// #427, and the handler itself allows the upload a minute.
@@ -2146,7 +2152,7 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 	}
 	defer resp.Body.Close()
 
-	if isUpstreamFailure(resp) {
+	if isNamespaceGatewayFailure(resp) {
 		cb.RecordFailure(fmt.Sprintf("the namespace gateway answered %d", resp.StatusCode))
 	} else {
 		cb.RecordSuccess()

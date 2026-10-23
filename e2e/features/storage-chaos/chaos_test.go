@@ -6,9 +6,11 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/Orama-Network/orama/e2e/harness/eventually"
 	"github.com/Orama-Network/orama/e2e/harness/fleet"
 	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/monitor"
 	"github.com/Orama-Network/orama/e2e/harness/ns"
 )
 
@@ -30,6 +33,14 @@ const (
 	recoverBudget = 35 * time.Minute
 	rf            = 3
 	blobBytes     = 8 << 10
+	// breakerThreshold is the namespace proxy's consecutive-failure threshold
+	// (core/pkg/gateway/circuit_breaker.go defaultFailureThreshold);
+	// classifiedReads sends three times that.
+	breakerThreshold = 5
+	classifiedReads  = 3 * breakerThreshold
+	// breakerAlertBudget: the node report is collected every 10s and cached
+	// 5s, so an opened breaker would be reported well within it.
+	breakerAlertBudget = 2 * time.Minute
 )
 
 // TestIPFSDown_contentStillServedAndRecovers stops node-3's Kubo daemon
@@ -57,11 +68,61 @@ func TestIPFSDown_contentStillServedAndRecovers(t *testing.T) {
 		during = blob(t)
 		cidDuring = uploadOK(t, n.Client.PinTo(f.State.Nodes[0].PublicIP), owner, "during.bin", during)
 		waitContent(t, n.Client.PinTo(f.State.Nodes[1].PublicIP), owner, cidDuring, during)
+		classifiedErrorsLeaveTheCircuitClosed(t, f, n, victim, cidBefore)
 	})
 	// The subtest's cleanup restarted the daemon and waited for it.
 	waitContent(t, n.Client.PinTo(victim.PublicIP), owner, cidBefore, before)
 	if cidDuring != "" {
 		checkRecovered(t, f, n, victim, cidDuring, during)
+	}
+}
+
+// classifiedErrorsLeaveTheCircuitClosed: storage reads through the victim, whose
+// IPFS is down, are answered with the namespace gateway's classified 503 or
+// 504. They are its verdict on those requests, so they must not open the
+// namespace's breaker on that node, which would move its database and
+// function traffic away too; the database keeps answering through the node
+// and no circuit-breaker alert names the namespace there (bugboard #429).
+func classifiedErrorsLeaveTheCircuitClosed(t *testing.T, f *fleet.Fleet, n *ns.Namespace, victim fleet.Node, cid string) {
+	t.Helper()
+	c := n.Client.PinTo(victim.PublicIP)
+	owner := tenancy.Owner(n)
+	classified := 0
+	for range classifiedReads {
+		r := tenancy.Get(t, c, "/v1/storage/get/"+cid, owner)
+		if r.Status == http.StatusServiceUnavailable || r.Status == http.StatusGatewayTimeout {
+			var env struct {
+				Error struct{ Code string } `json:"error"`
+			}
+			if json.Unmarshal(r.Body, &env) != nil || env.Error.Code == "" {
+				t.Fatalf("a storage read through %s answered %d outside the error envelope: %.200s", victim.Name, r.Status, r.Body)
+			}
+			classified++
+		}
+	}
+	if classified < breakerThreshold {
+		harness.SkipNotApplicable(t, fmt.Sprintf("only %d of %d storage reads through %s reached its namespace gateway's classified error", classified, classifiedReads, victim.Name))
+	}
+	if r := tenancy.Post(t, c, "/v1/rqlite/query", owner, map[string]any{"sql": "SELECT 1", "args": []any{}}); r.Status != http.StatusOK {
+		t.Errorf("a database query through %s after %d classified storage errors: HTTP %d %.200s", victim.Name, classified, r.Status, r.Body)
+	}
+	// The breaker must stay closed for the whole budget: running out of time
+	// without seeing its alert is the pass.
+	err := eventually.Poll(t.Context(), pollEvery, breakerAlertBudget, "no circuit-breaker alert for "+n.Name+" on "+victim.Name, func() (bool, error) {
+		r, err := monitor.Get(t.Context(), harness.CLI(t), f.State.Env)
+		if err != nil {
+			return false, err
+		}
+		for _, a := range r.Alerts {
+			if a.Node == victim.PublicIP && strings.Contains(a.Message, "Circuit breaker") && strings.Contains(a.Message, n.Name) {
+				return false, eventually.Stop(fmt.Errorf("%d classified storage errors opened %s's breaker on %s: %s", classified, n.Name, victim.Name, a.Message))
+			}
+		}
+		return false, nil
+	})
+	var waited *eventually.TimeoutError
+	if !errors.As(err, &waited) {
+		t.Fatal(err)
 	}
 }
 

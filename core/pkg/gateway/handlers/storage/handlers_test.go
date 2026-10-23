@@ -70,8 +70,10 @@ type mockIPFSClient struct {
 	notInPinset bool
 	pinsetErr   error
 	pinsetCalls int
-	// getDeadline records the deadline Get was called with.
+	// getDeadline records the deadline Get was called with, and getIdle the
+	// idle timeout GetStored was given.
 	getDeadline time.Time
+	getIdle     time.Duration
 	unpinErr    error
 	unpinCalls  int
 	unpinMu     sync.Mutex
@@ -113,18 +115,26 @@ func (m *mockIPFSClient) PinStatus(_ context.Context, _ string) (*ipfs.PinStatus
 
 // GetStored models ipfs.Client.GetStored: a local hit is served without the
 // pinset; on a miss the pinset decides between NOT_FOUND and a network fetch.
-func (m *mockIPFSClient) GetStored(ctx context.Context, cid, url string) (io.ReadCloser, error) {
-	if m.heldLocally {
-		return m.Get(ctx, cid, url)
+func (m *mockIPFSClient) GetStored(ctx context.Context, cid, url string, idle time.Duration) (*ipfs.StoredContent, error) {
+	m.getIdle = idle
+	if !m.heldLocally {
+		m.pinsetCalls++
+		switch {
+		case m.pinsetErr != nil:
+			return nil, fmt.Errorf("%w: %v", ipfs.ErrPinsetUnavailable, m.pinsetErr)
+		case m.notInPinset:
+			return nil, fmt.Errorf("%w: %s", ipfs.ErrNotInPinset, cid)
+		}
 	}
-	m.pinsetCalls++
-	switch {
-	case m.pinsetErr != nil:
-		return nil, fmt.Errorf("%w: %v", ipfs.ErrPinsetUnavailable, m.pinsetErr)
-	case m.notInPinset:
-		return nil, fmt.Errorf("%w: %s", ipfs.ErrNotInPinset, cid)
+	r, err := m.Get(ctx, cid, url)
+	if err != nil {
+		return nil, err
 	}
-	return m.Get(ctx, cid, url)
+	sized, ok := r.(interface{ Len() int })
+	if !ok {
+		return nil, errors.New("the mock's reader has no Len")
+	}
+	return &ipfs.StoredContent{Body: r, Size: int64(sized.Len())}, nil
 }
 
 // sizedBody is the reader ipfs.Client.Get returns: fully buffered, with its size.
@@ -512,14 +522,16 @@ func TestDownloadHandler_clusterUnreachableIsRetryable(t *testing.T) {
 	}
 }
 
-func TestDownloadHandler_fetchIsBoundedBelowTheProxyBudget(t *testing.T) {
+func TestDownloadHandler_fetchIsBoundedByIdleNotByTotalTime(t *testing.T) {
 	mock := &mockIPFSClient{getReader: sizedBody("x")}
-	start := time.Now()
 	if status, _ := download(t, mock); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	if mock.getDeadline.IsZero() || mock.getDeadline.After(start.Add(storageFetchTimeout+time.Second)) {
-		t.Errorf("Get deadline = %v, want one within %s", mock.getDeadline, storageFetchTimeout)
+	if mock.getIdle != storageIdleTimeout {
+		t.Errorf("GetStored idle timeout = %v, want %s", mock.getIdle, storageIdleTimeout)
+	}
+	if !mock.getDeadline.IsZero() {
+		t.Errorf("the retrieval has a total deadline (%v); a large object that keeps arriving must not be cut off", mock.getDeadline)
 	}
 }
 

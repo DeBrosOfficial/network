@@ -68,7 +68,7 @@ A tenant application holds an API key for the namespace `acme` on a cluster with
 
 **8. Handler.** The cache set handler caps the body at 10 MiB, checks `dmap` and `key`, evaluates any key-level grant (`cache:key=sessions/*` can narrow what the caller writes), folds the key with the dmap name so all of a tenant's dmaps share one Olric DMap under one memory bound, and calls `Put` under a 10 s context. The Olric client sends it to the member owning the key's partition. Olric holds entries in memory only: nothing is replicated and nothing reaches disk. The answer is `200 {"status":"ok"}`.
 
-**9. The way back.** The response retraces the connection. A 502, 503 or 504 from the member counts toward the breaker. The SDK retries on 408, 429, 500, 502, 503 and 504 (but not a function's 504 `FUNCTION_TIMEOUT`, which ran), up to three times with growing delay, honouring `Retry-After` up to 30 s.
+**9. The way back.** The response retraces the connection. A 502, 503 or 504 from the member counts toward the breaker, unless it is an error the member classified (the canonical envelope with a code) or a function's own answer. The SDK retries on 408, 429, 500, 502, 503 and 504 (but not a function's 504 `FUNCTION_TIMEOUT`, which ran), up to three times with growing delay, honouring `Retry-After` up to 30 s.
 
 The trace touched one registry read (cached afterwards), two gateways, the cluster secret and the tenant's Olric ring, and never the tenant's RQLite, the chain, IPFS or the supervisor.
 
