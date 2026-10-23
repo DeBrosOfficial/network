@@ -264,16 +264,13 @@ func initializeRQLite(logger *logging.ColoredLogger, cfg *Config, deps *Dependen
 	db.SetConnMaxIdleTime(2 * time.Minute) // Maximum idle time before closing
 
 	deps.SQLDB = db
-	// Use the DSN-aware constructor so the ORM client also has a native
-	// *gorqlite.Connection for atomic Batch operations. If the native dial
-	// fails, fall back to the stdlib-only client (Batch will be unavailable
-	// but everything else works).
-	orm, ormErr := rqlite.NewClientWithDSN(db, dsn)
-	if ormErr != nil {
-		logger.ComponentWarn(logging.ComponentGeneral,
-			"native gorqlite dial failed, atomic Batch will be unavailable",
-			zap.Error(ormErr))
-		orm = rqlite.NewClient(db)
+	// The ORM client needs its native *gorqlite.Connection: atomic batches
+	// (push topic registration among them) have no other path. A gateway
+	// without one served every route and answered 500 on each batch, so a
+	// failed dial stops the boot instead (bugboard #435).
+	orm, err := rqlite.NewClientWithDSN(db, dsn)
+	if err != nil {
+		return fmt.Errorf("rqlite native connection (atomic batches need it): %w", err)
 	}
 	deps.ORMClient = orm
 	deps.ORMHTTP = rqlite.NewHTTPGateway(orm, "/v1/db")
@@ -1262,7 +1259,9 @@ func buildPushDispatcher(
 	ikm string,
 	holder *secrets.Holder,
 ) (*push.PushDispatcher, push.PushDeviceStore, *push.Manager, push.ConfigStore, *pushcreds.Manager, error) {
-	store, err := push.NewRqliteDeviceStore(db, ikm, logger.Logger)
+	// The token fingerprint is keyed from the cluster secret, which a secrets
+	// rotate does not change, so fingerprints keep matching across a rotate.
+	store, err := push.NewRqliteDeviceStore(db, ikm, cfg.ClusterSecret, logger.Logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("init push device store: %w", err)
 	}

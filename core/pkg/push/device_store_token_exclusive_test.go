@@ -12,13 +12,23 @@ import (
 	"go.uber.org/zap"
 )
 
-const testClusterSecret = "test-cluster-secret-for-push-device-fingerprints-0123456789"
+const (
+	testClusterSecret = "test-cluster-secret-for-push-device-fingerprints-0123456789"
+	testEncIKM        = "test-encryption-root-ikm-for-push-device-tokens-0123456789"
+)
 
 // newDeviceTestStore builds an RqliteDeviceStore over an in-memory sqlite3 DB
 // (via rqlite.NewClient, which passes straight through to *sql.DB) with a schema
 // mirroring migrations 023 + 033 + 060. This exercises the real Upsert/eviction SQL —
 // UNIQUE constraints, ON CONFLICT, and the rowid-ordered DELETE — not a stub.
 func newDeviceTestStore(t *testing.T) (*RqliteDeviceStore, *sql.DB) {
+	t.Helper()
+	return newDeviceTestStoreWithIKM(t, testEncIKM)
+}
+
+// newDeviceTestStoreWithIKM is newDeviceTestStore with the encryption root's
+// IKM chosen by the caller, as it is after a secrets rotate.
+func newDeviceTestStoreWithIKM(t *testing.T, encIKM string) (*RqliteDeviceStore, *sql.DB) {
 	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -51,7 +61,7 @@ func newDeviceTestStore(t *testing.T) (*RqliteDeviceStore, *sql.DB) {
 		}
 	}
 
-	store, err := NewRqliteDeviceStore(rqlite.NewClient(db), testClusterSecret, zap.NewNop())
+	store, err := NewRqliteDeviceStore(rqlite.NewClient(db), encIKM, testClusterSecret, zap.NewNop())
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -341,5 +351,48 @@ func TestListForUser_surfacesAGateFailure(t *testing.T) {
 	mustUpsert(t, s, PushDevice{Namespace: "ns", UserID: "u", DeviceID: "a", Provider: "ntfy", Token: "t-a", SessionDeviceID: "phone"})
 	if _, err := s.ListForUser(context.Background(), "ns", "u"); err == nil {
 		t.Error("a registry failure was treated as \"not revoked\"")
+	}
+}
+
+// bug-435: the fingerprint is keyed from the cluster secret, not from the
+// encryption root a secrets rotate replaces. A gateway that booted after a
+// rotate must still find, and evict, a row registered before it.
+func TestTokenFingerprint_survivesASecretsRotate(t *testing.T) {
+	before, db := newDeviceTestStoreWithIKM(t, testEncIKM)
+	idOld := mustUpsert(t, before, PushDevice{Namespace: "ns", UserID: "old", DeviceID: "d1", Provider: "apns", Token: "same-physical-token"})
+
+	after, err := NewRqliteDeviceStore(rqlite.NewClient(db), "the-encryption-root-after-a-rotate-0123456789abcdef", testClusterSecret, zap.NewNop())
+	if err != nil {
+		t.Fatalf("store after rotate: %v", err)
+	}
+	if before.tokenFingerprint("same-physical-token") != after.tokenFingerprint("same-physical-token") {
+		t.Fatal("a secrets rotate changed the token fingerprint")
+	}
+	mustUpsert(t, after, PushDevice{Namespace: "ns", UserID: "new", DeviceID: "d2", Provider: "apns", Token: "same-physical-token"})
+	if countRows(t, db, "id = ?", idOld) != 0 {
+		t.Fatal("the row registered before the rotate was not evicted by the same token after it")
+	}
+}
+
+func TestNewRqliteDeviceStore_requiresAFingerprintSecret(t *testing.T) {
+	if _, err := NewRqliteDeviceStore(nil, testEncIKM, "", zap.NewNop()); err == nil {
+		t.Fatal("a store was built with no fingerprint secret")
+	}
+}
+
+// bug-435: the listed registration carries the platform, app version and last
+// seen time it was registered with.
+func TestListForUser_returnsPlatformAppVersionAndLastSeen(t *testing.T) {
+	s, _ := newDeviceTestStore(t)
+	mustUpsert(t, s, PushDevice{Namespace: "ns", UserID: "u", DeviceID: "d", Provider: "apns", Token: "t",
+		Platform: "ios", AppVer: "2.4.1", LastSeen: 1761200000})
+
+	devs := mustList(t, s, "ns", "u")
+	if len(devs) != 1 {
+		t.Fatalf("listed %d registrations, want 1", len(devs))
+	}
+	d := devs[0]
+	if d.Platform != "ios" || d.AppVer != "2.4.1" || d.LastSeen != 1761200000 {
+		t.Fatalf("listed platform=%q app_version=%q last_seen=%d, want ios, 2.4.1, 1761200000", d.Platform, d.AppVer, d.LastSeen)
 	}
 }

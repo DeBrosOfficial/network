@@ -82,7 +82,7 @@ Arguments are bound parameters, never interpolated. JSON numbers arrive as float
 
 The guard runs on every operation before the batch is built; a refusal names the operation (`op 1: ...`) and nothing runs.
 
-A gateway whose native gorqlite dial failed at start has no `Batch`; the client degrades to the stdlib-only form and every `transaction` call fails with `ErrNoNativeConnection` (`core/pkg/gateway/dependencies.go:initializeRQLite` logs the downgrade as a warning).
+A gateway whose native gorqlite dial fails at start does not start: `core/pkg/gateway/dependencies.go:initializeRQLite` returns the error rather than serve every route with a client that has no `Batch`, which answered every `transaction` call and every push topic registration with an error (bugboard #435). The stdlib-only client (`rqlite.NewClient`), which handles that run no batch are built with, still fails one with `ErrNoNativeConnection`.
 
 ### The SQL guard
 
