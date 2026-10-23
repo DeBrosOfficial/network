@@ -19,17 +19,27 @@ const goSource = resolve(__dirname, '../../../core/pkg/gateway/auth/scopes.go');
 const haveGo = existsSync(goSource);
 const go = haveGo ? readFileSync(goSource, 'utf8') : '';
 
-/** The value of every `Scope<Name> = "value"` constant. */
-function declaredScopes(): string[] {
-  return [...go.matchAll(/Scope\w+\s+=\s+"([a-z-]+)"/g)].map((m) => m[1]).sort();
+/** Every `Scope<Name> = "value"` constant, by its Go identifier. */
+function scopeConstants(): Map<string, string> {
+  return new Map([...go.matchAll(/(Scope\w+)\s+=\s+"([a-z-]+)"/g)].map((m) => [m[1], m[2]]));
 }
 
-/** The keys of the `knownGrants` map, which is what a mint request is validated against. */
+/** The value of every `Scope<Name> = "value"` constant. */
+function declaredScopes(): string[] {
+  return [...scopeConstants().values()].sort();
+}
+
+/**
+ * The values of the `knownGrants` map's keys, which is what a mint request is
+ * validated against. Each key is a constant, read through its declaration
+ * (ScopePushSend → "push-send").
+ */
 function mintableScopes(): string[] {
   const block = go.match(/var knownGrants = map\[string\]struct\{\}\{([\s\S]*?)\n\}/);
   if (!block) return [];
-  return [...block[1].matchAll(/Scope(\w+):/g)]
-    .map((m) => m[1].toLowerCase())
+  const constants = scopeConstants();
+  return [...block[1].matchAll(/(Scope\w+):/g)]
+    .map((m) => constants.get(m[1]) ?? m[1])
     .sort();
 }
 
@@ -43,8 +53,6 @@ describe('scope constants match the gateway', () => {
   });
 
   it.skipIf(!haveGo)('lists only grants a key can actually be minted with', () => {
-    // Compared by the Go identifier's lowercase name, which equals the value
-    // for every grant (ScopeWebRTC → "webrtc").
     const mintable = mintableScopes();
     expect(mintable.length).toBeGreaterThan(0);
     for (const scope of SCOPES) {
@@ -63,7 +71,8 @@ describe('scope constants match the gateway', () => {
   it.skipIf(!haveGo)('agrees with the gateway on what app-runtime grants', () => {
     const profiles = go.match(/case "app-runtime", "runtime", "app":\n\s*return \[\]string\{([^}]*)\}/);
     expect(profiles).not.toBeNull();
-    const granted = [...profiles![1].matchAll(/Scope(\w+)/g)].map((m) => m[1].toLowerCase()).sort();
+    const constants = scopeConstants();
+    const granted = [...profiles![1].matchAll(/(Scope\w+)/g)].map((m) => constants.get(m[1]) ?? m[1]).sort();
     expect([...PROFILE_SCOPES['app-runtime']].sort()).toEqual(granted);
   });
 });
@@ -101,5 +110,10 @@ describe('scope helpers', () => {
   it('keeps storage off the profile an app ships (bugboard #946)', () => {
     // A token exchanged for a storage key may unpin any of the namespace's objects.
     expect(PROFILE_SCOPES['app-runtime']).not.toContain('storage');
+  });
+
+  it('keeps push-send off the profile an app ships (bugboard #434)', () => {
+    // push-send sends a notification to any user or topic of the namespace.
+    expect(PROFILE_SCOPES['app-runtime']).not.toContain('push-send');
   });
 });

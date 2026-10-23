@@ -304,7 +304,11 @@ func buildRoutePolicies() *routepolicy.Table {
 	t.Add(owned(auth.DomainSecrets, auth.ActionWrite),
 		"/v1/namespace/push-credentials", "/v1/namespace/push-credentials/",
 		"/v1/push/config")
-	t.Add(owned(auth.DomainPush, auth.ActionWrite), "/v1/push/send", "/v1/push/topics/send")
+	// Sending reaches every user's devices and every topic, so it needs
+	// push:send, which no client credential holds: a developer or above, or a
+	// key minted with the push-send grant (bugboard #434). Registration is
+	// push:write, below.
+	t.Add(owned(auth.DomainPush, auth.ActionSend), "/v1/push/send", "/v1/push/topics/send")
 
 	t.Add(owned(auth.DomainFn, auth.ActionRead), "/v1/serverless/ws/connections", "/v1/serverless/ws/connections/")
 	// Function management. /v1/functions/ is one handler serving several

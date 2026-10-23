@@ -47,7 +47,8 @@ func init() {
 		Short: "Grant a deployment a role",
 		Long: `Give a deployment a role in its own namespace.
 
-  runtime  the data plane: invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane: invoke, storage, push, webrtc, proxy, pubsub, cache;
+           a deployed app also sends push notifications on it
   reader   nothing beyond the routes that ask for no grant
 
 The change reaches a running app within seconds: a deployment's grant is read

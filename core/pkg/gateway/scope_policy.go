@@ -52,6 +52,11 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			scopes, _ := ctx.Value(ctxKeyScopes).(auth.ScopeSet)
 			return keyResources.Narrow(auth.KeyPermissions(scopes.Canonical(), grant.Role, grant.Resource))
 		}
+		if grant.PrincipalType == auth.PrincipalApp {
+			// A deployed app is server-side: its runtime role sends push
+			// notifications, which a runtime member's does not.
+			return auth.AppPermissions(grant.Role, grant.Resource)
+		}
 		return auth.PermissionsFor(grant.Role, grant.Resource)
 	}
 

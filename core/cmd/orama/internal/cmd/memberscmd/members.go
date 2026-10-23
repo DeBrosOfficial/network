@@ -18,7 +18,8 @@ transfer the namespace itself.
 A namespace has exactly one owner. Everybody else holds a role:
 
   admin    the control plane — deployments, functions, secrets, keys, raw database
-  runtime  the data plane — invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane — invoke, storage, push registration, webrtc, proxy,
+           pubsub, cache; not sending push notifications
   reader   a member with no grant at all
 
 Ownership is not a role you can hand out: use 'orama members transfer'.`,

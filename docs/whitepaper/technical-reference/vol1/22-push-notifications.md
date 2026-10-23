@@ -140,14 +140,14 @@ When push is not configured, the host functions return `{"ok":true,"devices_atte
 | `/v1/push/devices` | GET, POST | data plane, `push:write`, ownership, any credential | `ListDevicesHandler`, `RegisterDeviceHandler` |
 | `/v1/push/devices/` plus id | DELETE | same | `DeleteDeviceHandler` |
 | `/v1/push/topics` | POST, DELETE | same | `RegisterTopicHandler`, `UnregisterTopicHandler` |
-| `/v1/push/send` | POST | owned, `push:write` | `SendHandler` |
-| `/v1/push/topics/send` | POST | owned, `push:write` | `SendTopicHandler` |
+| `/v1/push/send` | POST | owned, `push:send` | `SendHandler` |
+| `/v1/push/topics/send` | POST | owned, `push:send` | `SendTopicHandler` |
 | `/v1/push/config` | GET, PUT or POST, DELETE | owned, `secrets:write` | `GetConfigHandler`, `PutConfigHandler`, `DeleteConfigHandler` |
 | `/v1/namespace/push-credentials` | GET | owned, `secrets:write` | `CredentialsSummaryHandler` |
 | `/v1/namespace/push-credentials/` plus provider | GET, PUT or POST, DELETE | owned, `secrets:write` | `CredentialsByProviderHandler` |
 | `/v1/internal/push/ntfy/` plus topic | POST | handler auth, main gateway only | `handleInternalNtfyPublish` |
 
-The policy lives in `core/pkg/gateway/route_policy.go`. The table has one entry per path, so a read of the credentials routes is held to the same grant as a write: a push credential is a secret, not a push. The three routes that send to a user or a topic are owned, so the caller needs a live grant in the namespace as well as the `push:write` permission; the `runtime` role carries `push:write` ([authorization](14-authorization.md#roles-and-grants)). `SendHandler` also needs a resolved identity (`resolveAdminCaller`), which for an API key is the string `apikey:` plus the namespace, never the key.
+The policy lives in `core/pkg/gateway/route_policy.go`. The table has one entry per path, so a read of the credentials routes is held to the same grant as a write: a push credential is a secret, not a push. The two routes that send to a user or a topic are owned, so the caller needs a live grant in the namespace as well as the `push:send` permission. `push:send` is a separate action from `push:write` (bugboard #434): the data plane, so the `runtime` role, a grantless signed-in user and the `push` key grant, holds `push:write` only, and `push:send` belongs to `developer` and above and to a key minted with the `push-send` grant ([authorization](14-authorization.md#roles-and-grants)). A runtime key's role reaches `push:send` (`Role.keyPermissions`), and its scopes bound it, so only a key that names `push-send` sends. `SendHandler` also needs a resolved identity (`resolveAdminCaller`), which for an API key is the string `apikey:` plus the namespace, never the key.
 
 The routes are registered unconditionally. When the gateway has no push handlers at all (push initialisation failed), each entry point answers 503 with the `SERVICE_UNAVAILABLE` code and one fixed message (`core/pkg/gateway/push_routes.go:pushNotConfiguredMessage`). That is a different 503 from the one `SendHandler` returns for a namespace with no provider, which carries the plain `error` JSON body of the push handlers.
 
@@ -312,7 +312,7 @@ The token columns are on the secrets walk (`core/pkg/secrets/walk.go`), so `oram
 
 ## Trust and security
 
-**Who may call what.** Device and topic registration need the `push:write` data-plane grant with ownership; the data plane here accepts any credential kind, but device registration additionally needs a JWT identity, while topic registration reads no identity at all. Sends and credential writes are owned routes. A runtime API key holds `push:write`, so a leaked runtime key can send a push to any user or topic in its namespace. That is a property of the role model rather than a push bug, and it is why the `SendHandler` comment about an admin-only check is stale ([authorization](14-authorization.md)).
+**Who may call what.** Device and topic registration need the `push:write` data-plane grant with ownership; the data plane here accepts any credential kind, but device registration additionally needs a JWT identity, while topic registration reads no identity at all. Sends and credential writes are owned routes. Sending needs `push:send`, which no client credential holds: a key extracted from an app (`app-runtime`, which grants `push`) registers devices and topics and cannot send. A leaked `push-send` key can send to any user or topic in its namespace, which is why it belongs on a server ([authorization](14-authorization.md)). Before 0.3.5 `push` granted every push action, sending included.
 
 **What an attacker can and cannot do.**
 

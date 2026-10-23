@@ -41,10 +41,11 @@ func TestRoutePermission(t *testing.T) {
 		// push — mixed prefix
 		{"/v1/push/devices", auth.DomainPush, auth.ActionWrite},
 		{"/v1/push/devices/42", auth.DomainPush, auth.ActionWrite},
-		{"/v1/push/send", auth.DomainPush, auth.ActionWrite},
+		// sending is its own action, which no client credential holds (bugboard #434)
+		{"/v1/push/send", auth.DomainPush, auth.ActionSend},
 		// rotating topics (FEAT-265) carry the same grants as their account twins
 		{"/v1/push/topics", auth.DomainPush, auth.ActionWrite},
-		{"/v1/push/topics/send", auth.DomainPush, auth.ActionWrite},
+		{"/v1/push/topics/send", auth.DomainPush, auth.ActionSend},
 		// a push provider's credentials are secrets, not push
 		{"/v1/push/config", auth.DomainSecrets, auth.ActionWrite},
 		{"/v1/namespace/push-credentials", auth.DomainSecrets, auth.ActionWrite},
@@ -509,5 +510,45 @@ func TestCallerPermissions_lobbyGrantAndNamelessSessionHoldNothing(t *testing.T)
 	elsewhere = elsewhere.WithContext(context.WithValue(elsewhere.Context(), CtxKeyNamespaceOverride, "anchat"))
 	if !g.callerPermissions(elsewhere).IsAdmin() {
 		t.Error("an owner grant in a namespace lost its authority")
+	}
+}
+
+// bugboard #434: who may send a push. The server side sends: a developer, a
+// deployed app on its runtime grant, a key minted with push-send. A key an app
+// ships (app-runtime, which grants push), a runtime member and a signed-in
+// user with no grant register devices and do not send.
+func TestCallerPermissions_pushSend(t *testing.T) {
+	g := &Gateway{}
+	appRuntime, _ := auth.ProfileGrants("app-runtime")
+	keyWith := func(scopes ...string) *http.Request {
+		set := auth.ScopeSet{}
+		for _, s := range scopes {
+			set[s] = struct{}{}
+		}
+		r := reqWithJWT(&auth.JWTClaims{Sub: "ak_x:ns"})
+		r = r.WithContext(context.WithValue(r.Context(), ctxKeyScopes, set))
+		return markGrant(r, &auth.Grant{PrincipalType: auth.PrincipalServiceAccount, Role: auth.RoleRuntime})
+	}
+	grantless := reqWithJWT(&auth.JWTClaims{Sub: "0xUSER"})
+	grantless = grantless.WithContext(context.WithValue(grantless.Context(), CtxKeyNamespaceOverride, "anchat"))
+
+	for name, c := range map[string]struct {
+		r     *http.Request
+		sends bool
+	}{
+		"developer member": {markGrant(reqWithJWT(&auth.JWTClaims{Sub: "0xDEV"}),
+			&auth.Grant{PrincipalType: auth.PrincipalWallet, Role: auth.RoleDeveloper}), true},
+		"runtime deployed app": {markGrant(reqWithJWT(&auth.JWTClaims{Sub: "app:anchat/api"}),
+			&auth.Grant{PrincipalType: auth.PrincipalApp, Role: auth.RoleRuntime}), true},
+		"push-send key":   {keyWith(auth.ScopePushSend), true},
+		"app-runtime key": {keyWith(appRuntime...), false},
+		"runtime member": {markGrant(reqWithJWT(&auth.JWTClaims{Sub: "0xTEAMMATE"}),
+			&auth.Grant{PrincipalType: auth.PrincipalWallet, Role: auth.RoleRuntime}), false},
+		"signed in, no grant": {grantless, false},
+	} {
+		p := g.callerPermissions(c.r)
+		if got := p.PermitsDomain(auth.DomainPush, auth.ActionSend); got != c.sends {
+			t.Errorf("%s: may send a push = %v, want %v (%v)", name, got, c.sends, p.List())
+		}
 	}
 }

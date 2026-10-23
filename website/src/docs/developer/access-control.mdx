@@ -14,7 +14,7 @@ deploy:*:*                  everything about deployments
 *:*:*                       everything in the namespace
 ```
 
-A *domain* is a part of the platform: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy`, `fn` on the **data plane**; `db`, `deploy`, `secrets`, `members`, `namespace`, `audit` on the **control plane**. An *action* is `read`, `write`, `invoke` or `manage`. A *resource* is a glob, and `*` matches any run of characters, including `/`, deliberately, so `avatars/*` covers `avatars/2026/03/me.png`.
+A *domain* is a part of the platform: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy`, `fn` on the **data plane**; `db`, `deploy`, `secrets`, `members`, `namespace`, `audit` on the **control plane**. An *action* is `read`, `write`, `invoke`, `manage` or `send`. `send` is push's: `push:write` registers your own devices and topics, and `push:send` sends a notification to any user or topic of the namespace. A *resource* is a glob, and `*` matches any run of characters, including `/`, deliberately, so `avatars/*` covers `avatars/2026/03/me.png`.
 
 The check happens twice, and they are different questions. The **gate**, before the handler runs, asks whether the credential reaches this domain and action at all. The **handler** asks again with the object: this CID, this topic, this key. A credential that reaches storage and is narrowed to `avatars/*` passes the first and is refused at the second for anything else. An object nothing could name (a CID the namespace recorded no name for) is refused by a narrowed permission and reached by an unrestricted one: "I could not work out what you are touching" is not a reason to allow it.
 
@@ -24,8 +24,8 @@ The check happens twice, and they are different questions. The **gate**, before 
 |---|---|
 | `owner` | Everything in the namespace. Only one wallet at a time |
 | `admin` | Everything the owner does, except being the owner |
-| `developer` | The data plane, plus `db`, `deploy`, `secrets` and `fn:manage`. **Not** `members` or `namespace` |
-| `runtime` | The data plane: storage, pub/sub, cache, push, WebRTC, proxy, and invoking functions |
+| `developer` | The data plane, plus `db`, `deploy`, `secrets`, `fn:manage` and `push:send`. **Not** `members` or `namespace` |
+| `runtime` | The data plane: storage, pub/sub, cache, push registration (`push:write`), WebRTC, proxy, and invoking functions. **Not** `push:send` |
 | `reader` | Nothing beyond the routes that ask for no permission |
 
 Every permission is a namespace's, so none of them, `*:*:*` included, reaches the cluster itself. Node status, logs, commands and removal, network mutation and every `/v1/operator/*` route are the cluster operator's: they admit only a wallet session on the cluster's operator list, and refuse an owner, an admin and every API key, even one of a namespace an operator owns, with `403 NOT_AN_OPERATOR`.
@@ -94,7 +94,9 @@ orama namespace keys revoke --id 12
 | `app-runtime` | invoke, push, webrtc, proxy. **Not** storage, **not** pubsub and **not** cache |
 | `admin` | Everything, including the control plane |
 
-Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named.
+Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `push-send`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named. `push` registers devices and topics; `push-send` sends to any user or topic (`/v1/push/send`, `/v1/push/topics/send`), so it goes on a server's key and on no profile.
+
+Before Orama 0.3.5, `push` also sent, so any key an app shipped could push a notification to every user of the namespace. From 0.3.5 a key holding `push` and not `push-send` is refused `403 INSUFFICIENT_SCOPE` on both send routes, a `runtime` member's session too, and a signed-in user with no grant is refused `403` by the ownership gate. A backend that sends over HTTP mints `--scope push-send` and keeps it on the server. A function sends with the `push_send` host functions, which need no key.
 
 `app-runtime` held `storage` before Orama 0.3.5. A token exchanged for a storage key may unpin any object the namespace stores, so anyone who pulled such a key out of an app could empty the namespace's storage. Upgrading takes `storage` off every live key minted from the profile: a key whose grants are exactly `invoke,proxy,push,storage,webrtc` becomes `invoke,proxy,push,webrtc`, within a minute on every gateway. A key minted with any other grant list, `storage` alone included, keeps what it has. A gateway still on the earlier release mints the old set during the rolling upgrade, so re-mint an `app-runtime` key created while the upgrade ran. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
 
@@ -133,6 +135,7 @@ A key with no `--resource` is unchanged: it reaches the whole of its scopes.
 - **An app that needs nothing before its user signs in ships no key.** `/v1/auth/challenge`, `/v1/auth/verify` and `/v1/auth/refresh` need no credential, nor does invoking a function deployed `public: true`, on the namespace gateway (`ns-<name>.<domain>`) as on the main one. After sign-in, the user's session reaches storage, push, WebRTC and the proxy.
 - **An app that must call functions before sign-in ships `invoke-only`,** narrowed with `--resource` to those functions.
 - **A function that reclaims storage without a user gets its own key,** `--scope storage`, kept in the namespace's secrets (`orama function secrets set`) and never shipped. A token exchanged for it may unpin (`DELETE /v1/storage/unpin/<cid>`) any object the namespace stores, which is what a prune job needs and why no key in a bundle holds `storage`. Upload, get and pin refuse it: they need a logged-in user, or a deployed app's own workload token.
+- **A backend that sends push notifications over HTTP gets its own key,** `--scope push-send`, kept on the server. It reaches any user's devices.
 - **A key that touches the control plane belongs on a server.**
 
 ## A deployed app's identity

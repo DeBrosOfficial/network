@@ -21,6 +21,7 @@ export const SCOPES = [
   "proxy",
   "pubsub",
   "push",
+  "push-send",
   "storage",
   "webrtc",
 ] as const;
@@ -33,7 +34,9 @@ export type Scope = (typeof SCOPES)[number];
  * belongs only in CI and on a developer's machine. Data-plane is not the same
  * as safe to ship: a token exchanged for a `storage` key may unpin any of the
  * namespace's objects, so `storage` belongs on a function's key, kept in the
- * namespace's secrets, and on no key in an app.
+ * namespace's secrets, and on no key in an app. `push` registers devices and
+ * topics; `push-send` sends a notification to any user or topic of the
+ * namespace, so it belongs on a server's key and on no key in an app.
  */
 export const DATA_PLANE_SCOPES: readonly Scope[] = [
   "cache",
@@ -41,6 +44,7 @@ export const DATA_PLANE_SCOPES: readonly Scope[] = [
   "proxy",
   "pubsub",
   "push",
+  "push-send",
   "storage",
   "webrtc",
 ];
@@ -62,7 +66,7 @@ export type KeyProfile = (typeof KEY_PROFILES)[number];
 
 /**
  * What each profile grants. `app-runtime` is for a key an app ships, so it
- * holds no `storage`.
+ * holds no `storage` and no `push-send`.
  */
 export const PROFILE_SCOPES: Readonly<Record<KeyProfile, readonly Scope[]>> = {
   admin: ["admin"],

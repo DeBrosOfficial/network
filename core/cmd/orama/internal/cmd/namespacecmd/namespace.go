@@ -97,9 +97,13 @@ Which key goes where:
     narrowed with --resource to those functions.
   - A function that reclaims storage gets its own key, --scope storage, kept
     in the namespace's secrets. No key that ships in an app holds storage.
+  - A backend that sends push notifications over HTTP gets its own key,
+    --scope push-send, kept on the server. 'push' registers devices; only
+    push-send sends, to any user or topic of the namespace.
 
 Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
-never storage), admin (the control plane; CI and a developer's machine only).
+never storage or push-send), admin (the control plane; CI and a developer's
+machine only).
 
 --resource narrows the key to the functions it names: the gateway refuses it on
 every other function, on HTTP invoke and the function WebSocket alike, with the

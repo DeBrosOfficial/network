@@ -34,6 +34,8 @@ func TestTopics_registerRefreshRotateRemove(t *testing.T) {
 	t.Parallel()
 	n := tenancy.Namespace(t, harness.Fleet(t), ns.Options{})
 	key := tenancy.Cred{APIKey: tenancy.APIKey(t, n, "push")}
+	// Registering is push; sending is push-send, a server's key (bug-434).
+	sender := tenancy.Cred{APIKey: tenancy.APIKey(t, n, "push-send")}
 	secret, id := hexSecret(t, 32)
 	token := randomTopic(t)
 	var reg topicReg
@@ -60,9 +62,9 @@ func TestTopics_registerRefreshRotateRemove(t *testing.T) {
 	rotated, rotatedID := hexSecret(t, 32)
 	registerTopic(t, n.Client, key, rotated, token).Expect(t, http.StatusOK)
 	status(t, "the old topic after rotation", del(t, n.Client, pathTopics, key, map[string]string{"topic_secret": secret}), http.StatusNotFound)
-	status(t, "send to the rotated-away topic", tenancy.Post(t, n.Client, pathTopicsSend, key, map[string]string{"topic_id": id, "title": "x", "body": "y"}), http.StatusNotFound)
+	status(t, "send to the rotated-away topic", tenancy.Post(t, n.Client, pathTopicsSend, sender, map[string]string{"topic_id": id, "title": "x", "body": "y"}), http.StatusNotFound)
 	del(t, n.Client, pathTopics, key, map[string]string{"topic_secret": rotated}).Expect(t, http.StatusOK)
-	status(t, "send after removal", tenancy.Post(t, n.Client, pathTopicsSend, key, map[string]string{"topic_id": rotatedID, "title": "x", "body": "y"}), http.StatusNotFound)
+	status(t, "send after removal", tenancy.Post(t, n.Client, pathTopicsSend, sender, map[string]string{"topic_id": rotatedID, "title": "x", "body": "y"}), http.StatusNotFound)
 }
 
 // TestTopics_inputAndAccess: secrets outside 16-64 bytes or not hex, unknown

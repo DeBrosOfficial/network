@@ -251,9 +251,9 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 | `/v1/push/config` | `g.pushConfigHandler` | credential | `secrets:write` | any | owned |
 | `/v1/push/devices` | `g.pushDevicesHandler` | credential | `push:write` | any | owned |
 | `/v1/push/devices/` | `g.pushDevicesByIDHandler` | credential | `push:write` | any | owned |
-| `/v1/push/send` | `g.pushSendHandler` | credential | `push:write` | any | owned |
+| `/v1/push/send` | `g.pushSendHandler` | credential | `push:send` | any | owned |
 | `/v1/push/topics` | `g.pushTopicsHandler` | credential | `push:write` | any | owned |
-| `/v1/push/topics/send` | `g.pushTopicsSendHandler` | credential | `push:write` | any | owned |
+| `/v1/push/topics/send` | `g.pushTopicsSendHandler` | credential | `push:send` | any | owned |
 
 ## /v1/rqlite
 

@@ -409,7 +409,8 @@ orama app grants set <app> <role> [flags]
 ```text
 Give a deployment a role in its own namespace.
 
-  runtime  the data plane: invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane: invoke, storage, push, webrtc, proxy, pubsub, cache;
+           a deployed app also sends push notifications on it
   reader   nothing beyond the routes that ask for no grant
 
 The change reaches a running app within seconds: a deployment's grant is read
@@ -4311,7 +4312,8 @@ transfer the namespace itself.
 A namespace has exactly one owner. Everybody else holds a role:
 
   admin    the control plane — deployments, functions, secrets, keys, raw database
-  runtime  the data plane — invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane — invoke, storage, push registration, webrtc, proxy,
+           pubsub, cache; not sending push notifications
   reader   a member with no grant at all
 
 Ownership is not a role you can hand out: use 'orama members transfer'.
@@ -4581,9 +4583,13 @@ Which key goes where:
     narrowed with --resource to those functions.
   - A function that reclaims storage gets its own key, --scope storage, kept
     in the namespace's secrets. No key that ships in an app holds storage.
+  - A backend that sends push notifications over HTTP gets its own key,
+    --scope push-send, kept on the server. 'push' registers devices; only
+    push-send sends, to any user or topic of the namespace.
 
 Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
-never storage), admin (the control plane; CI and a developer's machine only).
+never storage or push-send), admin (the control plane; CI and a developer's
+machine only).
 
 --resource narrows the key to the functions it names: the gateway refuses it on
 every other function, on HTTP invoke and the function WebSocket alike, with the
@@ -4597,7 +4603,7 @@ reaches the whole of its scopes.
 | `--label` | — | Human label for the key |
 | `--namespace` | — | Namespace name |
 | `--resource` | — | Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. Repeat for several; the key then reaches only these. Each must narrow one of its scopes (fn: needs invoke), and every scope must be narrowed by one |
-| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, storage, webrtc) |
+| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, push-send, storage, webrtc) |
 
 
 ## orama namespace keys list

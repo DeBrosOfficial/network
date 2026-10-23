@@ -154,7 +154,7 @@ func (h *Handlers) UnregisterTopicHandler(w http.ResponseWriter, r *http.Request
 
 // SendTopicHandler handles POST /v1/push/topics/send — the HTTP equivalent of
 // the push_send_topic host function. Who may call it is decided by the route
-// policy alone, which gives it exactly /v1/push/send's grant (push:write with
+// policy alone, which gives it exactly /v1/push/send's grant (push:send with
 // ownership); the handler reads no caller identity.
 func (h *Handlers) SendTopicHandler(w http.ResponseWriter, r *http.Request) {
 	if h.topicStore() == nil {

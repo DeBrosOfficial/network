@@ -22,9 +22,13 @@ var scopePermissions = map[string]PermissionSet{
 	ScopeStorage: wholeDomains(DomainStorage),
 	ScopePubsub:  wholeDomains(DomainPubsub),
 	ScopeCache:   wholeDomains(DomainCache),
-	ScopePush:    wholeDomains(DomainPush),
-	ScopeWebRTC:  wholeDomains(DomainWebRTC),
-	ScopeProxy:   wholeDomains(DomainProxy),
+	// `push` is registering devices and topics. It held every push action,
+	// sending included, so any key an app shipped could push to every user of
+	// the namespace (bugboard #434); sending is `push-send` now.
+	ScopePush:     {pushRegistration},
+	ScopePushSend: {pushSend},
+	ScopeWebRTC:   wholeDomains(DomainWebRTC),
+	ScopeProxy:    wholeDomains(DomainProxy),
 	// `invoke` is running a function, never changing one. Managing functions
 	// was part of `admin`, and is `fn:manage` now.
 	ScopeInvoke: {{Domain: DomainFn, Action: ActionInvoke, Resource: PermissionWildcard}},
@@ -49,7 +53,12 @@ func PermissionsFromScopes(stored string) PermissionSet {
 // permission that selector describes, and only if the role reached it in the
 // first place — a selector can narrow a grant and must never widen one.
 func PermissionsFor(role Role, selector string) PermissionSet {
-	whole := role.Permissions()
+	return narrowedBySelector(role.Permissions(), selector)
+}
+
+// narrowedBySelector is what whole amounts to once a grant's selector narrows
+// it.
+func narrowedBySelector(whole PermissionSet, selector string) PermissionSet {
 	selector = strings.TrimSpace(selector)
 	if selector == "" {
 		return whole
@@ -78,7 +87,7 @@ func PermissionsFor(role Role, selector string) PermissionSet {
 // bound its role, and a selector on the grant narrows what is left.
 func KeyPermissions(storedScopes string, role Role, selector string) PermissionSet {
 	scoped := PermissionsFromScopes(storedScopes)
-	held := PermissionsFor(role, selector)
+	held := narrowedBySelector(role.serverSidePermissions(), selector)
 	if strings.TrimSpace(selector) != "" {
 		return within(held, scoped)
 	}
@@ -142,12 +151,14 @@ func (r Role) Permissions() PermissionSet {
 		return Everything()
 	case RoleDeveloper:
 		// Everything an application needs, plus building and running it, plus
-		// managing its functions. Not who may do it: members, the namespace's
+		// managing its functions, plus sending push notifications, which the
+		// data plane leaves out. Not who may do it: members, the namespace's
 		// own settings and the cluster stay with the owner and the admin.
 		return append(
 			DataPlanePermissions(),
 			append(
 				wholeDomains(DomainDB, DomainDeploy, DomainSecrets),
+				pushSend,
 				Permission{Domain: DomainFn, Action: ActionManage, Resource: PermissionWildcard},
 			)...,
 		)
@@ -159,4 +170,27 @@ func (r Role) Permissions() PermissionSet {
 		// granting nothing is the only safe reading of it.
 		return PermissionSet{}
 	}
+}
+
+// AppPermissions is what a deployed app's grant amounts to: its role, as a
+// server-side principal holds it, narrowed by the grant's selector.
+func AppPermissions(role Role, selector string) PermissionSet {
+	return narrowedBySelector(role.serverSidePermissions(), selector)
+}
+
+// serverSidePermissions is what a role reaches when a server-side principal
+// holds it: an API key or a deployed app, neither of which is an
+// application's end user.
+//
+// The runtime role reaches push:send as well as the data plane. A deployed
+// app's token never leaves its server, so a runtime app sends. A key's scopes
+// bound its role (its role is runtime or admin and nothing between,
+// RoleForScopes), so only a key minted with the push-send grant sends, and the
+// key an app ships, which holds `push` at most, does not. A wallet holding the
+// runtime role is an application's user and does not send (bugboard #434).
+func (r Role) serverSidePermissions() PermissionSet {
+	if r == RoleRuntime {
+		return append(DataPlanePermissions(), pushSend)
+	}
+	return r.Permissions()
 }

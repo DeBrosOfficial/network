@@ -499,11 +499,11 @@ token undecryptable). When push is not configured, it returns the same
 exclude the topic's one device, the envelope is `ok: true` with
 `devices_attempted: 0` — nothing was sent.
 
-### From outside (a backend holding the push grant)
+### From outside (a backend holding the send permission)
 
 ```http
 POST /v1/push/send
-Authorization: Bearer <your wallet JWT>
+Authorization: Bearer <a push-send key, or a developer's session>
 {
   "user_id": "0xUser...",
   "title":   "New message",
@@ -513,17 +513,17 @@ Authorization: Bearer <your wallet JWT>
 }
 ```
 
-This endpoint is scoped to your namespace and needs its `push:write` grant,
-from a wallet JWT or an API key; the `runtime` role holds that grant, so it is
-not admin-only. **Add a finer allow-list / admin-scope check at your gateway
-layer before exposing it to untrusted callers** — see the security note in
-`pkg/gateway/handlers/push/handlers.go`.
+This endpoint is scoped to your namespace and needs its `push:send`
+permission with a grant in the namespace: a `developer`, `admin` or owner
+session, or an API key minted with `orama namespace keys create --scope
+push-send` and kept on your server. The `runtime` role, a signed-in user's
+session and a key holding only `push` (the `app-runtime` profile) register
+devices and are refused `403` here, so the key an app ships
+cannot push to other users. Before Orama 0.3.5 `push:write` was enough.
 
 The push-topic equivalent takes `topic_id` in place of `user_id`, with the same
 message fields. It carries exactly the route policy of `/v1/push/send`: the
-namespace's `push:write` grant with ownership. That grant is part of the
-data-plane set the `runtime` role holds, so it is not an admin-only route —
-the same is true of `/v1/push/send` today:
+namespace's `push:send` permission with ownership.
 
 ```http
 POST /v1/push/topics/send

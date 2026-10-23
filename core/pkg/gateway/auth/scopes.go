@@ -13,7 +13,7 @@ import (
 // that satisfies every requirement.
 //
 // The split is data-plane vs control-plane (admin — never leaves CI/dev):
-//   - data-plane: invoke, storage, push, webrtc, proxy, pubsub, cache
+//   - data-plane: invoke, storage, push, push-send, webrtc, proxy, pubsub, cache
 //   - control-plane: admin (deploy, secrets, migrations, config, key mgmt, raw rqlite)
 //
 // Data-plane is not the same as safe to ship in a client: whatever a key in an
@@ -22,16 +22,20 @@ import (
 // exchanged for a storage key may unpin any of the namespace's objects, which
 // is how a userless server-side reclaim works (bugboard #151) — so it belongs
 // on a key that stays in the namespace's secrets and on no key profile meant
-// for a bundle (bugboard #946).
+// for a bundle (bugboard #946). push-send is kept off them for the same reason:
+// it sends a notification to any user or topic of the namespace, so a key that
+// holds it is a server's, and `push` on a key is device and topic registration
+// only (bugboard #434).
 const (
-	ScopeAdmin   = "admin"   // full control-plane
-	ScopeInvoke  = "invoke"  // invoke functions (data access still gated by per-user JWT)
-	ScopeStorage = "storage" // IPFS storage upload/pin/get/unpin
-	ScopePush    = "push"    // push device registration
-	ScopeWebRTC  = "webrtc"  // TURN credentials + SFU signaling
-	ScopeProxy   = "proxy"   // Tor-routed anon proxy
-	ScopePubsub  = "pubsub"  // pub/sub REST
-	ScopeCache   = "cache"   // Olric cache REST
+	ScopeAdmin    = "admin"     // full control-plane
+	ScopeInvoke   = "invoke"    // invoke functions (data access still gated by per-user JWT)
+	ScopeStorage  = "storage"   // IPFS storage upload/pin/get/unpin
+	ScopePush     = "push"      // push device and topic registration
+	ScopePushSend = "push-send" // send notifications to any user or topic: a server's key
+	ScopeWebRTC   = "webrtc"    // TURN credentials + SFU signaling
+	ScopeProxy    = "proxy"     // Tor-routed anon proxy
+	ScopePubsub   = "pubsub"    // pub/sub REST
+	ScopeCache    = "cache"     // Olric cache REST
 )
 
 // knownGrants is the set of every valid grant. Used to validate issuance input
@@ -44,14 +48,15 @@ const (
 // includes it, so the pub/sub REST API was reachable only by an admin key or a
 // wallet JWT.
 var knownGrants = map[string]struct{}{
-	ScopeAdmin:   {},
-	ScopeInvoke:  {},
-	ScopeStorage: {},
-	ScopePush:    {},
-	ScopeWebRTC:  {},
-	ScopeProxy:   {},
-	ScopePubsub:  {},
-	ScopeCache:   {},
+	ScopeAdmin:    {},
+	ScopeInvoke:   {},
+	ScopeStorage:  {},
+	ScopePush:     {},
+	ScopePushSend: {},
+	ScopeWebRTC:   {},
+	ScopeProxy:    {},
+	ScopePubsub:   {},
+	ScopeCache:    {},
 }
 
 // AllGrants returns every valid grant, sorted. It is the list clients are told

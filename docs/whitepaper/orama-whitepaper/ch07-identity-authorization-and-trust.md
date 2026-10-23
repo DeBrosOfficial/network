@@ -49,8 +49,8 @@ Every route declares its requirement in one table ([the gateway](ch06-the-gatewa
 | Role | Reaches |
 |---|---|
 | `reader` | only routes that ask for no permission |
-| `runtime` | the data plane, and function invocation |
-| `developer` | the data plane plus databases, deployments, secrets, function management |
+| `runtime` | the data plane, and function invocation; push registration but not sending |
+| `developer` | the data plane plus databases, deployments, secrets, function management, sending push notifications |
 | `admin` | everything in the namespace |
 | `owner` | the same, one wallet per namespace; the only role that can transfer it |
 

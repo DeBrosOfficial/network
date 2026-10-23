@@ -25,8 +25,8 @@ import (
 
 // Action is what is being done to a resource.
 //
-// The full vocabulary is in permission.go: read, write, invoke, manage and the
-// wildcard. These two are here because they are what the data paths pass.
+// The full vocabulary is in permission.go: read, write, invoke, manage, send
+// and the wildcard. These two are here because they are what the data paths pass.
 type Action string
 
 const (

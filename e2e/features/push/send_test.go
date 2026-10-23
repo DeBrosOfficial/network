@@ -88,8 +88,9 @@ func TestNtfy_topicWithSlashIsASequenceID(t *testing.T) {
 }
 
 // TestSend_statusCodes: /v1/push/send needs user_id, a JSON body under
-// 64 KiB, POST, and the namespace's push grant; a user with no devices is not
-// an error; ntfy runs on every node on loopback only.
+// 64 KiB, POST, and push:send, which a developer and a push-send key hold and
+// an app-runtime key and a runtime member do not; a user with no devices is
+// not an error; ntfy runs on every node on loopback only.
 func TestSend_statusCodes(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
@@ -103,6 +104,28 @@ func TestSend_statusCodes(t *testing.T) {
 	status(t, "a user with no devices", tenancy.Post(t, n.Client, pathSend, owner, map[string]any{"user_id": "0xnobody", "title": "x"}), http.StatusOK)
 	reader := tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleReader).Token()}
 	tenancy.ExpectRefused(t, tenancy.Post(t, n.Client, pathSend, reader, map[string]any{"user_id": "u"}), http.StatusForbidden, tenancy.CodeScope)
+	// Sending is push:send (bug-434): the server side sends, and the key an app
+	// ships, a runtime member and a reader do not.
+	for name, who := range map[string]tenancy.Cred{
+		"a developer":     {Bearer: tenancy.Member(t, n, tenancy.RoleDeveloper).Token()},
+		"a push-send key": {APIKey: tenancy.APIKey(t, n, "push-send")},
+	} {
+		status(t, name+" sending", tenancy.Post(t, n.Client, pathSend, who, map[string]any{"user_id": "0xnobody", "title": "x"}), http.StatusOK)
+		status(t, name+" sending to a topic", tenancy.Post(t, n.Client, pathTopicsSend, who, map[string]any{"topic_id": strings.Repeat("0", 64), "title": "x"}), http.StatusNotFound)
+	}
+	for name, who := range map[string]tenancy.Cred{
+		"an app-runtime key": {APIKey: tenancy.APIKey(t, n, "app-runtime")},
+		"a runtime member":   {Bearer: tenancy.Member(t, n, tenancy.RoleRuntime).Token()},
+	} {
+		for _, path := range []string{pathSend, pathTopicsSend} {
+			r := tenancy.Post(t, n.Client, path, who, map[string]any{"user_id": "0xnobody", "topic_id": strings.Repeat("0", 64), "title": "x"})
+			if r.Status != http.StatusForbidden {
+				t.Errorf("%s sending on %s: %d, want 403", name, path, r.Status)
+				continue
+			}
+			tenancy.ExpectRefused(t, r, http.StatusForbidden, tenancy.CodeScope)
+		}
+	}
 	tenancy.ExpectRefused(t, tenancy.Post(t, n.Client, pathSend, tenancy.Cred{}, map[string]any{"user_id": "u"}), http.StatusUnauthorized, tenancy.CodeMissing)
 	for _, node := range f.State.Nodes {
 		if s := f.Unit(t, node, ntfyUnit); s != "active" {

@@ -131,7 +131,7 @@ POST /v1/push/topics/send
 { "topic_id": "<64 hex>", "title": "New message", "body": "Hello" }
 ```
 
-Both need the namespace's `push:write` grant, which the `runtime` role holds, so these are **not admin-only**: add your own allow-list or admin check in your backend before exposing them to untrusted callers. Topic send answers 200 delivered, 400 malformed id, 404 not registered or expired, 502 provider refused, 503 push not configured.
+Both need the namespace's `push:send` permission with a grant in the namespace: a `developer`, `admin` or owner session, or an API key minted with `--scope push-send` and kept on your server. A `runtime` member, a signed-in user and a key holding only `push` (the `app-runtime` profile) register devices and are refused `403` here, so a key an app ships cannot push to other users. Topic send answers 200 delivered, 400 malformed id, 404 not registered or expired, 502 provider refused, 503 push not configured.
 
 ## How ntfy fans out
 

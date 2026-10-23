@@ -22,6 +22,22 @@ func TestKeyPermissions(t *testing.T) {
 				{Domain: DomainStorage, Action: ActionWrite}: false,
 				{Domain: DomainFn, Action: ActionInvoke}:     true,
 				{Domain: DomainPush, Action: ActionWrite}:    true,
+				{Domain: DomainPush, Action: ActionSend}:     false,
+			},
+		},
+		{
+			name: "a key holding push registers and does not send", scopes: ScopePush, role: RoleRuntime,
+			permits: map[Resource]bool{
+				{Domain: DomainPush, Action: ActionWrite}: true,
+				{Domain: DomainPush, Action: ActionSend}:  false,
+			},
+		},
+		{
+			name: "a server's push-send key sends and registers nothing", scopes: ScopePushSend, role: RoleRuntime,
+			permits: map[Resource]bool{
+				{Domain: DomainPush, Action: ActionSend}:  true,
+				{Domain: DomainPush, Action: ActionWrite}: false,
+				{Domain: DomainFn, Action: ActionInvoke}:  false,
 			},
 		},
 		{
@@ -78,5 +94,34 @@ func TestKeyPermissions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// bugboard #434: sending a push reaches every user's devices, so only the
+// namespace's server side holds it. A runtime member and a signed-in user
+// register their own devices and do not send.
+func TestPushSend_heldByTheServerSideOnly(t *testing.T) {
+	send := Resource{Domain: DomainPush, Action: ActionSend}
+	register := Resource{Domain: DomainPush, Action: ActionWrite}
+	for name, c := range map[string]struct {
+		set              PermissionSet
+		sends, registers bool
+	}{
+		"owner":                  {PermissionsFor(RoleOwner, ""), true, true},
+		"admin":                  {PermissionsFor(RoleAdmin, ""), true, true},
+		"developer":              {PermissionsFor(RoleDeveloper, ""), true, true},
+		"runtime member":         {PermissionsFor(RoleRuntime, ""), false, true},
+		"runtime deployed app":   {AppPermissions(RoleRuntime, ""), true, true},
+		"reader deployed app":    {AppPermissions(RoleReader, ""), false, false},
+		"reader":                 {PermissionsFor(RoleReader, ""), false, false},
+		"signed in, no grant":    {NoGrantPermissions(), false, true},
+		"push key, no grant row": {PermissionsFromScopes(ScopePush), false, true},
+	} {
+		if got := c.set.Permits(send); got != c.sends {
+			t.Errorf("%s: may send = %v, want %v", name, got, c.sends)
+		}
+		if got := c.set.Permits(register); got != c.registers {
+			t.Errorf("%s: may register = %v, want %v", name, got, c.registers)
+		}
 	}
 }

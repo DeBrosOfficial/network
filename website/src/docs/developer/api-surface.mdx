@@ -155,7 +155,7 @@ A namespace's cache is one Olric DMap with the `dmap` name folded into each key,
 | `/v1/push/config` | direct | Legacy per-namespace push credentials, superseded by `/v1/namespace/push-credentials/`. The CLI has no command for it. |
 | `/v1/push/devices` | direct | Register a device for push. A mobile client concern; a native SDK owns it, not this one. |
 | `/v1/push/devices/` | direct | One registered device. |
-| `/v1/push/send` | CLI | Server-side send, on the namespace's `push:write` grant (which the `runtime` role holds); a function or a backend calls it directly. |
+| `/v1/push/send` | CLI | Server-side send, on the namespace's `push:send` permission (a developer or above, or a key minted with `push-send`; not the `runtime` role); a function or a backend calls it directly. |
 | `/v1/push/topics` | direct | Register (POST) or remove (DELETE) a rotating push topic, proved by its secret. A mobile client concern, as `/v1/push/devices` is. |
 | `/v1/push/topics/send` | direct | Server-side send to a topic, with `/v1/push/send`'s grant; a backend calls it directly, and a function uses `push_send_topic`. |
 

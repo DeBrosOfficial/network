@@ -122,6 +122,10 @@ func TestNormalizeGrants(t *testing.T) {
 	if got != "invoke,storage" {
 		t.Errorf("explicit canonical = %q", got)
 	}
+	// A server's send key (bugboard #434) is a grant that can be minted.
+	if got, err = NormalizeGrants("push-send"); err != nil || got != ScopePushSend {
+		t.Errorf("push-send = %q, %v", got, err)
+	}
 	// Unknown grant is a loud error, not a silent mint.
 	if _, err := NormalizeGrants("invoke,bogus"); err == nil {
 		t.Error("expected error for unknown grant")
