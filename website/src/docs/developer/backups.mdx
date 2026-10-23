@@ -45,7 +45,7 @@ The gateway **refuses before writing anything** when: the key is wrong, the file
 
 ## The database image is checked first
 
-A database image (a restore's, or an `orama namespace rqlite import`'s) is checked before RQLite loads it, because once loaded every gateway of the namespace serves writes against it. The gateway writes it to a temporary file and opens it read-only in SQLite. It refuses the image with 400, writing nothing, unless it is an intact SQLite database with no trigger (tenant SQL cannot create one), no view over a platform table, and no stored-object record naming content that the registry records only against other namespaces (such a record would let you read another tenant's content). Older backups may still carry plaintext `api_keys` rows and stored-object records of other namespaces; nothing reads them, so they are accepted, and after the load the gateway removes them.
+A database image (a restore's, or an `orama namespace rqlite import`'s) is checked before RQLite loads it, because once loaded every gateway of the namespace serves writes against it. The gateway writes it to a temporary file and opens it read-only in SQLite. It refuses the image with 400, writing nothing, unless it is an intact SQLite database with no trigger or view that tenant SQL could not create (a trigger on your own tables that the SQL filter accepts restores with the rest), and no stored-object record naming content that the registry records only against other namespaces (such a record would let you read another tenant's content). Older backups may still carry plaintext `api_keys` rows and stored-object records of other namespaces; nothing reads them, so they are accepted, and after the load the gateway removes them.
 
 ## Limits and behaviour
 

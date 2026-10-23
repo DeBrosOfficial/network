@@ -42,8 +42,9 @@ WebRTC settings) will be replaced with the imported file. The file must be a SQL
 database, as 'export' writes; at most 256 MiB. Live keys and grants (in the cluster
 registry) are not replaced, and stale copies in the file are ignored. The namespace's
 storage quota stays as it was. The gateway checks the file before loading it and
-refuses (400, nothing written) one that is damaged or carries triggers, views over
-platform tables or stored-object records for content only other namespaces hold;
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold;
 it removes plaintext API keys and other namespaces' records an older file may carry,
 and checks again, after the load. One backup, restore, export or
 import runs at a time on a gateway.`,

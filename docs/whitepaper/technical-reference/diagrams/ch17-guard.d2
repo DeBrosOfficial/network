@@ -3,6 +3,8 @@ direction: down
 in: "statement text" {shape: parallelogram}
 tok: "tokenize: words, quoted identifiers,\nstring literals, ; and .\ncomments dropped"
 trig: "CREATE [TEMP] TRIGGER?"
+trigrules: "trigger rules (trigger.go):\nnot TEMP, main schema, BEGIN ... END,\nnothing after END, at most 64 KiB;\nbody statements INSERT, REPLACE,\nUPDATE, DELETE or SELECT;\nno clock or randomness"
+tname: "table, WHEN or a body statement\nnames a reserved name?"
 semi: "content after a ;?"
 first: "first word ATTACH, DETACH,\nPRAGMA, VACUUM?\n(first word only: EXPLAIN hides\nthe word behind it)"
 name: "any word, quoted name or\nstring literal equals a reserved name,\nsqlite_dbpage or dbstat?"
@@ -11,7 +13,11 @@ no: "ErrNotAllowed\n403 SQL_NOT_ALLOWED"
 
 in -> tok
 tok -> trig
-trig -> no: "yes"
+trig -> trigrules: "yes"
+trigrules -> no: "broken"
+trigrules -> tname: "kept"
+tname -> no: "yes, naming the statement"
+tname -> ok: "no"
 trig -> semi: "no"
 semi -> no: "yes"
 semi -> first: "no"

@@ -307,12 +307,43 @@ The legacy `db_execute` is kept indefinitely so existing functions don't break. 
 
 **What a function's SQL may not do.** The same filter runs on the namespace gateway's raw-database routes (see the technical reference's database chapter (`docs/whitepaper/technical-reference/vol1/17-database.md`)). Every database host function refuses,
 before anything runs: a second statement in one call; `ATTACH`, `DETACH`,
-`PRAGMA`, `VACUUM` and `CREATE TRIGGER`; `sqlite_dbpage` and `dbstat`; any
+`PRAGMA` and `VACUUM`; `sqlite_dbpage` and `dbstat`; any
 identifier that is a platform table's name, however it is quoted and in any
 role — table, column, alias or named parameter; and a string literal whose whole
 text is one, such as `VALUES ('grants')`, because SQLite reads a string literal
 as a table name in many positions. Pass such a value as a bound argument (`?`)
 instead. A refusal is a failed host call: `db_query_v2` and `db_execute_v2` return `0`, which a function reads as no result at all (an accepted statement always returns a result object), and the reason goes to the gateway's log.
+
+**Triggers in your schema.** A schema may keep its invariants with triggers —
+for example, deleting the rows that existed only for a message when the message
+is deleted — and a `migrate` function creates them with `db_execute_v2` or in a
+`db_transaction` batch like any other DDL. A trigger body runs later, when a
+write fires it, so it is judged when it is created, by the rules a statement
+sent directly is judged by. `CREATE TRIGGER` is accepted when:
+
+- its table, its `WHEN` clause and every statement of its body name no platform
+  table, as an identifier or a string literal (a trigger *on* a platform table
+  is refused by the same rule);
+- every body statement is `INSERT`, `REPLACE`, `UPDATE`, `DELETE` or `SELECT`
+  (`RAISE(...)` included), so a body cannot `PRAGMA`, `ATTACH`, `VACUUM` or
+  create another trigger;
+- it is in the main schema: `CREATE TEMP TRIGGER` and `temp.` names are refused,
+  because a temporary trigger lives on one node's connection, not in the
+  replicated schema, and replicas would diverge;
+- nothing in it reads the clock or randomness: `random()`, `randomblob()`,
+  `CURRENT_TIMESTAMP`, `CURRENT_DATE`, `CURRENT_TIME` and the date and time
+  functions (`date`, `time`, `datetime`, `julianday`, `unixepoch`, `strftime`,
+  `timediff`), whatever their arguments. RQLite makes a write identical on
+  every node by rewriting those in the statement it receives, never inside a
+  trigger, so each node would compute its own value. Compute the value in the
+  statement that fires the trigger and store it in a column;
+- nothing follows its `END` but semicolons, and its text is at most 64 KiB.
+
+A refused trigger's reason names the body statement that broke a rule, for
+example `trigger body statement 2 (DELETE FROM api_keys): the name api_keys is
+reserved ...`. A trigger fires on every write to its table, so `RAISE` in it
+fails that write. SQLite's `recursive_triggers` is off and cannot be turned on,
+so a trigger never fires itself.
 
 The reserved names are `api_keys`, `wallet_api_keys`, `refresh_tokens`,
 `nonces`, `device_authorizations`, `session_devices`,

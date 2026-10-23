@@ -3077,6 +3077,10 @@ Supports AI-powered failure analysis and result export.
 The report is written to stdout and progress to stderr, so --format json is one
 JSON document. A bad flag value (an unknown --subsystem or --format, a timeout
 that is not positive) is refused as usage before any node is contacted.
+
+Every node's host key must already be pinned in ~/.orama/known_hosts, where
+'orama node setup' writes it. A node with no pinned key refuses the run, never
+trusted on first use, and a key that differs from the pinned one is refused.
 ```
 
 | Flag | Default | Description |
@@ -4654,9 +4658,9 @@ The live keys, grants and sessions (in the cluster's registry) are not
 restored: a restore neither brings back a key that was revoked nor removes one
 minted since. The backup's database still carries stale copies of those rows,
 which nothing reads. Before loading, the gateway checks the database image and
-refuses (400, nothing written) one that is damaged or carries triggers, views
-over platform tables or stored-object records for content only other namespaces
-hold; it removes plaintext API keys and other namespaces' records an older backup
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold; it removes plaintext API keys and other namespaces' records an older backup
 may carry, and checks again, after the load.
 
 With ORAMA_TOKEN, set ORAMA_API_URL to the namespace's gateway
@@ -4745,8 +4749,9 @@ WebRTC settings) will be replaced with the imported file. The file must be a SQL
 database, as 'export' writes; at most 256 MiB. Live keys and grants (in the cluster
 registry) are not replaced, and stale copies in the file are ignored. The namespace's
 storage quota stays as it was. The gateway checks the file before loading it and
-refuses (400, nothing written) one that is damaged or carries triggers, views over
-platform tables or stored-object records for content only other namespaces hold;
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold;
 it removes plaintext API keys and other namespaces' records an older file may carry,
 and checks again, after the load. One backup, restore, export or
 import runs at a time on a gateway.

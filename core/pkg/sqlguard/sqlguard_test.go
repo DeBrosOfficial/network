@@ -199,31 +199,6 @@ func TestCheck_refusesRawStorageTables(t *testing.T) {
 	}
 }
 
-func TestCheck_refusesCreateTrigger(t *testing.T) {
-	for _, query := range []string{
-		"CREATE TRIGGER t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"create temp trigger t after insert on messages begin select 1 end",
-		"CREATE TEMPORARY TRIGGER t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"/* c */ CREATE TRIGGER t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"-- c\nCREATE TRIGGER IF NOT EXISTS t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"CREATE TRIGGER main.t AFTER INSERT ON messages BEGIN SELECT 1 END",
-	} {
-		err := Check(query)
-		if err == nil || !strings.Contains(err.Error(), "CREATE TRIGGER") {
-			t.Errorf("Check(%q) = %v, want a CREATE TRIGGER refusal", query, err)
-		}
-	}
-	for _, query := range []string{
-		"CREATE TABLE triggers (id INTEGER)",
-		"CREATE INDEX trigger_idx ON messages(body)",
-		"SELECT trigger FROM messages",
-	} {
-		if err := Check(query); err != nil {
-			t.Errorf("refused %q: %v", query, err)
-		}
-	}
-}
-
 // Comments are removed before anything is looked at, so a protected name
 // mentioned in one is not a reason to refuse a statement that never touches it.
 // A guard that refused these would be unusable on a codebase whose SQL is

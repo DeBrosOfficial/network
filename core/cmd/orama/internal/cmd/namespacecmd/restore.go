@@ -118,9 +118,9 @@ The live keys, grants and sessions (in the cluster's registry) are not
 restored: a restore neither brings back a key that was revoked nor removes one
 minted since. The backup's database still carries stale copies of those rows,
 which nothing reads. Before loading, the gateway checks the database image and
-refuses (400, nothing written) one that is damaged or carries triggers, views
-over platform tables or stored-object records for content only other namespaces
-hold; it removes plaintext API keys and other namespaces' records an older backup
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold; it removes plaintext API keys and other namespaces' records an older backup
 may carry, and checks again, after the load.
 
 With ORAMA_TOKEN, set ORAMA_API_URL to the namespace's gateway

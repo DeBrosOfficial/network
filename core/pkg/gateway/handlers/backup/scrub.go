@@ -23,11 +23,11 @@ import (
 // read from the cluster registry, so the stale copies an image carries are
 // read by nothing. Three things in it are not:
 //
-//   - a trigger, or a view over a platform table. It runs, or is queried, by a
-//     statement that does not name the table, which is the one thing the guard
-//     cannot see (pkg/sqlguard, package comment). Tenant SQL cannot create a
-//     trigger and the platform's migrations make none, so every trigger in an
-//     image is crafted.
+//   - a trigger or a view the SQL guard would refuse as a statement. It runs,
+//     or is queried, by a statement that does not name what it reaches, which
+//     is the one thing the guard cannot see (pkg/sqlguard, package comment).
+//     The platform's migrations make no trigger, and tenant SQL can create only
+//     one the guard accepts, so any other trigger in an image is crafted.
 //   - a plaintext api_keys row, the pre-hashing shape the gateway removes from
 //     a namespace database at start.
 //   - an ipfs_content_ownership row. /v1/storage/get serves a CID to a
@@ -95,9 +95,8 @@ func (h *Handler) scrubLoadedImage(ctx context.Context) error {
 	return h.dropForeignOwnership(ctx)
 }
 
-// dropPlatformSQL drops every trigger (tenant SQL cannot create one, and the
-// platform's migrations make none) and every view the SQL guard would refuse as a
-// statement.
+// dropPlatformSQL drops every trigger and view the SQL guard would refuse as a
+// statement. What it keeps is what tenant SQL could have created itself.
 func (h *Handler) dropPlatformSQL(ctx context.Context) error {
 	var rows []map[string]any
 	if err := h.cfg.DB.Query(ctx, &rows, platformSQLQuery); err != nil {
@@ -115,7 +114,7 @@ func (h *Handler) dropPlatformSQL(ctx context.Context) error {
 			SQL: fmt.Sprintf("DROP %s IF EXISTS %s", strings.ToUpper(kind), quoteIdent(name))})
 	}
 	if _, err := h.writeBatches(ctx, ops); err != nil {
-		return fmt.Errorf("drop the triggers and views over platform tables: %w", err)
+		return fmt.Errorf("drop the triggers and views the SQL guard refuses: %w", err)
 	}
 	return nil
 }

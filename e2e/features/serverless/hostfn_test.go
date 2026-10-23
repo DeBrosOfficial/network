@@ -218,8 +218,9 @@ func isCounting(sorted []int) bool {
 }
 
 // TestHostDB_guardRefusals: a function's SQL may not ATTACH, PRAGMA, VACUUM,
-// CREATE TRIGGER, read sqlite_dbpage/dbstat, run two statements, or name a
-// platform table in any quoting or role (website/src/docs/developer/functions.mdx#database-rqlite).
+// create a trigger on a platform table, read sqlite_dbpage/dbstat, run two
+// statements, or name a platform table in any quoting or role
+// (website/src/docs/developer/functions.mdx#database-rqlite).
 func TestHostDB_guardRefusals(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
@@ -238,7 +239,7 @@ func TestHostDB_guardRefusals(t *testing.T) {
 	}
 	for _, sql := range []string{
 		"ATTACH DATABASE '/tmp/e2e.db' AS x", "DETACH DATABASE main", "PRAGMA table_info(e2e_t)", "VACUUM",
-		"CREATE TRIGGER e2e_tr AFTER INSERT ON e2e_t BEGIN SELECT 1; END", "SELECT * FROM sqlite_dbpage", "SELECT * FROM dbstat",
+		"CREATE TRIGGER e2e_tr AFTER INSERT ON api_keys BEGIN SELECT 1; END", "SELECT * FROM sqlite_dbpage", "SELECT * FROM dbstat",
 		"SELECT 1; SELECT 2", "SELECT * FROM api_keys", `SELECT * FROM "api_keys"`, "SELECT * FROM [function_secrets]",
 		"SELECT * FROM `grants`", "SELECT * FROM main.namespaces", "SELECT 1 AS api_keys", "SELECT :grants",
 		"SELECT * FROM e2e_t WHERE v = 'grants'", "INSERT INTO e2e_t (v) VALUES ('ipfs_content_ownership')",
