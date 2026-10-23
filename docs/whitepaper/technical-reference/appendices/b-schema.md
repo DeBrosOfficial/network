@@ -46,6 +46,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `namespace_cluster_events` | Cluster | Platform | the cluster manager's log, written and read through cm.db, which exists only on the index gateway (WireCoreGateway) |
 | `namespace_cluster_nodes` | Namespace | Platform | cluster topology; a namespace gateway reads it through g.sqlDB in the namespace health loop, which starts on every gateway (gateway.go) |
 | `namespace_clusters` | Namespace | Platform | cluster topology; a namespace gateway reads it through g.sqlDB in the namespace health loop, which starts on every gateway (gateway.go) |
+| `namespace_cors_origins` | Cluster | Platform | which sites may read a namespace's answers; read by the index gateway, which answers ns-&lt;name> hosts |
 | `namespace_creators` | Cluster | Platform | the allowlist for namespace creation; a tenant copy would let the tenant add themselves |
 | `namespace_ownership` | Cluster | Platform | 0.122.x's authorization, kept for the rolling window (050 is expand-only); the next release drops it |
 | `namespace_pending_cleanup` | Cluster | Platform | the tenant reconciler's retry queue, run by the cluster manager on the index gateway through cm.db |
@@ -623,6 +624,15 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `error_message` | TEXT | no | - |  |
 | `retry_count` | INTEGER | no | `0` |  |
 | `deprovisioning_at` | TIMESTAMP | no | - |  |
+
+## namespace_cors_origins
+
+| Column | Type | Not null | Default | Key |
+|---|---|---|---|---|
+| `namespace_id` | INTEGER | no | - | primary |
+| `origins` | TEXT | yes | - |  |
+| `updated_by` | TEXT | yes | - |  |
+| `updated_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
 
 ## namespace_creators
 

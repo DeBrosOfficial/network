@@ -160,6 +160,7 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 | Route | Handler | Access | Grant | Token | Notes |
 |---|---|---|---|---|---|
 | `/v1/namespace/backup` | `g.namespaceBackupHandler` | credential | `secrets:read` | any | owned |
+| `/v1/namespace/cors-origins` | `g.corsOriginsHandler` | credential | `namespace:write` | any | main |
 | `/v1/namespace/delete` | `g.namespaceDeleteHandler` | credential | `namespace:write` | any | main |
 | `/v1/namespace/devices` | `g.authHandlers.NamespaceDevicesHandler` | credential | `members:write` | any | owned |
 | `/v1/namespace/devices/` | `g.authHandlers.NamespaceDeviceByIDHandler` | credential | `members:write` | any | owned |

@@ -27,6 +27,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/deployments/process"
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/corsorigins"
 	authhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/auth"
 	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
 	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/cache"
@@ -267,6 +268,12 @@ type Gateway struct {
 	rateLimitManager     *ratelimit.Manager
 	rateLimitConfigStore ratelimit.ConfigStore
 	rateLimitHandlers    *ratelimithandlers.Handlers
+
+	// corsOrigins are the namespaces' own allowed origins and
+	// corsOriginsHandler serves /v1/namespace/cors-origins (cors.go); both
+	// nil on a namespace gateway.
+	corsOrigins        *corsorigins.Cache
+	corsOriginsHandler *corsorigins.Handler
 
 	// WebRTC signaling and TURN credentials
 	webrtcHandlers *webrtchandlers.WebRTCHandlers
@@ -707,6 +714,7 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	}
 	gw.rateLimitManager = ratelimit.NewManager(gw.rateLimitConfigStore, rlDefaults, logger.Logger)
 	gw.rateLimitHandlers = ratelimithandlers.NewHandlers(gw.rateLimitConfigStore, gw.rateLimitManager, logger)
+	gw.initCORSOrigins(deps.GlobalORMClient, logger.Logger)
 
 	// Legacy fallback kept for now in case the manager is ever nil. The
 	// middleware prefers rateLimitManager and only uses this if the

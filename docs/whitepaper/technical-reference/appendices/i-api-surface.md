@@ -3,16 +3,16 @@
 > **At a glance.**
 >
 > - **Hand-written.** Who owns each gateway route: the SDK, the CLI, a direct caller or another node. [Gateway routes](c-gateway-routes.md) is the generated list of the same routes with their policy; this table is the owner of each and the reason a route is not in the SDK.
-> - **Owners:** SDK 43, CLI 82, direct 27, internal 23.
+> - **Owners:** SDK 43, CLI 83, direct 27, internal 23.
 
-Every route the gateway registers, and which client owns it. Humans use the CLI, programs use the SDK and this HTTP API, and there is no Orama dashboard ([the CLI](../vol1/35-the-cli.md), [SDKs](../vol1/36-sdks.md)). The TypeScript SDK's coverage is a decision rather than an accident: it reaches 43 of 175 routes, and the other 132 are here with a reason.
+Every route the gateway registers, and which client owns it. Humans use the CLI, programs use the SDK and this HTTP API, and there is no Orama dashboard ([the CLI](../vol1/35-the-cli.md), [SDKs](../vol1/36-sdks.md)). The TypeScript SDK's coverage is a decision rather than an accident: it reaches 43 of 176 routes, and the other 133 are here with a reason.
 
 The route set in this appendix and the set the gateway registers must be identical. The test `core/pkg/gateway/api_surface_test.go` reads the first two cells of every table row whose first cell is a backticked path, so a registered route missing here fails, and so does a documented route no longer registered. Adding a route means deciding who calls it.
 
 | Owner | Meaning | Count |
 |-------|---------|-------|
 | `SDK` | `@orama-network/orama` calls it | 43 |
-| `CLI` | The `orama` CLI calls it. An application has no reason to: deploying, minting keys and managing nodes are operator actions. | 82 |
+| `CLI` | The `orama` CLI calls it. An application has no reason to: deploying, minting keys and managing nodes are operator actions. | 83 |
 | `direct` | Reachable by a client, but not through the SDK by design. The reason is in the row. | 27 |
 | `internal` | Node-to-node over the WireGuard overlay. Never reachable by a client. | 23 |
 
@@ -175,6 +175,7 @@ A namespace's cache is one Olric DMap with the `dmap` name folded into each key,
 | `/v1/namespace/members` | CLI | Who else may work in this namespace, and at what role. `orama members list` or `add`. |
 | `/v1/namespace/members/` | CLI | Remove a member, or transfer the namespace. `orama members remove|transfer`. A transfer to a wallet already at the per-wallet cap is a generic `403 TRANSFER_REFUSED` that names neither the wallet nor the limit (they are in the audit trail), and writes nothing (the refusal itself is one bit about the recipient: it cannot take another namespace); 503 when the cap cannot be read. |
 | `/v1/namespaces` | CLI | Create a namespace: writes the owner grant and starts provisioning. Who may call it is `namespace_creation` (`operators`, `allowlist`, or `open`). A new cluster is `operators`; one that already had data stays `open` until an operator changes it. Per-wallet cap defaults to 10. 409 `NAMESPACE_TEARDOWN_PENDING` (`retryable`, `Retry-After`) when a deleted namespace of that name is still owed a teardown on an active node; 503 `NAMESPACE_PROVISION_FAILED` with a fixed message when the cluster could not be started (the cause is logged only); 503 `NAMESPACE_CAPACITY` when no node has room for another cluster (every node's namespace port range is full, or too few nodes report), which retrying does not clear. `orama namespace create`. |
+| `/v1/namespace/cors-origins` | CLI | The browser origins the namespace's apps are served from, beyond the built-in rule (the base domain and the names under it, localhost, `*.localhost`, loopback addresses, the Tauri webviews). `GET` reads `{"namespace","origins"}`, `PUT {"origins": [...]}` replaces the list (canonical `scheme://host[:port]`, http, https or tauri, no path or wildcard, at most 20; an empty list clears it). `namespace:write` (an owner or an admin); index gateway. Applies to requests to `ns-<name>.<base>`: at once on the recording gateway, within 30 s on every other. `orama namespace cors-origins`. |
 | `/v1/namespace/rate-limit` | CLI | Per-namespace rate limit. |
 | `/v1/namespace/restore` | CLI | Owner only. Replaces the namespace's RQLite with a backup (the live keys and grants, in the cluster registry, are not touched; the image is scrubbed after the load), writes its secrets under this cluster's encryption root, keeps this cluster's storage quota and pins its CIDs. Refused before any write when over that quota (413) or when RQLite cannot batch (503). The secrets arrive sealed to `/v1/namespace/restore-key`. `orama namespace restore`. |
 | `/v1/namespace/restore-key` | CLI | This gateway's X25519 restore public key for the namespace, derived from the cluster's current encryption root and the namespace name. `orama namespace restore-key`. |

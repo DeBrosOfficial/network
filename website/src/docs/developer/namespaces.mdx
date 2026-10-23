@@ -82,6 +82,40 @@ orama namespace webrtc-status
 
 See [WebRTC](/docs/developer/webrtc) and [Stealth TURN](/docs/privacy/stealth-turn).
 
+## Browser origins
+
+A web page can read the gateway's answers only when the gateway names the page's
+origin in `Access-Control-Allow-Origin`. Every gateway names, without being asked:
+
+- the base domain and every name under it (your deployments included);
+- a page served from this machine: `localhost`, any `*.localhost` name and the
+  loopback addresses, which is where a dev server runs;
+- the Tauri webviews: `tauri://localhost` on macOS, Linux and iOS, and
+  `http://tauri.localhost` on Windows and Android (`https://tauri.localhost`
+  when the app sets `useHttpsScheme`).
+
+An app served from its own domain is added per namespace:
+
+```bash
+orama namespace cors-origins --namespace myapp                     # show
+orama namespace cors-origins --namespace myapp \
+  --set https://myapp.com --set https://www.myapp.com             # replace the list
+orama namespace cors-origins --namespace myapp --clear              # empty it
+```
+
+An origin is `scheme://host[:port]` (`http`, `https` or `tauri`), with no path
+and no wildcard; a namespace lists at most 20. The list applies to requests sent
+to the namespace's host, `ns-<name>.<base domain>`, which is where the SDK sends
+them. It takes effect at once on the gateway that recorded it and within 30
+seconds on every other. Changing it needs an owner or an admin
+(`namespace:write`); `GET`/`PUT /v1/namespace/cors-origins` is the API. A
+namespace deleted and created again under the same name starts with an empty
+list.
+
+Browsers may send `Content-Type`, `Authorization`, `X-API-Key` and
+`X-Orama-Revoke-Key`, and may read `Retry-After`. No `Allow-Credentials` is
+ever sent: the SDK carries its credential in a header, not a cookie.
+
 ## Backing up, moving, deleting
 
 ```bash

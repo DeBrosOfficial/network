@@ -21,8 +21,11 @@ requires:
   probe: false
   chain: false
 covers:
+  cli:
+    - orama namespace cors-origins
   routes:
     - /status/assets/
+    - /v1/namespace/cors-origins
     - /v1/internal/ping
   claims:
     - "docs/whitepaper/technical-reference/vol1/12-gateway-architecture.md#internal-routes: X-Internal-Auth-* headers without a valid MAC are deleted by the first middleware; the source address is not consulted"

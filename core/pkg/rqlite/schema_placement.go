@@ -98,6 +98,7 @@ var tablePlacement = map[string]tableNote{
 	"device_authorizations":    {PlacementCluster, TrustPlatform, "started on one gateway, approved on another"},
 	"session_devices":          {PlacementCluster, TrustPlatform, "which devices hold sessions; revoked on one gateway, refused on every other"},
 	"namespace_session_policy": {PlacementCluster, TrustPlatform, "what a sign-in must prove; read where sessions are issued"},
+	"namespace_cors_origins":   {PlacementCluster, TrustPlatform, "which sites may read a namespace's answers; read by the index gateway, which answers ns-<name> hosts"},
 	"operators":                {PlacementCluster, TrustPlatform, "who may operate the cluster"},
 	"cluster_settings":         {PlacementCluster, TrustPlatform, "who may create namespaces, and how many one wallet may own; read on the index, so a copy in a tenant database is a policy the cluster never enforces"},
 	"release_installs":         {PlacementCluster, TrustPlatform, "which node installed or failed which release; a tenant copy would let a tenant mark a release bad or skip a node's turn"},

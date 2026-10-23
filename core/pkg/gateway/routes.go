@@ -250,6 +250,10 @@ func (g *Gateway) Routes() http.Handler {
 	if g.rateLimitHandlers != nil {
 		mux.HandleFunc("/v1/namespace/rate-limit", g.rateLimitConfigDispatcher)
 	}
+	// The browser origins a namespace admits beyond the built-in rule.
+	if g.corsOriginsHandler != nil {
+		mux.Handle("/v1/namespace/cors-origins", g.corsOriginsHandler)
+	}
 
 	// operator node management (wallet JWT auth via middleware)
 	if g.operatorHandler != nil {

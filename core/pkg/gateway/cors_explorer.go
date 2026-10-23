@@ -21,8 +21,8 @@ const (
 )
 
 // allowedOriginFor is the Access-Control-Allow-Origin for r: the origin when the
-// base-domain rule admits it (getAllowedOrigin), and also when it is the public
-// explorer reading the chain. That exception covers only a read of /v1/chain/:
+// built-in rule admits it (getAllowedOrigin), when the namespace r's host names
+// lists it (cors.go), and when it is the public explorer reading the chain. That exception covers only a read of /v1/chain/:
 // the same origin gets no CORS on the credentialed routes, and none on the
 // chain's POST routes (simulate, broadcast, light, faucet), which a page from
 // another site has no business sending. No other origin is let in, and the
@@ -31,6 +31,9 @@ const (
 func (g *Gateway) allowedOriginFor(r *http.Request) string {
 	origin := r.Header.Get("Origin")
 	if origin == publicExplorerOrigin && isChainRead(r) {
+		return origin
+	}
+	if origin != "" && g.namespaceAllowsOrigin(r, origin) {
 		return origin
 	}
 	return g.getAllowedOrigin(origin)

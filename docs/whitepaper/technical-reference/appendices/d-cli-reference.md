@@ -190,6 +190,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama namespace backup`](#orama-namespace-backup) - Take a backup of the namespace, sealed to your X25519 public key
   - [`orama namespace backup-open`](#orama-namespace-backup-open) - Decrypt a backup file with an X25519 private key
   - [`orama namespace backup-seal`](#orama-namespace-backup-seal) - Encrypt a backup file to an X25519 public key
+  - [`orama namespace cors-origins`](#orama-namespace-cors-origins) - Show or set the browser origins a namespace's apps are served from
   - [`orama namespace create`](#orama-namespace-create) - Create a namespace and start its cluster
   - [`orama namespace delete`](#orama-namespace-delete) - Delete the current namespace and all its resources
   - [`orama namespace disable`](#orama-namespace-disable) - Disable a feature for a namespace
@@ -4411,7 +4412,7 @@ Aliases: `ns`
 List, delete, and repair namespaces on the Orama network.
 ```
 
-Subcommands: `backup-open`, `backup-seal`, `backup`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+Subcommands: `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
 
 ## orama namespace backup
 
@@ -4486,6 +4487,39 @@ putting one back is 'orama namespace restore'.
 | `--in` | — | input file |
 | `--key` | — | 32-byte X25519 key, hex (public for seal, private for open) |
 | `--out` | — | output file |
+
+
+## orama namespace cors-origins
+
+Show or set the browser origins a namespace's apps are served from
+
+```text
+orama namespace cors-origins [flags]
+```
+
+```text
+With no flags, show the origins a browser page may call the namespace from,
+beyond the ones every gateway admits: the base domain and the names under it,
+localhost, any *.localhost name, the loopback addresses, and the Tauri webviews
+(tauri://localhost on macOS, Linux and iOS; http(s)://tauri.localhost on
+Windows and Android).
+
+--set replaces the list (repeat it for several origins, at most 20); --clear
+empties it. An origin is scheme://host[:port], http, https or tauri, with no
+path and no wildcard. The list applies to requests addressed to the
+namespace's host (ns-<name>.<base domain>), at once on the gateway that
+recorded it and within 30 seconds on every other.
+
+Changing the list needs write access to the namespace (an owner or an admin).
+
+  orama namespace cors-origins --namespace anchat --set https://app.anchat.chat --set https://anchat.chat
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--clear` | `false` | Remove every allowed origin |
+| `--namespace` | — | Namespace name |
+| `--set` | — | An allowed origin; repeat for several (replaces the list) |
 
 
 ## orama namespace create

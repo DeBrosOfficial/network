@@ -227,6 +227,14 @@ func buildRoutePolicies() *routepolicy.Table {
 	namespaceDeletion := control(auth.DomainNamespace, auth.ActionWrite)
 	namespaceDeletion.MainGateway = true
 	t.Add(namespaceDeletion, "/v1/namespace/delete")
+	// The browser origins a namespace admits. An owner's or admin's: which
+	// sites may read the namespace's answers with its users' credentials is
+	// the namespace's to decide, and a developer's grant does not reach
+	// namespace settings. MainGateway: the index gateway answers ns-<name>
+	// hosts, so its cache is the one a change must reach at once.
+	corsOrigins := control(auth.DomainNamespace, auth.ActionWrite)
+	corsOrigins.MainGateway = true
+	t.Add(corsOrigins, "/v1/namespace/cors-origins")
 	t.Add(control(auth.DomainNamespace, auth.ActionWrite),
 		"/v1/namespace/rate-limit", "/v1/namespace/session-policy",
 		"/v1/namespace/webrtc/enable", "/v1/namespace/webrtc/disable",

@@ -21,6 +21,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/deployments"
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/corsorigins"
 	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
 	"github.com/Orama-Network/orama/core/pkg/httputil"
 	"github.com/Orama-Network/orama/core/pkg/logging"
@@ -1528,15 +1529,17 @@ func principalIdentifierCandidates(ownerType, ownerID, hashed string) []string {
 }
 
 // corsMiddleware applies CORS headers. Allows requests from the configured base
-// domain and its subdomains, and the public explorer's origin on the chain's
-// read routes (cors_explorer.go). Any other origin is answered with the base
-// domain, which a browser then refuses.
+// domain and its subdomains, from this machine (getAllowedOrigin), from the
+// origins the namespace a ns-<name> host names lists (cors.go), and from the
+// public explorer's origin on the chain's read routes (cors_explorer.go). Any
+// other origin is answered with the base domain, which a browser then refuses.
 func (g *Gateway) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowedOrigin := g.allowedOriginFor(r)
 		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		w.Header().Set("Access-Control-Allow-Headers", corsAllowHeaders)
+		w.Header().Set("Access-Control-Expose-Headers", corsExposeHeaders)
 		w.Header().Set("Access-Control-Max-Age", strconv.Itoa(600))
 		if allowedOrigin != "*" {
 			w.Header().Set("Vary", "Origin")
@@ -1549,28 +1552,14 @@ func (g *Gateway) corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// getAllowedOrigin returns the allowed origin for CORS based on the request
-// origin: the base domain and any subdomain of it. A base domain is required
-// (ValidateConfig); a gateway without one used to answer "*" here.
+// getAllowedOrigin returns the allowed origin for CORS by the rule every
+// gateway applies (corsorigins.BuiltIn): the base domain and any name under
+// it, and loopback — localhost, any *.localhost name and the loopback
+// addresses, which is where a dev server and a Tauri webview serve a page
+// from (tauri://localhost, http(s)://tauri.localhost). A base domain is
+// required (ValidateConfig); a gateway without one used to answer "*" here.
 func (g *Gateway) getAllowedOrigin(origin string) string {
-	if origin == "" {
-		return "https://" + g.cfg.BaseDomain
-	}
-	// Extract hostname from origin (e.g., "https://app.dbrs.space" -> "app.dbrs.space")
-	host := origin
-	if idx := strings.Index(host, "://"); idx != -1 {
-		host = host[idx+3:]
-	}
-	// Strip port if present
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
-	// Allow exact match or subdomain match
-	if host == g.cfg.BaseDomain || strings.HasSuffix(host, "."+g.cfg.BaseDomain) {
-		return origin
-	}
-	// Also allow common development origins
-	if host == "localhost" || host == "127.0.0.1" {
+	if origin != "" && corsorigins.BuiltIn(origin, g.cfg.BaseDomain) {
 		return origin
 	}
 	return "https://" + g.cfg.BaseDomain

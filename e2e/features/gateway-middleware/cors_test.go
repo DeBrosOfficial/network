@@ -14,13 +14,14 @@ import (
 // CORS answer (core/pkg/gateway/middleware.go corsMiddleware).
 const (
 	corsMethods = "GET, PUT, POST, DELETE, OPTIONS"
-	corsHeaders = "Content-Type, Authorization, X-API-Key"
+	corsHeaders = "Content-Type, Authorization, X-API-Key, X-Orama-Revoke-Key"
 	corsMaxAge  = "600"
 )
 
 // TestCORS_preflightEchoesOnlyTheClusterOrigins: a preflight is answered 204
 // before auth; the base domain and any name under it (and the development
-// origins localhost/127.0.0.1) are echoed back with Vary: Origin, and any
+// loopback origins: localhost, *.localhost, loopback addresses, and the Tauri
+// webviews) are echoed back with Vary: Origin, and any
 // other origin — a lookalike included — gets the base domain, which a browser
 // then refuses (website/src/docs/contributor/architecture-reference.mdx "Middleware Stack": CORS runs before
 // authentication).
@@ -30,9 +31,11 @@ func TestCORS_preflightEchoesOnlyTheClusterOrigins(t *testing.T) {
 	c := harness.GW(t)
 	base := "https://" + f.State.BaseDomain
 	echoed := []string{base, "https://app." + f.State.BaseDomain, "https://a.b." + f.State.BaseDomain + ":8443",
-		"http://localhost:3000", "http://127.0.0.1"}
+		"http://localhost:3000", "http://127.0.0.1",
+		// Tauri: macOS, Linux and iOS; Windows and Android (http, or https with useHttpsScheme).
+		"tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"}
 	refused := []string{"https://evil.example", "https://" + f.State.BaseDomain + ".evil.example",
-		"https://evil" + f.State.BaseDomain, "null", "https://dbrsteting.bid"}
+		"https://evil" + f.State.BaseDomain, "null", "https://dbrsteting.bid", "http://tauri.localhost.evil.example"}
 	for _, origin := range append(echoed, refused...) {
 		resp := c.MustSend(t, gw.Req{Method: http.MethodOptions, Path: "/v1/rqlite/query", Header: http.Header{
 			"Origin": {origin}, "Access-Control-Request-Method": {"POST"}, "Access-Control-Request-Headers": {"authorization"}}})
@@ -47,7 +50,8 @@ func TestCORS_preflightEchoesOnlyTheClusterOrigins(t *testing.T) {
 			t.Errorf("preflight from %s: Allow-Origin %q, want %q", origin, got, want)
 		}
 		if resp.Header.Get("Access-Control-Allow-Methods") != corsMethods || resp.Header.Get("Access-Control-Allow-Headers") != corsHeaders ||
-			resp.Header.Get("Access-Control-Max-Age") != corsMaxAge || resp.Header.Get("Access-Control-Allow-Credentials") != "" {
+			resp.Header.Get("Access-Control-Max-Age") != corsMaxAge || resp.Header.Get("Access-Control-Allow-Credentials") != "" ||
+			resp.Header.Get("Access-Control-Expose-Headers") != "Retry-After" {
 			t.Errorf("preflight from %s: CORS headers %v", origin, resp.Header)
 		}
 		requireSecurityHeaders(t, "preflight", resp)
