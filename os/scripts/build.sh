@@ -115,6 +115,13 @@ if [ -f "$BUILD_OUTPUT/images/orama-os.qcow2" ]; then
     echo "qcow2:      $OUTPUT_DIR/${FINAL_PREFIX}.qcow2"
 fi
 
+# The update payload: the root filesystem an installed node's agent writes to
+# its standby partition (os/agent/internal/update). scripts/sign.sh signs it.
+if [ -f "$BUILD_OUTPUT/images/rootfs.squashfs" ]; then
+    cp "$BUILD_OUTPUT/images/rootfs.squashfs" "$OUTPUT_DIR/${FINAL_PREFIX}.rootfs.squashfs"
+    echo "Update:     $OUTPUT_DIR/${FINAL_PREFIX}.rootfs.squashfs"
+fi
+
 if [ -f "$BUILD_OUTPUT/images/rootfs.roothash" ]; then
     cp "$BUILD_OUTPUT/images/rootfs.roothash" "$OUTPUT_DIR/${FINAL_PREFIX}.roothash"
     echo "Root hash:  $OUTPUT_DIR/${FINAL_PREFIX}.roothash"

@@ -28,8 +28,9 @@ const (
 )
 
 // verifySignature verifies an EVM personal_sign signature against
-// SignerAddress. message is the signed text: the image's hex SHA-256, as
-// VersionInfo.SHA256 carries it. signatureHex is the 65-byte hex-encoded
+// SignerAddress. message is the signed text: the update payload's lowercase
+// hex SHA-256, as VersionInfo.SHA256 carries it and os/scripts/sign.sh signs
+// it. signatureHex is the 65-byte hex-encoded
 // signature (r || s || v).
 func verifySignature(message, signatureHex string) error {
 	if SignerAddress == "0x0000000000000000000000000000000000000000" {

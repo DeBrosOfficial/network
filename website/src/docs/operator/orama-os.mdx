@@ -107,8 +107,8 @@ curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bear
 A/B partition scheme:
 
 1. The agent checks for new versions hourly, at `https://updates.orama.network/v1/latest` unless the image was built with `ORAMA_UPDATE_URL` (written to `/etc/orama/update-url` on the read-only rootfs; it must be an absolute `https` URL without a query, and an image with a malformed one refuses to start its services). Only whoever builds the image can change it, so a QEMU test image can be pointed at a test release server; the signature check below still applies.
-2. Downloads the signed image over HTTPS.
-3. Verifies the image's SHA-256, then the RootWallet EVM signature: an EIP-191 `personal_sign` over that SHA-256 in hex, which must recover to the signer address built into the agent. An unsigned update, or one signed by any other key, is refused before anything is written.
+2. Downloads the update payload over HTTPS: the root filesystem image, which `make build` writes as `orama-os-<version>-<arch>.rootfs.squashfs`.
+3. Verifies the payload's SHA-256, then the RootWallet EVM signature: an EIP-191 `personal_sign` over that SHA-256 in lowercase hex, which must recover to the signer address built into the agent. An unsigned update, or one signed by any other key, is refused before anything is written. `make sign` (`os/scripts/sign.sh`) signs exactly that message and writes it to `orama-os-<version>-<arch>.sig`.
 4. Writes to the standby partition.
 5. Sets systemd-boot to boot from it with `tries_left=3`.
 6. On the next reboot (the agent does not reboot by itself), the node boots into it.
