@@ -246,6 +246,7 @@ func NewClusterManager(
 		provisioning:          make(map[string]bool),
 		startedAt:             time.Now(),
 	}
+	portAllocator.prober = cm
 	cm.initTenantDrivers()
 	return cm
 }
@@ -950,6 +951,8 @@ type spawnResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 	PID     int    `json:"pid,omitempty"`
+	// BoundPorts answers ActionProbePorts.
+	BoundPorts []int `json:"bound_ports,omitempty"`
 }
 
 // requireOverlayTarget refuses a spawn target outside the WireGuard overlay.

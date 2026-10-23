@@ -474,7 +474,12 @@ writes (node selection, port allocation, the ready/failed status) wait, with
 backoff, while the registry has no raft leader, and fail at once on any other
 error. Port allocation is idempotent per (cluster, node): a retry whose first
 INSERT committed but whose reply was lost gets that block back instead of a
-UNIQUE failure, and its backoff ends with the context. Nodes are chosen from a
+UNIQUE failure, and its backoff ends with the context. A block is never taken
+on the word of `namespace_port_allocations` alone: the allocator asks the target
+node which ports of 10000-10099 something holds (the coordination action
+`probe-ports`, which reads `/proc/net` and binds nothing) and chooses the block
+around them, so an orphaned namespace or any other process holding a port the
+table calls free no longer crash-loops the new namespace's services. Nodes are chosen from a
 read of the registry, so a cluster provisioning at the same time can take a
 chosen node's last port block first; the blocks already taken are given back and
 the nodes chosen again from a fresh read (up to 5 times), so a namespace the
