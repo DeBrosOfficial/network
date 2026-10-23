@@ -4910,11 +4910,13 @@ left out keeps its value.
 Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--device-policy` | — | What an end user's sign-in must bind: optional \| required \| approval |
+| `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
 | `--namespace` | — | Namespace name |
 | `--sign-in` | — | Who may sign in: members \| open |
 
@@ -4964,13 +4966,11 @@ Add a network by its manifest, or a cluster by its gateway
 
 ```text
 orama network add <manifest-url> | <name> <gateway-url> [description] [flags]
-  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
 ```
 
 ```text
 Add a network, one of two ways.
 
-| `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
 With one argument, a manifest URL: https://<host>/<path>/manifest.json. The
 manifest names the chain id, the genesis digest, the seeds, the release channel
 and the digest of the release root the network's software is verified against.

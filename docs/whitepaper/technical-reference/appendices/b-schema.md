@@ -753,6 +753,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `updated_by` | TEXT | yes | - |  |
 | `updated_at` | TIMESTAMP | yes | `CURRENT_TIMESTAMP` |  |
 | `sign_in` | TEXT | yes | `'members'` |  |
+| `end_user_topics` | TEXT | yes | `'[]'` |  |
 
 ## namespace_sqlite_backups
 
@@ -791,7 +792,6 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `namespace_name` | TEXT | yes | - |  |
 | `enabled` | INTEGER | yes | `1` |  |
 | `turn_shared_secret` | TEXT | yes | - |  |
-| `end_user_topics` | TEXT | yes | `'[]'` |  |
 | `turn_credential_ttl` | INTEGER | yes | `600` |  |
 | `sfu_node_count` | INTEGER | yes | `3` |  |
 | `turn_node_count` | INTEGER | yes | `2` |  |
