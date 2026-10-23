@@ -70,14 +70,14 @@ func TestPublic_chainTakesMedianNodeAndSharesPower(t *testing.T) {
 	behind.Chain = &report.ChainReport{Responsive: true, LatestHeight: 90}
 	median := healthyReport("Leader")
 	median.Chain = &report.ChainReport{
-		Responsive: true, ChainID: "orama-stagenet-1", LatestHeight: 100, TotalVotingPower: 400,
+		Responsive: true, ChainID: "orama-testnet-1", LatestHeight: 100, TotalVotingPower: 400,
 		Validators: []report.ChainValidator{{Address: "A", VotingPower: 100}, {Address: "B", VotingPower: 300}},
 	}
 	// A spoofed view claiming a far higher height must not be what is published.
 	spoofed := healthyReport("Follower")
 	spoofed.Chain = &report.ChainReport{Responsive: true, ChainID: "evil", LatestHeight: 1 << 40}
 	p := Public(snapshotOf(reported("a", "node", behind), reported("b", "node", median), reported("c", "node", spoofed)), nil)
-	if p.Chain == nil || p.Chain.Height != 100 || p.Chain.ChainID != "orama-stagenet-1" {
+	if p.Chain == nil || p.Chain.Height != 100 || p.Chain.ChainID != "orama-testnet-1" {
 		t.Fatalf("chain = %+v, want the median node at height 100", p.Chain)
 	}
 	if v := p.Chain.Validators; len(v) != 2 || v[0].Address != "B" || v[0].SharePct != 75 {

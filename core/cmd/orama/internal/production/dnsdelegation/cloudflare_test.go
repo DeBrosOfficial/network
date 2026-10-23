@@ -58,7 +58,7 @@ func TestCloudflare_createsNSAndGlueThenVerifies(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := Delegation{Domain: "stagenet.example.test", Nameservers: []Nameserver{
+	d := Delegation{Domain: "testnet.example.test", Nameservers: []Nameserver{
 		{Hostname: "ns1", IP: "203.0.113.5"},
 	}}
 	c := &Cloudflare{
@@ -66,7 +66,7 @@ func TestCloudflare_createsNSAndGlueThenVerifies(t *testing.T) {
 		Base:  srv.URL,
 		HTTP:  srv.Client(),
 		LookupNS: func(context.Context, string) ([]string, error) {
-			return []string{"ns1.stagenet.example.test."}, nil
+			return []string{"ns1.testnet.example.test."}, nil
 		},
 		LookupHost: func(context.Context, string) ([]string, error) {
 			return []string{"203.0.113.5"}, nil
@@ -79,10 +79,10 @@ func TestCloudflare_createsNSAndGlueThenVerifies(t *testing.T) {
 	defer mu.Unlock()
 	var ns, glue bool
 	for _, rec := range records {
-		if rec.Type == "NS" && rec.Name == "stagenet.example.test" && rec.Content == "ns1.stagenet.example.test" {
+		if rec.Type == "NS" && rec.Name == "testnet.example.test" && rec.Content == "ns1.testnet.example.test" {
 			ns = true
 		}
-		if rec.Type == "A" && rec.Name == "ns1.stagenet.example.test" && rec.Content == "203.0.113.5" {
+		if rec.Type == "A" && rec.Name == "ns1.testnet.example.test" && rec.Content == "203.0.113.5" {
 			glue = true
 		}
 	}
@@ -102,14 +102,14 @@ func TestCloudflare_refusesARegistryTLD(t *testing.T) {
 func TestCloudflare_verifyRefusesAMissingGlue(t *testing.T) {
 	c := &Cloudflare{
 		LookupNS: func(context.Context, string) ([]string, error) {
-			return []string{"ns1.stagenet.example.test"}, nil
+			return []string{"ns1.testnet.example.test"}, nil
 		},
 		LookupHost: func(context.Context, string) ([]string, error) {
 			return []string{"198.51.100.9"}, nil
 		},
 	}
 	err := c.verify(context.Background(), Delegation{
-		Domain:      "stagenet.example.test",
+		Domain:      "testnet.example.test",
 		Nameservers: []Nameserver{{Hostname: "ns1", IP: "203.0.113.5"}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "glue") {

@@ -54,7 +54,7 @@ func node(t *testing.T) (*chain.Chain, fleet.Node) {
 	c := chain.New(t)
 	n := c.Node(t, chain.OperatorNode)
 	if c.F.Exec(t, n, "test -x "+reporterBin).Exit != 0 {
-		harness.SkipNotApplicable(t, n.Name+" has no "+reporterBin+": the run installed no orama-global (the stagenet install does)")
+		harness.SkipNotApplicable(t, n.Name+" has no "+reporterBin+": the run installed no orama-global (the testnet install does)")
 	}
 	return c, n
 }

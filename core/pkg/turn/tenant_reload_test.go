@@ -61,7 +61,7 @@ func baseCfg(tenants ...TenantConfig) Config {
 	return Config{
 		ListenAddr:     "0.0.0.0:3478",
 		PublicIP:       "203.0.113.1",
-		Realm:          "orama-devnet.network",
+		Realm:          "devnet.orama.network",
 		RelayPortStart: 49152,
 		RelayPortEnd:   49951,
 		Tenants:        tenants,
@@ -247,7 +247,7 @@ func TestBuildTenantSet_acceptsLegacySingleTenantConfig(t *testing.T) {
 	cfg := Config{
 		ListenAddr:     "0.0.0.0:3478",
 		PublicIP:       "203.0.113.1",
-		Realm:          "orama-devnet.network",
+		Realm:          "devnet.orama.network",
 		RelayPortStart: 49152,
 		RelayPortEnd:   49951,
 		Namespace:      "anchat-test",
@@ -272,7 +272,7 @@ func TestParseConfig_roundTripsTheReconcilerOutput(t *testing.T) {
 		TenantConfig{Namespace: "a", AuthSecret: "s1"},
 		TenantConfig{
 			Namespace: "b", AuthSecret: "s2",
-			StealthDomain:      "cdn-abc.orama-devnet.network",
+			StealthDomain:      "cdn-abc.devnet.orama.network",
 			TLSStealthCertPath: "/tmp/c.pem",
 			TLSStealthKeyPath:  "/tmp/k.pem",
 		},
@@ -292,7 +292,7 @@ func TestParseConfig_roundTripsTheReconcilerOutput(t *testing.T) {
 	if len(got.Tenants) != 2 {
 		t.Fatalf("got %d tenants after the round trip, want 2", len(got.Tenants))
 	}
-	if got.Tenants[1].StealthDomain != "cdn-abc.orama-devnet.network" {
+	if got.Tenants[1].StealthDomain != "cdn-abc.devnet.orama.network" {
 		t.Errorf("stealth domain lost in the round trip: %+v", got.Tenants[1])
 	}
 	if errs := got.Validate(); len(errs) != 0 {
@@ -305,19 +305,19 @@ func TestParseConfig_roundTripsTheReconcilerOutput(t *testing.T) {
 // a goroutine polling a file nothing serves, for the life of the node.
 func TestReloadTenants_stopsWatchersForDroppedStealthCerts(t *testing.T) {
 	dir := t.TempDir()
-	certPath, keyPath := writeTestCertPair(t, dir, "cdn-a.orama-devnet.network")
+	certPath, keyPath := writeTestCertPair(t, dir, "cdn-a.devnet.orama.network")
 
 	path := filepath.Join(dir, "turn.yaml")
 	withStealth := baseCfg(TenantConfig{
 		Namespace: "a", AuthSecret: "s1",
-		StealthDomain:      "cdn-a.orama-devnet.network",
+		StealthDomain:      "cdn-a.devnet.orama.network",
 		TLSStealthCertPath: certPath,
 		TLSStealthKeyPath:  keyPath,
 	})
 	writeCfg(t, path, withStealth)
 	s := reloadServer(t, &withStealth)
 
-	sc, ok := s.currentTenants().byHost["cdn-a.orama-devnet.network"]
+	sc, ok := s.currentTenants().byHost["cdn-a.devnet.orama.network"]
 	if !ok || sc == nil {
 		t.Fatal("stealth cert was not loaded")
 	}
@@ -334,7 +334,7 @@ func TestReloadTenants_stopsWatchersForDroppedStealthCerts(t *testing.T) {
 	default:
 		t.Error("the dropped tenant's cert watcher is still running — one goroutine leaks per stealth disable")
 	}
-	if _, still := s.stealthCertFor("cdn-a.orama-devnet.network"); still {
+	if _, still := s.stealthCertFor("cdn-a.devnet.orama.network"); still {
 		t.Error("a dropped stealth hostname is still served a certificate")
 	}
 }
@@ -343,19 +343,19 @@ func TestReloadTenants_stopsWatchersForDroppedStealthCerts(t *testing.T) {
 // reloaded from disk on every tick.
 func TestReloadTenants_keepsWatcherForUnchangedStealthCert(t *testing.T) {
 	dir := t.TempDir()
-	certPath, keyPath := writeTestCertPair(t, dir, "cdn-a.orama-devnet.network")
+	certPath, keyPath := writeTestCertPair(t, dir, "cdn-a.devnet.orama.network")
 
 	path := filepath.Join(dir, "turn.yaml")
 	tenant := TenantConfig{
 		Namespace: "a", AuthSecret: "s1",
-		StealthDomain:      "cdn-a.orama-devnet.network",
+		StealthDomain:      "cdn-a.devnet.orama.network",
 		TLSStealthCertPath: certPath,
 		TLSStealthKeyPath:  keyPath,
 	}
 	cfg := baseCfg(tenant)
 	writeCfg(t, path, cfg)
 	s := reloadServer(t, &cfg)
-	before := s.currentTenants().byHost["cdn-a.orama-devnet.network"]
+	before := s.currentTenants().byHost["cdn-a.devnet.orama.network"]
 
 	// Add an unrelated tenant; the stealth one is untouched.
 	writeCfg(t, path, baseCfg(tenant, TenantConfig{Namespace: "b", AuthSecret: "s2"}))
@@ -363,7 +363,7 @@ func TestReloadTenants_keepsWatcherForUnchangedStealthCert(t *testing.T) {
 		t.Fatalf("reloadTenants: %v", err)
 	}
 
-	after := s.currentTenants().byHost["cdn-a.orama-devnet.network"]
+	after := s.currentTenants().byHost["cdn-a.devnet.orama.network"]
 	if before != after {
 		t.Error("an unchanged stealth cert was rebuilt — a transient read error would take a working tenant's stealth endpoint down")
 	}

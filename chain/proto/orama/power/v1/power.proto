@@ -12,7 +12,7 @@ import "gogoproto/gogo.proto";
 message Params {
   // min_committee_size is the minimum number of bootstrap committee members a
   // genesis must declare. Production chain-ids (see Params.Validate) require
-  // at least 30; a devnet/stagenet/localnet chain-id may declare as few as 1
+  // at least 30; a devnet/testnet/localnet chain-id may declare as few as 1
   // for local testing.
   uint64 min_committee_size = 1;
   // bootstrap_exit_stake is the total bonded stake (norama, across every

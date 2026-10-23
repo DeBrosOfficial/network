@@ -3,7 +3,7 @@
 // The chain refuses, at its genesis, what only a test network may do: a
 // bootstrap committee smaller than ProductionMinCommitteeSize, a faucet, a
 // genesis supply and short epochs. It decides by the chain id alone (a test
-// network's is exactly a localnet, devnet or stagenet id), and the CLI makes the same
+// network's is exactly a localnet, devnet or testnet id), and the CLI makes the same
 // decision before it builds a genesis the chain would refuse, so the mistake is
 // found before any machine is touched. TestNetclass_matchesChain keeps the
 // constants equal to the chain's.
@@ -12,6 +12,7 @@ package netclass
 import (
 	"fmt"
 	"regexp"
+	"slices"
 )
 
 // MaxChainIDLen is the longest chain id any part of the system takes.
@@ -29,18 +30,18 @@ var chainIDPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,` + fmt.Sprint(Ma
 func ValidChainID(id string) bool { return chainIDPattern.MatchString(id) }
 
 // TestChainIDForm names, in messages, the chain ids of a test network.
-const TestChainIDForm = "orama-[<name>-](localnet|devnet|stagenet)-<id>"
+const TestChainIDForm = "orama-[<name>-](localnet|devnet|testnet)-<id>"
 
 // testChainIDPattern is the chain's own rule for a test network's chain id, the same pattern as
 // chain/app/params testChainIDPattern (TestNetclass_matchesChain keeps them equal): "orama-",
 // optionally one name word that starts with a letter, the class, then one or more lowercase
 // alphanumeric words joined by hyphens. It is anchored at both ends, so an id that only contains a
-// class word ("orama-1-stagenet-x") is a production id. Group 2 is the name word and group 3 the class.
-var testChainIDPattern = regexp.MustCompile(`^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$`)
+// class word ("orama-1-testnet-x") is a production id. Group 2 is the name word and group 3 the class.
+var testChainIDPattern = regexp.MustCompile(`^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|testnet)-[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // classWords are the class names; none may be the optional name word (chain/app/params classWords,
 // kept equal by TestNetclass_matchesChain).
-var classWords = []string{"localnet", "devnet", "stagenet"}
+var classWords = []string{"localnet", "devnet", "testnet"}
 
 // testClass returns the class chainID names, or "" when it is not exactly a test network's id (a
 // name word that is a class word makes it not one).
@@ -55,6 +56,16 @@ func testClass(chainID string) string {
 		}
 	}
 	return m[3]
+}
+
+// ExampleTestChainID is the chain id to suggest for a test network called name:
+// orama-<name>-testnet-1, or orama-<name>-1 when name is itself a class word, because a class
+// word as the name word makes the id a production one (orama-testnet-testnet-1).
+func ExampleTestChainID(name string) string {
+	if slices.Contains(classWords, name) {
+		return "orama-" + name + "-1"
+	}
+	return "orama-" + name + "-testnet-1"
 }
 
 // ProductionMinCommittee is the smallest bootstrap committee a production
@@ -72,7 +83,7 @@ func IsLocalnet(chainID string) bool { return testClass(chainID) == "localnet" }
 func IsDevnet(chainID string) bool { return testClass(chainID) == "devnet" }
 
 // IsProduction reports whether chainID names a production network: one that is not exactly a
-// localnet, devnet or stagenet id.
+// localnet, devnet or testnet id.
 func IsProduction(chainID string) bool { return testClass(chainID) == "" }
 
 // CheckCommittee refuses a production chain id whose bootstrap committee is
@@ -83,7 +94,7 @@ func CheckCommittee(chainID string, size int) error {
 	}
 	if IsProduction(chainID) && size < ProductionMinCommittee {
 		return fmt.Errorf("chain id %q is not of the form %s, so it is a production network, and a production network starts with at least %d bootstrap validators, not %d: "+
-			"use a chain id such as orama-<name>-stagenet-1 for a test network",
+			"use a chain id such as orama-<name>-testnet-1 for a test network",
 			chainID, TestChainIDForm, ProductionMinCommittee, size)
 	}
 	return nil

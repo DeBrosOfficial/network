@@ -122,7 +122,7 @@ func TestShieldedReal_aRejectedBundleGivesTheSameResultOnEveryNode(t *testing.T)
 // localnet or a scripted devnet may run anywhere.
 func TestCheckNodeCanVerify_aHostThatCannotStartFromTheCheckedFileIsRefused(t *testing.T) {
 	opts := simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir(), app.FlagShieldedVerifier: realVerifierPath(t)}
-	err := app.CheckNodeCanVerify("orama-stagenet-6", opts)
+	err := app.CheckNodeCanVerify("orama-testnet-6", opts)
 	if runtime.GOOS == "linux" {
 		require.NoError(t, err)
 	} else {

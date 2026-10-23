@@ -76,7 +76,7 @@ type runState struct {
 }
 
 func cmdRun(parent context.Context, args []string) (int, error) {
-	if err := refuseStagenetEnv("run"); err != nil {
+	if err := refuseTestnetEnv("run"); err != nil {
 		return exitFail, err
 	}
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)

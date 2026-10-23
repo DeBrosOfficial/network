@@ -12,12 +12,12 @@ import (
 // gateScripts are the shell scripts that refuse a chain id before they touch a machine. Each carries
 // the chain's pattern as text, so a script and ClassOfChainID cannot disagree on what a test network is.
 var gateScripts = []string{
-	"chain/scripts/stagenet/deploy.sh",
+	"chain/scripts/testnet/deploy.sh",
 	"chain/scripts/localnet/localnet.sh",
 	"e2e/scripts/chain-deploy.sh",
 }
 
-const nameWordCheck = `case "$chain_name" in localnet | devnet | stagenet) chain_class="" ;; esac`
+const nameWordCheck = `case "$chain_name" in localnet | devnet | testnet) chain_class="" ;; esac`
 
 func repoFile(t *testing.T, rel string) string {
 	t.Helper()
@@ -42,7 +42,7 @@ func TestChainIDGateScripts_carryTheChainsPattern(t *testing.T) {
 		if !strings.Contains(src, nameWordCheck) {
 			t.Errorf("%s does not reject a class word as the name word (%s)", rel, nameWordCheck)
 		}
-		if strings.Contains(src, "*-devnet-*") || strings.Contains(src, "*-stagenet-*") || strings.Contains(src, "*-localnet-*") {
+		if strings.Contains(src, "*-devnet-*") || strings.Contains(src, "*-testnet-*") || strings.Contains(src, "*-localnet-*") {
 			t.Errorf("%s still gates a chain id on a substring", rel)
 		}
 	}
@@ -57,12 +57,12 @@ func TestChainIDGateScripts_bashAgreesWithClassOfChainID(t *testing.T) {
 	const snippet = `if [[ "$1" =~ $2 ]]; then chain_name="${BASH_REMATCH[2]}"; chain_class="${BASH_REMATCH[3]}"; fi
 ` + nameWordCheck + `
 printf '%s' "$chain_class"`
-	want := map[ChainClass]string{ChainProduction: "", ChainLocalnet: "localnet", ChainDevnet: "devnet", ChainStagenet: "stagenet"}
+	want := map[ChainClass]string{ChainProduction: "", ChainLocalnet: "localnet", ChainDevnet: "devnet", ChainTestnet: "testnet"}
 	ids := []string{
-		"orama-stagenet-10", "orama-devnet-9", "orama-localnet-1", "orama-devnet-e2e-run7", "orama-pubnet-stagenet-1",
-		"orama-1-stagenet-x", "mainnet-localnet-1", "orama-stagenet-", "orama-stagenet", "orama-1", "",
-		"orama-devnet-localnet-1", "orama-localnet-devnet-1", "orama-stagenet-stagenet-1", "orama-devnet-devnet-1",
-		"orama-devnet-localnetx-1", "orama-pubnet-localnet-1", "orama-a-b-stagenet-1", "orama-Stagenet-1",
+		"orama-testnet-10", "orama-devnet-9", "orama-localnet-1", "orama-devnet-e2e-run7", "orama-pubnet-testnet-1",
+		"orama-1-testnet-x", "mainnet-localnet-1", "orama-testnet-", "orama-testnet", "orama-1", "",
+		"orama-devnet-localnet-1", "orama-localnet-devnet-1", "orama-testnet-testnet-1", "orama-devnet-devnet-1",
+		"orama-devnet-localnetx-1", "orama-pubnet-localnet-1", "orama-a-b-testnet-1", "orama-Testnet-1", "orama-stagenet-11",
 	}
 	for _, id := range ids {
 		out, err := exec.Command(bash, "-c", snippet, "_", id, testChainIDPattern.String()).Output()

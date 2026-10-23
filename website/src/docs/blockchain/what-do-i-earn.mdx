@@ -6,7 +6,7 @@ Every number in the tables below is computed from the chain's parameters by a te
 
 ## How to read the tables
 
-- **Epochs, not days.** Pay and the halving schedule count epochs. A mainnet epoch is 24 hours of block time and at least 14,400 blocks, so one a day. The stagenet installer uses 300 seconds, so 288 a day, and each stagenet epoch pays the same per-epoch amount. A stagenet therefore runs through the schedule 288 times faster.
+- **Epochs, not days.** Pay and the halving schedule count epochs. A mainnet epoch is 24 hours of block time and at least 14,400 blocks, so one a day. The testnet installer uses 300 seconds, so 288 a day, and each testnet epoch pays the same per-epoch amount. A testnet therefore runs through the schedule 288 times faster.
 - **Shares are ceilings.** Only the validator share is minted every epoch. Storage and relay are minted when a provider or relay is actually paid, never beyond the ceiling, and the development share only on a governance-approved spend. What nobody claims is never created. See [Supply and emission](/docs/blockchain/supply).
 - **Everything lands in earnings.** Pay is credited to the operator's earnings account. The owner can withdraw it to a bank balance with `MsgWithdrawEarnings` and send it from there; see [Fees](/docs/blockchain/fees).
 - **Storage and relay pay 90%.** Of each service payment, 90% goes to the operator, 5% is burned and 5% funds the archive.
@@ -56,7 +56,7 @@ The subsidy is zero below 8 distinct operators and reaches its full value at 32.
 | Network | Epoch length | Epochs per day |
 | --- | --- | --- |
 | Mainnet | 86,400 seconds | 1 |
-| Stagenet | 300 seconds | 288 |
+| Testnet | 300 seconds | 288 |
 
 ### Where each number comes from
 
@@ -67,7 +67,7 @@ The subsidy is zero below 8 distinct operators and reaches its full value at 32.
 | Tail of 274 per epoch | `chain/x/emission/types/schedule.go:27` |
 | Split 60 / 25 / 10 / 5 | `chain/x/emission/types/split.go:16` |
 | Mainnet epoch of 24 hours | `chain/x/emission/types/params.go:14` |
-| Stagenet epoch of 300 seconds | `core/cmd/orama/internal/setup/create_genesis.go:24` |
+| Testnet epoch of 300 seconds | `core/cmd/orama/internal/setup/create_genesis.go:24` |
 | Operator cap of 5% | `chain/x/power/types/params.go:121` |
 | Redistribution bound of 2 | `chain/x/power/types/params.go:61` |
 | Provider share of a service payment, 90% | `chain/x/storage/types/subsidy.go:11` |

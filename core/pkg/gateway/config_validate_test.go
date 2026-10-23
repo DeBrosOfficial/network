@@ -382,7 +382,7 @@ func TestValidateConfig_BaseDomainMustBeADomain(t *testing.T) {
 			t.Errorf("base domain %q: got %v, want the domain_name error", bad, errs)
 		}
 	}
-	for _, good := range []string{"example.com", "orama-devnet.network", "a.b.c.example.com"} {
+	for _, good := range []string{"example.com", "devnet.orama.network", "a.b.c.example.com"} {
 		if errs := cfg(good).ValidateConfig(); len(errs) != 0 {
 			t.Errorf("base domain %q refused: %v", good, errs)
 		}

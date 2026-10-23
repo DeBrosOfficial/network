@@ -10,12 +10,12 @@
 //	e2e-fleet sweep-namespaces [--max-age 4h] [--listed]
 //	e2e-fleet report [--bug-drafts]
 //	e2e-fleet coverage [--json]
-//	e2e-fleet target stagenet --out <state.json> [--chain-id ID]
+//	e2e-fleet target testnet --out <state.json> [--chain-id ID]
 //	e2e-fleet hook destroy <host> | break <host> | provision [--name N] [--location L]
 //
-// Against the existing stagenet cluster only `target`, `test`, `report`,
+// Against the existing testnet cluster only `target`, `test`, `report`,
 // `coverage` and `sweep-namespaces` work: `run`, `provision`, `teardown`, `sweep` and `hook` refuse a
-// stagenet state (see stagenet.go).
+// testnet state (see testnet.go).
 //
 // Secrets (HCLOUD_TOKEN, CF_API_TOKEN, CF_ZONE) come from the environment that
 // `infisical run` builds; the runner prints their names when missing and never
@@ -62,7 +62,7 @@ func commands() map[string]command {
 		"sweep-namespaces": {"remove the test namespaces older than --max-age that runs left on the cluster in E2E_FLEET_STATE", cmdSweepNamespaces},
 		"report":           {"rebuild the report from the artifact dir", cmdReport},
 		"coverage":         {"run the coverage gate (no servers)", cmdCoverage},
-		"target":           {"write the state file of an existing cluster: target stagenet --out <state.json>", cmdTarget},
+		"target":           {"write the state file of an existing cluster: target testnet --out <state.json>", cmdTarget},
 		"hook":             {"lifecycle hooks: destroy <host> | break <host> | provision", cmdHook},
 		// broker-serve is started by run and test, never by hand.
 		cmdBrokerServeName: {"internal: the broker child `run` and `test` start (credentials on fd 3)", cmdBrokerServe},

@@ -10,10 +10,10 @@ import (
 // pkg/gateway/middleware.go::handleNamespaceGatewayRequest REWRITES r.Host
 // to the backend target's IP:port (e.g. "10.0.0.6:10004") before
 // forwarding. The original public host (e.g.
-// "ns-anchat-test.orama-devnet.network") is preserved in
+// "ns-anchat-test.devnet.orama.network") is preserved in
 // X-Forwarded-Host. If checkWSOrigin only consults r.Host, every
 // browser / RN-iOS WebSocket upgrade is rejected 403 because the
-// client's Origin (`https://ns-anchat-test.orama-devnet.network`) will
+// client's Origin (`https://ns-anchat-test.devnet.orama.network`) will
 // never match the proxied `10.0.0.6` r.Host.
 //
 // AnChat hit this for ~24h with their iPhone WS retests producing
@@ -28,8 +28,8 @@ func TestCheckWSOrigin_ProxyHopRewritesHost(t *testing.T) {
 	// handleNamespaceGatewayRequest: r.Host has been overwritten to the
 	// backend IP, but X-Forwarded-Host carries the original public host.
 	r.Host = "10.0.0.6:10004"
-	r.Header.Set("X-Forwarded-Host", "ns-anchat-test.orama-devnet.network")
-	r.Header.Set("Origin", "https://ns-anchat-test.orama-devnet.network")
+	r.Header.Set("X-Forwarded-Host", "ns-anchat-test.devnet.orama.network")
+	r.Header.Set("Origin", "https://ns-anchat-test.devnet.orama.network")
 
 	if !checkWSOrigin(r) {
 		t.Fatal("checkWSOrigin must accept Origin matching X-Forwarded-Host (proxy-hop scenario); rejecting will reproduce bugs #240/#249 — every iOS / browser WS client gets 403")
@@ -52,8 +52,8 @@ func TestCheckWSOrigin_NoOriginAllowed(t *testing.T) {
 // host in that scenario.
 func TestCheckWSOrigin_DirectMatch(t *testing.T) {
 	r := httptest.NewRequest("GET", "/v1/functions/rpc-router/ws", nil)
-	r.Host = "ns-anchat-test.orama-devnet.network"
-	r.Header.Set("Origin", "https://ns-anchat-test.orama-devnet.network")
+	r.Host = "ns-anchat-test.devnet.orama.network"
+	r.Header.Set("Origin", "https://ns-anchat-test.devnet.orama.network")
 	if !checkWSOrigin(r) {
 		t.Fatal("direct-connection Origin == r.Host must be allowed")
 	}
@@ -63,8 +63,8 @@ func TestCheckWSOrigin_DirectMatch(t *testing.T) {
 // host" allowance (HasSuffix("." + host)).
 func TestCheckWSOrigin_SubdomainMatch(t *testing.T) {
 	r := httptest.NewRequest("GET", "/v1/functions/rpc-router/ws", nil)
-	r.Header.Set("X-Forwarded-Host", "orama-devnet.network")
-	r.Header.Set("Origin", "https://app.orama-devnet.network")
+	r.Header.Set("X-Forwarded-Host", "devnet.orama.network")
+	r.Header.Set("Origin", "https://app.devnet.orama.network")
 	if !checkWSOrigin(r) {
 		t.Fatal("subdomain of X-Forwarded-Host must be allowed")
 	}
@@ -76,7 +76,7 @@ func TestCheckWSOrigin_SubdomainMatch(t *testing.T) {
 func TestCheckWSOrigin_CrossDomainRejected(t *testing.T) {
 	r := httptest.NewRequest("GET", "/v1/functions/rpc-router/ws", nil)
 	r.Host = "10.0.0.6:10004"
-	r.Header.Set("X-Forwarded-Host", "ns-anchat-test.orama-devnet.network")
+	r.Header.Set("X-Forwarded-Host", "ns-anchat-test.devnet.orama.network")
 	r.Header.Set("Origin", "https://evil.example.com")
 	if checkWSOrigin(r) {
 		t.Fatal("cross-origin request must be rejected; this is the CSRF guard")

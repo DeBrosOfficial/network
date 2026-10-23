@@ -89,14 +89,15 @@ export class ChainIndexUnavailable extends ChainReadError {
 const CHAIN_PATH = "/v1/chain";
 
 /**
- * The gateway of the registry's default network (stagenet), which a source reads
- * when it is given no other base; the explorer's network switcher names the
+ * The gateway of the public testnet, the network a bare /explorer opens once the
+ * registry ships it (src/explorer/network/registry.ts PREFERRED_DEFAULT), which a
+ * source reads when it is given no other base; the explorer's network switcher names the
  * gateway of the network a URL selects (src/explorer/network). The page is served
  * from orama.network, which has no chain behind it, so the browser calls the
  * network's own gateway across origins; that gateway answers the explorer's
  * origin on the chain's read routes (core/pkg/gateway/cors_explorer.go).
  */
-export const DEFAULT_GATEWAY_ORIGIN = "https://stagenet.orama.network";
+export const DEFAULT_GATEWAY_ORIGIN = "https://testnet.orama.network";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
@@ -114,7 +115,7 @@ export function chainBase(gatewayOrigin: string): string {
   }
   const local = url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname);
   if ((url.protocol !== "https:" && !local) || url.origin !== gatewayOrigin) {
-    throw new ChainReadError(`"${gatewayOrigin}" is not an https gateway origin such as https://stagenet.orama.network.`);
+    throw new ChainReadError(`"${gatewayOrigin}" is not an https gateway origin such as https://testnet.orama.network.`);
   }
   return `${url.origin}${CHAIN_PATH}`;
 }

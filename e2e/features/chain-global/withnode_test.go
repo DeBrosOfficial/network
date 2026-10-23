@@ -29,8 +29,8 @@ const (
 // chain proxy forwards to (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "The gateway's chain proxy").
 func requireREST(t *testing.T, c *chain.Chain) {
 	t.Helper()
-	if c.F.State.IsStagenet() {
-		harness.SkipNotApplicable(t, "the stagenet chain REST API answers on "+c.Host()+" inside the orama-global netns, not on the node's 127.0.0.1:31003")
+	if c.F.State.IsTestnet() {
+		harness.SkipNotApplicable(t, "the testnet chain REST API answers on "+c.Host()+" inside the orama-global netns, not on the node's 127.0.0.1:31003")
 	}
 	n := c.Node(t, chain.OperatorNode)
 	out := c.F.Exec(t, n, fmt.Sprintf("curl -s -o /dev/null -w '%%{http_code}' --max-time 10 http://127.0.0.1:%d%s", chain.APIPort, restProbePath))

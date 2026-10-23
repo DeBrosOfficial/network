@@ -39,7 +39,7 @@ func dnsProbeCM(t *testing.T, ip string) (*ClusterManager, *recoveryMockDB) {
 	return &ClusterManager{
 		db:         db,
 		logger:     logger,
-		dnsManager: NewDNSRecordManager(db, "orama-devnet.network", logger),
+		dnsManager: NewDNSRecordManager(db, "devnet.orama.network", logger),
 	}, db
 }
 

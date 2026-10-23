@@ -23,7 +23,7 @@ func TestReadKeyFile_cometEd25519UsesTheSeed(t *testing.T) {
 	if key.Kind != KeyTypeEd25519 || len(key.Secret) != 32 || key.Secret[0] != 0x42 {
 		t.Fatalf("key %+v", key)
 	}
-	if _, err := SignKey(key, "orama-stagenet-2", "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s", "chain"); err != nil {
+	if _, err := SignKey(key, "orama-testnet-2", "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s", "chain"); err != nil {
 		t.Fatal(err)
 	}
 }

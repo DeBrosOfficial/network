@@ -41,7 +41,7 @@ type Params struct {
 	// Must be in (0, 1e9]. Unless allow_bootstrap_stake is set, must
 	// additionally be >= 14,400: see allow_bootstrap_stake below.
 	MinBlocksPerEpoch uint64 `protobuf:"varint,2,opt,name=min_blocks_per_epoch,json=minBlocksPerEpoch,proto3" json:"min_blocks_per_epoch,omitempty"`
-	// allow_bootstrap_stake permits a non-production genesis (devnet, stagenet
+	// allow_bootstrap_stake permits a non-production genesis (devnet, testnet
 	// or localnet chain IDs only - enforced in Keeper.InitGenesis, not here,
 	// since chain ID is not part of Params) to start with a nonzero norama
 	// supply, standing in for the not-yet-built C4 bootstrap-committee module.
@@ -60,7 +60,7 @@ type Params struct {
 	AllowBootstrapStake bool `protobuf:"varint,3,opt,name=allow_bootstrap_stake,json=allowBootstrapStake,proto3" json:"allow_bootstrap_stake,omitempty"`
 	// faucet_enabled turns on the test-network faucet (Msg.Faucet). It defaults to
 	// false and is rejected at genesis unless the chain-id is a non-production
-	// one (devnet, stagenet or localnet), so a production chain can never mint
+	// one (devnet, testnet or localnet), so a production chain can never mint
 	// through the faucet.
 	FaucetEnabled bool `protobuf:"varint,4,opt,name=faucet_enabled,json=faucetEnabled,proto3" json:"faucet_enabled,omitempty"`
 	// faucet_max_drip is the most norama one MsgFaucet may mint. Must be positive

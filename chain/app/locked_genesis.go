@@ -23,11 +23,11 @@ import (
 // Chain-id classes (params.ClassOfChainID: an exact pattern, never a substring):
 //   - orama-localnet-<name>: nothing is locked. Local tests and scripts/localnet need
 //     short epochs and one-seat committees.
-//   - orama-devnet-<name> and orama-stagenet-<name>: everything is locked except the
+//   - orama-devnet-<name> and orama-testnet-<name>: everything is locked except the
 //     keys in testnetRelaxedParams. Those are the shortened epoch clock and the small
-//     committee that chain/scripts/stagenet/deploy.sh sets on purpose.
+//     committee that chain/scripts/testnet/deploy.sh sets on purpose.
 //   - anything else (a production chain-id, including one that merely contains a class
-//     word such as "orama-1-stagenet-x"): every locked parameter must equal its plan value.
+//     word such as "orama-1-testnet-x"): every locked parameter must equal its plan value.
 
 // lockedModules are the genesis modules whose "params" are locked. Each name is
 // the module's genesis key.
@@ -57,7 +57,7 @@ var wasmPolicyLocked = map[string]bool{
 	"chunk_overhead_bytes": true,
 }
 
-// testnetRelaxedParams are the "module.key" parameters a devnet or stagenet
+// testnetRelaxedParams are the "module.key" parameters a devnet or testnet
 // chain-id may change. x/emission and x/power enforce their own production
 // floors on the same chain-id split (their InitGenesis chain-id gates).
 var testnetRelaxedParams = map[string]bool{
@@ -87,7 +87,7 @@ func ValidateLockedGenesis(chainID string, defaults, gs GenesisState) error {
 		return nil
 	}
 	class := params.ClassOfChainID(chainID)
-	relaxed := class == params.ChainDevnet || class == params.ChainStagenet
+	relaxed := class == params.ChainDevnet || class == params.ChainTestnet
 
 	modules := lockedModules
 	if WasmVMLinked() {

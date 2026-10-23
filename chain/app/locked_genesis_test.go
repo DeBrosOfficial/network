@@ -389,10 +389,10 @@ func TestLockedGenesis_productionChainRejectsEveryChangedParameter(t *testing.T)
 
 // A chain id that only contains a test-network word is a production id: it gets no relaxation, so a
 // production genesis cannot turn on the faucet or the bootstrap stake by being named
-// "orama-1-stagenet-x".
+// "orama-1-testnet-x".
 func TestLockedGenesis_chainIDThatOnlyContainsATestMarkerIsLockedLikeProduction(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
-	for _, chainID := range []string{"orama-1-stagenet-x", "orama-1-devnet-x", "orama-1-localnet-x", "mainnet-localnet-1", "orama-stagenet-"} {
+	for _, chainID := range []string{"orama-1-testnet-x", "orama-1-devnet-x", "orama-1-localnet-x", "mainnet-localnet-1", "orama-testnet-"} {
 		require.NoError(t, app.ValidateLockedGenesis(chainID, defaults, cloneGenesis(t, defaults)), chainID)
 		require.False(t, app.IsLocalnetChainID(chainID), chainID)
 		for _, row := range activeLockedRows() {
@@ -405,7 +405,7 @@ func TestLockedGenesis_chainIDThatOnlyContainsATestMarkerIsLockedLikeProduction(
 func TestLockedGenesis_testnetRelaxesOnlyTheClockAndCommittee(t *testing.T) {
 	defaults := buildTestApp(t).DefaultGenesis()
 	relaxed := relaxedOnTestnets()
-	for _, chainID := range []string{"orama-stagenet-1", "orama-devnet-1"} {
+	for _, chainID := range []string{"orama-testnet-1", "orama-devnet-1"} {
 		for _, row := range activeLockedRows() {
 			err := app.ValidateLockedGenesis(chainID, defaults, mutateParam(t, defaults, row))
 			if relaxed[lockedRowKey(row)] {

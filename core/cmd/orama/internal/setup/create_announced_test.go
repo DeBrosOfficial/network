@@ -23,7 +23,7 @@ func (h *createHarness) announce(faucet bool) {
 func TestRunCreate_anAnnouncedNetworkNeedsNoChainIDNoRootAndNoRepo(t *testing.T) {
 	h := newCreateHarness(t)
 	h.announce(true)
-	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "stagenet", PublishDir: h.publishDir, TorAuthoritiesSet: true}}
+	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "testnet", PublishDir: h.publishDir, TorAuthoritiesSet: true}}
 
 	res := h.mustCreate(t, opts)
 
@@ -34,7 +34,7 @@ func TestRunCreate_anAnnouncedNetworkNeedsNoChainIDNoRootAndNoRepo(t *testing.T)
 	if m.ReleaseRootSHA256 != netregistry.Digest([]byte(announcedRoot)) {
 		t.Errorf("release root sha256 %s: the root is the announcement's", m.ReleaseRootSHA256)
 	}
-	if len(m.Seeds) != 2 || m.Seeds[0] != "seed1.stagenet.example" {
+	if len(m.Seeds) != 2 || m.Seeds[0] != "seed1.testnet.example" {
 		t.Errorf("seeds = %v: the announcement's seeds, not the defaults", m.Seeds)
 	}
 	if !res.Created.Announced || !strings.Contains(strings.Join(res.Created.NextSteps(), "\n"), "replacing its announcement") {
@@ -49,7 +49,7 @@ func TestRunCreate_aFlagOverridesTheAnnouncement(t *testing.T) {
 	h := newCreateHarness(t)
 	h.announce(true)
 	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{
-		Name: "stagenet", PublishDir: h.publishDir, ReleaseRoot: h.rootFile, ReleaseRepo: "https://mirror.example", Channel: "dev/x",
+		Name: "testnet", PublishDir: h.publishDir, ReleaseRoot: h.rootFile, ReleaseRepo: "https://mirror.example", Channel: "dev/x",
 		Seeds: []string{"s1.override.example"}, NoFaucet: true, TorAuthoritiesSet: true,
 	}}
 
@@ -67,7 +67,7 @@ func TestRunCreate_aFlagOverridesTheAnnouncement(t *testing.T) {
 func TestRunCreate_theAnnouncementDecidesTheFaucet(t *testing.T) {
 	h := newCreateHarness(t)
 	h.announce(false)
-	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "stagenet", PublishDir: h.publishDir, TorAuthoritiesSet: true}}
+	opts := Options{IPs: fiveIPs, Yes: true, StorageGB: 10, Create: &CreateOptions{Name: "testnet", PublishDir: h.publishDir, TorAuthoritiesSet: true}}
 	if res := h.mustCreate(t, opts); res.Created.Manifest.Faucet {
 		t.Error("the announcement says no faucet, and the network got one")
 	}
@@ -80,8 +80,8 @@ func TestRunCreate_theFullManifestIsPublishedOverTheAnnouncement(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := netregistry.Announce(netregistry.AnnounceInput{
-		Dir: h.publishDir, Name: "stagenet", ChainID: testChainID, ReleaseRoot: root, Channel: "nightly", MinVersion: "0.3.0",
-		ReleaseRepo: announcedRepo, Seeds: []string{"ns1.stagenet.orama.network"}, Faucet: true,
+		Dir: h.publishDir, Name: "testnet", ChainID: testChainID, ReleaseRoot: root, Channel: "nightly", MinVersion: "0.3.0",
+		ReleaseRepo: announcedRepo, Seeds: []string{"ns1.testnet.orama.network"}, Faucet: true,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestRunCreate_theFullManifestIsPublishedOverTheAnnouncement(t *testing.T) {
 	res := h.mustCreate(t, h.createOpts(fiveIPs...))
 
 	checkPublished(t, h, res)
-	data, err := os.ReadFile(filepath.Join(h.publishDir, "stagenet", netregistry.ManifestFile))
+	data, err := os.ReadFile(filepath.Join(h.publishDir, "testnet", netregistry.ManifestFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestResolveAnnounced_leavesAnythingElseAlone(t *testing.T) {
 		"a network that is already created":    {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			o := Options{Create: &CreateOptions{Name: "stagenet", ReleaseRepo: "https://mine.example"}}
+			o := Options{Create: &CreateOptions{Name: "testnet", ReleaseRepo: "https://mine.example"}}
 			if err := ResolveAnnounced(context.Background(), &o, Deps{Networks: networks}); err != nil {
 				t.Fatal(err)
 			}
@@ -116,7 +116,7 @@ func TestResolveAnnounced_leavesAnythingElseAlone(t *testing.T) {
 }
 
 func TestResolveAnnounced_doesNotTouchTheCallersOptions(t *testing.T) {
-	mine := &CreateOptions{Name: "stagenet"}
+	mine := &CreateOptions{Name: "testnet"}
 	o := Options{Create: mine}
 	if err := ResolveAnnounced(context.Background(), &o, Deps{Networks: fakeNetworks{announced: true}}); err != nil {
 		t.Fatal(err)
@@ -136,9 +136,9 @@ func TestResolveAnnounced_noNameAndNoCreationAreNoOps(t *testing.T) {
 }
 
 func TestResolveAnnounced_aRegistryThatCannotBeReadIsAnError(t *testing.T) {
-	o := Options{Create: &CreateOptions{Name: "stagenet"}}
+	o := Options{Create: &CreateOptions{Name: "testnet"}}
 	err := ResolveAnnounced(context.Background(), &o, Deps{Networks: failingNetworks{}})
-	if err == nil || !strings.Contains(err.Error(), `announcement of the network "stagenet"`) {
+	if err == nil || !strings.Contains(err.Error(), `announcement of the network "testnet"`) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -174,7 +174,7 @@ func TestRun_anAnnouncedNetworkCannotBeJoined(t *testing.T) {
 			opts := h.opts(ip1)
 			tweak(&opts)
 			_, err := run(t, h, opts)
-			if err == nil || err.Error() != "stagenet has not been created yet; its creator runs orama setup --create-network stagenet" {
+			if err == nil || err.Error() != "testnet has not been created yet; its creator runs orama setup --create-network testnet" {
 				t.Fatalf("got %v", err)
 			}
 			if h.w.index("enroll ") >= 0 {

@@ -17,7 +17,7 @@ import (
 // provider would go unregistered again and every Android push would fail with
 // no HTTP request attempted.
 func TestSpawnedGatewayConfig_loadsNtfyBaseURL(t *testing.T) {
-	const base = "https://push.orama-devnet.network"
+	const base = "https://push.devnet.orama.network"
 
 	// Produce the exact YAML a spawned namespace gateway receives.
 	written := gateway.GatewayYAMLConfig{

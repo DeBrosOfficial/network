@@ -33,7 +33,7 @@ func announce(t *testing.T, args ...string) (string, error) {
 func announceArgs(t *testing.T, tmp string) []string {
 	t.Helper()
 	return []string{
-		"--dir", filepath.Join(tmp, "networks"), "--name", "pubnet", "--chain-id", "orama-pubnet-stagenet-1",
+		"--dir", filepath.Join(tmp, "networks"), "--name", "pubnet", "--chain-id", "orama-pubnet-testnet-1",
 		"--release-repo", "https://releases.example.org", "--release-root", writeFile(t, tmp, "root.json", pubRoot),
 		"--channel", "nightly", "--faucet", "--seed", "seed1.pubnet.example.org", "--seed", "seed2.pubnet.example.org",
 	}
@@ -45,7 +45,7 @@ func TestAnnounce_writesAnAnnouncementTheRegistryReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Announced network pubnet", "orama-pubnet-stagenet-1", "sync-networks", "orama setup --create-network pubnet"} {
+	for _, want := range []string{"Announced network pubnet", "orama-pubnet-testnet-1", "sync-networks", "orama setup --create-network pubnet"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}

@@ -17,8 +17,8 @@ import (
 // the missing stealth-cert startup failure (no silent fallback).
 
 const (
-	stealthTestDomain = "cdn-a1b2c3d4e5f6.orama-devnet.network"
-	turnTestDomain    = "turn.orama-devnet.network"
+	stealthTestDomain = "cdn-a1b2c3d4e5f6.devnet.orama.network"
+	turnTestDomain    = "turn.devnet.orama.network"
 )
 
 func writeNamedCert(t *testing.T, dir, name string) (certPath, keyPath string) {
@@ -116,7 +116,7 @@ func baseStealthConfig(t *testing.T) *Config {
 		TLSCertPath:     primaryCert,
 		TLSKeyPath:      primaryKey,
 		PublicIP:        "127.0.0.1",
-		Realm:           "orama-devnet.network",
+		Realm:           "devnet.orama.network",
 		AuthSecret:      "test-secret-key",
 		RelayPortStart:  49152,
 		RelayPortEnd:    50000,

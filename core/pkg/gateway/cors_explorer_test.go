@@ -7,10 +7,10 @@ import (
 )
 
 // corsAnswer runs one request through corsMiddleware on a gateway whose base domain is
-// stagenet.orama.network and returns the response and whether the handler behind it ran.
+// testnet.orama.network and returns the response and whether the handler behind it ran.
 func corsAnswer(t *testing.T, method, path string, header map[string]string) (*httptest.ResponseRecorder, bool) {
 	t.Helper()
-	g := &Gateway{cfg: &Config{BaseDomain: "stagenet.orama.network"}}
+	g := &Gateway{cfg: &Config{BaseDomain: "testnet.orama.network"}}
 	reached := false
 	h := g.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reached = true
@@ -25,7 +25,7 @@ func corsAnswer(t *testing.T, method, path string, header map[string]string) (*h
 	return rec, reached
 }
 
-const wantBase = "https://stagenet.orama.network"
+const wantBase = "https://testnet.orama.network"
 
 func TestCORS_explorerOriginIsEchoedOnAChainRead(t *testing.T) {
 	for _, path := range []string{"/v1/chain/status", "/v1/chain/index/txs", "/v1/chain/query/cosmos.bank.v1beta1.Query/AllBalances"} {
@@ -108,7 +108,7 @@ func TestCORS_otherOriginsGetNothingNewOnAChainRead(t *testing.T) {
 		"https://www.orama.network",  // the redirect alias, not the explorer
 		"https://orama.network.evil.example",
 		"https://evilorama.network",
-		"https://xstagenet.orama.network",
+		"https://xtestnet.orama.network",
 		"null",
 	} {
 		rec, _ := corsAnswer(t, http.MethodGet, "/v1/chain/status", map[string]string{"Origin": origin})
@@ -119,7 +119,7 @@ func TestCORS_otherOriginsGetNothingNewOnAChainRead(t *testing.T) {
 }
 
 func TestCORS_baseDomainRuleIsUnchangedOnAChainRead(t *testing.T) {
-	for _, origin := range []string{"https://stagenet.orama.network", "https://app.stagenet.orama.network", "http://localhost:5173"} {
+	for _, origin := range []string{"https://testnet.orama.network", "https://app.testnet.orama.network", "http://localhost:5173"} {
 		rec, _ := corsAnswer(t, http.MethodGet, "/v1/chain/status", map[string]string{"Origin": origin})
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
 			t.Errorf("GET from %q: Allow-Origin %q, want it echoed", origin, got)

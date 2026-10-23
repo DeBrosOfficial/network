@@ -195,8 +195,8 @@ func validatorUpdatesFromPowerRecords(records []types.ValidatorPowerRecord) ([]a
 }
 
 // checkCommitteeSizeChainIDGate mirrors x/emission's checkBootstrapChainID: a production chain-id
-// (one that is not exactly a localnet, devnet or stagenet id, params.ClassOfChainID) must declare at least
-// types.ProductionMinCommitteeSize bootstrap committee members; a devnet/stagenet/localnet
+// (one that is not exactly a localnet, devnet or testnet id, params.ClassOfChainID) must declare at least
+// types.ProductionMinCommitteeSize bootstrap committee members; a devnet/testnet/localnet
 // chain-id may declare as few as params.MinCommitteeSize (checked separately by
 // GenesisState.Validate).
 func checkCommitteeSizeChainIDGate(ctx sdk.Context, p types.Params, committeeSize int) error {

@@ -214,7 +214,7 @@ func TestInitGenesis_rejectsFaucetEnabledOnProductionChainID(t *testing.T) {
 	err := f.Keeper.InitGenesis(f.Ctx.WithChainID(testProductionChain), *gs)
 	require.ErrorContains(t, err, "faucet_enabled requires a chain-id")
 
-	for _, chainID := range []string{"orama-devnet-1", "orama-stagenet-1", "orama-localnet-1"} {
+	for _, chainID := range []string{"orama-devnet-1", "orama-testnet-1", "orama-localnet-1"} {
 		g := newTestFixture(t)
 		require.NoError(t, g.Keeper.InitGenesis(g.Ctx.WithChainID(chainID), *gs), chainID)
 	}

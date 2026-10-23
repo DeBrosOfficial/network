@@ -11,7 +11,7 @@ import (
 )
 
 // explorerOrigin is where the website serves the explorer. It is not under any network's base domain
-// (orama.network is the parent of stagenet.orama.network), so the page's reads of a network's gateway
+// (orama.network is the parent of testnet.orama.network), so the page's reads of a network's gateway
 // are cross-origin and the gateway admits the origin by name (core/pkg/gateway/cors_explorer.go).
 const explorerOrigin = "https://orama.network"
 

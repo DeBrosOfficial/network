@@ -23,7 +23,7 @@ type HTTPGatewayConfig struct {
 	IPFSClusterAPIURL string        `yaml:"ipfs_cluster_api_url"` // IPFS Cluster API URL
 	IPFSAPIURL        string        `yaml:"ipfs_api_url"`         // IPFS API URL
 	IPFSTimeout       time.Duration `yaml:"ipfs_timeout"`         // Timeout for IPFS operations
-	BaseDomain        string        `yaml:"base_domain"`          // Cluster base domain (e.g. "orama-devnet.network"); no default — the gateway refuses to start without one
+	BaseDomain        string        `yaml:"base_domain"`          // Cluster base domain (e.g. "devnet.orama.network"); no default — the gateway refuses to start without one
 
 	// SecretsEncryptionKey is the AES-256 key (hex, 64 chars) used to encrypt
 	// serverless function secrets at rest. Generated per-cluster and written
@@ -35,7 +35,7 @@ type HTTPGatewayConfig struct {
 	SecretsEncryptionKey string `yaml:"secrets_encryption_key"`
 
 	// NtfyBaseURL is the shared self-hosted ntfy base URL (e.g.
-	// "https://push.orama-devnet.network"). When set, the push ntfy provider
+	// "https://push.devnet.orama.network"). When set, the push ntfy provider
 	// fans each publish out to every active push node so a subscriber pinned
 	// to any instance by round-robin DNS receives it (bugboard #858). Rendered
 	// under http_gateway by Phase 4 config generation as "https://push."+dnsZone

@@ -458,7 +458,7 @@ func TestHeartbeat_carriesTheInstalledRole(t *testing.T) {
 	w := httptest.NewRecorder()
 	newHandler(db).HandleHeartbeat(w, post(t, "/v1/internal/node/heartbeat", testNodeID, nodeapi.HeartbeatRequest{
 		Role:        "nameserver",
-		Environment: "stagenet",
+		Environment: "testnet",
 	}))
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %q", w.Code, w.Body.String())
@@ -466,8 +466,8 @@ func TestHeartbeat_carriesTheInstalledRole(t *testing.T) {
 	if got := db.calls[0].args[0]; got != "nameserver" {
 		t.Errorf("role = %v, want nameserver", got)
 	}
-	if got := db.calls[0].args[1]; got != "stagenet" {
-		t.Errorf("environment = %v, want stagenet", got)
+	if got := db.calls[0].args[1]; got != "testnet" {
+		t.Errorf("environment = %v, want testnet", got)
 	}
 }
 

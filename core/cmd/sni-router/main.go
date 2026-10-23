@@ -34,7 +34,7 @@
 //	      addr: "127.0.0.1:8443"
 //	turn_discovery:
 //	  namespaces_dir: /opt/orama/.orama/data/namespaces
-//	  base_domain: orama-devnet.network
+//	  base_domain: devnet.orama.network
 //	  rescan_interval: 30s
 //
 // When the turn_discovery.namespaces_dir is set, the router additionally scans

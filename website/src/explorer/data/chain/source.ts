@@ -75,7 +75,7 @@ const LABEL_RANK_INFIX = 1;
 export interface ChainSourceOptions {
   fetcher?: ChainFetch;
   base?: string;
-  /** Names the network read in the footer ("stagenet at stagenet.orama.network"). */
+  /** Names the network read in the footer ("testnet at testnet.orama.network"). */
   label?: string;
   /** The clock, for the directory cache. */
   now?: () => number;

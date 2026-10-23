@@ -187,10 +187,10 @@ func newCreateHarness(t *testing.T) *createHarness {
 	return &createHarness{harness: h, seats: se, publishDir: filepath.Join(dir, "networks"), rootFile: root}
 }
 
-// createOpts is a creation of the network "stagenet" on the given machines.
+// createOpts is a creation of the network "testnet" on the given machines.
 func (h *createHarness) createOpts(ips ...string) Options {
 	return Options{IPs: ips, Yes: true, StorageGB: 10, Create: &CreateOptions{
-		Name: "stagenet", ChainID: "orama-stagenet-6", ReleaseRoot: h.rootFile, PublishDir: h.publishDir, TorAuthoritiesSet: true,
+		Name: "testnet", ChainID: "orama-testnet-6", ReleaseRoot: h.rootFile, PublishDir: h.publishDir, TorAuthoritiesSet: true,
 	}}
 }
 
@@ -247,7 +247,7 @@ func fakeSeats(n int) []Seat {
 	return seats
 }
 
-// finalGenesis is the genesis of the stagenet with the fake seats of machines idxs,
+// finalGenesis is the genesis of the testnet with the fake seats of machines idxs,
 // as a run leaves it on a machine (consensus parameters set).
 func finalGenesis(idxs ...int) []byte {
 	var seats []Seat
@@ -256,7 +256,7 @@ func finalGenesis(idxs ...int) []byte {
 		seat.Moniker = NodeNames(DefaultCreateNodeName, i+1)[i]
 		seats = append(seats, seat)
 	}
-	out, err := ApplyConsensusParams(genesisFor{chainID: "orama-stagenet-6", seats: seats, allowStake: true, faucet: true}.json())
+	out, err := ApplyConsensusParams(genesisFor{chainID: "orama-testnet-6", seats: seats, allowStake: true, faucet: true}.json())
 	if err != nil {
 		panic(err)
 	}

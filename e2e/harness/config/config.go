@@ -90,7 +90,7 @@ func Bool(lookup func(string) (string, bool), name string, def bool) (bool, erro
 }
 
 // CheckRunName refuses a name that contains testnet, mainnet, devnet or
-// stagenet. what says which name it is ("run id", "zone"), so the refusal is
+// testnet. what says which name it is ("run id", "zone"), so the refusal is
 // actionable.
 func CheckRunName(what, name string) error {
 	return denyParts(what, name, forbiddenNameParts)

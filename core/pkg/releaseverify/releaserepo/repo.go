@@ -2,7 +2,7 @@
 // held in memory: a root, and the timestamp, snapshot and targets metadata
 // that name release archives under their channel's path prefix.
 //
-// It is the generator the stagenet test root and the package tests use. The
+// It is the generator the testnet test root and the package tests use. The
 // keys it makes are software keys that sit on disk; a production root is
 // signed by release signers through their RootWallets (pkg/releasesign), not
 // by this package.

@@ -62,7 +62,7 @@ type Direct struct{}
 
 // AddExtra is AddExtra with the environment's credentials.
 func (Direct) AddExtra(ctx context.Context, st *fleet.State, name, location string) (fleet.Node, error) {
-	if err := refuseStagenet("Direct.AddExtra", st); err != nil {
+	if err := refuseTestnet("Direct.AddExtra", st); err != nil {
 		return fleet.Node{}, err
 	}
 
@@ -82,7 +82,7 @@ func (Direct) AddExtra(ctx context.Context, st *fleet.State, name, location stri
 
 // RemoveExtra is RemoveExtra with the environment's credentials.
 func (Direct) RemoveExtra(ctx context.Context, st *fleet.State, name string) error {
-	if err := refuseStagenet("Direct.RemoveExtra", st); err != nil {
+	if err := refuseTestnet("Direct.RemoveExtra", st); err != nil {
 		return err
 	}
 
@@ -95,7 +95,7 @@ func (Direct) RemoveExtra(ctx context.Context, st *fleet.State, name string) err
 
 // AddCluster is AddEvalCluster with the environment's credentials.
 func (Direct) AddCluster(ctx context.Context, st *fleet.State, name string) (fleet.Cluster, error) {
-	if err := refuseStagenet("Direct.AddCluster", st); err != nil {
+	if err := refuseTestnet("Direct.AddCluster", st); err != nil {
 		return fleet.Cluster{}, err
 	}
 
@@ -113,7 +113,7 @@ func (Direct) AddCluster(ctx context.Context, st *fleet.State, name string) (fle
 
 // RemoveCluster is RemoveEvalCluster with the environment's credentials.
 func (Direct) RemoveCluster(ctx context.Context, st *fleet.State, name string) error {
-	if err := refuseStagenet("Direct.RemoveCluster", st); err != nil {
+	if err := refuseTestnet("Direct.RemoveCluster", st); err != nil {
 		return err
 	}
 

@@ -37,7 +37,7 @@ package chain
 //
 // A faucet exists on a test network: genesis sets x/emission's
 // faucet_enabled on every run chain (e2e/scripts/chain-deploy.sh) and on
-// stagenet (chain/scripts/stagenet/deploy.sh), and `orama chain faucet` mints
+// testnet (chain/scripts/testnet/deploy.sh), and `orama chain faucet` mints
 // a bank balance to any address, signing on a node with its operator key
 // (docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-chain-faucet). A recipient may be dripped once
 // per cooldown, so a test funds a FRESH key, never a shared one.

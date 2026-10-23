@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GATEWAY_ORIGIN } from "../data/chain/client";
 import { ManifestError } from "./manifest";
-import { REGISTRY, buildRegistry, findNetwork } from "./registry";
+import { PREFERRED_DEFAULT, REGISTRY, buildRegistry, findNetwork } from "./registry";
 
 const SHA = "84ee8d46628343b85c464185e1009974beb34f91c99477a75a5dfb66a5918b67";
 
@@ -17,32 +17,32 @@ const at = (name: string) => `../../../../networks/${name}/manifest.json`;
 
 describe("buildRegistry", () => {
   it("TestBuildRegistry_lists_created_networks_by_name_with_their_gateway", () => {
-    const r = buildRegistry({ [at("testnet")]: manifest("testnet"), [at("stagenet")]: manifest("stagenet") });
-    expect(r.networks.map((n) => n.manifest.name)).toEqual(["stagenet", "testnet"]);
+    const r = buildRegistry({ [at("testnet")]: manifest("testnet"), [at("devnet")]: manifest("devnet") });
+    expect(r.networks.map((n) => n.manifest.name)).toEqual(["devnet", "testnet"]);
     expect(findNetwork(r, "testnet")?.gateway).toBe("https://testnet.orama.network");
     expect(findNetwork(r, "nope")).toBeUndefined();
   });
 
-  it("TestBuildRegistry_stagenet_is_the_default_when_it_exists", () => {
-    const r = buildRegistry({ [at("alpha")]: manifest("alpha"), [at("stagenet")]: manifest("stagenet") });
-    expect(r.defaultName).toBe("stagenet");
+  it("TestBuildRegistry_testnet_is_the_default_when_it_exists", () => {
+    const r = buildRegistry({ [at("alpha")]: manifest("alpha"), [at("testnet")]: manifest("testnet") });
+    expect(r.defaultName).toBe("testnet");
   });
 
-  it("TestBuildRegistry_without_stagenet_the_first_by_name_is_the_default", () => {
+  it("TestBuildRegistry_without_testnet_the_first_by_name_is_the_default", () => {
     const r = buildRegistry({ [at("zeta")]: manifest("zeta"), [at("alpha")]: manifest("alpha") });
     expect(r.defaultName).toBe("alpha");
   });
 
   it("TestBuildRegistry_an_announced_network_has_no_chain_and_is_left_out", () => {
     const r = buildRegistry({
-      [at("stagenet")]: manifest("stagenet"),
+      [at("testnet")]: manifest("testnet"),
       [at("futurenet")]: manifest("futurenet", { genesis_sha256: "", seeds: [] }),
     });
-    expect(r.networks.map((n) => n.manifest.name)).toEqual(["stagenet"]);
+    expect(r.networks.map((n) => n.manifest.name)).toEqual(["testnet"]);
   });
 
   it("TestBuildRegistry_a_manifest_named_differently_from_its_directory_is_refused", () => {
-    expect(() => buildRegistry({ [at("stagenet")]: manifest("testnet") })).toThrow(/names the network "testnet"/);
+    expect(() => buildRegistry({ [at("devnet")]: manifest("testnet") })).toThrow(/names the network "testnet"/);
   });
 
   it.each(["custom", "tx", "wallet", "block", "validators", "validator"])(
@@ -62,12 +62,12 @@ describe("buildRegistry", () => {
 });
 
 describe("the shipped registry", () => {
-  it("TestRegistry_ships_stagenet_and_reads_it_from_the_gateway_the_explorer_has_always_used", () => {
-    const stagenet = findNetwork(REGISTRY, "stagenet");
-    expect(stagenet).toBeDefined();
-    expect(stagenet?.gateway).toBe(DEFAULT_GATEWAY_ORIGIN);
-    expect(stagenet?.manifest.chainId).toMatch(/^orama-stagenet-\d+$/);
-    expect(REGISTRY.defaultName).toBe("stagenet");
+  it("TestRegistry_opens_testnet_once_it_ships_else_the_first_network", () => {
+    const testnet = findNetwork(REGISTRY, PREFERRED_DEFAULT);
+    expect(REGISTRY.defaultName).toBe(testnet === undefined ? REGISTRY.networks[0]?.manifest.name : PREFERRED_DEFAULT);
+    if (testnet === undefined) return;
+    expect(testnet.gateway).toBe(DEFAULT_GATEWAY_ORIGIN);
+    expect(testnet.manifest.chainId).toMatch(/^orama-testnet-\d+$/);
   });
 
   it("TestRegistry_every_gateway_is_an_https_origin", () => {

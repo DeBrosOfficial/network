@@ -59,7 +59,7 @@ type Config struct {
 	Tenants []TenantConfig `yaml:"tenants,omitempty"`
 
 	// StealthDomain is the neutral, CDN-bland SNI hostname this server also
-	// answers TURNS for (e.g. "cdn-a1b2c3d4e5f6.orama-devnet.network").
+	// answers TURNS for (e.g. "cdn-a1b2c3d4e5f6.devnet.orama.network").
 	//
 	// The stealth endpoint is an SNI-router passthrough, NOT a separate TURN
 	// server: a router on :443 reads only the TLS ClientHello SNI and forwards

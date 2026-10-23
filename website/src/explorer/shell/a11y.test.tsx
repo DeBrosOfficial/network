@@ -16,11 +16,11 @@ import { explorerPathsFor } from "../model/routes";
 
 const SHA = "84ee8d46628343b85c464185e1009974beb34f91c99477a75a5dfb66a5918b67";
 const REGISTRY = buildRegistry({
-  "../../../../networks/stagenet/manifest.json": {
-    name: "stagenet",
-    chain_id: "orama-stagenet-7",
+  "../../../../networks/testnet/manifest.json": {
+    name: "testnet",
+    chain_id: "orama-testnet-7",
     genesis_sha256: SHA,
-    seeds: ["ns1.stagenet.orama.network", "ns2.stagenet.orama.network"],
+    seeds: ["ns1.testnet.orama.network", "ns2.testnet.orama.network"],
   },
 });
 const ADDRESS = "orama1q8w9k3v5r2m4x7h6d0n8c1p3t5y9j2u4l6e7x2";

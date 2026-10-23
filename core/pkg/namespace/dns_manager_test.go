@@ -17,7 +17,7 @@ func TestDNSRecordManager_FQDNFormat(t *testing.T) {
 		baseDomain string
 		expected   string
 	}{
-		{"alice", "orama-devnet.network", "ns-alice.orama-devnet.network."},
+		{"alice", "devnet.orama.network", "ns-alice.devnet.orama.network."},
 		{"bob", "orama-testnet.network", "ns-bob.orama-testnet.network."},
 		{"my-namespace", "orama-mainnet.network", "ns-my-namespace.orama-mainnet.network."},
 		{"test123", "example.com", "ns-test123.example.com."},
@@ -40,7 +40,7 @@ func TestDNSRecordManager_WildcardFQDNFormat(t *testing.T) {
 		baseDomain string
 		expected   string
 	}{
-		{"alice", "orama-devnet.network", "*.ns-alice.orama-devnet.network."},
+		{"alice", "devnet.orama.network", "*.ns-alice.devnet.orama.network."},
 		{"bob", "orama-testnet.network", "*.ns-bob.orama-testnet.network."},
 	}
 
@@ -57,7 +57,7 @@ func TestDNSRecordManager_WildcardFQDNFormat(t *testing.T) {
 func TestNewDNSRecordManager(t *testing.T) {
 	mockDB := newMockRQLiteClient()
 	logger := zap.NewNop()
-	baseDomain := "orama-devnet.network"
+	baseDomain := "devnet.orama.network"
 
 	manager := NewDNSRecordManager(mockDB, baseDomain, logger)
 
@@ -91,7 +91,7 @@ func TestDNSRecordTTL(t *testing.T) {
 func TestDNSRecordManager_MultipleDomainFormats(t *testing.T) {
 	// Test support for different domain formats
 	baseDomains := []string{
-		"orama-devnet.network",
+		"devnet.orama.network",
 		"orama-testnet.network",
 		"orama-mainnet.network",
 		"custom.example.com",
@@ -206,7 +206,7 @@ func TestDNSRecordManager_FQDNWithTrailingDot(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"ns-alice.orama-devnet.network", "ns-alice.orama-devnet.network."},
+		{"ns-alice.devnet.orama.network", "ns-alice.devnet.orama.network."},
 	}
 
 	for _, tt := range tests {
@@ -222,7 +222,7 @@ func TestDNSRecordManager_FQDNWithTrailingDot(t *testing.T) {
 func TestUpdateNamespaceRecord_SetsActiveTrue(t *testing.T) {
 	mockDB := newMockRQLiteClient()
 	logger := zap.NewNop()
-	manager := NewDNSRecordManager(mockDB, "orama-devnet.network", logger)
+	manager := NewDNSRecordManager(mockDB, "devnet.orama.network", logger)
 
 	ctx := context.Background()
 	err := manager.UpdateNamespaceRecord(ctx, "alice", "1.2.3.4", "5.6.7.8")
@@ -249,7 +249,7 @@ func TestUpdateNamespaceRecord_SetsActiveTrue(t *testing.T) {
 // leaving the namespace resolving nowhere.
 func TestDisableNamespaceRecord_guardIsInsideTheStatement(t *testing.T) {
 	mockDB := newMockRQLiteClient()
-	manager := NewDNSRecordManager(mockDB, "orama-devnet.network", zap.NewNop())
+	manager := NewDNSRecordManager(mockDB, "devnet.orama.network", zap.NewNop())
 
 	if _, err := manager.DisableNamespaceRecord(context.Background(), "alice", "203.0.113.1"); err != nil {
 		t.Fatalf("DisableNamespaceRecord: %v", err)
@@ -285,7 +285,7 @@ func TestDisableNamespaceRecord_surfacesAWriteFailure(t *testing.T) {
 	// The UPDATE's error used to be discarded with `_, _ =` and the function
 	// always returned nil, so a failure to withdraw a dead node was invisible.
 	mockDB := newMockRQLiteClient()
-	manager := NewDNSRecordManager(mockDB, "orama-devnet.network", zap.NewNop())
+	manager := NewDNSRecordManager(mockDB, "devnet.orama.network", zap.NewNop())
 	// Fail whichever UPDATE the manager issues first.
 	if _, err := manager.DisableNamespaceRecord(context.Background(), "alice", "203.0.113.1"); err != nil {
 		t.Fatalf("setup call: %v", err)
@@ -304,7 +304,7 @@ func TestCreateNamespaceRecords_isAdditive(t *testing.T) {
 	// per-node ensure races that: one node wiped the round-robin while
 	// another re-inserted only itself.
 	mockDB := newMockRQLiteClient()
-	manager := NewDNSRecordManager(mockDB, "orama-devnet.network", zap.NewNop())
+	manager := NewDNSRecordManager(mockDB, "devnet.orama.network", zap.NewNop())
 
 	if err := manager.CreateNamespaceRecords(context.Background(), "alice", []string{"203.0.113.1", "203.0.113.2"}); err != nil {
 		t.Fatalf("CreateNamespaceRecords: %v", err)
@@ -337,7 +337,7 @@ func TestAddNamespaceRecord_revivesASoftDisabledRow(t *testing.T) {
 	// INSERT therefore hit the constraint on the repair path — so a repaired
 	// node was never re-advertised, and the repair reported success.
 	mockDB := newMockRQLiteClient()
-	manager := NewDNSRecordManager(mockDB, "orama-devnet.network", zap.NewNop())
+	manager := NewDNSRecordManager(mockDB, "devnet.orama.network", zap.NewNop())
 
 	if err := manager.AddNamespaceRecord(context.Background(), "alice", "203.0.113.1"); err != nil {
 		t.Fatalf("AddNamespaceRecord: %v", err)

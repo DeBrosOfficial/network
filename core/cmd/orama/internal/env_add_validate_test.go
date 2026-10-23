@@ -14,7 +14,7 @@ func TestValidateNewEnvironment(t *testing.T) {
 		name, url string
 		ok        bool
 	}{
-		{"stagenet", "https://stagenet.example", true},
+		{"testnet", "https://testnet.example", true},
 		{"local", "http://localhost:6001", true},
 		{"loopback", "http://127.0.0.1:6001", true},
 		{"loopback6", "http://[::1]:6001", true},

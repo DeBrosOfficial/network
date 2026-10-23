@@ -42,7 +42,7 @@ func TestDrip_aRefusalTheChainGivesInTheSimulationIsTypedAndSignsNothing(t *test
 		"too much":     {"faucet amount must be positive and at most faucet_max_drip: got 9, faucet_max_drip is 1000000000000", KindBadAmount},
 		"module":       {"faucet recipient is invalid or a blocked address: orama1x is a module or blocked account", KindBadRecipient},
 		"disabled":     {"the faucet is disabled (faucet_enabled is false)", KindDisabled},
-		"production":   {"the faucet runs only on a devnet, stagenet or localnet chain-id: chain-id \"orama-1\"", KindDisabled},
+		"production":   {"the faucet runs only on a devnet, testnet or localnet chain-id: chain-id \"orama-1\"", KindDisabled},
 		"cannot pay":   {"insufficient funds: spendable balance 0norama is smaller than 5norama", KindUnavailable},
 		"fee too low":  {"insufficient fee; got: 1norama required: 50norama", KindUnavailable},
 		"multi line":   {"failed to execute message; message index: 0:\nfaucet recipient is still within its cooldown: soon", KindCooldown},

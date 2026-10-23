@@ -75,7 +75,7 @@ func TestCollect_anErrorForAnotherNameIsNotAttributed(t *testing.T) {
 	}
 	var base Name
 	for _, n := range r.Names {
-		if n.Name == "stagenet.example.org" {
+		if n.Name == "testnet.example.org" {
 			t.Fatal("the journal's name is not one of this Caddyfile's")
 		}
 		if n.Name == "example.org" {
@@ -91,7 +91,7 @@ func TestCollect_anErrorForAnotherNameIsNotAttributed(t *testing.T) {
 }
 
 func TestCollect_rateLimitedErrorLandsOnItsName(t *testing.T) {
-	line := strings.Replace(rateLimitedLine, `"identifier":"stagenet.example.org"`, `"identifier":"example.org"`, 1)
+	line := strings.Replace(rateLimitedLine, `"identifier":"testnet.example.org"`, `"identifier":"example.org"`, 1)
 	d, _ := deps(journal(line), func(string) (*tls.ConnectionState, error) { return &tls.ConnectionState{}, nil })
 	r, err := Collect(context.Background(), d)
 	if err != nil {

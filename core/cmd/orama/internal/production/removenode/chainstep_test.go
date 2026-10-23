@@ -60,13 +60,13 @@ func newWorld() *world {
 		validator: map[string]bool{},
 		unknown:   map[string]bool{},
 		tx:        &fakeTx{operator: operatorAddr},
-		chainID:   "orama-stagenet-1",
+		chainID:   "orama-testnet-1",
 	}
 }
 
 func (w *world) step(opts Options) *chainStep {
 	return &chainStep{
-		ctx: context.Background(), env: "stagenet", opts: opts,
+		ctx: context.Background(), env: "testnet", opts: opts,
 		runner: chainreach.Runner{
 			Output: func(n inspector.Node, _ string) (string, error) { return w.probes[n.Host], nil },
 			Tunnel: func(_ context.Context, n inspector.Node, _ string) (string, func() error, error) {
@@ -408,15 +408,15 @@ func TestPreflight_theWalletIsPinnedToTheChainOfTheEnvironmentBeforeAnythingIsRe
 	w := newWorld()
 	w.chain = activeNode()
 	w.probes["10.0.0.3"] = "yes yes\n"
-	step := w.step(Options{Node: "10.0.0.3", ChainNodeID: "node-3", ChainID: "orama-stagenet-1"})
+	step := w.step(Options{Node: "10.0.0.3", ChainNodeID: "node-3", ChainID: "orama-testnet-1"})
 
 	if _, err := step.Preflight(plan()); err != nil {
 		t.Fatal(err)
 	}
-	if len(w.pinned) != 1 || w.pinned[0] != "stagenet/orama-stagenet-1" {
+	if len(w.pinned) != 1 || w.pinned[0] != "testnet/orama-testnet-1" {
 		t.Errorf("the pin was asked for %v: it is the environment's and the --chain-id", w.pinned)
 	}
-	if len(w.checked) != 1 || w.checked[0] != "orama-stagenet-1" {
+	if len(w.checked) != 1 || w.checked[0] != "orama-testnet-1" {
 		t.Errorf("the node's chain was checked against %v", w.checked)
 	}
 }
@@ -425,7 +425,7 @@ func TestPreflight_aNetworkWithNoKnownChainIDStopsBeforeTheChainIsReached(t *tes
 	w := newWorld()
 	w.chain = activeNode()
 	w.probes["10.0.0.3"] = "yes yes\n"
-	w.pinErr = clierr.Usage("cannot tell which chain %q runs: pass --chain-id <id>", "stagenet")
+	w.pinErr = clierr.Usage("cannot tell which chain %q runs: pass --chain-id <id>", "testnet")
 
 	_, err := w.step(Options{Node: "10.0.0.3", ChainNodeID: "node-3"}).Preflight(plan())
 
@@ -441,7 +441,7 @@ func TestPreflight_aNodeOnAnotherChainThanTheNetworksIsRefusedBeforeAnythingIsSi
 	w := newWorld()
 	w.chain = activeNode()
 	w.probes["10.0.0.3"] = "yes yes\n"
-	w.checkErr = errors.New(`10.0.0.1 runs the chain "orama-evil-1", not the "orama-stagenet-1" this network runs: refusing to sign for it`)
+	w.checkErr = errors.New(`10.0.0.1 runs the chain "orama-evil-1", not the "orama-testnet-1" this network runs: refusing to sign for it`)
 
 	_, err := w.step(Options{Node: "10.0.0.3", ChainNodeID: "node-3"}).Preflight(plan())
 

@@ -88,7 +88,7 @@ func requireReachable(t *testing.T, host, addr string) {
 // it does. A provisioned fleet uses Let's Encrypt staging, which no system trust
 // store accepts, so a client trusting only the system roots must refuse the
 // certificate as signed by an unknown authority: the pin is load-bearing. A
-// target whose pinned roots are themselves public roots (stagenet serves Let's
+// target whose pinned roots are themselves public roots (testnet serves Let's
 // Encrypt production, which RootWallet's apps trust through the system store)
 // must instead handshake with the system roots alone.
 func TestTLS_untrustedWithoutPinnedRoots(t *testing.T) {

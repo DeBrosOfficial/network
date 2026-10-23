@@ -62,17 +62,17 @@ func TestLedgerPaths_everyPackageAndRerunOfEveryRoot(t *testing.T) {
 	}
 }
 
-func TestLedgerRoots_stagenetTakesEveryStagenetRunOthersOnlyTheirOwn(t *testing.T) {
+func TestLedgerRoots_testnetTakesEveryTestnetRunOthersOnlyTheirOwn(t *testing.T) {
 	arts := t.TempDir()
-	for _, d := range []string{"stagenet-20261001-000001", "stagenet-20261001-000002", "devnet-x"} {
+	for _, d := range []string{"testnet-20261001-000001", "testnet-20261001-000002", "devnet-x"} {
 		if err := os.MkdirAll(filepath.Join(arts, d), 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	stage := &fleet.State{Target: config.TargetStagenet, ArtifactDir: filepath.Join(arts, "stagenet-20261001-000001")}
+	stage := &fleet.State{Target: config.TargetTestnet, ArtifactDir: filepath.Join(arts, "testnet-20261001-000001")}
 	roots, err := ledgerRoots(stage)
 	if err != nil || len(roots) != 2 || strings.Contains(strings.Join(roots, ","), "devnet") {
-		t.Fatalf("stagenet roots %v %v", roots, err)
+		t.Fatalf("testnet roots %v %v", roots, err)
 	}
 	own := &fleet.State{ArtifactDir: filepath.Join(arts, "devnet-x")}
 	if roots, err := ledgerRoots(own); err != nil || len(roots) != 1 || roots[0] != own.ArtifactDir {

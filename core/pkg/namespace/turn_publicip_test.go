@@ -36,7 +36,7 @@ func hostTURNCM(t *testing.T, ip string) *ClusterManager {
 		db:          db,
 		logger:      zap.NewNop(),
 		localNodeID: "node-1",
-		baseDomain:  "orama-devnet.network",
+		baseDomain:  "devnet.orama.network",
 	}
 }
 

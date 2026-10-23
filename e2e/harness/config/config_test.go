@@ -53,7 +53,7 @@ func TestCheckRunName_cases(t *testing.T) {
 }
 
 func TestCheckRunName_sharedEnvironments(t *testing.T) {
-	for _, bad := range []string{"devnet", "e2e-StageNet"} {
+	for _, bad := range []string{"devnet", "e2e-TestNet"} {
 		if err := CheckRunName("environment", bad); err == nil {
 			t.Errorf("%q accepted", bad)
 		}

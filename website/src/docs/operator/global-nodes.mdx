@@ -4,7 +4,7 @@ A global node runs the public Orama chain (`oramad`) and, optionally, the servic
 
 A machine can also be a cluster node and a global node at once ([Sharing a machine](#sharing-a-machine-with-a-cluster-node)).
 
-The chain itself is described in [What the chain is](/docs/blockchain/what-it-is) and [Running a chain node](/docs/blockchain/running). Remember the status: devnet, stagenet and localnet only.
+The chain itself is described in [What the chain is](/docs/blockchain/what-it-is) and [Running a chain node](/docs/blockchain/running). Remember the status: devnet, testnet and localnet only.
 
 ## Hardware
 
@@ -96,7 +96,7 @@ The operator's wallet never touches the node. On your own machine:
 
 Every command that signs a transaction returns only once it is in a block, and prints its hash and height. A transaction the block refuses is reported as a failure with the chain's log, and one that is not in a block within two minutes is reported with its hash so it can be looked up. A role is active only while its bond is at least `min_bond`: 1 ORAMA for every role, `bond_per_gib` 1 ORAMA, unbonding 21 days. See [Nodes, roles and bonds](/docs/blockchain/nodes).
 
-`MsgRegisterOperator` has no `orama` command: `register` needs the operator registered first, and today the stagenet deploy sends it with its own helper.
+`MsgRegisterOperator` has no `orama` command: `register` needs the operator registered first, and today the testnet deploy sends it with its own helper.
 
 ## Validators
 
@@ -171,7 +171,7 @@ Run it on a machine where `orama node setup` has already installed the cluster n
 
 ## Run a faucet
 
-On a test network (a chain id that is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>`) a gateway can fund newcomers. They have no account, no node and no SSH access, so the gateway signs the faucet transaction (`MsgFaucet`) for them with a key of its own, and `orama setup` asks the network's seeds for it. It is off unless you turn it on, and the gateway signs on no other kind of network. The chain keeps its own limits: a maximum drip, a cooldown per recipient (a day by default) and a cap per epoch.
+On a test network (a chain id that is exactly `orama-[<name>-]testnet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>`) a gateway can fund newcomers. They have no account, no node and no SSH access, so the gateway signs the faucet transaction (`MsgFaucet`) for them with a key of its own, and `orama setup` asks the network's seeds for it. It is off unless you turn it on, and the gateway signs on no other kind of network. The chain keeps its own limits: a maximum drip, a cooldown per recipient (a day by default) and a cap per epoch.
 
 Do this on each gateway that should serve it, one at a time:
 
@@ -188,7 +188,7 @@ chain:
 
 4. `orama node restart`. `orama node upgrade` keeps the block. The gateway fails to start, and says why, if the key file is missing, is not owned by its account or is readable by others.
 
-Check it: `curl -sS -X POST https://<gateway>/v1/chain/faucet -H 'Content-Type: application/json' -d '{"recipient":"orama1…"}'` answers the transaction hash, the amount and the block. The request, the refusals and the limits are in [Reading the chain](/docs/blockchain/reading-the-chain). A drip is one transaction signed by one account, one at a time, so a gateway serves about one drip a block; a network that expects more gives several of its gateways their own keys. The network's genesis `faucet_max_drip` has to be at least what one `orama setup` needs, which is more than the validator's 1,000 ORAMA self-bond (stagenet's is 10,000 ORAMA).
+Check it: `curl -sS -X POST https://<gateway>/v1/chain/faucet -H 'Content-Type: application/json' -d '{"recipient":"orama1…"}'` answers the transaction hash, the amount and the block. The request, the refusals and the limits are in [Reading the chain](/docs/blockchain/reading-the-chain). A drip is one transaction signed by one account, one at a time, so a gateway serves about one drip a block; a network that expects more gives several of its gateways their own keys. The network's genesis `faucet_max_drip` has to be at least what one `orama setup` needs, which is more than the validator's 1,000 ORAMA self-bond (testnet's is 10,000 ORAMA).
 
 ## Not built yet
 
@@ -196,7 +196,7 @@ Check it: `curl -sS -X POST https://<gateway>/v1/chain/faucet -H 'Content-Type: 
 - Signature verification of the staged binaries by the installer; an installed update path for a chain patch that changes no consensus behaviour.
 - An `orama global` command for `MsgUpdateNode`: an ASN is set at registration only.
 - An `orama` command for `MsgRegisterOperator`.
-- Staging the shielded verifier: `orama global install` does not place `orama-orchard-verifier`; a stagenet, testnet or mainnet node without it refuses to start.
+- Staging the shielded verifier: `orama global install` does not place `orama-orchard-verifier`; a testnet or mainnet node without it refuses to start.
 - Removing a service, or its firewall rule, that a later install leaves out.
 - An installer for the relay bandwidth reporter (`orama-global reporter` runs from a home you prepare), and on-chain relay registration from `orama global install`.
 - An independent set of directory authorities: Orama runs them all, and the public Tor network is not launched.

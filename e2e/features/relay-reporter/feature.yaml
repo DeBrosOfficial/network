@@ -3,7 +3,7 @@
 # It runs on a directory-authority host, and a run chain has none: the fleet
 # has no dirauth, no votes and no relays. The tests therefore need what the
 # run may not have, and report not applicable without it: an orama-global
-# binary on the chain node (the stagenet install has one), a node that
+# binary on the chain node (the testnet install has one), a node that
 # `orama global install --services chain,dirauth,reporter` set up (its home,
 # operator and authority-id need no manual step, and the authority's archive
 # oneshot exports its own vote to the votes directory the reporter reads), and
@@ -13,7 +13,7 @@
 # identity, the install prepared the home from the network file, and a closed
 # epoch's report is accepted by x/relay (the reporter's state records it as
 # reported).
-# Where a node runs a Tor relay (stagenet does) it also proves the relay is paid for: orama setup
+# Where a node runs a Tor relay (testnet does) it also proves the relay is paid for: orama setup
 # registered each relay with x/relay by the fingerprint and ed25519 identity the relay made, on the
 # node and operator that run it; `orama global tor relay-identity` signs what the chain checks; and
 # a settled epoch's payouts add up to what it minted and credit the operators' earnings. Each says

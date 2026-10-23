@@ -9,8 +9,8 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 )
 
-// Channel names a maintainer may cut: nightly (stagenet), main (testnet and
-// later), and dev/<branch>.
+// Channel names a maintainer may cut: nightly (what a test network follows unless it names
+// another), main (what a production network follows), and dev/<branch>.
 const (
 	ChannelNightly = "nightly"
 	ChannelMain    = "main"

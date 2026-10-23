@@ -62,7 +62,7 @@ func TestBootstrap_namespaceCreationOpenForTheRun(t *testing.T) {
 func TestBootstrap_operatorCapCoversTheRun(t *testing.T) {
 	f := harness.Fleet(t)
 	cli := harness.CLI(t)
-	live, err := ns.MaxLiveForTarget(os.LookupEnv, f.State.IsStagenet(), len(f.State.Nodes))
+	live, err := ns.MaxLiveForTarget(os.LookupEnv, f.State.IsTestnet(), len(f.State.Nodes))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,6 +137,9 @@ func TestBootstrap_environmentIsActive(t *testing.T) {
 		t.Errorf("env list lacks %s:\n%s", f.State.Env, list)
 	}
 	for _, forbidden := range []string{"testnet", "mainnet"} {
+		if forbidden == f.State.Env {
+			continue // the testnet target's own environment
+		}
 		if strings.Contains(cur, forbidden) {
 			t.Fatalf("the active environment mentions %s:\n%s", forbidden, cur)
 		}

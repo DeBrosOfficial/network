@@ -18,11 +18,11 @@ func TestRoleProblems_perPreferencesAndInstall(t *testing.T) {
 		"empty preferences":                 {"", false, ""},
 		"fleet node turned global":          {"role: global\n", false, `records role "global"`},
 		"fleet node turned both":            {"role: both\nglobal_netns: orama-global\n", false, `records role "both"`},
-		"stagenet node, both and netns":     {"branch: main\nrole: both\nglobal_netns: orama-global\n", true, ""},
-		"stagenet node, no role":            {"branch: main\n", true, `records role ""`},
-		"stagenet node, global":             {"role: global\nglobal_netns: orama-global\n", true, `records role "global"`},
-		"stagenet node, no netns":           {"role: both\n", true, "records global_netns"},
-		"stagenet node, other netns":        {"role: both\nglobal_netns: other\n", true, `records global_netns "other"`},
+		"testnet node, both and netns":      {"branch: main\nrole: both\nglobal_netns: orama-global\n", true, ""},
+		"testnet node, no role":             {"branch: main\n", true, `records role ""`},
+		"testnet node, global":              {"role: global\nglobal_netns: orama-global\n", true, `records role "global"`},
+		"testnet node, no netns":            {"role: both\n", true, "records global_netns"},
+		"testnet node, other netns":         {"role: both\nglobal_netns: other\n", true, `records global_netns "other"`},
 	}
 	for name, tc := range cases {
 		got := strings.Join(roleProblems(tc.prefs, tc.colocated), "; ")

@@ -37,7 +37,7 @@ const (
 type CreateOptions struct {
 	// Name is the network's name, the one `orama network use` and --network take.
 	Name string
-	// ChainID is the chain's id. A chain id without -stagenet-, -devnet- or
+	// ChainID is the chain's id. A chain id without -testnet-, -devnet- or
 	// -localnet- is a production one (pkg/netclass).
 	ChainID string
 	// ReleaseRoot is the path of the release-root.json the network's releases
@@ -154,12 +154,12 @@ func (o *Options) prepareCreate() error {
 	case o.NoValidator:
 		return clierr.Usage("--no-validator has no meaning with --create-network: the machines are the network's bootstrap validators")
 	case c.ChainID == "":
-		return clierr.Usage("--create-network needs --chain-id, for example orama-%s-stagenet-1 (a chain id that is not orama-[<name>-]stagenet-<id>, -devnet-<id> or -localnet-<id> is a production one); an announced network supplies it (orama maint network announce)", c.Name)
+		return clierr.Usage("--create-network needs --chain-id, for example %s (a chain id that is not orama-[<name>-]testnet-<id>, -devnet-<id> or -localnet-<id> is a production one); an announced network supplies it (orama maint network announce)", netclass.ExampleTestChainID(c.Name))
 	case netclass.IsLocalnet(c.ChainID):
-		return clierr.Usage("--chain-id %q is a localnet's: the chain locks no parameter on a localnet, which is for scripts/localnet on one machine; use a -stagenet- or -devnet- chain id", c.ChainID)
+		return clierr.Usage("--chain-id %q is a localnet's: the chain locks no parameter on a localnet, which is for scripts/localnet on one machine; use a -testnet- or -devnet- chain id", c.ChainID)
 	case netclass.IsProduction(c.ChainID):
 		return clierr.Usage("--chain-id %q is a production network's (it is not of the form %s): --create-network makes test networks only, because it keeps each bootstrap validator's key in an unencrypted test keyring on the machine. "+
-			"Creating a production network needs seat accounts held by the RootWallet, which setup does not build yet; use a -stagenet- or -devnet- chain id", c.ChainID, netclass.TestChainIDForm)
+			"Creating a production network needs seat accounts held by the RootWallet, which setup does not build yet; use a -testnet- or -devnet- chain id", c.ChainID, netclass.TestChainIDForm)
 	case c.ReleaseRoot == "" && c.AnnouncedRoot == nil:
 		return clierr.Usage("--create-network needs --release-root: the release-root.json the network's releases are verified against (an announced network supplies it: orama maint network announce)")
 	}

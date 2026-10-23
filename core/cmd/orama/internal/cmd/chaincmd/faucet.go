@@ -25,10 +25,10 @@ var (
 
 var faucetCmd = &cobra.Command{
 	Use:   "faucet <recipient>",
-	Short: "Fund an account on a test network (stagenet, devnet)",
+	Short: "Fund an account on a test network (testnet, devnet)",
 	Long: `Send test ORAMA to an account from the chain's faucet (MsgFaucet).
 
-The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
+The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
 command reads the chain id from the node first and refuses any other chain
 before it signs anything. The chain refuses a drip over its maximum and a second
 drip to the same recipient inside its cooldown (24 hours by default).
@@ -42,8 +42,8 @@ exist yet. --amount is in norama (1 ORAMA = 1000000000 norama).
 Prints the transaction hash, the amount, and the recipient's bank balance once
 the transaction is in a block.
 
-  orama chain faucet orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53 --env stagenet
-  orama chain faucet <address> --env stagenet --amount 5000000000 --node 57.129.166.16
+  orama chain faucet orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53 --env testnet
+  orama chain faucet <address> --env testnet --amount 5000000000 --node 57.129.166.16
 
 --node is the SSH host of the node that signs (here it is not the REST URL the
 other 'orama chain' commands take); without it the environment's first node

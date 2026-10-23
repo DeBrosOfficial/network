@@ -56,7 +56,7 @@ func TestInitGenesis_committeeSizeGate_rejectsUndersizedProductionCommittee(t *t
 }
 
 func TestInitGenesis_committeeSizeGate_chainIDThatOnlyContainsATestMarkerIsProduction(t *testing.T) {
-	for _, chainID := range []string{"orama-1-devnet-x", "orama-1-stagenet-x", "mainnet-localnet-1", "orama-devnet-"} {
+	for _, chainID := range []string{"orama-1-devnet-x", "orama-1-testnet-x", "mainnet-localnet-1", "orama-devnet-"} {
 		f := newTestFixture(t)
 		f.Ctx = f.Ctx.WithChainID(chainID)
 

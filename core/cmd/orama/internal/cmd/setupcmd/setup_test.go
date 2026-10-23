@@ -63,14 +63,14 @@ func TestParseHostKeys_refusals(t *testing.T) {
 
 func TestOptionsFromFlags(t *testing.T) {
 	resetFlags(t)
-	flags.network, flags.name, flags.yes, flags.storageGB = "stagenet", "alice", true, 80
+	flags.network, flags.name, flags.yes, flags.storageGB = "testnet", "alice", true, 80
 	flags.ips = []string{"203.0.113.10"}
 	flags.hostKeys = []string{"SHA256:aaa"}
 	opts, err := optionsFromFlags(Cmd, []string{"203.0.113.11"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if opts.Network != "stagenet" || opts.Name != "alice" || !opts.Yes || opts.StorageGB != 80 || opts.User != "root" {
+	if opts.Network != "testnet" || opts.Name != "alice" || !opts.Yes || opts.StorageGB != 80 || opts.User != "root" {
 		t.Errorf("%+v", opts)
 	}
 	if strings.Join(opts.IPs, ",") != "203.0.113.10,203.0.113.11" {
@@ -193,7 +193,7 @@ func TestConfirmExit(t *testing.T) {
 
 func TestChoicesFrom_marksTheActiveNetworkTheDefault(t *testing.T) {
 	fsys := fstest.MapFS{}
-	for _, name := range []string{"stagenet", "testnet"} {
+	for _, name := range []string{"devnet", "testnet"} {
 		root := []byte("root-" + name)
 		m := netregistry.Manifest{Name: name, ChainID: "orama-" + name + "-1", GenesisSHA256: strings.Repeat("0", 64),
 			Seeds: []string{"a." + name + ".example", "b." + name + ".example"}, Channel: "nightly", MinVersion: "0.3.0",
@@ -213,18 +213,18 @@ func TestChoicesFrom_marksTheActiveNetworkTheDefault(t *testing.T) {
 	if err != nil || len(got) != 2 {
 		t.Fatalf("%v, %v", got, err)
 	}
-	if got[0].Name != "stagenet" || got[0].Default || got[1].Name != "testnet" || !got[1].Default || got[1].ChainID != "orama-testnet-1" {
+	if got[0].Name != "devnet" || got[0].Default || got[1].Name != "testnet" || !got[1].Default || got[1].ChainID != "orama-testnet-1" {
 		t.Errorf("%+v", got)
 	}
 }
 
 func TestChoiceOf_saysWhetherTheNetworkPinsATorNetwork(t *testing.T) {
-	plain := &netregistry.Network{Manifest: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-1"}}
+	plain := &netregistry.Network{Manifest: &netregistry.Manifest{Name: "devnet", ChainID: "orama-devnet-1"}}
 	pinned := &netregistry.Network{Manifest: &netregistry.Manifest{Name: "testnet", ChainID: "orama-testnet-1", TorNetworkSHA256: strings.Repeat("ab", 32)}}
-	if c := choiceOf(plain, "stagenet"); c.TorNetwork || !c.Default || c.Name != "stagenet" {
+	if c := choiceOf(plain, "devnet"); c.TorNetwork || !c.Default || c.Name != "devnet" {
 		t.Errorf("%+v", c)
 	}
-	if c := choiceOf(pinned, "stagenet"); !c.TorNetwork || c.Default {
+	if c := choiceOf(pinned, "devnet"); !c.TorNetwork || c.Default {
 		t.Errorf("%+v", c)
 	}
 }
@@ -232,8 +232,8 @@ func TestChoiceOf_saysWhetherTheNetworkPinsATorNetwork(t *testing.T) {
 func TestPrintSummary(t *testing.T) {
 	var out bytes.Buffer
 	plan := &setup.Plan{Nodes: []setup.NodePlan{{IP: "203.0.113.10"}, {IP: "203.0.113.11"}}}
-	printSummary(&out, &setup.Result{Plan: plan, Env: "stagenet-alice", Operator: "orama1abc"})
-	for _, want := range []string{`recorded as "stagenet-alice"`, "203.0.113.10", "203.0.113.11", "Operator account: orama1abc", "orama status --env stagenet-alice"} {
+	printSummary(&out, &setup.Result{Plan: plan, Env: "testnet-alice", Operator: "orama1abc"})
+	for _, want := range []string{`recorded as "testnet-alice"`, "203.0.113.10", "203.0.113.11", "Operator account: orama1abc", "orama status --env testnet-alice"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("summary lacks %q:\n%s", want, out.String())
 		}
@@ -314,7 +314,7 @@ func TestCleanError_theOriginalErrorStaysReachable(t *testing.T) {
 func TestOptionsFromFlags_createNetwork(t *testing.T) {
 	resetFlags(t)
 	for name, value := range map[string]string{
-		"create-network": "stagenet", "chain-id": "orama-stagenet-7", "release-root": "root.json", "publish-dir": "out",
+		"create-network": "testnet", "chain-id": "orama-testnet-7", "release-root": "root.json", "publish-dir": "out",
 		"seed": "seed.example.org", "no-faucet": "true", "force-new-genesis": "true", "ip": "203.0.113.10", "tor-authorities": "4",
 	} {
 		if err := Cmd.Flags().Set(name, value); err != nil {
@@ -326,7 +326,7 @@ func TestOptionsFromFlags_createNetwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := setup.CreateOptions{
-		Name: "stagenet", ChainID: "orama-stagenet-7", ReleaseRoot: "root.json", PublishDir: "out",
+		Name: "testnet", ChainID: "orama-testnet-7", ReleaseRoot: "root.json", PublishDir: "out",
 		Seeds: []string{"seed.example.org"}, NoFaucet: true, ForceNewGenesis: true, TorAuthorities: 4, TorAuthoritiesSet: true,
 	}
 	if opts.Create == nil || fmt.Sprint(*opts.Create) != fmt.Sprint(want) {
@@ -360,11 +360,11 @@ func TestPrintSummary_aCreationSaysHowToPublish(t *testing.T) {
 	var out bytes.Buffer
 	plan := &setup.Plan{Nodes: []setup.NodePlan{{IP: "203.0.113.10"}}}
 	created := &setup.CreatedNetwork{
-		Manifest: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-7", Seeds: []string{"ns1.stagenet.orama.network"}},
-		Dir:      "networks/stagenet", Machines: []string{"203.0.113.10"},
+		Manifest: &netregistry.Manifest{Name: "testnet", ChainID: "orama-testnet-7", Seeds: []string{"ns1.testnet.orama.network"}},
+		Dir:      "networks/testnet", Machines: []string{"203.0.113.10"},
 	}
-	printSummary(&out, &setup.Result{Plan: plan, Env: "stagenet", Created: created})
-	for _, want := range []string{"make -C core sync-networks", "orama network add https://orama.network/networks/stagenet/manifest.json", "ns1.stagenet.orama.network."} {
+	printSummary(&out, &setup.Result{Plan: plan, Env: "testnet", Created: created})
+	for _, want := range []string{"make -C core sync-networks", "orama network add https://orama.network/networks/testnet/manifest.json", "ns1.testnet.orama.network."} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("summary lacks %q:\n%s", want, out.String())
 		}
@@ -380,8 +380,8 @@ func TestPrintCreated_isWhatAFailedTorStepStillPrints(t *testing.T) {
 		t.Errorf("a join printed %q", out.String())
 	}
 	created := &setup.CreatedNetwork{
-		Manifest: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-7", Seeds: []string{"ns1.stagenet.orama.network"}},
-		Dir:      "networks/stagenet", Machines: []string{"203.0.113.10"},
+		Manifest: &netregistry.Manifest{Name: "testnet", ChainID: "orama-testnet-7", Seeds: []string{"ns1.testnet.orama.network"}},
+		Dir:      "networks/testnet", Machines: []string{"203.0.113.10"},
 	}
 	printCreated(&out, &setup.Result{Created: created})
 	if !strings.Contains(out.String(), "make -C core sync-networks") {
@@ -391,7 +391,7 @@ func TestPrintCreated_isWhatAFailedTorStepStillPrints(t *testing.T) {
 
 func TestChoicesFrom_marksAnAnnouncedNetwork(t *testing.T) {
 	root := []byte("root-newnet")
-	m := netregistry.Manifest{Name: "newnet", ChainID: "orama-newnet-stagenet-1", Channel: "nightly", MinVersion: "0.3.0",
+	m := netregistry.Manifest{Name: "newnet", ChainID: "orama-newnet-testnet-1", Channel: "nightly", MinVersion: "0.3.0",
 		ReleaseRepo: "https://r.example", ReleaseRootSHA256: netregistry.Digest(root)}
 	data, err := m.Marshal()
 	if err != nil {
@@ -411,10 +411,10 @@ func TestChoicesFrom_marksAnAnnouncedNetwork(t *testing.T) {
 
 // An announced network supplies the chain id and the release root of a creation; the host-key check
 // runs before that is resolved, so it must not check the creation itself. It used to, and refused
-// `orama setup --create-network stagenet --yes ...` with "needs --chain-id".
+// `orama setup --create-network testnet --yes ...` with "needs --chain-id".
 func TestRequireHostKeys_anAnnouncedCreationIsNotCheckedYet(t *testing.T) {
 	create := setup.Options{IPs: []string{"203.0.113.10"}, Yes: true, HostKeys: map[string]string{"": "SHA256:a"},
-		Create: &setup.CreateOptions{Name: "stagenet"}}
+		Create: &setup.CreateOptions{Name: "testnet"}}
 	if err := requireHostKeys(create, false); err != nil {
 		t.Fatalf("a creation whose chain id the announcement supplies was refused: %v", err)
 	}

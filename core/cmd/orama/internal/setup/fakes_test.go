@@ -30,7 +30,7 @@ import (
 const (
 	testOperator = "orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53"
 	testEVM      = "0x1111111111111111111111111111111111111111"
-	testChainID  = "orama-stagenet-6"
+	testChainID  = "orama-testnet-6"
 	testRootSHA  = "aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11aa11"
 	testManifest = "bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22bb22"
 	testSeedHash = "cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33cc33"
@@ -374,7 +374,7 @@ func (n fakeNetworks) Resolve(_ context.Context, name string) (*netregistry.Netw
 		return nil, fmt.Errorf("%w %q (known: none): add a network", netregistry.ErrNotFound, name)
 	}
 	m := &netregistry.Manifest{
-		Name: "stagenet", ChainID: testChainID, GenesisSHA256: netregistry.Digest(testGenesisDoc()), Seeds: []string{"seed1.stagenet.example", "seed2.stagenet.example"},
+		Name: "testnet", ChainID: testChainID, GenesisSHA256: netregistry.Digest(testGenesisDoc()), Seeds: []string{"seed1.testnet.example", "seed2.testnet.example"},
 		Channel: "nightly", MinVersion: "0.3.0", ReleaseRepo: "https://releases.example", ReleaseRootSHA256: testRootSHA, Faucet: n.faucet,
 	}
 	if n.announced {
@@ -396,8 +396,8 @@ func (f fakeTrust) TrustPoint(context.Context, *netregistry.Network) (*statesync
 	f.w.add("trust point")
 	return &statesync.TrustPoint{
 		Height: 4900, Hash: testSeedHash,
-		Servers: []string{"https://seed1.stagenet.example/v1/chain/light", "https://seed2.stagenet.example/v1/chain/light"},
-		Peers:   []statesync.Peer{{NodeID: strings.Repeat("a", 40), Host: "seed1.stagenet.example"}},
+		Servers: []string{"https://seed1.testnet.example/v1/chain/light", "https://seed2.testnet.example/v1/chain/light"},
+		Peers:   []statesync.Peer{{NodeID: strings.Repeat("a", 40), Host: "seed1.testnet.example"}},
 	}, nil
 }
 
@@ -754,5 +754,5 @@ func newHarness() *harness {
 }
 
 func (h *harness) opts(ips ...string) Options {
-	return Options{Network: "stagenet", IPs: ips, Name: "alice", Yes: true, TorNetwork: "", StorageGB: 10}
+	return Options{Network: "testnet", IPs: ips, Name: "alice", Yes: true, TorNetwork: "", StorageGB: 10}
 }

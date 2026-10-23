@@ -57,7 +57,7 @@ const defaultMinGasPriceNorama = "0.000001"
 // defaultQueryGasLimit is the gas one gRPC or ABCI query may use (app.toml query-gas-limit).
 // A point lookup costs a few thousand gas; this stops a query that scans state, on any node that
 // serves the public /v1/chain/query route, from running past a couple of thousand store reads.
-// chain/scripts/stagenet/deploy.sh sets the same value on nodes whose app.toml already exists.
+// chain/scripts/testnet/deploy.sh sets the same value on nodes whose app.toml already exists.
 const defaultQueryGasLimit uint64 = 2_000_000
 
 // defaultIAVLCacheSize is how many IAVL tree nodes the store keeps in memory (app.toml
@@ -65,7 +65,7 @@ const defaultQueryGasLimit uint64 = 2_000_000
 // nothing else: on a 4 GB node that also runs IPFS and every namespace's services, that cache
 // grew past half a gigabyte of live heap in a day, and Go's collector, which lets the heap reach
 // twice what is live, took the node to 98% memory. 100000 nodes is about 60 MB. A read that
-// misses it is answered by pebble from disk. chain/scripts/stagenet/deploy.sh sets the same
+// misses it is answered by pebble from disk. chain/scripts/testnet/deploy.sh sets the same
 // value on nodes whose app.toml already exists.
 const defaultIAVLCacheSize uint64 = 100_000
 

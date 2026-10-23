@@ -24,10 +24,10 @@ import (
 // the request has been proxied through `handleNamespaceGatewayRequest`
 // which REWRITES `r.Host` to the backend target's IP:port (e.g.
 // "10.0.0.6:10004") before forwarding. The original public host (e.g.
-// "ns-anchat-test.orama-devnet.network") is preserved in the
+// "ns-anchat-test.devnet.orama.network") is preserved in the
 // `X-Forwarded-Host` header. If we only compare the Origin against
 // `r.Host`, browser/RN-iOS clients (which always send Origin) are
-// rejected with 403 because their Origin's `ns-anchat-test.orama-devnet.network`
+// rejected with 403 because their Origin's `ns-anchat-test.devnet.orama.network`
 // will never match the proxied `10.0.0.6` target. Curl tests that don't
 // send Origin slip through, masking the bug.
 //

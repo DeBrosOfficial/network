@@ -49,7 +49,7 @@ machine's chain keys, builds the genesis on the first machine from all the keys,
 the others, starts the chains one after the other, waits for blocks, and then registers your
 operator and the nodes as it does for a join. It writes networks/<name>/ (manifest, genesis,
 release root) to --publish-dir and prints what to do to publish it. --chain-id is the chain's
-id: a test network's is of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
+id: a test network's is of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
 setup refuses: it creates test networks only, because it keeps each seat's key in an unencrypted test keyring
 (a production network needs seat accounts held by the RootWallet, which is not built). --release-root is the release-root.json the network's
 releases are verified against. A network that was announced in the registry before it was created (orama maint network announce)
@@ -82,7 +82,7 @@ machine until every machine passes.
 | `--allow-quorum-loss` | `false` | Restart a cluster of fewer than three voters with --force when the global layer is installed: the cluster is unavailable while the node restarts (without it, a run with --yes stops there) |
 | `--asn` | `0` | Autonomous system number to declare for the nodes (default: looked up from the address; 0 leaves it undeclared) |
 | `--bootstrap-key` | — | A private key that opens the machines today (key-only images); used once to install the RootWallet key, never stored |
-| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&amp;lt;name>-]stagenet-&amp;lt;id>, orama-[&amp;lt;name>-]devnet-&amp;lt;id> or orama-[&amp;lt;name>-]localnet-&amp;lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
+| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&amp;lt;name>-]testnet-&amp;lt;id>, orama-[&amp;lt;name>-]devnet-&amp;lt;id> or orama-[&amp;lt;name>-]localnet-&amp;lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
 | `--channel` | — | With --create-network: the release channel, nightly, main or dev/&amp;lt;branch> (default nightly, main for a production chain id) |
 | `--cluster-only` | `false` | Install the cluster node only, without the chain, storage or relay |
 | `--contact` | — | Where an abuse complaint about the relay goes (default: your operator account) |

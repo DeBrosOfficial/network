@@ -57,7 +57,7 @@ func TestApplyConsensusParams_writesTheBlockSizeEvenWhenOramadLeftAnother(t *tes
 }
 
 func TestVerifyGenesis_aBlockSizeOtherThanThePinIsRefused(t *testing.T) {
-	doc, err := ApplyConsensusParams(genesisFor{chainID: "orama-stagenet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
+	doc, err := ApplyConsensusParams(genesisFor{chainID: "orama-testnet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestVerifyGenesis_aBlockSizeOtherThanThePinIsRefused(t *testing.T) {
 }
 
 func TestVerifyGenesis_aValidatorKeyTypeOrEvidenceWindowOtherThanThePinIsRefused(t *testing.T) {
-	doc, err := ApplyConsensusParams(genesisFor{chainID: "orama-stagenet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
+	doc, err := ApplyConsensusParams(genesisFor{chainID: "orama-testnet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
 	if err != nil {
 		t.Fatal(err)
 	}

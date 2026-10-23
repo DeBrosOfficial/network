@@ -13,7 +13,7 @@ different thing and stays on the public Tor network, because the anonymity proxy
 (`/v1/proxy/anon`, `anon_fetch`) needs public exits. Nothing here changes it.
 
 The network's product name is not decided (it cannot be "Tor"). The working name in network files is the network's id, for example
-`orama-stagenet`. The mechanism of the network (consensus, weights, rewards) is described in the whitepaper; this page is the operator's runbook.
+`orama-testnet`. The mechanism of the network (consensus, weights, rewards) is described in the whitepaper; this page is the operator's runbook.
 
 Code: `core/pkg/tornet` (the network file and its one parser, torrc rendering,
 key ceremony, consensus reader, vote archive, relay monitor file),
@@ -89,7 +89,7 @@ binaries, and the same file ships to wallets.
 
 ```json
 {
-  "name": "orama-stagenet",
+  "name": "orama-testnet",
   "private": true,
   "bootstrap": true,
   "allow_exit": true,
@@ -173,7 +173,7 @@ machine instead, with `orama maint global tor authority-keys`; see
 [A created network's Tor network](#a-created-networks-tor-network).)
 
 ```bash
-orama maint global tor ceremony --name orama-stagenet --out ./tor-ceremony \
+orama maint global tor ceremony --name orama-testnet --out ./tor-ceremony \
   --authority OramaAuthMew=57.129.166.16 \
   --authority OramaAuthMewtwo=57.129.166.17 \
   --authority OramaAuthGengar=161.97.184.199 \
@@ -310,7 +310,7 @@ ordinary failures. Verify
 `root` identifies the archived period; a relay report's `inputs_root` is a separate hash over the report entries and is not bound to it. The archive is local to
 the authority host: **publication** (to global storage or a static site) is not
 built, and the archive has no retention policy yet (a period is a few hundred
-kilobytes at stagenet size and grows with the relay count).
+kilobytes at testnet size and grows with the relay count).
 
 **Bandwidth measurement (sbws) is not built.** Without a bandwidth file the
 authorities weight relays by the bandwidth they report, capped by their
@@ -405,8 +405,8 @@ check `global.dirauth.consensus` warns when the authority says it is not listed
 
 ## Exits
 
-An exit is opt-in per node: `--services relay,exit`. Orama's stagenet runs exits
-because the owner decided to; a network's file says so with `allow_exit` and an
+An exit is opt-in per node: `--services relay,exit`. A network runs exits only
+because its owner decides to; a network's file says so with `allow_exit` and an
 install is refused otherwise, so a production network file that does not carry
 it cannot be given an exit by a flag.
 
@@ -445,13 +445,13 @@ replies. Loopback inside the namespace is denied to an exit's unit as well. The
 policy is a single layer for one thing: a non-co-located exit host
 (`--services relay,exit` without `--colocated`) keeps loopback, for its resolver
 stub, and so protects its own loopback services only with Tor's policy. Do not
-put an exit on a host that runs the chain without `--colocated`; stagenet's
+put an exit on a host that runs the chain without `--colocated`; testnet's
 exit runs in the namespace, where the chain's RPC and REST API are on the
 namespace address, which is denied to it, and loopback is denied as well.
 
 **Operator guidance**
 
-- *Before you start:* tell the hosting provider. Many forbid exits; stagenet's
+- *Before you start:* tell the hosting provider. Many forbid exits; testnet's
   providers have not been asked and that is an open question for the owner.
   Put a reverse DNS name on the address that says "this is a Tor exit"
   (`tor-exit.<your domain>`), and publish a notice page on that name.
@@ -584,10 +584,10 @@ later). Its descriptor for the voted period was on no HSDir while the other four
 services' were, which is what a service built on the default period looks like; it
 was the one onion service clients could not find.
 
-## Rolling it out on stagenet
+## Rolling it out on testnet
 
-Stagenet is five machines that each run a cluster node and, co-located, the
-global services (`chain/scripts/stagenet/deploy.sh`). Two deviations from a production
+Testnet is five machines that each run a cluster node and, co-located, the
+global services (`chain/scripts/testnet/deploy.sh`). Two deviations from a production
 layout are deliberate and need the owner's agreement: the authorities share
 machines with cluster nodes (mainnet authorities are separate machines), and
 only two providers exist (OVH, Contabo), not three. The roles:
@@ -600,7 +600,7 @@ only two providers exist (OVH, Contabo), not three. The roles:
 | magicarp | 161.97.184.202 | Contabo | relay |
 | froakie | 161.97.151.255 | Contabo | relay,exit |
 
-All five also run `onion` (all five are validators). The stagenet nodes fall in
+All five also run `onion` (all five are validators). The testnet nodes fall in
 two /16 networks, hence `allow_shared_subnets`.
 
 1. **Build** the `orama` CLI for linux/amd64 (`make -C core build-linux`,
@@ -610,7 +610,7 @@ two /16 networks, hence `allow_shared_subnets`.
    pairs for mew, mewtwo, gengar). Check the transcript against step 5's output.
 3. **Offline media:** move `tor-ceremony/offline/` to encrypted media in two
    places; delete it from the ceremony machine.
-4. **Stage**, on each node, in the root-owned release directory (stagenet:
+4. **Stage**, on each node, in the root-owned release directory (testnet:
    `/root/orama-global-release`): the new `orama` (replacing the old),
    `tor-network.json`, and on each authority its own `deploy/<nick>` directory
    (the whole directory; it holds `keys/`), root-owned and not writable by
@@ -671,7 +671,7 @@ two /16 networks, hence `allow_shared_subnets`.
    the onion services one node at a time (`orama global restart onion`), each only
    once its own `tor-onion` home shows `onion period 720 minutes`: they build
    their descriptors for the period the consensus they hold names.
-11. **Verify** with the fleet e2e on the stagenet target: feature `tor-network`,
+11. **Verify** with the fleet e2e on the testnet target: feature `tor-network`,
    stage 8 (`TestAuthorities_signAConsensusThatListsEveryRelay`,
    `TestNetwork_consensusVotesTheOnionTimePeriodOfOneSharedRandomRun`,
    `TestAuthorities_archiveMatchesItsManifest`, `TestRelays_orPortIsReachableAndTheGateIsNot`,

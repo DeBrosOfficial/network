@@ -68,7 +68,7 @@ type Syncer struct {
 	// Timeout bounds one pass; zero is SyncTimeout.
 	Timeout time.Duration
 	// Zone is the dedicated sub-zone names are published under, for example
-	// nodes.stagenet.orama.network: strictly below the cluster's base domain.
+	// nodes.testnet.orama.network: strictly below the cluster's base domain.
 	Zone string
 }
 

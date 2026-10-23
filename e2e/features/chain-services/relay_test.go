@@ -231,7 +231,7 @@ func TestRelayUpdate_rotatesAFingerprint(t *testing.T) {
 // TestRelayPayouts_anUnsettledEpochPaidNobody: the payouts of an epoch no relay
 // was reported on are empty, not an error, and epoch 0 is refused. (The run
 // chain has no reporter set, so no epoch pays; the paid case is checked on
-// stagenet by relay-reporter.)
+// testnet by relay-reporter.)
 func TestRelayPayouts_anUnsettledEpochPaidNobody(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)

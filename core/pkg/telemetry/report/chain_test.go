@@ -16,7 +16,7 @@ import (
 // every integer a string, times RFC 3339.
 const statusFixture = `{"jsonrpc":"2.0","id":-1,"result":{
  "node_info":{"protocol_version":{"p2p":"9","block":"11","app":"0"},"id":"%s","listen_addr":"tcp://10.0.0.1:31000",
-  "network":"orama-stagenet-1","version":"0.39.4","channels":"40202122233038606100","moniker":"athena",
+  "network":"orama-testnet-1","version":"0.39.4","channels":"40202122233038606100","moniker":"athena",
   "other":{"tx_index":"on","rpc_address":"tcp://127.0.0.1:31001"}},
  "sync_info":{"latest_block_hash":"AB12","latest_app_hash":"CD34","latest_block_height":"%d",
   "latest_block_time":"%s","earliest_block_height":"1","catching_up":false},
@@ -76,7 +76,7 @@ func (f *fakeChain) handler() http.Handler {
 		var metas []string
 		for h := maxH; h >= minH; h-- { // newest first, as CometBFT answers
 			t := f.latest.Add(-time.Duration(f.height-h) * f.interval)
-			metas = append(metas, fmt.Sprintf(`{"block_id":{"hash":"AA"},"block_size":"512","header":{"chain_id":"orama-stagenet-1","height":"%d","time":"%s"},"num_txs":"0"}`,
+			metas = append(metas, fmt.Sprintf(`{"block_id":{"hash":"AA"},"block_size":"512","header":{"chain_id":"orama-testnet-1","height":"%d","time":"%s"},"num_txs":"0"}`,
 				h, t.Format(time.RFC3339Nano)))
 		}
 		fmt.Fprintf(w, `{"jsonrpc":"2.0","id":-1,"result":{"last_height":"%d","block_metas":[%s]}}`, f.height, strings.Join(metas, ","))
@@ -99,7 +99,7 @@ func TestQueryChainRPC_validatorNode(t *testing.T) {
 	if !r.Responsive || r.Error != "" {
 		t.Fatalf("responsive=%v error=%q", r.Responsive, r.Error)
 	}
-	if r.ChainID != "orama-stagenet-1" || r.NodeVersion != "0.39.4" || r.LatestHeight != 1234 || r.CatchingUp {
+	if r.ChainID != "orama-testnet-1" || r.NodeVersion != "0.39.4" || r.LatestHeight != 1234 || r.CatchingUp {
 		t.Errorf("status fields: %+v", r)
 	}
 	if !r.LatestBlockTime.Equal(f.latest) || r.BlockAgeSec != 3 {

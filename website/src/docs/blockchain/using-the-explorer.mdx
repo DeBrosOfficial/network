@@ -6,7 +6,7 @@ The explorer at [orama.network/explorer](/explorer) lets anyone read an Orama ch
 
 Under the header, a strip has a **Network** selector and always shows the **chain id** of the network being read. It lists every network of the registry whose chain exists, and **Custom gateway…**, where you type the address of any gateway.
 
-- The default network (stagenet) keeps short addresses, `/explorer/tx/<hash>`; another network is named first, `/explorer/<network>/tx/<hash>`. A custom gateway is `/explorer/custom/…?gateway=https%3A%2F%2Fgateway.example.org`.
+- The default network (testnet once the registry ships it, until then the first network by name) keeps short addresses, `/explorer/tx/<hash>`; another network is named first, `/explorer/<network>/tx/<hash>`. A custom gateway is `/explorer/custom/…?gateway=https%3A%2F%2Fgateway.example.org`.
 - Choosing another network opens its front page, because a transaction or wallet of one chain does not exist on another.
 - A link that names a gateway Orama does not list asks you first, because opening it makes your browser call that server, whose operator decides every figure shown. The explorer sends no cookies or credentials to any gateway and marks such a network "Not in the Orama registry".
 - When a network is reset (a new chain from block 1) the explorer says so, and a link made on the old chain shows a page that explains it instead of a page that looks like the old one.

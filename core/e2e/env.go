@@ -298,7 +298,7 @@ func GetGatewayURL() string {
 	}
 
 	// Fallback to devnet
-	return "https://orama-devnet.network"
+	return "https://devnet.orama.network"
 }
 
 // GetRQLiteNodes returns rqlite endpoint addresses from config

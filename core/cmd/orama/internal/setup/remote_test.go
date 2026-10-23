@@ -112,12 +112,12 @@ func TestSSHMachine_stageReleaseVerifiesAgainstTheOperatorsWallet(t *testing.T) 
 func TestSSHMachine_genesisClusterInstallCarriesNoInvite(t *testing.T) {
 	sh := &recShell{}
 	m, _ := testMachine(sh)
-	err := m.InstallCluster(context.Background(), ClusterInstall{Create: true, IP: ip1, User: "root", Env: "stagenet-alice", Wallet: testEVM})
+	err := m.InstallCluster(context.Background(), ClusterInstall{Create: true, IP: ip1, User: "root", Env: "testnet-alice", Wallet: testEVM})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmd := sh.calls[0]
-	for _, want := range []string{"node install", "--vps-ip '" + ip1 + "'", "--operator-wallet '" + testEVM + "'", "--environment 'stagenet-alice'"} {
+	for _, want := range []string{"node install", "--vps-ip '" + ip1 + "'", "--operator-wallet '" + testEVM + "'", "--environment 'testnet-alice'"} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("command lacks %q: %s", want, cmd)
 		}

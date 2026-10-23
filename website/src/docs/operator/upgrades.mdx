@@ -15,12 +15,12 @@ orama upgrade --yes              # roll without asking
 orama upgrade --node 203.0.113.11   # one node only
 ```
 
-`orama upgrade` takes the **newest signed release of your network's channel**. The channel is the release repository and channel your network's manifest names (`orama network list` shows the network; stagenet follows `nightly`). The release is verified on your machine against the release root built into the CLI before anything is sent: the signed metadata, then the archive's length and hashes. Every node verifies it again, against the release root it adopted, before it replaces a file. An environment that is on no network of the registry (a cluster you added by its gateway) has no channel; `orama upgrade` says so and points at `orama maint rollout`, which builds and rolls your own archive (below).
+`orama upgrade` takes the **newest signed release of your network's channel**. The channel is the release repository and channel your network's manifest names (`orama network list` shows the network; testnet follows `nightly`). The release is verified on your machine against the release root built into the CLI before anything is sent: the signed metadata, then the archive's length and hashes. Every node verifies it again, against the release root it adopted, before it replaces a file. An environment that is on no network of the registry (a cluster you added by its gateway) has no channel; `orama upgrade` says so and points at `orama maint rollout`, which builds and rolls your own archive (below).
 
 The plan is a table, one row per node, in the order the rolling upgrade will restart them:
 
 ```text
-Network stagenet, channel nightly: newest release 0.3.1
+Network testnet, channel nightly: newest release 0.3.1
 
 NODE         ROLE                  RUNNING  TARGET  ACTION   GLOBAL LAYER
 203.0.113.10 Follower, nameserver  0.3.0    0.3.1   upgrade  refreshed after the node

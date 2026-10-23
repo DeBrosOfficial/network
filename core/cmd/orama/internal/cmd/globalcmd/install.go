@@ -90,7 +90,7 @@ the network's --genesis in place. It is never done without the flag, and it is
 refused when the home already has a genesis.
 
 --external-address <public ip>:31000 writes the chain's config.toml and app.toml
-(the settings chain/scripts/stagenet/deploy.sh used to sed in): the address the
+(the settings chain/scripts/testnet/deploy.sh used to sed in): the address the
 node announces to its peers (the chain itself listens at the namespace address,
 198.18.0.2, which no peer can reach), peer exchange off, Prometheus on 127.0.0.1,
 custom pruning (keep 100, every 10 blocks), and a state-sync snapshot every 1000

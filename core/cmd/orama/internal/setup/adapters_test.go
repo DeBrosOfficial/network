@@ -44,7 +44,7 @@ func TestReleaseFetcher_fetchesVerifiesAndEndorses(t *testing.T) {
 		home: func() (string, error) { return home, nil },
 	}
 	n := &netregistry.Network{Root: []byte("embedded-root"), Manifest: &netregistry.Manifest{
-		Name: "stagenet", Channel: "nightly", ReleaseRepo: "https://releases.example", ReleaseRootSHA256: testRootSHA, MinVersion: "0.3.0",
+		Name: "testnet", Channel: "nightly", ReleaseRepo: "https://releases.example", ReleaseRootSHA256: testRootSHA, MinVersion: "0.3.0",
 	}}
 	_, err := f.Fetch(context.Background(), n, "amd64")
 	// The endorsed file is not a real archive, so reading its manifest fails: what
@@ -126,23 +126,23 @@ func testRegistry(t *testing.T, names ...string) func() (*netregistry.Registry, 
 
 func TestRegistryNetworks_defaultsAndRefusals(t *testing.T) {
 	r := registryNetworks{
-		load: testRegistry(t, "stagenet"), active: func() (string, error) { return "", errors.New("none") },
+		load: testRegistry(t, "testnet"), active: func() (string, error) { return "", errors.New("none") },
 	}
 	n, err := r.Resolve(context.Background(), "")
-	if err != nil || n.Manifest.Name != "stagenet" {
+	if err != nil || n.Manifest.Name != "testnet" {
 		t.Fatalf("the only network is the default: %v, %v", n, err)
 	}
-	if _, err := r.Resolve(context.Background(), "mainnet"); err == nil || !strings.Contains(err.Error(), "stagenet") {
+	if _, err := r.Resolve(context.Background(), "mainnet"); err == nil || !strings.Contains(err.Error(), "testnet") {
 		t.Errorf("an unknown network lists the known ones: %v", err)
 	}
 	if _, err := r.Resolve(context.Background(), "https://example.org/manifest.json"); err == nil || !strings.Contains(err.Error(), "orama network add") {
 		t.Errorf("a URL goes through `network add` first: %v", err)
 	}
-	two := registryNetworks{load: testRegistry(t, "stagenet", "testnet"), active: func() (string, error) { return "", errors.New("none") }}
+	two := registryNetworks{load: testRegistry(t, "devnet", "testnet"), active: func() (string, error) { return "", errors.New("none") }}
 	if _, err := two.Resolve(context.Background(), ""); err == nil || !strings.Contains(err.Error(), "--network") {
 		t.Errorf("two networks and no choice: %v", err)
 	}
-	active := registryNetworks{load: testRegistry(t, "stagenet", "testnet"), active: func() (string, error) { return "testnet", nil }}
+	active := registryNetworks{load: testRegistry(t, "devnet", "testnet"), active: func() (string, error) { return "testnet", nil }}
 	if n, err := active.Resolve(context.Background(), ""); err != nil || n.Manifest.Name != "testnet" {
 		t.Errorf("the active network wins: %v, %v", n, err)
 	}
@@ -239,14 +239,14 @@ func refused(status int, kind, message string) seedAnswer {
 	return seedAnswer{status: status, body: fmt.Sprintf(`{"error":%q,"message":%q}`, kind, message)}
 }
 
-var faucetNetwork = &netregistry.Manifest{Name: "stagenet", Seeds: []string{"seed1.stagenet.example", "seed2.stagenet.example", "seed3.stagenet.example"}}
+var faucetNetwork = &netregistry.Manifest{Name: "testnet", Seeds: []string{"seed1.testnet.example", "seed2.testnet.example", "seed3.testnet.example"}}
 
 func TestGatewayFaucet_theFirstSeedToPayEndsTheAsking(t *testing.T) {
-	d := &seedDoer{answers: map[string]seedAnswer{"seed1.stagenet.example": paid(5)}}
+	d := &seedDoer{answers: map[string]seedAnswer{"seed1.testnet.example": paid(5)}}
 	if err := (gatewayFaucet{client: d}).Fund(context.Background(), faucetNetwork, testOperator, big.NewInt(5)); err != nil {
 		t.Fatal(err)
 	}
-	if len(d.asked) != 1 || d.asked[0] != "seed1.stagenet.example" {
+	if len(d.asked) != 1 || d.asked[0] != "seed1.testnet.example" {
 		t.Errorf("asked %v, want only the first seed", d.asked)
 	}
 	if !strings.Contains(d.body, testOperator) || !strings.Contains(d.body, `"amount":"5"`) {
@@ -258,9 +258,9 @@ func TestGatewayFaucet_theFirstSeedToPayEndsTheAsking(t *testing.T) {
 // network, and the next is asked.
 func TestGatewayFaucet_aSeedThatCannotPayIsPassedOver(t *testing.T) {
 	d := &seedDoer{answers: map[string]seedAnswer{
-		"seed1.stagenet.example": {status: http.StatusNotFound, body: "not found\n"},
-		"seed2.stagenet.example": {err: errors.New("connection refused")},
-		"seed3.stagenet.example": paid(7),
+		"seed1.testnet.example": {status: http.StatusNotFound, body: "not found\n"},
+		"seed2.testnet.example": {err: errors.New("connection refused")},
+		"seed3.testnet.example": paid(7),
 	}}
 	if err := (gatewayFaucet{client: d}).Fund(context.Background(), faucetNetwork, testOperator, big.NewInt(7)); err != nil {
 		t.Fatal(err)
@@ -270,8 +270,8 @@ func TestGatewayFaucet_aSeedThatCannotPayIsPassedOver(t *testing.T) {
 	}
 	for _, kind := range []string{"busy", "unavailable", "faucet_disabled", "faucet_failed"} {
 		d := &seedDoer{answers: map[string]seedAnswer{
-			"seed1.stagenet.example": refused(http.StatusServiceUnavailable, kind, "this seed cannot"),
-			"seed2.stagenet.example": paid(1),
+			"seed1.testnet.example": refused(http.StatusServiceUnavailable, kind, "this seed cannot"),
+			"seed2.testnet.example": paid(1),
 		}}
 		if err := (gatewayFaucet{client: d}).Fund(context.Background(), faucetNetwork, testOperator, big.NewInt(1)); err != nil || len(d.asked) != 2 {
 			t.Errorf("%s: err %v, asked %v", kind, err, d.asked)
@@ -283,9 +283,9 @@ func TestGatewayFaucet_aSeedThatCannotPayIsPassedOver(t *testing.T) {
 func TestGatewayFaucet_aRefusalOfTheChainEndsTheAsking(t *testing.T) {
 	for kind, status := range map[string]int{"cooldown": 429, "epoch_cap": 503, "bad_amount": 400, "bad_recipient": 400} {
 		t.Run(kind, func(t *testing.T) {
-			d := &seedDoer{answers: map[string]seedAnswer{"seed1.stagenet.example": refused(status, kind, "the chain says no")}}
+			d := &seedDoer{answers: map[string]seedAnswer{"seed1.testnet.example": refused(status, kind, "the chain says no")}}
 			err := (gatewayFaucet{client: d}).Fund(context.Background(), faucetNetwork, testOperator, big.NewInt(1))
-			if err == nil || !strings.Contains(err.Error(), "the chain says no") || !strings.Contains(err.Error(), "seed1.stagenet.example") || !strings.Contains(err.Error(), kind) {
+			if err == nil || !strings.Contains(err.Error(), "the chain says no") || !strings.Contains(err.Error(), "seed1.testnet.example") || !strings.Contains(err.Error(), kind) {
 				t.Fatalf("err = %v", err)
 			}
 			if len(d.asked) != 1 {
@@ -298,7 +298,7 @@ func TestGatewayFaucet_aRefusalOfTheChainEndsTheAsking(t *testing.T) {
 // A drip that is being made or was sent is not refused: no other seed is asked, since it could drip
 // twice, and the balance poll that follows every drip says whether the account was paid.
 func TestGatewayFaucet_aPendingDripEndsTheAskingWithoutAnError(t *testing.T) {
-	d := &seedDoer{answers: map[string]seedAnswer{"seed1.stagenet.example": refused(504, "pending", "being made")}}
+	d := &seedDoer{answers: map[string]seedAnswer{"seed1.testnet.example": refused(504, "pending", "being made")}}
 	if err := (gatewayFaucet{client: d}).Fund(context.Background(), faucetNetwork, testOperator, big.NewInt(1)); err != nil {
 		t.Fatalf("a pending drip is an error: %v", err)
 	}
@@ -309,15 +309,15 @@ func TestGatewayFaucet_aPendingDripEndsTheAskingWithoutAnError(t *testing.T) {
 
 func TestGatewayFaucet_whenNoSeedPaysEverySeedsAnswerIsReported(t *testing.T) {
 	d := &seedDoer{answers: map[string]seedAnswer{
-		"seed1.stagenet.example": {status: http.StatusNotFound, body: "not found"},
-		"seed2.stagenet.example": refused(503, "unavailable", "the faucet account has no funds"),
-		"seed3.stagenet.example": {err: errors.New("connection refused")},
+		"seed1.testnet.example": {status: http.StatusNotFound, body: "not found"},
+		"seed2.testnet.example": refused(503, "unavailable", "the faucet account has no funds"),
+		"seed3.testnet.example": {err: errors.New("connection refused")},
 	}}
 	err := (gatewayFaucet{client: d}).Fund(context.Background(), faucetNetwork, testOperator, big.NewInt(1))
 	if err == nil {
 		t.Fatal("a network whose seeds all failed was funded")
 	}
-	for _, want := range []string{"seed1.stagenet.example: seed1.stagenet.example serves no faucet", "seed2.stagenet.example: unavailable: the faucet account has no funds", "seed3.stagenet.example: ask the faucet of seed3.stagenet.example", "connection refused", "none of the 3 seeds"} {
+	for _, want := range []string{"seed1.testnet.example: seed1.testnet.example serves no faucet", "seed2.testnet.example: unavailable: the faucet account has no funds", "seed3.testnet.example: ask the faucet of seed3.testnet.example", "connection refused", "none of the 3 seeds"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("err = %q, lacks %q", err, want)
 		}
@@ -329,12 +329,12 @@ func TestGatewayFaucet_whenNoSeedPaysEverySeedsAnswerIsReported(t *testing.T) {
 
 func TestGatewayFaucet_noSeedsOrACancelledRunIsNotAnAnswer(t *testing.T) {
 	d := &seedDoer{}
-	if err := (gatewayFaucet{client: d}).Fund(context.Background(), &netregistry.Manifest{Name: "stagenet"}, testOperator, big.NewInt(1)); err == nil || len(d.asked) != 0 {
+	if err := (gatewayFaucet{client: d}).Fund(context.Background(), &netregistry.Manifest{Name: "testnet"}, testOperator, big.NewInt(1)); err == nil || len(d.asked) != 0 {
 		t.Errorf("a network with no seeds: %v, asked %v", err, d.asked)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	d = &seedDoer{answers: map[string]seedAnswer{"seed1.stagenet.example": {err: ctx.Err()}}}
+	d = &seedDoer{answers: map[string]seedAnswer{"seed1.testnet.example": {err: ctx.Err()}}}
 	if err := (gatewayFaucet{client: d}).Fund(ctx, faucetNetwork, testOperator, big.NewInt(1)); !errors.Is(err, context.Canceled) {
 		t.Errorf("a cancelled run = %v, want the cancellation, not a report on every seed", err)
 	}
@@ -363,11 +363,11 @@ func TestSSHFaucet(t *testing.T) {
 			return nil
 		},
 	}
-	m := &netregistry.Manifest{Name: "stagenet"}
+	m := &netregistry.Manifest{Name: "testnet"}
 	if err := f.Fund(context.Background(), m, testOperator, big.NewInt(5)); err != nil {
 		t.Fatal(err)
 	}
-	if gotEnv != "stagenet" || gotAddr != testOperator || gotAmount.Int64() != 5 {
+	if gotEnv != "testnet" || gotAddr != testOperator || gotAmount.Int64() != 5 {
 		t.Errorf("%q %q %v", gotEnv, gotAddr, gotAmount)
 	}
 }
@@ -380,7 +380,7 @@ func TestSSHFaucet_noAccessToANodeOfTheNetwork(t *testing.T) {
 			return nil
 		},
 	}
-	err := f.Fund(context.Background(), &netregistry.Manifest{Name: "stagenet"}, testOperator, big.NewInt(1))
+	err := f.Fund(context.Background(), &netregistry.Manifest{Name: "testnet"}, testOperator, big.NewInt(1))
 	if err == nil || !strings.Contains(err.Error(), "no SSH access") {
 		t.Fatalf("got %v", err)
 	}
@@ -388,7 +388,7 @@ func TestSSHFaucet_noAccessToANodeOfTheNetwork(t *testing.T) {
 		environment: func(n string) (*cli.Environment, error) { return &cli.Environment{Name: n}, nil },
 		fund:        func(string, string, *big.Int) error { t.Fatal("no nodes, no drip"); return nil },
 	}
-	if err := empty.Fund(context.Background(), &netregistry.Manifest{Name: "stagenet"}, testOperator, big.NewInt(1)); err == nil {
+	if err := empty.Fund(context.Background(), &netregistry.Manifest{Name: "testnet"}, testOperator, big.NewInt(1)); err == nil {
 		t.Error("an environment with no nodes cannot sign")
 	}
 }
@@ -511,34 +511,34 @@ func TestDialCertificate_readsWhatTheServerPresents(t *testing.T) {
 func TestCLIRecorder_createsTheEnvironmentAndKeepsAnExistingGateway(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	r := cliRecorder{}
-	if err := r.Cluster("stagenet-alice", "stagenet", "https://203.0.113.11", []RecordedNode{{Host: "203.0.113.11", User: "root", Role: "node"}}); err != nil {
+	if err := r.Cluster("testnet-alice", "testnet", "https://203.0.113.11", []RecordedNode{{Host: "203.0.113.11", User: "root", Role: "node"}}); err != nil {
 		t.Fatal(err)
 	}
-	env, err := cli.GetEnvironmentByName("stagenet-alice")
-	if err != nil || env.Network != "stagenet" || env.GatewayURL != "https://203.0.113.11" || len(env.Nodes) != 1 {
+	env, err := cli.GetEnvironmentByName("testnet-alice")
+	if err != nil || env.Network != "testnet" || env.GatewayURL != "https://203.0.113.11" || len(env.Nodes) != 1 {
 		t.Fatalf("%+v, %v", env, err)
 	}
 	// A run that adds a node to an existing environment passes no gateway.
-	if err := r.Cluster("stagenet-alice", "stagenet", "", []RecordedNode{{Host: "203.0.113.12", User: "root", Role: "node"}}); err != nil {
+	if err := r.Cluster("testnet-alice", "testnet", "", []RecordedNode{{Host: "203.0.113.12", User: "root", Role: "node"}}); err != nil {
 		t.Fatal(err)
 	}
-	env, _ = cli.GetEnvironmentByName("stagenet-alice")
+	env, _ = cli.GetEnvironmentByName("testnet-alice")
 	if env.GatewayURL != "https://203.0.113.11" || len(env.Nodes) != 2 {
 		t.Errorf("%+v", env)
 	}
-	if got := r.Hosts("stagenet-alice"); len(got) != 2 || got[1].Host != "203.0.113.12" {
+	if got := r.Hosts("testnet-alice"); len(got) != 2 || got[1].Host != "203.0.113.12" {
 		t.Errorf("hosts %v", got)
 	}
 	if got := r.Hosts("nope"); len(got) != 0 {
 		t.Errorf("hosts of an unknown environment: %v", got)
 	}
-	if err := r.Cluster("fresh", "stagenet", "", nil); err == nil {
+	if err := r.Cluster("fresh", "testnet", "", nil); err == nil {
 		t.Error("a new environment needs a gateway")
 	}
-	if err := r.Operator("stagenet-alice", testOperator); err != nil {
+	if err := r.Operator("testnet-alice", testOperator); err != nil {
 		t.Fatal(err)
 	}
-	if env, _ := cli.GetEnvironmentByName("stagenet-alice"); env.Operator != testOperator {
+	if env, _ := cli.GetEnvironmentByName("testnet-alice"); env.Operator != testOperator {
 		t.Errorf("operator %q", env.Operator)
 	}
 }
@@ -546,19 +546,19 @@ func TestCLIRecorder_createsTheEnvironmentAndKeepsAnExistingGateway(t *testing.T
 func TestCLIRecorder_activeFor(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	r := cliRecorder{}
-	if got := r.ActiveFor("stagenet"); got != "" {
+	if got := r.ActiveFor("testnet"); got != "" {
 		t.Errorf("no environment, no active one: %q", got)
 	}
-	if err := cli.AddEnvironmentOn("mine", "https://203.0.113.11", "d", "stagenet"); err != nil {
+	if err := cli.AddEnvironmentOn("mine", "https://203.0.113.11", "d", "testnet"); err != nil {
 		t.Fatal(err)
 	}
 	if err := cli.SwitchEnvironment("mine"); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.ActiveFor("stagenet"); got != "mine" {
+	if got := r.ActiveFor("testnet"); got != "mine" {
 		t.Errorf("got %q", got)
 	}
-	if got := r.ActiveFor("testnet"); got != "" {
+	if got := r.ActiveFor("devnet"); got != "" {
 		t.Errorf("an environment on another network is not this network's: %q", got)
 	}
 }

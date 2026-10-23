@@ -21,7 +21,7 @@ import (
 // TestGatewayYAMLConfig_ntfyBaseURLRoundTrip pins the YAML tag the standalone
 // gateway binary reads the value back from.
 func TestGatewayYAMLConfig_ntfyBaseURLRoundTrip(t *testing.T) {
-	const base = "https://push.orama-devnet.network"
+	const base = "https://push.devnet.orama.network"
 	cfg := GatewayYAMLConfig{
 		ListenAddr:      ":6001",
 		ClientNamespace: "anchat-v2",
@@ -49,7 +49,7 @@ func TestGatewayYAMLConfig_ntfyBaseURLRoundTrip(t *testing.T) {
 // TestGenerateConfig_writesNtfyBaseURL is the end of the plumbing: the value on
 // InstanceConfig must reach the file the spawned gateway actually loads.
 func TestGenerateConfig_writesNtfyBaseURL(t *testing.T) {
-	const base = "https://push.orama-devnet.network"
+	const base = "https://push.devnet.orama.network"
 	dir := t.TempDir()
 	is := NewInstanceSpawner(dir, zap.NewNop())
 	configPath := filepath.Join(dir, "gateway-node-1.yaml")

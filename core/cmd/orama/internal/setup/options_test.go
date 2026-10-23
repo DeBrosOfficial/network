@@ -166,7 +166,7 @@ func TestNormalize_moreRefusals(t *testing.T) {
 
 func TestNormalize_acceptsWhatItShould(t *testing.T) {
 	o := validOptions()
-	o.User, o.Env, o.Domain, o.StorageGB = "ubuntu", "stagenet-alice", "Cluster.Example.org.", MaxStorageGB
+	o.User, o.Env, o.Domain, o.StorageGB = "ubuntu", "testnet-alice", "Cluster.Example.org.", MaxStorageGB
 	if err := o.Normalize(); err != nil {
 		t.Fatal(err)
 	}
@@ -177,12 +177,12 @@ func TestNormalize_acceptsWhatItShould(t *testing.T) {
 
 func TestCommandLine_isTheCommandThatRunsTheSameSetup(t *testing.T) {
 	o := Options{
-		Network: "stagenet", Env: "stagenet-alice", Name: "alice", IPs: []string{"203.0.113.10", "203.0.113.11"},
+		Network: "testnet", Env: "testnet-alice", Name: "alice", IPs: []string{"203.0.113.10", "203.0.113.11"},
 		HostKeys: map[string]string{"203.0.113.11": "SHA256:bbb", "203.0.113.10": "SHA256:aaa"},
 		User:     "ubuntu", BootstrapKey: "/home/me/my key", StorageGB: 80, NoValidator: true, ASN: 0, ASNSet: true,
 	}
 	got := o.CommandLine()
-	want := "orama setup --network stagenet --env stagenet-alice --name alice --ip 203.0.113.10 --ip 203.0.113.11 " +
+	want := "orama setup --network testnet --env testnet-alice --name alice --ip 203.0.113.10 --ip 203.0.113.11 " +
 		"--host-key 203.0.113.10=SHA256:aaa --host-key 203.0.113.11=SHA256:bbb --user ubuntu --bootstrap-key '/home/me/my key' " +
 		"--storage-gb 80 --asn 0 --no-validator --yes"
 	if got != want {

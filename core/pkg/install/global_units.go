@@ -17,8 +17,8 @@ import (
 // install writes none of them. The Tor roles (dirauth, relay, onion) are
 // installed with their torrc (global_install_tor.go), and so is a directory
 // authority's reporter (global_install_reporter.go).
-// chain/scripts/stagenet/deploy.sh writes its own orama-global-chain unit for
-// the stagenet mesh; this one is the global-role unit, with no WireGuard
+// chain/scripts/testnet/deploy.sh writes its own orama-global-chain unit for
+// the testnet mesh; this one is the global-role unit, with no WireGuard
 // dependency and no cluster secret path.
 const (
 	globalBinDir = constants.GlobalBinDir

@@ -64,7 +64,7 @@ func TestNew_rejectsNonBaseURLs(t *testing.T) {
 }
 
 func TestProxy_statusBodyUnchanged(t *testing.T) {
-	body := []byte("{\n  \"jsonrpc\": \"2.0\",\n  \"id\": -1,\n  \"result\": {\"node_info\":{\"network\":\"orama-stagenet-1\"}}\n}\n")
+	body := []byte("{\n  \"jsonrpc\": \"2.0\",\n  \"id\": -1,\n  \"result\": {\"node_info\":{\"network\":\"orama-testnet-1\"}}\n}\n")
 	const ct = "application/json; charset=utf-8"
 	var gotHost, gotCookie, gotAuth, gotURI string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

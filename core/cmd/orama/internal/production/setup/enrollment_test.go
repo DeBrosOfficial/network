@@ -259,7 +259,7 @@ func TestMintInviteOverSSH_RejectsMalformedJoinVia(t *testing.T) {
 // Genesis records the cluster under https://<base domain>; a plain-HTTP IP
 // URL would carry the operator's bearer token in the clear.
 func TestRecordEnvironment_NeedsABaseDomain(t *testing.T) {
-	err := recordEnvironment(Options{Env: "stagenet", IP: "1.2.3.4"})
+	err := recordEnvironment(Options{Env: "testnet", IP: "1.2.3.4"})
 	if err == nil || !strings.Contains(err.Error(), "--base-domain") {
 		t.Fatalf("expected a --base-domain error, got %v", err)
 	}
@@ -316,7 +316,7 @@ func TestRedactToken_HidesTheInvite(t *testing.T) {
 // The invite comes from another machine and lands in a root command on the new
 // VPS: anything but the invite format is refused, whatever it contains.
 func TestValidateInvite_OnlyTheInviteFormatPasses(t *testing.T) {
-	good, err := invite.Encode(invite.Invite{JoinURL: "https://stagenet.example", Token: strings.Repeat("ab", 32), CAFingerprint: strings.Repeat("cd", 32)})
+	good, err := invite.Encode(invite.Invite{JoinURL: "https://testnet.example", Token: strings.Repeat("ab", 32), CAFingerprint: strings.Repeat("cd", 32)})
 	if err != nil {
 		t.Fatal(err)
 	}

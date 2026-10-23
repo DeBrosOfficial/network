@@ -10,9 +10,9 @@
 #   localnet.sh funder-key    print node0's validator account key in hex (the faucet signer a load generator uses)
 #
 # Env overrides:
-#   CHAIN_ID              default: orama-localnet-1 (must be a test-network id, orama-[<name>-](localnet|devnet|stagenet)-<id>: x/power's
+#   CHAIN_ID              default: orama-localnet-1 (must be a test-network id, orama-[<name>-](localnet|devnet|testnet)-<id>: x/power's
 #                         bootstrap-committee chain-id gate only allows a committee smaller than
-#                         the 30-member production floor on a devnet/stagenet/localnet chain-id)
+#                         the 30-member production floor on a devnet/testnet/localnet chain-id)
 #   EPOCH_DURATION        default: 30s  (x/emission genesis param, Go duration syntax)
 #   EPOCH_MIN_BLOCKS      default: 5    (x/emission genesis param)
 #   BLOCK_MAX_GAS         default: 100000000 (consensus block gas limit patched into genesis)
@@ -62,16 +62,16 @@ fi
 
 # The exact rule of the chain (params.ClassOfChainID): this pattern is that one, and a test keeps the
 # text equal. A class word anywhere else in the id, or as the name word, names nothing.
-TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$'
+TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|testnet)-[a-z0-9]+(-[a-z0-9]+)*$'
 chain_name=""
 chain_class=""
 if [[ "$CHAIN_ID" =~ $TEST_CHAIN_ID_RE ]]; then
 	chain_name="${BASH_REMATCH[2]}"
 	chain_class="${BASH_REMATCH[3]}"
 fi
-case "$chain_name" in localnet | devnet | stagenet) chain_class="" ;; esac
+case "$chain_name" in localnet | devnet | testnet) chain_class="" ;; esac
 if [ -z "$chain_class" ]; then
-	echo "CHAIN_ID must be orama-[<name>-](localnet|devnet|stagenet)-<id> exactly (x/power's bootstrap-committee chain-id gate requires it below the 30-member production floor), got: $CHAIN_ID" >&2
+	echo "CHAIN_ID must be orama-[<name>-](localnet|devnet|testnet)-<id> exactly (x/power's bootstrap-committee chain-id gate requires it below the 30-member production floor), got: $CHAIN_ID" >&2
 	exit 1
 fi
 

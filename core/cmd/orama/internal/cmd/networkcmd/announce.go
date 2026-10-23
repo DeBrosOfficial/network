@@ -39,9 +39,9 @@ is already created is refused: a reset needs a new chain id from the creation.
 
 Afterwards run 'make -C core sync-networks' so the binary embeds the manifest, and
 commit networks/ and core/pkg/netregistry/embedded/ together.`,
-		Example: `  orama maint network announce --name stagenet --chain-id orama-stagenet-7 \
+		Example: `  orama maint network announce --name testnet --chain-id orama-testnet-7 \
     --release-repo https://releases.orama.network --release-root release-root.json \
-    --channel nightly --faucet --seed ns1.stagenet.orama.network`,
+    --channel nightly --faucet --seed ns1.testnet.orama.network`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if faucet && netclass.IsProduction(chainID) {
@@ -70,7 +70,7 @@ commit networks/ and core/pkg/netregistry/embedded/ together.`,
 	}
 	f := cmd.Flags()
 	f.StringVar(&dir, "dir", defaultPublishDir, "The repository's networks directory")
-	f.StringVar(&name, "name", "", "Network name, for example stagenet [required]")
+	f.StringVar(&name, "name", "", "Network name, for example testnet [required]")
 	f.StringVar(&chainID, "chain-id", "", "The chain id the network will have [required]")
 	f.StringVar(&releaseRepo, "release-repo", "", "https base URL of the release repository [required]")
 	f.StringVar(&rootFile, "release-root", "", "The release-root.json file its releases are verified against [required]")

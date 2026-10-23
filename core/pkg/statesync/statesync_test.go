@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testChain  = "orama-stagenet-6"
+	testChain  = "orama-testnet-6"
 	testIDA    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	testIDB    = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	testHash   = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
@@ -126,10 +126,10 @@ func TestResolve_seedsThatDisagreeAreRefused(t *testing.T) {
 
 func TestResolve_aSeedOnAnotherChainIsRefused(t *testing.T) {
 	a, b := goodSeed(testIDA), goodSeed(testIDB)
-	b.network = "orama-stagenet-5"
+	b.network = "orama-testnet-5"
 	seeds, hc := twoSeeds(t, a, b)
 	_, err := Resolve(context.Background(), seeds, testChain, hc)
-	if err == nil || !strings.Contains(err.Error(), "orama-stagenet-5") {
+	if err == nil || !strings.Contains(err.Error(), "orama-testnet-5") {
 		t.Fatalf("got %v, want the wrong chain named", err)
 	}
 }

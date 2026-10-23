@@ -42,13 +42,13 @@ func TestWizard_createANetworkAsksTheThreeQuestionsAndSkipsTheOptions(t *testing
 	d.wantStep(stepCreateName)
 	d.enter()
 	d.wantView("give the network a name")
-	d.text("StageNet")
+	d.text("TestNet")
 	d.enter()
 	d.wantStep(stepCreateChainID)
-	d.wantView("-stagenet-")
+	d.wantView("-testnet-")
 	d.enter()
 	d.wantView("give the chain id")
-	d.text("orama-stagenet-7")
+	d.text("orama-testnet-7")
 	d.enter()
 	d.wantStep(stepCreateRoot)
 	d.enter()
@@ -66,7 +66,7 @@ func TestWizard_createANetworkAsksTheThreeQuestionsAndSkipsTheOptions(t *testing
 	d.wantView("founder (" + ipA + ")")
 	d.wantView("founder-2 (" + ipB + ")")
 	c := d.m.opts.Create
-	if c == nil || c.Name != "stagenet" || c.ChainID != "orama-stagenet-7" || c.ReleaseRoot != "/tmp/release-root.json" || d.m.opts.Network != "" {
+	if c == nil || c.Name != "testnet" || c.ChainID != "orama-testnet-7" || c.ReleaseRoot != "/tmp/release-root.json" || d.m.opts.Network != "" {
 		t.Fatalf("options = %+v, create %+v", d.m.opts, c)
 	}
 	if d.m.opts.Name != setup.DefaultCreateNodeName {
@@ -93,9 +93,9 @@ func TestWizard_leavingTheCreationForAnExistingNetworkClearsIt(t *testing.T) {
 	d.esc()
 	d.esc()
 	d.wantStep(stepNetwork)
-	d.enter() // stagenet is the first row and the default
+	d.enter() // testnet is the first row and the default
 	d.wantStep(stepOptions)
-	if d.m.opts.Create != nil || d.m.opts.Network != "stagenet" {
+	if d.m.opts.Create != nil || d.m.opts.Network != "testnet" {
 		t.Errorf("a join kept the creation: %+v", d.m.opts)
 	}
 }
@@ -104,11 +104,11 @@ func TestWizard_theFinishedCreationShowsHowToPublish(t *testing.T) {
 	m := New(context.Background(), newFake().services(), setup.Options{})
 	m.step = stepDone
 	m.result = &setup.Result{Created: &setup.CreatedNetwork{
-		Manifest: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-7", Seeds: []string{"ns1.stagenet.orama.network"}},
-		Dir:      "networks/stagenet", Machines: []string{ipA},
+		Manifest: &netregistry.Manifest{Name: "testnet", ChainID: "orama-testnet-7", Seeds: []string{"ns1.testnet.orama.network"}},
+		Dir:      "networks/testnet", Machines: []string{ipA},
 	}}
 	view := m.View()
-	for _, want := range []string{"make -C core sync-networks", "orama network add https://orama.network/networks/stagenet/manifest.json"} {
+	for _, want := range []string{"make -C core sync-networks", "orama network add https://orama.network/networks/testnet/manifest.json"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the screen lacks %q:\n%s", want, view)
 		}
@@ -117,7 +117,7 @@ func TestWizard_theFinishedCreationShowsHowToPublish(t *testing.T) {
 
 func TestWizard_aNetworkThatIsAnnouncedIsNotJoinableAndIsCreatedWithOneQuestion(t *testing.T) {
 	f := newFake()
-	f.networks = append(f.networks, NetworkChoice{Name: "newnet", ChainID: "orama-newnet-stagenet-1", Announced: true})
+	f.networks = append(f.networks, NetworkChoice{Name: "newnet", ChainID: "orama-newnet-testnet-1", Announced: true})
 	d := newDriver(t, f, setup.Options{})
 	d.toNetworks()
 	if strings.Contains(d.m.View(), "newnet") {

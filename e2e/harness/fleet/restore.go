@@ -65,9 +65,9 @@ func (f *Fleet) RestoreNodes(ctx context.Context) error {
 }
 
 // runIDShape is the run id's shape (provision's runIDPattern): lowercase
-// letters and digits, or a stagenet run id.
+// letters and digits, or a testnet run id.
 func runIDShape(id string) bool {
-	if config.StagenetRunID(id) {
+	if config.TestnetRunID(id) {
 		return true
 	}
 	if len(id) < 4 || len(id) > 16 {

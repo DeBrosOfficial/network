@@ -123,7 +123,7 @@ make e2e-lint                                        # go vet with and without t
 make e2e-test-unit                                   # the harness's own unit tests
 ```
 
-`e2e-fleet target stagenet --out state.json` followed by `E2E_FLEET_STATE=state.json e2e-fleet test --stage N` runs one stage against the existing stagenet cluster instead of fresh servers; the runner only tests there and never provisions or destroys. The owner runs the fleet suite. As a contributor you write the feature package and run the gate, lint and unit targets. The full contract is `e2e/README.md`.
+`e2e-fleet target testnet --out state.json` followed by `E2E_FLEET_STATE=state.json e2e-fleet test --stage N` runs one stage against the existing testnet cluster instead of fresh servers; the runner only tests there and never provisions or destroys. The owner runs the fleet suite. As a contributor you write the feature package and run the gate, lint and unit targets. The full contract is `e2e/README.md`.
 
 ### Running the suite
 
@@ -133,7 +133,7 @@ make e2e-test-unit                                   # the harness's own unit te
 |---|---|
 | `e2e-fleet test --stage N`, `--resume` | Re-run one stage, or continue an interrupted run |
 | `e2e-fleet teardown`, `sweep` | Destroy a run's resources, or orphans by label (`sweep` removes anything a crashed run left behind) |
-| `e2e-fleet sweep-namespaces [--max-age 4h] [--listed]` | Remove the test namespaces a run left on the cluster (also stagenet): the runner already removes each package's recorded namespaces when the package exits; this takes what a dead runner left (`e2e/README.md`, "ns") |
+| `e2e-fleet sweep-namespaces [--max-age 4h] [--listed]` | Remove the test namespaces a run left on the cluster (also testnet): the runner already removes each package's recorded namespaces when the package exits; this takes what a dead runner left (`e2e/README.md`, "ns") |
 
 Destructive packages run alone at the end of their stage. A skipped test counts as **not covered**, a re-run only labels a failure deterministic or flaky and never turns it green, and the exit code is 0 for PASS, 1 for FAIL and 3 for INCOMPLETE. The report (`report.html`, `report.json`, JUnit, optional Bugboard drafts) lands in the run's artifact directory next to the collected journals and node state.
 
@@ -314,7 +314,7 @@ There are 54 Go fuzz targets (`func FuzzX(f *testing.F)`) and 4 cargo-fuzz targe
 
 **Why 10 seconds.** A target pays its start-up before it fuzzes: the app targets build a whole chain in each worker, and the Orchard targets link the Rust library. Measured on a laptop with other jobs running (load average above 16), `fuzz-short` took 7 minutes 17 seconds for the 39 targets of `chain` known then, 1 minute 29 seconds for the 14 of `core`, and 4 minutes of Rust builds before them; a target took 11 to 20 seconds from start to verdict, and the app targets 44 to 124 seconds because of their start-up. Ten seconds is enough to replay every seed and to mutate them for tens of thousands of executions for the cheap targets (one million for `x/inclusion`, 300,000 for `netclass`) and for a few hundred for the heavy ones. The job runs on a four-core runner with two targets at a time and two workers each, and its timeout is 45 minutes. A longer budget belongs to the nightly run, which finds what ten seconds do not.
 
-**Seeds.** Every target starts from real data where the repository has it. The Ironwood bundles of `chain/x/shielded/orchardffi/testdata`, the signed transactions of `chain/client/tx/testdata/tx_vectors.json`, the piece vectors, the stagenet network manifest and Tor network file, and a Tor vote are committed as corpus entries in each target's `testdata/fuzz/<Target>/` (`make -C chain fuzz-corpus` rebuilds them with `chain/scripts/fuzzcorpus`). The other targets seed themselves with `f.Add` from objects their package builds (a TUF repository from fixed keys, a bundle from real blocks, a committee chain with a listed transaction). The cargo-fuzz seeds are in each crate's `fuzz/seeds/<target>/`; the corpus the fuzzer grows is ignored by git.
+**Seeds.** Every target starts from real data where the repository has it. The Ironwood bundles of `chain/x/shielded/orchardffi/testdata`, the signed transactions of `chain/client/tx/testdata/tx_vectors.json`, the piece vectors, the testnet network manifest and Tor network file, and a Tor vote are committed as corpus entries in each target's `testdata/fuzz/<Target>/` (`make -C chain fuzz-corpus` rebuilds them with `chain/scripts/fuzzcorpus`). The other targets seed themselves with `f.Add` from objects their package builds (a TUF repository from fixed keys, a bundle from real blocks, a committee chain with a listed transaction). The cargo-fuzz seeds are in each crate's `fuzz/seeds/<target>/`; the corpus the fuzzer grows is ignored by git.
 
 **The Go targets in `chain`.**
 

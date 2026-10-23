@@ -28,7 +28,7 @@ describe("mismatchGuard", () => {
   });
 
   it("TestMismatchGuard_the_explorer_landing_served_for_a_deep_link_is_cleared_and_marked_noindex", () => {
-    for (const path of ["/explorer/tx/ab", "/explorer/custom/wallet/orama1x", "/explorer/stagenet/block/9"]) {
+    for (const path of ["/explorer/tx/ab", "/explorer/custom/wallet/orama1x", "/explorer/testnet/block/9"]) {
       expect(run("/explorer", path)).toEqual({ cleared: true, robots: NOINDEX });
     }
   });

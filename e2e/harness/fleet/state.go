@@ -38,7 +38,7 @@ type Node struct {
 // the provisioner and re-written when stages add or remove nodes.
 type State struct {
 	// Target is config.TargetFleet (empty: a fleet the run provisioned) or
-	// config.TargetStagenet (the existing stagenet cluster, only tested).
+	// config.TargetTestnet (the existing testnet cluster, only tested).
 	Target string `json:"target,omitempty"`
 	// RunID is unique per run and is the value of the Hetzner label e2e-run.
 	RunID string `json:"run_id"`
@@ -50,7 +50,7 @@ type State struct {
 	GatewayURL string `json:"gateway_url"`
 	// CAFile is the PEM bundle of the roots the cluster's certificates chain
 	// to; every HTTP client pins it. A fleet the run provisioned is issued
-	// from Let's Encrypt staging (it is rebuilt every run); the stagenet
+	// from Let's Encrypt staging (it is rebuilt every run); the testnet
 	// target from production (StagingCerts).
 	CAFile string `json:"ca_file"`
 
@@ -93,8 +93,8 @@ type State struct {
 	ArtifactDir string `json:"artifact_dir"`
 }
 
-// IsStagenet reports whether the state targets the existing stagenet cluster.
-func (s *State) IsStagenet() bool { return s.Target == config.TargetStagenet }
+// IsTestnet reports whether the state targets the existing testnet cluster.
+func (s *State) IsTestnet() bool { return s.Target == config.TargetTestnet }
 
 // Load reads a state file.
 func Load(path string) (*State, error) {
@@ -124,8 +124,8 @@ func (s *State) Save(path string) error {
 // StagingCerts reports whether the cluster's certificates come from Let's
 // Encrypt staging: a fleet the run provisioned installs with
 // --acme-ca letsencrypt-staging, since it is rebuilt every run and production
-// issues one name set five times a week; the long-lived stagenet cluster
+// issues one name set five times a week; the long-lived testnet cluster
 // serves production certificates, obtained once for the whole cluster.
 func (s *State) StagingCerts() bool {
-	return s.Target != config.TargetStagenet
+	return s.Target != config.TargetTestnet
 }

@@ -5,7 +5,7 @@
 # (authority SOA, never stale, gone in 30s) driven through real signed ACME
 # present/cleanup calls made on a node, every refusal of those endpoints (unsigned, foreign key, stale or replayed
 # stamp, a signed call sent twice, out-of-zone or malformed record), the base and wildcard certificates
-# on every node (staging on a provisioned fleet, production on stagenet), one
+# on every node (staging on a provisioned fleet, production on testnet), one
 # certificate for the whole cluster through the shared store, the store's
 # refusals and sealed values, the wildcard exported for TURN, TLS versions,
 # ALPN and SNI, plain HTTP

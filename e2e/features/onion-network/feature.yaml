@@ -3,7 +3,7 @@
 # (website/src/docs/operator/tor-network.mdx). The refusals need no network: a public network is
 # not joined, a missing tor is an error, a network that cannot be joined means
 # the transaction is not sent (and nothing goes to the clearnet). The tests
-# that need a live private Tor network (the stagenet one) read its network file
+# that need a live private Tor network (the testnet one) read its network file
 # (tor-network.json, the one file every role and client reads) from
 # ORAMA_ONION_NETWORK and report not applicable without it: `orama maint vpn
 # check` bootstraps tor on the network's authorities and reads an account

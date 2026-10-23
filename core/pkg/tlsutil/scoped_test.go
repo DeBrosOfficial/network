@@ -90,11 +90,11 @@ func handshake(t *testing.T, ca privateCA, serverName string) error {
 
 func TestWithScopedRoots_trustsTheCAForItsDomain(t *testing.T) {
 	resetScopedRoots(t)
-	ca := newPrivateCA(t, "ns-app.stagenet.example")
-	if err := TrustCAForDomain("stagenet.example", ca.caFile); err != nil {
+	ca := newPrivateCA(t, "ns-app.testnet.example")
+	if err := TrustCAForDomain("testnet.example", ca.caFile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handshake(t, ca, "ns-app.stagenet.example"); err != nil {
+	if err := handshake(t, ca, "ns-app.testnet.example"); err != nil {
 		t.Fatalf("a certificate from the environment's CA, for a name under its domain, was refused: %v", err)
 	}
 }
@@ -104,7 +104,7 @@ func TestWithScopedRoots_trustsTheCAForItsDomain(t *testing.T) {
 func TestWithScopedRoots_doesNotTrustTheCAElsewhere(t *testing.T) {
 	resetScopedRoots(t)
 	ca := newPrivateCA(t, "bank.example")
-	if err := TrustCAForDomain("stagenet.example", ca.caFile); err != nil {
+	if err := TrustCAForDomain("testnet.example", ca.caFile); err != nil {
 		t.Fatal(err)
 	}
 	if err := handshake(t, ca, "bank.example"); err == nil {
@@ -115,23 +115,23 @@ func TestWithScopedRoots_doesNotTrustTheCAElsewhere(t *testing.T) {
 // A name that merely ends with the domain's text is not under it.
 func TestWithScopedRoots_matchesWholeLabels(t *testing.T) {
 	resetScopedRoots(t)
-	ca := newPrivateCA(t, "evilstagenet.example")
-	if err := TrustCAForDomain("stagenet.example", ca.caFile); err != nil {
+	ca := newPrivateCA(t, "eviltestnet.example")
+	if err := TrustCAForDomain("testnet.example", ca.caFile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handshake(t, ca, "evilstagenet.example"); err == nil {
-		t.Fatal("evilstagenet.example was treated as under stagenet.example")
+	if err := handshake(t, ca, "eviltestnet.example"); err == nil {
+		t.Fatal("eviltestnet.example was treated as under testnet.example")
 	}
 }
 
 func TestWithScopedRoots_hostnameMustMatchTheCertificate(t *testing.T) {
 	resetScopedRoots(t)
-	ca := newPrivateCA(t, "a.stagenet.example")
-	if err := TrustCAForDomain("stagenet.example", ca.caFile); err != nil {
+	ca := newPrivateCA(t, "a.testnet.example")
+	if err := TrustCAForDomain("testnet.example", ca.caFile); err != nil {
 		t.Fatal(err)
 	}
-	if err := handshake(t, ca, "b.stagenet.example"); err == nil {
-		t.Fatal("a certificate for a.stagenet.example verified as b.stagenet.example")
+	if err := handshake(t, ca, "b.testnet.example"); err == nil {
+		t.Fatal("a certificate for a.testnet.example verified as b.testnet.example")
 	}
 }
 
@@ -141,8 +141,8 @@ func TestWithScopedRoots_unchangedWithoutScopedRoots(t *testing.T) {
 	if got := withScopedRoots(base); got != base || got.InsecureSkipVerify {
 		t.Fatal("with no scoped roots the config must be returned untouched")
 	}
-	ca := newPrivateCA(t, "x.stagenet.example")
-	if err := handshake(t, ca, "x.stagenet.example"); err == nil {
+	ca := newPrivateCA(t, "x.testnet.example")
+	if err := handshake(t, ca, "x.testnet.example"); err == nil {
 		t.Fatal("an unknown CA verified with no scoped roots configured")
 	}
 }

@@ -18,7 +18,7 @@ import (
 
 func releaseNetwork() *netregistry.Network {
 	return &netregistry.Network{Root: []byte("embedded-root"), Manifest: &netregistry.Manifest{
-		Name: "stagenet", Channel: "nightly", ReleaseRepo: "https://releases.example", ReleaseRootSHA256: testRootSHA, MinVersion: "0.3.0",
+		Name: "testnet", Channel: "nightly", ReleaseRepo: "https://releases.example", ReleaseRootSHA256: testRootSHA, MinVersion: "0.3.0",
 	}}
 }
 

@@ -352,7 +352,7 @@ func TestRelease_machinesOfTwoArchitecturesGetTheirOwnRelease(t *testing.T) {
 }
 
 func TestCommandLine_carriesUploadRelease(t *testing.T) {
-	o := Options{Network: "stagenet", IPs: []string{ip1}, Name: "alice", UploadRelease: true, StorageGB: DefaultStorageGB}
+	o := Options{Network: "testnet", IPs: []string{ip1}, Name: "alice", UploadRelease: true, StorageGB: DefaultStorageGB}
 	if line := o.CommandLine(); !strings.Contains(line, " --upload-release") {
 		t.Errorf("a run that was told to upload would download on the next try: %s", line)
 	}

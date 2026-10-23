@@ -53,15 +53,15 @@ func removeLeftovers(st *fleet.State) func(ctx context.Context, evidenceDir stri
 }
 
 // ledgerRoots are the artifact directories whose ledgers belong to st's
-// cluster: the stagenet cluster is shared by every stagenet run, so all of
+// cluster: the testnet cluster is shared by every testnet run, so all of
 // them; a disposable fleet's own run only.
 func ledgerRoots(st *fleet.State) ([]string, error) {
-	if !st.IsStagenet() {
+	if !st.IsTestnet() {
 		return []string{st.ArtifactDir}, nil
 	}
-	roots, err := filepath.Glob(filepath.Join(filepath.Dir(st.ArtifactDir), "stagenet-*"))
+	roots, err := filepath.Glob(filepath.Join(filepath.Dir(st.ArtifactDir), "testnet-*"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the stagenet run directories: %w", err)
+		return nil, fmt.Errorf("failed to list the testnet run directories: %w", err)
 	}
 	return roots, nil
 }
@@ -153,8 +153,8 @@ func cmdSweepNamespaces(parent context.Context, args []string) (int, error) {
 	if err != nil {
 		return exitFail, err
 	}
-	if st.IsStagenet() {
-		if err := signInStagenetOperator(ctx, st); err != nil {
+	if st.IsTestnet() {
+		if err := signInTestnetOperator(ctx, st); err != nil {
 			return exitFail, err
 		}
 	}

@@ -16,7 +16,7 @@ const partitionTagBytes = 4
 // netChains are the netfilter chains the chain's peer traffic crosses on the
 // host: INPUT and OUTPUT for a validator on the host (a fleet run, whose
 // chain peers over the WireGuard overlay), FORWARD for one inside the
-// orama-global namespace (stagenet, whose chain peers over the public network
+// orama-global namespace (testnet, whose chain peers over the public network
 // through the namespace's veth, website/src/docs/blockchain/run-a-global-node.mdx).
 var netChains = []string{"INPUT", "OUTPUT", "FORWARD"}
 

@@ -2,13 +2,13 @@
 
 Every Orama gateway serves the chain's public data over plain HTTP under `/v1/chain/`, with no key and no account. This page is for developers who build on it from outside the network: a wallet, a dashboard, a bot, a block explorer of their own. It lists every read route, what each accepts and refuses, how long an answer may be cached, the head stream, the rate limits, who a browser may call from and every error you can get.
 
-Each network has its own gateway and its own chain, so every address below is `https://<gateway>/v1/chain/<route>`, for example `https://stagenet.orama.network/v1/chain/status`. The routes are the same on every gateway; what a gateway can answer depends on what its machine runs (a node without the chain indexer cannot answer `index/…`). The [explorer](/docs/blockchain/using-the-explorer) reads exactly these routes and nothing else, so anything it shows you can read the same way.
+Each network has its own gateway and its own chain, so every address below is `https://<gateway>/v1/chain/<route>`, for example `https://testnet.orama.network/v1/chain/status`. The routes are the same on every gateway; what a gateway can answer depends on what its machine runs (a node without the chain indexer cannot answer `index/…`). The [explorer](/docs/blockchain/using-the-explorer) reads exactly these routes and nothing else, so anything it shows you can read the same way.
 
 ```bash
-curl -s https://stagenet.orama.network/v1/chain/status
-curl -s 'https://stagenet.orama.network/v1/chain/index/txs?limit=2&filter=transfers'
-curl -s https://stagenet.orama.network/v1/chain/query/orama.fees.v1.Query/BaseFee
-curl -s --get https://stagenet.orama.network/v1/chain/query/orama.nodes.v1.Query/Node \
+curl -s https://testnet.orama.network/v1/chain/status
+curl -s 'https://testnet.orama.network/v1/chain/index/txs?limit=2&filter=transfers'
+curl -s https://testnet.orama.network/v1/chain/query/orama.fees.v1.Query/BaseFee
+curl -s --get https://testnet.orama.network/v1/chain/query/orama.nodes.v1.Query/Node \
   --data-urlencode 'json={"node_id":"node-1"}'
 ```
 
@@ -51,7 +51,7 @@ The request is one of:
 Not both. Optional `height=<n>` reads the state at that height, which must be within the last 100 blocks; absent or `0` is the latest. A proof is never asked for.
 
 ```bash
-curl -s --get https://stagenet.orama.network/v1/chain/query/orama.storage.v1.Query/Deals \
+curl -s --get https://testnet.orama.network/v1/chain/query/orama.storage.v1.Query/Deals \
   --data-urlencode 'json={"pagination":{"limit":100,"reverse":true}}'
 ```
 
@@ -117,7 +117,7 @@ The chain indexer keeps what a node's own state does not: blocks and transaction
 
 ```js
 // Every transfer the network has seen, newest first, 100 at a time.
-const base = "https://stagenet.orama.network/v1/chain/index/txs";
+const base = "https://testnet.orama.network/v1/chain/index/txs";
 let cursor = null;
 do {
   const url = cursor ? `${base}?filter=transfers&limit=100&cursor=${cursor}` : `${base}?filter=transfers&limit=100`;
@@ -239,7 +239,7 @@ The gateway passes on only that exact form and only for a `200`, and never more 
 `GET /v1/chain/head/stream` is [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events): the chain's head, pushed when it moves, so nobody has to poll `status`. The gateway reads the node's status once a second for all its readers, whatever their number. It needs no indexer.
 
 ```js
-const stream = new EventSource("https://stagenet.orama.network/v1/chain/head/stream");
+const stream = new EventSource("https://testnet.orama.network/v1/chain/head/stream");
 stream.addEventListener("head", (e) => {
   const { height, time, chain_id } = JSON.parse(e.data);
   console.log(chain_id, height, time);

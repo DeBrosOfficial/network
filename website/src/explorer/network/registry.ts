@@ -17,7 +17,7 @@ export interface Registry {
 }
 
 /** The network a bare /explorer opens, when the registry has it; else the first by name. */
-export const PREFERRED_DEFAULT = "stagenet";
+export const PREFERRED_DEFAULT = "testnet";
 
 const MANIFEST_FILE = /(?:^|\/)([^/]+)\/manifest\.json$/;
 

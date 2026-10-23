@@ -134,7 +134,7 @@ func TestChainScript_refusesUnsafeInput(t *testing.T) {
 // another class, or has a class word as its name word is refused before any machine is touched.
 func TestChainScript_refusesAChainIDThatOnlyContainsDevnet(t *testing.T) {
 	good := "node-1:203.0.113.1:10.0.0.1"
-	for _, id := range []string{"orama-1-devnet-x", "foo-devnet-bar", "orama-stagenet-1", "orama-localnet-1", "orama-devnet-localnet-1", "orama-devnet-"} {
+	for _, id := range []string{"orama-1-devnet-x", "foo-devnet-bar", "orama-testnet-1", "orama-localnet-1", "orama-devnet-localnet-1", "orama-devnet-"} {
 		out, err := runChainScript(t, chainEnv(t, id, good), "status")
 		if err == nil || !strings.Contains(out, "devnet-<id> exactly") {
 			t.Errorf("%s: err %v output %q", id, err, out)

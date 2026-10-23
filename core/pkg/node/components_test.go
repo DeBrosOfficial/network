@@ -413,7 +413,7 @@ func TestNodeID_isThePeerIDNotTheConfiguredID(t *testing.T) {
 		t.Fatal(err)
 	}
 	n.config.Node.DataDir = dataDir
-	n.config.Node.ID = "stagenet"
+	n.config.Node.ID = "testnet"
 
 	got, err := n.nodeID()
 	if err != nil {
@@ -429,7 +429,7 @@ func TestNodeID_isThePeerIDNotTheConfiguredID(t *testing.T) {
 func TestNodeID_missingIdentityIsAnError(t *testing.T) {
 	n := newGraphNode(t)
 	n.config.Node.DataDir = t.TempDir()
-	n.config.Node.ID = "stagenet"
+	n.config.Node.ID = "testnet"
 
 	id, err := n.nodeID()
 	if err == nil {

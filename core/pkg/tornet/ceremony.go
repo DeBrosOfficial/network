@@ -65,7 +65,7 @@ type CeremonyRequest struct {
 	Specs   []AuthoritySpec
 	OutDir  string
 	// Passphrase encrypts every authority identity key. Use one per authority
-	// in a real ceremony by running it once per custodian; a stagenet ceremony
+	// in a real ceremony by running it once per custodian; a testnet ceremony
 	// may share one.
 	Passphrase []byte
 	// TorBinary and GencertBinary are the upstream programs; empty means the

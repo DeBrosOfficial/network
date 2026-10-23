@@ -38,7 +38,7 @@ with its own optional peers (`@bufbuild/protobuf`, `@noble/curves`, `@noble/hash
 environment, so nothing has to be edited:
 
 ```bash
-GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network \
+GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network \
 ORAMA_API_KEY=ak_... pnpm example
 ```
 
@@ -50,13 +50,13 @@ ORAMA_API_KEY=ak_... pnpm example
 import { createClient } from "@orama-network/orama";
 
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: "orama_rk_...",  // exchanged for a short-lived token before the first request
 });
 
 // Or with JWT
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   jwt: "your_jwt_token",
 });
 ```
@@ -481,7 +481,7 @@ By default, credentials are stored in memory. For browser apps, use localStorage
 import { createClient, LocalStorageAdapter } from "@orama-network/orama";
 
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   storage: new LocalStorageAdapter(),
   apiKey: "ak_your_key:namespace",
 });
@@ -600,7 +600,7 @@ Invoke WebAssembly serverless functions deployed on the network.
 ```typescript
 // Configure functions namespace
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: "ak_your_key:namespace",
   functionsConfig: {
     namespace: "my-namespace",
@@ -784,14 +784,14 @@ orama namespace keys create --scope admin --label ci
 ```typescript
 // In a browser bundle
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: import.meta.env.VITE_ORAMA_RUNTIME_KEY, // app-runtime
   storage: new LocalStorageAdapter(),
 });
 
 // In a server process
 const admin = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: process.env.ORAMA_ADMIN_KEY, // never bundled
 });
 ```
@@ -805,7 +805,7 @@ Run E2E tests against a running gateway:
 
 ```bash
 # Set environment variables
-export GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network
+export GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network
 export GATEWAY_API_KEY=ak_test_key:default
 
 # Run tests

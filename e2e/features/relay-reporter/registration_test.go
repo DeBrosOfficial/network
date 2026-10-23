@@ -27,7 +27,7 @@ import (
 
 // relayNodes are the nodes of the target whose Tor relay runs; the tests are not
 // applicable on a target that installed none (the provisioned fleet installs no
-// Tor role, stagenet does).
+// Tor role, testnet does).
 func relayNodes(t *testing.T) (*chain.Chain, []fleet.Node) {
 	t.Helper()
 	c := chain.New(t)

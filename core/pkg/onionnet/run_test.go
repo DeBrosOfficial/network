@@ -16,7 +16,7 @@ import (
 
 // testNetwork is a valid three-authority network on public addresses.
 func testNetwork() tornet.Network {
-	n := tornet.Network{Name: "stagenet", Private: true, VotingIntervalMinutes: 30, VoteDelaySeconds: 300, DistDelaySeconds: 300}
+	n := tornet.Network{Name: "testnet", Private: true, VotingIntervalMinutes: 30, VoteDelaySeconds: 300, DistDelaySeconds: 300}
 	for i, ip := range []string{"57.129.166.16", "57.129.166.17", "161.97.184.199"} {
 		n.Authorities = append(n.Authorities, tornet.Authority{
 			Nickname: fmt.Sprintf("OramaAuth%d", i+1), Address: ip, ORPort: 31020, DirPort: 31021,
@@ -165,7 +165,7 @@ func TestStartOnFreePort_usesTheCacheDirectoryAndALoopbackPort(t *testing.T) {
 	if _, err := tornet.CanonLoopback(tor.SocksAddr); err != nil {
 		t.Error(err)
 	}
-	dir, err := DefaultDataDir("stagenet")
+	dir, err := DefaultDataDir("testnet")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,8 +185,8 @@ func TestFreeLoopbackAddr(t *testing.T) {
 }
 
 func TestDefaultDataDir(t *testing.T) {
-	d, err := DefaultDataDir("stagenet")
-	if err != nil || !strings.HasSuffix(d, filepath.Join("orama", "onion", "stagenet")) {
+	d, err := DefaultDataDir("testnet")
+	if err != nil || !strings.HasSuffix(d, filepath.Join("orama", "onion", "testnet")) {
 		t.Fatalf("got %q, %v", d, err)
 	}
 	if _, err := DefaultDataDir("../etc"); err == nil {

@@ -17,7 +17,7 @@ import (
 func FuzzNetregistryManifest(f *testing.F) {
 	// The stagenet manifest is in the committed corpus (testdata/fuzz, made from networks/stagenet by
 	// make -C chain fuzz-corpus), so this target needs nothing outside the core module.
-	valid := []byte(`{"name":"stagenet","chain_id":"orama-stagenet-10","genesis_sha256":"` + strings.Repeat("ab", 32) +
+	valid := []byte(`{"name":"testnet","chain_id":"orama-testnet-10","genesis_sha256":"` + strings.Repeat("ab", 32) +
 		`","seeds":["ns1.example.org","ns2.example.org"],"channel":"nightly","min_version":"0.3.0",` +
 		`"release_repo":"https://releases.example.org","release_root_sha256":"` + strings.Repeat("cd", 32) + `","faucet":true}`)
 	f.Add(valid)

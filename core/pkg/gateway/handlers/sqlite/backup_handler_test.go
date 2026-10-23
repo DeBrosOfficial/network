@@ -47,7 +47,7 @@ func TestListBackups_readsTheColumnsTheMigrationCreated(t *testing.T) {
 	}, nil, zap.NewNop(), t.TempDir(), "local-peer")
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/db/sqlite/backups?database_name=proofdb", nil)
-	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "stagenetproof"))
+	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "testnetproof"))
 	rr := httptest.NewRecorder()
 	NewBackupHandler(h, nil, zap.NewNop()).ListBackups(rr, req)
 
@@ -62,10 +62,10 @@ func TestListBackups_readsTheColumnsTheMigrationCreated(t *testing.T) {
 func TestBackupDatabase_recordsTheColumnsTheMigrationCreated(t *testing.T) {
 	var inserted string
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "stagenetproof"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "testnetproof"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "stagenetproof", "proofdb.db"), []byte("sqlite"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "testnetproof", "proofdb.db"), []byte("sqlite"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	h := NewSQLiteHandler(&mockRQLiteClient{

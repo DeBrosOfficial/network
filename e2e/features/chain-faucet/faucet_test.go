@@ -30,7 +30,7 @@ func readParams(t *testing.T, c *chain.Chain, n fleet.Node) faucetParams {
 	var p faucetParams
 	c.Query(t, n, &p, "emission", "params")
 	if !p.Params.Enabled || p.Params.MaxDrip.IsZero() {
-		t.Fatalf("the run chain's genesis did not enable the faucet: %+v (chain-deploy.sh and stagenet deploy.sh set faucet_enabled)", p.Params)
+		t.Fatalf("the run chain's genesis did not enable the faucet: %+v (chain-deploy.sh and testnet deploy.sh set faucet_enabled)", p.Params)
 	}
 	return p
 }

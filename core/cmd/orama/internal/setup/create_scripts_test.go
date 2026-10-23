@@ -10,7 +10,7 @@ import (
 func seatInstall(user string, services ...install.GlobalService) InitChainInput {
 	return InitChainInput{
 		Node: NodePlan{IP: ip1, Name: "seed", Profile: install.ProfileFull, Services: services, StorageGB: 50},
-		IP:   ip1, User: user, ChainID: "orama-stagenet-6", Contact: "ops@example.org",
+		IP:   ip1, User: user, ChainID: "orama-testnet-6", Contact: "ops@example.org",
 	}
 }
 
@@ -18,7 +18,7 @@ func TestInitChainCommand_makesTheHomeWithAPlaceholderAndNothingElse(t *testing.
 	cmd := InitChainCommand(seatInstall("root", install.GlobalServiceChain, install.GlobalServiceIPFS, install.GlobalServiceProvider))
 	want := "sudo /opt/orama/bin/orama global install --colocated --services 'chain,ipfs,provider' --staged-dir /opt/orama/bin " +
 		"--manifest /opt/orama/manifest.json --public-storage-gb 50 " +
-		"--init-chain --chain-id 'orama-stagenet-6' --moniker 'seed' --genesis '/opt/orama/.setup-global/genesis.json' " +
+		"--init-chain --chain-id 'orama-testnet-6' --moniker 'seed' --genesis '/opt/orama/.setup-global/genesis.json' " +
 		"--external-address '203.0.113.11:31000'"
 	if cmd != want {
 		t.Errorf("init command:\n got %s\nwant %s", cmd, want)
@@ -74,7 +74,7 @@ func TestCreateInstalls_shareTheJoinsOptions(t *testing.T) {
 }
 
 func TestPlaceholderGenesis(t *testing.T) {
-	if got := string(placeholderGenesis("orama-stagenet-6")); got != "{\"chain_id\":\"orama-stagenet-6\"}\n" {
+	if got := string(placeholderGenesis("orama-testnet-6")); got != "{\"chain_id\":\"orama-testnet-6\"}\n" {
 		t.Errorf("placeholder = %q", got)
 	}
 }

@@ -107,7 +107,7 @@ func TestEdit_aNodeWithTheGlobalLayerIsNotStrippedByEdit(t *testing.T) {
 		}
 		return
 	}
-	harness.SkipNotApplicable(t, "no node of the run has the global layer; run against a chain-enabled fleet or the stagenet target")
+	harness.SkipNotApplicable(t, "no node of the run has the global layer; run against a chain-enabled fleet or the testnet target")
 }
 
 // backup copies path to path+backupSuffix on n and restores it when the test
@@ -152,7 +152,7 @@ func TestEdit_storageSizesThePublicKubo(t *testing.T) {
 		}
 		return
 	}
-	harness.SkipNotApplicable(t, "no node of the run has the public Kubo (orama-global-ipfs); run against a chain-enabled fleet or the stagenet target")
+	harness.SkipNotApplicable(t, "no node of the run has the public Kubo (orama-global-ipfs); run against a chain-enabled fleet or the testnet target")
 }
 
 // TestEdit_exitSwitchesOnlyTheRelaysExitSection: on a node with a Tor relay, edit
@@ -190,7 +190,7 @@ func TestEdit_exitSwitchesOnlyTheRelaysExitSection(t *testing.T) {
 		}
 		return
 	}
-	harness.SkipNotApplicable(t, "no node of the run has a Tor relay (orama-global-tor-relay); run against the stagenet target")
+	harness.SkipNotApplicable(t, "no node of the run has a Tor relay (orama-global-tor-relay); run against the testnet target")
 }
 
 // TestRefresh_aSecondRefreshReplacesNothingAndRestartsNothing: the node's own

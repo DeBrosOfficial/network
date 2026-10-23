@@ -45,7 +45,7 @@ type Target struct {
 	// KnownHostsFile holds the pinned host key; nothing else is trusted.
 	KnownHostsFile string
 	// Sudo runs every command as root through `sudo -n` when the login is not root (the
-	// stagenet nodes' debian/ubuntu logins). Tests are written for a root login.
+	// testnet nodes' debian/ubuntu logins). Tests are written for a root login.
 	Sudo bool
 }
 

@@ -18,8 +18,8 @@ func TestLocalChainRPCURL_loopbackRPCPort(t *testing.T) {
 	}
 }
 
-func TestStagenetDeployScript_usesTheNamespaceAddress(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "chain", "scripts", "stagenet", "deploy.sh"))
+func TestTestnetDeployScript_usesTheNamespaceAddress(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "chain", "scripts", "testnet", "deploy.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,8 +69,8 @@ func TestChainPorts_outsideIndexAndTenantBlocks(t *testing.T) {
 
 // reset-node.sh puts net.ipv4.ip_forward back from the record the installer writes; the two must
 // name the same file.
-func TestStagenetResetScript_restoresForwardingFromTheInstallersRecord(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "chain", "scripts", "stagenet", "remote", "reset-node.sh"))
+func TestTestnetResetScript_restoresForwardingFromTheInstallersRecord(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "chain", "scripts", "testnet", "remote", "reset-node.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}

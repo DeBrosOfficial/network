@@ -23,7 +23,7 @@ const (
 	markStarted   = "__STARTED__"
 	markCommittee = "__COMMITTEE__"
 	// seatKeyName is the key of the seat's account in oramad's test keyring: the
-	// name `orama chain faucet` and chain/scripts/stagenet/deploy.sh sign with.
+	// name `orama chain faucet` and chain/scripts/testnet/deploy.sh sign with.
 	seatKeyName = "validator"
 )
 

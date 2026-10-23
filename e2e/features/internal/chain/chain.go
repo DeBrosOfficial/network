@@ -34,12 +34,12 @@ import (
 )
 
 // Layout of a co-hosted validator (e2e/scripts/chain-deploy.sh, docs/whitepaper/technical-reference/vol2/39-chain-architecture.md
-// "The stagenet deploy script").
+// "The testnet deploy script").
 const (
 	Oramad      = "/usr/lib/orama-global/bin/oramad"
 	Home        = "/var/lib/orama-global/chain"
 	ServiceUser = "orama-chain"
-	// NetnsName is the network namespace stagenet runs the global units in.
+	// NetnsName is the network namespace testnet runs the global units in.
 	NetnsName    = "orama-global"
 	Unit         = "orama-global-chain.service"
 	ValidatorKey = "validator"
@@ -77,7 +77,7 @@ type Chain struct {
 
 // New returns the run's chain, skipping (not covered) when the run has none,
 // and refusing a chain id that is not the target's: a devnet id for a fleet
-// run, a stagenet id for the stagenet target.
+// run, a testnet id for the testnet target.
 func New(t testing.TB) *Chain {
 	t.Helper()
 	harness.RequireChain(t)
@@ -89,7 +89,7 @@ func New(t testing.TB) *Chain {
 	return &Chain{F: f, ID: id}
 }
 
-// Nodes are the co-hosted validators, one per node (node-1..node-5 on stagenet).
+// Nodes are the co-hosted validators, one per node (node-1..node-5 on testnet).
 func (c *Chain) Nodes() []fleet.Node { return c.F.State.Nodes }
 
 // Node returns the i-th validator node (0-based).
@@ -102,14 +102,14 @@ func (c *Chain) Node(t testing.TB, i int) fleet.Node {
 }
 
 // OramadCmd is the shell form of `oramad <args>` run as the chain user with
-// the chain home, every argument quoted. On stagenet it runs inside the
+// the chain home, every argument quoted. On testnet it runs inside the
 // orama-global netns, as the chain's own units do: the host ruleset lets only
 // root and the cluster's account reach the chain's host-only ports through the
 // veth, so the chain user cannot query its RPC from the root namespace
 // (website/src/docs/blockchain/run-a-global-node.mdx).
 func (c *Chain) OramadCmd(args ...string) string {
 	q := make([]string, 0, len(args)+10)
-	if c.F.State.IsStagenet() {
+	if c.F.State.IsTestnet() {
 		q = append(q, "sudo", "ip", "netns", "exec", NetnsName, "runuser", "-u", ServiceUser, "--", Oramad)
 	} else {
 		q = append(q, "sudo", "-u", ServiceUser, Oramad)

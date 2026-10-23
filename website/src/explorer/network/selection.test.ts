@@ -10,8 +10,8 @@ const manifest = (name: string, id: number) => ({
   seeds: [`ns1.${name}.orama.network`, `ns2.${name}.orama.network`],
 });
 const REGISTRY = buildRegistry({
-  "../../../../networks/stagenet/manifest.json": manifest("stagenet", 7),
-  "../../../../networks/testnet/manifest.json": manifest("testnet", 2),
+  "../../../../networks/testnet/manifest.json": manifest("testnet", 7),
+  "../../../../networks/devnet/manifest.json": manifest("devnet", 2),
 });
 const HASH = "A".repeat(64);
 const GATEWAY = "https://gateway.example.org";
@@ -20,39 +20,39 @@ describe("selectNetwork: registry networks", () => {
   it("TestSelectNetwork_the_bare_explorer_and_every_old_url_are_the_default_network", () => {
     for (const path of ["/explorer", "/explorer/", "/explorer/validators", `/explorer/tx/${HASH}`, "/explorer/block/42", "/explorer/wallet/orama1x"]) {
       const s = selectNetwork(path, "", REGISTRY);
-      expect(s).toMatchObject({ key: "stagenet", custom: false, gateway: "https://stagenet.orama.network", expectedChainId: "orama-stagenet-7" });
+      expect(s).toMatchObject({ key: "testnet", custom: false, gateway: "https://testnet.orama.network", expectedChainId: "orama-testnet-7" });
       expect(s.routePath).toBe(path);
     }
   });
 
   it("TestSelectNetwork_a_network_segment_picks_that_network_and_routes_the_rest", () => {
-    const s = selectNetwork(`/explorer/testnet/tx/${HASH}`, "", REGISTRY);
-    expect(s).toMatchObject({ key: "testnet", gateway: "https://testnet.orama.network", expectedChainId: "orama-testnet-2" });
+    const s = selectNetwork(`/explorer/devnet/tx/${HASH}`, "", REGISTRY);
+    expect(s).toMatchObject({ key: "devnet", gateway: "https://devnet.orama.network", expectedChainId: "orama-devnet-2" });
     expect(s.routePath).toBe(`/explorer/tx/${HASH}`);
-    expect(selectNetwork("/explorer/testnet", "", REGISTRY).routePath).toBe("/explorer");
+    expect(selectNetwork("/explorer/devnet", "", REGISTRY).routePath).toBe("/explorer");
   });
 
   it("TestSelectNetwork_the_default_may_also_be_named_explicitly", () => {
-    const s = selectNetwork("/explorer/stagenet/validators", "", REGISTRY);
-    expect(s).toMatchObject({ key: "stagenet", routePath: "/explorer/validators" });
+    const s = selectNetwork("/explorer/testnet/validators", "", REGISTRY);
+    expect(s).toMatchObject({ key: "testnet", routePath: "/explorer/validators" });
   });
 
   it("TestSelectNetwork_an_unknown_first_segment_is_a_page_of_the_default_network_and_so_not_found", () => {
     const s = selectNetwork("/explorer/no-such-net/tx/x", "", REGISTRY);
-    expect(s.key).toBe("stagenet");
+    expect(s.key).toBe("testnet");
     expect(s.routePath).toBe("/explorer/no-such-net/tx/x");
   });
 
   it("TestSelectNetwork_links_stay_in_the_network_being_read", () => {
     const def = selectNetwork("/explorer", "", REGISTRY).paths;
-    const other = selectNetwork("/explorer/testnet", "", REGISTRY).paths;
+    const other = selectNetwork("/explorer/devnet", "", REGISTRY).paths;
     expect(def.tx(HASH)).toBe(`/explorer/tx/${HASH}`);
-    expect(other.tx(HASH)).toBe(`/explorer/testnet/tx/${HASH}`);
-    expect(other.home).toBe("/explorer/testnet");
-    expect(other.validators).toBe("/explorer/testnet/validators");
-    expect(other.block(5)).toBe("/explorer/testnet/block/5");
-    expect(other.wallet("orama1x")).toBe("/explorer/testnet/wallet/orama1x");
-    expect(other.validator("orama1x")).toBe("/explorer/testnet/validator/orama1x");
+    expect(other.tx(HASH)).toBe(`/explorer/devnet/tx/${HASH}`);
+    expect(other.home).toBe("/explorer/devnet");
+    expect(other.validators).toBe("/explorer/devnet/validators");
+    expect(other.block(5)).toBe("/explorer/devnet/block/5");
+    expect(other.wallet("orama1x")).toBe("/explorer/devnet/wallet/orama1x");
+    expect(other.validator("orama1x")).toBe("/explorer/devnet/validator/orama1x");
   });
 });
 
@@ -102,25 +102,25 @@ describe("customHome and the switcher", () => {
 
   it("TestSwitchTargets_default_opens_the_short_url_and_others_their_segment", () => {
     expect(switchTargets(REGISTRY)).toEqual([
-      { key: "stagenet", label: "stagenet", to: "/explorer" },
-      { key: "testnet", label: "testnet", to: "/explorer/testnet" },
+      { key: "devnet", label: "devnet", to: "/explorer/devnet" },
+      { key: "testnet", label: "testnet", to: "/explorer" },
     ]);
   });
 });
 
 describe("the chain pin", () => {
   it("TestPinnedChain_reads_a_chain_id_and_ignores_anything_else", () => {
-    expect(pinnedChain("?chain=orama-stagenet-7")).toBe("orama-stagenet-7");
+    expect(pinnedChain("?chain=orama-testnet-7")).toBe("orama-testnet-7");
     expect(pinnedChain("")).toBeNull();
     expect(pinnedChain("?chain=")).toBeNull();
     expect(pinnedChain("?chain=<script>")).toBeNull();
-    expect(pinnedChain("?chain=Orama-Stagenet")).toBeNull();
+    expect(pinnedChain("?chain=Orama-Testnet")).toBeNull();
     expect(pinnedChain(`?chain=${"a".repeat(49)}`)).toBeNull();
   });
 
   it("TestWithPinnedChain_sets_chain_and_keeps_the_other_parameters", () => {
-    expect(withPinnedChain("", "orama-stagenet-7")).toBe("?chain=orama-stagenet-7");
-    expect(withPinnedChain("?trail=a&chain=old", "orama-stagenet-7")).toBe("?trail=a&chain=orama-stagenet-7");
+    expect(withPinnedChain("", "orama-testnet-7")).toBe("?chain=orama-testnet-7");
+    expect(withPinnedChain("?trail=a&chain=old", "orama-testnet-7")).toBe("?trail=a&chain=orama-testnet-7");
     expect(withPinnedChain(`?gateway=${encodeURIComponent(GATEWAY)}`, "x-1")).toBe(`?gateway=${encodeURIComponent(GATEWAY)}&chain=x-1`);
   });
 
