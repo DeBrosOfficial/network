@@ -113,9 +113,9 @@ paths = ['''(^|/)core/pkg/onchain/gateway_test\.go$''']
 regexes = ['''^Ak9OKtmcNNYLm6Yog8lDGoQY\+GcyEpYfl6d7Y3f80Fti[A-Za-z0-9+/=]{0,2}$''']
 
 [[allowlists]]
-description = "networks/stagenet/genesis.json: base64 collection keys ('lastCodeId', 'lastContractId') of the genesis, which the id_key field name makes look like a secret"
+description = "networks/<name>/genesis.json: base64 collection keys ('lastCodeId', 'lastContractId') of the genesis, which the id_key field name makes look like a secret"
 condition = "AND"
-paths = ['''(^|/)networks/stagenet/genesis\.json$''']
+paths = ['''(^|/)networks/[a-z0-9-]+/genesis\.json$''']
 regexes = [
   '''^BGxhc3RDb2RlSWQ=$''',
   '''^BGxhc3RDb250cmFjdElk$''',
