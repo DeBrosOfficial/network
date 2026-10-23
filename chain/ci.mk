@@ -120,8 +120,10 @@ ci-nightly: nilaway mutation rust-miri rust-asan fuzz-long rust-fuzz
 ## downloaded binary. Pair with -tags sys_wasmvm and CGO_LDFLAGS=-L$(WASMVM_OUT). On Linux the
 ## copy gets native/src/probestack.rs, the same __rust_probestack the release library links: with
 ## RUST_TOOLCHAIN's compiler_builtins the symbol wasmer_vm calls is otherwise undefined and every
-## test binary fails to link.
+## test binary fails to link. Cargo builds into WASMVM_TARGET, outside the copy that is replaced on
+## every run, so wasmer and the other dependencies are compiled once and not again per run.
 WASMVM_OUT := $(CURDIR)/$(BUILD_DIR)/wasmvm
+WASMVM_TARGET := $(CURDIR)/$(BUILD_DIR)/wasmvm-target
 WASMVM_SO := $(if $(filter darwin,$(HOST_GOOS)),libwasmvm.dylib,libwasmvm.so)
 wasmvm-lib:
 	rm -rf $(WASMVM_OUT)
@@ -132,8 +134,8 @@ ifeq ($(HOST_GOOS),linux)
 	cp native/src/probestack.rs $(WASMVM_OUT)/src/src/orama_probestack.rs
 	printf '\nmod orama_probestack;\n' >> $(WASMVM_OUT)/src/src/lib.rs
 endif
-	cd $(WASMVM_OUT)/src && cargo +$(RUST_TOOLCHAIN) build --release --locked
-	cp $(WASMVM_OUT)/src/target/release/$(WASMVM_SO) $(WASMVM_OUT)/$(WASMVM_SO)
+	cd $(WASMVM_OUT)/src && cargo +$(RUST_TOOLCHAIN) build --release --locked --target-dir $(WASMVM_TARGET)
+	cp $(WASMVM_TARGET)/release/$(WASMVM_SO) $(WASMVM_OUT)/$(WASMVM_SO)
 
 ## test-race: every package under the race detector with all three native pieces linked: CosmWasm
 ## (wasmvm-lib), the Orchard verifier library through cgo and the out-of-process verifier binary
@@ -230,10 +232,31 @@ rust-lint: native-vendor
 		(cd $$c && cargo +$(RUST_TOOLCHAIN) clippy --locked --all-targets -- -D warnings $(CLIPPY_ALLOW)) || exit 1; \
 	done
 
-## rust-tools: install the pinned cargo-audit and cargo-deny.
+## rust-tools: install the pinned cargo-audit and cargo-deny from their upstream release archives,
+## checked against the sha256 below (scripts/release-tool.sh). Bump a version together with the four
+## hashes of its archives; cargo-deny publishes a .sha256 beside each archive, cargo-audit does not.
+HOST_PLATFORM := $(HOST_GOOS)_$(HOST_GOARCH)
+CARGO_AUDIT_TRIPLE_linux_amd64 := x86_64-unknown-linux-musl
+CARGO_AUDIT_TRIPLE_linux_arm64 := aarch64-unknown-linux-gnu
+CARGO_AUDIT_TRIPLE_darwin_amd64 := x86_64-apple-darwin
+CARGO_AUDIT_TRIPLE_darwin_arm64 := aarch64-apple-darwin
+CARGO_AUDIT_SHA256_linux_amd64 := 7fb9497f8594b389e5fce5ef9b92db08432996895b2e0c5a0167a69ed445c428
+CARGO_AUDIT_SHA256_linux_arm64 := c6603814ddaa45e51263dafd31c0ac98808f688d26f7395804f9670b0fd599dd
+CARGO_AUDIT_SHA256_darwin_amd64 := 847831323de932155b226ab60ee4a180e13e5d007a019f0d4b7b4d89a6de2ab2
+CARGO_AUDIT_SHA256_darwin_arm64 := ec7ca4263769593df4d909be85b94a6b79efa2897be5d2bb8ebd516e823175af
+CARGO_AUDIT_URL := https://github.com/rustsec/rustsec/releases/download/cargo-audit/v$(CARGO_AUDIT_VERSION)/cargo-audit-$(CARGO_AUDIT_TRIPLE_$(HOST_PLATFORM))-v$(CARGO_AUDIT_VERSION).tgz
+CARGO_DENY_TRIPLE_linux_amd64 := x86_64-unknown-linux-musl
+CARGO_DENY_TRIPLE_linux_arm64 := aarch64-unknown-linux-musl
+CARGO_DENY_TRIPLE_darwin_amd64 := x86_64-apple-darwin
+CARGO_DENY_TRIPLE_darwin_arm64 := aarch64-apple-darwin
+CARGO_DENY_SHA256_linux_amd64 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+CARGO_DENY_SHA256_linux_arm64 := 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d
+CARGO_DENY_SHA256_darwin_amd64 := 248da7f581724e470071990c088ffc55c811981715f4cbdb258621fb79f8b7a6
+CARGO_DENY_SHA256_darwin_arm64 := fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3
+CARGO_DENY_URL := https://github.com/EmbarkStudios/cargo-deny/releases/download/$(CARGO_DENY_VERSION)/cargo-deny-$(CARGO_DENY_VERSION)-$(CARGO_DENY_TRIPLE_$(HOST_PLATFORM)).tar.gz
 rust-tools:
-	@cargo audit --version 2>/dev/null | grep -q "$(CARGO_AUDIT_VERSION)" || cargo install --locked --version $(CARGO_AUDIT_VERSION) cargo-audit
-	@cargo deny --version 2>/dev/null | grep -q "$(CARGO_DENY_VERSION)" || cargo install --locked --version $(CARGO_DENY_VERSION) cargo-deny
+	@cargo audit --version 2>/dev/null | grep -q "$(CARGO_AUDIT_VERSION)" || scripts/release-tool.sh cargo-audit "$(CARGO_AUDIT_URL)" "$(CARGO_AUDIT_SHA256_$(HOST_PLATFORM))"
+	@cargo deny --version 2>/dev/null | grep -q "$(CARGO_DENY_VERSION)" || scripts/release-tool.sh cargo-deny "$(CARGO_DENY_URL)" "$(CARGO_DENY_SHA256_$(HOST_PLATFORM))"
 
 ## rust-audit: RustSec advisories in each crate's Cargo.lock. Fails on a vulnerability that is not
 ## in RUST_AUDIT_IGNORE; unmaintained and unsound warnings are printed, not failed.
