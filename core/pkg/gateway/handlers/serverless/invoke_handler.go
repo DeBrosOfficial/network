@@ -21,10 +21,16 @@ import (
 // paths so both transports report identical, machine-readable error semantics.
 // A cold-WASM fetch timeout is a transient infra failure (retryable); a genuine
 // error raised inside the function is FUNCTION_EXECUTION_FAILED (not retryable).
+// A function stopped at its timeout is 504 FUNCTION_TIMEOUT, never
+// RATE_LIMITED: a rate limit refuses the request before the function runs, and
+// a timeout means it ran, so a client that read one as the other would repeat
+// a call whose effects (a payment broadcast) already happened.
 func classifyInvokeError(err error) (int, httputil.RPCErrorCode, bool) {
 	switch {
 	case errors.Is(err, serverless.ErrWASMFetchTimeout):
 		return http.StatusServiceUnavailable, httputil.ErrCodeFunctionUnavailable, true
+	case serverless.IsTimeout(err):
+		return http.StatusGatewayTimeout, httputil.ErrCodeFunctionTimeout, false
 	case serverless.IsNotFound(err):
 		return http.StatusNotFound, httputil.ErrCodeNotFound, false
 	case serverless.IsResourceExhausted(err):

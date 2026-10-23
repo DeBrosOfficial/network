@@ -317,6 +317,31 @@ export class RevokedCredentialError extends AuthError {
 }
 
 /**
+ * The codes a function invoke fails with, beside the auth codes above.
+ *
+ * Mirrors `core/pkg/httputil/rpc_error.go`; the list only ever grows.
+ */
+export const FunctionCode = {
+  /**
+   * 429: refused before the function ran (an invoke rate limit). Safe to send
+   * again after `Retry-After`.
+   */
+  RateLimited: "RATE_LIMITED",
+  /**
+   * 504: the function ran and was stopped at its timeout. What it did before it
+   * was stopped may have happened, so the SDK never sends it again on its own;
+   * repeat it only if the call is idempotent.
+   */
+  Timeout: "FUNCTION_TIMEOUT",
+  /** 503: its code could not be loaded on this gateway. Safe to send again. */
+  Unavailable: "FUNCTION_UNAVAILABLE",
+  /** 500: the function ran and returned or raised an error. */
+  ExecutionFailed: "FUNCTION_EXECUTION_FAILED",
+} as const;
+
+export type FunctionCode = (typeof FunctionCode)[keyof typeof FunctionCode];
+
+/**
  * The codes of the relayed-fetch path (`storage.fetchWith`).
  *
  * `FetchCap*` come from the storage node when it refuses a fetch capability;

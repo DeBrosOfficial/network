@@ -26,7 +26,7 @@ A guest sees stdin, stdout, the host clocks and the host CSPRNG: no filesystem, 
 
 Deploy seals the WASM under the cluster wrap key, pins it on every IPFS Cluster peer, and fails unless the cluster reports it pinned within 30 s; a garbage collection once deleted functions pinned on only three peers. Each deploy inserts a new version row; ten are kept and `name@N` runs exactly version N. The version insert and trigger hand-over are separate statements, so a deploy is not atomic.
 
-Invocation checks that the namespace is served here, then authorizes: an internal function is admin-only, a public one is open, any other needs the invoke grant, which a signed-in wallet or a key with the `invoke` scope holds. Retries double the delay, up to five, and a final failure can publish to a dead-letter topic. A function past its deadline answers 429, not 504.
+Invocation checks that the namespace is served here, then authorizes: an internal function is admin-only, a public one is open, any other needs the invoke grant, which a signed-in wallet or a key with the `invoke` scope holds. Retries double the delay, up to five, and a final failure can publish to a dead-letter topic. A function past its deadline answers 504 `FUNCTION_TIMEOUT`, which is not retryable because the function ran; a rate limit, which refused the call before it ran, answers 429.
 
 ### Triggers
 

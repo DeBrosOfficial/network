@@ -32,10 +32,10 @@ const (
 	roleAdmin    = "admin"
 	roleRuntime  = "runtime"
 	// Error envelope codes (core/pkg/httputil/rpc_error.go).
-	codeRateLimited = "RATE_LIMITED"
-	codeExecFailed  = "FUNCTION_EXECUTION_FAILED"
-	codeNotFound    = "NOT_FOUND"
-	codeMismatch    = "NAMESPACE_MISMATCH"
+	codeFunctionTimeout = "FUNCTION_TIMEOUT"
+	codeExecFailed      = "FUNCTION_EXECUTION_FAILED"
+	codeNotFound        = "NOT_FOUND"
+	codeMismatch        = "NAMESPACE_MISMATCH"
 )
 
 // fixture is a namespace created by the operator's CLI, with an admin and a
@@ -185,6 +185,16 @@ func rpcCode(r *gw.Response) string {
 		return env.Error.Code
 	}
 	return env.Code
+}
+
+// rpcRetryable is the error envelope's retryable bit.
+func rpcRetryable(r *gw.Response) bool {
+	var env struct {
+		Error struct {
+			Retryable bool `json:"retryable"`
+		} `json:"error"`
+	}
+	return json.Unmarshal(r.Body, &env) == nil && env.Error.Retryable
 }
 
 // sub decodes m[key] (a nested JSON object) into a map.

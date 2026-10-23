@@ -1,4 +1,4 @@
-import { NetworkError, SDKError } from "../errors";
+import { FunctionCode, NetworkError, SDKError } from "../errors";
 import { Logger } from "./logger";
 
 /**
@@ -658,9 +658,13 @@ export class HttpClient {
       }
       return response.text();
     } catch (error) {
+      // A function that ran out of time ran: sending it again could repeat
+      // what it already did (a payment broadcast), so its 504 is the caller's
+      // to retry, not this loop's.
       const isRetryableError =
         error instanceof SDKError &&
-        [408, 429, 500, 502, 503, 504].includes(error.httpStatus);
+        [408, 429, 500, 502, 503, 504].includes(error.httpStatus) &&
+        error.code !== FunctionCode.Timeout;
 
       // Never retry once the request's signal has been aborted (caller cancel
       // or timeout) — bugboard #144. A retry would ignore a user's Cancel.

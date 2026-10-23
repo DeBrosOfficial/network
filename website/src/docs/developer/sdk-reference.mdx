@@ -338,7 +338,7 @@ Every failure is an `SDKError`.
 | `NotFoundError` | 404 | |
 | `NetworkError` | No HTTP response. `httpStatus` is 0 | `code` is `NETWORK_ERROR`, `TIMEOUT` or `ABORTED` |
 
-`error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
+`error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)); `FunctionCode` names the codes a function invoke fails with (`RATE_LIMITED`, `FUNCTION_TIMEOUT`, `FUNCTION_UNAVAILABLE`, `FUNCTION_EXECUTION_FAILED`). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
 
 ```ts
 import { NetworkError, ScopeError } from "@orama-network/orama";
@@ -363,7 +363,7 @@ The grants are `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage` 
 
 ## Retries and failover
 
-A retryable status (408, 429, 500, 502, 503, 504) is retried up to `maxRetries` times. A `Retry-After` header is honoured, capped at thirty seconds; otherwise the delay grows with the attempt and carries up to 25% jitter. Failing over to another gateway is the application's decision, made in `onNetworkError`:
+A retryable status (408, 429, 500, 502, 503, 504) is retried up to `maxRetries` times, except a function's 504 `FUNCTION_TIMEOUT` (`FunctionCode.Timeout`): the function ran, so what it did may have happened, and only the caller knows whether the call is safe to repeat. A `Retry-After` header is honoured, capped at thirty seconds; otherwise the delay grows with the attempt and carries up to 25% jitter. Failing over to another gateway is the application's decision, made in `onNetworkError`:
 
 ```ts
 const client = createClient({

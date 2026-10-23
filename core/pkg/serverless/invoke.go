@@ -337,6 +337,12 @@ func (i *Invoker) isRetryable(err error) bool {
 		return false
 	}
 
+	// Don't re-run a function that ran out of time: it ran, so its effects may
+	// have happened, and a second run holds another full timeout.
+	if IsTimeout(err) {
+		return false
+	}
+
 	// Retry service unavailable errors
 	if IsServiceUnavailable(err) {
 		return true

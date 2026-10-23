@@ -63,9 +63,13 @@ timeout: 30             # Execution timeout in seconds (1-60, default: 30)
                         # Raise it toward the 60 s maximum for batch DB ops, schema migrations,
                         # or anything that does many sequential host calls.
                         # Exceeding this timeout on a direct invoke returns
-                        # HTTP 429 {ok:false, error:{code:"RATE_LIMITED",...}}
-                        # (retryable). The code "TIMEOUT" (HTTP 504) appears
-                        # only when the namespace-proxy budget is exceeded.
+                        # HTTP 504 {ok:false, error:{code:"FUNCTION_TIMEOUT",...}},
+                        # not retryable: the function ran, so what it did before
+                        # it was stopped may have happened. Repeat it only if the
+                        # call is idempotent. A rate limit is a different answer
+                        # (429 RATE_LIMITED: refused before it ran). The code
+                        # "TIMEOUT" (HTTP 504) appears only when the
+                        # namespace-proxy budget is exceeded.
 retry:
   count: 0              # Retry attempts on failure (0-5, default: 0 = never retry;
                         # a count above the gateway's max_retry_count or a negative

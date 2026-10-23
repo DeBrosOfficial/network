@@ -148,4 +148,25 @@ describe('retry backoff', () => {
       vi.restoreAllMocks();
     }
   });
+
+  /**
+   * bug-936: a function stopped at its timeout ran. Its 504 used to be a 429
+   * RATE_LIMITED, which a client reads as "not sent"; now that it is its own
+   * code, this loop must not send it again either.
+   */
+  it('does not resend a function that ran out of time', async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ ok: false, error: { code: 'FUNCTION_TIMEOUT', message: 'timeout', retryable: false } }),
+          { status: 504, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+    await expect(client(fetchImpl, 3).post('/v1/invoke/ns/fn', {})).rejects.toMatchObject({
+      httpStatus: 504,
+      code: 'FUNCTION_TIMEOUT',
+      retryable: false,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });

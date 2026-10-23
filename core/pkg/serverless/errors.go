@@ -227,13 +227,19 @@ func IsUnauthorized(err error) bool {
 	return errors.Is(err, ErrUnauthorized)
 }
 
-// IsResourceExhausted checks if an error indicates resource exhaustion.
+// IsResourceExhausted checks if an error indicates resource exhaustion: the
+// request was refused before the function ran. A timeout is not one of them
+// (see IsTimeout): that function ran, and what it did may have happened.
 func IsResourceExhausted(err error) bool {
 	return errors.Is(err, ErrRateLimited) ||
 		errors.Is(err, ErrMemoryExceeded) ||
 		errors.Is(err, ErrPayloadTooLarge) ||
-		errors.Is(err, ErrQueueFull) ||
-		errors.Is(err, ErrTimeout)
+		errors.Is(err, ErrQueueFull)
+}
+
+// IsTimeout reports whether a function ran and was stopped at its deadline.
+func IsTimeout(err error) bool {
+	return errors.Is(err, ErrTimeout)
 }
 
 // IsServiceUnavailable checks if an error indicates a service is unavailable.

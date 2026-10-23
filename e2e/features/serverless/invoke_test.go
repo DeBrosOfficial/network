@@ -144,15 +144,16 @@ func TestInvoke_nested(t *testing.T) {
 	}
 }
 
-// TestInvoke_timeoutIsRateLimited: running past timeout on a direct invoke is
-// 429 RATE_LIMITED, retryable (website/src/docs/developer/functions.mdx#functionyaml).
-func TestInvoke_timeoutIsRateLimited(t *testing.T) {
+// TestInvoke_timeoutIsFunctionTimeout: running past timeout on a direct
+// invoke is 504 FUNCTION_TIMEOUT, not retryable, and never the 429
+// RATE_LIMITED of a refused request (website/src/docs/developer/functions.mdx#functionyaml).
+func TestInvoke_timeoutIsFunctionTimeout(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
 	deploy(t, fx, fnSpec{name: "e2e-slow", yaml: "timeout: 1\n"})
 	r := invoke(t, fx.c, "e2e-slow", fx.admin, map[string]any{"op": "spin", "ms": 5000})
-	if r.Status != http.StatusTooManyRequests || rpcCode(r) != codeRateLimited {
-		t.Errorf("a 5s spin under timeout 1: want 429 %s, got %d %.300s", codeRateLimited, r.Status, r.Body)
+	if r.Status != http.StatusGatewayTimeout || rpcCode(r) != codeFunctionTimeout || rpcRetryable(r) {
+		t.Errorf("a 5s spin under timeout 1: want 504 %s retryable=false, got %d %.300s", codeFunctionTimeout, r.Status, r.Body)
 	}
 	call(t, fx, "e2e-slow", map[string]any{"op": "spin", "ms": 100})
 }

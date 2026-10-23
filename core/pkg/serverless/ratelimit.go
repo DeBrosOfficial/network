@@ -91,6 +91,11 @@ func (e *RateLimitedError) Error() string {
 	return fmt.Sprintf("rate limit exceeded (scope=%s, retry_after=%s)", e.Scope, e.RetryAfter)
 }
 
+// Is makes a RateLimitedError an ErrRateLimited, so everything that asks
+// IsResourceExhausted — the invoker's retry decision, the WebSocket error
+// frame — reads a tiered refusal as the rate limit it is.
+func (e *RateLimitedError) Is(target error) bool { return target == ErrRateLimited }
+
 // MultiTierLimiter implements RateLimiter as three layered token-bucket
 // scopes with sharded LRU bucket tracking.
 type MultiTierLimiter struct {

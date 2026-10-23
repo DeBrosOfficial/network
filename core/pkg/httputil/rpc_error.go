@@ -84,6 +84,12 @@ const (
 	// this node). Distinct from FUNCTION_EXECUTION_FAILED (a real, non-retryable
 	// error inside the function); this one is safe to retry the exact request.
 	ErrCodeFunctionUnavailable RPCErrorCode = "FUNCTION_UNAVAILABLE"
+	// ErrCodeFunctionTimeout is a function that ran and was stopped at its
+	// timeout. It is not RATE_LIMITED, which is a request refused before the
+	// function ran: whatever the function did before it was stopped (a write,
+	// an upstream call, a broadcast) may have happened. Not retryable by
+	// default — only a caller that knows the call is idempotent repeats it.
+	ErrCodeFunctionTimeout RPCErrorCode = "FUNCTION_TIMEOUT"
 )
 
 // RPCErrorEnvelope is the canonical wire shape. Use WriteRPCError to emit;
@@ -204,6 +210,8 @@ func defaultMessageFor(code RPCErrorCode) string {
 		return "function execution failed"
 	case ErrCodeFunctionUnavailable:
 		return "function temporarily unavailable, retry"
+	case ErrCodeFunctionTimeout:
+		return "function ran past its timeout; its effects may have happened"
 	case ErrCodeFunctionDeploy:
 		return "function deployment failed"
 	case ErrCodeSchemaMismatch:

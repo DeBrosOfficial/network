@@ -101,6 +101,7 @@ export {
   RevokedCredentialError,
   NamespaceError,
   AuthCode,
+  FunctionCode,
   RelayError,
   FetchCapError,
   RelayCode,
