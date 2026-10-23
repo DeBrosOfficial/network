@@ -26,15 +26,16 @@ func everyNodeServes(t testing.TB, tn *tenant, appURL, path, want string) {
 }
 
 // TestDeployStatic_servesSPAFromEveryNode: a static site is served with the
-// right content types and cache header, unknown routes fall back to
-// index.html (website/src/docs/developer/deployments.mdx "Deploying Static Sites").
+// content type of the file served and a cache header, a directory serves its
+// index.html, unknown routes fall back to index.html and a missing file is 404
+// (website/src/docs/developer/deployments.mdx "Deploying Static Sites").
 func TestDeployStatic_servesSPAFromEveryNode(t *testing.T) {
 	t.Parallel()
 	tn := newTenant(t)
 	u := tn.deploy(t, "static", staticSite(t, "static-v1"), "site")
 	everyNodeServes(t, tn, u, "/", "static-v1")
 	c := tn.app(u)
-	for path, ctype := range map[string]string{"/assets/app.css": "text/css", "/data.json": "application/json", "/": "text/html"} {
+	for path, ctype := range map[string]string{"/assets/app.css": "text/css", "/data.json": "application/json", "/": "text/html", "/docs/": "text/html", "/docs": "text/html", "/deep/client/route": "text/html"} {
 		r := c.MustSend(t, gw.Req{Path: path}).Expect(t, http.StatusOK)
 		if !strings.HasPrefix(r.Header.Get("Content-Type"), ctype) {
 			t.Errorf("%s served as %q, want %s", path, r.Header.Get("Content-Type"), ctype)
@@ -45,6 +46,12 @@ func TestDeployStatic_servesSPAFromEveryNode(t *testing.T) {
 	}
 	if r := c.MustSend(t, gw.Req{Path: "/deep/client/route"}); r.Status != http.StatusOK || !strings.Contains(string(r.Body), "static-v1") {
 		t.Errorf("an unknown route did not fall back to index.html: %d", r.Status)
+	}
+	if r := c.MustSend(t, gw.Req{Path: "/docs/"}); !strings.Contains(string(r.Body), "docs-static-v1") {
+		t.Errorf("a directory did not serve its own index.html: %d %.120s", r.Status, r.Body)
+	}
+	if r := c.MustSend(t, gw.Req{Path: "/assets/missing.js"}); r.Status != http.StatusNotFound {
+		t.Errorf("a missing asset answered %d %q, want 404", r.Status, r.Header.Get("Content-Type"))
 	}
 	for _, hostile := range []string{"/../../etc/passwd", "/%2e%2e/%2e%2e/etc/passwd", "/assets/..%2f..%2findex.html"} {
 		if r := c.MustSend(t, gw.Req{Path: hostile}); strings.Contains(string(r.Body), "root:") {

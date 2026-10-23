@@ -77,8 +77,10 @@ orama deploy static ./dist --name my-react-app
 
 ### Features
 
-- ✅ **SPA Routing**: Unknown routes automatically serve `/index.html` (perfect for React Router)
-- ✅ **Correct Content-Types**: Automatically detects and serves `.html`, `.css`, `.js`, `.json`, `.png`, etc.
+- ✅ **Directory Indexes**: `/` serves `/index.html`, and a directory path such as `/docs` or `/docs/` serves `docs/index.html`, so prerendered multi-page sites work
+- ✅ **SPA Routing**: An unknown route whose last segment has no file extension (`/about`, `/users/42`) serves `/index.html` with `200` (perfect for React Router). A route with a dot in its last segment (`/users/jane.doe`) counts as a file
+- ✅ **Missing Files Are 404**: A path whose last segment has a file extension (`/assets/app-123.js`, `/logo.png`) and no matching file answers `404`, never the SPA's HTML
+- ✅ **Correct Content-Types**: Taken from the extension of the file actually served (`.html`, `.css`, `.js`, `.json`, `.png`, etc.), so a directory index or SPA fallback is always `text/html`; an unknown extension is `application/octet-stream`
 - ✅ **Caching**: `Cache-Control: public, max-age=3600` headers for optimal performance
 - ✅ **Zero Downtime Updates**: Use `--update` flag to update without downtime
 

@@ -135,6 +135,7 @@
   "publishConfig": {
     "registry": "https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
   },
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.19"
   }

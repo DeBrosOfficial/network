@@ -36,9 +36,10 @@ func writeTree(t testing.TB, files map[string]string) string {
 func staticSite(t testing.TB, marker string) string {
 	t.Helper()
 	return writeTree(t, map[string]string{
-		"index.html":     "<!doctype html><title>e2e</title><p>" + marker + "</p>",
-		"assets/app.css": "body{color:#123}",
-		"data.json":      `{"marker":"` + marker + `"}`,
+		"index.html":      "<!doctype html><title>e2e</title><p>" + marker + "</p>",
+		"docs/index.html": "<!doctype html><title>docs</title><p>docs-" + marker + "</p>",
+		"assets/app.css":  "body{color:#123}",
+		"data.json":       `{"marker":"` + marker + `"}`,
 	})
 }
 

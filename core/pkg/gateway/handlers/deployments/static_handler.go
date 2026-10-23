@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -189,52 +190,62 @@ func uploadSite(ctx context.Context, client ipfs.IPFSClient, tarball io.Reader) 
 func (h *StaticDeploymentHandler) HandleServe(w http.ResponseWriter, r *http.Request, deployment *deployments.Deployment) {
 	ctx := r.Context()
 
-	// Get requested path
-	requestPath := r.URL.Path
-	if requestPath == "" || requestPath == "/" {
-		requestPath = "/index.html"
-	}
-
-	// Build IPFS path
-	ipfsPath := fmt.Sprintf("/ipfs/%s%s", deployment.ContentCID, requestPath)
-
-	h.logger.Debug("Serving static content",
-		zap.String("deployment", deployment.Name),
-		zap.String("path", requestPath),
-		zap.String("ipfs_path", ipfsPath),
+	var (
+		reader io.ReadCloser
+		served string
+		err    error
 	)
-
-	// Try to get the file
-	reader, err := h.ipfsClient.Get(ctx, ipfsPath, "")
+	for _, candidate := range siteFileCandidates(r.URL.Path) {
+		ipfsPath := fmt.Sprintf("/ipfs/%s%s", deployment.ContentCID, candidate)
+		h.logger.Debug("Serving static content",
+			zap.String("deployment", deployment.Name),
+			zap.String("path", candidate),
+			zap.String("ipfs_path", ipfsPath),
+		)
+		reader, err = h.ipfsClient.Get(ctx, ipfsPath, "")
+		if err == nil {
+			served = candidate
+			break
+		}
+	}
 	if err != nil {
-		// Try with /index.html for directories
-		if !strings.HasSuffix(requestPath, ".html") {
-			indexPath := fmt.Sprintf("/ipfs/%s%s/index.html", deployment.ContentCID, requestPath)
-			reader, err = h.ipfsClient.Get(ctx, indexPath, "")
-		}
-
-		// Fallback to /index.html for SPA routing
-		if err != nil {
-			fallbackPath := fmt.Sprintf("/ipfs/%s/index.html", deployment.ContentCID)
-			reader, err = h.ipfsClient.Get(ctx, fallbackPath, "")
-			if err != nil {
-				h.logger.Error("Failed to serve content", zap.Error(err))
-				http.NotFound(w, r)
-				return
-			}
-		}
+		h.logger.Error("Failed to serve content", zap.Error(err))
+		http.NotFound(w, r)
+		return
 	}
 	defer reader.Close()
 
-	// Detect content type
-	contentType := detectContentType(requestPath)
-	w.Header().Set("Content-Type", contentType)
+	// The type is the served file's: a directory's index.html or the SPA
+	// fallback is HTML whatever the requested path looks like.
+	w.Header().Set("Content-Type", detectContentType(served))
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 
 	// Copy content to response
 	if _, err := io.Copy(w, reader); err != nil {
 		h.logger.Error("Failed to write response", zap.Error(err))
 	}
+}
+
+// siteIndex is the page served for a directory and as the SPA fallback.
+const siteIndex = "index.html"
+
+// siteFileCandidates lists, in order, the site files a request path may be
+// served from: the path itself (/ is the root index), then the directory's
+// index for a path not naming an .html file, then the root index for a
+// route-like path. A path whose last segment has an extension names a file, so
+// a missing one is not found rather than answered with the SPA's HTML.
+func siteFileCandidates(requestPath string) []string {
+	if requestPath == "" || requestPath == "/" {
+		return []string{"/" + siteIndex}
+	}
+	candidates := []string{requestPath}
+	if !strings.HasSuffix(requestPath, ".html") {
+		candidates = append(candidates, strings.TrimSuffix(requestPath, "/")+"/"+siteIndex)
+	}
+	if path.Ext(requestPath) == "" {
+		candidates = append(candidates, "/"+siteIndex)
+	}
+	return candidates
 }
 
 // detectContentType determines content type from file extension

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -106,6 +107,60 @@ func TestUpdateHandler_staticUpdateStoresTheExtractedSite(t *testing.T) {
 	}
 	if len(resp.URLs) == 0 {
 		t.Error("the update did not say where the site is")
+	}
+}
+
+// siteFiles answers Get for the files of one site directory CID and fails for
+// anything else, as Kubo does for a missing link or a directory: with an error
+// that is not ipfs.IsContentUnavailable.
+func siteFiles(cid string, files map[string]string) *mockIPFSClient {
+	return &mockIPFSClient{
+		GetFunc: func(_ context.Context, path, _ string) (io.ReadCloser, error) {
+			body, ok := files[strings.TrimPrefix(path, "/ipfs/"+cid+"/")]
+			if !ok {
+				return nil, errors.New("no link named in " + path)
+			}
+			return io.NopCloser(strings.NewReader(body)), nil
+		},
+	}
+}
+
+// The Content-Type came from the requested path, not the file served: a
+// directory's index or an SPA deep link (/docs/, /about) went out as
+// application/octet-stream and browsers downloaded it, and a missing asset got
+// the SPA's HTML labelled as script or image. The type is the served file's,
+// and only a route-like path falls back to the root index.
+func TestStaticHandler_HandleServe_resolvesTheFileAndItsType(t *testing.T) {
+	const cid = "QmSite"
+	h := NewStaticDeploymentHandler(nil, siteFiles(cid, map[string]string{
+		"index.html":      "root page",
+		"docs/index.html": "docs page",
+		"style.css":       "body{}",
+		"page.html":       "a page",
+	}), zap.NewNop())
+	site := &deployments.Deployment{Name: "site", ContentCID: cid, Type: deployments.DeploymentTypeStatic}
+
+	for _, c := range []struct {
+		path, wantType, wantBody string
+		wantStatus               int
+	}{
+		{"/", "text/html; charset=utf-8", "root page", http.StatusOK},
+		{"/docs/", "text/html; charset=utf-8", "docs page", http.StatusOK},
+		{"/docs", "text/html; charset=utf-8", "docs page", http.StatusOK},
+		{"/unknown-route", "text/html; charset=utf-8", "root page", http.StatusOK},
+		{"/style.css", "text/css; charset=utf-8", "body{}", http.StatusOK},
+		{"/page.html", "text/html; charset=utf-8", "a page", http.StatusOK},
+		{"/assets/missing.js", "text/plain; charset=utf-8", "404 page not found\n", http.StatusNotFound},
+		{"/logo.png", "text/plain; charset=utf-8", "404 page not found\n", http.StatusNotFound},
+	} {
+		rr := httptest.NewRecorder()
+		h.HandleServe(rr, httptest.NewRequest(http.MethodGet, c.path, nil), site)
+
+		if rr.Code != c.wantStatus || rr.Header().Get("Content-Type") != c.wantType || rr.Body.String() != c.wantBody {
+			t.Errorf("%s: %d %q %q, want %d %q %q", c.path,
+				rr.Code, rr.Header().Get("Content-Type"), rr.Body.String(),
+				c.wantStatus, c.wantType, c.wantBody)
+		}
 	}
 }
 
