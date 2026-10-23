@@ -26,7 +26,7 @@ policy are maintainer commands: see 'orama maint cluster'.`,
 
 // MaintCmd is `orama maint cluster`: who may create a namespace on this
 // cluster, how many one wallet may own, and the cluster's automatic updates.
-// Both are operator acts: the operator grant and a wallet on the operator list.
+// Both are operator acts: a wallet session on the operator list.
 var MaintCmd = &cobra.Command{
 	Use:   "cluster",
 	Short: "Choose who may create namespaces on this cluster, and its update policy",
@@ -37,8 +37,8 @@ namespace besides the seeded default, a node, or an operator when this was
 upgraded stays open — any signed-in wallet — until an operator changes it.
 The per-wallet cap stays 10 until an operator raises or lowers it.
 
-Changing a setting or the creator list needs the operator grant and a wallet
-on the operator list, and is written to the audit trail.`,
+Changing a setting or the creator list needs you signed in with a wallet on
+the operator list, and is written to the audit trail.`,
 }
 
 var settingsCmd = &cobra.Command{

@@ -152,7 +152,7 @@ func TestClusterSettings_refusedToNonOperators(t *testing.T) {
 			t.Errorf("%s %s as a namespace owner: want 403, got %d %s", r.Method, r.Path, resp.Status, resp.Body)
 			continue
 		}
-		if code := resp.ErrorCode(); code != "NOT_AN_OPERATOR" && code != "INSUFFICIENT_SCOPE" {
+		if code := resp.ErrorCode(); code != "NOT_AN_OPERATOR" {
 			t.Errorf("%s %s: refusal code %q", r.Method, r.Path, code)
 		}
 		if anon := c.MustSend(t, gw.Req{Method: r.Method, Path: r.Path, Body: r.Body}); anon.Status != http.StatusUnauthorized {

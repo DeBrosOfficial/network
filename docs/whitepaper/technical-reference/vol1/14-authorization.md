@@ -35,7 +35,7 @@ Nothing may be reachable by accident. A route nobody declared a policy for canno
 |---|---|
 | `reader` | none: only the routes that ask for no permission |
 | `runtime` | the data plane: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy` in every action, and `fn:invoke` |
-| `developer` | the data plane, plus `db`, `deploy` and `secrets` in every action, plus `fn:manage`; not `members`, `namespace`, `audit` or `operator` |
+| `developer` | the data plane, plus `db`, `deploy` and `secrets` in every action, plus `fn:manage`; not `members`, `namespace` or `audit` |
 | `admin` | `*:*:*` |
 | `owner` | `*:*:*`; exactly one wallet per namespace; the only role that may transfer the namespace |
 
@@ -58,7 +58,8 @@ A role the binary does not know (a newer gateway may have written one) grants no
 | `members` | control | grants, API keys, deployment grants, session devices of users |
 | `namespace` | control | a namespace's own settings (rate limit, session policy, WebRTC switches) and its deletion |
 | `audit` | control | the audit trail |
-| `operator` | control | the cluster itself: nodes, telemetry, settings, key rotation, invites |
+
+The cluster itself is not a domain. Every permission comes from a role, grant or key in one namespace, and `*:*:*` is everything in that namespace and nothing of the cluster; the cluster's routes are the operator's ([Operators](#operators)). `ParsePermission` refuses `operator` like any unknown domain.
 
 The actions are `read`, `write`, `invoke`, `manage` and `*`. `invoke` and `manage` exist because running a function and changing it are different authorities and neither is a read or a write of the same thing. `*` in any position matches anything in it.
 
@@ -68,13 +69,13 @@ The actions are `read`, `write`, `invoke`, `manage` and `*`. `invoke` and `manag
 
 **Selector.** A string on a grant that narrows it to part of a namespace: `storage:avatars/*`, `pubsub:topic=chat.*`, `fn:name=checkout`, `cache:key=sessions/*`. It becomes one permission (`core/pkg/gateway/auth/permission_legacy.go:PermissionFromSelector`).
 
-**Route policy.** What a route requires, declared once in a table (`core/pkg/gateway/routepolicy/policy.go:Policy`): the access class, a domain and action, whether the caller must hold a grant in the namespace, and what kind of token it must present.
+**Route policy.** What a route requires, declared once in a table (`core/pkg/gateway/routepolicy/policy.go:Policy`): the access class, a domain and action or the operator flag, whether the caller must hold a grant in the namespace, and what kind of token it must present.
 
 **Lobby.** The namespace `default`, which belongs to nobody. A wallet that signs in without naming a namespace stands there. It holds no permission and no grant, and reaches only routes that ask for none, chiefly `POST /v1/namespaces`, which creates a namespace and makes the caller its owner (`core/pkg/gateway/auth/ownership.go:LobbyNamespace`).
 
 **End user.** A wallet with no grant that signed in to a namespace whose owner opened sign-in: a session and nothing more, with no grant, membership or key. It holds `NoGrantPermissions`: the data plane except publishing to pub/sub (`core/pkg/gateway/auth/permission.go:NoGrantPermissions`).
 
-**Operator.** A wallet on the cluster's `operators` list. Operator status is separate from any grant: it is checked in the handler of `/v1/operator/*` routes and on the raw-database routes of the index gateway ([operator routes](12-gateway-architecture.md#operator-routes)). For an API key the wallet checked is the owner of the key's namespace, not the key ([Operators](#operators)).
+**Operator.** A wallet on the cluster's `operators` list, signed in with a wallet session. Operator status is separate from any grant and from any permission: the scope gate checks it on every operator route, and the authorization gate on the raw-database routes of the index gateway ([operator routes](12-gateway-architecture.md#operator-routes)). An API key, a token exchanged for one or an app's workload token is never an operator's ([Operators](#operators)).
 
 ## How it works
 
@@ -92,7 +93,7 @@ The policy fields ([routing and the policy table](12-gateway-architecture.md#rou
 | `Token` | `AnyCredential` (a bare key suffices), `AnyToken` (some JWT: possession of a key proven by an exchange), `WalletToken` (a logged-in wallet), `PrincipalToken` (a logged-in wallet or a deployed app's own token, never a key). |
 | `NarrowedByGrant` | An `Open` route whose handler applies the caller's selector (`/v1/invoke/`). |
 
-The declared patterns split into 24 `Open`, 26 `HandlerAuth` and 127 that require a credential (a pattern with a request-dependent policy counts once, under the policy of a `GET`). Of the 127, 42 also require ownership, 15 are operator routes and 23 are deployment routes. Examples: `/v1/deployments/env/set` is `secrets:write`; `/v1/deployments/grants` is `members:write`, because handing a deployment authority is handing out authority; `/v1/db/sqlite/query` is `db:write`, because the endpoint runs whatever SQL the caller sends; `/v1/functions` is owned `fn:manage`; `/v1/audit` is `audit:read`, because the trail names a namespace's wallets and when they sign in. Only `/v1/operator/invite` asks for `*:*:*` (`policyUnrestricted`), because a cluster invite hands out every secret the cluster holds.
+The declared patterns split into 24 `Open`, 26 `HandlerAuth` and 127 that require a credential (a pattern with a request-dependent policy counts once, under the policy of a `GET`). Of the 127, 42 also require ownership, 23 are operator routes (the 15 under `/v1/operator/`, the four node routes `/v1/node/status`, `logs`, `command` and `leave`, and the four network routes) and 23 are deployment routes. Examples: `/v1/deployments/env/set` is `secrets:write`; `/v1/deployments/grants` is `members:write`, because handing a deployment authority is handing out authority; `/v1/db/sqlite/query` is `db:write`, because the endpoint runs whatever SQL the caller sends; `/v1/functions` is owned `fn:manage`; `/v1/audit` is `audit:read`, because the trail names a namespace's wallets and when they sign in. No route asks for `*:*:*` (`route_policy_test.go:TestRoutePolicy_noRouteAsksForEverything`): every namespace owner holds it in their own namespace. The cluster invite, which hands out every secret the cluster holds, asked for it until bugboard bug-55 and is an operator route now.
 
 The fail-closed properties are structural, not conventional:
 
@@ -121,7 +122,7 @@ The fail-closed properties are structural, not conventional:
 6. A route without `Ownership` still resolves the caller's grant when `forwardedCallerNeedsGrant` says one is needed, and carries it on the request; a forwarded wallet on an owned data-plane route takes this cached path instead of step 7. The data plane reads the grant through a cache, a control route live (below). A grant that cannot be read answers a plain 503, never the data plane (`core/pkg/gateway/narrowed_grant.go:refuseUnreadableGrant`).
 7. A route with `Ownership` first runs `INSERT OR IGNORE INTO namespaces` and reads the namespace id (a failed insert answers 500 with the error text, a failed read `403 NAMESPACE_MISMATCH`), then looks the caller's grant up and refuses with `OWNERSHIP_REQUIRED` when there is none. The lookup tries a key's hashed form before the raw form (rolling-upgrade legacy) and a wallet's normalised form before the presented one, and a wallet JWT with no grant falls back to the API key it also presented. Any `GrantIn` error counts as no grant (Known gaps). The grant travels with the request.
 
-**The scope gate** (`core/pkg/gateway/scope_policy.go:scopeMiddleware`) never authorises on its own; it only tightens. For a non-anonymous route it computes the caller's permission set (`callerPermissions`, next section), stores it on the context, and asks two independent questions:
+**The scope gate** (`core/pkg/gateway/scope_policy.go:scopeMiddleware`) never authorises on its own; it only tightens. For a non-anonymous route it computes the caller's permission set (`callerPermissions`, next section) and stores it on the context. On an operator route (`Policy.Operator`) it asks no permission: it admits a wallet session on the operator list and refuses everyone else `403 NOT_AN_OPERATOR` (`core/pkg/gateway/operator_gate.go:requireOperatorCaller`, [Operators](#operators)). On any other route it asks two independent questions:
 
 - Does the set reach the route's domain and action at all (`PermissionSet.PermitsDomain`)? If not, `403 INSUFFICIENT_SCOPE` with `required_scope` (the domain) and `required_permission` (for example `pubsub:write:*`) in the body, so a client that lacks a permission can read which one.
 - Does the caller present the kind of token the route requires (`hasRequiredToken`)? An admin caller (`PermissionSet.IsAdmin`: a permission with all three parts `*`) is exempt, because the requirement exists to make a leaked data-plane key inert and an admin credential is not one. Otherwise `AnyToken` needs any verified JWT, `WalletToken` a JWT whose subject is a wallet, and `PrincipalToken` a wallet JWT or a workload JWT. Failure is `401 USER_JWT_REQUIRED`. The two checks are independent: creating a namespace needs a wallet and no permission.
@@ -275,7 +276,9 @@ Storage and WebRTC accept a workload token as they accept a wallet (`PrincipalTo
 
 ### Operators
 
-Operator status gates the cluster's own routes ([operator routes](12-gateway-architecture.md#operator-routes)). `/v1/operator/*` routes ask the scope gate for `operator:read` or `operator:write` (the invite for `*:*:*`), and the handler then requires the caller's wallet to be on the `operators` table (`core/pkg/gateway/handlers/operator/authorize.go:IsOperator`, case-insensitive). The wallet is the JWT subject if it is a wallet; for an API key or key-exchanged JWT it is the wallet that owns the key's namespace (`handler.go:resolveWalletFromAPIKey`), so an admin key of an operator's namespace is an operator credential (Known gaps). A permission set cannot say "is on the operator list", hence both layers. An unreadable list answers 503, an empty one `NOT_AN_OPERATOR`. The same check guards the raw-database routes of the gateway that serves the registry.
+Operator status gates the cluster's own routes ([operator routes](12-gateway-architecture.md#operator-routes)): every `/v1/operator/*` route, the node routes `/v1/node/status`, `logs`, `command` and `leave`, and the network routes `/v1/network/connect`, `disconnect`, and `status` and `peers` when no coordination MAC is presented. Each declares `operatorRoute()` (`Operator` and `MainGateway`, no domain), and the scope gate admits only a caller whose wallet is on the `operators` table (`core/pkg/gateway/operator_gate.go:requireOperatorCaller`, `core/pkg/gateway/handlers/operator/authorize.go:IsOperator`, case-insensitive). The wallet is the JWT subject when it is a wallet, and nothing otherwise (`core/pkg/gateway/handlers/operator/handler.go:WalletFromRequest`): an API key, a token exchanged for one and an app's workload token name no wallet, so none of them is an operator credential, whoever owns the key's namespace. No permission satisfies the gate: a namespace owner's or admin's `*:*:*` is everything in that namespace and nothing of the cluster. A wallet session in the lobby is enough; standing in a namespace adds nothing. An unreadable list answers 503, a caller not on it `403 NOT_AN_OPERATOR`. Most operator handlers check the list again (`requireOperator`, `operatorHandler.Authorize`); the node proxy handlers rely on the gate. The same wallet rule guards the raw-database routes of the gateway that serves the registry (`requireOperatorForCoreRegistry`).
+
+Until bugboard bug-55 the operator routes asked for `operator:read` or `operator:write` (the invite for `*:*:*`), which an owner's or admin's `*:*:*` held. The node routes checked nothing else, so any namespace owner or admin key could command, read the logs of and remove the cluster's nodes; and an API key resolved to the wallet that owned its namespace, so an admin key of an operator's namespace passed every operator check.
 
 ### Consistency and caching
 
@@ -317,7 +320,7 @@ Every credential, namespace, scope and operator refusal carries `{error, code, h
 | `NAMESPACE_MISMATCH` | 403 | the credential belongs to another namespace, or its namespace could not be resolved |
 | `ORIGIN_NOT_ALLOWED` | 403 | a WebSocket upgrade whose `Origin` is not this host or a name under it |
 | `OWNERSHIP_REQUIRED` | 403 | the credential holds no grant in this namespace; also a non-owner asking to transfer the namespace or to export or import its whole database |
-| `NOT_AN_OPERATOR` | 403 | the wallet is not on the cluster's operator list |
+| `NOT_AN_OPERATOR` | 403 | the caller is not a wallet session on the cluster's operator list (an API key never is) |
 | `NAMESPACE_QUOTA` | 403 | the wallet already owns as many namespaces as one wallet may; a create is refused it, the message names the cap and the body carries no other field |
 | `TRANSFER_REFUSED` | 403 | a transfer the recipient cannot take, for example a wallet at its namespace cap; it names neither the wallet nor the limit, the owner keeps the namespace and the reason is in the audit trail |
 | `DESTINATION_NOT_ALLOWED` | 403 | the anonymity proxy refused the destination (private or local addresses) |
@@ -430,7 +433,8 @@ Design points that matter for security:
 | A narrowed grant hits a request with no nameable object | Refused, since only `*` covers an unnamed object | `403` from the handler; for a storage CID whose name cannot be read, `503` |
 | Owner transfer fails midway | The old owner already holds admin; the owner row is moved by one statement | the namespace is never ownerless; the old owner holds owner and admin until the move |
 | Clock skew between a gateway and the RQLite node | Expiries are written from the gateway's clock and compared with SQLite's `datetime('now')` on the node that serves the read | key and grant lifetimes shift by the skew |
-| Admin key in a namespace owned by an operator | The key resolves to the owner wallet, which is on the list | the key passes the operator check, including `/v1/operator/invite` and the registry's raw-database routes (Known gaps) |
+| A namespace owner, admin or any API key on an operator route | No permission is asked; a key names no wallet; the owner's wallet is not on the list | `403 NOT_AN_OPERATOR`, even for an admin key of a namespace an operator owns |
+| Operator list unreadable on an operator route | Not knowing is not permission | `503`, the handler is not reached |
 
 ## Trust and security
 
@@ -446,7 +450,7 @@ Design points that matter for security:
 
 **A deployed application** holds exactly what its owner granted it, with a one-hour token, and cannot be granted the control plane. Compromising the app is not a namespace takeover.
 
-**An admin key in an operator's namespace** is an operator credential, because an API key resolves to the wallet that owns its namespace and that wallet is on the list. With the default namespace-creation policy (`operators`, `core/pkg/gateway/handlers/operator/policy.go:DefaultCreation`) every namespace is owned by an operator, so a namespace `admin` can mint an `admin` key and cross from the tenant boundary into the cluster's: `/v1/operator/invite` (every secret the cluster holds), `rotate-secrets`, `operators` and the registry's `/v1/rqlite` export and import all accept it. The model has no separate operator credential (Known gaps).
+**A namespace owner or admin**, and any key or app of a namespace, holds nothing of the cluster. The operator routes ask no permission, only a wallet session on the operator list, so an owner's `*:*:*` reaches no node, telemetry, setting, invite or key rotation, and an admin key of a namespace an operator owns is refused like any other: a key names no wallet. Operating the cluster takes the operator's own wallet session.
 
 **A node, or anything holding the cluster secret,** can forge the hop that tells a namespace gateway who the caller is, which is why that header is MAC'd and why a wallet's grant is still resolved there ([inter-node trust](15-inter-node-trust.md#the-internal-auth-hop)). A compromised node can write the registry, and so a grant. Authorization here protects tenants from each other and from the Internet, not from a compromised node.
 
@@ -489,6 +493,10 @@ Design points that matter for security:
 
 *Chosen:* a gate by domain and action, then an object check in the handler. *Rejected:* one check at the gate. *Why:* the gate runs before anything has parsed the request, so one check must allow the whole domain or parse every body.
 
+### Operator authority is the operator list, not a permission
+
+*Chosen:* operator routes ask no permission; the scope gate admits a wallet session on the cluster's operator list. *Rejected:* an `operator` permission domain, checked by the scope gate, with the list checked again in each handler. *Why:* a permission set is a namespace's, and `*:*:*` in a namespace held the domain, so the node routes, whose handlers checked nothing, were open to every namespace owner and admin key (bugboard bug-55). A key resolved to its namespace owner's wallet made the handler check no better. One gate for every operator route, reading only the list, leaves no route that forgot the second half.
+
 ### Fail closed on anything unknown
 
 *Chosen:* an unmatched route requires a credential and grants nothing; an unknown role, selector or scope word grants nothing; an unreadable grant refuses. *Rejected:* defaulting to the data plane when a lookup fails. *Why:* reading a failure as "no grant" would widen a narrowed grant while the registry is unreachable. The cost is availability during an election. The ownership gate does not yet follow the rule (Known gaps).
@@ -511,7 +519,6 @@ Design points that matter for security:
 
 ## Known gaps
 
-- **An admin key in an operator-owned namespace is an operator credential (bug, HIGH).** `core/pkg/gateway/handlers/operator/handler.go:resolveWalletFromAPIKey` resolves an API key to the wallet that owns its namespace, and both `requireOperator` and the registry guard (`requireOperatorForCoreRegistry`) test that wallet against the operator list; the key's `*:*:*` satisfies the scope gate's `operator:*`. The comment in `authorize.go` intends the opposite (an admin key of a non-operator is refused), which holds only when the owner is no operator. Impact: the key can mint a cluster invite (every cluster secret), rotate secrets and the signing key, add operators, and export or overwrite the registry. Any namespace `admin`, deliberately not the owner, can mint such a key (`createNamespaceKey` limits no scope), so a tenant role escalates to cluster operator; a wallet JWT is judged by its own address, and runtime keys, end users and apps cannot. The default creation policy is `operators`, so on a default cluster every namespace qualifies. Fix: a separate operator credential, or a wallet JWT required on `/v1/operator/*` and the registry's `/v1/rqlite*`.
 - **A `developer` grant cannot carry a selector, and its legacy views are empty (bug).** `Role.Scopes` (`core/pkg/gateway/auth/grants.go:Scopes`) returns the empty set for `developer`, which has no scope words. `writeGrant` checks the selector against it, so `orama members add <wallet> --role developer --resource storage:avatars/*` is refused ("role developer does not hold the storage grant") although `Role.Permissions` gives a developer all of storage. `Grant.Scopes` is empty too, so `GET /v1/auth/whoami` reports `"grants": []` for a developer (`core/pkg/gateway/handlers/auth/wallet_handler.go:describePrincipal`). Authorization is unaffected, since it uses `Permissions`.
 - **Registry read failures in the ownership gate read as "no grant" (bug).** In `core/pkg/gateway/middleware.go:authorizationMiddleware` the `grantFor` closure returns a grant only when `GrantIn` succeeds and treats every other outcome, a registry error included, as none, where `lookupRequestGrant` separates `ErrNotAMember` from a failed read. On a route with `Ownership`, an election or outage answers `403 OWNERSHIP_REQUIRED` where the caller should retry (a failed namespace-id read, `403 NAMESPACE_MISMATCH`). The gate, and the members, keys and app-grant routes, also write the raw error text of a failed registry call into a 500. `describePrincipal` and `workloadScopes` likewise turn a failed read into "no grant".
 - **A key lookup failure is reported as an unknown key (bug).** `authMiddleware` answers `401 AUTH_INVALID_KEY` for any `lookupAPIKeyEntry` error except the revocation list being unavailable, and `exchangedKeyScopes` does the same for an exchanged token, so a registry failure on a cache miss reads as "not a key this cluster knows". Once the revocation list is 10 s old, `AUTH_UNAVAILABLE` takes over.
@@ -539,7 +546,7 @@ cd core && go test ./pkg/gateway/ -run 'TestRoutePolicy|TestCallerPermissions|Te
 - `core/pkg/gateway/routepolicy/policy_test.go`: `TestTable_unmatchedPathGetsTheClosedPolicy`, `TestMux_registeringAnUndeclaredRoutePanics`. `core/pkg/gateway/route_policy_test.go`: `TestRoutePolicy_everyRegisteredRouteIsDeclared`, `TestRoutePolicy_thePublicSetIsTheOneThatWasReviewed`, `TestRoutePolicy_onlyMintingAnInviteAsksForEverything`.
 - `core/pkg/gateway/scope_policy_test.go`: `TestCallerPermissions_readsTheGrantAndNotTheToken`, `TestCallerPermissions_lobbySessionHoldsNothing`, `TestHasRequiredToken_principalTokenAdmitsAUserOrAnApp`. `narrowed_grant_test.go` and `role_data_plane_test.go` (the grant cache and data-plane role rules), `key_resources_test.go` here and in `auth/` and `handlers/serverless/` (a key narrowed to five functions, on every invoke route, bare, exchanged and across the hop), `no_grant_publish_test.go` (the grantless wallet), and `auth_codes_doc_test.go:TestAuthCodes_areAllInTheDocs` (the error-code table above).
 
-**Fleet e2e.** `e2e/features/auth-keys-roles/` exercises key format, lifetime and rotation, key resources at mint, in the list and across a rotation, the role matrix over every policy class, selectors on pub/sub, cache and storage, members and ownership transfer, app grants, and the audit trail. `e2e/features/auth-capability-ws/` invokes deployed functions with a key narrowed to one of them, over both invoke routes and the WebSocket. `e2e/features/auth-cluster-admin/` covers the operator routes, `e2e/features/auth-signin/` the sign-in policy and the lobby. The owner runs these with `make e2e-fleet`.
+**Fleet e2e.** `e2e/features/auth-keys-roles/` exercises key format, lifetime and rotation, key resources at mint, in the list and across a rotation, the role matrix over every policy class, selectors on pub/sub, cache and storage, members and ownership transfer, app grants, and the audit trail. `e2e/features/auth-capability-ws/` invokes deployed functions with a key narrowed to one of them, over both invoke routes and the WebSocket. `e2e/features/auth-cluster-admin/` covers the operator routes and refuses a namespace owner and its admin key on them, `e2e/features/oramaos/` and `e2e/features/network-routes/` refuse every namespace credential on the node and network routes, an operator's namespace's admin key included, `e2e/features/auth-signin/` the sign-in policy and the lobby. The owner runs these with `make e2e-fleet`.
 
 **Live, read-only.**
 

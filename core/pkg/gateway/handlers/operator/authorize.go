@@ -29,10 +29,10 @@ const notAnOperatorHint = "sign in with a wallet on this cluster's operator list
 // has — including the cluster secret the JWT signing key is derived from. So
 // any credential at all was a path to forging identities network-wide.
 //
-// Two things gate it now. The scope policy requires the admin grant, so a key
-// out of an app bundle is refused before reaching this handler at all. And this
-// checks the wallet against the operators table, so an admin key belonging to
-// somebody who is not an operator is refused too.
+// The scope gate admits only a wallet session on the operator list to every
+// operator route (routepolicy.Policy.Operator), and this checks the same list
+// again for the handlers of this package. A key never resolves to a wallet
+// here (WalletFromRequest), so no key is an operator credential.
 //
 // It reports and writes the response on refusal; a false return means the
 // handler must return immediately.

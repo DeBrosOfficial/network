@@ -42,11 +42,10 @@ type principal struct {
 	code   string
 }
 
-// nonOperators is everyone who is not an operator of the cluster: the
-// namespace's owner and its admin key hold the operator domain through the
-// owner grant and are refused by the operator list (NOT_AN_OPERATOR); a
-// runtime member, a storage key and a lobby session never reach the domain
-// (INSUFFICIENT_SCOPE, the scope gate in core/pkg/gateway/scope_policy.go).
+// nonOperators is everyone who is not an operator of the cluster. Each is
+// refused by the operator list (NOT_AN_OPERATOR, the scope gate in
+// core/pkg/gateway/operator_gate.go): no permission reaches an operator
+// route, the namespace owner's and its admin key's `*:*:*` included.
 func nonOperators(t *testing.T, n *ns.Namespace) []principal {
 	t.Helper()
 	f := harness.Fleet(t)
@@ -54,16 +53,15 @@ func nonOperators(t *testing.T, n *ns.Namespace) []principal {
 	return []principal{
 		{"namespace owner", tenancy.Owner(n), http.StatusForbidden, tenancy.CodeNotOperator},
 		{"admin API key", tenancy.Cred{APIKey: tenancy.APIKey(t, n, scopeAdmin)}, http.StatusForbidden, tenancy.CodeNotOperator},
-		{"runtime member", tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleRuntime).Token()}, http.StatusForbidden, tenancy.CodeScope},
-		{"storage API key", tenancy.Cred{APIKey: tenancy.APIKey(t, n, scopeStorage)}, http.StatusForbidden, tenancy.CodeScope},
-		{"lobby session", tenancy.Cred{Bearer: lobby.Token()}, http.StatusForbidden, tenancy.CodeScope},
+		{"runtime member", tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleRuntime).Token()}, http.StatusForbidden, tenancy.CodeNotOperator},
+		{"storage API key", tenancy.Cred{APIKey: tenancy.APIKey(t, n, scopeStorage)}, http.StatusForbidden, tenancy.CodeNotOperator},
+		{"lobby session", tenancy.Cred{Bearer: lobby.Token()}, http.StatusForbidden, tenancy.CodeNotOperator},
 	}
 }
 
 // TestNetworkRoutes_nonOperatorsRefused: the peer map and topology mutation
-// are an operator's (docs/whitepaper/technical-reference/appendices/i-api-surface.md: "an operator's (operator grant and
-// the operator list)"; route_policy.go: "The handlers additionally require
-// the caller's wallet to be on the operator list"). A fresh wallet owns a
+// are an operator's (docs/whitepaper/technical-reference/appendices/i-api-surface.md: "an operator's (a wallet session on
+// the operator list)"; route_policy.go operatorRoute). A fresh wallet owns a
 // namespace in open mode, so its owner grant alone must not reach connect or
 // disconnect; the body is an empty object, so a missing gate shows as a 400
 // and moves nothing.
@@ -87,6 +85,18 @@ func networkRoutesOtherNamespaceCredentialRefused(t *testing.T, opNS *ns.Namespa
 	for _, path := range every {
 		expectCode(t, "an operator's session on another namespace's "+path,
 			call(t, other.Client, path, tenancy.Owner(op), nil, nil), http.StatusForbidden, tenancy.CodeMismatch)
+	}
+}
+
+// networkRoutesOperatorNamespaceKeyRefused: an admin key of a namespace the
+// operator owns is still a namespace's credential, never the operator's: a key
+// names no wallet, so it is NOT_AN_OPERATOR on every route (bugboard bug-55;
+// it used to count as its namespace owner's wallet).
+func networkRoutesOperatorNamespaceKeyRefused(t *testing.T, opNS *ns.Namespace) {
+	key := tenancy.Cred{APIKey: tenancy.APIKey(t, opNS, scopeAdmin)}
+	c := harness.GW(t)
+	for _, path := range every {
+		expectCode(t, "an operator namespace's admin key on "+path, call(t, c, path, key, nil, nil), http.StatusForbidden, tenancy.CodeNotOperator)
 	}
 }
 

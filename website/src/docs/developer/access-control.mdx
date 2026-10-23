@@ -11,10 +11,10 @@ storage:read:avatars/*      read anything under avatars/
 db:write:posts              write one table
 fn:invoke:checkout          run one function
 deploy:*:*                  everything about deployments
-*:*:*                       everything
+*:*:*                       everything in the namespace
 ```
 
-A *domain* is a part of the platform: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy`, `fn` on the **data plane**; `db`, `deploy`, `secrets`, `members`, `namespace`, `audit`, `operator` on the **control plane**. An *action* is `read`, `write`, `invoke` or `manage`. A *resource* is a glob, and `*` matches any run of characters, including `/`, deliberately, so `avatars/*` covers `avatars/2026/03/me.png`.
+A *domain* is a part of the platform: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy`, `fn` on the **data plane**; `db`, `deploy`, `secrets`, `members`, `namespace`, `audit` on the **control plane**. An *action* is `read`, `write`, `invoke` or `manage`. A *resource* is a glob, and `*` matches any run of characters, including `/`, deliberately, so `avatars/*` covers `avatars/2026/03/me.png`.
 
 The check happens twice, and they are different questions. The **gate**, before the handler runs, asks whether the credential reaches this domain and action at all. The **handler** asks again with the object: this CID, this topic, this key. A credential that reaches storage and is narrowed to `avatars/*` passes the first and is refused at the second for anything else. An object nothing could name (a CID the namespace recorded no name for) is refused by a narrowed permission and reached by an unrestricted one: "I could not work out what you are touching" is not a reason to allow it.
 
@@ -22,11 +22,13 @@ The check happens twice, and they are different questions. The **gate**, before 
 
 | Role | Holds |
 |---|---|
-| `owner` | Everything. Only one wallet at a time |
+| `owner` | Everything in the namespace. Only one wallet at a time |
 | `admin` | Everything the owner does, except being the owner |
-| `developer` | The data plane, plus `db`, `deploy`, `secrets` and `fn:manage`. **Not** `members`, `namespace` or `operator` |
+| `developer` | The data plane, plus `db`, `deploy`, `secrets` and `fn:manage`. **Not** `members` or `namespace` |
 | `runtime` | The data plane: storage, pub/sub, cache, push, WebRTC, proxy, and invoking functions |
 | `reader` | Nothing beyond the routes that ask for no permission |
+
+Every permission is a namespace's, so none of them, `*:*:*` included, reaches the cluster itself. Node status, logs, commands and removal, network mutation and every `/v1/operator/*` route are the cluster operator's: they admit only a wallet session on the cluster's operator list, and refuse an owner, an admin and every API key, even one of a namespace an operator owns, with `403 NOT_AN_OPERATOR`.
 
 `developer` is for somebody who builds and runs the application but does not decide who else may.
 

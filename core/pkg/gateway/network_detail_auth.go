@@ -12,8 +12,8 @@ import (
 // false means the handler returns.
 //
 // The route policy (networkDetailPolicy) sends a stamped request here without a
-// credential and every other request through the operator grant first, so the
-// operator list is the only thing left to check on that path.
+// credential and every other request through the operator gate first, which
+// has already checked the operator list; it is checked again here.
 func (g *Gateway) authorizeNetworkDetail(w http.ResponseWriter, r *http.Request) bool {
 	if nodeauth.HasCoordinationStamp(r) {
 		if g.verifyCoordination(r) {

@@ -6,7 +6,7 @@
 
 Every route the gateway serves, with the policy the route table declares for it: what credential the middleware insists on, which grant a caller needs, and which token. A pattern ending in a slash matches every path beneath it. A route absent from the policy table cannot be registered, so this list is complete. [Gateway architecture](../vol1/12-gateway-architecture.md) explains the middleware and [Authorization](../vol1/14-authorization.md) explains grants.
 
-Access is `credential` (an API key or a JWT, resolved by the middleware), `open` (anyone) or `handler-auth` (the handler authenticates the caller itself: an invite token, a cluster-secret or coordination MAC). Grant is `domain:action`; an empty grant means any valid credential. Token is the token kind required on top of the grant: `any` (a bare key), `token` (a JWT of any kind), `wallet` (a logged-in user) or `principal` (a user or a deployed app's workload token). Notes lists: `owned` (a live grant in the namespace), `main` (always served by the index gateway, never proxied to a namespace gateway), `narrowed` (an open route that still applies a grant's resource selector), `no-address` and `no-log` (what the request log keeps).
+Access is `credential` (an API key or a JWT, resolved by the middleware), `open` (anyone) or `handler-auth` (the handler authenticates the caller itself: an invite token, a cluster-secret or coordination MAC). Grant is `domain:action`; an empty grant means any valid credential. Token is the token kind required on top of the grant: `any` (a bare key), `token` (a JWT of any kind), `wallet` (a logged-in user) or `principal` (a user or a deployed app's workload token). Notes lists: `operator` (a wallet session on the cluster's operator list, and no permission: no namespace role or API key reaches it), `owned` (a live grant in the namespace), `main` (always served by the index gateway, never proxied to a namespace gateway), `narrowed` (an open route that still applies a grant's resource selector), `no-address` and `no-log` (what the request log keeps).
 
 ## /.well-known
 
@@ -191,8 +191,8 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 
 | Route | Handler | Access | Grant | Token | Notes |
 |---|---|---|---|---|---|
-| `/v1/network/connect` | `g.networkConnectHandler` | credential | `operator:write` | any | main |
-| `/v1/network/disconnect` | `g.networkDisconnectHandler` | credential | `operator:write` | any | main |
+| `/v1/network/connect` | `g.networkConnectHandler` | credential |  | any | operator, main |
+| `/v1/network/disconnect` | `g.networkDisconnectHandler` | credential |  | any | operator, main |
 | `/v1/network/peers` | `g.networkPeersHandler` | by request | | | see below |
 | `/v1/network/status` | `g.networkStatusHandler` | by request | | | see below |
 
@@ -200,31 +200,31 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 
 | Route | Handler | Access | Grant | Token | Notes |
 |---|---|---|---|---|---|
-| `/v1/node/command` | `g.enrollHandler.HandleNodeCommand` | credential | `operator:write` | any |  |
+| `/v1/node/command` | `g.enrollHandler.HandleNodeCommand` | credential |  | any | operator, main |
 | `/v1/node/enroll` | `g.enrollHandler.HandleEnroll` | handler-auth |  | any |  |
-| `/v1/node/leave` | `g.enrollHandler.HandleNodeLeave` | credential | `operator:write` | any |  |
-| `/v1/node/logs` | `g.enrollHandler.HandleNodeLogs` | credential | `operator:read` | any |  |
-| `/v1/node/status` | `g.enrollHandler.HandleNodeStatus` | credential | `operator:read` | any |  |
+| `/v1/node/leave` | `g.enrollHandler.HandleNodeLeave` | credential |  | any | operator, main |
+| `/v1/node/logs` | `g.enrollHandler.HandleNodeLogs` | credential |  | any | operator, main |
+| `/v1/node/status` | `g.enrollHandler.HandleNodeStatus` | credential |  | any | operator, main |
 
 ## /v1/operator
 
 | Route | Handler | Access | Grant | Token | Notes |
 |---|---|---|---|---|---|
-| `/v1/operator/creators` | `g.operatorHandler.HandleCreators` | credential | `operator:write` | any | main |
-| `/v1/operator/creators/` | `g.operatorHandler.HandleCreators` | credential | `operator:write` | any | main |
-| `/v1/operator/health` | `g.operatorHealthHandler` | credential | `operator:read` | any | main |
-| `/v1/operator/invite` | `g.operatorHandler.HandleInvite` | credential | `*:*` | any | main |
-| `/v1/operator/namespaces/remove` | `g.namespaceOperatorRemoveHandler` | credential | `operator:write` | any | main |
-| `/v1/operator/node/register` | `g.operatorHandler.HandleRegister` | credential | `operator:write` | any | main |
-| `/v1/operator/nodes` | `g.operatorHandler.HandleListNodes` | credential | `operator:read` | any | main |
-| `/v1/operator/operators` | `g.operatorHandler.HandleOperators` | credential | `operator:write` | any | main |
-| `/v1/operator/operators/` | `g.operatorHandler.HandleOperators` | credential | `operator:write` | any | main |
-| `/v1/operator/rotate-secrets` | `g.handleRotateSecrets` | credential | `operator:write` | any | main |
-| `/v1/operator/rotate-signing-key` | `g.handleRotateSigningKey` | credential | `operator:write` | any | main |
-| `/v1/operator/settings` | `g.operatorHandler.HandleSettings` | credential | `operator:write` | any | main |
-| `/v1/operator/settings/` | `g.operatorHandler.HandleSettings` | credential | `operator:write` | any | main |
-| `/v1/operator/telemetry` | `g.operatorTelemetryHandler` | credential | `operator:read` | any | main |
-| `/v1/operator/telemetry/stream` | `g.operatorTelemetryStreamHandler` | credential | `operator:read` | any | main |
+| `/v1/operator/creators` | `g.operatorHandler.HandleCreators` | credential |  | any | operator, main |
+| `/v1/operator/creators/` | `g.operatorHandler.HandleCreators` | credential |  | any | operator, main |
+| `/v1/operator/health` | `g.operatorHealthHandler` | credential |  | any | operator, main |
+| `/v1/operator/invite` | `g.operatorHandler.HandleInvite` | credential |  | any | operator, main |
+| `/v1/operator/namespaces/remove` | `g.namespaceOperatorRemoveHandler` | credential |  | any | operator, main |
+| `/v1/operator/node/register` | `g.operatorHandler.HandleRegister` | credential |  | any | operator, main |
+| `/v1/operator/nodes` | `g.operatorHandler.HandleListNodes` | credential |  | any | operator, main |
+| `/v1/operator/operators` | `g.operatorHandler.HandleOperators` | credential |  | any | operator, main |
+| `/v1/operator/operators/` | `g.operatorHandler.HandleOperators` | credential |  | any | operator, main |
+| `/v1/operator/rotate-secrets` | `g.handleRotateSecrets` | credential |  | any | operator, main |
+| `/v1/operator/rotate-signing-key` | `g.handleRotateSigningKey` | credential |  | any | operator, main |
+| `/v1/operator/settings` | `g.operatorHandler.HandleSettings` | credential |  | any | operator, main |
+| `/v1/operator/settings/` | `g.operatorHandler.HandleSettings` | credential |  | any | operator, main |
+| `/v1/operator/telemetry` | `g.operatorTelemetryHandler` | credential |  | any | operator, main |
+| `/v1/operator/telemetry/stream` | `g.operatorTelemetryStreamHandler` | credential |  | any | operator, main |
 
 ## /v1/proxy
 
@@ -332,6 +332,6 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 | Route | Policy |
 |---|---|
 | `/v1/functions/` | by operation: invoke is open (narrowed by a fn grant), a WebSocket opened with a capability is handler-auth, a WebSocket otherwise needs fn:invoke, everything else fn:manage with a namespace grant |
-| `/v1/network/peers` | a request carrying a coordination MAC is handler-auth; any other needs operator:read and the operator list, on the main gateway |
-| `/v1/network/status` | a request carrying a coordination MAC is handler-auth; any other needs operator:read and the operator list, on the main gateway |
+| `/v1/network/peers` | a request carrying a coordination MAC is handler-auth; any other is an operator route (a wallet session on the operator list), on the main gateway |
+| `/v1/network/status` | a request carrying a coordination MAC is handler-auth; any other is an operator route (a wallet session on the operator list), on the main gateway |
 | `/v1/storage/unpin/` | DELETE needs storage:write with any token (a key exchanged for a token is enough); any other method needs storage:write with a principal token |

@@ -343,12 +343,12 @@ Secrets that are not keys: `ipfs-cluster-trusted-peers` holds peer ids, and the 
 
 **Positions.**
 
-- *Internet client.* Sees opaque tokens and the JWKS (public keys). Cannot reach the rotation routes without the admin grant and an operator wallet. API keys are verified against an HMAC and compared via the stored hash.
+- *Internet client.* Sees opaque tokens and the JWKS (public keys). Cannot reach the rotation routes without a wallet session on the operator list; no API key reaches them. API keys are verified against an HMAC and compared via the stored hash.
 - *Tenant workload (a deployment).* Runs as a `DynamicUser`; its unit cannot read `secrets/`. It can reach loopback, which is why Kubo and IPFS Cluster require derived credentials.
 - *Compromised tenant gateway.* Holds the cluster secret and encryption root. It can derive any namespace's capability key, forge the internal-auth hop and coordination stamps, and call `/v1/internal/secrets/reencrypt` on another gateway with any root of a higher generation, because the stamp proves only that the caller holds the cluster secret. It cannot sign tokens for other namespaces with its own key (the key is bound), but it can read sibling tenant gateways' signing keys from disk: they share a uid. Per-namespace users are the fix and are not implemented.
 - *Compromised node (root).* Holds every file in group A, its node key and its WireGuard key. It can decrypt everything sealed under the encryption root.
 - *Stolen snapshot or backup.* Holds the `encryption_roots` table in plaintext if it is a registry snapshot, and so every sealed column; a tenant database snapshot holds ciphertext and no root. A snapshot of the registry is the most sensitive artifact in the cluster. Certificates are the exception: the TLS store seals values before they reach the registry, under a key that needs the cluster secret.
-- *Operator.* The rotation routes need the admin grant and a wallet on the operator list; both rotations write an audit event.
+- *Operator.* The rotation routes need a wallet session on the operator list; both rotations write an audit event.
 
 **What rotation buys.** `--rotate` makes a captured copy of the previous root unable to open new rows. It does not remove the previous root from the cluster (it stays in the registry's previous slot), and it does not affect anything in groups A and B.
 

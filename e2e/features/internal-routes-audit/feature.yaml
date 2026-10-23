@@ -9,9 +9,9 @@
 # over its loopback and over the overlay to another node, with no MAC, stamp
 # or secret and with forged ones, each route refuses (401/403/404 per
 # handler), and oversized (streamed on stdin) and malformed bodies are 4xx;
-# /v1/operator/node/register refuses nobody (401), a plain namespace admin
-# and its admin key (403 NOT_AN_OPERATOR), a runtime member and a lobby
-# session (403 INSUFFICIENT_SCOPE), spoofed headers or not. Every body is
+# /v1/operator/node/register refuses nobody (401), a plain namespace admin,
+# its admin key, a runtime member and a lobby session (403 NOT_AN_OPERATOR),
+# spoofed headers or not. Every body is
 # invalid by construction (no namespace, no node, a node nobody holds, a
 # wrong cluster secret) and every test that probes ends by requiring the
 # cluster converged. The removed /v1/internal/namespace/webrtc/* routes

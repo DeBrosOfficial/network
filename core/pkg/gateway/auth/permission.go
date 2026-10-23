@@ -51,8 +51,16 @@ const (
 	DomainMembers   Domain = "members"   // grants, keys, ownership
 	DomainNamespace Domain = "namespace" // a namespace's own settings and its deletion
 	DomainAudit     Domain = "audit"     // the record
-	DomainOperator  Domain = "operator"  // the cluster itself
 )
+
+// Operating the cluster is not a domain. A permission set is a namespace's: it
+// comes from a role, a grant or a key in one namespace, and `*:*:*` is
+// everything in that namespace. The cluster's own routes are the operator's,
+// and the operator is a wallet on the cluster's operator list, which the
+// gateway reads for those routes (routepolicy.Policy.Operator). There was an
+// `operator` domain, and an owner's or admin's `*:*:*` held it, so any
+// namespace owner or admin key could command, read the logs of and remove the
+// cluster's nodes (bugboard bug-55).
 
 // domains is every domain a permission may name, and what it covers. A domain
 // nothing recognises is refused when a permission is parsed, so a typo is a
@@ -71,7 +79,6 @@ var domains = map[Domain]string{
 	DomainMembers:   "members, keys and ownership",
 	DomainNamespace: "a namespace's settings",
 	DomainAudit:     "the audit trail",
-	DomainOperator:  "cluster operations",
 }
 
 // Action is what is being done.

@@ -79,7 +79,7 @@ var authHints = map[string]string{
 	CodeNamespaceMismatch:     "use a credential belonging to this namespace",
 	CodeOwnershipRequired:     "use the namespace owner's credential, or an admin key for this namespace",
 	CodeOriginNotAllowed:      "open the socket from a page served by this host, or from a client that sends no Origin",
-	CodeOperatorRequired:      "this is a cluster operator's route; an admin key for a namespace is not enough",
+	CodeOperatorRequired:      "sign in with a wallet on this cluster's operator list; no namespace role or API key is an operator's credential",
 	CodeNamespaceQuota:        "the wallet has to delete a namespace, or hand one on, before it can own another",
 	CodeTransferRefused:       "the namespace stays yours; ask the recipient to check their account, or choose another wallet",
 	CodeDestinationNotAllowed: "a different credential will not help; the destination itself is refused",

@@ -89,14 +89,14 @@ Until the genesis path is built, an operator must record the genesis node's raw 
 
 ## Managing a node
 
-Since OramaOS has no SSH, all management is through the gateway API, which proxies to the agent over WireGuard (port 9998). The command receiver binds only the node's overlay address and requires the node's agent token, so on an unlocked node it is not reachable from the public internet (the genesis unlock server above is the exception while a node waits for its key). These calls need an **admin** API key (or the owner's JWT):
+Since OramaOS has no SSH, all management is through the gateway API, which proxies to the agent over WireGuard (port 9998). The command receiver binds only the node's overlay address and requires the node's agent token, so on an unlocked node it is not reachable from the public internet (the genesis unlock server above is the exception while a node waits for its key). These are operator routes: they need the access token of a wallet session on the cluster's operator list (`orama auth login` as an operator). A namespace owner, a namespace admin and every API key are refused `403 NOT_AN_OPERATOR`, even a key of a namespace an operator owns:
 
 ```bash
-curl "https://cluster.example.com/v1/node/status?node_id=<id>"           -H "Authorization: Bearer <admin key>"
-curl -X POST "https://cluster.example.com/v1/node/command?node_id=<id>"  -H "Authorization: Bearer <admin key>" \
+curl "https://cluster.example.com/v1/node/status?node_id=<id>"           -H "Authorization: Bearer <operator session token>"
+curl -X POST "https://cluster.example.com/v1/node/command?node_id=<id>"  -H "Authorization: Bearer <operator session token>" \
   -H "Content-Type: application/json" -d '{"action":"restart","service":"rqlite"}'
-curl "https://cluster.example.com/v1/node/logs?node_id=<id>&service=gateway&lines=100" -H "Authorization: Bearer <admin key>"
-curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bearer <admin key>" \
+curl "https://cluster.example.com/v1/node/logs?node_id=<id>&service=gateway&lines=100" -H "Authorization: Bearer <operator session token>"
+curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bearer <operator session token>" \
   -H "Content-Type: application/json" -d '{"node_id":"<id>"}'
 ```
 

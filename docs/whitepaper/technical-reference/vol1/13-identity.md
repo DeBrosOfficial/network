@@ -76,7 +76,7 @@ The routes this chapter explains, with what the route policy requires of the cal
 | `POST /v1/auth/renew` | a workload token | Renew a workload token; not a user session ([authorization](14-authorization.md)). |
 | `GET`, `PUT /v1/namespace/session-policy` | `namespace:write` | Read and set the two policies. |
 | `GET /v1/namespace/devices`, `DELETE /v1/namespace/devices/{id}` | `members:write` | List and revoke any account's devices. |
-| `POST /v1/operator/rotate-signing-key` | `operator:write` and the operator list | Rotate the answering gateway's key. |
+| `POST /v1/operator/rotate-signing-key` | a wallet session on the operator list | Rotate the answering gateway's key. |
 
 Nine of these routes mint or exchange credentials and share one per-network rate bucket: challenge, verify, api-key, token, refresh, device, device/approve, device/token and devices/approve (described under [issuing a challenge](#issuing-a-challenge)).
 
@@ -223,7 +223,7 @@ The **cluster-derived key** is the Ed25519 key HKDF-derived from the cluster sec
 
 ![Rotating a signing key and verifying across gateways](../diagrams/ch13-key-rotation.svg)
 
-`orama maint operator rotate-signing-key` calls `POST /v1/operator/rotate-signing-key`, which needs `operator:write` and a wallet on the operator list (`core/pkg/gateway/signing_key_routes.go`). `Service.Rotate` orders its steps so a failure leaves a consistent state:
+`orama maint operator rotate-signing-key` calls `POST /v1/operator/rotate-signing-key`, which needs a wallet session on the operator list (`core/pkg/gateway/operator_gate.go`, and again in `core/pkg/gateway/signing_key_routes.go`). `Service.Rotate` orders its steps so a failure leaves a consistent state:
 
 1. **Store** the new key where the next boot reads: the state directory for a tenant gateway; for the index gateway the root-only tree, through the helper's `gateway-key put` (`core/pkg/privhelper/gateway_key.go:PutGatewayKey`). The index gateway never writes its state directory: a tenant gateway can read it, and the next boot loads the credential, so the rotation would be undone.
 2. **Publish** the public key before anything is signed with it. If publishing fails the previous key is written back, so disk always matches what the gateway signs with.

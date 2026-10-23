@@ -40,7 +40,7 @@ namespace whose owner cannot: the owner's wallet is lost, or it belonged to a
 test run's throwaway wallet. Such a namespace keeps its port blocks and
 processes on three nodes until an operator removes it.
 
-It needs the operator grant and a wallet on the operator list. --reason is
+It needs you signed in with a wallet on the operator list. --reason is
 required and is written to the audit trail with your wallet
 (namespace.operator_remove). You are asked to type the namespace name unless
 --force is given.`,

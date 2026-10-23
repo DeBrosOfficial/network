@@ -28,10 +28,10 @@ const (
 	// inside the orama-global netns, reachable from the host's root namespace.
 	TestnetChainHost = "198.18.0.2"
 	// TestnetOperatorNamespace is the namespace the operator's wallet owns
-	// and signs in to for a run. docs/whitepaper/technical-reference/vol1/12-gateway-architecture.md: /v1/operator/* needs an admin
-	// grant as well as the operator list, and a lobby session holds no grant,
-	// so the operator's session has to stand in a namespace it owns; a wallet
-	// session anywhere also creates namespaces and lists the wallet's own.
+	// and signs in to for a run. An operator route needs only a wallet
+	// session on the operator list (docs/whitepaper/technical-reference/vol1/14-authorization.md#operators),
+	// so a lobby session would do; the run's commands that act on the current
+	// namespace need one it owns.
 	TestnetOperatorNamespace = "testnetproof"
 )
 

@@ -11,6 +11,7 @@ import (
 	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
 	"github.com/Orama-Network/orama/e2e/harness"
 	"github.com/Orama-Network/orama/e2e/harness/gw"
+	"github.com/Orama-Network/orama/e2e/harness/ns"
 )
 
 const pathEnroll = "/v1/node/enroll"
@@ -52,33 +53,76 @@ func TestOramaOSEnroll_nodeIPMustBePublicIPv4(t *testing.T) {
 	}
 }
 
+// nodeRouteTarget is an overlay address no node holds: were a refusal
+// missing, a leave or a command would still reach nothing of the fleet.
+const nodeRouteTarget = "10.0.0.250"
+
+// nodeRouteRequests are status, logs, command and leave aimed at
+// nodeRouteTarget.
+func nodeRouteRequests() []gw.Req {
+	return []gw.Req{
+		{Path: "/v1/node/status", Query: map[string][]string{"wg_ip": {nodeRouteTarget}}},
+		{Path: "/v1/node/logs", Query: map[string][]string{"wg_ip": {nodeRouteTarget}, "service": {"gateway"}}},
+		{Method: http.MethodPost, Path: "/v1/node/command", Query: map[string][]string{"wg_ip": {nodeRouteTarget}}, Body: []byte(`{"action":"restart","service":"rqlite"}`)},
+		{Method: http.MethodPost, Path: "/v1/node/leave", Body: []byte(`{"wg_ip":"` + nodeRouteTarget + `"}`)},
+	}
+}
+
+// sendNodeRoute sends req with who's credential.
+func sendNodeRoute(t *testing.T, c *gw.Client, req gw.Req, who tenancy.Cred) *gw.Response {
+	t.Helper()
+	req.Bearer, req.APIKey = who.Bearer, who.APIKey
+	if req.Body != nil {
+		req.Header = http.Header{"Content-Type": {"application/json"}}
+	}
+	return c.MustSend(t, req)
+}
+
 // TestOramaOSNodeRoutes_refuseNonOperators: status, logs, command and leave
 // reach a node's agent and can stop it or drop it from the mesh; with no
-// credential, or as a signed-in wallet that is not an operator, each is
-// refused before anything is proxied (website/src/docs/operator/orama-os.mdx "Node
-// Management"; core/pkg/gateway/route_policy.go operator domain).
+// credential, as a signed-in wallet that is not an operator, as a namespace's
+// owner or with its admin key, each is refused before anything is proxied
+// (website/src/docs/operator/orama-os.mdx "Node Management";
+// core/pkg/gateway/route_policy.go operatorRoute). The owner and the admin key
+// hold `*:*:*` in their namespace, which reached these routes until bug-55;
+// they are refused by the operator list, 403 NOT_AN_OPERATOR.
 func TestOramaOSNodeRoutes_refuseNonOperators(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
 	c := harness.GW(t)
 	wallet := gw.NewUser(t, f, gw.LobbyNamespace)
-	// An overlay address no node holds: were a refusal missing, the leave and
-	// command would still reach nothing of the fleet.
-	const target = "10.0.0.250"
-	reqs := []gw.Req{
-		{Path: "/v1/node/status", Query: map[string][]string{"wg_ip": {target}}},
-		{Path: "/v1/node/logs", Query: map[string][]string{"wg_ip": {target}, "service": {"gateway"}}},
-		{Method: http.MethodPost, Path: "/v1/node/command", Query: map[string][]string{"wg_ip": {target}}, Body: []byte(`{"action":"restart","service":"rqlite"}`)},
-		{Method: http.MethodPost, Path: "/v1/node/leave", Body: []byte(`{"wg_ip":"` + target + `"}`)},
+	n := tenancy.Namespace(t, f, ns.Options{})
+	tenants := map[string]tenancy.Cred{
+		"a namespace owner": tenancy.Owner(n),
+		"an admin API key":  {APIKey: tenancy.APIKey(t, n, scopeAdmin)},
 	}
-	for _, req := range reqs {
-		for who, bearer := range map[string]string{"nobody": "", "a wallet": wallet.Token()} {
-			req.Bearer = bearer
-			if req.Body != nil {
-				req.Header = http.Header{"Content-Type": {"application/json"}}
-			}
-			tenancy.ExpectDenied(t, c.MustSend(t, req), who+" at "+req.Path)
+	for _, req := range nodeRouteRequests() {
+		for who, cred := range map[string]tenancy.Cred{"nobody": {}, "a wallet": {Bearer: wallet.Token()}} {
+			tenancy.ExpectDenied(t, sendNodeRoute(t, c, req, cred), who+" at "+req.Path)
 		}
+		for who, cred := range tenants {
+			expectNotAnOperator(t, sendNodeRoute(t, c, req, cred), who+" at "+req.Path)
+		}
+	}
+}
+
+// TestOramaOSNodeRoutes_operatorListIsTheOnlyAuthority: a namespace whose
+// owner is on the operator list still hands out no operator credential: its
+// admin key is refused NOT_AN_OPERATOR on every node route, while the owner's
+// own session passes the gate (a status naming no node is the handler's 400,
+// so nothing is proxied).
+func TestOramaOSNodeRoutes_operatorListIsTheOnlyAuthority(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	c := harness.GW(t)
+	op := operatorNamespace(t, f)
+	key := tenancy.Cred{APIKey: tenancy.APIKey(t, op, scopeAdmin)}
+	for _, req := range nodeRouteRequests() {
+		expectNotAnOperator(t, sendNodeRoute(t, c, req, key), "an operator namespace's admin key at "+req.Path)
+	}
+	r := sendNodeRoute(t, c, gw.Req{Path: "/v1/node/status"}, tenancy.Owner(op))
+	if r.Status != http.StatusBadRequest {
+		t.Errorf("an operator's session at /v1/node/status naming no node: HTTP %d %.200s, want the handler's 400", r.Status, r.Body)
 	}
 }
 

@@ -182,7 +182,7 @@ Every 401, 403 and `AUTH_UNAVAILABLE` 503 carries `{error, code, hint}`.
 | `NAMESPACE_MISMATCH` | The credential belongs to another namespace |
 | `ORIGIN_NOT_ALLOWED` | A WebSocket upgrade whose `Origin` is not this host or a name under it |
 | `OWNERSHIP_REQUIRED` | The credential holds no grant in this namespace |
-| `NOT_AN_OPERATOR` | The wallet is not on the cluster's operator list |
+| `NOT_AN_OPERATOR` | The caller is not a wallet session on the cluster's operator list; no namespace role or API key is an operator's |
 | `DESTINATION_NOT_ALLOWED` | The proxy refused the destination |
 | `RELAY_DESTINATION_NOT_ALLOWED`, `RELAY_UNAVAILABLE`, `RATE_LIMITED` | See [Relayed fetch](/docs/privacy/relayed-fetch) |
 | `FETCH_CAP_MISSING`, `FETCH_CAP_INVALID`, `FETCH_CAP_REVOKED`, `FETCH_CAP_REVOKE_KEY_INVALID`, `FETCH_CAP_NOT_ALONE`, `FETCH_CAP_DEVICE_REQUIRED`, `FETCH_CAP_UNAVAILABLE` | Fetch capabilities |

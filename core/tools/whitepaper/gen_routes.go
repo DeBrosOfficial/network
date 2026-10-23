@@ -31,8 +31,8 @@ const ormHandler = "rqlite.HTTPGateway (core/pkg/rqlite/gateway.go)"
 // published unexplained.
 var dynamicNotes = map[string]string{
 	"/v1/functions/":     "by operation: invoke is open (narrowed by a fn grant), a WebSocket opened with a capability is handler-auth, a WebSocket otherwise needs fn:invoke, everything else fn:manage with a namespace grant",
-	"/v1/network/status": "a request carrying a coordination MAC is handler-auth; any other needs operator:read and the operator list, on the main gateway",
-	"/v1/network/peers":  "a request carrying a coordination MAC is handler-auth; any other needs operator:read and the operator list, on the main gateway",
+	"/v1/network/status": "a request carrying a coordination MAC is handler-auth; any other is an operator route (a wallet session on the operator list), on the main gateway",
+	"/v1/network/peers":  "a request carrying a coordination MAC is handler-auth; any other is an operator route (a wallet session on the operator list), on the main gateway",
 	"/v1/storage/unpin/": "DELETE needs storage:write with any token (a key exchanged for a token is enough); any other method needs storage:write with a principal token",
 }
 
@@ -102,7 +102,7 @@ func renderRoutes(table *routepolicy.Table, handlers map[string]string, title st
 
 const routesIntro = `Every route the gateway serves, with the policy the route table declares for it: what credential the middleware insists on, which grant a caller needs, and which token. A pattern ending in a slash matches every path beneath it. A route absent from the policy table cannot be registered, so this list is complete. [Gateway architecture](../vol1/12-gateway-architecture.md) explains the middleware and [Authorization](../vol1/14-authorization.md) explains grants.
 
-Access is ` + "`credential`" + ` (an API key or a JWT, resolved by the middleware), ` + "`open`" + ` (anyone) or ` + "`handler-auth`" + ` (the handler authenticates the caller itself: an invite token, a cluster-secret or coordination MAC). Grant is ` + "`domain:action`" + `; an empty grant means any valid credential. Token is the token kind required on top of the grant: ` + "`any`" + ` (a bare key), ` + "`token`" + ` (a JWT of any kind), ` + "`wallet`" + ` (a logged-in user) or ` + "`principal`" + ` (a user or a deployed app's workload token). Notes lists: ` + "`owned`" + ` (a live grant in the namespace), ` + "`main`" + ` (always served by the index gateway, never proxied to a namespace gateway), ` + "`narrowed`" + ` (an open route that still applies a grant's resource selector), ` + "`no-address`" + ` and ` + "`no-log`" + ` (what the request log keeps).
+Access is ` + "`credential`" + ` (an API key or a JWT, resolved by the middleware), ` + "`open`" + ` (anyone) or ` + "`handler-auth`" + ` (the handler authenticates the caller itself: an invite token, a cluster-secret or coordination MAC). Grant is ` + "`domain:action`" + `; an empty grant means any valid credential. Token is the token kind required on top of the grant: ` + "`any`" + ` (a bare key), ` + "`token`" + ` (a JWT of any kind), ` + "`wallet`" + ` (a logged-in user) or ` + "`principal`" + ` (a user or a deployed app's workload token). Notes lists: ` + "`operator`" + ` (a wallet session on the cluster's operator list, and no permission: no namespace role or API key reaches it), ` + "`owned`" + ` (a live grant in the namespace), ` + "`main`" + ` (always served by the index gateway, never proxied to a namespace gateway), ` + "`narrowed`" + ` (an open route that still applies a grant's resource selector), ` + "`no-address`" + ` and ` + "`no-log`" + ` (what the request log keeps).
 `
 
 // routeGroup is the section a route belongs to: its first two path segments.
@@ -149,6 +149,9 @@ func tokenName(t routepolicy.TokenRequirement) string {
 
 func routeNotes(p routepolicy.Policy) string {
 	var notes []string
+	if p.Operator {
+		notes = append(notes, "operator")
+	}
 	if p.Ownership {
 		notes = append(notes, "owned")
 	}

@@ -44,7 +44,7 @@ Revocation closes the gap a signature-only token leaves. `revoked_tokens` holds 
 
 ## What a caller may do
 
-Every route declares its requirement in one table ([the gateway](ch06-the-gateway.md)). The check runs twice: a gate by domain and action before the handler, and a check by object inside it. A permission has the form `domain:action:resource`, over 14 domains split into a data plane (storage, pub/sub, cache, push, WebRTC, proxy, functions) and a control plane (databases, deployments, secrets, members, namespace settings, audit, operator).
+Every route declares its requirement in one table ([the gateway](ch06-the-gateway.md)). The check runs twice: a gate by domain and action before the handler, and a check by object inside it. A permission has the form `domain:action:resource`, over 13 domains split into a data plane (storage, pub/sub, cache, push, WebRTC, proxy, functions) and a control plane (databases, deployments, secrets, members, namespace settings, audit). Operating the cluster is not a permission: the node, network and `/v1/operator/*` routes admit only a wallet session on the cluster's operator list, so a namespace owner's or admin's "everything", and any API key, reaches none of them.
 
 | Role | Reaches |
 |---|---|

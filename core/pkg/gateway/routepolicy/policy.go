@@ -101,6 +101,16 @@ type Policy struct {
 	Domain string
 	Action string
 
+	// Operator makes the route the cluster operator's: the caller must be
+	// signed in with a wallet on the cluster's operator list, which the scope
+	// gate reads before the handler runs. It is not a permission, and no
+	// permission satisfies it. A namespace's roles, grants and keys are a
+	// tenant's authority: `*:*:*` held in a namespace is everything in that
+	// namespace and nothing of the cluster. An API key, or a token exchanged
+	// for one, never qualifies, whoever owns its namespace. Domain and Action
+	// stay empty on such a route.
+	Operator bool
+
 	// Ownership requires the caller to hold a live grant in the namespace. It
 	// is also what resolves that grant onto the request, which the data paths
 	// read for its resource selector.

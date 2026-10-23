@@ -154,6 +154,16 @@ func (g *Gateway) scopeMiddleware(next http.Handler) http.Handler {
 		// in step.
 		r = r.WithContext(context.WithValue(r.Context(), ctxkeys.Permissions, perms))
 
+		// An operator route asks no permission: the operator list is the
+		// cluster's authority, and a namespace's permissions, `*:*:*`
+		// included, are not.
+		if policy.Operator {
+			if g.requireOperatorCaller(w, r) {
+				next.ServeHTTP(w, r)
+			}
+			return
+		}
+
 		if policy.Domain != "" {
 			required := auth.Resource{
 				Domain: auth.Domain(policy.Domain),

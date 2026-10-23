@@ -74,18 +74,6 @@ func TestRoutePermission(t *testing.T) {
 		{"/v1/namespace/keys", auth.DomainMembers, auth.ActionWrite},
 		{"/v1/namespace/keys/5", auth.DomainMembers, auth.ActionWrite},
 		{"/v1/namespace/members", auth.DomainMembers, auth.ActionWrite},
-		{"/v1/node/status", auth.DomainOperator, auth.ActionRead},
-		{"/v1/node/command", auth.DomainOperator, auth.ActionWrite},
-		{"/v1/node/logs", auth.DomainOperator, auth.ActionRead},
-		{"/v1/node/leave", auth.DomainOperator, auth.ActionWrite},
-		{"/v1/network/connect", auth.DomainOperator, auth.ActionWrite},
-		{"/v1/network/disconnect", auth.DomainOperator, auth.ActionWrite},
-		// the one route that still asks for everything, because that is what
-		// it hands out
-		{"/v1/operator/invite", auth.PermissionWildcard, auth.PermissionWildcard},
-		{"/v1/network/status", auth.DomainOperator, auth.ActionRead},
-		{"/v1/network/peers", auth.DomainOperator, auth.ActionRead},
-		{"/v1/operator/health", auth.DomainOperator, auth.ActionRead},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {

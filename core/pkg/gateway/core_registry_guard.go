@@ -6,7 +6,6 @@ import (
 
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	authhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/auth"
-	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/operator"
 	"github.com/Orama-Network/orama/core/pkg/rqlite"
 	"github.com/Orama-Network/orama/core/pkg/sqlguard"
 	"go.uber.org/zap"
@@ -112,8 +111,7 @@ func (g *Gateway) requireOperatorForCoreRegistry(w http.ResponseWriter, r *http.
 		return true
 	}
 
-	wallet := operator.WalletFromRequest(r, g.ormClient)
-	isOperator, err := operator.IsOperator(r.Context(), g.ormClient, wallet)
+	wallet, isOperator, err := g.operatorCaller(r)
 	if err != nil {
 		// Not knowing whether someone is an operator is not permission to hand
 		// them the registry.
