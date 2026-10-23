@@ -5,7 +5,6 @@ package sdkgo
 import (
 	"crypto/tls"
 	"net/http"
-	"sync"
 	"testing"
 	"time"
 
@@ -28,28 +27,19 @@ const (
 	appName = "e2e-sdk-go"
 )
 
-var trustOnce sync.Once
-
-// trustRunCA makes the process's default HTTP transport trust the run's CA
-// roots and nothing else. The SDK builds its HTTP clients on
-// http.DefaultTransport and offers no TLS option (core/pkg/client
-// storage_client.go), and the fleet's certificates come from Let's Encrypt
-// staging, which no system store trusts. Every request of this package goes
-// to the fleet, so replacing the roots is the pin the rest of the suite uses.
-func trustRunCA(t testing.TB) {
+// runHTTPClient is the client the SDK sends through: one that trusts the
+// run's CA roots and nothing else (ClientConfig.HTTPClient). The fleet's
+// certificates come from Let's Encrypt staging, which no system store trusts.
+func runHTTPClient(t testing.TB) *http.Client {
 	t.Helper()
-	var err error
-	trustOnce.Do(func() {
-		pool, loadErr := gw.LoadCAPool(harness.Fleet(t).State.CAFile)
-		if loadErr != nil {
-			err = loadErr
-			return
-		}
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
-	})
+	pool, err := gw.LoadCAPool(harness.Fleet(t).State.CAFile)
 	if err != nil {
 		t.Fatalf("failed to load the run's CA roots: %v", err)
 	}
+	return &http.Client{Transport: &http.Transport{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
+	}}
 }
 
 // credential is how an SDK client authenticates.
@@ -62,9 +52,9 @@ type credential struct {
 // cleanup. No bootstrap peers are dialled: none is reachable from outside.
 func newClient(t testing.TB, n *ns.Namespace, cred credential) client.NetworkClient {
 	t.Helper()
-	trustRunCA(t)
 	cfg := client.DefaultClientConfig(appName)
 	cfg.GatewayURL = n.URL
+	cfg.HTTPClient = runHTTPClient(t)
 	cfg.JWT, cfg.APIKey = cred.jwt, cred.apiKey
 	cfg.BootstrapPeers = nil
 	cfg.QuietMode = true

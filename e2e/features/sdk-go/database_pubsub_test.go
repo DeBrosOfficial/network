@@ -58,7 +58,6 @@ func TestGoClientDatabase_documentedQueriesWork(t *testing.T) {
 // Connect rather than guessing (DatabaseClientImpl.checkConnection).
 func TestGoClientDatabase_needsConnect(t *testing.T) {
 	t.Parallel()
-	trustRunCA(t)
 	cfg := client.DefaultClientConfig(appName)
 	cfg.QuietMode, cfg.JWT = true, "x.y.z"
 	c, err := client.NewClient(cfg)

@@ -62,7 +62,7 @@ The chain client has its own fetch wrapper, since the read proxy is open and a w
 
 ## The Go client
 
-`core/pkg/client` has two audiences. Programs outside the cluster reach a gateway over HTTPS with a 60 s timeout, a 64 MiB response cap and no redirects. The gateway reaches its registry through direct RQLite connections in the mesh, at read level `weak` so an auth decision sees every acknowledged write. `Connect` reports success without having spoken to the database, so the gateway runs its own probe query.
+`core/pkg/client` has two audiences. Programs outside the cluster reach a gateway over HTTPS with a 60 s timeout, a 64 MiB response cap and no redirects. Every sub-client sends through one transport, `ClientConfig.HTTPClient`, so a single setting makes a private or staging CA trusted everywhere. The gateway reaches its registry through direct RQLite connections in the mesh, at read level `weak` so an auth decision sees every acknowledged write. `Connect` reports success without having spoken to the database, so the gateway runs its own probe query.
 
 ## Staying in step with the gateway
 

@@ -51,8 +51,12 @@ func (e *gatewayStatusError) Is(target error) bool {
 }
 
 // statusErrorFrom reads a failed response's body into a *gatewayStatusError
-// for op.
+// for op. A redirect is one too: gatewayHTTPClient never follows one.
 func statusErrorFrom(op string, resp *http.Response) error {
+	if resp.StatusCode >= http.StatusMultipleChoices && resp.StatusCode < http.StatusBadRequest {
+		return &gatewayStatusError{op: op, status: resp.StatusCode, message: fmt.Sprintf(
+			"redirected to %q; the client does not follow redirects, so point GatewayURL at the gateway itself", resp.Header.Get("Location"))}
+	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 	if err != nil {
 		return &gatewayStatusError{op: op, status: resp.StatusCode, message: fmt.Sprintf("(the body could not be read: %v)", err)}

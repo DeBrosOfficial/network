@@ -5,7 +5,8 @@
 # another namespace's session and no credential refused; the database client
 # with the documented configuration; pubsub failing fast without the node
 # socket; the documented absences (Cache, Serverless, proxy) and config
-# validation. The anonymity proxy and tunnel, which the SDK does not expose,
+# validation; ClientConfig.HTTPClient carrying the run's CA to storage and
+# the database, both refusing the staging certificate without it. The anonymity proxy and tunnel, which the SDK does not expose,
 # over HTTP: private destinations, malformed requests, a key instead of a user,
 # a request that really leaves through Tor, and every tunnel refusal.
 id: sdk-go
@@ -28,6 +29,7 @@ covers:
     - "website/src/docs/developer/go-sdk.mdx#storage-client: upload, get, pin, status and unpin through the gateway"
     - "website/src/docs/developer/go-sdk.mdx#error-handling: client methods return typed errors the errors helpers classify"
     - "website/src/docs/developer/go-sdk.mdx#database-client: Query, Transaction, CreateTable, DropTable and GetSchema work with the Quick Start configuration"
+    - "website/src/docs/developer/go-sdk.mdx#gateway-tls: one HTTPClient carries every request to the gateway; without it a staging or private CA is refused"
     - "website/src/docs/developer/go-sdk.mdx#cache-client: the SDK has no Cache accessor"
     - "website/src/docs/developer/go-sdk.mdx#serverless-client: the SDK has no Serverless accessor"
     - "website/src/docs/developer/go-sdk.mdx#anonymity-proxy: private destinations are refused; a runtime key alone is refused; requests leave through Tor"

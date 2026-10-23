@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/pubsub"
@@ -52,6 +53,16 @@ type ClientConfig struct {
 	// peers, which needs none. An unspecified address (0.0.0.0, ::) is
 	// refused — it is every interface, the public one included.
 	ListenAddrs []string `json:"listen_addrs"`
+
+	// HTTPClient carries every request to GatewayURL: storage, and the
+	// database when there are no DatabaseEndpoints. Its Transport (TLS
+	// configuration, root CAs, proxy) and Jar are used; the per-operation
+	// timeout and the refusal to follow redirects are the client's own and
+	// replace its Timeout and CheckRedirect. Nil uses http.DefaultTransport,
+	// which trusts the system roots only, so a gateway behind a private or
+	// staging CA needs a Transport whose TLSClientConfig.RootCAs holds that
+	// CA. Never serialised.
+	HTTPClient *http.Client `json:"-"`
 }
 
 // DefaultClientConfig returns a default client configuration

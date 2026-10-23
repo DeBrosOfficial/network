@@ -78,6 +78,7 @@ type ClientConfig struct {
     IdentityPath      string        // Path to persistent LibP2P identity key file
     PubSubSocket      string        // Unix socket of the node's pubsub API (orama-namespace-pubsub@index); admits only the gateways' user
     ListenAddrs       []string      // LibP2P listen multiaddrs; empty = no listener
+    HTTPClient        *http.Client  // Transport for every request to GatewayURL; nil = http.DefaultTransport
 }
 ```
 
@@ -93,6 +94,36 @@ seconds until `Disconnect`, so a peer that was not listening yet (a gateway
 starts in the same second as the node it bootstraps from), or that restarted,
 is connected as soon as it is back. The first failure of each peer is logged at
 warn level and its recovery at info level, not every attempt.
+
+### Gateway TLS
+
+Every request to `GatewayURL` (storage, and the database when there are no
+`DatabaseEndpoints`) goes through `HTTPClient`. Its `Transport` and `Jar` are
+used; the per-operation timeout and the refusal to follow redirects are the
+SDK's own and replace its `Timeout` and `CheckRedirect`. A redirect comes back
+as an error: Go forwards `X-API-Key` to another host on a redirect, so the SDK
+never follows one. Left nil, the system roots decide, which refuses a gateway
+whose certificate comes from a private CA or from Let's Encrypt staging. Give
+such a gateway a transport that trusts its CA:
+
+```go
+pem, err := os.ReadFile("staging-ca.pem")
+if err != nil {
+    log.Fatal(err)
+}
+roots := x509.NewCertPool()
+if !roots.AppendCertsFromPEM(pem) {
+    log.Fatal("staging-ca.pem holds no certificate")
+}
+cfg.HTTPClient = &http.Client{Transport: &http.Transport{
+    Proxy:           http.ProxyFromEnvironment,
+    TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
+}}
+```
+
+An app deployed on a staging cluster does not need this: the platform sets
+`SSL_CERT_FILE` to the cluster's roots, which Go adds to the system roots
+([What the platform sets for you](/docs/developer/deployments#what-the-platform-sets-for-you)).
 
 ### Creating a Client
 

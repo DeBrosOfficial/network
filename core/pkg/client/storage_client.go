@@ -11,6 +11,14 @@ import (
 	"time"
 )
 
+// Bounds on one storage request to the gateway. A transfer carries a whole
+// object; the others are metadata.
+const (
+	storageTransferTimeout = 5 * time.Minute
+	storagePinTimeout      = 60 * time.Second
+	storageMetadataTimeout = 30 * time.Second
+)
+
 // StorageClientImpl implements StorageClient using HTTP requests to the gateway
 type StorageClientImpl struct {
 	client *Client
@@ -51,9 +59,7 @@ func (s *StorageClientImpl) Upload(ctx context.Context, reader io.Reader, name s
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	s.addAuthHeaders(req)
 
-	// Execute request
-	client := &http.Client{Timeout: 5 * time.Minute} // Large timeout for file uploads
-	resp, err := client.Do(req)
+	resp, err := gatewayHTTPClient(s.client, storageTransferTimeout).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -99,8 +105,7 @@ func (s *StorageClientImpl) Pin(ctx context.Context, cid string, name string) (*
 	req.Header.Set("Content-Type", "application/json")
 	s.addAuthHeaders(req)
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := gatewayHTTPClient(s.client, storagePinTimeout).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -133,8 +138,7 @@ func (s *StorageClientImpl) Status(ctx context.Context, cid string) (*StorageSta
 
 	s.addAuthHeaders(req)
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := gatewayHTTPClient(s.client, storageMetadataTimeout).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -167,8 +171,7 @@ func (s *StorageClientImpl) Get(ctx context.Context, cid string) (io.ReadCloser,
 
 	s.addAuthHeaders(req)
 
-	client := &http.Client{Timeout: 5 * time.Minute} // Large timeout for file downloads
-	resp, err := client.Do(req)
+	resp, err := gatewayHTTPClient(s.client, storageTransferTimeout).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -196,8 +199,7 @@ func (s *StorageClientImpl) Unpin(ctx context.Context, cid string) error {
 
 	s.addAuthHeaders(req)
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := gatewayHTTPClient(s.client, storageMetadataTimeout).Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
