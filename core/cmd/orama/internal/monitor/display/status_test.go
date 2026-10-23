@@ -42,7 +42,7 @@ func statusOf(t *testing.T, snap *cluster.ClusterSnapshot, op *operatorview.Summ
 
 func withChains(snap *cluster.ClusterSnapshot) *cluster.ClusterSnapshot {
 	for i := range snap.Nodes {
-		snap.Nodes[i].Report.Chain = &report.ChainReport{Responsive: true, ChainID: "orama-stagenet-6",
+		snap.Nodes[i].Report.Chain = &report.ChainReport{Responsive: true, ChainID: "orama-testnet-6",
 			LatestHeight: 100, IsValidator: i == 0, VotingPower: 10}
 	}
 	return snap

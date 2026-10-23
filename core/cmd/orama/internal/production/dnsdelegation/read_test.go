@@ -37,7 +37,7 @@ func TestRead_queriesTheNodeItPreparedAKeyFor(t *testing.T) {
 	var queried inspector.Node
 	fakeCluster(t, `{"results":[{"columns":["domain","hostname","ip"],"values":[["example.test","ns1","203.0.113.7"]]}]}`, &queried)
 
-	got, err := Read("stagenet")
+	got, err := Read("testnet")
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestRead_noNodesIsAnError(t *testing.T) {
 	var queried inspector.Node
 	fakeCluster(t, "", &queried)
 	resolveNodes = func(string) ([]inspector.Node, error) { return nil, nil }
-	if _, err := Read("stagenet"); err == nil {
+	if _, err := Read("testnet"); err == nil {
 		t.Fatal("an environment with no nodes was read")
 	}
 }

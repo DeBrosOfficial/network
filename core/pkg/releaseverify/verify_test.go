@@ -19,13 +19,13 @@ import (
 // a slow test run.
 var testNow = time.Date(2026, 9, 28, 15, 0, 0, 0, time.UTC)
 
-// stagenetArchive is the target name inside the generated repository.
+// testnetArchive is the target name inside the generated repository.
 // It is not a URL and it is not fetched.
-const stagenetArchive = "orama-stagenet.tar"
+const testnetArchive = "orama-testnet.tar"
 
-// stagenetRoot is a TUF root generated for this test. It is not a
+// testnetRoot is a TUF root generated for this test. It is not a
 // production root and it is not written anywhere the cluster would read.
-type stagenetRoot struct {
+type testnetRoot struct {
 	root         []byte
 	snapshotKey  ed25519.PrivateKey
 	timestampKey ed25519.PrivateKey
@@ -33,11 +33,11 @@ type stagenetRoot struct {
 	validUntil   time.Time
 }
 
-// newStagenetRoot generates a root whose targets role needs both targets
+// newTestnetRoot generates a root whose targets role needs both targets
 // keys. The threshold lives in the root; the other roles need one key.
-func newStagenetRoot(t *testing.T) *stagenetRoot {
+func newTestnetRoot(t *testing.T) *testnetRoot {
 	t.Helper()
-	s := &stagenetRoot{validUntil: testNow.Add(7 * 24 * time.Hour)}
+	s := &testnetRoot{validUntil: testNow.Add(7 * 24 * time.Hour)}
 	s.snapshotKey = testKey(t)
 	s.timestampKey = testKey(t)
 	s.targetsKeys[0] = testKey(t)
@@ -121,14 +121,14 @@ type release struct {
 
 // publish signs a consistent repository at snapshot version, with the
 // first targetsSigners targets keys. timestampExpires zero uses the root's
-// own expiry. archive nil uses a fixed stagenet payload.
-func (s *stagenetRoot) publish(t *testing.T, version int64, targetsSigners int, timestampExpires time.Time, archive []byte) release {
+// own expiry. archive nil uses a fixed testnet payload.
+func (s *testnetRoot) publish(t *testing.T, version int64, targetsSigners int, timestampExpires time.Time, archive []byte) release {
 	t.Helper()
 	if targetsSigners < 1 || targetsSigners > len(s.targetsKeys) {
 		t.Fatalf("targets signers %d", targetsSigners)
 	}
 	if len(archive) == 0 {
-		archive = []byte("stagenet archive v1\n")
+		archive = []byte("testnet archive v1\n")
 	}
 	if timestampExpires.IsZero() {
 		timestampExpires = s.validUntil
@@ -136,11 +136,11 @@ func (s *stagenetRoot) publish(t *testing.T, version int64, targetsSigners int, 
 
 	targets := metadata.Targets(s.validUntil)
 	targets.Signed.Version = version
-	info, err := metadata.TargetFile().FromBytes(stagenetArchive, archive, "sha256")
+	info, err := metadata.TargetFile().FromBytes(testnetArchive, archive, "sha256")
 	if err != nil {
 		t.Fatal(err)
 	}
-	targets.Signed.Targets[stagenetArchive] = info
+	targets.Signed.Targets[testnetArchive] = info
 	signMeta(t, targets, s.targetsKeys[:targetsSigners]...)
 	targetsBytes := mustBytes(t, targets)
 
@@ -171,39 +171,39 @@ func (s *stagenetRoot) publish(t *testing.T, version int64, targetsSigners int, 
 }
 
 func TestRefusesTamperedTargetHash(t *testing.T) {
-	root := newStagenetRoot(t)
+	root := newTestnetRoot(t)
 	good := root.publish(t, 1, 2, time.Time{}, nil)
-	if _, err := VerifyArchive(good.meta, Seen{}, testNow, stagenetArchive, good.archive); err != nil {
+	if _, err := VerifyArchive(good.meta, Seen{}, testNow, testnetArchive, good.archive); err != nil {
 		t.Fatal(err)
 	}
 
 	tampered := append([]byte(nil), good.archive...)
 	tampered[len(tampered)-1] ^= 0xff
-	_, err := VerifyArchive(good.meta, Seen{}, testNow, stagenetArchive, tampered)
+	_, err := VerifyArchive(good.meta, Seen{}, testNow, testnetArchive, tampered)
 	if !errors.Is(err, ErrTargetHash) {
 		t.Fatalf("tampered archive: got %v, want %v", err, ErrTargetHash)
 	}
 }
 
 func TestRefusesBelowThresholdSignatures(t *testing.T) {
-	root := newStagenetRoot(t)
+	root := newTestnetRoot(t)
 	// The root records a targets threshold of 2. One signature is not it.
 	good := root.publish(t, 1, 2, time.Time{}, nil)
-	if _, err := VerifyArchive(good.meta, Seen{}, testNow, stagenetArchive, good.archive); err != nil {
+	if _, err := VerifyArchive(good.meta, Seen{}, testNow, testnetArchive, good.archive); err != nil {
 		t.Fatal(err)
 	}
 
 	short := root.publish(t, 1, 1, time.Time{}, nil)
-	_, err := VerifyArchive(short.meta, Seen{}, testNow, stagenetArchive, short.archive)
+	_, err := VerifyArchive(short.meta, Seen{}, testNow, testnetArchive, short.archive)
 	if !errors.Is(err, ErrThreshold) {
 		t.Fatalf("one signature: got %v, want %v", err, ErrThreshold)
 	}
 }
 
 func TestRefusesExpiredTimestamp(t *testing.T) {
-	root := newStagenetRoot(t)
+	root := newTestnetRoot(t)
 	fresh := root.publish(t, 1, 2, time.Time{}, nil)
-	if _, err := VerifyArchive(fresh.meta, Seen{}, testNow, stagenetArchive, fresh.archive); err != nil {
+	if _, err := VerifyArchive(fresh.meta, Seen{}, testNow, testnetArchive, fresh.archive); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Verify(fresh.meta, Seen{}, time.Time{}); err == nil {
@@ -213,22 +213,22 @@ func TestRefusesExpiredTimestamp(t *testing.T) {
 	// The snapshot and the targets file are still inside their expiry.
 	// The timestamp is not, which is the freeze.
 	frozen := root.publish(t, 1, 2, testNow.Add(-time.Minute), nil)
-	_, err := VerifyArchive(frozen.meta, Seen{}, testNow, stagenetArchive, frozen.archive)
+	_, err := VerifyArchive(frozen.meta, Seen{}, testNow, testnetArchive, frozen.archive)
 	if !errors.Is(err, ErrFreeze) {
 		t.Fatalf("expired timestamp: got %v, want %v", err, ErrFreeze)
 	}
 }
 
 func TestRefusesSnapshotRollback(t *testing.T) {
-	root := newStagenetRoot(t)
+	root := newTestnetRoot(t)
 	// Version 1 is a complete, unexpired repository. Seen nothing, it verifies.
 	older := root.publish(t, 1, 2, time.Time{}, nil)
-	if _, err := VerifyArchive(older.meta, Seen{}, testNow, stagenetArchive, older.archive); err != nil {
+	if _, err := VerifyArchive(older.meta, Seen{}, testNow, testnetArchive, older.archive); err != nil {
 		t.Fatal(err)
 	}
 
 	newer := root.publish(t, 2, 2, time.Time{}, nil)
-	got, err := VerifyArchive(newer.meta, Seen{}, testNow, stagenetArchive, newer.archive)
+	got, err := VerifyArchive(newer.meta, Seen{}, testNow, testnetArchive, newer.archive)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,20 +237,20 @@ func TestRefusesSnapshotRollback(t *testing.T) {
 	}
 
 	// Same root, still unexpired, lower snapshot version than the one just accepted.
-	_, err = VerifyArchive(older.meta, Seen{SnapshotVersion: got.SnapshotVersion}, testNow, stagenetArchive, older.archive)
+	_, err = VerifyArchive(older.meta, Seen{SnapshotVersion: got.SnapshotVersion}, testNow, testnetArchive, older.archive)
 	if !errors.Is(err, ErrRollback) {
 		t.Fatalf("older snapshot: got %v, want %v", err, ErrRollback)
 	}
 
 	// The version already seen is not a rollback.
-	if _, err := VerifyArchive(newer.meta, Seen{SnapshotVersion: got.SnapshotVersion}, testNow, stagenetArchive, newer.archive); err != nil {
+	if _, err := VerifyArchive(newer.meta, Seen{SnapshotVersion: got.SnapshotVersion}, testNow, testnetArchive, newer.archive); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestStagenetRootIsNotCheckedIn fails if a root file is added beside the
-// test. The only root is the one newStagenetRoot generates.
-func TestStagenetRootIsNotCheckedIn(t *testing.T) {
+// TestTestnetRootIsNotCheckedIn fails if a root file is added beside the
+// test. The only root is the one newTestnetRoot generates.
+func TestTestnetRootIsNotCheckedIn(t *testing.T) {
 	matches, err := filepath.Glob("*.json")
 	if err != nil {
 		t.Fatal(err)

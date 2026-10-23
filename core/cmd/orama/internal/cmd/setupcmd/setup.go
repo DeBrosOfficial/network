@@ -60,7 +60,7 @@ machine's chain keys, builds the genesis on the first machine from all the keys,
 the others, starts the chains one after the other, waits for blocks, and then registers your
 operator and the nodes as it does for a join. It writes networks/<name>/ (manifest, genesis,
 release root) to --publish-dir and prints what to do to publish it. --chain-id is the chain's
-id: a test network's is of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
+id: a test network's is of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
 setup refuses: it creates test networks only, because it keeps each seat's key in an unencrypted test keyring
 (a production network needs seat accounts held by the RootWallet, which is not built). --release-root is the release-root.json the network's
 releases are verified against. A network that was announced in the registry before it was created (orama maint network announce)
@@ -89,18 +89,18 @@ machine until every machine passes.`,
   orama setup
 
   # Unattended: three machines, one cluster, host keys pinned
-  orama setup --network stagenet --name alice --yes \
+  orama setup --network testnet --name alice --yes \
     --ip 203.0.113.10 --ip 203.0.113.11 --ip 203.0.113.12 \
     --host-key 203.0.113.10=SHA256:... --host-key 203.0.113.11=SHA256:... --host-key 203.0.113.12=SHA256:...
 
   # Create a network: the five machines are its bootstrap validators
-  orama setup --create-network stagenet --chain-id orama-stagenet-7 --release-root release-root.json --yes \
+  orama setup --create-network testnet --chain-id orama-testnet-7 --release-root release-root.json --yes \
     --ip 203.0.113.10 --ip 203.0.113.11 --ip 203.0.113.12 --ip 203.0.113.13 --ip 203.0.113.14 \
     --host-key 203.0.113.10=SHA256:... --host-key 203.0.113.11=SHA256:... --host-key 203.0.113.12=SHA256:... \
     --host-key 203.0.113.13=SHA256:... --host-key 203.0.113.14=SHA256:...
 
   # Create a network that was announced: the registry supplies the chain id and the release root
-  orama setup --create-network stagenet --yes --ip 203.0.113.10 --host-key SHA256:...
+  orama setup --create-network testnet --yes --ip 203.0.113.10 --host-key SHA256:...
 
   # A cluster of your own, on your own domain, without the chain
   orama setup --cluster-only --domain cluster.example.org --yes --ip 203.0.113.10 --host-key SHA256:...`,

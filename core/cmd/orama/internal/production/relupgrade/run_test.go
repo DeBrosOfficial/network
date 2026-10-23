@@ -21,9 +21,9 @@ import (
 
 func testTarget() Target {
 	return Target{
-		Network: "stagenet",
+		Network: "testnet",
 		Manifest: &netregistry.Manifest{
-			Name: "stagenet", Channel: "nightly", ReleaseRepo: "https://releases.example",
+			Name: "testnet", Channel: "nightly", ReleaseRepo: "https://releases.example",
 			ReleaseRootSHA256: strings.Repeat("a", 64), MinVersion: "0.3.0",
 		},
 		Root: []byte(`{"root":true}`),
@@ -100,7 +100,7 @@ func (f *fleet) runner(opts Options) (*runner, *bytes.Buffer) {
 		opts.In = strings.NewReader("yes\n")
 	}
 	return &runner{
-		opts: opts, env: "stagenet", target: testTarget(), home: "/home/test", now: time.Unix(1, 0), roller: f,
+		opts: opts, env: "testnet", target: testTarget(), home: "/home/test", now: time.Unix(1, 0), roller: f,
 		seams: seams{
 			arch: func(n inspector.Node) (string, error) { return f.machine[n.Host], nil },
 			fetch: func(_ context.Context, p releasefetch.Params) (*releasefetch.Release, error) {
@@ -333,25 +333,25 @@ func TestRun_architecturesOnDifferentVersionsAreRefused(t *testing.T) {
 }
 
 func TestResolveTarget_networkOfTheRegistry(t *testing.T) {
-	reg := registryWith(t, "stagenet")
-	got, err := ResolveTarget(&cli.Environment{Name: "main", Network: "stagenet"}, reg)
+	reg := registryWith(t, "testnet")
+	got, err := ResolveTarget(&cli.Environment{Name: "main", Network: "testnet"}, reg)
 	if err != nil {
 		t.Fatalf("ResolveTarget: %v", err)
 	}
-	if got.Network != "stagenet" || got.Manifest.Channel != "nightly" || len(got.Root) == 0 {
+	if got.Network != "testnet" || got.Manifest.Channel != "nightly" || len(got.Root) == 0 {
 		t.Errorf("target = %+v", got)
 	}
 }
 
 func TestResolveTarget_environmentOnNoNetwork(t *testing.T) {
-	_, err := ResolveTarget(&cli.Environment{Name: "mine"}, registryWith(t, "stagenet"))
+	_, err := ResolveTarget(&cli.Environment{Name: "mine"}, registryWith(t, "testnet"))
 	if err == nil || !strings.Contains(err.Error(), "maint rollout") {
 		t.Fatalf("err = %v, want the way to upgrade from your own build", err)
 	}
 }
 
 func TestResolveTarget_unknownNetwork(t *testing.T) {
-	_, err := ResolveTarget(&cli.Environment{Name: "main", Network: "nope"}, registryWith(t, "stagenet"))
+	_, err := ResolveTarget(&cli.Environment{Name: "main", Network: "nope"}, registryWith(t, "testnet"))
 	if err == nil || !strings.Contains(err.Error(), "nope") {
 		t.Fatalf("err = %v, want the unknown network named", err)
 	}
@@ -360,7 +360,7 @@ func TestResolveTarget_unknownNetwork(t *testing.T) {
 func TestFetchParams_keepsTheRollbackRecordPerNetwork(t *testing.T) {
 	p := testTarget().FetchParams("/home/u/.orama", "arm64", time.Unix(5, 0))
 
-	if p.SeenPath != "/home/u/.orama/releases/stagenet/release-seen.json" || p.Arch != "arm64" ||
+	if p.SeenPath != "/home/u/.orama/releases/testnet/release-seen.json" || p.Arch != "arm64" ||
 		p.RepoURL != "https://releases.example" || p.Channel != "nightly" || p.MinVersion != "0.3.0" {
 		t.Errorf("params = %+v", p)
 	}

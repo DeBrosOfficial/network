@@ -26,7 +26,7 @@ var httpClient = netregistry.NewHTTPClient
 var Cmd = newGroup("network", "Choose the network the CLI talks to", `List, choose, add and remove the networks the CLI knows.
 
 A network is a name for something you can reach: a cluster, through its
-gateway, and, for a network of the registry such as stagenet, the chain it runs,
+gateway, and, for a network of the registry such as testnet, the chain it runs,
 the seeds to join through and the release root its software is verified against.
 Every other command talks to the active network, or to the one --env names.
 

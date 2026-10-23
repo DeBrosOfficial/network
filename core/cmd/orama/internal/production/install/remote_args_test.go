@@ -26,7 +26,7 @@ func fullFlags() *Flags {
 		JoinAddress:          "https://node0.example.com",
 		Token:                "tok",
 		CAFingerprint:        "fp",
-		JoinSNI:              "stagenet.example",
+		JoinSNI:              "testnet.example",
 		SSHUser:              "ubuntu",
 		Environment:          "devnet",
 		OperatorWallet:       "0xabc",

@@ -29,7 +29,7 @@ You need the `orama` CLI, [TinyGo](https://tinygo.org/getting-started/install/)
 
 ```bash
 orama network list              # the networks this CLI knows
-orama network use stagenet      # choose one
+orama network use testnet      # choose one
 orama auth login                # sign in with your RootWallet
 orama namespace create demo     # your own namespace: a database, a cache and a gateway
 orama auth login --namespace demo

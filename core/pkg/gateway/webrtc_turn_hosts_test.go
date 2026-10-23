@@ -12,7 +12,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
-const testStealthHost = "cdn-24c2fc1cfeab.stagenet.example.net"
+const testStealthHost = "cdn-24c2fc1cfeab.testnet.example.net"
 
 func turnURIsFor(t *testing.T, cfg *Config) []string {
 	t.Helper()
@@ -44,7 +44,7 @@ func turnURIsFor(t *testing.T, cfg *Config) []string {
 // to the credentials handler, so enabling stealth never changed the ladder.
 func TestApplyTURNHosts_stealth_host_is_advertised(t *testing.T) {
 	uris := turnURIsFor(t, &Config{
-		TURNDomain:       "turn.ns-ns-a.stagenet.example.net",
+		TURNDomain:       "turn.ns-ns-a.testnet.example.net",
 		TURNSecret:       "secret",
 		StealthCDNDomain: testStealthHost,
 	})
@@ -58,7 +58,7 @@ func TestApplyTURNHosts_stealth_host_is_advertised(t *testing.T) {
 
 func TestApplyTURNHosts_no_stealth_keeps_baseline_ladder(t *testing.T) {
 	uris := turnURIsFor(t, &Config{
-		TURNDomain: "turn.ns-ns-a.stagenet.example.net",
+		TURNDomain: "turn.ns-ns-a.testnet.example.net",
 		TURNSecret: "secret",
 	})
 	if len(uris) != 3 {
@@ -73,10 +73,10 @@ func TestApplyTURNHosts_no_stealth_keeps_baseline_ladder(t *testing.T) {
 
 func TestApplyTURNHosts_turns_uses_single_label_host(t *testing.T) {
 	uris := turnURIsFor(t, &Config{
-		TURNDomain: "turn.ns-ns-a.stagenet.example.net",
+		TURNDomain: "turn.ns-ns-a.testnet.example.net",
 		TURNSecret: "secret",
 	})
-	if want := "turns:turn-ns-a.stagenet.example.net:5349"; uris[2] != want {
+	if want := "turns:turn-ns-a.testnet.example.net:5349"; uris[2] != want {
 		t.Errorf("TURNS rung = %q, want %q", uris[2], want)
 	}
 }

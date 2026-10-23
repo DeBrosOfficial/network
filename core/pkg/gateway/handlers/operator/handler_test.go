@@ -226,7 +226,7 @@ func TestHandleRegister_invalidRole(t *testing.T) {
 }
 
 func TestAllowedEnvironments(t *testing.T) {
-	valid := []string{"devnet", "testnet", "stagenet", "production", "local"}
+	valid := []string{"devnet", "testnet", "production", "local"}
 	invalid := []string{"-x", "<script>", "", "has space", "a.b"}
 
 	for _, env := range valid {

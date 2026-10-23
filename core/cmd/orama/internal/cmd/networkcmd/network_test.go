@@ -48,7 +48,7 @@ func TestNetworkAdd_argumentAndFlagShapes(t *testing.T) {
 		"four arguments":            {"network", "add", "a", "https://x.example.org", "d", "extra"},
 		"--yes with a gateway":      {"network", "add", "a", "https://x.example.org", "--yes"},
 		"--ca-file with a manifest": {"network", "add", "https://x.example.org/manifest.json", "--ca-file", "x.pem"},
-		"--network with a manifest": {"network", "add", "https://x.example.org/manifest.json", "--network", "stagenet"},
+		"--network with a manifest": {"network", "add", "https://x.example.org/manifest.json", "--network", "testnet"},
 		"unknown flag":              {"network", "add", "a", "https://x.example.org", "--nope"},
 	} {
 		t.Run(name, func(t *testing.T) {

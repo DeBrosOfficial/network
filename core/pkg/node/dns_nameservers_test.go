@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const testNSDomain = "stagenet.example.test"
+const testNSDomain = "testnet.example.test"
 
 // recordValues returns the active values of fqdn/rtype, sorted.
 func recordValues(t *testing.T, db *sql.DB, fqdn, rtype string) []string {

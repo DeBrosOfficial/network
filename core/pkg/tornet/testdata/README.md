@@ -4,7 +4,7 @@ These files are written from tor's dir-spec (the network-status consensus, vote 
 file formats). They are NOT captured from a running network: the E0 spike could not run tor
 (plans/open-network/decisions/E0.md). Digests, ed25519 ids and signatures are placeholders.
 
-Replace them with documents captured from the stagenet authorities (the vote archive that
+Replace them with documents captured from the testnet authorities (the vote archive that
 `orama maint global tor archive` writes) once the first consensus exists. The parser tests must
 keep passing on the real ones.
 

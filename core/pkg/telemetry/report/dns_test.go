@@ -13,7 +13,7 @@ import (
 
 func TestDomainFromCorefile_zoneBlock(t *testing.T) {
 	cases := map[string]string{
-		"stagenet.dbrsteting.bid {\n  file db\n}":    "stagenet.dbrsteting.bid",
+		"testnet.dbrsteting.bid {\n  file db\n}":     "testnet.dbrsteting.bid",
 		"*.orama-devnet.network:53 {\n}":             "orama-devnet.network",
 		". {\n  forward . 8.8.8.8\n}\nexample.com {": "example.com",
 		". {\n  forward . 8.8.8.8\n}":                "",

@@ -12,7 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const testZone = "nodes.stagenet.orama.network"
+const testZone = "nodes.testnet.orama.network"
 
 // newRegistry is an in-memory dns_records with the registry's uniqueness rule.
 func newRegistry(t *testing.T) *sql.DB {
@@ -127,9 +127,9 @@ func TestSync_writesTheChainsNames(t *testing.T) {
 		t.Errorf("stats = %+v", stats)
 	}
 	want := []row{
-		{"alice.nodes.stagenet.orama.network.", "A", "93.184.216.34", RecordNamespace, true},
-		{"alice.nodes.stagenet.orama.network.", "AAAA", "2606:4700:4700::1111", RecordNamespace, true},
-		{"bob.nodes.stagenet.orama.network.", "A", "1.1.1.1", RecordNamespace, true},
+		{"alice.nodes.testnet.orama.network.", "A", "93.184.216.34", RecordNamespace, true},
+		{"alice.nodes.testnet.orama.network.", "AAAA", "2606:4700:4700::1111", RecordNamespace, true},
+		{"bob.nodes.testnet.orama.network.", "A", "1.1.1.1", RecordNamespace, true},
 	}
 	got := rows(t, db)
 	if len(got) != len(want) {
@@ -197,9 +197,9 @@ func TestSync_emptyChainRemovesEveryOwnedRow(t *testing.T) {
 func TestSync_neverTouchesRowsItDoesNotOwn(t *testing.T) {
 	db := newRegistry(t)
 	for _, r := range []row{
-		{"nodes.stagenet.orama.network.", "A", "93.184.216.1", "system", true},
-		{"ns1.nodes.stagenet.orama.network.", "A", "93.184.216.2", "system", true},
-		{"alice.nodes.stagenet.orama.network.", "A", "93.184.216.34", "namespace:alice", true}, // another owner holds this exact row
+		{"nodes.testnet.orama.network.", "A", "93.184.216.1", "system", true},
+		{"ns1.nodes.testnet.orama.network.", "A", "93.184.216.2", "system", true},
+		{"alice.nodes.testnet.orama.network.", "A", "93.184.216.34", "namespace:alice", true}, // another owner holds this exact row
 		{"x.other.example.", "A", "1.1.1.1", "deployment", true},
 	} {
 		if _, err := db.Exec(`INSERT INTO dns_records (fqdn, record_type, value, namespace, is_active) VALUES (?,?,?,?,?)`,
@@ -317,12 +317,12 @@ func TestSync_aChangedZoneRemovesTheOldZonesRows(t *testing.T) {
 	if _, err := syncer(db, chain).Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	moved := &Syncer{Registry: registryOf(db), Chain: chain, Zone: "names.stagenet.orama.network"}
+	moved := &Syncer{Registry: registryOf(db), Chain: chain, Zone: "names.testnet.orama.network"}
 	if _, err := moved.Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	got := rows(t, db)
-	if len(got) != 1 || got[0].fqdn != "alice.names.stagenet.orama.network." {
+	if len(got) != 1 || got[0].fqdn != "alice.names.testnet.orama.network." {
 		t.Fatalf("rows = %v", got)
 	}
 }
@@ -330,7 +330,7 @@ func TestSync_aChangedZoneRemovesTheOldZonesRows(t *testing.T) {
 func TestSync_aBadZoneWritesNothing(t *testing.T) {
 	db := newRegistry(t)
 	chain := &fakeChain{names: []Named{named("alice", "93.184.216.34")}}
-	for _, zone := range []string{"", "Stagenet.Orama.Network", "localhost"} {
+	for _, zone := range []string{"", "Testnet.Orama.Network", "localhost"} {
 		if _, err := (&Syncer{Registry: registryOf(db), Chain: chain, Zone: zone}).Sync(context.Background()); err == nil {
 			t.Errorf("zone %q accepted", zone)
 		}

@@ -18,7 +18,7 @@ const (
 func TestGenerateCaddyfile_nameserverChecksItsOwnCoreDNS(t *testing.T) {
 	ci := newTestCaddyInstaller()
 	ci.EnableLocalNameserverChecks()
-	cf := ci.generateCaddyfile("stagenet.orama.network", "admin@stagenet.orama.network", testACMEEndpoint, "stagenet.orama.network", "")
+	cf := ci.generateCaddyfile("testnet.orama.network", "admin@testnet.orama.network", testACMEEndpoint, "testnet.orama.network", "")
 	issuers := strings.Count(cf, "issuer acme {")
 	if issuers == 0 {
 		t.Fatalf("no acme issuer:\n%s", cf)

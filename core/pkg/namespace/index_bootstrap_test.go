@@ -174,7 +174,7 @@ func TestEnsureRQLite_corruptRecordRefuses(t *testing.T) {
 // current one is kept.
 func TestRemoveStaleIndexConfigs_keepsOnlyThisNodes(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range []string{"gateway-stagenet.yaml", "gateway-12D3KooWX.yaml", "olric-stagenet.yaml"} {
+	for _, name := range []string{"gateway-testnet.yaml", "gateway-12D3KooWX.yaml", "olric-testnet.yaml"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -190,7 +190,7 @@ func TestRemoveStaleIndexConfigs_keepsOnlyThisNodes(t *testing.T) {
 	for _, e := range entries {
 		left = append(left, e.Name())
 	}
-	if want := []string{"gateway-12D3KooWX.yaml", "olric-stagenet.yaml"}; !reflect.DeepEqual(left, want) {
+	if want := []string{"gateway-12D3KooWX.yaml", "olric-testnet.yaml"}; !reflect.DeepEqual(left, want) {
 		t.Errorf("left %v, want %v", left, want)
 	}
 }
@@ -219,7 +219,7 @@ func TestEnsureRQLite_malformedRecordedMemberRefuses(t *testing.T) {
 // The old olric config goes too, and only olric configs are touched.
 func TestRemoveStaleIndexConfigs_olric(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range []string{"olric-stagenet.yaml", "olric-12D3KooWX.yaml", "gateway-stagenet.yaml"} {
+	for _, name := range []string{"olric-testnet.yaml", "olric-12D3KooWX.yaml", "gateway-testnet.yaml"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -227,7 +227,7 @@ func TestRemoveStaleIndexConfigs_olric(t *testing.T) {
 	if err := removeStaleIndexConfigs(dir, "olric", "12D3KooWX"); err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]bool{"olric-stagenet.yaml": false, "olric-12D3KooWX.yaml": true, "gateway-stagenet.yaml": true} {
+	for name, want := range map[string]bool{"olric-testnet.yaml": false, "olric-12D3KooWX.yaml": true, "gateway-testnet.yaml": true} {
 		if _, err := os.Stat(filepath.Join(dir, name)); (err == nil) != want {
 			t.Errorf("%s present=%v, want %v", name, err == nil, want)
 		}

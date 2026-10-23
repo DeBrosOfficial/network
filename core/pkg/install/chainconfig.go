@@ -13,7 +13,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
-// The settings every Orama chain node runs with, the ones chain/scripts/stagenet/
+// The settings every Orama chain node runs with, the ones chain/scripts/testnet/
 // deploy.sh used to write with sed. A multiple of the pruning interval makes a
 // snapshot a height the store keeps whole, and two kept snapshots let a joiner
 // that starts one while the next is cut still finish.

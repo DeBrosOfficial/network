@@ -43,8 +43,8 @@ func TestManifestValidate_fields(t *testing.T) {
 	}{
 		{"empty name", func(m *Manifest) { m.Name = "" }, "name"},
 		{"name with a slash", func(m *Manifest) { m.Name = "a/b" }, "name"},
-		{"uppercase name", func(m *Manifest) { m.Name = "Stagenet" }, "name"},
-		{"chain id with a space", func(m *Manifest) { m.ChainID = "orama stagenet" }, "chain_id"},
+		{"uppercase name", func(m *Manifest) { m.Name = "Testnet" }, "name"},
+		{"chain id with a space", func(m *Manifest) { m.ChainID = "orama testnet" }, "chain_id"},
 		{"chain id ending in a dash", func(m *Manifest) { m.ChainID = "orama-" }, "chain_id"},
 		{"chain id too long", func(m *Manifest) { m.ChainID = strings.Repeat("a", 49) }, "chain_id"},
 		{"genesis digest uppercase", func(m *Manifest) { m.GenesisSHA256 = strings.ToUpper(m.GenesisSHA256) }, "genesis_sha256"},

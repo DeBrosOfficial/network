@@ -18,9 +18,9 @@ func TestNodeNamesSyncer_withoutAZoneIsNil(t *testing.T) {
 
 func TestNodeNamesSyncer_withAZoneReadsTheChainAndTheRegistry(t *testing.T) {
 	n := testNodeForDNS(t)
-	n.config.DNS.NodeNamesZone = "nodes.stagenet.orama.network"
+	n.config.DNS.NodeNamesZone = "nodes.testnet.orama.network"
 	s := n.nodeNamesSyncer()
-	if s == nil || s.Zone != "nodes.stagenet.orama.network" {
+	if s == nil || s.Zone != "nodes.testnet.orama.network" {
 		t.Fatalf("sync = %+v", s)
 	}
 	if _, ok := s.Chain.(nodenames.ReaderChain); !ok {

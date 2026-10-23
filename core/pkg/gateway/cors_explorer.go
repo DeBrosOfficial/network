@@ -9,9 +9,9 @@ import (
 const (
 	// publicExplorerOrigin is where the Orama project serves its block explorer
 	// (website/src/explorer). The explorer is a static page on that host and
-	// reads a network's gateway (today stagenet's) from the reader's browser,
+	// reads a network's gateway (today testnet's) from the reader's browser,
 	// so its origin is not under that network's base domain (orama.network is
-	// the parent of stagenet.orama.network, and getAllowedOrigin admits only
+	// the parent of testnet.orama.network, and getAllowedOrigin admits only
 	// the base domain and the names under it).
 	publicExplorerOrigin = "https://orama.network"
 

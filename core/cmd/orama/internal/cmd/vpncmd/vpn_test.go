@@ -33,7 +33,7 @@ const (
 
 func networkFile(t *testing.T, private bool, onions ...string) string {
 	t.Helper()
-	n := tornet.Network{Name: "stagenet", Private: private, VotingIntervalMinutes: 30, VoteDelaySeconds: 300, DistDelaySeconds: 300, ValidatorOnions: onions}
+	n := tornet.Network{Name: "testnet", Private: private, VotingIntervalMinutes: 30, VoteDelaySeconds: 300, DistDelaySeconds: 300, ValidatorOnions: onions}
 	for i, ip := range []string{"57.129.166.16", "57.129.166.17", "161.97.184.199"} {
 		n.Authorities = append(n.Authorities, tornet.Authority{
 			Nickname: fmt.Sprintf("OramaAuth%d", i+1), Address: ip, ORPort: 31020, DirPort: 31021,
@@ -129,7 +129,7 @@ func TestUp_stopsTorWhenInterrupted(t *testing.T) {
 	if _, err := os.Stat(mark); err != nil {
 		t.Errorf("tor was not told to stop: %v", err)
 	}
-	for _, want := range []string{"Joined the stagenet Tor network", "SOCKS5 proxy: 127.0.0.1:19151", "DNS resolver: 127.0.0.1:19153"} {
+	for _, want := range []string{"Joined the testnet Tor network", "SOCKS5 proxy: 127.0.0.1:19151", "DNS resolver: 127.0.0.1:19153"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
@@ -322,7 +322,7 @@ func TestProbeAll_needsOneAnswerAndSaysWhichFailed(t *testing.T) {
 	var out bytes.Buffer
 	cmd := New()
 	cmd.SetOut(&out)
-	if err := probeAll(context.Background(), cmd, &onionnet.Tor{SocksAddr: good.addr}, "stagenet", []string{testOnion, otherOnion}); err != nil {
+	if err := probeAll(context.Background(), cmd, &onionnet.Tor{SocksAddr: good.addr}, "testnet", []string{testOnion, otherOnion}); err != nil {
 		t.Fatalf("err = %v", err)
 	}
 	if !strings.Contains(out.String(), "2 of 2 validator onion services reached") {
@@ -331,7 +331,7 @@ func TestProbeAll_needsOneAnswerAndSaysWhichFailed(t *testing.T) {
 
 	bad := newSOCKSServer(t, http.StatusBadGateway)
 	out.Reset()
-	err := probeAll(context.Background(), cmd, &onionnet.Tor{SocksAddr: bad.addr}, "stagenet", []string{testOnion})
+	err := probeAll(context.Background(), cmd, &onionnet.Tor{SocksAddr: bad.addr}, "testnet", []string{testOnion})
 	if err == nil || clierr.CodeOf(err) != clierr.CodeUnavailable || !strings.Contains(out.String(), "FAIL  "+testOnion) {
 		t.Errorf("err = %v, output:\n%s", err, out.String())
 	}

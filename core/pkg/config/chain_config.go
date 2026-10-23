@@ -9,7 +9,7 @@ type ChainConfig struct {
 }
 
 // FaucetConfig is chain.faucet: the node's gateway serves POST /v1/chain/faucet, signing MsgFaucet
-// with a key of its own for whoever asks. It is for a test network (a stagenet, devnet or
+// with a key of its own for whoever asks. It is for a test network (a testnet, devnet or
 // localnet chain id; the gateway signs nowhere else) and is off unless an operator turns it on.
 // `orama maint faucet init` creates the key and prints the account to fund.
 type FaucetConfig struct {

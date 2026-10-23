@@ -1,5 +1,5 @@
 // Command testtuf makes and updates a TUF release repository signed by
-// software keys, for the stagenet test root and for local tries of
+// software keys, for the testnet test root and for local tries of
 // `orama node setup --release` and the auto-update agent.
 //
 // The keys it makes sit in a directory on this machine. A production release

@@ -19,7 +19,7 @@ const secondOnion = "bbcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrstuvwx.on
 
 func networkFile(t *testing.T, onions ...string) string {
 	t.Helper()
-	n := tornet.Network{Name: "stagenet", Private: true, VotingIntervalMinutes: 30, VoteDelaySeconds: 300, DistDelaySeconds: 300, ValidatorOnions: onions}
+	n := tornet.Network{Name: "testnet", Private: true, VotingIntervalMinutes: 30, VoteDelaySeconds: 300, DistDelaySeconds: 300, ValidatorOnions: onions}
 	for i, ip := range []string{"57.129.166.16", "57.129.166.17", "161.97.184.199"} {
 		n.Authorities = append(n.Authorities, tornet.Authority{
 			Nickname: fmt.Sprintf("OramaAuth%d", i+1), Address: ip, ORPort: 31020, DirPort: 31021,

@@ -32,8 +32,8 @@ func insertRow(t *testing.T, db *sql.DB, fqdn, typ, value, namespace string) {
 // it is taken away.
 func TestSync_aNameThatShadowsAnotherOwnersHostIsNotPublished(t *testing.T) {
 	db := newRegistry(t)
-	insertRow(t, db, "push.nodes.stagenet.orama.network.", "A", "93.184.216.9", "system")
-	insertRow(t, db, "ns-victim.nodes.stagenet.orama.network.", "A", "93.184.216.10", "namespace:victim")
+	insertRow(t, db, "push.nodes.testnet.orama.network.", "A", "93.184.216.9", "system")
+	insertRow(t, db, "ns-victim.nodes.testnet.orama.network.", "A", "93.184.216.10", "namespace:victim")
 	chain := &fakeChain{names: []Named{
 		named("alice", "93.184.216.34"),
 		named("push", "1.2.3.4"),      // not reserved on the chain; the host exists in dns_records
@@ -55,7 +55,7 @@ func TestSync_aNameThatShadowsAnotherOwnersHostIsNotPublished(t *testing.T) {
 		t.Errorf("refused = %v, want the two shadowing names", stats.Refused)
 	}
 	// Rows published before the other owner appeared are withdrawn on the next pass.
-	insertRow(t, db, "alice.nodes.stagenet.orama.network.", "A", "9.9.9.9", "system")
+	insertRow(t, db, "alice.nodes.testnet.orama.network.", "A", "9.9.9.9", "system")
 	if _, err := syncer(db, chain).Sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func (r *floatRows) Next(dest []driver.Value) error {
 		return io.EOF
 	}
 	r.done = true
-	copy(dest, []driver.Value{"alice.nodes.stagenet.orama.network.", "A", "93.184.216.34", float64(1)})
+	copy(dest, []driver.Value{"alice.nodes.testnet.orama.network.", "A", "93.184.216.34", float64(1)})
 	return nil
 }
 
@@ -234,7 +234,7 @@ func TestOwned_readsABooleanColumnAsTheRqliteDriverReturnsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Record{"alice.nodes.stagenet.orama.network.", "A", "93.184.216.34"}
+	want := Record{"alice.nodes.testnet.orama.network.", "A", "93.184.216.34"}
 	if active, ok := have[want]; !ok || !active {
 		t.Fatalf("have = %v", have)
 	}

@@ -176,7 +176,7 @@ func TestRandomValidatorOnion(t *testing.T) {
 }
 
 func TestValidNetworkName(t *testing.T) {
-	for name, want := range map[string]bool{"stagenet": true, "orama-teststage": true, "../etc": false, "": false, "Up": false, "a b": false} {
+	for name, want := range map[string]bool{"testnet": true, "orama-teststage": true, "../etc": false, "": false, "Up": false, "a b": false} {
 		if got := ValidNetworkName(name); got != want {
 			t.Errorf("ValidNetworkName(%q) = %t", name, got)
 		}

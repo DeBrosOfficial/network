@@ -75,7 +75,7 @@ func (h *harness) runner(opts Options) (*runner, *bytes.Buffer) {
 		newClient: func(context.Context, *chainreach.Reach, string) (txClient, error) { return h.tx, nil },
 		pin: func(env, explicit string) (string, error) {
 			h.pinned = append(h.pinned, env+"/"+explicit)
-			return "orama-stagenet-1", h.pinErr
+			return "orama-testnet-1", h.pinErr
 		},
 		checkChain: func(_ context.Context, _ *chainreach.Reach, want string) error {
 			h.checked = append(h.checked, want)
@@ -321,22 +321,22 @@ func TestRun_aNodeEditFailureWithoutTheChainSaysItMayBePartlyChanged(t *testing.
 
 func TestRun_theDeclarationIsSignedOnlyForTheChainTheNetworkRuns(t *testing.T) {
 	h := newHarness()
-	r, out := h.runner(Options{Env: "stagenet", Node: "10.0.0.1", Settings: Settings{StorageGB: gb(100)}, ChainNodeID: "node-1", ChainID: "orama-stagenet-1"})
+	r, out := h.runner(Options{Env: "testnet", Node: "10.0.0.1", Settings: Settings{StorageGB: gb(100)}, ChainNodeID: "node-1", ChainID: "orama-testnet-1"})
 
 	if err := r.run(context.Background()); err != nil {
 		t.Fatalf("run: %v\n%s", err, out)
 	}
-	if len(h.pinned) != 1 || h.pinned[0] != "stagenet/orama-stagenet-1" {
+	if len(h.pinned) != 1 || h.pinned[0] != "testnet/orama-testnet-1" {
 		t.Errorf("pinned %v: the environment and --chain-id", h.pinned)
 	}
-	if len(h.checked) != 1 || h.checked[0] != "orama-stagenet-1" {
+	if len(h.checked) != 1 || h.checked[0] != "orama-testnet-1" {
 		t.Errorf("the node's chain was checked against %v", h.checked)
 	}
 }
 
 func TestRun_aNodeOnAnotherChainChangesNothing(t *testing.T) {
 	h := newHarness()
-	h.checkErr = errors.New(`10.0.0.1 runs the chain "orama-evil-1", not the "orama-stagenet-1" this network runs: refusing to sign for it`)
+	h.checkErr = errors.New(`10.0.0.1 runs the chain "orama-evil-1", not the "orama-testnet-1" this network runs: refusing to sign for it`)
 	r, out := h.runner(Options{Node: "10.0.0.1", Settings: Settings{StorageGB: gb(100)}, ChainNodeID: "node-1"})
 
 	err := r.run(context.Background())
@@ -351,7 +351,7 @@ func TestRun_aNodeOnAnotherChainChangesNothing(t *testing.T) {
 
 func TestRun_aNetworkWithNoKnownChainIDNeedsTheFlag(t *testing.T) {
 	h := newHarness()
-	h.pinErr = clierr.Usage("cannot tell which chain %q runs: pass --chain-id <id>", "stagenet")
+	h.pinErr = clierr.Usage("cannot tell which chain %q runs: pass --chain-id <id>", "testnet")
 	r, _ := h.runner(Options{Node: "10.0.0.1", Settings: Settings{StorageGB: gb(100)}, ChainNodeID: "node-1"})
 
 	err := r.run(context.Background())

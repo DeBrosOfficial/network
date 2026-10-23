@@ -150,11 +150,11 @@ func restReach(t *testing.T, body string) *Reach {
 }
 
 func TestReach_ChainID(t *testing.T) {
-	r := restReach(t, `{"default_node_info":{"network":"orama-stagenet-6"}}`)
+	r := restReach(t, `{"default_node_info":{"network":"orama-testnet-6"}}`)
 
 	got, err := r.ChainID(context.Background())
 
-	if err != nil || got != "orama-stagenet-6" {
+	if err != nil || got != "orama-testnet-6" {
 		t.Fatalf("ChainID = %q, %v", got, err)
 	}
 }
@@ -170,26 +170,26 @@ func TestReach_ChainIDWithoutANetworkIsAnError(t *testing.T) {
 func TestReach_CheckChain_refusesANodeOnAnotherChain(t *testing.T) {
 	r := restReach(t, `{"default_node_info":{"network":"orama-evil-1"}}`)
 
-	err := r.CheckChain(context.Background(), "orama-stagenet-6")
+	err := r.CheckChain(context.Background(), "orama-testnet-6")
 
 	if err == nil || !strings.Contains(err.Error(), "refusing to sign") || !strings.Contains(err.Error(), "orama-evil-1") {
 		t.Fatalf("err = %v", err)
 	}
-	if _, err := r.Client(context.Background(), nil, "orama-stagenet-6"); err == nil || !strings.Contains(err.Error(), "refusing to sign") {
+	if _, err := r.Client(context.Background(), nil, "orama-testnet-6"); err == nil || !strings.Contains(err.Error(), "refusing to sign") {
 		t.Errorf("Client built for a chain the node does not run: %v", err)
 	}
 }
 
 func TestReach_CheckChain_acceptsTheChainTheNetworkRuns(t *testing.T) {
-	r := restReach(t, `{"default_node_info":{"network":"orama-stagenet-6"}}`)
+	r := restReach(t, `{"default_node_info":{"network":"orama-testnet-6"}}`)
 
-	if err := r.CheckChain(context.Background(), "orama-stagenet-6"); err != nil {
+	if err := r.CheckChain(context.Background(), "orama-testnet-6"); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestReach_CheckChain_needsAChainIDToCompareWith(t *testing.T) {
-	r := restReach(t, `{"default_node_info":{"network":"orama-stagenet-6"}}`)
+	r := restReach(t, `{"default_node_info":{"network":"orama-testnet-6"}}`)
 
 	if err := r.CheckChain(context.Background(), ""); err == nil || !strings.Contains(err.Error(), "--chain-id") {
 		t.Fatalf("err = %v: the node's own word for its chain is not a pin", err)
@@ -197,7 +197,7 @@ func TestReach_CheckChain_needsAChainIDToCompareWith(t *testing.T) {
 }
 
 func TestPin(t *testing.T) {
-	registry := map[string]string{"stagenet": "orama-stagenet-6"}
+	registry := map[string]string{"testnet": "orama-testnet-6"}
 	old := expectedChainID
 	t.Cleanup(func() { expectedChainID = old })
 	expectedChainID = func(env string) (string, string, error) {
@@ -209,9 +209,9 @@ func TestPin(t *testing.T) {
 	for name, tc := range map[string]struct {
 		env, explicit, want, wantErr string
 	}{
-		"the registry names it":              {"stagenet", "", "orama-stagenet-6", ""},
-		"the flag agrees":                    {"stagenet", "orama-stagenet-6", "orama-stagenet-6", ""},
-		"the flag disagrees":                 {"stagenet", "orama-other-1", "", "is not the chain of network"},
+		"the registry names it":              {"testnet", "", "orama-testnet-6", ""},
+		"the flag agrees":                    {"testnet", "orama-testnet-6", "orama-testnet-6", ""},
+		"the flag disagrees":                 {"testnet", "orama-other-1", "", "is not the chain of network"},
 		"no registry network, the flag does": {"mine", "orama-mine-1", "orama-mine-1", ""},
 		"no registry network, no flag":       {"mine", "", "", "--chain-id"},
 		"a flag that is no chain id":         {"mine", "Orama 1", "", "is not a chain id"},
@@ -225,7 +225,7 @@ func TestPin(t *testing.T) {
 		}
 	}
 	expectedChainID = func(string) (string, string, error) { return "", "", errors.New("store unreadable") }
-	if _, err := Pin("stagenet", ""); err == nil || !strings.Contains(err.Error(), "store unreadable") {
+	if _, err := Pin("testnet", ""); err == nil || !strings.Contains(err.Error(), "store unreadable") {
 		t.Errorf("a registry that cannot be read is an error with its cause: %v", err)
 	}
 }
