@@ -47,4 +47,10 @@ const (
 	// function invoke rate limiter without being the credential, and a key
 	// presented bare or exchanged for a token has the same one.
 	KeyFingerprint ContextKey = "api_key_fingerprint"
+
+	// KeyID holds the registry id (api_keys.id, int64) of the API key that
+	// authenticated the request bare — set where the key was looked up, or
+	// read off the hop that forwarded it. A socket the key opens is held to
+	// the key's revocation by it (bug-702).
+	KeyID ContextKey = "api_key_id"
 )

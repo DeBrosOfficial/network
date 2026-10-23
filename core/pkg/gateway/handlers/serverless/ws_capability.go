@@ -11,6 +11,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/capability"
 	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
 	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
@@ -217,6 +218,17 @@ func (h *ServerlessHandlers) socketClaims(r *http.Request) *auth.JWTClaims {
 		return c.RevocationClaims()
 	}
 	return h.getJWTClaimsFromRequest(r)
+}
+
+// registerSocket holds a socket to the credential that opened it: its token
+// or capability (socketClaims), or the bare API key, by the key's registry id,
+// so revoking the key closes it too (bug-702).
+func (h *ServerlessHandlers) registerSocket(r *http.Request, closeFn wssession.Closer) *wssession.Socket {
+	if claims := h.socketClaims(r); claims != nil {
+		return h.sessions.Register(claims, closeFn)
+	}
+	keyID, _ := r.Context().Value(ctxkeys.KeyID).(int64)
+	return h.sessions.RegisterKey(keyID, closeFn)
 }
 
 // socketCounter counts the sockets each capability holds open.

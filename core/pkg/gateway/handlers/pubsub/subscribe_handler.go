@@ -8,7 +8,6 @@ import (
 
 	"github.com/Orama-Network/orama/core/pkg/client"
 	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
-	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 	"github.com/Orama-Network/orama/core/pkg/pubsub"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -106,11 +105,10 @@ func (p *PubSubHandlers) WebsocketHandler(w http.ResponseWriter, r *http.Request
 	}
 	defer conn.Close()
 
-	// The subscription is only as good as the token that opened it: the
-	// gateway's sweeper closes the socket once that token expires or is
-	// revoked.
-	claims, _ := r.Context().Value(ctxkeys.JWT).(*gwauth.JWTClaims)
-	sock := p.sessions.Register(claims, subscriberCloser(conn))
+	// The subscription is only as good as the credential that opened it: the
+	// gateway's sweeper closes the socket once its token expires or is
+	// revoked, or once the bare API key that opened it is revoked (bug-702).
+	sock := p.registerSubscriber(r, subscriberCloser(conn))
 	defer sock.Unregister()
 
 	presence := p.joinPresence(ns, topic, enablePresence, memberID, memberMeta)

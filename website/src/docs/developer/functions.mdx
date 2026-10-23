@@ -1091,8 +1091,9 @@ opened it for as long as it stays open:
   socket was opened with; any other is refused with `ok:false` and the socket keeps its
   current token. A socket opened with an API key, or with no credential on a
   public function, has no token and cannot take one on — reconnect instead.
-- A socket opened with an API key is not re-checked; revoking the key refuses
-  its next upgrade.
+- A socket opened with an API key is held to the key: revoking the key closes
+  its open sockets with `4403` ("API key revoked") within ten seconds, and
+  refuses its next upgrade.
 
 A stateless function socket and a `/v1/pubsub/ws` subscription are re-checked
 the same way. Neither takes `auth.refresh`, so either one is closed with `4401`

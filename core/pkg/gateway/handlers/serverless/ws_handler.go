@@ -156,7 +156,7 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 	// Every frame is invoked with the identity captured below, so the socket
 	// is only as good as the token — or the capability — that opened it: the
 	// gateway's sweeper closes it once that expires or is revoked.
-	sock := h.sessions.Register(h.socketClaims(r), h.closeClient(clientID))
+	sock := h.registerSocket(r, h.closeClient(clientID))
 	defer sock.Unregister()
 
 	// Track client → namespace for ws_pubsub_bridge auth checks, and

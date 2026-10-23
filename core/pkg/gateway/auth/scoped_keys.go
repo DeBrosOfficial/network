@@ -224,6 +224,13 @@ func (s *Service) RevokeKey(ctx context.Context, namespace string, id int64) err
 		}
 	}
 
+	// A socket opened with the bare key carries no token to find on the list;
+	// the sweeper finds it by the key's id.
+	if err := s.revokeKeyID(ctx, id, fmt.Sprintf("api key %d revoked in namespace %s", id, namespace)); err != nil {
+		return fmt.Errorf("the key was revoked but the sockets it opened were not, "+
+			"so they would stay open: %w", err)
+	}
+
 	s.audit.Record(ctx, AuditEvent{
 		Namespace: namespace,
 		Action:    AuditKeyRevoked,

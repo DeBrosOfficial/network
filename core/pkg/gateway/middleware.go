@@ -651,19 +651,21 @@ func withKeyAuthority(ctx context.Context, scopes string, resources auth.KeyReso
 // markHopRequestKey records, for request_logs, the registry id of the API key
 // the main gateway authenticated, as the hop carries it. The MAC verified, so
 // a value that is not an id is the main gateway's own bug; it is reported and
-// the row records no key rather than a guessed one.
-func (g *Gateway) markHopRequestKey(r *http.Request) {
+// the row records no key rather than a guessed one. The id is also put on the
+// context, where a socket the key opens is held to its revocation (bug-702).
+func (g *Gateway) markHopRequestKey(ctx context.Context, r *http.Request) context.Context {
 	raw := strings.TrimSpace(r.Header.Get(HeaderInternalAuthKeyID))
 	if raw == "" {
-		return
+		return ctx
 	}
 	id, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || id <= 0 {
 		g.logger.ComponentWarn("gateway", "dropped a hop API key id that is not one",
 			zap.String("path", r.URL.Path), zap.String("key_id", raw))
-		return
+		return ctx
 	}
-	markRequestKey(r.Context(), id)
+	markRequestKey(ctx, id)
+	return context.WithValue(ctx, ctxKeyKeyID, id)
 }
 
 // withKeyFingerprint attaches the fingerprint of the API key that
@@ -980,7 +982,7 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 					reqCtx = withKeyAuthority(reqCtx, raw,
 						auth.KeyResourcesFromStored(r.Header.Get(HeaderInternalAuthKeyResources)))
 					reqCtx = withKeyFingerprint(reqCtx, r.Header.Get(HeaderInternalAuthKeyFingerprint))
-					g.markHopRequestKey(r)
+					reqCtx = g.markHopRequestKey(reqCtx, r)
 				}
 				next.ServeHTTP(w, r.WithContext(reqCtx))
 				return
@@ -1127,6 +1129,7 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 		reqCtx = context.WithValue(reqCtx, CtxKeyNamespaceOverride, entry.namespace)
 		reqCtx = withKeyAuthority(reqCtx, entry.scopes, entry.resources)
 		reqCtx = withKeyFingerprint(reqCtx, entry.authority().fingerprint)
+		reqCtx = context.WithValue(reqCtx, ctxKeyKeyID, entry.id)
 		markRequestKey(reqCtx, entry.id)
 		g.recordDeprecatedCredential(r, entry.namespace, form)
 		next.ServeHTTP(w, r.WithContext(reqCtx))
@@ -2105,11 +2108,13 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 		// debug path.
 		if isProxyTimeoutErr(lastErr) {
 			httputil.WriteRPCError(w, http.StatusGatewayTimeout,
-				httputil.ErrCodeTimeout, proxyTimeoutMessage(r.URL.Path, proxyTimeout))
+				httputil.ErrCodeTimeout, proxyTimeoutMessage(r.URL.Path, proxyTimeout),
+				proxyFailureRetryable(r.Method, lastErr))
 			return
 		}
 		httputil.WriteRPCError(w, http.StatusServiceUnavailable,
-			httputil.ErrCodeServiceUnavailable, namespaceGatewayUnavailableMessage)
+			httputil.ErrCodeServiceUnavailable, namespaceGatewayUnavailableMessage,
+			proxyFailureRetryable(r.Method, lastErr))
 		return
 	}
 	defer resp.Body.Close()

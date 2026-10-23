@@ -174,7 +174,7 @@ A WebSocket is authorised once, at the upgrade. Every socket opened with a token
 | `4403` | The token, its session or its subject was revoked. Sign in again |
 | `4503` | The gateway could not check revocation for 2 minutes. Reconnect shortly |
 
-A persistent function socket takes `{"__orama":"auth.refresh","jwt":…}` and is held to the new token from then on. A refresh must be for the **same subject**, and a socket opened with an API key or no credential cannot take one. A socket opened with an API key has no token and is not re-checked: revoking the key stops it opening new sockets, not the ones it has open.
+A persistent function socket takes `{"__orama":"auth.refresh","jwt":…}` and is held to the new token from then on. A refresh must be for the **same subject**, and a socket opened with an API key or no credential cannot take one. A socket opened with an API key has no token; it is held to the key instead, and revoking the key closes its open sockets with `4403` within ten seconds as well as refusing new ones.
 
 The revocation list **fails closed**: if it cannot be read and its copy is over 10 seconds old, a request that presents a credential is refused `503 AUTH_UNAVAILABLE` with `Retry-After`. An unknown state is never treated as "not revoked".
 

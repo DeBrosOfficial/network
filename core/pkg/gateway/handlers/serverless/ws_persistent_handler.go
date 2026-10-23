@@ -108,7 +108,7 @@ func (h *ServerlessHandlers) handlePersistentWebSocket(
 	// gateway's sweeper closes it once the token expires or is revoked, and
 	// the read loop below refuses frames past expiry in between sweeps. A
 	// successful auth.refresh control frame moves it to the new token.
-	sock := h.sessions.Register(h.socketClaims(r), h.closeClient(clientID))
+	sock := h.registerSocket(r, h.closeClient(clientID))
 	defer sock.Unregister()
 
 	// Instantiate the persistent module. This compiles once (cached) and

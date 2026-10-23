@@ -3,6 +3,7 @@ package wssession
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,6 +18,9 @@ type revokedJTIs map[string]bool
 func (d revokedJTIs) Revoked(c *auth.JWTClaims) (bool, error) { return d[c.Jti], nil }
 func (d revokedJTIs) RefreshRevocations(context.Context)      {}
 func (d revokedJTIs) RevocationsUsable() bool                 { return true }
+
+// RevokedKey denies the keys it names as "key:<id>".
+func (d revokedJTIs) RevokedKey(id int64) (bool, error) { return d[fmt.Sprintf("key:%d", id)], nil }
 
 // closeLog records what a socket was closed with.
 type closeLog struct {
@@ -219,6 +223,8 @@ func (d *countingDenier) RefreshRevocations(context.Context) {
 
 func (d *countingDenier) RevocationsUsable() bool { return true }
 
+func (d *countingDenier) RevokedKey(int64) (bool, error) { return false, nil }
+
 func (d *countingDenier) Revoked(c *auth.JWTClaims) (bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -352,6 +358,10 @@ func (d *unavailableDenier) RevocationsUsable() bool {
 	atomic.AddInt32(&d.probes, 1)
 	return false
 }
+func (d *unavailableDenier) RevokedKey(int64) (bool, error) {
+	return false, auth.ErrRevocationsUnavailable
+}
+
 func (d *unavailableDenier) Revoked(*auth.JWTClaims) (bool, error) {
 	atomic.AddInt32(&d.asked, 1)
 	<-d.hang
@@ -470,5 +480,37 @@ func TestSocketRefresh_countsAsACheck(t *testing.T) {
 	r.Sweep(now.Add(time.Minute+maxUncheckedSocketAge-time.Second), newUnavailableDenier())
 	if len(live.got()) != 0 {
 		t.Error("a socket whose token was just refreshed was closed as unchecked")
+	}
+}
+
+// bug-702: a socket opened with a bare API key is held to the key's
+// revocation, closed with its own reason, and stays open while the key is not
+// revoked.
+func TestRegisterKey_aRevokedKeyClosesItsSockets(t *testing.T) {
+	r := NewRegistry(nil)
+	var gone, kept closeLog
+	var reason string
+	revoked := r.RegisterKey(7, func(code int, why string) { reason = why; gone.closer()(code, why) })
+	r.RegisterKey(8, kept.closer())
+
+	if n := r.Sweep(time.Now(), revokedJTIs{"key:7": true}); n != 1 {
+		t.Fatalf("closed %d sockets, want the revoked key's one", n)
+	}
+	if got := gone.got(); len(got) != 1 || got[0] != CloseRevoked || reason != ReasonKeyRevoked {
+		t.Errorf("the revoked key's socket closed with %v %q, want %d %q", got, reason, CloseRevoked, ReasonKeyRevoked)
+	}
+	if got := kept.got(); len(got) != 0 {
+		t.Errorf("another key's socket was closed: %v", got)
+	}
+	if err := revoked.CheckRefresh(token("j", time.Now().Add(time.Hour))); !errors.Is(err, ErrNotRefreshable) {
+		t.Errorf("a key-opened socket took on a token: %v", err)
+	}
+}
+
+// A socket with no key id names nothing to revoke and is not held.
+func TestRegisterKey_noKeyRegistersNothing(t *testing.T) {
+	r := NewRegistry(nil)
+	if s := r.RegisterKey(0, func(int, string) {}); s != nil || r.Len() != 0 {
+		t.Errorf("a socket with no key was registered: %v, %d", s, r.Len())
 	}
 }

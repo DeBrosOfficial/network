@@ -158,11 +158,12 @@ func sessionIDOf(t testing.TB, c *gw.Client, bearer, deviceID string) int64 {
 	return 0
 }
 
-// TestSocketRevocation_keySocketsStayOpen: a socket opened with an API key
-// has no token to re-check; revoking the key refuses its next upgrade and
-// leaves the open socket alone (docs/whitepaper/technical-reference/vol1/13-identity.md#open-websockets). ?jwt= opens a
-// socket with a token where a header cannot be set.
-func TestSocketRevocation_keySocketsStayOpen(t *testing.T) {
+// TestSocketRevocation_revokedKeyClosesItsSockets: a socket opened with an
+// API key is held to the key; revoking the key refuses its next upgrade and
+// closes the open socket with 4403 (bug-702,
+// docs/whitepaper/technical-reference/vol1/13-identity.md#open-websockets).
+// ?jwt= opens a socket with a token where a header cannot be set.
+func TestSocketRevocation_revokedKeyClosesItsSockets(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
 	n := ns.New(t, f, ns.Options{})
@@ -195,7 +196,7 @@ func TestSocketRevocation_keySocketsStayOpen(t *testing.T) {
 		}
 		return true, nil
 	})
-	if code := byKey.closeCode(t, sweepBudget); code != 0 {
-		t.Errorf("the key's open socket was closed with %d; key sockets are not re-checked", code)
+	if code := byKey.closeCode(t, sweepBudget); code != closeRevoked {
+		t.Errorf("the revoked key's open socket: close code %d, want %d", code, closeRevoked)
 	}
 }
