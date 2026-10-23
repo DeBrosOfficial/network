@@ -93,8 +93,8 @@ func publicIP() string {
 // restarts a node of the cluster.
 func TestNodeNames_theZoneServesAClaimAndDropsARelease(t *testing.T) {
 	f := harness.Fleet(t)
-	if f.State.IsStagenet() {
-		harness.SkipNotApplicable(t, "the test writes node.yaml and restarts a node of the run's own fleet; it does not touch stagenet")
+	if f.State.IsTestnet() {
+		harness.SkipNotApplicable(t, "the test writes node.yaml and restarts a node of the run's own fleet; it does not touch testnet")
 	}
 	c := chain.New(t)
 	n := c.Node(t, chain.OperatorNode)

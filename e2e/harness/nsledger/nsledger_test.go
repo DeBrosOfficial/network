@@ -95,7 +95,7 @@ func TestRecord_refusesANameWithoutThePrefix(t *testing.T) {
 // the runner remove a real namespace.
 func TestReconcile_aNameWithoutThePrefixNeverReachesTheRemover(t *testing.T) {
 	path := ledgerIn(t)
-	body := "{\"namespace\":\"stagenetproof\",\"at\":\"2026-10-01T06:00:00Z\"}\n"
+	body := "{\"namespace\":\"testnetproof\",\"at\":\"2026-10-01T06:00:00Z\"}\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}

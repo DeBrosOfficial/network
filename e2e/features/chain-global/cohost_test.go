@@ -83,7 +83,7 @@ func requireHiddenInUnit(t *testing.T, c *chain.Chain, n fleet.Node, pid, path s
 
 // TestCoHost_stateOwnedByTheChainUser: the chain home is orama-chain's, mode
 // 0700; the consensus key inside is 0600; the binary is root's, not
-// writable by the chain user (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "The stagenet deploy script").
+// writable by the chain user (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "The testnet deploy script").
 func TestCoHost_stateOwnedByTheChainUser(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
@@ -111,8 +111,8 @@ func TestCoHost_stateOwnedByTheChainUser(t *testing.T) {
 func TestCoHost_p2pOnWireGuardRPCOnLoopback(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
-	if c.F.State.IsStagenet() {
-		harness.SkipNotApplicable(t, "the stagenet chain runs in the orama-global netns and answers on "+c.Host()+", not on the host's loopback: its ports are not host listeners")
+	if c.F.State.IsTestnet() {
+		harness.SkipNotApplicable(t, "the testnet chain runs in the orama-global netns and answers on "+c.Host()+", not on the host's loopback: its ports are not host listeners")
 	}
 	for _, n := range c.Nodes() {
 		seen := map[int]bool{}
@@ -156,7 +156,7 @@ const (
 // roleProblems says what is wrong with a cluster node's preferences.yaml after the chain was
 // installed beside it. A fleet run installs the chain with e2e/scripts/chain-deploy.sh, which does
 // not touch the preferences, so the node has no role line (the cluster role). A co-located install
-// (`orama global install --colocated`, the stagenet deploy) records `role: both` and
+// (`orama global install --colocated`, the testnet deploy) records `role: both` and
 // `global_netns: orama-global` and nothing else. Either way the node runs the cluster graph, so
 // the role must never be global, which would boot the global graph and never WireGuard.
 func roleProblems(prefs string, colocated bool) []string {
@@ -184,14 +184,14 @@ func roleProblems(prefs string, colocated bool) []string {
 // TestCoHost_clusterNodeKeepsItsClusterRole: installing the chain beside a
 // cluster node leaves the node on the cluster graph, so orama-node keeps
 // booting it (website/src/docs/contributor/architecture-reference.mdx, node roles): the role is the cluster
-// role, or `both` with global_netns on a co-located install (stagenet),
+// role, or `both` with global_netns on a co-located install (testnet),
 // never global, and orama-node is active.
 func TestCoHost_clusterNodeKeepsItsClusterRole(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
 	for _, n := range c.Nodes() {
 		prefs := c.F.MustExec(t, n, "cat "+clusterPreferences).Stdout
-		for _, p := range roleProblems(prefs, c.F.State.IsStagenet()) {
+		for _, p := range roleProblems(prefs, c.F.State.IsTestnet()) {
 			t.Errorf("%s: %s %s", n.Name, clusterPreferences, p)
 		}
 		if s := c.F.Unit(t, n, "orama-node.service"); s != "active" {

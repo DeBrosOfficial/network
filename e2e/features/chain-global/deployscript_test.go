@@ -32,8 +32,8 @@ var (
 // the run's key and pinned known_hosts. Only the read-only verbs are used.
 func runDeployScript(t *testing.T, c *chain.Chain, verb string) (string, int) {
 	t.Helper()
-	if c.F.State.IsStagenet() {
-		harness.SkipNotApplicable(t, "chain-deploy.sh lays out a run chain (loopback ports, its own nodes spec); the stagenet chain is deployed by chain/scripts/stagenet/deploy.sh in the orama-global netns")
+	if c.F.State.IsTestnet() {
+		harness.SkipNotApplicable(t, "chain-deploy.sh lays out a run chain (loopback ports, its own nodes spec); the testnet chain is deployed by chain/scripts/testnet/deploy.sh in the orama-global netns")
 	}
 	if verb != "status" && verb != "invariants" {
 		t.Fatalf("refusing to run chain-deploy.sh %s: only status and invariants are read-only", verb)
@@ -58,7 +58,7 @@ func runDeployScript(t *testing.T, c *chain.Chain, verb string) (string, int) {
 }
 
 // TestDeployScript_statusAndInvariantsReadOnly: the run's chain deploy
-// script (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "The stagenet deploy script", e2e/scripts)
+// script (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md "The testnet deploy script", e2e/scripts)
 // `status` reports a height and a REST API that answers for every node, and `invariants` reports every
 // module ok on every node; both exit 0.
 func TestDeployScript_statusAndInvariantsReadOnly(t *testing.T) {

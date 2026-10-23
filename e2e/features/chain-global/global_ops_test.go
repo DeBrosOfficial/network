@@ -64,7 +64,7 @@ func installFingerprint(t *testing.T, f *fleet.Fleet, n fleet.Node) string {
 // they were, and an unprivileged account is refused the usage code. The
 // install that succeeds needs a staged release and a machine that is not
 // already running the chain under another layout: it is exercised by the
-// stagenet deploy script, not here.
+// testnet deploy script, not here.
 func TestGlobalInstall_refusalsChangeNothing(t *testing.T) {
 	t.Parallel()
 	c := chain.New(t)
@@ -111,7 +111,7 @@ func TestGlobalInstall_refusalsChangeNothing(t *testing.T) {
 }
 
 // optionalGlobalServices are the global services a node may run without:
-// a fleet validator runs none of them, stagenet's nodes run all but repair.
+// a fleet validator runs none of them, testnet's nodes run all but repair.
 var optionalGlobalServices = []string{"archiver", "repair", "indexer", "provider"}
 
 // uninstalledGlobalService is an optional global service whose unit file the

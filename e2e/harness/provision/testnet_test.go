@@ -10,9 +10,9 @@ import (
 )
 
 // Every operation that creates, changes or destroys servers refuses the
-// stagenet target before it reads a credential or reaches a broker.
-func TestOperations_refuseTheStagenetTarget(t *testing.T) {
-	st := &fleet.State{Target: config.TargetStagenet, RunID: "stagenet-20260930-101500"}
+// testnet target before it reads a credential or reaches a broker.
+func TestOperations_refuseTheTestnetTarget(t *testing.T) {
+	st := &fleet.State{Target: config.TargetTestnet, RunID: "testnet-20260930-101500"}
 	ctx := context.Background()
 	ops := map[string]func() error{
 		"AddExtra":             func() error { _, err := AddExtra(ctx, st, "extra-1", "hel1"); return err },
@@ -33,16 +33,16 @@ func TestOperations_refuseTheStagenetTarget(t *testing.T) {
 	for name, op := range ops {
 		t.Run(name, func(t *testing.T) {
 			err := op()
-			if err == nil || !strings.Contains(err.Error(), "not available on the stagenet target") || !strings.Contains(err.Error(), name) {
-				t.Fatalf("err %v, want a stagenet refusal naming %s", err, name)
+			if err == nil || !strings.Contains(err.Error(), "not available on the testnet target") || !strings.Contains(err.Error(), name) {
+				t.Fatalf("err %v, want a testnet refusal naming %s", err, name)
 			}
 		})
 	}
 }
 
-func TestRefuseStagenet_otherTargetsPass(t *testing.T) {
+func TestRefuseTestnet_otherTargetsPass(t *testing.T) {
 	for _, st := range []*fleet.State{nil, {}, {Target: config.TargetFleet}} {
-		if err := refuseStagenet("Down", st); err != nil {
+		if err := refuseTestnet("Down", st); err != nil {
 			t.Errorf("refused %+v: %v", st, err)
 		}
 	}

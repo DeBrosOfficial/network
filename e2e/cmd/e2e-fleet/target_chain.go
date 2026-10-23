@@ -25,16 +25,16 @@ const (
 // chainIDReader returns the chain id the target's gateway reports; tests replace it.
 type chainIDReader func(ctx context.Context) (string, error)
 
-// resolveChainID is the chain id a stagenet run is written for: the one the
+// resolveChainID is the chain id a testnet run is written for: the one the
 // live chain reports. A reset gives the chain a new id, so a remembered default
 // goes stale with the first reset; --chain-id, when given, must name the chain
 // that is running.
 func resolveChainID(ctx context.Context, flagID string, live chainIDReader) (string, error) {
 	id, err := live(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to read the chain id from %s%s: %w", config.StagenetGatewayURL, chainStatusPath, err)
+		return "", fmt.Errorf("failed to read the chain id from %s%s: %w", config.TestnetGatewayURL, chainStatusPath, err)
 	}
-	if err := config.CheckStagenetChainID(id); err != nil {
+	if err := config.CheckTestnetChainID(id); err != nil {
 		return "", fmt.Errorf("the live chain reports an id this target refuses: %w", err)
 	}
 	if flagID != "" && flagID != id {
@@ -54,7 +54,7 @@ func gatewayChainID(caFile string) chainIDReader {
 		client := &http.Client{Timeout: chainStatusTimeout, Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
 		}}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.StagenetGatewayURL+chainStatusPath, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.TestnetGatewayURL+chainStatusPath, nil)
 		if err != nil {
 			return "", err
 		}

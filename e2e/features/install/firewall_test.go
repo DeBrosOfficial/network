@@ -31,8 +31,8 @@ func TestInstall_firewallDefaultDeny(t *testing.T) {
 // `orama` (Reconcile owns only tagged rules, docs/whitepaper/technical-reference/vol1/30-install-and-upgrade.md "Firewall: only
 // Orama's rules"), the desired set is all there, and nothing outside it is
 // open: SSH, WireGuard, HTTP(S), DNS on nameservers only, TURN only while the
-// host relays, and the mesh only on wg0. On the stagenet target a rule the
-// operator added without a tag must be declared in config.StagenetHostUFWRules
+// host relays, and the mesh only on wg0. On the testnet target a rule the
+// operator added without a tag must be declared in config.TestnetHostUFWRules
 // (and is logged); a declaration whose rule is gone fails.
 func TestInstall_firewallRulesAreExactlyOramas(t *testing.T) {
 	t.Parallel()
@@ -52,8 +52,8 @@ func TestInstall_firewallRulesAreExactlyOramas(t *testing.T) {
 			if r.V6 || !strings.HasPrefix(r.Action, "ALLOW") {
 				continue
 			}
-			if r.Comment == "" && f.State.IsStagenet() {
-				if h, ok := config.StagenetHostUFWRule(n.Name, r.To); ok {
+			if r.Comment == "" && f.State.IsTestnet() {
+				if h, ok := config.TestnetHostUFWRule(n.Name, r.To); ok {
 					used[h.To] = true
 					t.Logf("%s: untagged rule %s is a declared host extra: %s", n.Name, r.To, h.Why)
 					continue
@@ -66,10 +66,10 @@ func TestInstall_firewallRulesAreExactlyOramas(t *testing.T) {
 				t.Errorf("%s: an orama rule opens %s, which the desired set does not have", n.Name, r.To)
 			}
 		}
-		if f.State.IsStagenet() {
-			for _, h := range config.StagenetHostUFWRulesOn(n.Name) {
+		if f.State.IsTestnet() {
+			for _, h := range config.TestnetHostUFWRulesOn(n.Name) {
 				if !used[h.To] {
-					t.Errorf("%s: the declared host rule %q is not there any more: remove it from config.StagenetHostUFWRules", n.Name, h.To)
+					t.Errorf("%s: the declared host rule %q is not there any more: remove it from config.TestnetHostUFWRules", n.Name, h.To)
 				}
 			}
 		}

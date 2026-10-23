@@ -198,7 +198,7 @@ func TestGlobalStageOramad_argumentChecks(t *testing.T) {
 }
 
 // nodeChainRPC is where a node's chain answers, as the node sees it: the run's
-// recorded endpoint when there is one (stagenet runs the chain co-located, in
+// recorded endpoint when there is one (testnet runs the chain co-located, in
 // its own network namespace at 198.18.0.2), else the fleet node's localhost.
 func nodeChainRPC(f *fleet.Fleet) string {
 	if f.State.ChainRPC != "" {

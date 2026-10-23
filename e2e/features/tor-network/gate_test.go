@@ -25,7 +25,7 @@ const (
 
 // gateSpace is the network namespace a test gate runs in and reaches the chain
 // REST API from. A fleet run's validator listens on the node's loopback. On a
-// co-located node (stagenet) the chain is inside the orama-global namespace,
+// co-located node (testnet) the chain is inside the orama-global namespace,
 // at the namespace address: a gate in the node's own namespace would forward
 // to a loopback nothing listens on and answer 502, as the installed gate would
 // if it did not run in the namespace too (core/pkg/install/global_netns.go).
@@ -39,7 +39,7 @@ type gateSpace struct {
 }
 
 func gateSpaceOf(f *fleet.Fleet) gateSpace {
-	if f.State.IsStagenet() {
+	if f.State.IsTestnet() {
 		return gateSpace{
 			upstream:     constants.ColocatedChainAPIURL(),
 			unitProperty: "-p NetworkNamespacePath=/run/netns/" + chain.NetnsName,

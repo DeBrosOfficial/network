@@ -11,12 +11,12 @@ const (
 // so the matching rules are exercised whatever the real nodes declare.
 func withDeclarations(t *testing.T, listeners []HostListener, rules []HostUFWRule) {
 	t.Helper()
-	oldL, oldR := StagenetHostListeners, StagenetHostUFWRules
-	StagenetHostListeners, StagenetHostUFWRules = listeners, rules
-	t.Cleanup(func() { StagenetHostListeners, StagenetHostUFWRules = oldL, oldR })
+	oldL, oldR := TestnetHostListeners, TestnetHostUFWRules
+	TestnetHostListeners, TestnetHostUFWRules = listeners, rules
+	t.Cleanup(func() { TestnetHostListeners, TestnetHostUFWRules = oldL, oldR })
 }
 
-func TestStagenetHostListener_declaredAndUndeclared(t *testing.T) {
+func TestTestnetHostListener_declaredAndUndeclared(t *testing.T) {
 	withDeclarations(t, []HostListener{
 		{Node: "node-1", Process: "tailscaled", Proto: "udp", Why: testWhy},
 		{Node: "node-1", Process: "tailscaled", Proto: "tcp", Net: testTailnetNet, Why: testWhy},
@@ -46,75 +46,75 @@ func TestStagenetHostListener_declaredAndUndeclared(t *testing.T) {
 		{"empty process", "node-1", "tcp", "0.0.0.0", 41641, "", false},
 	}
 	for _, c := range cases {
-		if _, got := StagenetHostListener(c.node, c.proto, c.addr, c.port, c.process); got != c.want {
+		if _, got := TestnetHostListener(c.node, c.proto, c.addr, c.port, c.process); got != c.want {
 			t.Errorf("%s: covered = %v, want %v", c.name, got, c.want)
 		}
 	}
 }
 
-func TestStagenetHostListener_nodeWideDeclarationCoversEveryNode(t *testing.T) {
+func TestTestnetHostListener_nodeWideDeclarationCoversEveryNode(t *testing.T) {
 	withDeclarations(t, []HostListener{{Process: "agent", Proto: "tcp", Port: 7000, Why: testWhy}}, nil)
 	for _, node := range []string{"node-1", "node-5"} {
-		if _, ok := StagenetHostListener(node, "tcp6", "::", 7000, "agent"); !ok {
+		if _, ok := TestnetHostListener(node, "tcp6", "::", 7000, "agent"); !ok {
 			t.Errorf("%s: a declaration without a node must cover it (tcp6 matches tcp)", node)
 		}
 	}
 }
 
-func TestStagenetHostUFWRule_declaredAndUndeclared(t *testing.T) {
+func TestTestnetHostUFWRule_declaredAndUndeclared(t *testing.T) {
 	withDeclarations(t, nil, []HostUFWRule{{To: "Anywhere on tailscale0", Why: testWhy}})
 	for _, node := range []string{"node-1", "node-2", "node-5"} {
-		if _, ok := StagenetHostUFWRule(node, "Anywhere on tailscale0"); !ok {
+		if _, ok := TestnetHostUFWRule(node, "Anywhere on tailscale0"); !ok {
 			t.Errorf("%s: the declared rule is not found", node)
 		}
-		if _, ok := StagenetHostUFWRule(node, "10200/tcp"); ok {
+		if _, ok := TestnetHostUFWRule(node, "10200/tcp"); ok {
 			t.Errorf("%s: an arbitrary port rule is declared", node)
 		}
 	}
-	if got := StagenetHostUFWRulesOn("node-9"); len(got) != 1 {
+	if got := TestnetHostUFWRulesOn("node-9"); len(got) != 1 {
 		t.Errorf("a node-wide declaration must apply to every node, got %v", got)
 	}
 }
 
-func TestStagenetHostListenersOn_filtersByNode(t *testing.T) {
+func TestTestnetHostListenersOn_filtersByNode(t *testing.T) {
 	withDeclarations(t, []HostListener{
 		{Node: "node-2", Process: "rpcbind", Proto: "tcp", Port: 111, Why: testWhy},
 		{Node: "node-2", Process: "rpcbind", Proto: "udp", Port: 111, Why: testWhy},
 	}, nil)
-	if got := StagenetHostListenersOn("node-2"); len(got) != 2 {
+	if got := TestnetHostListenersOn("node-2"); len(got) != 2 {
 		t.Errorf("node-2 declarations = %v, want the two rpcbind sockets", got)
 	}
-	if got := StagenetHostListenersOn("node-9"); len(got) != 0 {
+	if got := TestnetHostListenersOn("node-9"); len(got) != 0 {
 		t.Errorf("an unknown node has no declarations, got %v", got)
 	}
 }
 
-func TestStagenetHostListeners_everyDeclarationNamesAProcessAndWhy(t *testing.T) {
-	for _, h := range StagenetHostListeners {
+func TestTestnetHostListeners_everyDeclarationNamesAProcessAndWhy(t *testing.T) {
+	for _, h := range TestnetHostListeners {
 		if h.Process == "" || h.Proto == "" || h.Why == "" {
 			t.Errorf("incomplete declaration %+v", h)
 		}
 	}
-	for _, r := range StagenetHostUFWRules {
+	for _, r := range TestnetHostUFWRules {
 		if r.To == "" || r.Why == "" {
 			t.Errorf("incomplete ufw declaration %+v", r)
 		}
 	}
 }
 
-func TestStagenetHostExtras_declaredNodesAreStagenetNodes(t *testing.T) {
+func TestTestnetHostExtras_declaredNodesAreTestnetNodes(t *testing.T) {
 	known := map[string]bool{}
-	for _, n := range StagenetNodes {
+	for _, n := range TestnetNodes {
 		known[n.Name] = true
 	}
-	for _, h := range StagenetHostListeners {
+	for _, h := range TestnetHostListeners {
 		if h.Node != "" && !known[h.Node] {
-			t.Errorf("declaration %+v names a node that is not a stagenet node", h)
+			t.Errorf("declaration %+v names a node that is not a testnet node", h)
 		}
 	}
-	for _, r := range StagenetHostUFWRules {
+	for _, r := range TestnetHostUFWRules {
 		if r.Node != "" && !known[r.Node] {
-			t.Errorf("ufw declaration %+v names a node that is not a stagenet node", r)
+			t.Errorf("ufw declaration %+v names a node that is not a testnet node", r)
 		}
 	}
 }

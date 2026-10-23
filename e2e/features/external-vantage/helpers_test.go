@@ -20,8 +20,8 @@ import (
 func probes(t *testing.T) (*fleet.Fleet, []fleet.Node) {
 	t.Helper()
 	f := harness.Fleet(t)
-	if f.State.IsStagenet() {
-		harness.SkipNotApplicable(t, "the stagenet target has no probe VM: the existing cluster is only tested, never provisioned")
+	if f.State.IsTestnet() {
+		harness.SkipNotApplicable(t, "the testnet target has no probe VM: the existing cluster is only tested, never provisioned")
 	}
 	if len(f.State.Probes) == 0 {
 		harness.SkipNotApplicable(t, "the run has no probe VM (state.probes is empty); provision one with requires.probe to test from outside the fleet's network")

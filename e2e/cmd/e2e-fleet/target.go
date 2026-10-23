@@ -24,14 +24,14 @@ import (
 	"github.com/Orama-Network/orama/e2e/harness/sshx"
 )
 
-// Bounds and names of `e2e-fleet target stagenet`.
+// Bounds and names of `e2e-fleet target testnet`.
 const (
-	keyscanTimeout   = 30 * time.Second
-	keyscanTypes     = "ed25519,ecdsa,rsa"
-	sshPort          = 22
-	stagenetRPCURL   = "http://" + config.StagenetChainHost + ":31001"
-	stagenetRunStamp = "20060102-150405"
-	// artifactsDirName holds the artifacts of stagenet runs, in the e2e module.
+	keyscanTimeout  = 30 * time.Second
+	keyscanTypes    = "ed25519,ecdsa,rsa"
+	sshPort         = 22
+	testnetRPCURL   = "http://" + config.TestnetChainHost + ":31001"
+	testnetRunStamp = "20060102-150405"
+	// artifactsDirName holds the artifacts of testnet runs, in the e2e module.
 	artifactsDirName = "artifacts"
 	// oramaBinRel is the CLI under test, relative to the repository root.
 	oramaBinRel = "core/bin/orama"
@@ -43,7 +43,7 @@ var addressPattern = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
 // keyscanner returns the host keys ip's sshd offers; tests replace it.
 type keyscanner func(ctx context.Context, ip string) ([]ssh.PublicKey, error)
 
-// targetInput is everything `target stagenet` reads from the machine.
+// targetInput is everything `target testnet` reads from the machine.
 type targetInput struct {
 	lay      layout
 	realHome string
@@ -53,19 +53,19 @@ type targetInput struct {
 	scan     keyscanner
 }
 
-// cmdTarget writes the state file of a target: `target stagenet --out <state.json>`.
+// cmdTarget writes the state file of a target: `target testnet --out <state.json>`.
 func cmdTarget(parent context.Context, args []string) (int, error) {
-	if len(args) == 0 || args[0] != config.TargetStagenet {
-		return exitUsage, errors.Join(errUsage, fmt.Errorf("expected: target %s --out <state.json> [--chain-id ID]", config.TargetStagenet))
+	if len(args) == 0 || args[0] != config.TargetTestnet {
+		return exitUsage, errors.Join(errUsage, fmt.Errorf("expected: target %s --out <state.json> [--chain-id ID]", config.TargetTestnet))
 	}
-	fs := flag.NewFlagSet("target "+config.TargetStagenet, flag.ContinueOnError)
+	fs := flag.NewFlagSet("target "+config.TargetTestnet, flag.ContinueOnError)
 	out := fs.String("out", "", "path of the state file to write")
-	chainID := fs.String("chain-id", "", "the stagenet chain id; read from the running chain when omitted, and must match it when given")
+	chainID := fs.String("chain-id", "", "the testnet chain id; read from the running chain when omitted, and must match it when given")
 	if err := parseFlags(fs, args[1:]); err != nil {
 		return exitUsage, err
 	}
 	if *out == "" || fs.NArg() != 0 {
-		return exitUsage, errors.Join(errUsage, errors.New("expected: target stagenet --out <state.json> [--chain-id ID]"))
+		return exitUsage, errors.Join(errUsage, errors.New("expected: target testnet --out <state.json> [--chain-id ID]"))
 	}
 	lay, err := findLayout()
 	if err != nil {
@@ -79,13 +79,13 @@ func cmdTarget(parent context.Context, args []string) (int, error) {
 	if err != nil {
 		return exitFail, fmt.Errorf("failed to resolve --out %s: %w", *out, err)
 	}
-	ctx, cancel := context.WithTimeout(parent, keyscanTimeout*time.Duration(len(config.StagenetNodes)))
+	ctx, cancel := context.WithTimeout(parent, keyscanTimeout*time.Duration(len(config.TestnetNodes)))
 	defer cancel()
-	id, err := resolveChainID(ctx, *chainID, gatewayChainID(config.StagenetPath(realHome, config.StagenetCAFileRel)))
+	id, err := resolveChainID(ctx, *chainID, gatewayChainID(config.TestnetPath(realHome, config.TestnetCAFileRel)))
 	if err != nil {
 		return exitFail, err
 	}
-	st, err := writeStagenetState(ctx, targetInput{lay: lay, realHome: realHome, out: abs, chainID: id, now: time.Now().UTC(), scan: sshKeyscan})
+	st, err := writeTestnetState(ctx, targetInput{lay: lay, realHome: realHome, out: abs, chainID: id, now: time.Now().UTC(), scan: sshKeyscan})
 	if err != nil {
 		return exitFail, err
 	}
@@ -96,33 +96,33 @@ func cmdTarget(parent context.Context, args []string) (int, error) {
 	return exitOK, nil
 }
 
-// writeStagenetState builds the stagenet state, applies the run guards to it
+// writeTestnetState builds the testnet state, applies the run guards to it
 // and writes it (and its pinned known_hosts) to in.out.
-func writeStagenetState(ctx context.Context, in targetInput) (*fleet.State, error) {
-	if err := config.CheckStagenetChainID(in.chainID); err != nil {
+func writeTestnetState(ctx context.Context, in targetInput) (*fleet.State, error) {
+	if err := config.CheckTestnetChainID(in.chainID); err != nil {
 		return nil, err
 	}
 	hosts := strings.TrimSuffix(in.out, filepath.Ext(in.out)) + ".known_hosts"
-	if err := pinStagenetHostKeys(ctx, in, hosts); err != nil {
+	if err := pinTestnetHostKeys(ctx, in, hosts); err != nil {
 		return nil, err
 	}
-	addr, err := readOperatorAddress(config.StagenetPath(in.realHome, config.StagenetRWReadyRel))
+	addr, err := readOperatorAddress(config.TestnetPath(in.realHome, config.TestnetRWReadyRel))
 	if err != nil {
 		return nil, err
 	}
-	runID := "stagenet-" + in.now.Format(stagenetRunStamp)
+	runID := "testnet-" + in.now.Format(testnetRunStamp)
 	st := &fleet.State{
-		Target: config.TargetStagenet, RunID: runID, Env: config.StagenetEnv,
-		BaseDomain: config.StagenetBaseDomain, GatewayURL: config.StagenetGatewayURL,
-		CAFile:   config.StagenetPath(in.realHome, config.StagenetCAFileRel),
-		OramaBin: filepath.Join(in.lay.repo, oramaBinRel), Home: config.StagenetPath(in.realHome, config.StagenetHomeRel),
-		RWSock: config.StagenetPath(in.realHome, config.StagenetRWSockRel), OperatorAddress: addr,
-		OperatorNamespace: config.StagenetOperatorNamespace,
-		SSHKeyFile:        config.StagenetPath(in.realHome, config.StagenetSSHKeyRel), KnownHostsFile: hosts,
-		ChainID: in.chainID, ChainRPC: stagenetRPCURL,
+		Target: config.TargetTestnet, RunID: runID, Env: config.TestnetEnv,
+		BaseDomain: config.TestnetBaseDomain, GatewayURL: config.TestnetGatewayURL,
+		CAFile:   config.TestnetPath(in.realHome, config.TestnetCAFileRel),
+		OramaBin: filepath.Join(in.lay.repo, oramaBinRel), Home: config.TestnetPath(in.realHome, config.TestnetHomeRel),
+		RWSock: config.TestnetPath(in.realHome, config.TestnetRWSockRel), OperatorAddress: addr,
+		OperatorNamespace: config.TestnetOperatorNamespace,
+		SSHKeyFile:        config.TestnetPath(in.realHome, config.TestnetSSHKeyRel), KnownHostsFile: hosts,
+		ChainID: in.chainID, ChainRPC: testnetRPCURL,
 		ArtifactDir: filepath.Join(in.lay.module, artifactsDirName, runID),
 	}
-	for _, n := range config.StagenetNodes {
+	for _, n := range config.TestnetNodes {
 		role := fleet.RoleNode
 		if n.Nameserver {
 			role = fleet.RoleNameserver
@@ -130,7 +130,7 @@ func writeStagenetState(ctx context.Context, in targetInput) (*fleet.State, erro
 		st.Nodes = append(st.Nodes, fleet.Node{Name: n.Name, Role: role, PublicIP: n.IP, WGIP: n.WGIP, SSHUser: n.User})
 	}
 	if err := fleet.CheckState(st, in.realHome); err != nil {
-		return nil, fmt.Errorf("the stagenet state fails the run guards: %w", err)
+		return nil, fmt.Errorf("the testnet state fails the run guards: %w", err)
 	}
 	if err := st.Save(in.out); err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func writeStagenetState(ctx context.Context, in targetInput) (*fleet.State, erro
 func readOperatorAddress(path string) (string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read the dev RootWallet agent's ready file (is it running? start ~/orama-stagenet-handoff/rwdev.sh): %w", err)
+		return "", fmt.Errorf("failed to read the dev RootWallet agent's ready file (is it running? start ~/orama-testnet-handoff/rwdev.sh): %w", err)
 	}
 	var ready struct {
 		Address string `json:"address"`
@@ -156,13 +156,13 @@ func readOperatorAddress(path string) (string, error) {
 	return ready.Address, nil
 }
 
-// pinStagenetHostKeys scans the stagenet nodes' host keys and writes to hosts
+// pinTestnetHostKeys scans the testnet nodes' host keys and writes to hosts
 // only the keys the owner's own known_hosts also holds for that address. A
 // scanned key that differs from a key of the same type in the owner's file
 // is refused (a changed host key), and so is a node the owner's file has no
 // key of: the scan alone would trust whatever answered.
-func pinStagenetHostKeys(ctx context.Context, in targetInput, hosts string) error {
-	userFile := config.StagenetPath(in.realHome, config.StagenetKnownHostsRel)
+func pinTestnetHostKeys(ctx context.Context, in targetInput, hosts string) error {
+	userFile := config.TestnetPath(in.realHome, config.TestnetKnownHostsRel)
 	check, err := knownhosts.New(userFile)
 	if err != nil {
 		return fmt.Errorf("failed to read %s to cross-check the host keys: %w", userFile, err)
@@ -170,7 +170,7 @@ func pinStagenetHostKeys(ctx context.Context, in targetInput, hosts string) erro
 	if err := os.Remove(hosts); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to replace %s: %w", hosts, err)
 	}
-	for _, n := range config.StagenetNodes {
+	for _, n := range config.TestnetNodes {
 		keys, err := in.scan(ctx, n.IP)
 		if err != nil {
 			return fmt.Errorf("failed to scan the host keys of %s (%s): %w", n.Label, n.IP, err)
@@ -189,7 +189,7 @@ func pinStagenetHostKeys(ctx context.Context, in targetInput, hosts string) erro
 }
 
 // crossCheck returns the scanned keys of n that the owner's known_hosts holds.
-func crossCheck(check ssh.HostKeyCallback, n config.StagenetNode, scanned []ssh.PublicKey) ([]ssh.PublicKey, error) {
+func crossCheck(check ssh.HostKeyCallback, n config.TestnetNode, scanned []ssh.PublicKey) ([]ssh.PublicKey, error) {
 	remote := &net.TCPAddr{IP: net.ParseIP(n.IP), Port: sshPort}
 	host := net.JoinHostPort(n.IP, fmt.Sprint(sshPort))
 	var pinned []ssh.PublicKey

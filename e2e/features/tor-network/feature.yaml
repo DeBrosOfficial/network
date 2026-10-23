@@ -8,7 +8,7 @@
 # and tor-gencert, and a loopback listener. The role tests need
 # `orama global install --services dirauth|relay|relay,exit|onion` on the nodes
 # (website/src/docs/operator/tor-network.mdx, "Rolling it out") and say "not applicable" on a target
-# that has none: the provisioned fleet installs no Tor role, stagenet does.
+# that has none: the provisioned fleet installs no Tor role, testnet does.
 id: tor-network
 title: Orama Tor network - ceremony, authorities, relays, exit, validator onion
 area: network

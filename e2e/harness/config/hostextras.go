@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-// HostListener is a listening socket on a stagenet node that Orama did not
+// HostListener is a listening socket on a testnet node that Orama did not
 // install: the operator's own access tool or something the machine image
 // ships. The e2e audits of the public edge (only edge ports listen on public
 // addresses) excuse exactly what is declared here, per node, and say so in the
 // test log; they fail on a declaration the node no longer matches, so this list
-// cannot rot into a blanket exemption. Only the stagenet target has one: a
+// cannot rot into a blanket exemption. Only the testnet target has one: a
 // fleet run's servers are fresh images and nothing is excused there.
 type HostListener struct {
 	// Node is the node name (node-1...); empty declares it for every node.
@@ -30,7 +30,7 @@ type HostListener struct {
 	Why string
 }
 
-// HostUFWRule is an untagged allow rule on a stagenet node that the operator
+// HostUFWRule is an untagged allow rule on a testnet node that the operator
 // added: `ufw status` prints To for it. The install firewall audit excuses it
 // the same way the listener audit excuses a HostListener.
 type HostUFWRule struct {
@@ -39,22 +39,22 @@ type HostUFWRule struct {
 	Why  string
 }
 
-// StagenetHostListeners are the listeners on the stagenet nodes that are not
+// TestnetHostListeners are the listeners on the testnet nodes that are not
 // Orama's. The five nodes (mew, mewtwo, gengar, magicarp, froakie) are fresh OVH
 // and Contabo images: what the audit saw there beyond Orama's own sockets is
 // the image's systemd-resolved stub and chrony on loopback and systemd-networkd's
 // DHCP client on UDP 68, none of which the audit counts as public, so nothing is
 // declared. The old nodes' tailscale and rpcbind declarations are gone with
 // those machines; to admit a new extra, add a declaration with its reason.
-var StagenetHostListeners []HostListener
+var TestnetHostListeners []HostListener
 
-// StagenetHostUFWRules are the operator's untagged ufw rules. The new nodes
+// TestnetHostUFWRules are the operator's untagged ufw rules. The new nodes
 // carry none (ufw holds only rules tagged orama), so none is declared.
-var StagenetHostUFWRules []HostUFWRule
+var TestnetHostUFWRules []HostUFWRule
 
-// StagenetHostListener returns the declaration that covers a listener on node.
-func StagenetHostListener(node, proto, addr string, port int, process string) (HostListener, bool) {
-	for _, h := range StagenetHostListeners {
+// TestnetHostListener returns the declaration that covers a listener on node.
+func TestnetHostListener(node, proto, addr string, port int, process string) (HostListener, bool) {
+	for _, h := range TestnetHostListeners {
 		if (h.Node == "" || h.Node == node) && h.Process == process && strings.HasPrefix(proto, h.Proto) && (h.Port == 0 || h.Port == port) && h.covers(addr) {
 			return h, true
 		}
@@ -75,10 +75,10 @@ func (h HostListener) covers(addr string) bool {
 	return netip.MustParsePrefix(h.Net).Contains(ip.Unmap())
 }
 
-// StagenetHostListenersOn returns every listener declaration for node.
-func StagenetHostListenersOn(node string) []HostListener {
+// TestnetHostListenersOn returns every listener declaration for node.
+func TestnetHostListenersOn(node string) []HostListener {
 	var out []HostListener
-	for _, h := range StagenetHostListeners {
+	for _, h := range TestnetHostListeners {
 		if h.Node == "" || h.Node == node {
 			out = append(out, h)
 		}
@@ -86,10 +86,10 @@ func StagenetHostListenersOn(node string) []HostListener {
 	return out
 }
 
-// StagenetHostUFWRule returns the declaration that covers an untagged rule
+// TestnetHostUFWRule returns the declaration that covers an untagged rule
 // whose To column is to.
-func StagenetHostUFWRule(node, to string) (HostUFWRule, bool) {
-	for _, r := range StagenetHostUFWRulesOn(node) {
+func TestnetHostUFWRule(node, to string) (HostUFWRule, bool) {
+	for _, r := range TestnetHostUFWRulesOn(node) {
 		if r.To == to {
 			return r, true
 		}
@@ -97,10 +97,10 @@ func StagenetHostUFWRule(node, to string) (HostUFWRule, bool) {
 	return HostUFWRule{}, false
 }
 
-// StagenetHostUFWRulesOn returns every ufw rule declaration for node.
-func StagenetHostUFWRulesOn(node string) []HostUFWRule {
+// TestnetHostUFWRulesOn returns every ufw rule declaration for node.
+func TestnetHostUFWRulesOn(node string) []HostUFWRule {
 	var out []HostUFWRule
-	for _, r := range StagenetHostUFWRules {
+	for _, r := range TestnetHostUFWRules {
 		if r.Node == "" || r.Node == node {
 			out = append(out, r)
 		}

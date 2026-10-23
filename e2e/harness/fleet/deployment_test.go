@@ -25,7 +25,7 @@ func TestDeployUnitFromCgroup(t *testing.T) {
 		name, cg, unit string
 		ok             bool
 	}{
-		{"go runtime", "0::/system.slice/system-orama\\x2ddeploy\\x2dgo.slice/orama-deploy-go@stagenetproof-proofgo.service\n", "orama-deploy-go@stagenetproof-proofgo.service", true},
+		{"go runtime", "0::/system.slice/system-orama\\x2ddeploy\\x2dgo.slice/orama-deploy-go@testnetproof-proofgo.service\n", "orama-deploy-go@testnetproof-proofgo.service", true},
 		{"node runtime", "0::/system.slice/orama-deploy-node@ns-app.service\n", "orama-deploy-node@ns-app.service", true},
 		{"npm runtime", "0::/system.slice/orama-deploy-npm@ns-app.service", "orama-deploy-npm@ns-app.service", true},
 		{"build unit is not a runtime", "0::/system.slice/orama-deploy-build@ns-app.service\n", "", false},

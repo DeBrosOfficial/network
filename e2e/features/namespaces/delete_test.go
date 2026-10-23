@@ -81,7 +81,7 @@ func TestNamespaceDelete_tearsEverythingDown(t *testing.T) {
 		eventually.Require(t, pollEvery, ns.TeardownBudget, node.Name+" to hold nothing of "+n.Name, residue(t, f, node, n.Name, blocks[node.Name]))
 	}
 	// The name withdrawn is the namespace's own records. Whether it still
-	// resolves proves nothing where the zone has a *.<base> wildcard (stagenet
+	// resolves proves nothing where the zone has a *.<base> wildcard (testnet
 	// does): every name under the base answers then, a deleted namespace's too.
 	eventually.Require(t, pollEvery, dnsTeardownBudget, "the registry to hold no DNS record of "+n.Name, func() (bool, error) {
 		res := infra.IndexQuery(t, f, f.State.Nodes[0],

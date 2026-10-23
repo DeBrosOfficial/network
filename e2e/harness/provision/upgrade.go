@@ -23,7 +23,7 @@ const upgradeLogPrefix = "upgrade"
 // untouched. It is meant for a run Up installed with the previous release
 // (E2E_INSTALL_PREVIOUS=1), and works on any run.
 func UpgradeToHead(ctx context.Context, st *fleet.State, log Logger) error {
-	if err := refuseStagenet("UpgradeToHead", st); err != nil {
+	if err := refuseTestnet("UpgradeToHead", st); err != nil {
 		return err
 	}
 

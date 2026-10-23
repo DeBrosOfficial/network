@@ -50,7 +50,7 @@ const (
 	scenarioBudget = 10 * time.Minute
 
 	// The wallet scenario's amounts, in units its scale multiplies (x/shielded/wallet scenario.rs
-	// and chain/scripts/stagenet/smoke/check_shielded.go).
+	// and chain/scripts/testnet/smoke/check_shielded.go).
 	scenarioShieldUnits     = 10_000 + 7_000
 	scenarioUnshieldUnits   = 5_000
 	scenarioChangeUnits     = 4_000
@@ -153,7 +153,7 @@ func bigOf(t *testing.T, s string) *big.Int {
 // scenarioScale is the largest multiplier of the scenario's amounts the chain accepts: the
 // unshield goes to the signer's fee-only balance, which x/shielded caps at max_fee_topup per
 // unshield (net of its nullifier fees), and the transfer's fee must stay below the change it
-// leaves (the stagenet smoke's rule, chain/scripts/stagenet/smoke/check_shielded.go).
+// leaves (the testnet smoke's rule, chain/scripts/testnet/smoke/check_shielded.go).
 func scenarioScale(t *testing.T, p shieldedParams, fee *big.Int) uint64 {
 	t.Helper()
 	room := new(big.Int).Add(bigOf(t, p.MaxFeeTopup), new(big.Int).Mul(bigOf(t, p.NullifierFee), big.NewInt(scenarioUnshieldActions)))

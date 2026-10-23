@@ -25,45 +25,45 @@ func fakeOrama(t *testing.T, dir string, code int, stderr string) (bin, argsFile
 	return bin, argsFile
 }
 
-func stagenetTestState(t *testing.T, bin string) *fleet.State {
+func testnetTestState(t *testing.T, bin string) *fleet.State {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, "home"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	return &fleet.State{
-		Target: config.TargetStagenet, Env: config.StagenetEnv, GatewayURL: config.StagenetGatewayURL,
+		Target: config.TargetTestnet, Env: config.TestnetEnv, GatewayURL: config.TestnetGatewayURL,
 		OramaBin: bin, Home: filepath.Join(dir, "home"), RWSock: filepath.Join(dir, "agent.sock"),
-		OperatorAddress: testAddress, OperatorNamespace: config.StagenetOperatorNamespace,
+		OperatorAddress: testAddress, OperatorNamespace: config.TestnetOperatorNamespace,
 	}
 }
 
-func TestSignInStagenetOperator_runsAuthLoginInTheStagenetHome(t *testing.T) {
+func TestSignInTestnetOperator_runsAuthLoginInTheTestnetHome(t *testing.T) {
 	bin, argsFile := fakeOrama(t, t.TempDir(), 0, "")
-	st := stagenetTestState(t, bin)
-	if err := signInStagenetOperator(context.Background(), st); err != nil {
+	st := testnetTestState(t, bin)
+	if err := signInTestnetOperator(context.Background(), st); err != nil {
 		t.Fatalf("sign-in failed: %v", err)
 	}
 	got, err := os.ReadFile(argsFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := st.Home + " auth login --namespace " + config.StagenetOperatorNamespace; strings.TrimSpace(string(got)) != want {
+	if want := st.Home + " auth login --namespace " + config.TestnetOperatorNamespace; strings.TrimSpace(string(got)) != want {
 		t.Fatalf("orama ran as %q, want %q", strings.TrimSpace(string(got)), want)
 	}
 }
 
-func TestSignInStagenetOperator_failedLoginIsAnError(t *testing.T) {
+func TestSignInTestnetOperator_failedLoginIsAnError(t *testing.T) {
 	bin, _ := fakeOrama(t, t.TempDir(), 3, "agent locked")
-	err := signInStagenetOperator(context.Background(), stagenetTestState(t, bin))
+	err := signInTestnetOperator(context.Background(), testnetTestState(t, bin))
 	if err == nil || !strings.Contains(err.Error(), "exited 3") || !strings.Contains(err.Error(), "agent locked") {
 		t.Fatalf("want an error naming the exit and stderr, got %v", err)
 	}
 }
 
-func TestSignInStagenetOperator_missingBinaryIsRefused(t *testing.T) {
-	st := stagenetTestState(t, filepath.Join(t.TempDir(), "absent"))
-	if err := signInStagenetOperator(context.Background(), st); err == nil {
+func TestSignInTestnetOperator_missingBinaryIsRefused(t *testing.T) {
+	st := testnetTestState(t, filepath.Join(t.TempDir(), "absent"))
+	if err := signInTestnetOperator(context.Background(), st); err == nil {
 		t.Fatal("a missing CLI binary was not refused")
 	}
 }

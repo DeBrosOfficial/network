@@ -286,7 +286,7 @@ import (
 | `CLI(t) *oramacli.Runner` | the operator's CLI, isolated HOME, throwaway agent, evidence attributed to t |
 | `GW(t) *gw.Client` | public gateway client, pinned CA, evidence attributed to t |
 | `SkipNotApplicable(t, reason)` | the only allowed skip (counted as not covered) |
-| `RequireChain(t)` | not-applicable skip when the run has no chain. `scripts/chain-deploy.sh` enables each node's REST API (`[api] enable = true`, `127.0.0.1:31003`, checked by `chain-deploy.sh status`), which the gateway's `/v1/chain/*` and the CLI's `--node` paths read; reach it from a test with `Fleet.Tunnel(t, n, "127.0.0.1:31003")`. It also installs the chain indexer (`orama-global-indexer.service`, user `orama-indexer`, `127.0.0.1:31015`) beside every node, which the gateway's `/v1/chain/index/` routes read (`status` checks it); stagenet's deploy installs one on every node too, and the explorer test asks each node's gateway |
+| `RequireChain(t)` | not-applicable skip when the run has no chain. `scripts/chain-deploy.sh` enables each node's REST API (`[api] enable = true`, `127.0.0.1:31003`, checked by `chain-deploy.sh status`), which the gateway's `/v1/chain/*` and the CLI's `--node` paths read; reach it from a test with `Fleet.Tunnel(t, n, "127.0.0.1:31003")`. It also installs the chain indexer (`orama-global-indexer.service`, user `orama-indexer`, `127.0.0.1:31015`) beside every node, which the gateway's `/v1/chain/index/` routes read (`status` checks it); testnet's deploy installs one on every node too, and the explorer test asks each node's gateway |
 | `ExtraNode(t, name, location) Extra` | a fresh server (nothing installed), created by the runner's broker and deleted at cleanup; `Extra{fleet.Node, HostKey}` (the node's fields are promoted: `extra.PublicIP`), HostKey the pinned `SHA256:...` fingerprint for `orama node setup --host-key`; `Fleet.Lookup` finds it while it lives |
 | `ExtraCluster(t, name) provision.EvalCluster` | a single-node eval cluster (website/src/docs/operator/getting-started.mdx) on its own server: subdomain `e2e-<run>-<name>.<zone>` delegated to it, genesis with the real CLI, Let's Encrypt staging certificate, its own `orama network` entry (`EvalCluster.Env`, never made current) and CA file; `EvalCluster{Name, Env, BaseDomain, GatewayURL, CAFile, Node, HostKey}`; removed (DNS, server, env, CA file) at cleanup. `name`: 1-12 lowercase letters/digits, starting with a letter. Counts as one of `requires.extra_nodes` |
 | `CustomDomain(t, label) string` | `e2e-<run>-<label>.<zone>`: a name the run owns that Cloudflare itself serves (the run subdomain is delegated to the fleet, so a record under it is invisible to public resolvers) |
@@ -391,8 +391,8 @@ every package of the run through flock'd files in `<work dir>/ns-slots/`
 (a crashed process releases its slots with its descriptors), and releases
 it after the namespace's teardown. The cap is `E2E_MAX_LIVE_NAMESPACES`,
 default `ns.DefaultMaxLive(len(nodes))`: 20 port blocks per node, 3 nodes per
-namespace, minus 4 of headroom = **16** on three nodes. On the stagenet
-target the default is `ns.StagenetMaxLive` (**4**): its nodes are shared, small
+namespace, minus 4 of headroom = **16** on three nodes. On the testnet
+target the default is `ns.TestnetMaxLive` (**4**): its nodes are shared, small
 VPSs that also serve the owner's own namespaces. A test that creates
 several namespaces calls `ns.Hold(t, f, n)` first (all its slots at once; the
 next `n` `ns.New` use them), so it never holds some slots while waiting for
@@ -435,9 +435,9 @@ stand behind each other:
    with `nsledger.RecordFromEnv(os.LookupEnv, name, time.Now())`.
 3. `e2e-fleet sweep-namespaces [--max-age 4h] [--listed]` removes what ledgers
    still hold of runs whose runner died before layer 2 ran (a SIGKILL of the
-   runner, a closed session): on the stagenet target every `stagenet-*` run
+   runner, a closed session): on the testnet target every `testnet-*` run
    directory next to the state's, otherwise the state's own run. It signs the
-   operator in on stagenet, and only touches ledger entries older than
+   operator in on testnet, and only touches ledger entries older than
    `--max-age` (default 4h: over the longest stage, 180m, plus the 10m stop
    grace). Every `run` and `test` holds a shared flock on `<run dir>/run.lock`
    while it runs; the sweep skips the run directories whose lock is held, so a
@@ -445,7 +445,7 @@ stand behind each other:
    refused while any run directory is held. `--listed` also removes every `e2e-*` namespace the operator's
    wallet owns that no ledger names (leftovers from before the ledger; their age
    is unknown, so run it only when no test run is in progress). Unlike `sweep`
-   it destroys no server and works on the stagenet state.
+   it destroys no server and works on the testnet state.
 
 `ViaUser` (default) creates it as a fresh wallet (adding it to the creator
 allowlist when the cluster's mode is `allowlist`; failing in `operators` mode);
@@ -617,16 +617,16 @@ the runner: `ORAMA_LIFECYCLE_DESTROY="e2e-fleet hook destroy"`,
 `ORAMA_LIFECYCLE_PROVISION="e2e-fleet hook provision"` (prints the new IP), all
 reading `E2E_FLEET_STATE`.
 
-## Running against stagenet
+## Running against testnet
 
-The suite can run stage by stage against the existing stagenet cluster instead
+The suite can run stage by stage against the existing testnet cluster instead
 of fresh Hetzner servers. The runner **only tests** there: it never creates,
 changes, sweeps or destroys a server, and it holds no cloud credential.
 
 ```bash
 cd e2e
-go run ./cmd/e2e-fleet target stagenet --out /tmp/stagenet-state.json   # read-only: ssh-keyscan + local files
-E2E_FLEET_STATE=/tmp/stagenet-state.json go run ./cmd/e2e-fleet test --stage 1
+go run ./cmd/e2e-fleet target testnet --out /tmp/testnet-state.json   # read-only: ssh-keyscan + local files
+E2E_FLEET_STATE=/tmp/testnet-state.json go run ./cmd/e2e-fleet test --stage 1
 ```
 
 `test --features a,b` runs only those packages (of every stage, or of `--stage N`)
@@ -634,7 +634,7 @@ and keeps the other packages' results in the artifact dir's timeline and report:
 fix to one package is rechecked in minutes instead of a whole stage. An unknown
 package name is a usage error.
 
-`target stagenet` writes the state (`"target": "stagenet"`), five nodes in join
+`target testnet` writes the state (`"target": "testnet"`), five nodes in join
 order: `node-1` mew `57.129.166.16` (WG `10.0.0.1`), `node-2` mewtwo `57.129.166.17`
 (WG `10.0.0.2`) and `node-3` gengar `161.97.184.199` (WG `10.0.0.3`), all nameservers;
 `node-4` magicarp `161.97.184.202` (WG `10.0.0.4`) and `node-5` froakie `161.97.151.255`
@@ -643,43 +643,43 @@ order: `node-1` mew `57.129.166.16` (WG `10.0.0.1`), `node-2` mewtwo `57.129.166
 (ASN 51167, Ubuntu 24.04, systemd 255 without BPF_FRAMEWORK, login user `root`),
 so `SocketBindDeny` is enforced on the first two and only accepted on the other
 three; the SSH key `~/.ssh/debros-nodes`;
-the CA bundle `~/orama-stagenet-handoff/le-roots.pem` (Let's Encrypt production's ISRG Root X1 and X2: stagenet serves production certificates, a fleet the run provisions staging ones); the CLI HOME
-`~/orama-stagenet-handoff/cli-home` (its `.orama/environments.json` must hold the
-`stagenet` env); `core/bin/orama` as the CLI under test (build it first); the
+the CA bundle `~/orama-testnet-handoff/le-roots.pem` (Let's Encrypt production's ISRG Root X1 and X2: testnet serves production certificates, a fleet the run provisions staging ones); the CLI HOME
+`~/orama-testnet-handoff/cli-home` (its `.orama/environments.json` must hold the
+`testnet` env); `core/bin/orama` as the CLI under test (build it first); the
 operator address from the dev RootWallet agent's `~/rwdev/ready.json` (that agent,
 `~/rwdev/agent.sock`, must be running and unlocked); the chain id the running
 chain reports through the gateway's `/v1/chain/status` (a `--chain-id` given must
 match it, since every reset starts a new chain id) and the run id
-`stagenet-<yyyymmdd>-<hhmmss>`; artifacts in `e2e/artifacts/stagenet-<ts>`. The
+`testnet-<yyyymmdd>-<hhmmss>`; artifacts in `e2e/artifacts/testnet-<ts>`. The
 host keys come from `ssh-keyscan` of the five addresses and are written to
 `<state>.known_hosts` only when your `~/.ssh/known_hosts` holds the same key for
 that address: a changed key, or an address your file has never seen, is refused
 (`ssh` to it once and verify the fingerprint first).
 
 **Safety pins.** Every loader of a state (`test`, `report`, `harness.Main`) runs
-`fleet.CheckState`, which for this target accepts exactly: env `stagenet`, base
-domain `stagenet.dbrsteting.bid`, gateway `https://stagenet.dbrsteting.bid`, a chain id
-matching `^orama-stagenet-[0-9]+$`, the five node addresses above and nothing
+`fleet.CheckState`, which for this target accepts exactly: env `testnet`, base
+domain `testnet.orama.network`, gateway `https://testnet.orama.network`, a chain id
+matching `^orama-testnet-[0-9]+$`, the five node addresses above and nothing
 else (no extra, no probe), the agent socket `$HOME/rwdev/agent.sock` (never
 under `~/.rootwallet`), the CLI HOME, CA bundle and SSH key above. Anything else,
-including devnet/testnet names and domains or a fleet state carrying
-`"target": "stagenet"`, is refused with every mismatch listed. The constants
-live in `harness/config/stagenet.go`. `run`, `provision`, `teardown`, `sweep`
-and `hook destroy|break|provision` refuse a stagenet state (`sweep-namespaces`
+including devnet or stagenet names and domains or a fleet state carrying
+`"target": "testnet"`, is refused with every mismatch listed. The constants
+live in `harness/config/testnet.go`. `run`, `provision`, `teardown`, `sweep`
+and `hook destroy|break|provision` refuse a testnet state (`sweep-namespaces`
 works on it: it removes test namespaces, never a server or cloud resource) when
 `E2E_FLEET_STATE` names it; `test` starts no broker (`E2E_BROKER_SOCK` is unset),
 so `harness.ExtraNode`, `ExtraCluster`, `DNSTXT`, `CustomDomain` and
-`harness.Broker` skip the test with `harness.SkipNotApplicable` (the stagenet
+`harness.Broker` skip the test with `harness.SkipNotApplicable` (the testnet
 target has no extra server, probe VM or DNS broker), as does the probe vantage of
 `external-vantage`; the `provision` functions themselves
 (`AddExtra/RemoveExtra/AddEvalCluster/DestroyNode/BreakUpgrade/RestoreUpgrade/UpgradeToHead`)
-still return the "not available on the stagenet target" error to any other
+still return the "not available on the testnet target" error to any other
 caller. After a destructive package the
 runner still removes the iptables rules tagged `e2e-<run>-` on every node of the target and
 turns NTP back on where a test left it off (`Fleet.RestoreNodes`).
 
 **What runs.** Stages 1-7 and 9 are tests of the running cluster. A test whose
-premise stagenet lacks by design **skips** with `harness.SkipNotApplicable` (the
+premise testnet lacks by design **skips** with `harness.SkipNotApplicable` (the
 report lists it as not covered, with the reason) instead of failing, so a run's
 failures are only real ones; on a fleet run every one of them still runs and
 asserts. The skips:
@@ -689,12 +689,12 @@ asserts. The skips:
   `namespace-backup-chaos`, `release-tuf`, `external-vantage`, the `dns-tls` CLI
   test): skipped in `ExtraNode`, `ExtraCluster`, `DNSTXT`, `CustomDomain`,
   `Broker` and `external-vantage`'s `probes`;
-- the release archives, which the stagenet state does not carry
+- the release archives, which the testnet state does not carry
   (`install`, `install-extra`, `release-checks`, `release-tuf`, `rollout-upgrade`,
   `scanners` secrets scan): skipped by `harness.RequireArchive`, called in
   `infra.ReadArchiveFile`, `ArchiveManifest`, `RewriteArchive`, `RunningArchive` and
   the tests that read `State.ArchivePath` directly. `rollout-upgrade`'s
-  broken-node test also skips: `provision.BreakUpgrade` never runs on stagenet.
+  broken-node test also skips: `provision.BreakUpgrade` never runs on testnet.
   `cli-env-auth-misc`'s rollout tests pass a dummy archive and run.
 
 **Tenant deployments in the listener audit (every target).** A deployment binds
@@ -707,10 +707,10 @@ and no ufw allow or limit rule opens it (a bare `Anywhere` rule opens every
 port; an `ALLOW FWD` rule opens nothing on the host); it logs each one. docs/whitepaper/technical-reference/vol1/11-app-deployments.md, "Tenant
 deployments", says why.
 
-**What the stagenet nodes have that Orama did not install.** The public-edge
+**What the testnet nodes have that Orama did not install.** The public-edge
 audits (`wireguard-firewall`'s listener audit and port scan, `install`'s
 firewall rules) assert that only Orama's ports are open. Two things on the
-stagenet are legitimately more, and the audits know them differently:
+testnet are legitimately more, and the audits know them differently:
 
 - The **global layer** (`orama global install --colocated`): the chain P2P
   (31000 tcp+udp), the public Kubo swarm (31010 tcp+udp) and the storage
@@ -724,7 +724,7 @@ stagenet are legitimately more, and the audits know them differently:
   inside the namespace, so a host listener on it fails. A tagged rule on any
   other port is not excused.
 - **Operator and image extras**, declared in `harness/config/hostextras.go`
-  (`StagenetHostListeners`, `StagenetHostUFWRules`). None are declared on the
+  (`TestnetHostListeners`, `TestnetHostUFWRules`). None are declared on the
   current five nodes: read-only checks found only loopback stubs
   (systemd-resolved, chrony), systemd-networkd's DHCP client on UDP 68, and no
   untagged ufw rule. A declaration names the node (empty = every node), the
@@ -740,24 +740,24 @@ them only on purpose.
 
 **Chain stage (8).** The chain helpers (`features/internal/chain`) run the real
 `oramad` on the node as the chain user, exactly as `e2e/scripts/chain-deploy.sh`
-lays it out, and stagenet uses the same binary, home, unit and user
+lays it out, and testnet uses the same binary, home, unit and user
 (`/usr/lib/orama-global/bin/oramad`, `/var/lib/orama-global/chain`,
 `orama-global-chain.service`, `orama-chain`). What differs, and what is target-aware
 now: the RPC and REST address. A fleet validator listens on `127.0.0.1:31001/31003`;
-stagenet's chain is inside the `orama-global` netns and answers on
+testnet's chain is inside the `orama-global` netns and answers on
 `198.18.0.2:31001` (RPC), `:31003` (REST), `:31015` (indexer) from the host.
 `Chain.Host()`, `RPC()` and `RPCHTTP()` return the right address for the state's
 target, and `Chain.Tunnel` forwards to it; `Chain.OramadCmd` runs `oramad` inside
-the `orama-global` netns on stagenet (`ip netns exec … runuser -u orama-chain`),
+the `orama-global` netns on testnet (`ip netns exec … runuser -u orama-chain`),
 because the host ruleset lets only root and the cluster's account reach those
 ports through the veth; the chain id check accepts a devnet id
-on a fleet run and a stagenet id on this target. What a stagenet node does not have, and the chain tests skip
+on a fleet run and a testnet id on this target. What a testnet node does not have, and the chain tests skip
 with `SkipNotApplicable` for:
 
 - the validator operator keys in each node's `test` keyring under the chain home
-  (`chain-deploy.sh` creates and funds them; a stagenet node's keyring is not
+  (`chain-deploy.sh` creates and funds them; a testnet node's keyring is not
   assumed to hold them): `Chain.Validator`, and so `FundedValidator` and every
-  test that signs with a validator key, skips on stagenet;
+  test that signs with a validator key, skips on testnet;
 - a fresh run chain's genesis (zero supply, an empty shielded pool, a validator
   operator with no fee balance, the E2E epoch length): `chain.RequireFreshChain`
   skips `TestEmission_devnetShortEpochParams`, `TestShieldedQueries_poolStartsEmptyAndInvariantsHold`,
@@ -767,7 +767,7 @@ with `SkipNotApplicable` for:
   (`requireREST`, 127.0.0.1:31003) and `chain-deploy.sh status|invariants`
   (`runDeployScript`), `open-network-phases` B3 (after its unit-account check) and
   B4 (after the bind), and the chain ports in `wireguard-firewall`'s
-  `TestListeners_internalsOnTheirAddress`, which are not asserted on stagenet.
+  `TestListeners_internalsOnTheirAddress`, which are not asserted on testnet.
 
 ## Evidence and the report
 

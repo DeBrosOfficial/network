@@ -30,7 +30,7 @@ var readOnly = map[string]bool{
 var streaming = map[string]bool{"--follow": true, "-f": true, "--watch": true}
 
 // placeholderEnvs are environment names docs use for "your cluster".
-var placeholderEnvs = map[string]bool{"devnet": true, "testnet": true, "mainnet": true, "production": true, "stagenet": true}
+var placeholderEnvs = map[string]bool{"devnet": true, "testnet": true, "mainnet": true, "production": true}
 
 // runnable rewrites a documented read-only command for this run: the
 // environment becomes the run's, the namespace the test's. It reports false

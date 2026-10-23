@@ -21,12 +21,12 @@ func withTarget(t *testing.T, target string, fn func(t *testing.T)) (skipped, fa
 	return skipped, failed
 }
 
-func TestRequireNotStagenet_skipsOnStagenetOnly(t *testing.T) {
-	skipped, failed := withTarget(t, config.TargetStagenet, func(t *testing.T) { requireNotStagenet(t, "ExtraNode") })
+func TestRequireNotTestnet_skipsOnTestnetOnly(t *testing.T) {
+	skipped, failed := withTarget(t, config.TargetTestnet, func(t *testing.T) { requireNotTestnet(t, "ExtraNode") })
 	if !skipped || failed {
-		t.Fatalf("stagenet: skipped=%v failed=%v, want a skip", skipped, failed)
+		t.Fatalf("testnet: skipped=%v failed=%v, want a skip", skipped, failed)
 	}
-	skipped, failed = withTarget(t, config.TargetFleet, func(t *testing.T) { requireNotStagenet(t, "ExtraNode") })
+	skipped, failed = withTarget(t, config.TargetFleet, func(t *testing.T) { requireNotTestnet(t, "ExtraNode") })
 	if skipped || failed {
 		t.Fatalf("fleet: skipped=%v failed=%v, want to run on", skipped, failed)
 	}
@@ -37,8 +37,8 @@ func TestRequireArchive(t *testing.T) {
 		name, target, archive string
 		wantSkip              bool
 	}{
-		{"stagenet without an archive skips", config.TargetStagenet, "", true},
-		{"stagenet with an archive runs", config.TargetStagenet, "/a.tar.gz", false},
+		{"testnet without an archive skips", config.TargetTestnet, "", true},
+		{"testnet with an archive runs", config.TargetTestnet, "/a.tar.gz", false},
 		{"fleet without an archive is left to fail", config.TargetFleet, "", false},
 		{"fleet with an archive runs", config.TargetFleet, "/a.tar.gz", false},
 	}

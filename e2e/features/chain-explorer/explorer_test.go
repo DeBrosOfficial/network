@@ -161,7 +161,7 @@ func TestExplorerReads_refusals(t *testing.T) {
 
 // requireIndexer fails unless the gateway of every node reaches its node's chain indexer. A
 // gateway proxies the indexer beside it, the run's chain deploy installs one on every node
-// (e2e/scripts/chain-deploy.sh, chain/scripts/stagenet/deploy.sh), and a user reaches the public
+// (e2e/scripts/chain-deploy.sh, chain/scripts/testnet/deploy.sh), and a user reaches the public
 // name on any of them, so one node without it fails a share of the explorer's reads with a 502.
 func requireIndexer(t *testing.T) {
 	t.Helper()

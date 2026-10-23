@@ -20,7 +20,7 @@ const (
 	// stagingIssuerPrefix starts the common name of every Let's Encrypt
 	// staging intermediate ("(STAGING) Counterfeit Cashew R10", ...). A fleet
 	// the run provisioned uses staging (e2e/README.md), and a production chain
-	// there would mean the run spent real rate limits; stagenet serves
+	// there would mean the run spent real rate limits; testnet serves
 	// production, and a staging chain there is one no client trusts.
 	stagingIssuerPrefix = "(STAGING)"
 	// freshCertMinLeft: a certificate issued for this run has most of its
@@ -68,7 +68,7 @@ func dialTLS(t *testing.T, ip, sni string, edit func(*tls.Config)) (*tls.Connect
 // for the base name and for a name under it, a certificate that chains to the
 // pinned roots, covers the name (the wildcard one as *.<base>), was issued by
 // the CA the cluster uses — staging on a fleet the run provisioned, production
-// on stagenet — and is far from expiry (website/src/docs/contributor/architecture-reference.mdx "TLS/HTTPS":
+// on testnet — and is far from expiry (website/src/docs/contributor/architecture-reference.mdx "TLS/HTTPS":
 // ACME DNS-01 by the network's own DNS; website/src/docs/operator/nameserver.mdx "delegation
 // before certificates").
 func TestTLS_everyNodeServesCertsForBaseAndWildcard(t *testing.T) {

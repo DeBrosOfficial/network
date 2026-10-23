@@ -22,8 +22,8 @@ func CheckState(st *State, realHome string) error {
 	if err := config.CheckTarget(st.Target); err != nil {
 		return err
 	}
-	if st.IsStagenet() {
-		return checkStagenetState(st, realHome)
+	if st.IsTestnet() {
+		return checkTestnetState(st, realHome)
 	}
 	var errs []error
 	for _, err := range []error{
@@ -70,27 +70,27 @@ func checkAgentLayout(st *State) error {
 	return nil
 }
 
-// checkStagenetState is CheckState for the stagenet target: every value that
-// aims the suite at a cluster is pinned exactly (config.CheckStagenet, the
+// checkTestnetState is CheckState for the testnet target: every value that
+// aims the suite at a cluster is pinned exactly (config.CheckTestnet, the
 // dev RootWallet agent, the CLI HOME, the CA bundle and the SSH key), and the
 // state holds no extra server or probe: nothing is ever created there.
-func checkStagenetState(st *State, realHome string) error {
-	pins := config.StagenetPins{RunID: st.RunID, Env: st.Env, BaseDomain: st.BaseDomain, GatewayURL: st.GatewayURL, ChainID: st.ChainID, OperatorNamespace: st.OperatorNamespace}
+func checkTestnetState(st *State, realHome string) error {
+	pins := config.TestnetPins{RunID: st.RunID, Env: st.Env, BaseDomain: st.BaseDomain, GatewayURL: st.GatewayURL, ChainID: st.ChainID, OperatorNamespace: st.OperatorNamespace}
 	for _, n := range append(append(append([]Node{}, st.Nodes...), st.Extras...), st.Probes...) {
 		pins.NodeIPs = append(pins.NodeIPs, n.PublicIP)
 	}
-	errs := []error{config.CheckStagenet(pins), secrets.CheckAgentSockNotRealWallet(st.RWSock, realHome)}
+	errs := []error{config.CheckTestnet(pins), secrets.CheckAgentSockNotRealWallet(st.RWSock, realHome)}
 	if len(st.Extras) > 0 || len(st.Probes) > 0 {
-		errs = append(errs, errors.New("stagenet target: the state has extras or probes, which the target never creates"))
+		errs = append(errs, errors.New("testnet target: the state has extras or probes, which the target never creates"))
 	}
 	for _, p := range []struct{ what, got, rel string }{
-		{"agent socket", st.RWSock, config.StagenetRWSockRel},
-		{"CLI HOME", st.Home, config.StagenetHomeRel},
-		{"CA bundle", st.CAFile, config.StagenetCAFileRel},
-		{"SSH key", st.SSHKeyFile, config.StagenetSSHKeyRel},
+		{"agent socket", st.RWSock, config.TestnetRWSockRel},
+		{"CLI HOME", st.Home, config.TestnetHomeRel},
+		{"CA bundle", st.CAFile, config.TestnetCAFileRel},
+		{"SSH key", st.SSHKeyFile, config.TestnetSSHKeyRel},
 	} {
-		if want := config.StagenetPath(realHome, p.rel); p.got != want {
-			errs = append(errs, fmt.Errorf("stagenet target: the %s %q is not %q", p.what, p.got, want))
+		if want := config.TestnetPath(realHome, p.rel); p.got != want {
+			errs = append(errs, fmt.Errorf("testnet target: the %s %q is not %q", p.what, p.got, want))
 		}
 	}
 	return errors.Join(errs...)

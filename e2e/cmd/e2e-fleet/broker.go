@@ -183,8 +183,8 @@ func withBroker(ctx context.Context, lay layout, st *fleet.State, statePath stri
 	r := newStageRunner(lay, statePath, st.ArtifactDir)
 	r.BaseEnv, r.ExtraEnv = base, []string{"HOME=" + home}
 	r.AfterDestructive, r.AfterPackage, r.Prefix = restoreNodes(st), removeLeftovers(st), prefix
-	if st.IsStagenet() {
-		// No broker: it holds the cloud credentials the stagenet target never
+	if st.IsTestnet() {
+		// No broker: it holds the cloud credentials the testnet target never
 		// uses. A test that needs one fails (harness.Broker, ExtraNode).
 		return fn(r)
 	}

@@ -24,7 +24,7 @@ func cmdHook(parent context.Context, args []string) (int, error) {
 	if len(args) == 0 {
 		return exitUsage, requireArgs(args, 1, "hook destroy <host> | break <host> | provision [--name N] [--location L]")
 	}
-	if err := refuseStagenetEnv("hook " + args[0]); err != nil {
+	if err := refuseTestnetEnv("hook " + args[0]); err != nil {
 		return exitFail, err
 	}
 	st, statePath, err := loadState()
