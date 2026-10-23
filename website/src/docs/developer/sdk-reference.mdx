@@ -66,10 +66,12 @@ const client = createClient({
 An API key carries grants, and a key in a browser bundle is a key in the hands of everyone who loads the page.
 
 - **Server side only: an `admin` key.** It reaches the control plane: deploys, secrets, key management, raw RQLite. It belongs in CI and on a developer's machine.
-- **Safe in a client bundle: an `app-runtime` key.** Data-plane grants only, and the gateway additionally requires a logged-in user's wallet session for storage, WebRTC and proxy (a deployed app's own workload token also qualifies on storage and WebRTC), so an extracted runtime key on its own cannot act as anybody.
+- **In a client bundle: no key, or an `invoke-only` one.** An app that needs nothing before its user signs in ships no key: sign-in and public functions need no credential, and after sign-in the user's wallet session reaches storage, push, WebRTC and the proxy. An app that must call functions before sign-in ships `invoke-only`, narrowed to them with `--resource`.
+- **In a function that reclaims storage: a `storage` key from the namespace's secrets.** Its exchanged token may unpin any object the namespace stores, which is why no key in a bundle holds `storage`; the `app-runtime` profile does not.
 
 ```bash
-orama namespace keys create --scope app-runtime --label web
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+orama namespace keys create --scope storage --label prune-fn
 orama namespace keys create --scope invoke,pubsub,cache --label worker
 orama namespace keys create --scope admin --label ci
 ```
@@ -355,7 +357,7 @@ try {
 
 ```ts
 import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@orama-network/orama";
-PROFILE_SCOPES["app-runtime"];          // ["invoke", "storage", "push", "webrtc", "proxy"]
+PROFILE_SCOPES["app-runtime"];          // ["invoke", "push", "webrtc", "proxy"]
 satisfiesScope(["admin"], "storage");   // true: admin is a wildcard
 ```
 

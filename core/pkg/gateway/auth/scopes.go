@@ -12,14 +12,21 @@ import (
 // lives in the gateway package (requiredScope). The admin grant is a wildcard
 // that satisfies every requirement.
 //
-// The split is data-plane (safe to ship in a public client bundle) vs
-// control-plane (admin — never leaves CI/dev):
+// The split is data-plane vs control-plane (admin — never leaves CI/dev):
 //   - data-plane: invoke, storage, push, webrtc, proxy, pubsub, cache
 //   - control-plane: admin (deploy, secrets, migrations, config, key mgmt, raw rqlite)
+//
+// Data-plane is not the same as safe to ship in a client: whatever a key in an
+// app bundle holds, anyone who unpacks the app holds. storage is the one
+// data-plane grant a key can use to destroy what others stored — a token
+// exchanged for a storage key may unpin any of the namespace's objects, which
+// is how a userless server-side reclaim works (bugboard #151) — so it belongs
+// on a key that stays in the namespace's secrets and on no key profile meant
+// for a bundle (bugboard #946).
 const (
 	ScopeAdmin   = "admin"   // full control-plane
 	ScopeInvoke  = "invoke"  // invoke functions (data access still gated by per-user JWT)
-	ScopeStorage = "storage" // IPFS storage upload/pin/get
+	ScopeStorage = "storage" // IPFS storage upload/pin/get/unpin
 	ScopePush    = "push"    // push device registration
 	ScopeWebRTC  = "webrtc"  // TURN credentials + SFU signaling
 	ScopeProxy   = "proxy"   // Tor-routed anon proxy
@@ -146,12 +153,18 @@ func DataPlaneScopes() ScopeSet {
 // ProfileGrants maps a named key profile to its grant list. Profiles are the
 // ergonomic way to mint the three shipped key tiers; a raw grant list is also
 // accepted by the issuance path. Returns false for an unknown profile.
+//
+// app-runtime is the profile for a key an app ships, so it holds no storage
+// grant: a key in a bundle is public, and storage on a key reaches unpin
+// (bugboard #946). A function that reclaims storage is given a key minted with
+// the storage grant alone, kept in the namespace's secrets. Keys minted from
+// this profile while it still held storage lose it in migration 084.
 func ProfileGrants(profile string) ([]string, bool) {
 	switch strings.ToLower(strings.TrimSpace(profile)) {
 	case "admin":
 		return []string{ScopeAdmin}, true
 	case "app-runtime", "runtime", "app":
-		return []string{ScopeInvoke, ScopeStorage, ScopePush, ScopeWebRTC, ScopeProxy}, true
+		return []string{ScopeInvoke, ScopePush, ScopeWebRTC, ScopeProxy}, true
 	case "invoke-only", "invoke":
 		return []string{ScopeInvoke}, true
 	}

@@ -35,6 +35,7 @@ covers:
     - "service.json:api.restapi.basic_auth_credentials"
   claims:
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md: storage routes need a logged-in user; a bare key is 401 USER_JWT_REQUIRED; an exchanged key token may only unpin (bugboard #151)"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys: a token exchanged for an app-runtime or invoke-only key is refused unpin (403 INSUFFICIENT_SCOPE); a storage key's token unpins (bugboard #946)"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#sealing-private-blobs: a namespace reads, pins and unpins only CIDs it owns"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md: private blobs are AES-256-GCM sealed (ORMAW1) before Add; tarballs are not"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#the-ipfs-layer-on-a-node: Kubo requires its bearer; IPFS Cluster REST requires basic auth; service.json is 0600; all bind loopback"

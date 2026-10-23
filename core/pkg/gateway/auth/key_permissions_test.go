@@ -14,12 +14,21 @@ func TestKeyPermissions(t *testing.T) {
 		permits  map[Resource]bool
 	}{
 		{
-			name: "an app-runtime key holds no pubsub or cache", scopes: appScopes, role: RoleRuntime,
+			name: "an app-runtime key holds no pubsub, cache or storage", scopes: appScopes, role: RoleRuntime,
 			permits: map[Resource]bool{
-				{Domain: DomainPubsub, Action: ActionWrite}: false,
-				{Domain: DomainCache, Action: ActionWrite}:  false,
-				{Domain: DomainStorage, Action: ActionRead}: true,
-				{Domain: DomainFn, Action: ActionInvoke}:    true,
+				{Domain: DomainPubsub, Action: ActionWrite}:  false,
+				{Domain: DomainCache, Action: ActionWrite}:   false,
+				{Domain: DomainStorage, Action: ActionRead}:  false,
+				{Domain: DomainStorage, Action: ActionWrite}: false,
+				{Domain: DomainFn, Action: ActionInvoke}:     true,
+				{Domain: DomainPush, Action: ActionWrite}:    true,
+			},
+		},
+		{
+			name: "a function's storage key holds storage write", scopes: ScopeStorage, role: RoleRuntime,
+			permits: map[Resource]bool{
+				{Domain: DomainStorage, Action: ActionWrite}: true,
+				{Domain: DomainFn, Action: ActionInvoke}:     false,
 			},
 		},
 		{

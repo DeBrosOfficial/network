@@ -77,7 +77,8 @@ Topics under `_orama/` belong to the platform (today `_orama/webrtc/<room>`, the
 ## API keys
 
 ```bash
-orama namespace keys create --scope app-runtime --label web
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+orama namespace keys create --scope storage --label prune-fn
 orama namespace keys create --scope admin --label ci --expires-in-days 30
 orama namespace keys create --scope invoke,pubsub,cache --label worker
 orama namespace keys list
@@ -90,10 +91,12 @@ orama namespace keys revoke --id 12
 | Profile | Grants |
 |---|---|
 | `invoke-only` | invoke |
-| `app-runtime` | invoke, storage, push, webrtc, proxy. **Not** pubsub and **not** cache |
+| `app-runtime` | invoke, push, webrtc, proxy. **Not** storage, **not** pubsub and **not** cache |
 | `admin` | Everything, including the control plane |
 
-Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
+Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named.
+
+`app-runtime` held `storage` before Orama 0.3.5. A token exchanged for a storage key may unpin any object the namespace stores, so anyone who pulled such a key out of an app could empty the namespace's storage. Upgrading takes `storage` off every live key minted from the profile: a key whose grants are exactly `invoke,proxy,push,storage,webrtc` becomes `invoke,proxy,push,webrtc`, within a minute on every gateway. A key minted with any other grant list, `storage` alone included, keeps what it has. A gateway still on the earlier release mints the old set during the rolling upgrade, so re-mint an `app-runtime` key created while the upgrade ran. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
 
 - **For a script:** `orama namespace keys create --json` prints one JSON object (`id`, `scopes`, `resources` when the key is narrowed, `namespace`, `expires`, `label` and `key`) and nothing else.
 - **Format.** `orama_<type>_<payload>_<checksum>`, base62. `sk` labels a key holding the control plane and `rk` one holding only the data plane; the row decides authority, not the label. The checksum is not a security property, but a leaked key is recognisable offline by a secret scanner, and a mistyped one is refused without a database lookup.
@@ -119,13 +122,18 @@ orama namespace keys create --scope invoke-only \
 
 - **On a function it names,** the key behaves as any invoke key.
 - **On any other function** it is refused `403 FORBIDDEN`, the refusal a member narrowed with `members add --resource` gets: over `POST /v1/invoke/<namespace>/<function>`, `POST /v1/functions/<function>/invoke` and the function WebSocket alike. That includes a public function outside the list: drop the key, or add the function, to call it. Deploying, deleting, logs and triggers stay refused, as for any invoke key.
-- **Every scope must be narrowed.** A narrowed key reaches only what its resources match, so `--scope app-runtime --resource fn:a` is refused (storage, push and the rest would reach nothing): mint `invoke-only`. An `admin` key cannot be narrowed, and a resource must narrow a scope the key holds (`fn:` needs `invoke`). The same domains a member can be narrowed in are accepted (`pubsub:`, `storage:`, `cache:` besides `fn:`).
+- **Every scope must be narrowed.** A narrowed key reaches only what its resources match, so `--scope app-runtime --resource fn:a` is refused (push, webrtc and proxy would reach nothing): mint `invoke-only`. An `admin` key cannot be narrowed, and a resource must narrow a scope the key holds (`fn:` needs `invoke`). The same domains a member can be narrowed in are accepted (`pubsub:`, `storage:`, `cache:` besides `fn:`).
 - **It holds everywhere the key is used:** sent bare, exchanged for a token, and on the namespace's own gateway. `orama namespace keys list` shows it as `[only fn:…]`, and a rotation carries it over.
 - **During a rolling upgrade** that introduces it, a gateway still on the earlier release does not know a key's resources, and serves the key as the whole of its scopes until the roll completes.
 
 A key with no `--resource` is unchanged: it reaches the whole of its scopes.
 
-**Where a key belongs.** A key in a browser bundle is public. Give it the data plane and nothing else, and let the user's own login carry the rest: storage, WebRTC and proxy refuse a key on its own anyway (they need a logged-in user, or a deployed app's own workload token). A key that touches the control plane belongs on a server.
+**Where a key belongs.** A key in a browser or mobile bundle is public: whatever it holds, everyone who unpacks the app holds.
+
+- **An app that needs nothing before its user signs in ships no key.** `/v1/auth/challenge`, `/v1/auth/verify` and `/v1/auth/refresh` need no credential, nor does invoking a function deployed `public: true`, on the namespace gateway (`ns-<name>.<domain>`) as on the main one. After sign-in, the user's session reaches storage, push, WebRTC and the proxy.
+- **An app that must call functions before sign-in ships `invoke-only`,** narrowed with `--resource` to those functions.
+- **A function that reclaims storage without a user gets its own key,** `--scope storage`, kept in the namespace's secrets (`orama function secrets set`) and never shipped. A token exchanged for it may unpin (`DELETE /v1/storage/unpin/<cid>`) any object the namespace stores, which is what a prune job needs and why no key in a bundle holds `storage`. Upload, get and pin refuse it: they need a logged-in user, or a deployed app's own workload token.
+- **A key that touches the control plane belongs on a server.**
 
 ## A deployed app's identity
 

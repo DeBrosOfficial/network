@@ -121,7 +121,7 @@ func confirmExact(prompt, want string) error {
 func NamespaceKeysCreate(out *printer.Printer, ns, scope, label string, resources []string, expiresInDays int) error {
 	if strings.TrimSpace(scope) == "" {
 		return clierr.Usage("--scope is required: a profile (invoke-only, app-runtime, admin) " +
-			"or an explicit grant list such as \"invoke,storage,push\"")
+			"or an explicit grant list such as \"invoke,push\"")
 	}
 	if expiresInDays < 0 {
 		return clierr.Usage("--expires-in-days is at least 1; omit it for the default")

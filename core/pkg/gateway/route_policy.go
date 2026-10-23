@@ -414,6 +414,11 @@ func buildRoutePolicies() *routepolicy.Table {
 	// so a userless server-side reclaim (cron, avatar GC) may prove possession
 	// of its storage-scoped key by exchanging it for a token. A bare key still
 	// fails. Upload, get and pin keep the strict requirement.
+	//
+	// The handler reaches every CID the namespace owns, so the storage grant is
+	// what keeps a key out of here, and no key profile meant for an app bundle
+	// carries it (auth.ProfileGrants, bugboard #946): the key that unpins is a
+	// storage key a function keeps in the namespace's secrets.
 	t.AddDynamic("/v1/storage/unpin/", func(r *http.Request) routepolicy.Policy {
 		if r.Method == http.MethodDelete {
 			return dataPlane(auth.DomainStorage, auth.ActionWrite, false, routepolicy.AnyToken)

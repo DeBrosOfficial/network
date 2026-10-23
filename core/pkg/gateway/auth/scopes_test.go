@@ -82,7 +82,7 @@ func TestProfileGrants(t *testing.T) {
 		hasStor bool
 	}{
 		{"admin", true, true, true},
-		{"app-runtime", true, false, true},
+		{"app-runtime", true, false, false}, // bugboard #946: a bundled key never holds storage
 		{"invoke-only", true, false, false},
 		{"nonsense", false, false, false},
 	}
@@ -111,7 +111,7 @@ func TestNormalizeGrants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app-runtime: %v", err)
 	}
-	if got != "invoke,proxy,push,storage,webrtc" {
+	if got != "invoke,proxy,push,webrtc" {
 		t.Errorf("app-runtime canonical = %q", got)
 	}
 	// Explicit list, comma and space tolerant + deduped + sorted.

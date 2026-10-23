@@ -179,7 +179,7 @@ Two different rules apply to multi-key operations, on purpose:
 
 Handlers run the authorization before they check that the cache client exists. A caller who may not touch a key is refused 403 whether or not the cache is up; a 503 would tell them the cache exists and is down, which they are not entitled to know. `scan` is the exception in order only: it validates the request shape first and authorizes per key as it iterates.
 
-Which credentials hold the cache grant: a wallet JWT holds the whole data plane including cache (`core/pkg/gateway/auth/scopes.go:DataPlaneScopes`); the role `runtime` holds it and `reader` does not ([authorization](14-authorization.md)). The API-key profile `app-runtime` grants invoke, storage, push, webrtc and proxy only (`ProfileGrants`), so a key that must use the cache is minted with `cache` listed explicitly. The profile list in `ProfileGrants` and `DataPlaneScopes` differ on `pubsub` and `cache` for that reason.
+Which credentials hold the cache grant: a wallet JWT holds the whole data plane including cache (`core/pkg/gateway/auth/scopes.go:DataPlaneScopes`); the role `runtime` holds it and `reader` does not ([authorization](14-authorization.md)). The API-key profile `app-runtime` grants invoke, push, webrtc and proxy only (`ProfileGrants`), so a key that must use the cache is minted with `cache` listed explicitly. The profile list in `ProfileGrants` and `DataPlaneScopes` differ on `pubsub` and `cache` for that reason.
 
 ### Mapping failures to answers
 

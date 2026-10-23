@@ -25,7 +25,7 @@ const (
 	maxOverlapDays  = 30
 	dayTolerance    = 10 * time.Minute
 	// appRuntimeScopes is the app-runtime profile, canonical and sorted.
-	appRuntimeScopes = "invoke,proxy,push,storage,webrtc"
+	appRuntimeScopes = "invoke,proxy,push,webrtc"
 )
 
 // keyShape is orama_<sk|rk>_<base62>_<base62 checksum> (docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys).

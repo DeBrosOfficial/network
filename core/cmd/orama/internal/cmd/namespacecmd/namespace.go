@@ -89,11 +89,24 @@ var keysCreateCmd = &cobra.Command{
 	Short: "Mint a new scoped API key",
 	Long: `Mint a new scoped API key. The key is shown once.
 
+Which key goes where:
+  - An app that needs nothing before sign-in ships no key: the sign-in
+    handshake and public functions need no credential, and after sign-in the
+    user's session reaches everything else.
+  - An app that must call functions before sign-in ships an invoke-only key,
+    narrowed with --resource to those functions.
+  - A function that reclaims storage gets its own key, --scope storage, kept
+    in the namespace's secrets. No key that ships in an app holds storage.
+
+Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
+never storage), admin (the control plane; CI and a developer's machine only).
+
 --resource narrows the key to the functions it names: the gateway refuses it on
 every other function, on HTTP invoke and the function WebSocket alike, with the
 403 a member narrowed by 'members add --resource' gets. Without it the key
 reaches the whole of its scopes.`,
 	Example: `  orama namespace keys create --namespace anchat --scope invoke-only --resource fn:premium-status
+  orama namespace keys create --namespace anchat --scope storage --label prune-fn
   orama namespace keys create --namespace anchat --scope invoke-only --resource 'fn:premium-*'
   orama namespace keys create --namespace anchat --scope invoke-only \
     --resource fn:subscription-read --resource fn:user-find-by-wallet`,

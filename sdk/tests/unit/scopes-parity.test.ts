@@ -97,4 +97,9 @@ describe('scope helpers', () => {
     const dataPlane: readonly Scope[] = PROFILE_SCOPES['app-runtime'];
     expect(dataPlane).not.toContain('admin');
   });
+
+  it('keeps storage off the profile an app ships (bugboard #946)', () => {
+    // A token exchanged for a storage key may unpin any of the namespace's objects.
+    expect(PROFILE_SCOPES['app-runtime']).not.toContain('storage');
+  });
 });
