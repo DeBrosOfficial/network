@@ -253,13 +253,13 @@ mod tests {
     fn config_reads_every_variable() {
         let signer = "00112233445566778899aabbccddeeff00112233";
         let cfg = Config::from_env(env(&[
-            ("ORAMA_SCENARIO_CHAIN_ID", "orama-stagenet-1"),
+            ("ORAMA_SCENARIO_CHAIN_ID", "orama-testnet-1"),
             ("ORAMA_SCENARIO_UNSHIELD_SIGNER", signer),
             ("ORAMA_SCENARIO_SCALE", "1000000"),
             ("ORAMA_SCENARIO_FEE", "500000"),
         ]))
         .unwrap();
-        assert_eq!(cfg.chain_id, "orama-stagenet-1");
+        assert_eq!(cfg.chain_id, "orama-testnet-1");
         assert_eq!(cfg.unshield_signer[0], 0x00);
         assert_eq!(cfg.unshield_signer[19], 0x33);
         assert_eq!((cfg.scale, cfg.fee), (1_000_000, 500_000));

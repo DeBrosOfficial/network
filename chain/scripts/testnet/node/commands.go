@@ -10,7 +10,7 @@ import (
 
 func run(ctx context.Context, args []string, stdin io.Reader, _ io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: stagenet-node agent [flags]")
+		return errors.New("usage: testnet-node agent [flags]")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {

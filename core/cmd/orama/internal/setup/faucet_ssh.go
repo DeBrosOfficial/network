@@ -13,7 +13,7 @@ import (
 // sshFaucet funds an account through `orama chain faucet`'s plumbing: the drip is
 // signed on a node of the network, over SSH, with that node's seat key. It is the
 // funder of a creation: the network's seeds serve no public faucet until the
-// maintainer turns it on (chain/scripts/stagenet/deploy.sh faucet), and the
+// maintainer turns it on (chain/scripts/testnet/deploy.sh faucet), and the
 // creator holds the SSH access to the machines it has just made seats of. It
 // works for whoever has such a node in the CLI's configuration under the
 // network's name; for nobody else can sign a drip, and for them the run stops and

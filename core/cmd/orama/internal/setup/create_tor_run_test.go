@@ -16,7 +16,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/tornet"
 )
 
-// torOpts is a creation of "stagenet" with n directory authorities on the first n machines.
+// torOpts is a creation of "testnet" with n directory authorities on the first n machines.
 func (h *createHarness) torOpts(n int, ips ...string) Options {
 	o := h.createOpts(ips...)
 	o.Create.TorAuthorities, o.Create.TorAuthoritiesSet = n, true
@@ -62,7 +62,7 @@ func indexOf(entries []string, prefix string) int {
 
 func publishedTor(t *testing.T, h *createHarness) (netregistry.Manifest, []byte, tornet.Network) {
 	t.Helper()
-	dir := filepath.Join(h.publishDir, "stagenet")
+	dir := filepath.Join(h.publishDir, "testnet")
 	raw, err := os.ReadFile(filepath.Join(dir, netregistry.ManifestFile))
 	if err != nil {
 		t.Fatal(err)
@@ -186,7 +186,7 @@ func checkTorPublished(t *testing.T, h *createHarness, res *Result) {
 	if res.Created == nil || res.Created.Manifest.TorNetworkSHA256 != m.TorNetworkSHA256 {
 		t.Errorf("Result.Created pins %+v, want %s", res.Created, m.TorNetworkSHA256)
 	}
-	if n.Bootstrap || !n.Private || n.Name != "stagenet" || n.VotingIntervalMinutes != 30 || len(n.ValidatorOnions) != 0 {
+	if n.Bootstrap || !n.Private || n.Name != "testnet" || n.VotingIntervalMinutes != 30 || len(n.ValidatorOnions) != 0 {
 		t.Errorf("the published network = %+v: it is the final file, without the bootstrap mode", n)
 	}
 	for ip, m := range h.seats.tor.machines {
@@ -298,7 +298,7 @@ func TestRunCreate_tor_theOperatorIsToldWhatItWaitsFor(t *testing.T) {
 	text := h.report.text()
 	for _, want := range []string{
 		"Tor authority OramaAuth01 " + torIPs[0], "waiting for the network's first Tor consensus", "Running vote for 30m0s",
-		"leaving the bootstrap mode: 3 authority(ies), one at a time, then 2 relay(s) together", "the Tor network stagenet is up: 3 directory authorities and 2 relays",
+		"leaving the bootstrap mode: 3 authority(ies), one at a time, then 2 relay(s) together", "the Tor network testnet is up: 3 directory authorities and 2 relays",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the progress output lacks %q:\n%s", want, text)
@@ -320,7 +320,7 @@ func TestRunCreate_tor_optingOutTouchesNoTorRoleAndPinsNothing(t *testing.T) {
 	if res.Created.Manifest.TorNetworkSHA256 != "" {
 		t.Errorf("the manifest pins a Tor network the run did not make: %s", res.Created.Manifest.TorNetworkSHA256)
 	}
-	if _, err := os.Stat(filepath.Join(h.publishDir, "stagenet", netregistry.TorNetworkFile)); err == nil {
+	if _, err := os.Stat(filepath.Join(h.publishDir, "testnet", netregistry.TorNetworkFile)); err == nil {
 		t.Error("a tor-network.json was published")
 	}
 }
@@ -413,10 +413,10 @@ func TestRunCreate_tor_aMachineWithAnotherNetworkFileIsRefusedBeforeAnythingIsIn
 	}
 	// Nothing was pinned: the manifest and the published directory say nothing of a Tor
 	// network no machine runs.
-	if _, err := os.Stat(filepath.Join(h.publishDir, "stagenet", netregistry.TorNetworkFile)); err == nil {
+	if _, err := os.Stat(filepath.Join(h.publishDir, "testnet", netregistry.TorNetworkFile)); err == nil {
 		t.Error("a tor-network.json was published although a machine refused it")
 	}
-	raw, err := os.ReadFile(filepath.Join(h.publishDir, "stagenet", netregistry.ManifestFile))
+	raw, err := os.ReadFile(filepath.Join(h.publishDir, "testnet", netregistry.ManifestFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,7 +494,7 @@ func TestRunCreate_tor_comesAfterTheDomainAndTheRecordAndAFailureStillReturnsWha
 	h.deps.Domain = fakeDomain{w: h.w}
 	h.seats.tor.failStart[torIPs[1]] = errBoom
 	opts := h.torOpts(3, torIPs...)
-	opts.Domain = "stagenet.orama.network"
+	opts.Domain = "testnet.orama.network"
 	res, err := Run(context.Background(), opts, h.deps)
 	if !errors.Is(err, errBoom) || !strings.Contains(err.Error(), "its Tor network is not finished") {
 		t.Fatalf("err = %v, want the Tor failure saying the network itself is created", err)

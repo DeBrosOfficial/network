@@ -18,10 +18,10 @@ func TestParseNodes(t *testing.T) {
 func TestParseNodes_refusesBadInput(t *testing.T) {
 	for _, bad := range []string{
 		"", "mew", "mew=mew", "a=b=c=d",
-		"Mew=mew=1.2.3.4",                // name is lowercase
-		"mew=-x=1.2.3.4",                  // alias may not start with a dash (it goes to ssh)
-		"mew=mew=1.2.3",                  // not an address
-		"mew=mew;id=1.2.3.4",             // shell syntax in the alias
+		"Mew=mew=1.2.3.4",               // name is lowercase
+		"mew=-x=1.2.3.4",                // alias may not start with a dash (it goes to ssh)
+		"mew=mew=1.2.3",                 // not an address
+		"mew=mew;id=1.2.3.4",            // shell syntax in the alias
 		"mew=mew=1.2.3.4,mew=b=1.2.3.5", // duplicate
 	} {
 		_, err := parseNodes(bad)
@@ -29,7 +29,7 @@ func TestParseNodes_refusesBadInput(t *testing.T) {
 	}
 }
 
-func TestCommonFlagsValidate_refusesANonStagenetChain(t *testing.T) {
+func TestCommonFlagsValidate_refusesANonTestnetChain(t *testing.T) {
 	const nodes = "a=a=1.2.3.4"
 	_, err := commonFlags{chainID: "orama-mainnet-1", nodes: nodes}.validate()
 	require.ErrorContains(t, err, "refusing to run")
@@ -37,7 +37,7 @@ func TestCommonFlagsValidate_refusesANonStagenetChain(t *testing.T) {
 	require.ErrorContains(t, err, "invalid --chain-id")
 	_, err = commonFlags{chainID: "", nodes: nodes}.validate()
 	require.Error(t, err)
-	got, err := commonFlags{chainID: "orama-stagenet-1", nodes: nodes}.validate()
+	got, err := commonFlags{chainID: "orama-testnet-1", nodes: nodes}.validate()
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	_, err = commonFlags{chainID: "orama-devnet-2", nodes: nodes}.validate()
@@ -46,8 +46,8 @@ func TestCommonFlagsValidate_refusesANonStagenetChain(t *testing.T) {
 
 func TestShieldedEnvLines(t *testing.T) {
 	require.Equal(t,
-		"ORAMA_SCENARIO_CHAIN_ID=orama-stagenet-1\nORAMA_SCENARIO_UNSHIELD_SIGNER=aabb\nORAMA_SCENARIO_SCALE=2000\nORAMA_SCENARIO_FEE=202001\n",
-		shieldedEnvLines("orama-stagenet-1", "aabb", 2_000, math.NewInt(202001)))
+		"ORAMA_SCENARIO_CHAIN_ID=orama-testnet-1\nORAMA_SCENARIO_UNSHIELD_SIGNER=aabb\nORAMA_SCENARIO_SCALE=2000\nORAMA_SCENARIO_FEE=202001\n",
+		shieldedEnvLines("orama-testnet-1", "aabb", 2_000, math.NewInt(202001)))
 }
 
 func TestRun_refusesUnknownAndMissingCommands(t *testing.T) {

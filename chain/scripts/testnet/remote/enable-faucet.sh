@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs on a stagenet node, as root (deploy.sh faucet stages and runs it with sudo). Turns the node's
+# Runs on a testnet node, as root (deploy.sh faucet stages and runs it with sudo). Turns the node's
 # public faucet on: adds `chain: faucet: enabled: true` to node.yaml. It writes only that block and
 # only to a node.yaml with no `chain:` block at all; it does not restart the node (deploy.sh does,
 # through the orama CLI). Running it on a node that already has the block is a no-op.

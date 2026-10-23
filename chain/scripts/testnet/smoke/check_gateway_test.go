@@ -13,16 +13,16 @@ import (
 )
 
 func TestParseGatewayNode(t *testing.T) {
-	require.NoError(t, parseGatewayNode([]byte(`{"node":{"node_id":"stagenet-mew","operator":"orama1x","status":"NODE_STATUS_ACTIVE"}}`), "stagenet-mew"))
-	require.ErrorContains(t, parseGatewayNode([]byte(`{"node":{"node_id":"other","operator":"orama1x"}}`), "stagenet-mew"), "names node")
+	require.NoError(t, parseGatewayNode([]byte(`{"node":{"node_id":"testnet-mew","operator":"orama1x","status":"NODE_STATUS_ACTIVE"}}`), "testnet-mew"))
+	require.ErrorContains(t, parseGatewayNode([]byte(`{"node":{"node_id":"other","operator":"orama1x"}}`), "testnet-mew"), "names node")
 	require.ErrorContains(t, parseGatewayNode([]byte(`{"node":{"node_id":"a"}}`), "a"), "no operator")
 	require.ErrorContains(t, parseGatewayNode([]byte(`{}`), "a"), "names node")
 	require.Error(t, parseGatewayNode([]byte(`<html>`), "a"))
 }
 
 func TestGatewayNodeURL(t *testing.T) {
-	got := gatewayNodeURL("https://stagenet.dbrsteting.bid/", "stagenet-mew")
-	require.Equal(t, "https://stagenet.dbrsteting.bid/v1/chain/query/orama.nodes.v1.Query/Node?json=%7B%22node_id%22%3A%22stagenet-mew%22%7D", got)
+	got := gatewayNodeURL("https://testnet.orama.network/", "testnet-mew")
+	require.Equal(t, "https://testnet.orama.network/v1/chain/query/orama.nodes.v1.Query/Node?json=%7B%22node_id%22%3A%22testnet-mew%22%7D", got)
 }
 
 func TestGatewayClient_refusesAMissingOrEmptyCAFile(t *testing.T) {

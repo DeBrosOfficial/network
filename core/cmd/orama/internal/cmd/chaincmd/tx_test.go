@@ -294,10 +294,10 @@ func TestWithdrawEarnings_aChainRefusalIsAFailure(t *testing.T) {
 
 func TestChainID_readsTheGatewayStatusAndANodesInfo(t *testing.T) {
 	gw := server(t, func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"result":{"node_info":{"network":"orama-stagenet-5"}}}`)
+		_, _ = io.WriteString(w, `{"result":{"node_info":{"network":"orama-testnet-5"}}}`)
 	})
 	got, err := chainID(context.Background(), &chainread.Reader{Gateway: gw})
-	if err != nil || got != "orama-stagenet-5" {
+	if err != nil || got != "orama-testnet-5" {
 		t.Fatalf("gateway: %q, %v", got, err)
 	}
 	node := server(t, func(w http.ResponseWriter, r *http.Request) {
@@ -305,10 +305,10 @@ func TestChainID_readsTheGatewayStatusAndANodesInfo(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = io.WriteString(w, `{"default_node_info":{"network":"orama-stagenet-6"}}`)
+		_, _ = io.WriteString(w, `{"default_node_info":{"network":"orama-testnet-6"}}`)
 	})
 	got, err = chainID(context.Background(), &chainread.Reader{REST: node})
-	if err != nil || got != "orama-stagenet-6" {
+	if err != nil || got != "orama-testnet-6" {
 		t.Fatalf("node: %q, %v", got, err)
 	}
 }
@@ -361,9 +361,9 @@ func TestPinnedChainID(t *testing.T) {
 		want                      string
 		code                      int
 	}{
-		"the network names it": {"orama-stagenet-5", "stagenet", "", "orama-stagenet-5", 0},
-		"the flag agrees":      {"orama-stagenet-5", "stagenet", "orama-stagenet-5", "orama-stagenet-5", 0},
-		"the flag disagrees":   {"orama-stagenet-5", "stagenet", "orama-stagenet-6", "", clierr.CodeUsage},
+		"the network names it": {"orama-testnet-5", "testnet", "", "orama-testnet-5", 0},
+		"the flag agrees":      {"orama-testnet-5", "testnet", "orama-testnet-5", "orama-testnet-5", 0},
+		"the flag disagrees":   {"orama-testnet-5", "testnet", "orama-testnet-6", "", clierr.CodeUsage},
 		"the flag names it":    {"", "", "my-chain-1", "my-chain-1", 0},
 		"nothing names it":     {"", "", "", "", clierr.CodeUsage},
 	} {
@@ -406,7 +406,7 @@ func realOpen(t *testing.T, served, pinned, explicit, maxFee string) (txClient, 
 		if pinned == "" {
 			return "", "", nil
 		}
-		return pinned, "stagenet", nil
+		return pinned, "testnet", nil
 	}
 	wallets := 0
 	newSigner = func() onchain.Signer { wallets++; return &fakeWallet{} }
@@ -418,18 +418,18 @@ func realOpen(t *testing.T, served, pinned, explicit, maxFee string) (txClient, 
 }
 
 func TestOpenClient_signsOnlyForTheChainTheNetworkNames(t *testing.T) {
-	c, err, _ := realOpen(t, "orama-stagenet-5", "orama-stagenet-5", "", "")
-	if err != nil || c.chainID != "orama-stagenet-5" {
+	c, err, _ := realOpen(t, "orama-testnet-5", "orama-testnet-5", "", "")
+	if err != nil || c.chainID != "orama-testnet-5" {
 		t.Fatalf("matching chain: %v, %v", c.chainID, err)
 	}
-	_, err, wallets := realOpen(t, "orama-evil-1", "orama-stagenet-5", "", "")
+	_, err, wallets := realOpen(t, "orama-evil-1", "orama-testnet-5", "", "")
 	if err == nil || !strings.Contains(err.Error(), "refusing to sign") {
 		t.Fatalf("an endpoint on another chain: err = %v", err)
 	}
 	if wallets != 0 {
 		t.Error("the wallet was opened for the wrong chain")
 	}
-	if _, err, _ = realOpen(t, "orama-stagenet-5", "", "", ""); err == nil || clierr.CodeOf(err) != clierr.CodeUsage {
+	if _, err, _ = realOpen(t, "orama-testnet-5", "", "", ""); err == nil || clierr.CodeOf(err) != clierr.CodeUsage {
 		t.Fatalf("a network that names no chain and no --chain-id: err = %v", err)
 	}
 	if _, err, _ = realOpen(t, "orama-x-1", "", "orama-x-1", ""); err != nil {

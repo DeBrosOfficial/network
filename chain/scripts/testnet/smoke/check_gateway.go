@@ -41,7 +41,7 @@ func parseGatewayNode(body []byte, id string) error {
 	return nil
 }
 
-// gatewayClient trusts only the CA bundle in caFile: stagenet's certificates come from the Let's
+// gatewayClient trusts only the CA bundle in caFile: testnet's certificates come from the Let's
 // Encrypt staging CA, which no system store carries. An empty caFile uses the system store.
 func gatewayClient(caFile string) (*http.Client, error) {
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}

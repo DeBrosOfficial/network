@@ -10,7 +10,7 @@ type ChainClass int
 
 // TestChainIDForm names, in messages, the chain ids of a test network (core/pkg/netclass has the
 // same text).
-const TestChainIDForm = "orama-[<name>-](localnet|devnet|stagenet)-<id>"
+const TestChainIDForm = "orama-[<name>-](localnet|devnet|testnet)-<id>"
 
 const (
 	// ChainProduction is every chain id that is not one of the test classes. It is the default
@@ -20,29 +20,30 @@ const (
 	ChainLocalnet
 	// ChainDevnet is a chain a script builds for one e2e run.
 	ChainDevnet
-	// ChainStagenet is the shared pre-production network.
-	ChainStagenet
+	// ChainTestnet is a shared test network that outlives one run (the public testnet, or an
+	// operator's own: orama-<name>-testnet-<id>).
+	ChainTestnet
 )
 
 // testChainIDPattern is the whole shape of a test chain id: "orama-", optionally one name word that
-// starts with a letter (a test network of one's own: "orama-pubnet-stagenet-1"), the class, "-",
-// then one or more lowercase alphanumeric words joined by hyphens ("orama-stagenet-10",
+// starts with a letter (a test network of one's own: "orama-pubnet-testnet-1"), the class, "-",
+// then one or more lowercase alphanumeric words joined by hyphens ("orama-testnet-10",
 // "orama-devnet-e2e-run7", "orama-localnet-bench-1"). The match is anchored at both ends, so a
-// class word anywhere else in an id ("orama-1-stagenet-x", "mainnet-localnet-1", "orama-stagenet-")
+// class word anywhere else in an id ("orama-1-testnet-x", "mainnet-localnet-1", "orama-testnet-")
 // names nothing. The pattern uses only capturing groups, so it is a valid POSIX ERE too and the shell
-// gates (chain/scripts/stagenet/deploy.sh, chain/scripts/localnet/localnet.sh, e2e/scripts/chain-deploy.sh)
+// gates (chain/scripts/testnet/deploy.sh, chain/scripts/localnet/localnet.sh, e2e/scripts/chain-deploy.sh)
 // carry this exact text; a test reads each script and keeps the text equal. Group 2 is the name word
 // and group 3 the class. core/pkg/netclass holds the same pattern for the CLI, and its test reads this
 // line to keep the two equal.
-var testChainIDPattern = regexp.MustCompile(`^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$`)
+var testChainIDPattern = regexp.MustCompile(`^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|testnet)-[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // classWords are the class names. None may be the optional name word, or "orama-devnet-localnet-1"
 // would be both a devnet called localnet and a localnet called devnet. A test keeps the list equal to
 // core/pkg/netclass's and to the shell gates' check.
-var classWords = []string{"localnet", "devnet", "stagenet"}
+var classWords = []string{"localnet", "devnet", "testnet"}
 
 // ClassOfChainID returns the class chainID names, or ChainProduction when it is not exactly a
-// localnet, devnet or stagenet id, or when its name word is a class word.
+// localnet, devnet or testnet id, or when its name word is a class word.
 func ClassOfChainID(chainID string) ChainClass {
 	m := testChainIDPattern.FindStringSubmatch(chainID)
 	if m == nil {
@@ -59,11 +60,11 @@ func ClassOfChainID(chainID string) ChainClass {
 	case "devnet":
 		return ChainDevnet
 	default:
-		return ChainStagenet
+		return ChainTestnet
 	}
 }
 
-// IsNonProductionChainID reports whether chainID is exactly a localnet, devnet or stagenet id.
+// IsNonProductionChainID reports whether chainID is exactly a localnet, devnet or testnet id.
 func IsNonProductionChainID(chainID string) bool {
 	return ClassOfChainID(chainID) != ChainProduction
 }

@@ -22,7 +22,7 @@ func runSmoke(ctx context.Context, args []string) (int, error) {
 	common.register(fs)
 	orama := fs.String("orama", "", "path of the orama CLI (linux or darwin, for this machine) [required]")
 	caFile := fs.String("ca-file", "", "PEM bundle that signs the gateway's certificate")
-	gateway := fs.String("gateway", "", "gateway base URL, e.g. https://stagenet.dbrsteting.bid [required]")
+	gateway := fs.String("gateway", "", "gateway base URL, e.g. https://testnet.orama.network [required]")
 	voteExt := fs.Int64("vote-ext-height", 2, "the genesis vote_extensions_enable_height")
 	scenario := fs.String("scenario", "", "shielded wallet scenario JSON from `deploy.sh gen-shielded`")
 	if err := fs.Parse(args); err != nil {
@@ -45,7 +45,7 @@ func runSmoke(ctx context.Context, args []string) (int, error) {
 		return 2, err
 	}
 	defer e.ssh.close()
-	if e.workDir, err = os.MkdirTemp("/tmp", "stagenet-smoke"); err != nil {
+	if e.workDir, err = os.MkdirTemp("/tmp", "testnet-smoke"); err != nil {
 		return 2, err
 	}
 	defer os.RemoveAll(e.workDir)

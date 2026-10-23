@@ -11,15 +11,15 @@ import (
 )
 
 // Chain ids that only contain a test-network word are production ids. The faucet mints norama for
-// anyone who asks, so a production chain id must never reach it by carrying "-stagenet-" or
+// anyone who asks, so a production chain id must never reach it by carrying "-testnet-" or
 // "-devnet-" somewhere inside it.
 var lookAlikeProductionChainIDs = []string{
-	"orama-1-stagenet-x",
+	"orama-1-testnet-x",
 	"orama-1-devnet-x",
 	"orama-1-localnet-x",
-	"mainnet-stagenet-1",
+	"mainnet-testnet-1",
 	"orama-a-b-localnet-1",
-	"orama-stagenet-",
+	"orama-testnet-",
 }
 
 func TestFaucet_refusedOnChainIDsThatOnlyContainATestMarker(t *testing.T) {
@@ -34,7 +34,7 @@ func TestFaucet_refusedOnChainIDsThatOnlyContainATestMarker(t *testing.T) {
 }
 
 func TestFaucet_worksOnExactTestChainIDs(t *testing.T) {
-	for _, chainID := range []string{"orama-stagenet-10", "orama-devnet-9", "orama-localnet-1", "orama-devnet-e2e-run7", "orama-pubnet-stagenet-1"} {
+	for _, chainID := range []string{"orama-testnet-10", "orama-devnet-9", "orama-localnet-1", "orama-devnet-e2e-run7", "orama-pubnet-testnet-1"} {
 		f := faucetFixture(t)
 		f.Ctx = f.Ctx.WithChainID(chainID)
 

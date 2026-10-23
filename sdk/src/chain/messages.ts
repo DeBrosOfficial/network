@@ -339,7 +339,7 @@ export const MSG = {
   // ---- x/emission ----
   emissionFaucet: defineMsg("/orama.emission.v1.MsgFaucet", emission.MsgFaucet, (m) =>
     desc("Test-network faucet", `Mint ${norama(m.amount)} to ${m.recipient}`, [
-      "Only a devnet, stagenet or localnet chain accepts this.",
+      "Only a devnet, testnet or localnet chain accepts this.",
     ]),
   ),
 

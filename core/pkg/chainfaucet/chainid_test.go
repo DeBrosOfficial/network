@@ -23,9 +23,9 @@ func nodeInfoServer(t *testing.T, status int, body string) RESTChainID {
 }
 
 func TestRESTChainID_readsTheNodesNetwork(t *testing.T) {
-	ids := nodeInfoServer(t, http.StatusOK, `{"default_node_info":{"network":"orama-stagenet-6","moniker":"x"}}`)
+	ids := nodeInfoServer(t, http.StatusOK, `{"default_node_info":{"network":"orama-testnet-6","moniker":"x"}}`)
 	got, err := ids.ChainID(context.Background())
-	if err != nil || got != "orama-stagenet-6" {
+	if err != nil || got != "orama-testnet-6" {
 		t.Fatalf("ChainID = %q, %v", got, err)
 	}
 }
@@ -34,7 +34,7 @@ func TestRESTChainID_refusesWhatIsNotAChainID(t *testing.T) {
 	for name, body := range map[string]string{
 		"none":           `{"default_node_info":{}}`,
 		"empty":          `{"default_node_info":{"network":""}}`,
-		"with a space":   `{"default_node_info":{"network":"orama stagenet"}}`,
+		"with a space":   `{"default_node_info":{"network":"orama testnet"}}`,
 		"with an escape": `{"default_node_info":{"network":"orama-\u001b[2J-1"}}`,
 		"too long":       `{"default_node_info":{"network":"` + strings.Repeat("a", 65) + `"}}`,
 		"not json":       `<html>`,

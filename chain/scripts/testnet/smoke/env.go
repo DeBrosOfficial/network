@@ -15,7 +15,7 @@ import (
 
 const rawRPCTimeoutSeconds = 15
 
-// nodeRef is one stagenet node: its label, its ssh alias and its public address.
+// nodeRef is one testnet node: its label, its ssh alias and its public address.
 type nodeRef struct {
 	Name  string
 	Alias string

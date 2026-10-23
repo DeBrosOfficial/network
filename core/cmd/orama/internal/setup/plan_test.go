@@ -10,7 +10,7 @@ import (
 )
 
 func testManifestFor() *netregistry.Manifest {
-	return &netregistry.Manifest{Name: "stagenet", ChainID: testChainID, Channel: "nightly"}
+	return &netregistry.Manifest{Name: "testnet", ChainID: testChainID, Channel: "nightly"}
 }
 
 func planFor(t *testing.T, o Options, existing ...string) *Plan {
@@ -18,7 +18,7 @@ func planFor(t *testing.T, o Options, existing ...string) *Plan {
 	if err := o.Normalize(); err != nil {
 		t.Fatal(err)
 	}
-	p, err := BuildPlan(PlanInput{Options: o, Network: testManifestFor(), Env: "stagenet-alice", ExistingHosts: existing})
+	p, err := BuildPlan(PlanInput{Options: o, Network: testManifestFor(), Env: "testnet-alice", ExistingHosts: existing})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestBuildPlan_aFullNodeNameThePlanDerivesIsHeldToTheChainsRules(t *testing.
 func TestBuildPlan_summaryNamesEachMachine(t *testing.T) {
 	p := planFor(t, Options{IPs: []string{ip1, ip2}, Name: "alice", Domain: "cluster.example.org"})
 	text := strings.Join(p.Summary(), "\n")
-	for _, want := range []string{"stagenet", testChainID, "alice (" + ip1 + ")", "creates the cluster", "alice-2 (" + ip2 + ")", "joins the cluster", "validator", "cluster.example.org"} {
+	for _, want := range []string{"testnet", testChainID, "alice (" + ip1 + ")", "creates the cluster", "alice-2 (" + ip2 + ")", "joins the cluster", "validator", "cluster.example.org"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("summary lacks %q:\n%s", want, text)
 		}
@@ -239,7 +239,7 @@ func TestBuildPlan_noMachinesIsAnError(t *testing.T) {
 
 func TestBuildPlan_summaryWarnsWhenItAddsToACluster(t *testing.T) {
 	p := planFor(t, Options{IPs: []string{ip2}, Name: "alice"}, ip1)
-	if text := strings.Join(p.Summary(), "\n"); !strings.Contains(text, `adds to the cluster already recorded as "stagenet-alice"`) || !strings.Contains(text, "--env") {
+	if text := strings.Join(p.Summary(), "\n"); !strings.Contains(text, `adds to the cluster already recorded as "testnet-alice"`) || !strings.Contains(text, "--env") {
 		t.Errorf("summary:\n%s", text)
 	}
 	if text := strings.Join(planFor(t, Options{IPs: []string{ip1}, Name: "alice"}).Summary(), "\n"); strings.Contains(text, "already recorded") {
@@ -260,7 +260,7 @@ func TestBuildPlan_aCreatedNetworksNodesRunTheIndexerAJoinsDoNot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := BuildCreatePlan(o, m, "stagenet")
+	created, err := BuildCreatePlan(o, m, "testnet")
 	if err != nil {
 		t.Fatal(err)
 	}

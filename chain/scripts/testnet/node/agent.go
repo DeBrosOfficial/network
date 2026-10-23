@@ -49,7 +49,7 @@ type signData struct {
 
 // newAgentHandler signs SIGN_MODE_DIRECT sign documents with acct, and only that: it never
 // returns the key, and it signs nothing but the bytes it is sent. It stands in for the RootWallet
-// agent on a stagenet node, where the operator key is a test-keyring key that holds no real value;
+// agent on a testnet node, where the operator key is a test-keyring key that holds no real value;
 // the same protocol means the real `orama` commands run unchanged.
 func newAgentHandler(acct tx.Account) http.Handler {
 	mux := http.NewServeMux()

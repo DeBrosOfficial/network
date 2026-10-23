@@ -22,9 +22,9 @@ func twoSeats() []Seat {
 }
 
 func TestGenesisSteps_testNetworkWithFaucet(t *testing.T) {
-	got := GenesisSteps(GenesisSpec{ChainID: "orama-stagenet-6", Seats: twoSeats(), TestNetwork: true, Faucet: true})
+	got := GenesisSteps(GenesisSpec{ChainID: "orama-testnet-6", Seats: twoSeats(), TestNetwork: true, Faucet: true})
 	want := [][]string{
-		{"init", "genesis-work", "--chain-id", "orama-stagenet-6", "--default-denom", "norama"},
+		{"init", "genesis-work", "--chain-id", "orama-testnet-6", "--default-denom", "norama"},
 		{"genesis", "set-emission-params", "--epoch-duration", "300s", "--min-blocks-per-epoch", "10", "--allow-bootstrap-stake", "--faucet-enabled", "--faucet-max-drip", "10000000000000"},
 		{"genesis", "add-bootstrap-validator", seatAddrA, "--moniker", "seed", "--consensus-pubkey-base64", seatKeyA, "--min-committee-size", "2"},
 		{"genesis", "add-bootstrap-validator", seatAddrB, "--moniker", "seed-2", "--consensus-pubkey-base64", seatKeyB},
@@ -71,7 +71,7 @@ func TestGenesisScript_quotesAndCleansUp(t *testing.T) {
 	}
 }
 
-const sampleGenesis = `{"genesis_time":"2026-10-10T00:00:00Z","chain_id":"orama-stagenet-6",
+const sampleGenesis = `{"genesis_time":"2026-10-10T00:00:00Z","chain_id":"orama-testnet-6",
  "consensus":{"params":{"block":{"max_bytes":"22020096","max_gas":"-1"},"evidence":{"max_age_num_blocks":"100000"}}},
  "app_state":{"big":12345678901234567890123,"note":"a & b <c>"}}`
 
@@ -103,7 +103,7 @@ func TestApplyConsensusParams_setsTheTwoValuesAndKeepsTheRest(t *testing.T) {
 	if params["evidence"]["max_age_num_blocks"] != evidenceMaxAgeNumBlocks || params["evidence"]["max_age_duration"] != evidenceMaxAgeDurationNanos {
 		t.Errorf("evidence = %v, want the 14-day window", params["evidence"])
 	}
-	for _, kept := range []string{`12345678901234567890123`, `"a & b <c>"`, `"chain_id": "orama-stagenet-6"`} {
+	for _, kept := range []string{`12345678901234567890123`, `"a & b <c>"`, `"chain_id": "orama-testnet-6"`} {
 		if !strings.Contains(string(out), kept) {
 			t.Errorf("the edit lost %s:\n%s", kept, out)
 		}

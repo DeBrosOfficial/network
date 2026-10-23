@@ -46,8 +46,8 @@ func aliceAddress(t *testing.T) string {
 func TestLoadScenario_refusesAnotherChainAndAWrongShape(t *testing.T) {
 	data, err := os.ReadFile(filepath.FromSlash(committedScenario))
 	require.NoError(t, err)
-	_, err = loadScenario(data, "orama-stagenet-1")
-	require.ErrorContains(t, err, "not \"orama-stagenet-1\"")
+	_, err = loadScenario(data, "orama-testnet-1")
+	require.ErrorContains(t, err, "not \"orama-testnet-1\"")
 	_, err = loadScenario([]byte(`{"chain_id":"c","steps":[]}`), "c")
 	require.ErrorContains(t, err, "0 steps")
 	_, err = loadScenario([]byte(`{"chain_id":"c","steps":[{"kind":"shield"},{"kind":"transfer"},{"kind":"transfer"},{"kind":"unshield"}]}`), "c")
@@ -63,7 +63,7 @@ func TestStepMessage_mapsEachKindToItsMessage(t *testing.T) {
 
 	m, gas, signerless, err := stepMessage(sc.Steps[0], signer, actionGas)
 	require.NoError(t, err)
-	require.IsType(t, &shieldedtypes.MsgShieldEarnings{}, m, "a stagenet account has earnings, not a bank balance")
+	require.IsType(t, &shieldedtypes.MsgShieldEarnings{}, m, "a testnet account has earnings, not a bank balance")
 	require.False(t, signerless)
 	require.Zero(t, gas)
 

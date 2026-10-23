@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# Maintenance of the stagenet nodes: reset them, read their status, check the chain's invariants,
+# Maintenance of the testnet nodes: reset them, read their status, check the chain's invariants,
 # run the live smoke, switch the public faucet on, and build the shielded wallet's scenario.
 #
 # The network itself is not made here. A network is created, and its nodes joined, by `orama setup`
 # (website/src/docs/operator/setup.mdx, "Create a network"):
 #
-#   orama setup --create-network stagenet --chain-id orama-stagenet-N --release-root release-root.json ...
+#   orama setup --create-network testnet --chain-id orama-testnet-N --release-root release-root.json ...
 #
 # It installs the signed release on every machine, makes each machine's chain keys, builds the genesis
 # from all of them, starts the chains, registers the operator and the nodes, and writes
-# networks/stagenet/ for the maintainer to publish. This script is for the stagenet that runs, and
+# networks/testnet/ for the maintainer to publish. This script is for the testnet that runs, and
 # for `reset`, which returns the machines to a clean state before the next creation.
 #
-# Each stagenet node runs an Orama private-cluster node (orama-node, namespace gateways, RQLite,
+# Each testnet node runs an Orama private-cluster node (orama-node, namespace gateways, RQLite,
 # WireGuard) beside the global services, which run in their own network namespace (orama-global) as
 # website/src/docs/blockchain/run-a-global-node.mdx describes. Nothing here starts, stops or
 # reconfigures a cluster service; `reset` edits only the two global lines the install added to the
 # cluster's preferences.yaml.
 #
-# Stagenet/devnet only: CHAIN_ID must say so, and the script refuses to run otherwise. The operator
+# Testnet/devnet only: CHAIN_ID must say so, and the script refuses to run otherwise. The operator
 # key of each node is the seat's "validator" key in oramad's test keyring (an unencrypted, on-disk
 # keyring), a devnet-only convenience never appropriate once real value is at stake. It never leaves
 # the node: `smoke` pipes it, on the node, into a signing agent that speaks the RootWallet agent
@@ -43,19 +43,19 @@
 #   gen-shielded build the wallet scenario for this chain (needs the Rust toolchain).
 #
 # Environment (all optional):
-#   CHAIN_ID                        orama-stagenet-1; exactly orama-[<name>-](stagenet|devnet)-<id>.
+#   CHAIN_ID                        orama-testnet-1; exactly orama-[<name>-](testnet|devnet)-<id>.
 #   ORAMA_ENV                       the CLI environment of this network (the one `orama setup` recorded, named
-#                                   after the network) for `faucet` to fund the accounts through (default stagenet).
+#                                   after the network) for `faucet` to fund the accounts through (default testnet).
 #   FAUCET_FUND_NORAMA              what `faucet` gives each node's faucet account for transaction fees (1,000 ORAMA).
 #   VOTE_EXTENSIONS_ENABLE_HEIGHT   the height vote extensions turn on at; `orama setup` writes 2 (smoke checks it).
 #   CA_FILE                         PEM bundle that signs the gateway certificate (smoke).
-#   GATEWAY_URL                     the gateway smoke reads through (https://stagenet.dbrsteting.bid).
+#   GATEWAY_URL                     the gateway smoke reads through (https://testnet.orama.network).
 #   SHIELDED_SCENARIO               scenario JSON from `gen-shielded` (smoke).
 set -euo pipefail
 
-CHAIN_ID="${CHAIN_ID:-orama-stagenet-1}"
+CHAIN_ID="${CHAIN_ID:-orama-testnet-1}"
 
-# Refuse anything that isn't clearly a stagenet or devnet chain-id, and reject anything that isn't
+# Refuse anything that isn't clearly a testnet or devnet chain-id, and reject anything that isn't
 # a plain, safe identifier before it ever reaches a remote command line.
 if ! [[ "$CHAIN_ID" =~ ^[a-z0-9-]{1,48}$ ]]; then
 	echo "invalid CHAIN_ID (expected [a-z0-9-]{1,48}): $CHAIN_ID" >&2
@@ -63,18 +63,18 @@ if ! [[ "$CHAIN_ID" =~ ^[a-z0-9-]{1,48}$ ]]; then
 fi
 # The exact rule of the chain (params.ClassOfChainID): this pattern is that one, and a test keeps the
 # text equal. A class word anywhere else in the id, or as the name word, names nothing.
-TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$'
+TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|testnet)-[a-z0-9]+(-[a-z0-9]+)*$'
 chain_name=""
 chain_class=""
 if [[ "$CHAIN_ID" =~ $TEST_CHAIN_ID_RE ]]; then
 	chain_name="${BASH_REMATCH[2]}"
 	chain_class="${BASH_REMATCH[3]}"
 fi
-case "$chain_name" in localnet | devnet | stagenet) chain_class="" ;; esac
+case "$chain_name" in localnet | devnet | testnet) chain_class="" ;; esac
 case "$chain_class" in
-stagenet | devnet) ;;
+testnet | devnet) ;;
 *)
-	echo "refusing to run: CHAIN_ID must be orama-[<name>-](stagenet|devnet)-<id> exactly, got: $CHAIN_ID" >&2
+	echo "refusing to run: CHAIN_ID must be orama-[<name>-](testnet|devnet)-<id> exactly, got: $CHAIN_ID" >&2
 	exit 1
 	;;
 esac
@@ -90,7 +90,7 @@ NODES=("founder:mew:57.129.166.16" "founder-2:mewtwo:57.129.166.17" "founder-3:g
 BIN_DIR="/usr/lib/orama-global/bin"
 HOME_DIR="/var/lib/orama-global/chain"
 SVC_USER="orama-chain"
-TOOLS_DIR="/usr/local/lib/orama-stagenet"
+TOOLS_DIR="/usr/local/lib/orama-testnet"
 # The chain's RPC and REST API listen on the orama-global namespace address (core/pkg/constants,
 # GlobalNetnsAddr), which the host reaches over the veth pair; the namespace firewall admits only the host.
 NS_ADDR="198.18.0.2"
@@ -102,10 +102,10 @@ DENOM="norama"
 # (core/cmd/orama/internal/setup/create_genesis.go, voteExtensionsEnableHeight), and smoke checks it.
 VOTE_EXTENSIONS_ENABLE_HEIGHT="${VOTE_EXTENSIONS_ENABLE_HEIGHT:-2}"
 
-CA_FILE="${CA_FILE:-/Users/pen/orama-stagenet-handoff/le-roots.pem}"
-GATEWAY_URL="${GATEWAY_URL:-https://stagenet.dbrsteting.bid}"
+CA_FILE="${CA_FILE:-/Users/pen/orama-testnet-handoff/le-roots.pem}"
+GATEWAY_URL="${GATEWAY_URL:-https://testnet.orama.network}"
 SHIELDED_SCENARIO="${SHIELDED_SCENARIO:-}"
-ORAMA_ENV="${ORAMA_ENV:-stagenet}"
+ORAMA_ENV="${ORAMA_ENV:-testnet}"
 # What each node's faucet account is given for fees. A drip mints to the recipient and costs the faucet account one
 # transaction fee, so this lasts for as many drips as there will ever be.
 FAUCET_FUND_NORAMA="${FAUCET_FUND_NORAMA:-1000000000000}"
@@ -196,11 +196,11 @@ run_remote_script() {
 # ------------------------------------------------------------------------------------------------
 # host tools
 
-# build_host_tools compiles what runs on this machine: stagenetctl, and the orama CLI for this OS
+# build_host_tools compiles what runs on this machine: testnetctl, and the orama CLI for this OS
 # (`orama storage` runs here, against the nodes).
 build_host_tools() {
-	log "building stagenetctl and the orama CLI for this machine"
-	(cd "$chain_root" && go build -o "$work/stagenetctl" ./scripts/stagenet/smoke)
+	log "building testnetctl and the orama CLI for this machine"
+	(cd "$chain_root" && go build -o "$work/testnetctl" ./scripts/testnet/smoke)
 	(cd "$core_root" && go build -o "$work/orama-host" ./cmd/orama/)
 }
 
@@ -211,9 +211,9 @@ build_host_tools() {
 # directory of its own.
 stage_tools() {
 	local alias="$1" name="$2"
-	log "[$name] installing stagenet-node in $TOOLS_DIR"
+	log "[$name] installing testnet-node in $TOOLS_DIR"
 	on "$alias" "sudo install -d -m 0755 -o root -g root $TOOLS_DIR"
-	put_root_file "$alias" 0755 "$TOOLS_DIR/stagenet-node" < "$work/stagenet-node"
+	put_root_file "$alias" 0755 "$TOOLS_DIR/testnet-node" < "$work/testnet-node"
 }
 
 address_of() {
@@ -236,7 +236,7 @@ cmd_status() {
 
 # INVARIANT_MODULES are the modules whose `oramad query <module> invariants` must hold on every
 # node after a deploy (docs/whitepaper/technical-reference/vol2/39-chain-architecture.md). A literal list: nothing from remote output is
-# spliced into the remote command. The same list is stagenetctl's (scripts/stagenet/smoke).
+# spliced into the remote command. The same list is testnetctl's (scripts/testnet/smoke).
 #
 # Every module that holds or moves norama has an invariants query and is listed here:
 # emission, fees, storage, nodes, relay, houses, token, market (bid escrow) and power (its
@@ -323,13 +323,13 @@ nodes_spec() {
 
 cmd_smoke() {
 	(cd "$chain_root" && make build-linux-amd64-global)
-	cp "$chain_root/build/stagenet-node-linux-amd64" "$work/stagenet-node"
+	cp "$chain_root/build/testnet-node-linux-amd64" "$work/testnet-node"
 	build_host_tools
 	local n
 	for n in "${NODES[@]}"; do stage_tools "$(field "$n" 2)" "$(field "$n" 1)"; done
 	local extra=()
 	[ -n "$SHIELDED_SCENARIO" ] && extra+=(--scenario "$SHIELDED_SCENARIO")
-	"$work/stagenetctl" smoke --chain-id "$CHAIN_ID" --nodes "$(nodes_spec)" --orama "$work/orama-host" \
+	"$work/testnetctl" smoke --chain-id "$CHAIN_ID" --nodes "$(nodes_spec)" --orama "$work/orama-host" \
 		--ca-file "$CA_FILE" --gateway "$GATEWAY_URL" --vote-ext-height "$VOTE_EXTENSIONS_ENABLE_HEIGHT" ${extra[@]+"${extra[@]}"}
 }
 
@@ -337,11 +337,11 @@ cmd_smoke() {
 # the unshield, amounts that clear the chain's floors and a transfer fee sized to its parameters.
 cmd_gen_shielded() {
 	build_host_tools
-	local first_alias operator out="$chain_root/build/stagenet-shielded-scenario.json"
+	local first_alias operator out="$chain_root/build/testnet-shielded-scenario.json"
 	first_alias="$(field "${NODES[0]}" 2)"
 	operator="$(address_of "$first_alias")"
 	local envlines line assignments=()
-	envlines="$("$work/stagenetctl" shielded-env --chain-id "$CHAIN_ID" --nodes "$(nodes_spec)" --operator "$operator")"
+	envlines="$("$work/testnetctl" shielded-env --chain-id "$CHAIN_ID" --nodes "$(nodes_spec)" --operator "$operator")"
 	while IFS= read -r line; do assignments+=("$line"); done <<< "$envlines"
 	log "building the scenario (about a minute of proving)"
 	mkdir -p "$chain_root/build"

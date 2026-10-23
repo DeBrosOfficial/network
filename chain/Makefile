@@ -187,13 +187,13 @@ build-linux-amd64-full: native-lib-linux-amd64 orchard-verifier-linux-amd64
 		-o $(BUILD_DIR)/$(BINARY)-linux-amd64-full $(PKG)
 
 ## build-linux-amd64-global: the static linux/amd64 orama-global (the provider, archiver, indexer and repair
-## services that run beside oramad, staged by `orama global install`) and stagenet-node (the helper
-## scripts/stagenet/deploy.sh smoke runs on a stagenet node: the signing agent). Both are pure Go,
+## services that run beside oramad, staged by `orama global install`) and testnet-node (the helper
+## scripts/testnet/deploy.sh smoke runs on a testnet node: the signing agent). Both are pure Go,
 ## so no native library is involved.
 build-linux-amd64-global:
 	mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags nowasm $(BUILD_FLAGS) -o $(BUILD_DIR)/orama-global-linux-amd64 ./cmd/orama-global
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags nowasm $(BUILD_FLAGS) -o $(BUILD_DIR)/stagenet-node-linux-amd64 ./scripts/stagenet/node
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags nowasm $(BUILD_FLAGS) -o $(BUILD_DIR)/testnet-node-linux-amd64 ./scripts/testnet/node
 
 ## chain-test: alias for test, matching plans/open-network/track-c-chain.md's `make chain-test`.
 chain-test: test
@@ -244,7 +244,7 @@ localnet:
 ## looks for saturation and takes a long time. It starts the localnet with 1s blocks, the faucet on,
 ## CosmWasm when libwasmvm is installed and the shielded verifiers when cargo is. Env: BENCH_TYPES,
 ## N, TIMEOUT_COMMIT, VOTE_EXTENSIONS_ENABLE_HEIGHT, KEEP_LOCALNET (see scripts/localnet/bench-load.sh).
-## Local only: it never touches devnet, testnet or stagenet. The report lands in build/bench-report.json.
+## Local only: it never touches devnet or testnet. The report lands in build/bench-report.json.
 bench-load:
 	./scripts/localnet/bench-load.sh
 

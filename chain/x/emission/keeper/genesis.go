@@ -12,7 +12,7 @@ import (
 )
 
 // testChainIDForm names, in error messages, the chain ids the bootstrap-stake and faucet gates
-// accept: exactly params.ClassOfChainID's localnet, devnet and stagenet ids. A mainnet chain-id
+// accept: exactly params.ClassOfChainID's localnet, devnet and testnet ids. A mainnet chain-id
 // ("orama-1") is none of them, and neither is an id that only contains a class word.
 const testChainIDForm = params.TestChainIDForm
 

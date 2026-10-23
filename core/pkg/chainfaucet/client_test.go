@@ -107,9 +107,9 @@ func TestRequest_otherFailuresNameTheGatewayAndAreCleaned(t *testing.T) {
 
 func TestRequest_onlyAnHTTPSGatewayIsAsked(t *testing.T) {
 	for _, base := range []string{
-		"http://ns1.stagenet.orama.network",
+		"http://ns1.testnet.orama.network",
 		"ftp://seed1.example.org",
-		"ns1.stagenet.orama.network",
+		"ns1.testnet.orama.network",
 		"https://user:pass@seed1.example.org",
 		"https://seed1.example.org/some/path",
 		"",
@@ -131,8 +131,8 @@ type failingDoer struct{}
 func (failingDoer) Do(*http.Request) (*http.Response, error) { return nil, errors.New("unreachable") }
 
 func TestRequest_aGatewayThatCannotBeReachedIsAnErrorThatNamesIt(t *testing.T) {
-	_, err := Request(context.Background(), failingDoer{}, "https://ns1.stagenet.orama.network", recipientN(t, 2), big.NewInt(1))
-	if err == nil || !strings.Contains(err.Error(), "ns1.stagenet.orama.network") {
+	_, err := Request(context.Background(), failingDoer{}, "https://ns1.testnet.orama.network", recipientN(t, 2), big.NewInt(1))
+	if err == nil || !strings.Contains(err.Error(), "ns1.testnet.orama.network") {
 		t.Fatalf("err = %v", err)
 	}
 }

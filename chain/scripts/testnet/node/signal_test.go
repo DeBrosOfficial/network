@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const agentChildEnv = "STAGENET_NODE_TEST_AGENT_SOCKET"
+const agentChildEnv = "TESTNET_NODE_TEST_AGENT_SOCKET"
 
 // TestMain runs the agent as a child when asked, so the test can signal a real process.
 func TestMain(m *testing.M) {

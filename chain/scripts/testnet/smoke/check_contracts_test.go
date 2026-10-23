@@ -43,5 +43,5 @@ func TestParseCW20Balance(t *testing.T) {
 func TestCW20InstantiateMsg_holdsTheSupplyForTheOperator(t *testing.T) {
 	raw, err := cw20InstantiateMsg("orama1holder")
 	require.NoError(t, err)
-	require.JSONEq(t, `{"name":"Stagenet Smoke","symbol":"SMK","decimals":6,"initial_balances":[{"address":"orama1holder","amount":"1000"}]}`, string(raw))
+	require.JSONEq(t, `{"name":"Testnet Smoke","symbol":"SMK","decimals":6,"initial_balances":[{"address":"orama1holder","amount":"1000"}]}`, string(raw))
 }

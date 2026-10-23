@@ -13,7 +13,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/onchain"
 )
 
-const testChainID = "orama-stagenet-9"
+const testChainID = "orama-testnet-9"
 
 // recipientN is the Nth test account: a canonical address.
 func recipientN(t testing.TB, n byte) string {

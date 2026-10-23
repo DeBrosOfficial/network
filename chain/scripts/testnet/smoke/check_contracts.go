@@ -73,7 +73,7 @@ func cw20InstantiateMsg(holder string) ([]byte, error) {
 		Amount  string `json:"amount"`
 	}
 	return json.Marshal(map[string]any{
-		"name": "Stagenet Smoke", "symbol": "SMK", "decimals": 6,
+		"name": "Testnet Smoke", "symbol": "SMK", "decimals": 6,
 		"initial_balances": []coin{{Address: holder, Amount: cw20Supply}},
 	})
 }
@@ -110,7 +110,7 @@ func checkCW20(ctx context.Context, e *env, c *node.Client) Result {
 		return fail(name, "%v", err)
 	}
 	_, events, err := c.SubmitWithEvents(ctx, e.signer, &wasmtypes.MsgInstantiateContract{
-		Sender: holder, CodeID: cw20CodeID, Label: "stagenet-smoke-cw20", Msg: initMsg,
+		Sender: holder, CodeID: cw20CodeID, Label: "testnet-smoke-cw20", Msg: initMsg,
 	})
 	if err != nil {
 		return fail(name, "instantiate code %d: %v", cw20CodeID, err)

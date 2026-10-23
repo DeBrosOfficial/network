@@ -1,9 +1,9 @@
-// Command stagenet-node is the small helper the stagenet smoke runs on a stagenet node, as root,
-// inside the orama-global network namespace (chain/scripts/stagenet/deploy.sh smoke):
+// Command testnet-node is the small helper the testnet smoke runs on a testnet node, as root,
+// inside the orama-global network namespace (chain/scripts/testnet/deploy.sh smoke):
 //
 //	agent   serve a RootWallet-compatible signing socket for the operator key
 //
-// The operator key is the seat's "validator" key in oramad's test keyring (stagenet only). It is
+// The operator key is the seat's "validator" key in oramad's test keyring (testnet only). It is
 // read from stdin, piped straight from `oramad keys export` on the same host, so it never leaves
 // the node and never touches a disk.
 package main
@@ -25,7 +25,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), stopSignals...)
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "stagenet-node:", err)
+		fmt.Fprintln(os.Stderr, "testnet-node:", err)
 		os.Exit(1)
 	}
 }

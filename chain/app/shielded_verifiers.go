@@ -35,7 +35,7 @@ const (
 
 // verifiersOptional reports whether a node of chainID may start without the shielded verifiers:
 // localnets and the devnet a script builds for one e2e run (e2e/scripts/chain-deploy.sh), both
-// built without the orchard library. A node of any other chain (stagenet, testnet, mainnet) that
+// built without the orchard library. A node of any other chain (testnet, mainnet) that
 // cannot verify votes on proposals it never checked and forks itself off at the first shielded
 // transaction it executes, so it refuses to start instead.
 func verifiersOptional(chainID string) bool {

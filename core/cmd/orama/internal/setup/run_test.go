@@ -361,10 +361,10 @@ func TestRun_alreadyInstalledMachinesAreSkipped(t *testing.T) {
 
 func TestRun_addingANodeToAnExistingCluster(t *testing.T) {
 	h := newHarness()
-	h.rec.hosts["stagenet-alice"] = []RecordedNode{{Host: ip1, User: "root", Role: "node"}}
-	h.rec.active = "stagenet-alice"
+	h.rec.hosts["testnet-alice"] = []RecordedNode{{Host: ip1, User: "root", Role: "node"}}
+	h.rec.active = "testnet-alice"
 	res := mustRun(t, h, h.opts(ip2))
-	if res.Env != "stagenet-alice" {
+	if res.Env != "testnet-alice" {
 		t.Errorf("env %q, want the active environment on this network", res.Env)
 	}
 	if h.w.index("cluster "+ip2+" join") < 0 || h.w.index("cluster "+ip2+" create") >= 0 {
@@ -373,11 +373,11 @@ func TestRun_addingANodeToAnExistingCluster(t *testing.T) {
 	if h.w.index("reach "+ip1) < 0 || h.w.index("invite on "+ip1) < 0 {
 		t.Error("the invite is minted on a node already in the cluster, reached without a prompt")
 	}
-	if got := h.rec.gateway["stagenet-alice"]; got != "" {
+	if got := h.rec.gateway["testnet-alice"]; got != "" {
 		t.Errorf("an existing environment keeps its gateway, setup passed %q", got)
 	}
-	if len(h.rec.cluster["stagenet-alice"]) != 2 {
-		t.Errorf("recorded nodes %v, want the old one and the new one", h.rec.cluster["stagenet-alice"])
+	if len(h.rec.cluster["testnet-alice"]) != 2 {
+		t.Errorf("recorded nodes %v, want the old one and the new one", h.rec.cluster["testnet-alice"])
 	}
 }
 
@@ -650,7 +650,7 @@ func TestRun_domainPrintsRecordsThenWaits(t *testing.T) {
 	if h.w.index("domain records via "+ip1) < 0 || h.w.index("domain wait via "+ip1) < 0 {
 		t.Errorf("the nameservers are read on a cluster machine whose host key is pinned, not on a node resolved afresh:\n%s", strings.Join(h.w.entries(), "\n"))
 	}
-	if got := h.rec.gateway["stagenet-alice"]; got != "https://cluster.example.org" {
+	if got := h.rec.gateway["testnet-alice"]; got != "https://cluster.example.org" {
 		t.Errorf("gateway %q, want the domain", got)
 	}
 	if h.enroll.created[ip1].installed.Domain != "cluster.example.org" {
@@ -667,7 +667,7 @@ func TestRun_domainThatNeverDelegatesGivesAResumeCommand(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error")
 	}
-	for _, want := range []string{"orama setup --network stagenet --env stagenet-alice", "--ip " + ip1, "--domain cluster.example.org", "--cluster-only", "--yes", "resumes at this step"} {
+	for _, want := range []string{"orama setup --network testnet --env testnet-alice", "--ip " + ip1, "--domain cluster.example.org", "--cluster-only", "--yes", "resumes at this step"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error lacks %q:\n%v", want, err)
 		}
@@ -699,8 +699,8 @@ func TestRun_clusterInstallFailureStopsTheRunAndKeepsWhatWasRecorded(t *testing.
 	if h.w.index("global ") >= 0 {
 		t.Error("the global layer is not started after a failed cluster install")
 	}
-	if len(h.rec.cluster["stagenet-alice"]) != 1 {
-		t.Errorf("the node that did install is recorded, got %v", h.rec.cluster["stagenet-alice"])
+	if len(h.rec.cluster["testnet-alice"]) != 1 {
+		t.Errorf("the node that did install is recorded, got %v", h.rec.cluster["testnet-alice"])
 	}
 }
 
@@ -764,7 +764,7 @@ func TestPlanFor_resolvesTheNetworkAndTouchesNoMachine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.Network != "stagenet" || plan.Env != "stagenet-alice" || len(plan.Nodes) != 2 || plan.Nodes[0].Cluster != ClusterCreate {
+	if plan.Network != "testnet" || plan.Env != "testnet-alice" || len(plan.Nodes) != 2 || plan.Nodes[0].Cluster != ClusterCreate {
 		t.Fatalf("%+v", plan)
 	}
 	if len(h.w.entries()) != 0 {

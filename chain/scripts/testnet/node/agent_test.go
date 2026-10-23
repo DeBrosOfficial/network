@@ -96,9 +96,9 @@ func TestAgentAccount_returnsTheAddressAndKeyButNoSignature(t *testing.T) {
 }
 
 func TestParseListen(t *testing.T) {
-	spec, err := parseListen("/run/orama-stagenet/agent.sock:1000")
+	spec, err := parseListen("/run/orama-testnet/agent.sock:1000")
 	require.NoError(t, err)
-	require.Equal(t, listenSpec{Path: "/run/orama-stagenet/agent.sock", UID: 1000}, spec)
+	require.Equal(t, listenSpec{Path: "/run/orama-testnet/agent.sock", UID: 1000}, spec)
 
 	for _, bad := range []string{"", "/x.sock", "/x.sock:", ":5", "/x.sock:abc", "/x.sock:-1", "x.sock:1"} {
 		_, err := parseListen(bad)

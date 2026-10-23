@@ -91,7 +91,7 @@ func stepMessage(step scenarioStep, signer string, actionGas uint64) (msg sdk.Ms
 	}
 	switch step.Kind {
 	case "shield":
-		// A stagenet account holds earnings, never a bank balance (docs/whitepaper/technical-reference/vol2/44-governance-and-contracts.md: no premine, and
+		// A testnet account holds earnings, never a bank balance (docs/whitepaper/technical-reference/vol2/44-governance-and-contracts.md: no premine, and
 		// users cannot send norama to each other), so a shield comes out of earnings.
 		return &shieldedtypes.MsgShieldEarnings{Signer: signer, Bundle: bundle}, 0, false, nil
 	case "transfer":
@@ -124,7 +124,7 @@ func suggestedTransferFee(actions, actionGas uint64, baseFee, nullifierFee math.
 // The scenario unshields to its signer's fee-only balance, which x/shielded caps at max_fee_topup
 // per unshield (net of its nullifier fees), and its transfer's fee must stay below the change it
 // leaves. A scale fixed without the cap (1,000,000) made the unshield 4998000000 norama over a
-// 10000000 cap on stagenet.
+// 10000000 cap on testnet.
 func scenarioScaleFor(maxFeeTopup, nullifierFee, fee math.Int) (uint64, error) {
 	room := maxFeeTopup.Add(nullifierFee.MulRaw(scenarioUnshieldActions))
 	scale := room.QuoRaw(scenarioUnshieldUnits)

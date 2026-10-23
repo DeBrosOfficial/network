@@ -153,7 +153,7 @@ func torPlan(t *testing.T, o Options) *Plan {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := BuildCreatePlan(o, m, "stagenet")
+	p, err := BuildCreatePlan(o, m, "testnet")
 	if err != nil {
 		t.Fatal(err)
 	}

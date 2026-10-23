@@ -5,7 +5,7 @@ import "cosmossdk.io/errors"
 // The faucet's typed refusals. Each is returned by Msg.Faucet before anything is minted.
 var (
 	// ErrFaucetProduction is returned when the faucet is called on a production chain-id.
-	ErrFaucetProduction = errors.Register(ModuleName, 1, "the faucet runs only on a devnet, stagenet or localnet chain-id")
+	ErrFaucetProduction = errors.Register(ModuleName, 1, "the faucet runs only on a devnet, testnet or localnet chain-id")
 
 	// ErrFaucetDisabled is returned when Params.FaucetEnabled is false.
 	ErrFaucetDisabled = errors.Register(ModuleName, 2, "the faucet is disabled (faucet_enabled is false)")

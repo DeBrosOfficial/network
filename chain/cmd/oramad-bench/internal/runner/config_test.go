@@ -82,7 +82,7 @@ func TestRequireLocalnet(t *testing.T) {
 	if err := requireLocalnet("orama-localnet-1"); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"orama-devnet-1", "orama-stagenet-1", "orama-testnet-1", "orama-1", "orama-1-localnet-x", "mainnet-localnet-1", ""} {
+	for _, id := range []string{"orama-devnet-1", "orama-testnet-1", "orama-1", "orama-1-localnet-x", "mainnet-localnet-1", ""} {
 		if err := requireLocalnet(id); !errors.Is(err, ErrNotLocalnet) {
 			t.Errorf("chain id %q: %v", id, err)
 		}

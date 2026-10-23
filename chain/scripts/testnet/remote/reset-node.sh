@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs on a stagenet node, as root (deploy.sh reset stages and runs it with sudo). Removes the
+# Runs on a testnet node, as root (deploy.sh reset stages and runs it with sudo). Removes the
 # global services and the co-located layout `orama global install --colocated` wrote, and any
 # legacy direct-unit chain install, following the removal steps in website/src/docs/blockchain/run-a-global-node.mdx
 # ("Sharing a machine with a cluster node"). Every step tolerates the thing it removes already
@@ -84,5 +84,5 @@ fi
 
 rm -rf /etc/orama-global /etc/sysctl.d/60-orama-global-netns.conf
 rm -rf /var/lib/orama-global /usr/lib/orama-global
-rm -rf /root/orama-global-release /usr/local/lib/orama-stagenet /run/orama-stagenet /run/orama-stagenet-fwd
+rm -rf /root/orama-global-release /usr/local/lib/orama-testnet /run/orama-testnet /run/orama-testnet-fwd
 log "global install removed"

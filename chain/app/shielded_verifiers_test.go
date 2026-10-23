@@ -16,12 +16,12 @@ import (
 	orchardverify "github.com/Orama-Network/orama/chain/x/shielded/verify/orchard"
 )
 
-// A stagenet, testnet or mainnet node without the verifiers voted on proposals it never verified
+// A testnet or mainnet node without the verifiers voted on proposals it never verified
 // and forked itself off at the first shielded transaction it executed. `oramad start` now refuses it
 // and says what to install.
 func TestCheckNodeCanVerify_publicNetworkWithoutVerifierIsRefused(t *testing.T) {
 	opts := simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir()}
-	for _, chainID := range []string{"orama-stagenet-6", "orama-testnet-1", "orama-1"} {
+	for _, chainID := range []string{"orama-testnet-6", "orama-1"} {
 		err := app.CheckNodeCanVerify(chainID, opts)
 		require.Error(t, err, "%s may start without the shielded verifiers", chainID)
 		require.True(t, strings.Contains(err.Error(), app.ShieldedVerifierBinary) && strings.Contains(err.Error(), chainID),
@@ -44,7 +44,7 @@ func TestCheckNodeCanVerify_binaryAloneIsNotEnough(t *testing.T) {
 	bin := filepath.Join(home, "bin", app.ShieldedVerifierBinary)
 	require.NoError(t, os.MkdirAll(filepath.Dir(bin), 0o755))
 	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755))
-	err := app.CheckNodeCanVerify("orama-stagenet-6", simtestutil.AppOptionsMap{flags.FlagHome: home})
+	err := app.CheckNodeCanVerify("orama-testnet-6", simtestutil.AppOptionsMap{flags.FlagHome: home})
 	if orchardverify.Linked {
 		if runtime.GOOS == "linux" {
 			require.NoError(t, err)

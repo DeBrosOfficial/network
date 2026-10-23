@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 type step int
@@ -279,10 +280,10 @@ func (m *Model) enter(s step) (tea.Model, tea.Cmd) {
 		m.input.Placeholder = "path to tor-network.json"
 		m.input.SetValue(m.opts.TorNetwork)
 	case stepCreateName:
-		m.input.Placeholder = "stagenet"
+		m.input.Placeholder = "testnet"
 		m.input.SetValue(m.opts.Create.Name)
 	case stepCreateChainID:
-		m.input.Placeholder = "orama-" + orDefault(m.opts.Create.Name, "name") + "-stagenet-1"
+		m.input.Placeholder = netclass.ExampleTestChainID(orDefault(m.opts.Create.Name, "name"))
 		m.input.SetValue(m.opts.Create.ChainID)
 	case stepCreateRoot:
 		m.input.Placeholder = "path to release-root.json"

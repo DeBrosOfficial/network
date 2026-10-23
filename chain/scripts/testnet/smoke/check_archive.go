@@ -169,7 +169,7 @@ func archiveDeals(ctx context.Context, c *node.Client) ([]archiveDeal, error) {
 	return out, nil
 }
 
-// providerASNs are the declared ASNs of the registered stagenet nodes.
+// providerASNs are the declared ASNs of the registered testnet nodes.
 func (e *env) providerASNs(ctx context.Context, c *node.Client) ([]uint32, error) {
 	var asns []uint32
 	for _, n := range e.nodes {

@@ -13,10 +13,10 @@ import (
 
 const (
 	vectorOperator = "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s"
-	vectorChain    = "orama-stagenet-2"
+	vectorChain    = "orama-testnet-2"
 	// vectorSecpSig is SignSecp256k1 of secret 0x11*32. The chain verifier
 	// test accepts this same signature.
-	vectorSecpSig = "222079d46ccc2e809b6e3cdb82b61cac8b70d7d45a1a87230dbe0c37f361f2ab3ec979ec4f3ff32139c71c2317dffd87df8b67f63c9389a6d0535be03b6530a6"
+	vectorSecpSig = "aa659956e92943f40a10a6239f18a666171e3add0d4e99ad8146f5e79541f6cf6089cbd369b45f415d4ca404d6fda34faa0a96c032485fedcb3863ea675885cf"
 )
 
 func TestSignBytesMatchesChainSource(t *testing.T) {

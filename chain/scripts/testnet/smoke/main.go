@@ -1,11 +1,11 @@
-// Command stagenetctl drives the live checks of the stagenet deploy (chain/scripts/stagenet/deploy.sh
+// Command testnetctl drives the live checks of the testnet deploy (chain/scripts/testnet/deploy.sh
 // smoke). It runs on the operator's machine and reaches each node the way an operator does: over
 // ssh, into the orama-global network namespace where the chain's RPC and REST API listen on
-// loopback, and through the signing agent stagenet-node runs beside the chain, so no key ever
+// loopback, and through the signing agent testnet-node runs beside the chain, so no key ever
 // leaves a node.
 //
-//	stagenetctl smoke        run the checks and print PASS, FAIL or SKIP for each
-//	stagenetctl shielded-env print the wallet builder's environment for `deploy.sh gen-shielded`
+//	testnetctl smoke        run the checks and print PASS, FAIL or SKIP for each
+//	testnetctl shielded-env print the wallet builder's environment for `deploy.sh gen-shielded`
 package main
 
 import (
@@ -34,7 +34,7 @@ func main() {
 	defer stop()
 	code, err := run(ctx, os.Args[1:])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "stagenetctl:", err)
+		fmt.Fprintln(os.Stderr, "testnetctl:", err)
 		if code == 0 {
 			code = 2
 		}
@@ -74,24 +74,24 @@ type commonFlags struct {
 }
 
 func (c *commonFlags) register(fs *flag.FlagSet) {
-	fs.StringVar(&c.chainID, "chain-id", os.Getenv("CHAIN_ID"), "chain id (orama-stagenet-<name> or orama-devnet-<name>)")
+	fs.StringVar(&c.chainID, "chain-id", os.Getenv("CHAIN_ID"), "chain id (orama-testnet-<name> or orama-devnet-<name>)")
 	fs.StringVar(&c.nodes, "nodes", "", "nodes as name=alias=ip,... [required]")
 }
 
-// validate refuses a chain id that is not a stagenet or devnet one, the same guard deploy.sh has.
+// validate refuses a chain id that is not a testnet or devnet one, the same guard deploy.sh has.
 func (c commonFlags) validate() ([]nodeRef, error) {
 	if !chainIDRE.MatchString(c.chainID) {
 		return nil, fmt.Errorf("invalid --chain-id %q", c.chainID)
 	}
-	if class := params.ClassOfChainID(c.chainID); class != params.ChainStagenet && class != params.ChainDevnet {
-		return nil, fmt.Errorf("refusing to run: the chain id must be orama-stagenet-<name> or orama-devnet-<name>, got %q", c.chainID)
+	if class := params.ClassOfChainID(c.chainID); class != params.ChainTestnet && class != params.ChainDevnet {
+		return nil, fmt.Errorf("refusing to run: the chain id must be orama-testnet-<name> or orama-devnet-<name>, got %q", c.chainID)
 	}
 	return parseNodes(c.nodes)
 }
 
 func run(ctx context.Context, args []string) (int, error) {
 	if len(args) == 0 {
-		return 2, errors.New("usage: stagenetctl smoke|shielded-env [flags]")
+		return 2, errors.New("usage: testnetctl smoke|shielded-env [flags]")
 	}
 	switch args[0] {
 	case "smoke":

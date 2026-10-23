@@ -60,7 +60,7 @@ var chainReasons = []struct {
 	text string
 	kind Kind
 }{
-	{"the faucet runs only on a devnet, stagenet or localnet chain-id", KindDisabled},
+	{"the faucet runs only on a devnet, testnet or localnet chain-id", KindDisabled},
 	{"the faucet is disabled", KindDisabled},
 	{"faucet amount must be positive and at most faucet_max_drip", KindBadAmount},
 	{"faucet recipient is invalid or a blocked address", KindBadRecipient},

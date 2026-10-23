@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stand up (or reset) Orama L1 validators on the servers of one e2e fleet run.
 #
-# Adapted from chain/scripts/stagenet/deploy.sh (see docs/whitepaper/technical-reference/vol2/39-chain-architecture.md, "The stagenet deploy script"),
+# Adapted from chain/scripts/testnet/deploy.sh (see docs/whitepaper/technical-reference/vol2/39-chain-architecture.md, "The testnet deploy script"),
 # with the fleet passed in instead of hardcoded host aliases: every node is reached by its public IP
 # with the run's own SSH key and pinned known_hosts, and the chain's p2p runs over the WireGuard
 # overlay. It only touches the chain's own user, binary, state directory and systemd unit, never an
@@ -33,14 +33,14 @@ if ! [[ "$CHAIN_ID" =~ ^[a-z0-9-]{1,48}$ ]]; then
 fi
 # The exact rule of the chain (params.ClassOfChainID): this pattern is that one, and a test keeps the
 # text equal. A class word anywhere else in the id, or as the name word, names nothing.
-TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|stagenet)-[a-z0-9]+(-[a-z0-9]+)*$'
+TEST_CHAIN_ID_RE='^orama-(([a-z][a-z0-9]*)-)?(localnet|devnet|testnet)-[a-z0-9]+(-[a-z0-9]+)*$'
 chain_name=""
 chain_class=""
 if [[ "$CHAIN_ID" =~ $TEST_CHAIN_ID_RE ]]; then
 	chain_name="${BASH_REMATCH[2]}"
 	chain_class="${BASH_REMATCH[3]}"
 fi
-case "$chain_name" in localnet | devnet | stagenet) chain_class="" ;; esac
+case "$chain_name" in localnet | devnet | testnet) chain_class="" ;; esac
 [ "$chain_class" = "devnet" ] || die "refusing to run: CHAIN_ID must be orama-[<name>-]devnet-<id> exactly, got: $CHAIN_ID"
 
 DENOM="norama"

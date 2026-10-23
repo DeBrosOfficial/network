@@ -25,8 +25,8 @@ const (
 	sigLen           = 64
 )
 
-// remoteSigner signs SIGN_MODE_DIRECT sign bytes through the stagenet signing agent that a node
-// runs beside its chain (chain/scripts/stagenet/node), reached over the forwarded unix socket. It
+// remoteSigner signs SIGN_MODE_DIRECT sign bytes through the testnet signing agent that a node
+// runs beside its chain (chain/scripts/testnet/node), reached over the forwarded unix socket. It
 // is a tx.Signer: the transaction builder never sees a key.
 type remoteSigner struct {
 	client  *http.Client

@@ -12,7 +12,7 @@ func TestRunCreate_anInstallThatDiedInsideTheChainHomeIsFinishedWithoutInitChain
 	// The chain home exists (the install died before it wrote the unit), so the
 	// machine has keys that --init-chain would refuse to touch.
 	h.enroll.facts = map[string]Facts{fiveIPs[0]: {Arch: "amd64", Hardware: goodHardware(), ClusterInstalled: true}}
-	h.seats.carries(fiveIPs[0], placeholderGenesis("orama-stagenet-6"), false)
+	h.seats.carries(fiveIPs[0], placeholderGenesis("orama-testnet-6"), false)
 	h.mustCreate(t, h.createOpts(fiveIPs[0]))
 	if h.w.index("init-chain "+fiveIPs[0]) >= 0 {
 		t.Errorf("--init-chain was run on a chain home that exists:\n%s", strings.Join(h.w.entries(), "\n"))

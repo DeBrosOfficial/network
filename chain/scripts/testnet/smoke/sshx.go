@@ -13,15 +13,15 @@ import (
 	"time"
 )
 
-// Paths and names on a stagenet node. They are the ones deploy.sh installs; nothing here is
+// Paths and names on a testnet node. They are the ones deploy.sh installs; nothing here is
 // discovered from the node.
 const (
 	netnsName    = "orama-global"
-	nodeHelper   = "/usr/local/lib/orama-stagenet/stagenet-node"
+	nodeHelper   = "/usr/local/lib/orama-testnet/testnet-node"
 	oramadBinary = "/usr/lib/orama-global/bin/oramad"
 	chainHome    = "/var/lib/orama-global/chain"
-	agentFwdSock = "/run/orama-stagenet-fwd/agent.sock"
-	agentSock    = "/run/orama-stagenet/agent.sock"
+	agentFwdSock = "/run/orama-testnet-fwd/agent.sock"
+	agentSock    = "/run/orama-testnet/agent.sock"
 	// namespaceAddr is where the chain's RPC and REST API listen on a co-located machine
 	// (core/pkg/constants, GlobalNetnsAddr); the node's host reaches it over the veth pair.
 	namespaceAddr = "198.18.0.2"
@@ -49,14 +49,14 @@ func shellJoin(args ...string) string {
 	return strings.Join(quoted, " ")
 }
 
-// sshRunner runs commands on the stagenet nodes through the operator's own ssh configuration (the
+// sshRunner runs commands on the testnet nodes through the operator's own ssh configuration (the
 // aliases in ~/.ssh/config carry the user, host and key). It shares one connection per host.
 type sshRunner struct {
 	ctlDir string
 }
 
 func newSSHRunner() (*sshRunner, error) {
-	dir, err := os.MkdirTemp("/tmp", "stagenet-ssh")
+	dir, err := os.MkdirTemp("/tmp", "testnet-ssh")
 	if err != nil {
 		return nil, fmt.Errorf("create the ssh control directory: %w", err)
 	}
@@ -208,7 +208,7 @@ func (s *sshRunner) waitRemoteSocket(ctx context.Context, alias string) error {
 		case <-time.After(time.Second):
 		}
 	}
-	return errors.New("the signing agent's socket did not appear on the node (is stagenet-node installed and oramad's keyring readable?)")
+	return errors.New("the signing agent's socket did not appear on the node (is testnet-node installed and oramad's keyring readable?)")
 }
 
 func waitLocalSocket(ctx context.Context, path string) error {

@@ -31,7 +31,7 @@ func TestSSHMachine_initChainPutsAPlaceholderAndRemovesIt(t *testing.T) {
 		}
 		last = found
 	}
-	if got := sh.stdins[sh.first("genesis.json")]; got != "{\"chain_id\":\"orama-stagenet-6\"}\n" {
+	if got := sh.stdins[sh.first("genesis.json")]; got != "{\"chain_id\":\"orama-testnet-6\"}\n" {
 		t.Errorf("the placeholder genesis is sent on stdin, got %q", got)
 	}
 	if sh.first("global start") != "" {
@@ -83,7 +83,7 @@ func TestSSHMachine_seatAndHomeStateAreParsed(t *testing.T) {
 func TestSSHMachine_buildGenesisReturnsWhatTheScriptPrints(t *testing.T) {
 	sh := &recShell{answers: map[string]string{"genesis-work": `{"chain_id":"x"}`}}
 	m, _ := testMachine(sh)
-	got, err := m.BuildGenesis(context.Background(), GenesisSteps(GenesisSpec{ChainID: "orama-stagenet-6", Seats: twoSeats(), TestNetwork: true}))
+	got, err := m.BuildGenesis(context.Background(), GenesisSteps(GenesisSpec{ChainID: "orama-testnet-6", Seats: twoSeats(), TestNetwork: true}))
 	if err != nil || string(got) != `{"chain_id":"x"}` {
 		t.Fatalf("BuildGenesis = %q, %v", got, err)
 	}
