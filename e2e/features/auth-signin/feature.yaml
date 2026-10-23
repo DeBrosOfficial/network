@@ -40,6 +40,7 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-signed-message: the message goes back verbatim; a message naming another domain is refused (AUTH_DOMAIN_MISMATCH)"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#access-tokens: the access token lasts 15 minutes, the refresh token 30 days"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#refresh-tokens-and-sessions: the refresh token rotates on every use; presenting one twice is a replay, refused and recorded"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#refresh-rotation: a refresh naming a namespace that does not exist is refused (401), not answered 503"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-command-line-client: only a 401/403 on refresh ends the CLI session; 5xx, 429, 400 and an unreachable gateway keep it"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-command-line-client: renewal is single-flight across CLI processes under the credentials.json.lock flock"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#vocabulary: a challenge with no namespace signs in to default; the lobby session reaches only POST /v1/namespaces"

@@ -8,12 +8,10 @@ import (
 
 // IssueAPIKeyHandler issues an API key after signature verification.
 // Similar to VerifyHandler but only returns the API key without JWT tokens.
-// For non-default namespaces, may trigger cluster provisioning and return 202 Accepted.
 //
 // POST /v1/auth/api-key
 // Request body: APIKeyRequest
 // Response: { "api_key", "namespace", "plan", "wallet" }
-// Or 202 Accepted: { "status": "provisioning", "cluster_id", "poll_url" }
 func (h *Handlers) IssueAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 	if h.authService == nil {
 		writeError(w, http.StatusServiceUnavailable, "auth service not initialized")

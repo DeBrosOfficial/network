@@ -36,7 +36,7 @@ The request and response shapes of the `SDK` routes are pinned by the fixtures i
 | `/v1/auth/challenge` | SDK | `auth.challenge()` |
 | `/v1/auth/device` | CLI | Starts a login from a machine with no wallet on it (RFC 8628). Returns a device code the machine polls with and a short code the human approves. `orama auth login` on a server or in CI. |
 | `/v1/auth/device/approve` | CLI | Approves — or, with `deny`, refuses — a pending device login. Costs a wallet signature over the gateway's own challenge, exactly as `/v1/auth/verify` does. `orama auth approve <code>`. |
-| `/v1/auth/device/token` | CLI | The waiting machine's poll. Answers `authorization_pending`, `slow_down`, `expired_token` or `access_denied` until it is approved, then returns the session once. |
+| `/v1/auth/device/token` | CLI | The waiting machine's poll. Answers `authorization_pending`, `slow_down`, `expired_token` or `access_denied` until it is approved, then returns the session once; a code that names no pending login, or whose session was already collected, is `invalid_grant`. |
 | `/v1/auth/jwks` | direct | JWKS. See `/.well-known/jwks.json`. |
 | `/v1/auth/logout` | SDK | `auth.logout()` |
 | `/v1/auth/refresh` | SDK | Session renewal, called by the client on a 401. |
