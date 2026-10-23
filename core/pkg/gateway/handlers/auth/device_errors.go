@@ -42,6 +42,12 @@ const (
 	// ErrCodeSignInClosed: a session of a wallet holding no grant was refused
 	// its refresh because the namespace closed sign-in again.
 	ErrCodeSignInClosed = "SIGN_IN_CLOSED"
+	// ErrCodeDeviceUserCodeMalformed: the user code is not the shape this
+	// gateway issues.
+	ErrCodeDeviceUserCodeMalformed = "DEVICE_USER_CODE_MALFORMED"
+	// ErrCodeDeviceLoginMismatch: the pending login is for another namespace
+	// or account, or is the other kind of login (device link vs wallet).
+	ErrCodeDeviceLoginMismatch = "DEVICE_LOGIN_MISMATCH"
 )
 
 type deviceRefusal struct {

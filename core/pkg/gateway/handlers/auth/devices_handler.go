@@ -172,13 +172,13 @@ func (h *Handlers) approveDeviceLink(w http.ResponseWriter, r *http.Request) {
 	}
 	code, err := authsvc.NormalizeUserCode(req.UserCode)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		h.writeDeviceError(w, "approve the device link", err)
 		return
 	}
 	if err := h.approveAsDevice(r, namespace, claims, code, req.DeviceProof); err != nil {
 		h.recordDeviceApproval(r, namespace, claims, authsvc.AuditFailure, err)
 		if !writeDeviceRefusal(w, err) {
-			writeDeviceError(w, err)
+			h.writeDeviceError(w, "approve the device link", err)
 		}
 		return
 	}

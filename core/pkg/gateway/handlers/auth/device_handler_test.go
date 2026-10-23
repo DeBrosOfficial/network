@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,7 +31,7 @@ func TestWriteDeviceError_saysWhatTheClientSwitchesOn(t *testing.T) {
 	} {
 		t.Run(tc.code, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			writeDeviceError(rec, tc.err)
+			whoamiHandlers(t).writeDeviceError(rec, "collect the login", tc.err)
 
 			if rec.Code != tc.status {
 				t.Errorf("status = %d, want %d", rec.Code, tc.status)
@@ -45,6 +47,47 @@ func TestWriteDeviceError_saysWhatTheClientSwitchesOn(t *testing.T) {
 			// curl, and the description is the only place the next step goes.
 			if desc, _ := body["error_description"].(string); strings.TrimSpace(desc) == "" {
 				t.Error("no error_description")
+			}
+		})
+	}
+}
+
+// A refusal the approver can act on says which, with its code; anything else is
+// the gateway failing, answered 503 without the failure's own words. The claim
+// path is open to whoever holds a device code, and a registry error names
+// tables and namespaces.
+func TestWriteDeviceError_classifiesRefusalsAndHidesFailures(t *testing.T) {
+	_, malformed := authsvc.NormalizeUserCode("ABC")
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{"malformed user code", malformed, http.StatusBadRequest, ErrCodeDeviceUserCodeMalformed},
+		{"wrong namespace", fmt.Errorf("%w: this login asked for namespace %q", authsvc.ErrDeviceLoginMismatch, "a"),
+			http.StatusBadRequest, ErrCodeDeviceLoginMismatch},
+		{"device link approved by a wallet", authsvc.ErrDeviceLinkNeedsDevice, http.StatusBadRequest, ErrCodeDeviceLoginMismatch},
+		{"registry failure", errors.New(`failed to read the grants of namespace "x": rqlite: connection refused`),
+			http.StatusServiceUnavailable, ""},
+		{"no registry", errors.New("client not initialized"), http.StatusServiceUnavailable, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			whoamiHandlers(t).writeDeviceError(rec, "collect the login", tc.err)
+
+			if rec.Code != tc.status {
+				t.Fatalf("status = %d, want %d (%s)", rec.Code, tc.status, rec.Body.String())
+			}
+			var body map[string]any
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode: %v (%s)", err, rec.Body.String())
+			}
+			if got, _ := body["code"].(string); got != tc.code {
+				t.Errorf("code = %q, want %q", got, tc.code)
+			}
+			if tc.status == http.StatusServiceUnavailable && strings.Contains(rec.Body.String(), tc.err.Error()) {
+				t.Errorf("the response carries the failure's own words: %s", rec.Body.String())
 			}
 		})
 	}
