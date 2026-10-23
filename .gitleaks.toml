@@ -11,12 +11,15 @@ title = "orama secret-scan allowlist"
 useDefault = true
 
 [[allowlists]]
-description = "Test vectors and key fixtures: deterministic keys and signatures that verify code, generated for the tests and worth nothing"
+description = "Test vectors and key fixtures: deterministic keys and signatures that verify code, generated for the tests and worth nothing, and Google's published Android key-attestation samples (their verifiedBootKey is a public boot-key hash)"
 paths = [
   '''(^|/)chain/client/tx/testdata/tx_vectors\.json$''',
   '''(^|/)chain/x/shielded/wallet/testdata/keys/keys\.json$''',
   '''(^|/)contracts/enrollment/seal\.json$''',
   '''(^|/)sdk/tests/unit/storage/fixtures/ns\.key$''',
+  '''(^|/)core/pkg/attest/android/testdata/frankel_sdk37_TEE_EC_2026\.json$''',
+  '''(^|/)core/pkg/attest/android/testdata/sony-xperia10-iii_sdk33_TEE_EC\.json$''',
+  '''(^|/)core/pkg/attest/android/testdata/tegu_sdk36_SB_EC_2026_ROOT\.json$''',
 ]
 
 [[allowlists]]
@@ -35,7 +38,10 @@ paths = [
   '''(^|/)core/pkg/gateway/handlers/deployments/env_at_rest_test\.go$''',
   '''(^|/)core/pkg/gateway/handlers/operator/authorize_test\.go$''',
   '''(^|/)core/pkg/gateway/handlers/serverless/audit_test\.go$''',
-  '''(^|/)core/pkg/gateway/instance_spawner_test\.go$''',
+  '''(^|/)core/pkg/gateway/handlers/serverless/caller_key_test\.go$''',
+  '''(^|/)core/pkg/gatewayspec/spec_test\.go$''',
+  '''(^|/)core/pkg/serverless/engine_ratelimit_test\.go$''',
+  '''(^|/)core/pkg/serverless/hostfunctions/device_id_test\.go$''',
   '''(^|/)core/pkg/gateway/internal_auth_test\.go$''',
   '''(^|/)core/pkg/gateway/middleware_apikey_lookup_test\.go$''',
   '''(^|/)core/pkg/gateway/middleware_test\.go$''',
