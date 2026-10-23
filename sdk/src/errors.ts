@@ -180,6 +180,13 @@ export const AuthCode = {
   DeviceNotFound: "DEVICE_NOT_FOUND",
   /** The device key is enrolled for another account. */
   DeviceKeyTaken: "DEVICE_KEY_TAKEN",
+  /** A device-flow user code is not the shape the gateway issues. */
+  DeviceUserCodeMalformed: "DEVICE_USER_CODE_MALFORMED",
+  /**
+   * The pending device-flow login is for another namespace or account, or is
+   * the other kind (a device link offered to a wallet, a plain login to a device).
+   */
+  DeviceLoginMismatch: "DEVICE_LOGIN_MISMATCH",
   /** The session policy is set, but revoking existing sign-in keys stopped partway. Repeat the request. */
   PolicySweepIncomplete: "POLICY_SWEEP_INCOMPLETE",
   /**
