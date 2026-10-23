@@ -891,7 +891,7 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 	if err != nil {
 		return fmt.Errorf("failed to load or create JWT signing key: %w", err)
 	}
-	authService, err := auth.NewService(logger, networkClient, string(keyPEM), ownNamespace(cfg))
+	authService, err := auth.NewService(logger, networkClient, string(keyPEM), ownNamespace(cfg), cfg.APIKeyHMACSecret)
 	if err != nil {
 		return fmt.Errorf("failed to initialize auth service: %w", err)
 	}
@@ -944,12 +944,6 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 	// The key is published once the schema is up (post_schema.go): the
 	// signing_keys table may not exist yet, and a namespace gateway learns
 	// where its registry is only after this (SetAPIKeyRegistry in New).
-
-	// Configure API key HMAC secret if available
-	if cfg.APIKeyHMACSecret != "" {
-		authService.SetAPIKeyHMACSecret(cfg.APIKeyHMACSecret)
-		logger.ComponentInfo(logging.ComponentGeneral, "API key HMAC secret loaded; new API keys will be hashed")
-	}
 
 	deps.AuthService = authService
 

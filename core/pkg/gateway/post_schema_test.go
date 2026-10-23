@@ -25,7 +25,7 @@ import (
 // whose registry is db — with or without the schema, as the test decides.
 func postSchemaGateway(t *testing.T, db *sql.DB) (*Gateway, *Dependencies) {
 	t.Helper()
-	svc, err := gwauth.NewService(newRQLiteTestLogger(), &sqliteKeyNet{db: &sqliteKeyQuerier{db: db}}, "", "anchat")
+	svc, err := gwauth.NewService(newRQLiteTestLogger(), &sqliteKeyNet{db: &sqliteKeyQuerier{db: db}}, "", "anchat", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}

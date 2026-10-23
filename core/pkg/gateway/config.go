@@ -87,9 +87,9 @@ type Config struct {
 	// WireGuard mesh configuration
 	ClusterSecret string // Cluster secret for authenticating internal WireGuard peer exchange
 
-	// API key HMAC secret for hashing API keys before storage.
-	// When set, API keys are stored as HMAC-SHA256(key, secret) in the database.
-	// Loaded from ~/.orama/secrets/api-key-hmac-secret.
+	// APIKeyHMACSecret hashes API keys: every key is stored and looked up as
+	// HMAC-SHA256(key, secret). Required; written by install to
+	// secrets/api-key-hmac-secret.
 	APIKeyHMACSecret string
 
 	// SecretsEncryptionKey is the AES-256 key (32 bytes, hex-encoded → 64

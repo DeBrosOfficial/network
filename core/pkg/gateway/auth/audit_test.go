@@ -232,7 +232,7 @@ func TestAuditActions_listEveryConstant(t *testing.T) {
 
 // A Service with a database always has somewhere to write the record.
 func TestNewService_wiresTheAuditLogWheneverThereIsADatabase(t *testing.T) {
-	s, err := NewService(nil, &auditNet{db: &auditDB{}}, "", "default")
+	s, err := NewService(nil, &auditNet{db: &auditDB{}}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}

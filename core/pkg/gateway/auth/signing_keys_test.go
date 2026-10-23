@@ -296,7 +296,7 @@ func TestParseAndVerifyJWT_refusesAnUnknownKeyID(t *testing.T) {
 // to a namespace (or to nothing, for the index gateway).
 func serviceWithKey(t *testing.T, namespace string) *Service {
 	t.Helper()
-	svc, err := NewService(nil, &revocationNet{db: &revocationDB{}}, "", "default")
+	svc, err := NewService(nil, &revocationNet{db: &revocationDB{}}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
@@ -548,7 +548,7 @@ func TestSigningKeys_publishToTheRegistryAndNotTheTenantsDatabase(t *testing.T) 
 	}
 	// Built the way a namespace gateway is: the tenant's database is what the
 	// service is constructed with, and the registry arrives afterwards.
-	svc, err := NewService(logger, &sqliteNet{db: &sqliteDatabase{db: tenant}}, "", "acme")
+	svc, err := NewService(logger, &sqliteNet{db: &sqliteDatabase{db: tenant}}, "", "acme", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}

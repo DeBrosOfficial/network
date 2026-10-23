@@ -81,7 +81,7 @@ The configuration is a YAML file named by `--config` (an absolute path written b
 What the parser requires:
 
 - `cluster_secret_path` is mandatory. The gateway reads the cluster secret from it and derives the orama directory (two directories up) and from there the node's identity key `data/identity.key`, whose peer id becomes `Config.NodePeerID`. Without it, home-node assignment, deployment placement, host TURN and leader locality would match no node, so the process exits.
-- `api_key_hmac_secret` is mandatory: a gateway without it cannot authenticate keys stored as HMAC-SHA256 hashes.
+- `api_key_hmac_secret` is mandatory (`Config.ValidateConfig`, and `auth.NewService` refuses to build without it): every API key is stored and looked up as its HMAC-SHA256 under it, and there is no plaintext fallback.
 - `enable_https: true` is a startup error. The key is accepted only so that a leftover YAML does not fail strict decoding.
 - `state_dir` must be absolute and non-empty.
 - `domain_name` becomes both `DomainName` and `BaseDomain`. It must be a lowercase domain of at least two labels (`config_validate.go:validateBaseDomain`), because it is matched as a case-sensitive suffix to decide which hosts get a certificate and which origins CORS admits.
@@ -90,7 +90,7 @@ What the parser requires:
 - `rqlite_dsn` must be an http or https URL with a host; there is no default, because rqlited binds only its WireGuard address.
 - When `webrtc.enabled` is set, `sfu_port` and `turn_secret` are required.
 
-The cluster secret and HMAC secret are checked first, one at a time. `Config.ValidateConfig` then returns every other problem at once and the binary prints them all before exiting 1.
+The cluster secret is checked first. `Config.ValidateConfig` then returns every other problem at once, the missing HMAC secret included, and the binary prints them all before exiting 1.
 
 Listeners are chosen by `listenAddrs`. A namespace gateway binds exactly `listen_addr`, which the spawner sets to the node's WireGuard address and the namespace's port. The index gateway must be given an address inside 10.0.0.0/24 and binds it plus `127.0.0.1` on the same port; an index YAML that still says `:10104` is refused rather than bound, because an all-interface bind put the control plane on the public interface behind only the firewall. `orama-node` rewrites the YAML on its next reconcile and restarts the unit.
 
@@ -133,7 +133,7 @@ The gating steps (`post_schema.go:postSchemaSteps`) run inside the loop with a 5
 
 1. publish this gateway's signing key to the registry (a token signed with an unpublished key is refused by every other gateway);
 2. on a namespace gateway, delete leftover plaintext `ak_` rows from the tenant's own `api_keys` table (`tenant_key_cleanup.go`);
-3. when an HMAC secret is configured, hash any plaintext keys in the registry.
+3. hash any plaintext keys left in the registry.
 
 The after-ready steps (`afterReadySteps`) run once the gateway is ready, each on its own goroutine, each retried with the same backoff until it succeeds: revoke API keys of deleted namespaces, on the index gateway retire unused index signing keys and start the signing-key heartbeat, back-fill push token fingerprints, start the storage CID reference back-fill, start the pub/sub trigger dispatcher, start the cron scheduler. A failing housekeeping step must not hold up the dispatcher or scheduler, so none of these gates readiness.
 

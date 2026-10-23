@@ -1,6 +1,9 @@
 package auth
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestHashAPIKey_withSecret_differsFromRaw(t *testing.T) {
 	s := &Service{apiKeyHMACSecret: "test-hmac-secret"}
@@ -14,13 +17,13 @@ func TestHashAPIKey_withSecret_differsFromRaw(t *testing.T) {
 	}
 }
 
-func TestHashAPIKey_emptySecret_returnsRaw(t *testing.T) {
-	// Current contract: no secret → store/lookup the raw key (rolling-upgrade
-	// fallback). Production spawn refuses to boot without the secret file;
-	// this pins the function so a later fail-loud change is explicit.
-	s := &Service{}
-	const raw = "ak_live_example:ns"
-	if got := s.HashAPIKey(raw); got != raw {
-		t.Errorf("empty secret must return the raw key, got %q", got)
+// A service cannot be built without the secret, so there is no raw-key
+// fallback left to reach: HashAPIKey used to return the key itself when no
+// secret was configured, which stored and compared keys in plaintext.
+func TestNewService_refusesAMissingAPIKeyHMACSecret(t *testing.T) {
+	for _, secret := range []string{"", "  \n"} {
+		if s, err := NewService(nil, nil, "", "default", secret); !errors.Is(err, ErrNoAPIKeyHMACSecret) || s != nil {
+			t.Errorf("NewService with secret %q = %v, %v; want ErrNoAPIKeyHMACSecret", secret, s, err)
+		}
 	}
 }

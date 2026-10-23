@@ -28,11 +28,10 @@ func (f *fakeAPIKeyQuerier) Query(ctx context.Context, sql string, args ...inter
 // lookupAPIKeyEntry's hashed/raw dual lookup.
 func hashingGatewayFixture(t *testing.T) *Gateway {
 	t.Helper()
-	svc, err := gwauth.NewService(newRQLiteTestLogger(), emptyRegistryNet{}, "", "default")
+	svc, err := gwauth.NewService(newRQLiteTestLogger(), emptyRegistryNet{}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("failed to construct auth service: %v", err)
 	}
-	svc.SetAPIKeyHMACSecret("test-hmac-secret")
 	return &Gateway{authService: svc}
 }
 

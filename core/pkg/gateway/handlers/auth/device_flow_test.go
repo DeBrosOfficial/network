@@ -125,7 +125,7 @@ func newFlow(t *testing.T) *flow {
 	}
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	svc, err := authsvc.NewService(testLogger(), &sqlNet{db: &sqlDB{db: db}}, string(keyPEM), "default")
+	svc, err := authsvc.NewService(testLogger(), &sqlNet{db: &sqlDB{db: db}}, string(keyPEM), "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("service: %v", err)
 	}

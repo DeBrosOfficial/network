@@ -61,7 +61,7 @@ func grantGateway(t *testing.T, role string) *Gateway {
 	t.Helper()
 	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
 	registry := &grantRegistry{role: role}
-	svc, err := auth.NewService(logger, registry, "", "default")
+	svc, err := auth.NewService(logger, registry, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}
@@ -253,7 +253,7 @@ func controlPlaneGateway(t *testing.T, role string) (*Gateway, *countingGrantReg
 	t.Helper()
 	logger, _ := logging.NewColoredLogger(logging.ComponentGateway, false)
 	registry := &countingGrantRegistry{grantRegistry: &grantRegistry{role: role}}
-	svc, err := auth.NewService(logger, registry, "", "anchat")
+	svc, err := auth.NewService(logger, registry, "", "anchat", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}

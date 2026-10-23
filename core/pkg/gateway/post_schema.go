@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -105,14 +104,12 @@ func (g *Gateway) postSchemaSteps(cfg *Config, deps *Dependencies) []postSchemaS
 			},
 		})
 	}
-	if strings.TrimSpace(cfg.APIKeyHMACSecret) != "" {
-		steps = append(steps, postSchemaStep{
-			name: "hash plaintext API keys",
-			run: func(ctx context.Context) error {
-				return g.logCount(ctx, "Hashed leftover plaintext API keys", deps.AuthService.MigratePlaintextAPIKeys)
-			},
-		})
-	}
+	steps = append(steps, postSchemaStep{
+		name: "hash plaintext API keys",
+		run: func(ctx context.Context) error {
+			return g.logCount(ctx, "Hashed leftover plaintext API keys", deps.AuthService.MigratePlaintextAPIKeys)
+		},
+	})
 	return steps
 }
 

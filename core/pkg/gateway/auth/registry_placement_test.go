@@ -67,7 +67,7 @@ func twoDatabaseService(t *testing.T) (svc *Service, tenant, registry *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err = NewService(logger, &sqliteNet{db: &sqliteDatabase{db: tenant}}, string(keyPEM), "acme")
+	svc, err = NewService(logger, &sqliteNet{db: &sqliteDatabase{db: tenant}}, string(keyPEM), "acme", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}

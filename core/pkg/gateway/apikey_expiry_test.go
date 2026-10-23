@@ -73,11 +73,10 @@ func keyRegistry(t *testing.T) (*Gateway, *sqliteKeyQuerier, *sql.DB) {
 	}
 
 	querier := &sqliteKeyQuerier{db: db}
-	svc, err := gwauth.NewService(newRQLiteTestLogger(), &sqliteKeyNet{db: querier}, "", "default")
+	svc, err := gwauth.NewService(newRQLiteTestLogger(), &sqliteKeyNet{db: querier}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}
-	svc.SetAPIKeyHMACSecret("test-hmac-secret")
 	return &Gateway{authService: svc}, querier, db
 }
 

@@ -169,7 +169,7 @@ func TestNewService_refusesAnRSAKeyTooSmallToTrust(t *testing.T) {
 		Bytes: x509.MarshalPKCS1PrivateKey(small),
 	})
 
-	if _, err := NewService(nil, nil, string(pemBytes), "default"); err == nil {
+	if _, err := NewService(nil, nil, string(pemBytes), "default", "test-hmac-secret"); err == nil {
 		t.Fatal("a 1024-bit signing key was accepted")
 	} else if !strings.Contains(err.Error(), "2048") {
 		t.Errorf("the refusal does not say what the minimum is: %v", err)
@@ -188,7 +188,7 @@ func TestNewService_acceptsAnRSAKeyAtTheFloor(t *testing.T) {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
-	if _, err := NewService(nil, nil, string(pemBytes), "default"); err != nil {
+	if _, err := NewService(nil, nil, string(pemBytes), "default", "test-hmac-secret"); err != nil {
 		t.Fatalf("a %d-bit key was refused: %v", minRSAKeyBits, err)
 	}
 }
@@ -197,7 +197,7 @@ func TestNewService_acceptsAnRSAKeyAtTheFloor(t *testing.T) {
 // that verified tokens against a database and did not would be the fifteen
 // minute window again.
 func TestNewService_wiresTheRevocationsWheneverThereIsADatabase(t *testing.T) {
-	s, err := NewService(nil, &revocationNet{db: &revocationDB{}}, "", "default")
+	s, err := NewService(nil, &revocationNet{db: &revocationDB{}}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}

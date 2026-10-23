@@ -102,19 +102,6 @@ func TestMigratePlaintextAPIKeys_writeErrorAborts(t *testing.T) {
 	}
 }
 
-func TestMigratePlaintextAPIKeys_noSecretIsNoop(t *testing.T) {
-	s := &Service{}
-	db := &memKeyDB{rows: map[int64]string{1: "ak_one:ns"}}
-	s.orm = &memNet{db: db}
-	n, err := s.MigratePlaintextAPIKeys(context.Background())
-	if err != nil || n != 0 {
-		t.Fatalf("n=%d err=%v", n, err)
-	}
-	if db.rows[1] != "ak_one:ns" {
-		t.Fatal("must not rewrite without a secret")
-	}
-}
-
 // A key's principal is the key itself, spelled the way the authorization gate
 // looks it up. Rehashing the key without moving its principal leaves it
 // authenticating and refused everywhere — which is not a smaller failure than

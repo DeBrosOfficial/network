@@ -172,7 +172,7 @@ func TestIndexRotation_storesInTheCredentialTreeAndSurvivesARestart(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := auth.NewService(nil, nil, "", "index")
+	svc, err := auth.NewService(nil, nil, "", "index", "test-hmac-secret")
 	if err != nil {
 		t.Fatal(err)
 	}

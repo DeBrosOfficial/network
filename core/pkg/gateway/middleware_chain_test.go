@@ -58,7 +58,7 @@ func chainGateway(t *testing.T, servesNamespace string, key *stubKeyDatabase) *G
 	if err != nil {
 		t.Fatalf("logger: %v", err)
 	}
-	svc, err := gwauth.NewService(logger, emptyRegistryNet{}, "", servesNamespace)
+	svc, err := gwauth.NewService(logger, emptyRegistryNet{}, "", servesNamespace, "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}
