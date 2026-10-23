@@ -109,6 +109,7 @@ The cluster graph is declared in `core/pkg/node/components.go:clusterBootCompone
 | `edge-aux` | `edge-serving` | `EnsureNtfy`, `EnsureTor` | none |
 | `wireguard-sync` | `wireguard`, `rqlite-local` | self-register in `wireguard_peers`, reconcile `wg0`, start the 60-second loop | none |
 | `ipfs-swarm-sync` | `storage`, `rqlite-local` | start the 60-second swarm sync loop | none |
+| `olric-heal` | `wireguard`, `rqlite-local` | start the 30-second index Olric partition healer (`core/pkg/node/olric_heal.go`) | none |
 | `rqlite-cluster` | `rqlite-local` | `JoinCluster`: wait for Raft and a leader-routed read, start reconcilers, apply embedded migrations | `LeaderReachable` |
 | `membership-record` | `rqlite-cluster` | record cluster membership | the same function |
 | `membership` | `rqlite-cluster` | start the 60-second membership reconciler | none |
@@ -123,6 +124,7 @@ The reasons behind the less obvious edges:
 - `dns-registration` depends on `gateway` for two reasons: the registry write goes through the local gateway, and the row is a promise that the gateway runs. The old sequential start-up got this right by accident (a node whose Caddy failed exited before it could register); with independent components it has to be declared (`core/pkg/node/components_test.go:TestBootComponents_dnsRegistrationDependsOnEverythingItPromises`).
 - `wireguard-sync` is local tier even though it reads a cluster table. Raft runs over the mesh, so a node whose interface lost its peers can never reach a quorum. Gating the repair on a quorum would make fixing the transport depend on the transport. `loadDesiredWireGuardPeers` falls back to the node's own replica for this reason.
 - `ipfs-swarm-sync` is local tier for a weaker reason. `syncIPFSSwarmPeers` reads only the leader-routed handle, so without a quorum its query fails, it logs a warning and returns; it sits early because starting its loop costs nothing, not because it works without a quorum.
+- `olric-heal` is local tier because it reads only the local raft configuration (`/nodes`) and its peers' Olric over the mesh; it acts only when every node answers, so a quorum outage leaves it waiting. [The cache](18-cache.md) describes the healing.
 - `membership-record` is a leaf. A node that cannot write its record is degraded, not down.
 
 A component's *ready* means its Reconcile returned nil, which for the `Ensure*` family means systemd reports the unit active. For a `Type=simple` unit that proves the process exists, not that it serves. A ready `gateway` component can sit beside a gateway that answers 503 `starting` (see [Readiness](#readiness-nodehealth)).

@@ -32,6 +32,7 @@ edge-serving: gateway
 edge-aux: edge-serving
 wireguard-sync: wireguard,rqlite-local
 ipfs-swarm-sync: storage,rqlite-local
+olric-heal: wireguard,rqlite-local
 rqlite-cluster: rqlite-local
 membership-record: rqlite-cluster
 membership: rqlite-cluster

@@ -52,7 +52,9 @@ type fixedProber struct {
 	err   error
 }
 
-func (p fixedProber) BoundPorts(context.Context, string, string) ([]int, error) { return p.ports, p.err }
+func (p fixedProber) BoundPorts(context.Context, string, string) ([]int, error) {
+	return p.ports, p.err
+}
 
 // insertedPortStart is the port_start of the allocation the mock recorded.
 func insertedPortStart(t *testing.T, db *mockRQLiteClient) int {

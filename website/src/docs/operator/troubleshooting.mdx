@@ -80,7 +80,9 @@ Dependency order matters: WireGuard, RQLite, then Olric, then the gateway; the C
 
 **Cause.** Memberlist declared the other members dead after its probes failed (CPU starvation, a burst of packet loss on `wg0`), and it never merges a partition by itself: only a join does, and `olric-server` joins its peers only when it starts. Doctor compares the member count with the index cluster's node count (its raft configuration), so a split fails it on both sides.
 
-**Fix.** Check the overlay first (`sudo orama node doctor`, the WireGuard section). Once the overlay is healthy, restart the nodes on the smaller side one at a time with `sudo orama node restart`. Their Olric joins the others when it starts, and doctor shows `5 of 5 members` again.
+**What heals it.** Every node runs a partition healer. Once every node's Olric answers over WireGuard and raft reports every node reachable, exactly one node on a smaller side (the one whose address sorts first) restarts its `orama-namespace-olric@index` after two checks 30 seconds apart. Its Olric joins the others when it starts. That node's share of the cache is lost; it is a cache. The node logs `Restarting the index Olric to merge a partition`, and `sudo orama node report --pretty` counts it under `olric.heal_restarts`. A node waits at least 5 minutes before it restarts again, up to an hour while restarts do not heal.
+
+**When it does not heal.** The healer does nothing while any node is unreachable, because that is a down node or an unhealed mesh, not a partition. Fix the overlay first (`sudo orama node doctor`, the WireGuard section). `orama status` shows which node is down or unreachable.
 
 ## Namespace gateway: missing config fields
 

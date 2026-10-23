@@ -204,6 +204,12 @@ type OlricReport struct {
 	LogErrors     int      `json:"log_errors_1h"`
 	LogSuspects   int      `json:"log_suspects_1h"`
 	LogFlapping   int      `json:"log_flapping_1h"`
+	// HealRestarts counts the restarts this node's partition healer made to
+	// merge a split index ring (bug-933); LastHealRestart and LastHealReason
+	// describe the last one.
+	HealRestarts    int        `json:"heal_restarts"`
+	LastHealRestart *time.Time `json:"last_heal_restart,omitempty"`
+	LastHealReason  string     `json:"last_heal_reason,omitempty"`
 }
 
 // --- IPFS ---

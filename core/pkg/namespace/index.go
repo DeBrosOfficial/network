@@ -141,6 +141,12 @@ func (s *IndexSupervisor) EnsureRQLite(ctx context.Context, nodeID, peerID, http
 	return nil
 }
 
+// RestartOlric restarts orama-namespace-olric@index. The partition healer
+// (pkg/node/olric_heal.go) uses it: Olric joins its peers only when it starts.
+func (s *IndexSupervisor) RestartOlric() error {
+	return s.systemdMgr.RestartService(BlueprintNameIndex, systemd.ServiceTypeOlric)
+}
+
 // EnsureOlric starts orama-namespace-olric@index using the host olric YAML,
 // then stops/disables orama-olric.service so it cannot double-bind the port.
 func (s *IndexSupervisor) EnsureOlric(ctx context.Context, nodeID, bindAddr string, peers []string) error {
