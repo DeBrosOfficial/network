@@ -17,6 +17,11 @@ const (
 	// request (bugboard #148). Set by the auth middleware after key lookup.
 	Scopes ContextKey = "api_key_scopes"
 
+	// KeyResources holds the auth.KeyResources an API key is narrowed to, read
+	// off its row with its scopes, or forwarded with them across the proxy
+	// hop. Absent or empty is a key that reaches the whole of its scopes.
+	KeyResources ContextKey = "api_key_resources"
+
 	// Grant holds the *auth.Grant the authorization middleware resolved for a
 	// request's SIWE wallet JWT in the namespace it names. It is what the scope
 	// gate turns into the caller's grant set, so an owner or admin reaches the

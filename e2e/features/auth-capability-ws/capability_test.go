@@ -68,6 +68,7 @@ func TestCapabilitySocket_lifecycle(t *testing.T) {
 	t.Run("revoking the issuing device closes its sockets", func(t *testing.T) { revokeDevice(t, fx) })
 	t.Run("expiry closes with 4401", func(t *testing.T) { expiry(t, fx) })
 	t.Run("fn selector", func(t *testing.T) { fnSelector(t, fx) })
+	t.Run("fn-restricted key", func(t *testing.T) { fnRestrictedKey(t, fx) })
 }
 
 func mintBounds(t *testing.T, fx *fixture) minted {
@@ -225,5 +226,39 @@ func fnSelector(t *testing.T, fx *fixture) {
 	}
 	if r := invoke(t, fx, plainFunc, tok, map[string]any{}); r.Status != http.StatusForbidden {
 		t.Errorf("invoking another function under fn:name=%s: want 403, got %d", capFunction, r.Status)
+	}
+}
+
+// fnRestrictedKey: a key minted with --resource fn:<name> invokes that function
+// as any invoke key does and is refused (403) on every other, over both HTTP
+// invoke routes and the function WebSocket; a key without it reaches both.
+func fnRestrictedKey(t *testing.T, fx *fixture) {
+	narrowed := cliKey(t, fx, "--scope", "invoke-only", "--label", "e2e-narrowed", "--resource", "fn:"+capFunction)
+	whole := cliKey(t, fx, "--scope", "invoke-only", "--label", "e2e-whole")
+	for name, tc := range map[string]struct {
+		key, fn string
+		want    int
+	}{
+		"narrowed key, its function":     {narrowed, capFunction, http.StatusOK},
+		"narrowed key, another function": {narrowed, plainFunc, http.StatusForbidden},
+		"whole key, another function":    {whole, plainFunc, http.StatusOK},
+	} {
+		for route, path := range map[string]string{
+			"/v1/functions/<fn>/invoke": "/v1/functions/" + tc.fn + "/invoke",
+			"/v1/invoke/<ns>/<fn>":      "/v1/invoke/" + fx.n.Name + "/" + tc.fn,
+		} {
+			if r := invokePath(t, fx, path, tc.key); r.Status != tc.want {
+				t.Errorf("%s via %s: want %d, got %d %.300s", name, route, tc.want, r.Status, r.Body)
+			}
+		}
+	}
+
+	node := fx.f.State.Nodes[0]
+	wsPath := "/v1/functions/" + plainFunc + "/ws?" + url.Values{"namespace": {fx.n.Name}}.Encode()
+	if conn, status, body := dialAt(t, fx.c, node, wsPath, http.Header{"Authorization": {"Bearer " + narrowed}}); conn != nil || status != http.StatusForbidden {
+		t.Errorf("narrowed key opened another function's socket: status %d %s", status, body)
+	}
+	if conn, status, body := dialAt(t, fx.c, node, wsPath, http.Header{"Authorization": {"Bearer " + whole}}); conn == nil {
+		t.Errorf("a key without resources was refused the socket: status %d %s", status, body)
 	}
 }

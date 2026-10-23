@@ -30,16 +30,22 @@ type stubKeyDatabase struct {
 	client.DatabaseClient
 	namespace string
 	scopes    string
+	resources string
 	found     bool
 }
 
 func (s *stubKeyDatabase) Query(_ context.Context, _ string, _ ...interface{}) (*client.QueryResult, error) {
+	columns := []string{"namespaces.name", "api_keys.scopes", "api_keys.resources"}
 	if !s.found {
-		return &client.QueryResult{Columns: []string{"namespaces.name", "api_keys.scopes"}, Count: 0}, nil
+		return &client.QueryResult{Columns: columns, Count: 0}, nil
+	}
+	var resources interface{}
+	if s.resources != "" {
+		resources = s.resources
 	}
 	return &client.QueryResult{
-		Columns: []string{"namespaces.name", "api_keys.scopes"},
-		Rows:    [][]interface{}{{s.namespace, s.scopes}},
+		Columns: columns,
+		Rows:    [][]interface{}{{s.namespace, s.scopes, resources}},
 		Count:   1,
 	}, nil
 }
@@ -205,10 +211,10 @@ func TestChain_anExchangedAdminKeyReachesTheControlPlane(t *testing.T) {
 		t.Fatalf("status=%d body=%s", status, strings.TrimSpace(body))
 	}
 
-	ns, _, scopes, errMsg := narrow.validateAuthForNamespaceProxy(chainRequest(http.MethodGet, "/v1/deployments/list",
+	ns, _, key, errMsg := narrow.validateAuthForNamespaceProxy(chainRequest(http.MethodGet, "/v1/deployments/list",
 		map[string]string{"Authorization": "Bearer " + lie}))
-	if errMsg != "" || ns != "alice" || scopes != "invoke" {
-		t.Fatalf("the hop was told ns=%q scopes=%q err=%q; the row is invoke", ns, scopes, errMsg)
+	if errMsg != "" || ns != "alice" || key.scopes != "invoke" {
+		t.Fatalf("the hop was told ns=%q scopes=%q err=%q; the row is invoke", ns, key.scopes, errMsg)
 	}
 }
 

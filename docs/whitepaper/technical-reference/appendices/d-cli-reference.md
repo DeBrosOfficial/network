@@ -4510,11 +4510,21 @@ Mint a new scoped API key
 orama namespace keys create [flags]
 ```
 
+```text
+Mint a new scoped API key. The key is shown once.
+
+--resource narrows the key to the functions it names: the gateway refuses it on
+every other function, on HTTP invoke and the function WebSocket alike, with the
+403 a member narrowed by 'members add --resource' gets. Without it the key
+reaches the whole of its scopes.
+```
+
 | Flag | Default | Description |
 |---|---|---|
 | `--expires-in-days` | `0` | How long the key lives, in days (default 90, max 365). A key that never expires is not on offer |
 | `--label` | — | Human label for the key |
 | `--namespace` | — | Namespace name |
+| `--resource` | — | Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. Repeat for several; the key then reaches only these. Each must narrow one of its scopes (fn: needs invoke), and every scope must be narrowed by one |
 | `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, storage, webrtc) |
 
 
@@ -4570,8 +4580,8 @@ orama namespace keys rotate [flags]
 ```
 
 ```text
-Mint a new key with the same grants and label, and shorten the original's life
-to the overlap.
+Mint a new key with the same grants, resources and label, and shorten the
+original's life to the overlap.
 
 Rotating by minting a new key and revoking the old one in the same breath is an
 outage: whatever is deployed with the old key stops the moment the new one

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -98,9 +99,14 @@ func (g *Gateway) createNamespaceKey(w http.ResponseWriter, r *http.Request) {
 		// a key that lives forever is not on offer, which is the point of the
 		// column.
 		ExpiresInDays int `json:"expires_in_days"`
+		// Resource and Resources narrow the key to what these selectors match
+		// (`fn:premium-status`, `fn:premium-*`); both may be given and are
+		// one list. Omitted is the whole of its scopes.
+		Resource  string   `json:"resource"`
+		Resources []string `json:"resources"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid body: expected JSON {scope, label, expires_in_days}")
+		writeError(w, http.StatusBadRequest, "invalid body: expected JSON {scope, label, expires_in_days, resources}")
 		return
 	}
 	requested := strings.TrimSpace(body.Scope)
@@ -118,20 +124,34 @@ func (g *Gateway) createNamespaceKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resources, err := auth.NormalizeKeyResources(stored, append(body.Resources, body.Resource))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	rawKey, id, err := g.authService.IssueScopedKey(r.Context(), ns, stored, auth.KeyOptions{
-		Label:    strings.TrimSpace(body.Label),
-		Lifetime: lifetime,
+		Label:     strings.TrimSpace(body.Label),
+		Lifetime:  lifetime,
+		Resources: resources,
 	})
 	if err != nil {
+		var invalid *auth.ErrInvalidGrant
+		if errors.As(err, &invalid) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	g.logger.ComponentInfo("gateway", "scoped api key issued",
-		zap.String("namespace", ns), zap.String("scopes", stored), zap.String("label", body.Label))
+		zap.String("namespace", ns), zap.String("scopes", stored), zap.String("resources", resources.Stored()),
+		zap.String("label", body.Label))
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id":         id,
 		"api_key":    rawKey,
 		"scopes":     stored,
+		"resources":  resources,
 		"namespace":  ns,
 		"label":      body.Label,
 		"expires_at": time.Now().Add(lifetime).UTC().Format(time.RFC3339),

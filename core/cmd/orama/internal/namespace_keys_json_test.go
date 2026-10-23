@@ -70,3 +70,29 @@ func TestPrintCreatedKey_textKeepsTheLinesAPersonReads(t *testing.T) {
 		t.Error("the text output without --json is JSON")
 	}
 }
+
+// A narrowed key says so in both outputs: what it reaches is the point of it.
+func TestPrintCreatedKey_aNarrowedKeyShowsItsResources(t *testing.T) {
+	result := created()
+	result["resources"] = []any{"fn:subscription-read", "fn:user-find-by-wallet"}
+
+	var text bytes.Buffer
+	if err := printCreatedKey(printer.New(&text, &text), result); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text.String(), "resources: fn:subscription-read, fn:user-find-by-wallet") {
+		t.Errorf("the text output does not show the resources:\n%s", text.String())
+	}
+
+	var js bytes.Buffer
+	if err := printCreatedKey(printer.New(&js, &js).WithJSON(true), result); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(js.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := got["resources"].([]any); len(list) != 2 {
+		t.Errorf("resources = %v, want both selectors", got["resources"])
+	}
+}

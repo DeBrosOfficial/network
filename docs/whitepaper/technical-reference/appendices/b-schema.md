@@ -103,6 +103,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `expires_at` | TIMESTAMP | no | - |  |
 | `rotated_from` | INTEGER | no | - |  |
 | `principal_id` | INTEGER | no | - |  |
+| `resources` | TEXT | no | - |  |
 
 ## api_keys_expiry_cutoff
 

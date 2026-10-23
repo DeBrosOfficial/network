@@ -17,6 +17,9 @@ type KeyInfo struct {
 	ID     int64  `json:"id"`
 	Name   string `json:"name"`
 	Scopes string `json:"scopes"`
+	// Resources are the selectors the key is narrowed to, or empty for a key
+	// that reaches the whole of its scopes.
+	Resources KeyResources `json:"resources,omitempty"`
 	// ExpiresAt is when the key stops working. Every key has one.
 	ExpiresAt string `json:"expires_at"`
 	// RotatedFrom is the key this one replaces, so a rotation in progress is
@@ -48,6 +51,9 @@ type KeyOptions struct {
 	Lifetime time.Duration
 	// RotatedFrom is the key this one replaces, when it is a rotation.
 	RotatedFrom int64
+	// Resources narrow the key to what these selectors match (see
+	// NormalizeKeyResources). Empty is the whole of its scopes.
+	Resources []string
 }
 
 // IssueScopedKey mints a fresh API key for a namespace with an explicit,
@@ -77,6 +83,17 @@ func (s *Service) IssueScopedKey(ctx context.Context, namespace, storedScopes st
 	}
 	expiresAt := time.Now().Add(lifetime).UTC()
 
+	// Validated here, where every mint passes, so a rotation re-checks what it
+	// carries over as strictly as a create checks what it was asked for.
+	resources, err := NormalizeKeyResources(storedScopes, opts.Resources)
+	if err != nil {
+		return "", 0, err
+	}
+	var resourcesValue interface{}
+	if len(resources) > 0 {
+		resourcesValue = resources.Stored()
+	}
+
 	nsID, err := s.resolveKeyNamespaceID(ctx, namespace)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to resolve namespace %q: %w", namespace, err)
@@ -98,8 +115,8 @@ func (s *Service) IssueScopedKey(ctx context.Context, namespace, storedScopes st
 		rotatedFrom = opts.RotatedFrom
 	}
 	inserted, err := db.Query(internalCtx,
-		"INSERT INTO api_keys(key, name, namespace_id, scopes, expires_at, rotated_from) VALUES (?, ?, ?, ?, ?, ?)",
-		hashedKey, opts.Label, nsID, storedScopes, expiresAt.Format(sqliteTime), rotatedFrom,
+		"INSERT INTO api_keys(key, name, namespace_id, scopes, resources, expires_at, rotated_from) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		hashedKey, opts.Label, nsID, storedScopes, resourcesValue, expiresAt.Format(sqliteTime), rotatedFrom,
 	)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to store api key: %w", err)
@@ -129,6 +146,7 @@ func (s *Service) IssueScopedKey(ctx context.Context, namespace, storedScopes st
 		Metadata: map[string]string{
 			"label":      opts.Label,
 			"scopes":     storedScopes,
+			"resources":  resources.Stored(),
 			"expires_at": expiresAt.Format(sqliteTime),
 		},
 	})
@@ -291,7 +309,7 @@ func (s *Service) ListKeys(ctx context.Context, namespace string) ([]KeyInfo, er
 	db := s.keyORM().Database()
 
 	res, err := db.Query(internalCtx,
-		"SELECT id, name, scopes, created_at, last_used_at, revoked_at, expires_at, rotated_from FROM api_keys WHERE namespace_id = ? ORDER BY id ASC", nsID)
+		"SELECT id, name, scopes, created_at, last_used_at, revoked_at, expires_at, rotated_from, resources FROM api_keys WHERE namespace_id = ? ORDER BY id ASC", nsID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list keys: %w", err)
 	}
@@ -300,7 +318,7 @@ func (s *Service) ListKeys(ctx context.Context, namespace string) ([]KeyInfo, er
 		return out, nil
 	}
 	for _, row := range res.Rows {
-		if len(row) < 8 {
+		if len(row) < 9 {
 			continue
 		}
 		out = append(out, KeyInfo{
@@ -312,6 +330,7 @@ func (s *Service) ListKeys(ctx context.Context, namespace string) ([]KeyInfo, er
 			RevokedAt:   getStringVal(row[5]),
 			ExpiresAt:   getStringVal(row[6]),
 			RotatedFrom: toInt64(row[7]),
+			Resources:   KeyResourcesFromStored(getStringVal(row[8])),
 		})
 	}
 	return out, nil
@@ -386,22 +405,25 @@ func (s *Service) RotateKey(ctx context.Context, namespace string, id int64, opt
 	internalCtx := client.WithInternalAuth(ctx)
 	db := s.keyORM().Database()
 
-	// The successor carries the original's grants and label: a rotation is the
-	// same credential with new material, and quietly widening or narrowing it
-	// would make rotating a thing people avoid.
+	// The successor carries the original's grants, resources and label: a
+	// rotation is the same credential with new material, and quietly widening
+	// or narrowing it would make rotating a thing people avoid. A successor
+	// that dropped the resources would be the whole of the scopes.
 	sel, err := db.Query(internalCtx,
-		"SELECT scopes, name FROM api_keys WHERE id = ? AND namespace_id = ? AND revoked_at IS NULL LIMIT 1",
+		"SELECT scopes, name, resources FROM api_keys WHERE id = ? AND namespace_id = ? AND revoked_at IS NULL LIMIT 1",
 		id, nsID)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to read key %d in namespace %q: %w", id, namespace, err)
 	}
-	if sel == nil || sel.Count == 0 || len(sel.Rows) == 0 || len(sel.Rows[0]) < 2 {
+	if sel == nil || sel.Count == 0 || len(sel.Rows) == 0 || len(sel.Rows[0]) < 3 {
 		return "", 0, fmt.Errorf("no active key with id %d in namespace %q", id, namespace)
 	}
 	scopes, label := getStringVal(sel.Rows[0][0]), getStringVal(sel.Rows[0][1])
+	resources := KeyResourcesFromStored(getStringVal(sel.Rows[0][2]))
 
 	rawKey, newID, err := s.IssueScopedKey(ctx, namespace, scopes, KeyOptions{
 		Label:       label,
+		Resources:   resources,
 		Lifetime:    opts.Lifetime,
 		RotatedFrom: id,
 	})

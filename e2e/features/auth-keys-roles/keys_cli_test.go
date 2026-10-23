@@ -188,3 +188,36 @@ func decodeJSON(s string, v any) error {
 	}
 	return nil
 }
+
+// TestNamespaceKeys_cliResources: --resource repeats, keys list shows what a
+// narrowed key reaches, and keys rotate carries it over
+// (docs/whitepaper/technical-reference/appendices/d-cli-reference.md "orama namespace keys create").
+func TestNamespaceKeys_cliResources(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	n := ns.New(t, f, ns.Options{Via: ns.ViaOperator})
+	id, _ := cliKeyCreate(t, n.CLI, "--scope", "invoke-only", "--label", "cli-narrowed",
+		"--resource", "fn:user-find-by-wallet", "--resource", "fn:subscription-read")
+	const only = "[only fn:subscription-read, fn:user-find-by-wallet]"
+	if list := n.CLI.MustOK(t, "namespace", "keys", "list").Stdout; !strings.Contains(list, only) {
+		t.Fatalf("keys list does not show the key's resources:\n%s", list)
+	}
+	rot := n.CLI.MustOK(t, "namespace", "keys", "rotate", "--id", id, "--overlap-days", "1").Stdout
+	newKey := cliKeyShape.FindStringSubmatch(rot)
+	m := idLine.FindStringSubmatch(strings.Replace(rot, "new id:", "id:", 1))
+	if newKey == nil || m == nil {
+		t.Fatalf("keys rotate did not print a new key and id")
+	}
+	protect(t, harness.GW(t), newKey[1])
+	t.Cleanup(func() {
+		if res, err := n.CLI.Run(context.Background(), "namespace", "keys", "revoke", "--id", m[1]); err != nil || (res.Exit != 0 && res.Exit != exitNotFound) {
+			t.Errorf("cleanup: failed to revoke the successor %s: %v", m[1], err)
+		}
+	})
+	if list := n.CLI.MustOK(t, "namespace", "keys", "list").Stdout; strings.Count(list, only) != 2 {
+		t.Errorf("the successor #%s does not carry the resources:\n%s", m[1], list)
+	}
+	if res := runCLI(t, n.CLI, "namespace", "keys", "create", "--scope", "invoke-only", "--resource", "storage:avatars/*"); res.Exit != exitUsage {
+		t.Errorf("a resource the key does not hold: exit %d, want %d", res.Exit, exitUsage)
+	}
+}

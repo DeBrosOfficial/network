@@ -33,6 +33,12 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 	ns, _ := ctx.Value(CtxKeyNamespaceOverride).(string)
 	inLobby := auth.IsLobbyNamespace(ns) || strings.TrimSpace(ns) == ""
 
+	// The resources an API key is narrowed to, read off its row with its
+	// scopes. Every answer below that comes from a key's scopes is narrowed
+	// by them, so a key limited to some functions holds those functions on
+	// every route, whichever of the three ways it was presented.
+	keyResources, _ := ctx.Value(ctxKeyKeyResources).(auth.KeyResources)
+
 	// The grant the authorization middleware resolved for this namespace, for
 	// whichever principal the credential named. It is the answer whenever the
 	// route resolves one.
@@ -44,7 +50,7 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			// A key's role is runtime or admin and nothing between, so its
 			// own scopes say what it holds.
 			scopes, _ := ctx.Value(ctxKeyScopes).(auth.ScopeSet)
-			return auth.KeyPermissions(scopes.Canonical(), grant.Role, grant.Resource)
+			return keyResources.Narrow(auth.KeyPermissions(scopes.Canonical(), grant.Role, grant.Resource))
 		}
 		return auth.PermissionsFor(grant.Role, grant.Resource)
 	}
@@ -57,7 +63,7 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			// the token carries. The claim is what made a narrowed grant take
 			// a token lifetime to bite.
 			if scopes, ok := ctx.Value(ctxKeyScopes).(auth.ScopeSet); ok {
-				return auth.PermissionsFromScopes(scopes.Canonical())
+				return keyResources.Narrow(auth.PermissionsFromScopes(scopes.Canonical()))
 			}
 			return auth.PermissionSet{}
 		}
@@ -74,7 +80,7 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 	}
 
 	if scopes, ok := ctx.Value(ctxKeyScopes).(auth.ScopeSet); ok {
-		return auth.PermissionsFromScopes(scopes.Canonical())
+		return keyResources.Narrow(auth.PermissionsFromScopes(scopes.Canonical()))
 	}
 
 	// No identity resolved. The auth middleware has already gated every

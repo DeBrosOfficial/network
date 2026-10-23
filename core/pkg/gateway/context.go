@@ -14,6 +14,7 @@ const (
 	CtxKeyNamespaceOverride = ctxkeys.NamespaceOverride
 	ctxKeyScopes            = ctxkeys.Scopes
 	ctxKeyGrant             = ctxkeys.Grant
+	ctxKeyKeyResources      = ctxkeys.KeyResources
 )
 
 // hostNamespaceKey carries the namespace named by an ns-<name> host for a

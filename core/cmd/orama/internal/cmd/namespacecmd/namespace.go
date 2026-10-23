@@ -87,12 +87,23 @@ var keysCmd = &cobra.Command{
 var keysCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Mint a new scoped API key",
+	Long: `Mint a new scoped API key. The key is shown once.
+
+--resource narrows the key to the functions it names: the gateway refuses it on
+every other function, on HTTP invoke and the function WebSocket alike, with the
+403 a member narrowed by 'members add --resource' gets. Without it the key
+reaches the whole of its scopes.`,
+	Example: `  orama namespace keys create --namespace anchat --scope invoke-only --resource fn:premium-status
+  orama namespace keys create --namespace anchat --scope invoke-only --resource 'fn:premium-*'
+  orama namespace keys create --namespace anchat --scope invoke-only \
+    --resource fn:subscription-read --resource fn:user-find-by-wallet`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		scope, _ := cmd.Flags().GetString("scope")
 		label, _ := cmd.Flags().GetString("label")
 		ns, _ := cmd.Flags().GetString("namespace")
 		days, _ := cmd.Flags().GetInt("expires-in-days")
-		return cli.NamespaceKeysCreate(printer.For(cmd), ns, scope, label, days)
+		resources, _ := cmd.Flags().GetStringArray("resource")
+		return cli.NamespaceKeysCreate(printer.For(cmd), ns, scope, label, resources, days)
 	},
 }
 
@@ -165,8 +176,8 @@ happened to sign in first.
 var keysRotateCmd = &cobra.Command{
 	Use:   "rotate",
 	Short: "Mint a successor to a key and keep the old one working for an overlap",
-	Long: `Mint a new key with the same grants and label, and shorten the original's life
-to the overlap.
+	Long: `Mint a new key with the same grants, resources and label, and shorten the
+original's life to the overlap.
 
 Rotating by minting a new key and revoking the old one in the same breath is an
 outage: whatever is deployed with the old key stops the moment the new one
@@ -206,6 +217,10 @@ func init() {
 		"Profile (invoke-only|app-runtime|admin) or a comma-separated grant list ("+
 			strings.Join(auth.AllGrants(), ", ")+")")
 	keysCreateCmd.Flags().String("label", "", "Human label for the key")
+	keysCreateCmd.Flags().StringArray("resource", nil,
+		"Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. "+
+			"Repeat for several; the key then reaches only these. Each must narrow one of its scopes "+
+			"(fn: needs invoke), and every scope must be narrowed by one")
 	keysCreateCmd.Flags().String("namespace", "", "Namespace name")
 	keysListCmd.Flags().String("namespace", "", "Namespace name")
 	keysRevokeCmd.Flags().Int("id", 0, "Key id to revoke")

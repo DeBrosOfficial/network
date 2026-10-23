@@ -323,23 +323,9 @@ func (s *Service) writeGrant(ctx context.Context, req GrantRequest) error {
 
 	resource := strings.TrimSpace(req.Resource)
 	if resource != "" {
-		selector, err := ParseSelector(resource)
+		selector, err := validSelector(resource, req.Role.Scopes(), fmt.Sprintf("role %q", req.Role))
 		if err != nil {
-			return invalidGrant("%s", err.Error())
-		}
-		// A selector for something the role cannot reach anyway is a grant
-		// nobody could ever act on, whichever way the enforcement lands.
-		if want := selector.RequiredScope(); !req.Role.Scopes().Has(want) {
-			return invalidGrant("role %q does not hold the %q grant that selector %q narrows",
-				req.Role, want, resource)
-		}
-		// A selector nothing applies is a restriction that is not there. It
-		// would show in `orama members list` as a narrowed grant and authorise
-		// nothing, which is the worse of the two ways to be wrong.
-		if !SelectorEnforced(selector.Domain) {
-			return invalidGrant("a %s selector is not applied by the data path yet, so this grant "+
-				"would authorise nothing: narrow a grant in %s, or leave the selector off",
-				selector.Domain, strings.Join(EnforcedSelectorDomains(), " or "))
+			return err
 		}
 		resource = selector.String()
 	}
@@ -392,6 +378,31 @@ func (s *Service) writeGrant(ctx context.Context, req GrantRequest) error {
 		Metadata:  map[string]string{"role": string(req.Role), "selector": resource},
 	})
 	return nil
+}
+
+// validSelector reads a selector a credential is to be narrowed by, and refuses
+// one that would not be the boundary it reads as. holder names the credential
+// in the refusal: a role for a grant, a scope set for an API key.
+func validSelector(raw string, held ScopeSet, holder string) (Selector, error) {
+	selector, err := ParseSelector(raw)
+	if err != nil {
+		return Selector{}, invalidGrant("%s", err.Error())
+	}
+	// A selector for something the credential cannot reach anyway is one
+	// nobody could ever act on, whichever way the enforcement lands.
+	if want := selector.RequiredScope(); !held.Has(want) {
+		return Selector{}, invalidGrant("%s does not hold the %q grant that selector %q narrows",
+			holder, want, raw)
+	}
+	// A selector nothing applies is a restriction that is not there. It would
+	// show as a narrowed credential and authorise nothing, which is the worse
+	// of the two ways to be wrong.
+	if !SelectorEnforced(selector.Domain) {
+		return Selector{}, invalidGrant("a %s selector is not applied by the data path yet, so this credential "+
+			"would authorise nothing: narrow it in %s, or leave the selector off",
+			selector.Domain, strings.Join(EnforcedSelectorDomains(), " or "))
+	}
+	return selector, nil
 }
 
 // regrant handles a grant write the unique index refused: the principal

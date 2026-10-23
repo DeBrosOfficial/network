@@ -4,7 +4,8 @@
 # mint's bounds, opening with the capability alone (400 with a credential
 # too), identical 403s that tell a probe nothing, the 16-socket cap, 4403 on
 # revoking the capability or its issuing device, 4401 after expiry plus the
-# grace, and fn:name selectors on invoke. The per-address upgrade limit needs
+# grace, fn:name selectors on invoke, and an API key narrowed to one function
+# (namespace keys create --resource) over both invoke routes and the socket. The per-address upgrade limit needs
 # a flood and is in auth-capability-ws-chaos.
 # Needs tinygo on the runner's PATH (otherwise not applicable, not covered).
 id: auth-capability-ws
@@ -27,3 +28,4 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#open-websockets: a socket whose capability expired closes two minutes later (4401)"
     - "website/src/docs/developer/functions.mdx#capabilities: get_caller_capability reports what the socket was opened with"
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md#selectors: fn:name selectors narrow function invocation"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys: a key minted with --resource fn:<name> invokes that function and is refused 403 on every other, over /v1/functions/<fn>/invoke, /v1/invoke/<ns>/<fn> and the function WebSocket; a key without it reaches both"

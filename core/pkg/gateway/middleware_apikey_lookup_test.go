@@ -61,7 +61,8 @@ func TestLookupAPIKeyEntry_HashedKeyHappyPath(t *testing.T) {
 		return &client.QueryResult{Count: 0}, nil
 	}}
 
-	ns, scopes, err := g.lookupAPIKeyEntry(context.Background(), rawKey, q)
+	entry, err := g.lookupAPIKeyEntry(context.Background(), rawKey, q)
+	ns, scopes := entry.namespace, entry.scopes
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestLookupAPIKeyEntry_RawKeyNoLongerAccepted(t *testing.T) {
 		return &client.QueryResult{Count: 0}, nil
 	}}
 
-	_, _, err := g.lookupAPIKeyEntry(context.Background(), rawKey, q)
+	_, err := g.lookupAPIKeyEntry(context.Background(), rawKey, q)
 	if err == nil {
 		t.Fatal("raw (unhashed) key must not authenticate after dual-lookup removal")
 	}
@@ -112,7 +113,7 @@ func TestLookupAPIKeyEntry_RevokedKeyRejected(t *testing.T) {
 		return &client.QueryResult{Count: 0}, nil
 	}}
 
-	_, _, err := g.lookupAPIKeyEntry(context.Background(), rawKey, q)
+	_, err := g.lookupAPIKeyEntry(context.Background(), rawKey, q)
 	if err == nil {
 		t.Fatal("expected revoked key to be rejected, got nil error")
 	}
@@ -127,7 +128,7 @@ func TestLookupAPIKeyEntry_NoRowsInvalid(t *testing.T) {
 		return &client.QueryResult{Count: 0}, nil
 	}}
 
-	_, _, err := g.lookupAPIKeyEntry(context.Background(), "ak_does_not_exist", q)
+	_, err := g.lookupAPIKeyEntry(context.Background(), "ak_does_not_exist", q)
 	if err == nil {
 		t.Fatal("expected error for unknown key, got nil")
 	}
@@ -138,7 +139,7 @@ func TestLookupAPIKeyEntry_NoRowsInvalid(t *testing.T) {
 
 func TestLookupAPIKeyEntry_NilQuerier(t *testing.T) {
 	g := hashingGatewayFixture(t)
-	_, _, err := g.lookupAPIKeyEntry(context.Background(), "ak_whatever", nil)
+	_, err := g.lookupAPIKeyEntry(context.Background(), "ak_whatever", nil)
 	if err == nil {
 		t.Fatal("expected error when querier is nil, got nil")
 	}
@@ -151,7 +152,7 @@ func TestLookupAPIKeyEntry_DBErrorPropagates(t *testing.T) {
 		return nil, wantErr
 	}}
 
-	_, _, err := g.lookupAPIKeyEntry(context.Background(), "ak_whatever", q)
+	_, err := g.lookupAPIKeyEntry(context.Background(), "ak_whatever", q)
 	if err == nil {
 		t.Fatal("expected DB error to propagate, got nil")
 	}
@@ -168,14 +169,15 @@ func TestLookupAPIKeyEntry_DBErrorPropagates(t *testing.T) {
 func TestLookupAPIKeyEntry_CacheHitBypassesQuery(t *testing.T) {
 	g := hashingGatewayFixture(t)
 	g.mwCache = newMiddlewareCache(time.Minute)
-	g.mwCache.SetAPIKeyEntry("ak_cached", "cached-ns", "invoke")
+	g.mwCache.SetAPIKeyEntry("ak_cached", apiKeyEntry{namespace: "cached-ns", scopes: "invoke"})
 
 	q := &fakeAPIKeyQuerier{queryFn: func(_ context.Context, _ string, _ ...interface{}) (*client.QueryResult, error) {
 		t.Error("query must not run on a cache hit")
 		return &client.QueryResult{Count: 0}, nil
 	}}
 
-	ns, scopes, err := g.lookupAPIKeyEntry(context.Background(), "ak_cached", q)
+	entry, err := g.lookupAPIKeyEntry(context.Background(), "ak_cached", q)
+	ns, scopes := entry.namespace, entry.scopes
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -124,6 +125,47 @@ func invoke(t testing.TB, fx *fixture, fn, bearer string, body any) *gw.Response
 	return fx.c.MustSend(t, gw.Req{Method: http.MethodPost, Path: "/v1/functions/" + fn + "/invoke",
 		Query: url.Values{"namespace": {fx.n.Name}}, Bearer: bearer,
 		Header: http.Header{"Content-Type": {"application/json"}}, Body: raw})
+}
+
+// invokePath posts an empty object to an invoke route with bearer.
+func invokePath(t testing.TB, fx *fixture, pathQuery, bearer string) *gw.Response {
+	t.Helper()
+	path, query, _ := strings.Cut(pathQuery, "?")
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values.Get("namespace") == "" && strings.HasPrefix(path, "/v1/functions/") {
+		values.Set("namespace", fx.n.Name)
+	}
+	return fx.c.MustSend(t, gw.Req{Method: http.MethodPost, Path: path, Query: values, Bearer: bearer,
+		Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte("{}")})
+}
+
+// cliKeyShape is how `orama namespace keys create` prints the key it shows once.
+var (
+	cliKeyShape = regexp.MustCompile(`(?m)^\s*(orama_(?:sk|rk)_[0-9A-Za-z]+_[0-9A-Za-z]+)\s*$`)
+	cliKeyID    = regexp.MustCompile(`(?m)^\s+id:\s+(\d+)\s*$`)
+)
+
+// cliKey mints a key in the fixture's namespace with `orama namespace keys
+// create` and revokes it at cleanup.
+func cliKey(t testing.TB, fx *fixture, args ...string) string {
+	t.Helper()
+	out := fx.n.CLI.MustOK(t, append([]string{"namespace", "keys", "create"}, args...)...).Stdout
+	key, id := cliKeyShape.FindStringSubmatch(out), cliKeyID.FindStringSubmatch(out)
+	if key == nil || id == nil {
+		t.Fatalf("keys create printed no key or id")
+	}
+	protect(t, fx.c, key[1])
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cleanupLimit)
+		defer cancel()
+		if res, err := fx.n.CLI.Run(ctx, "namespace", "keys", "revoke", "--id", id[1]); err != nil || res.Exit != 0 {
+			t.Errorf("cleanup: failed to revoke key %s: %v %s", id[1], err, res.Stderr)
+		}
+	})
+	return key[1]
 }
 
 // minted is what capability_mint returns (website/src/docs/developer/functions.mdx#capabilities).

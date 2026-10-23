@@ -97,10 +97,11 @@ func TestVerifyInternalAuthHeaders_v2CoversTheTokensTimesAndID(t *testing.T) {
 // would let whoever broke the newest keep the fields the older does not cover.
 func TestVerifyInternalAuthHeaders_aFailedNewestMACIsNotRetriedAsAnOlderOne(t *testing.T) {
 	key := testHopKey(t)
-	for _, header := range []string{HeaderInternalAuthMACv3, HeaderInternalAuthMACv2} {
+	for v := len(hopVersions) - 1; v > 0; v-- {
+		header := hopVersions[v].header
 		r := signedJWTHop(t, key, hopClaims())
-		if header == HeaderInternalAuthMACv2 {
-			r.Header.Del(HeaderInternalAuthMACv3)
+		for _, newer := range hopVersions[v+1:] {
+			r.Header.Del(newer.header)
 		}
 		r.Header.Set(header, strconv.FormatInt(time.Now().Unix(), 10)+".00")
 		if verifyInternalAuthHeaders(key, r, time.Now()) {
@@ -116,7 +117,8 @@ func TestInternalAuthMiddleware_aV2HopKeepsTheTimesAndDropsTheBinding(t *testing
 	claims := hopClaims()
 	claims.Did, claims.Sid = "device-1", "session-1"
 	r := signedJWTHop(t, g.internalAuthKey, claims)
-	r.Header.Del(HeaderInternalAuthMACv3) // what a v2 gateway sends
+	r.Header.Del(HeaderInternalAuthMACv4) // what a v2 gateway sends
+	r.Header.Del(HeaderInternalAuthMACv3)
 
 	var seen http.Header
 	next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { seen = r.Header.Clone() })
@@ -138,6 +140,7 @@ func TestInternalAuthMiddleware_aV1HopIsAcceptedWithoutWhatV1DoesNotCover(t *tes
 	r := signedJWTHop(t, g.internalAuthKey, hopClaims())
 	r.Header.Del(HeaderInternalAuthMACv2) // what an old gateway sends
 	r.Header.Del(HeaderInternalAuthMACv3)
+	r.Header.Del(HeaderInternalAuthMACv4)
 	r.Header.Set(HeaderInternalAuthJWTExp, "9999999999")
 
 	var seen http.Header
@@ -152,7 +155,8 @@ func TestInternalAuthMiddleware_aV1HopIsAcceptedWithoutWhatV1DoesNotCover(t *tes
 			t.Errorf("%s, which no MAC covered, reached the handler as %q", name, v)
 		}
 	}
-	if seen.Get(HeaderInternalAuthMACv3) != "" || seen.Get(HeaderInternalAuthMACv2) != "" || seen.Get(HeaderInternalAuthMAC) != "" {
+	if seen.Get(HeaderInternalAuthMACv4) != "" || seen.Get(HeaderInternalAuthMACv3) != "" ||
+		seen.Get(HeaderInternalAuthMACv2) != "" || seen.Get(HeaderInternalAuthMAC) != "" {
 		t.Error("a MAC was forwarded past the hop it authenticates")
 	}
 }

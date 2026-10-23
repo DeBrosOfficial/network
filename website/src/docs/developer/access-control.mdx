@@ -93,14 +93,35 @@ orama namespace keys revoke --id 12
 
 Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
 
-- **For a script:** `orama namespace keys create --json` prints one JSON object (`id`, `scopes`, `namespace`, `expires`, `label` and `key`) and nothing else.
+- **For a script:** `orama namespace keys create --json` prints one JSON object (`id`, `scopes`, `resources` when the key is narrowed, `namespace`, `expires`, `label` and `key`) and nothing else.
 - **Format.** `orama_<type>_<payload>_<checksum>`, base62. `sk` labels a key holding the control plane and `rk` one holding only the data plane; the row decides authority, not the label. The checksum is not a security property, but a leaked key is recognisable offline by a secret scanner, and a mistyped one is refused without a database lookup.
 - **It does not name its namespace.** It used to be `ak_<random>:<namespace>`, so a key pasted into an issue published which tenant it belonged to.
 - **Every key expires:** 90 days by default, a year at most (`--expires-in-days`). There is no way to ask for one that does not.
 - **Stored as an HMAC** under a server-side secret. The gateway never holds the key it issued. **The raw key is shown once and is not recoverable.**
-- **Rotating** mints a successor with the same grants and shortens the original's life to an overlap (7 days by default, 30 at most) instead of revoking it, so there is a window to deploy the new one. Revoking in the same breath as minting is an outage.
+- **Rotating** mints a successor with the same grants, resources and label, and shortens the original's life to an overlap (7 days by default, 30 at most) instead of revoking it, so there is a window to deploy the new one. Revoking in the same breath as minting is an outage.
 - **Revoking** a key refuses it within about ten seconds on every gateway, and refuses the tokens exchanged from it.
 - `orama namespace keys revoke-legacy` revokes every legacy (unscoped) key: the cutover step from before scoped keys.
+
+### Narrowing a key to functions
+
+A key can be limited to the functions it names, so the key an application ships reaches those functions and nothing else:
+
+```bash
+orama namespace keys create --scope invoke-only --resource fn:premium-status
+orama namespace keys create --scope invoke-only --resource 'fn:premium-*'
+orama namespace keys create --scope invoke-only \
+  --resource fn:subscription-read --resource fn:user-find-by-wallet
+```
+
+`--resource` repeats, up to 32 times, and a pattern's `*` matches any run of characters. Over HTTP the create body takes `resource` (one selector) and `resources` (a list), and `GET /v1/namespace/keys` returns each key's `resources`.
+
+- **On a function it names,** the key behaves as any invoke key.
+- **On any other function** it is refused `403 FORBIDDEN`, the refusal a member narrowed with `members add --resource` gets: over `POST /v1/invoke/<namespace>/<function>`, `POST /v1/functions/<function>/invoke` and the function WebSocket alike. That includes a public function outside the list: drop the key, or add the function, to call it. Deploying, deleting, logs and triggers stay refused, as for any invoke key.
+- **Every scope must be narrowed.** A narrowed key reaches only what its resources match, so `--scope app-runtime --resource fn:a` is refused (storage, push and the rest would reach nothing): mint `invoke-only`. An `admin` key cannot be narrowed, and a resource must narrow a scope the key holds (`fn:` needs `invoke`). The same domains a member can be narrowed in are accepted (`pubsub:`, `storage:`, `cache:` besides `fn:`).
+- **It holds everywhere the key is used:** sent bare, exchanged for a token, and on the namespace's own gateway. `orama namespace keys list` shows it as `[only fn:…]`, and a rotation carries it over.
+- **During a rolling upgrade** that introduces it, a gateway still on the earlier release does not know a key's resources, and serves the key as the whole of its scopes until the roll completes.
+
+A key with no `--resource` is unchanged: it reaches the whole of its scopes.
 
 **Where a key belongs.** A key in a browser bundle is public. Give it the data plane and nothing else, and let the user's own login carry the rest: storage, WebRTC and proxy refuse a key on its own anyway (they need a logged-in user, or a deployed app's own workload token). A key that touches the control plane belongs on a server.
 

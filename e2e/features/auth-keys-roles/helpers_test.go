@@ -107,8 +107,9 @@ func memberToken(t testing.TB, n *ns.Namespace, role, resource string) (*wallet.
 type mintedKey struct {
 	ID        int64  `json:"id"`
 	APIKey    string `json:"api_key"`
-	Scopes    string `json:"scopes"`
-	Namespace string `json:"namespace"`
+	Scopes    string   `json:"scopes"`
+	Resources []string `json:"resources"`
+	Namespace string   `json:"namespace"`
 	Label     string `json:"label"`
 	ExpiresAt string `json:"expires_at"`
 }
