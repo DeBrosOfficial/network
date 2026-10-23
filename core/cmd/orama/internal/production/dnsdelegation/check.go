@@ -45,38 +45,36 @@ func (f Finding) String() string {
 	}
 }
 
-// Lookups are the two DNS questions a check asks. A nil field uses the system
-// resolver; tests and the Cloudflare path set their own.
+// Lookups are the two DNS questions a check asks. A nil field asks the
+// authoritative nameservers of the parent zone directly (authoritative.go),
+// never the host's caching resolver; tests set their own.
 type Lookups struct {
 	NS   func(ctx context.Context, name string) ([]string, error)
 	Host func(ctx context.Context, name string) ([]string, error)
 }
 
-func (l Lookups) withDefaults() Lookups {
+func (l Lookups) withDefaults(domain string) Lookups {
+	if l.NS != nil && l.Host != nil {
+		return l
+	}
+	parent := newParentZone(domain)
 	if l.NS == nil {
-		l.NS = func(ctx context.Context, name string) ([]string, error) {
-			hosts, err := net.DefaultResolver.LookupNS(ctx, name)
-			out := make([]string, len(hosts))
-			for i, h := range hosts {
-				out[i] = h.Host
-			}
-			return out, err
-		}
+		l.NS = parent.NS
 	}
 	if l.Host == nil {
-		l.Host = net.DefaultResolver.LookupHost
+		l.Host = parent.Host
 	}
 	return l
 }
 
-// Check asks DNS whether d is delegated: the domain's NS set names every
-// nameserver and each nameserver's name resolves to the address the cluster
-// holds it at. An answer that is simply "no such record" is a finding, because
+// Check asks the parent zone whether d is delegated: the domain's NS set names
+// every nameserver and each nameserver's glue is the address the cluster holds
+// it at. An answer that is simply "no such record" is a finding, because
 // before the operator has created the records that is the expected state.
 // A resolver that cannot answer (timeout, SERVFAIL) is an error: it says
 // nothing about the records.
 func Check(ctx context.Context, d Delegation, l Lookups) ([]Finding, error) {
-	l = l.withDefaults()
+	l = l.withDefaults(d.Domain)
 	gotNS, err := lookup(ctx, l.NS, d.Domain)
 	if err != nil {
 		return nil, fmt.Errorf("look up NS for %s: %w", d.Domain, err)

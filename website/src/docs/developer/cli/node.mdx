@@ -503,10 +503,12 @@ come up, so which address holds which name is only known to the cluster. This
 reads it from the cluster over SSH. Only slots whose glue the cluster has
 written are listed — the same set the cluster's own zone publishes.
 
-After the records it asks DNS whether the parent zone returns them, and says
-which NS or glue record is missing or points at another address. The answer is
+After the records it asks the parent zone's own nameservers whether they
+return them, never the local caching resolver (which can keep a "no such host"
+from before the records existed for the zone's negative TTL), and says which
+NS or glue record is missing or points at another address. The answer is
 stored on the environment (environments.json), replacing the last result for
-the domain. A resolver that cannot answer is reported and nothing is
+the domain. A parent zone that cannot answer is reported and nothing is
 stored. --json adds "delegated" and "findings" to each domain.
 
 Run it again after adding or removing a nameserver, and update the parent

@@ -24,7 +24,8 @@ type Cloudflare struct {
 	// Base is the API origin, set by tests. Empty uses the public API.
 	Base string
 	HTTP *http.Client
-	// LookupNS and LookupHost default to the system resolver.
+	// LookupNS and LookupHost default to asking the parent zone's
+	// authoritative nameservers (authoritative.go).
 	LookupNS   func(ctx context.Context, name string) ([]string, error)
 	LookupHost func(ctx context.Context, name string) ([]string, error)
 }
