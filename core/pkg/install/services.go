@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Orama-Network/orama/core/pkg/clustertrust"
 	"github.com/Orama-Network/orama/core/pkg/install/installers"
+	"github.com/Orama-Network/orama/core/pkg/rootfs"
 	"github.com/Orama-Network/orama/core/pkg/systemd"
 	"go.uber.org/zap"
 )
@@ -233,6 +235,18 @@ func (ps *ProductionSetup) InstallNamespaceTemplates() (err error) {
 	}
 	if err := installBuildSandbox(publicIP); err != nil {
 		return err
+	}
+	acmeCA, err := ps.configGenerator.ACMECA()
+	if err != nil {
+		return fmt.Errorf("the deployments' trust follows tls.acme_ca: %w", err)
+	}
+	known, err := installClusterTrust(rootfs.At("/etc"), clustertrust.NodePath, acmeCA)
+	if err != nil {
+		return fmt.Errorf("the deployments' trust for this cluster's certificates: %w", err)
+	}
+	if !known {
+		ps.logf("  ⚠ Deployments trust the system roots only: this release carries no roots for the ACME directory %s, "+
+			"so an app calling ORAMA_GATEWAY_URL must bring its own", acmeCA)
 	}
 	// The new runtime templates allow no bind; a deployment already on the
 	// node gets the drop-in with its port before they are loaded.

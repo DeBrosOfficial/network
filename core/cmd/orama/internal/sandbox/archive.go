@@ -43,7 +43,7 @@ const (
 	// sandboxACMECA is where sandbox nodes get certificates: Let's Encrypt
 	// staging, whose limits a cluster rebuilt several times a week stays
 	// within (production allows five certificates a week for the same names).
-	// The CLI trusts its roots for the sandbox domain only (stagingroots.go).
+	// The CLI trusts its roots for the sandbox domain only (stagingroots.go, pkg/clustertrust).
 	sandboxACMECA = "letsencrypt-staging"
 	// sshReadyTimeout is how long a freshly booted server has to answer SSH.
 	sshReadyTimeout = 5 * time.Minute

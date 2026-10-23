@@ -20,6 +20,7 @@ import (
 	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 	"github.com/Orama-Network/orama/core/pkg/chainfaucet"
 	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/clustertrust"
 	"github.com/Orama-Network/orama/core/pkg/constants"
 	"github.com/Orama-Network/orama/core/pkg/deployments"
 	"github.com/Orama-Network/orama/core/pkg/deployments/health"
@@ -767,8 +768,9 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 		gw.homeNodeManager = deployments.NewHomeNodeManager(deploymentDB, gw.portAllocator, logger.Logger)
 		gw.replicaManager = deployments.NewReplicaManager(deploymentDB, gw.homeNodeManager, gw.portAllocator, logger.Logger)
 		gw.processManager = process.NewManager(logger.Logger, process.Config{
-			Stager:     process.HelperStager{},
-			BaseDomain: baseDomain,
+			Stager:           process.HelperStager{},
+			BaseDomain:       baseDomain,
+			ClusterTrustFile: clustertrust.NodePath,
 		})
 		// What a deployment runs as. It used to run as whatever key somebody
 		// had pasted into its image; it is a principal of its own now, and the

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Orama-Network/orama/e2e/features/internal/cliconf"
-	"github.com/Orama-Network/orama/e2e/harness/fleet"
 )
 
 // The reference applications under e2e/apps (each Go one is a module of its
@@ -26,8 +25,6 @@ const (
 	appsDir     = "e2e/apps"
 	appFileMode = 0o644
 	appDirMode  = 0o755
-	// CAFile is the name a server-side app loads the cluster's trust from.
-	CAFile = "ca.pem"
 	// ReleaseMarker is replaced in an app's sources to tell versions apart.
 	ReleaseMarker = "RELEASE_MARKER"
 )
@@ -72,21 +69,11 @@ func CopyApp(t testing.TB, name string, replace map[string]string, extra map[str
 	return dst
 }
 
-// ClusterCA is the run's pinned CA bundle: what a server-side reference app
-// must trust to reach its gateway over TLS on a fleet whose certificates come
-// from Let's Encrypt staging (website/src/docs/contributor/sandbox.mdx).
-func ClusterCA(t testing.TB, f *fleet.Fleet) []byte {
+// ServerApp copies a server-side reference app with marker in place of
+// RELEASE_MARKER. It brings no CA: the platform points the app's runtime at
+// the cluster's roots on a fleet whose certificates come from Let's Encrypt
+// staging.
+func ServerApp(t testing.TB, name, marker string) string {
 	t.Helper()
-	raw, err := os.ReadFile(f.State.CAFile)
-	if err != nil {
-		t.Fatalf("failed to read the run's CA bundle %s: %v", f.State.CAFile, err)
-	}
-	return raw
-}
-
-// ServerApp copies a server-side reference app with the run's CA added as
-// ca.pem and marker in place of RELEASE_MARKER.
-func ServerApp(t testing.TB, f *fleet.Fleet, name, marker string) string {
-	t.Helper()
-	return CopyApp(t, name, map[string]string{ReleaseMarker: marker}, map[string][]byte{CAFile: ClusterCA(t, f)})
+	return CopyApp(t, name, map[string]string{ReleaseMarker: marker}, nil)
 }

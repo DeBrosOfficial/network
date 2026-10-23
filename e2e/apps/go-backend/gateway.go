@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,14 +13,6 @@ import (
 	"sync"
 	"time"
 )
-
-// caPEM is the trust the deploying test puts next to the source: the
-// cluster's certificate chains to it (Let's Encrypt staging on a test fleet,
-// which no system store trusts). A real app on a production cluster would
-// use the system roots.
-//
-//go:embed ca.pem
-var caPEM []byte
 
 // gateway is this app's client of its namespace gateway, as itself: the
 // workload token the platform hands it, renewed before it expires
@@ -36,15 +26,14 @@ type gateway struct {
 }
 
 func newGateway() (*gateway, error) {
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("ca.pem holds no certificate")
-	}
 	raw, err := os.ReadFile(os.Getenv("ORAMA_TOKEN_FILE"))
 	if err != nil {
 		return nil, fmt.Errorf("read the workload token: %w", err)
 	}
-	tr := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}}
+	// The system roots: on a cluster whose certificates chain to Let's Encrypt
+	// staging (a test fleet) the platform adds the cluster's roots to them
+	// through SSL_CERT_FILE.
+	tr := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}}
 	return &gateway{
 		base:  strings.TrimRight(os.Getenv("ORAMA_GATEWAY_URL"), "/"),
 		http:  &http.Client{Transport: tr, Timeout: 30 * time.Second},

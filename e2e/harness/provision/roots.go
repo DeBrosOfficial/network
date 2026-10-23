@@ -17,9 +17,9 @@ import (
 )
 
 // stagingRootsSource is the Let's Encrypt staging roots bundle `orama
-// sandbox` ships (core/cmd/orama/internal/sandbox/stagingroots.go); the run
+// sandbox` and every staging node ship (core/pkg/clustertrust); the run
 // trusts the same file, checked against the same pinned fingerprints.
-const stagingRootsSource = "core/cmd/orama/internal/sandbox/letsencrypt-staging-roots.pem"
+const stagingRootsSource = "core/pkg/clustertrust/letsencrypt-staging-roots.pem"
 
 // stagingRootFingerprints are the SHA-256 fingerprints of "(STAGING) Pretend
 // Pear X1" and "(STAGING) Bogus Broccoli X2", the bundle's only certificates.

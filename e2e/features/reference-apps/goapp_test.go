@@ -45,7 +45,7 @@ func TestReferenceGo_notesThroughTheGatewayAsItself(t *testing.T) {
 	t.Parallel()
 	realistic.Tool(t, "go", "`orama deploy go` cross-compiles the backend on the deploying machine")
 	tn := realistic.NewTenant(t)
-	u := tn.Deploy(t, "go", realistic.ServerApp(t, tn.F, realistic.AppGo, "go-v1"), notesApp, "--env", "APP_VERSION=go-v1")
+	u := tn.Deploy(t, "go", realistic.ServerApp(t, realistic.AppGo, "go-v1"), notesApp, "--env", "APP_VERSION=go-v1")
 	tn.Grant(t, notesApp, roleRuntime)
 	tn.EveryNodeServes(t, u, "/health", "ok")
 	requireReplicas(t, tn, "go", notesApp)
@@ -68,7 +68,7 @@ func TestReferenceGo_notesThroughTheGatewayAsItself(t *testing.T) {
 	for _, node := range tn.F.State.Nodes {
 		readNotes(t, app.PinTo(node.PublicIP), notes)
 	}
-	tn.Deploy(t, "go", realistic.ServerApp(t, tn.F, realistic.AppGo, "go-v2"), notesApp, "--update")
+	tn.Deploy(t, "go", realistic.ServerApp(t, realistic.AppGo, "go-v2"), notesApp, "--update")
 	tn.EveryNodeServes(t, u, "/version", `"version":"go-v2"`)
 	requireReplicas(t, tn, "go", notesApp)
 	// The rollback asks "(y/N)" on stdin; without an answer it prints

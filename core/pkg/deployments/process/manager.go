@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,6 +32,12 @@ type Config struct {
 	// its own namespace's gateway.
 	BaseDomain string
 
+	// ClusterTrustFile holds the roots, beyond the system roots, that the
+	// cluster's certificates chain to (clustertrust.NodePath on a node). When
+	// the file exists a deployment's runtime is pointed at it
+	// (ClusterTrustEnvKeys); install removes it where the system roots suffice.
+	ClusterTrustFile string
+
 	// Systemctl, when set, runs each systemctl command on a deployment unit
 	// in place of orama-privhelper, and the manager drives units on any OS.
 	// Nil on a node; set by tests outside this package that need to see a
@@ -44,6 +51,7 @@ type Manager struct {
 	useSystemd bool
 	stager     Stager
 	baseDomain string
+	trustFile  string
 
 	// mintWorkloadToken issues the credential a deployment runs with. It is
 	// injected rather than imported so this package does not depend on the
@@ -124,6 +132,7 @@ func NewManager(logger *zap.Logger, cfg Config) *Manager {
 		systemctl:  cfg.Systemctl,
 		stager:     cfg.Stager,
 		baseDomain: strings.TrimSpace(cfg.BaseDomain),
+		trustFile:  cfg.ClusterTrustFile,
 		processes:  make(map[string]*exec.Cmd),
 	}
 }
@@ -143,17 +152,46 @@ func (m *Manager) gatewayURL(namespace string) string {
 
 // deploymentEnv is the full environment of one deployment: what the tenant set,
 // with the platform's own variables applied last so they cannot be displaced.
-func (m *Manager) deploymentEnv(deployment *deployments.Deployment, serviceName string) map[string]string {
+func (m *Manager) deploymentEnv(deployment *deployments.Deployment, serviceName string) (map[string]string, error) {
 	// A deployment with no runtime is served rather than run, so it has no
 	// entry point and the template that would use one is never instantiated.
 	_, entryPoint, _ := RuntimeFor(deployment)
-	return mergeEnv(deployment.Environment, platformEnv(
+	platform := platformEnv(
 		deployment.Namespace,
 		serviceName,
 		m.gatewayURL(deployment.Namespace),
 		entryPoint,
 		deployment.Port,
-	))
+	)
+	needsTrust, err := m.clusterNeedsTrust()
+	if err != nil {
+		return nil, err
+	}
+	if needsTrust {
+		for key, value := range clusterTrustEnv(m.trustFile) {
+			platform[key] = value
+		}
+	}
+	return mergeEnv(deployment.Environment, platform), nil
+}
+
+// clusterNeedsTrust reports whether the cluster's extra roots are on this
+// node. It is read at every start, so a deployment started after an upgrade
+// changed tls.acme_ca follows it without a gateway restart. A file that is
+// there but cannot be checked is an error: starting the app without the roots
+// would only move the failure to its first gateway call.
+func (m *Manager) clusterNeedsTrust() (bool, error) {
+	if m.trustFile == "" {
+		return false, nil
+	}
+	_, err := os.Stat(m.trustFile)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, fmt.Errorf("cannot tell whether deployments need this cluster's roots: %w", err)
 }
 
 // Stager stores a deployment's environment file and workload token where its
@@ -358,7 +396,11 @@ func (m *Manager) writeEnvFile(deployment *deployments.Deployment, serviceName s
 	if m.stager == nil {
 		return fmt.Errorf("no deployment stager is configured, so the environment of %s has nowhere safe to go", serviceName)
 	}
-	contents, err := deployments.RenderEnvFile(m.deploymentEnv(deployment, serviceName))
+	env, err := m.deploymentEnv(deployment, serviceName)
+	if err != nil {
+		return err
+	}
+	contents, err := deployments.RenderEnvFile(env)
 	if err != nil {
 		return fmt.Errorf("failed to render the environment of %s: %w", serviceName, err)
 	}
@@ -493,7 +535,11 @@ func (m *Manager) startDirect(ctx context.Context, deployment *deployments.Deplo
 
 	// Set environment. Same set as the unit gets, so a deployment behaves the
 	// same way whether it is run by systemd or spawned directly.
-	cmd.Env = append(os.Environ(), sortedEnv(m.deploymentEnv(deployment, serviceName))...)
+	env, err := m.deploymentEnv(deployment, serviceName)
+	if err != nil {
+		return err
+	}
+	cmd.Env = append(os.Environ(), sortedEnv(env)...)
 
 	// Create log file for output
 	logDir := filepath.Join(os.Getenv("HOME"), ".orama", "logs", "deployments")

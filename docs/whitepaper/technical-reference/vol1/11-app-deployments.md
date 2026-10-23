@@ -156,13 +156,19 @@ The sealed form also travels on the wire to replicas (`environment` in the setup
 
 Names and values are validated where they are set (`core/pkg/deployments/envfile.go`):
 
-- a name is letters, digits and underscore, not starting with a digit; platform names and `ENTRY_POINT` are refused to a tenant (`reservedEnvKeys`);
+- a name is letters, digits and underscore, not starting with a digit; platform names, `ENTRY_POINT` and the cluster trust names below are refused to a tenant (`reservedEnvKeys`);
 - a value must be valid UTF-8 (systemd silently drops an assignment that is not), contain no NUL, and be at most `MaxEnvValueBytes` = 64 KiB;
 - the whole environment, measured as the file it renders to, is at most `MaxEnvFileBytes` = 224 KiB. The helper refuses a file over 256 KiB, and the 32 KiB gap is room for the platform's own variables, so an accepted environment can always start; a test holds the two together.
 
 The unit reads an `EnvironmentFile`, not interpolated `Environment=` lines. A value used to be written into the unit as `Environment="{{.}}"`, so a quote and a newline closed the assignment and wrote any directive the tenant liked into a unit that ran as root. `EncodeEnvFileValue` double-quotes the value and escapes exactly the four characters systemd treats as escapable inside double quotes (`"`, `\`, backquote and `$`), read off systemd's own parser (`env-file.c`). Every other byte, newlines included, is literal. `ParseEnvFile` reads back only what `RenderEnvFile` writes and fails on anything else, with errors that name a byte offset and never the text, because the values are secrets. Keys render in sorted order so an unchanged environment renders byte-identical.
 
 `GET /v1/deployments/env` returns names and a `reserved` flag, never values. `POST /v1/deployments/env/set` takes `set` and `unset` and is a deployment change in the sense of the next section.
+
+### The cluster's roots
+
+An app calls `ORAMA_GATEWAY_URL` over TLS with whatever roots its runtime trusts. A cluster installed with `--acme-ca letsencrypt-staging` serves certificates that chain to Let's Encrypt's staging roots, which no system trusts, so such an app failed with an x509 error unless it shipped the roots itself. The node now carries them. Install and upgrade derive the extra roots from `tls.acme_ca` (`core/pkg/clustertrust:ExtraRoots`): none for Let's Encrypt production, the two pinned staging roots for staging (embedded in the binary and checked against their SHA-256 fingerprints, never fetched), and none for any other directory, an operator's own ACME CA, whose roots the release cannot vouch for; install logs that case. They are written to `/etc/orama/cluster-ca.pem`, `0644` (`core/pkg/install/cluster_trust.go:installClusterTrust`), outside `/opt/orama`, which the runtime templates hide, and the file is removed where no extra roots are needed, so a cluster moved from staging to production stops trusting staging at its next upgrade.
+
+The process manager looks for the file at every start (`Config.ClusterTrustFile`, `clusterNeedsTrust`) and, when it is there, adds `NODE_EXTRA_CA_CERTS` and `SSL_CERT_FILE`, both naming it, to the platform's variables (`ClusterTrustEnvKeys`). Both add to the system roots rather than replace them: Node.js appends the file to its bundled roots, and Go's `crypto/x509` on Linux and OpenSSL read `SSL_CERT_FILE` in place of the system bundle file but still read the certificate directory `/etc/ssl/certs`, which holds every system root. A file whose presence cannot be checked (anything but "does not exist") refuses the start, since an app started without the roots would only fail at its first gateway call. Deployments started before the file changed pick it up at their next start. The two names are reserved on every cluster, not only where they are set, so a value a tenant set is never silently replaced on one cluster and kept on another. A client with its own bundle that ignores both (Python `requests`, for one) still has to be pointed at the file.
 
 ### The workload credential
 
@@ -499,7 +505,7 @@ At 10x the current load the first bottleneck is the registry, not the nodes. Eac
 **Unit tests** (`cd core && go test ./pkg/deployments/... ./pkg/deploysecrets/... ./pkg/gateway/handlers/deployments/...`):
 
 - `core/pkg/deployments/envfile_test.go` and `core/pkg/deployments/envcodec_test.go` hold the quoting, the size limits and the sealing round trip.
-- `core/pkg/deployments/process/npmspec_test.go` holds the dependency refusals; `core/pkg/deployments/process/unit_test.go`, `core/pkg/deployments/process/bind_test.go` and `core/pkg/deployments/process/build_test.go` hold the unit and verb agreement with the helper.
+- `core/pkg/deployments/process/npmspec_test.go` holds the dependency refusals; `core/pkg/deployments/process/unit_test.go`, `core/pkg/deployments/process/bind_test.go` and `core/pkg/deployments/process/build_test.go` hold the unit and verb agreement with the helper; `core/pkg/deployments/process/cluster_trust_test.go`, `core/pkg/install/cluster_trust_test.go` and `core/pkg/clustertrust/clustertrust_test.go` hold the cluster's roots.
 - `core/pkg/deployments/health/checker_test.go`, `core/pkg/deployments/health/orphan_reaper_test.go` and `core/pkg/deployments/health/token_refresh_test.go` hold the probe, zombie, reaper and refresh rules.
 - `core/pkg/gateway/handlers/deployments/instance_claim_test.go`, `core/pkg/gateway/handlers/deployments/change_safety_test.go`, `core/pkg/gateway/handlers/deployments/replica_coordination_test.go`, `core/pkg/gateway/handlers/deployments/domain_claim_test.go` and `core/pkg/gateway/handlers/deployments/no_tenant_exec_test.go` hold the ownership, locking, stamp, domain and no-exec rules.
 

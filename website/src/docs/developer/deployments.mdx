@@ -584,6 +584,24 @@ These names are set by the platform and cannot be overwritten or removed:
 | `ORAMA_STATE_DIR` | A directory your app may write to that survives restarts |
 | `ORAMA_CACHE_DIR` | A directory your app may write to that it must not rely on |
 
+On a cluster whose certificates chain to roots no system trusts (one installed
+with `--acme-ca letsencrypt-staging`), the platform also sets these, both to
+`/etc/orama/cluster-ca.pem`, the roots the cluster's certificates chain to. They
+add to the system roots, so your app reaches `ORAMA_GATEWAY_URL` with its
+runtime's default TLS client and still reaches every public site:
+
+| Name | Read by |
+|------|---------|
+| `NODE_EXTRA_CA_CERTS` | Node.js and Next.js |
+| `SSL_CERT_FILE` | Go (`crypto/x509` on Linux, which still reads the system directory `/etc/ssl/certs`) and OpenSSL-based runtimes |
+
+On a cluster on Let's Encrypt production neither is set, because the system
+roots verify it. Both names are reserved on every cluster: you cannot set them,
+so your app behaves the same wherever it runs. A client that ignores both, such
+as Python's `requests` with its own bundle, needs to be pointed at the file
+itself. The node derives the roots from its ACME directory; for an ACME CA of
+your own it carries none, and your app must bring them.
+
 An app that talks back to Orama previously had nothing to go on: no address, no
 namespace name. Every such app baked both into its own image.
 

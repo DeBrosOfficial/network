@@ -108,15 +108,17 @@ func TestDeployEnv_refusals(t *testing.T) {
 	u := tn.deploy(t, "go", tenancy.WriteProbeApp(t, "envref"), "envref", "--env", "KEEP=yes")
 	serving(t, tn.app(u), "/health", "")
 	cases := map[string]any{
-		"PORT":        map[string]any{"set": map[string]string{"PORT": "1"}},
-		"ENTRY_POINT": map[string]any{"set": map[string]string{"ENTRY_POINT": "evil.js"}},
-		"ORAMA_*":     map[string]any{"set": map[string]string{"ORAMA_GATEWAY_URL": "https://evil"}},
-		"unset PORT":  map[string]any{"unset": []string{"PORT"}},
-		"NUL":         map[string]any{"set": map[string]string{"A": "x\x00y"}},
-		"over 64 KiB": map[string]any{"set": map[string]string{"BIG": strings.Repeat("v", maxValue+1)}},
-		"nothing":     map[string]any{},
-		"bad name":    map[string]any{"set": map[string]string{"A B": "x"}},
-		"not json":    []byte("set=A"),
+		"PORT":                map[string]any{"set": map[string]string{"PORT": "1"}},
+		"ENTRY_POINT":         map[string]any{"set": map[string]string{"ENTRY_POINT": "evil.js"}},
+		"ORAMA_*":             map[string]any{"set": map[string]string{"ORAMA_GATEWAY_URL": "https://evil"}},
+		"SSL_CERT_FILE":       map[string]any{"set": map[string]string{"SSL_CERT_FILE": "/tmp/mine.pem"}},
+		"NODE_EXTRA_CA_CERTS": map[string]any{"set": map[string]string{"NODE_EXTRA_CA_CERTS": "/tmp/mine.pem"}},
+		"unset PORT":          map[string]any{"unset": []string{"PORT"}},
+		"NUL":                 map[string]any{"set": map[string]string{"A": "x\x00y"}},
+		"over 64 KiB":         map[string]any{"set": map[string]string{"BIG": strings.Repeat("v", maxValue+1)}},
+		"nothing":             map[string]any{},
+		"bad name":            map[string]any{"set": map[string]string{"A B": "x"}},
+		"not json":            []byte("set=A"),
 	}
 	for name, body := range cases {
 		if r := tn.api(t, http.MethodPost, pathEnvSet+"?name=envref", body); r.Status != http.StatusBadRequest {

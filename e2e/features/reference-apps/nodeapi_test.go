@@ -40,7 +40,7 @@ func deployTodoAPI(t *testing.T) (*realistic.Tenant, string) {
 	tn := realistic.NewTenant(t)
 	requireNodeRuntime(t, tn.F)
 	tn.DeployFunction(t, todoStoreFn, "store", false)
-	u := tn.Deploy(t, "nodejs", realistic.ServerApp(t, tn.F, realistic.AppNodeAPI, "api-v1"), todoApp,
+	u := tn.Deploy(t, "nodejs", realistic.ServerApp(t, realistic.AppNodeAPI, "api-v1"), todoApp,
 		"--env", "STORE_FN="+todoStoreFn, "--env", "APP_VERSION=api-v1")
 	tn.Grant(t, todoApp, roleRuntime)
 	tn.EveryNodeServes(t, u, "/health", "ok")

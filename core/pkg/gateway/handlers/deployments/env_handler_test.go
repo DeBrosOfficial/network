@@ -45,7 +45,7 @@ func TestApplyEnvChanges_does_not_mutate_the_current_map(t *testing.T) {
 }
 
 func TestApplyEnvChanges_refuses_to_overwrite_a_reserved_key(t *testing.T) {
-	for _, key := range []string{"PORT", "ENTRY_POINT"} {
+	for _, key := range []string{"PORT", "ENTRY_POINT", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"} {
 		if _, err := applyEnvChanges(nil, map[string]string{key: "x"}, nil); err == nil {
 			t.Errorf("setting %s must be refused", key)
 		}

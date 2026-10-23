@@ -3,7 +3,8 @@
 # Next.js static export, Next.js SSR standalone, Node.js with node and npm
 # start, Go) served by name from every node; update, versions, rollback, list,
 # get, logs, stats, events and delete; environment variables at deploy time and
-# after, platform names and bad values refused, encrypted at rest; the sandbox
+# after, platform names and bad values refused, encrypted at rest; the cluster's
+# roots handed to the runtime on a staging fleet (no app ships a CA); the sandbox
 # probed from inside a hostile app (uid, secrets, neighbours, PID 1, read-only
 # code, state dir, bind only PORT, no WireGuard) and from the host (unit
 # properties, env file modes); npm install scripts never run and non-registry
@@ -83,6 +84,7 @@ covers:
     - "website/src/docs/developer/deployments.mdx#deployment-names: names are 1-56 of letters, digits, - and _; a taken name is 409"
     - "website/src/docs/developer/deployments.mdx#important-notes-1: install scripts never run; git, URL, file, link, path and workspace sources are refused"
     - "website/src/docs/developer/deployments.mdx#what-the-platform-sets-for-you: PORT, ENTRY_POINT and ORAMA_* are the platform's and refused from a tenant"
+    - "website/src/docs/developer/deployments.mdx#what-the-platform-sets-for-you: on a staging cluster NODE_EXTRA_CA_CERTS and SSL_CERT_FILE name /etc/orama/cluster-ca.pem and an app with no CA of its own reaches its gateway; both are refused from a tenant"
     - "website/src/docs/developer/deployments.mdx#how-the-values-are-handled: values are encrypted in the cluster database; NUL, invalid UTF-8 and over 64 KiB are refused"
     - "website/src/docs/developer/deployments.mdx#what-your-app-runs-as: each deployment runs as its own unprivileged user, sees only its own directory read-only, and cannot reach the cluster network"
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md: a deployment binds its own port and nothing else"
