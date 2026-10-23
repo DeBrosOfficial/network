@@ -35,6 +35,9 @@ const (
 	pathEnv      = "/v1/deployments/env"
 	pathEnvSet   = "/v1/deployments/env/set"
 	pathGrants   = "/v1/deployments/grants"
+	// exitAborted is the CLI's exit code for a declined confirmation
+	// (core/cmd/orama/internal/clierr CodeAborted; e2e/README.md exit codes).
+	exitAborted = 7
 	// startBudget: the platform polls a new app's health path every 30s
 	// (website/src/docs/developer/deployments.mdx), and a server-side npm install may take 4 min.
 	startBudget = 6 * time.Minute

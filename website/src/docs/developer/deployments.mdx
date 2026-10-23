@@ -1065,6 +1065,8 @@ orama app rollback my-nextjs --version 1
 # Status:           active
 ```
 
+Anything but `y` (or `yes`), including no answer, rolls nothing back and exits 7 (aborted). `--yes` skips the question for scripts.
+
 ### Delete Deployment
 
 ```bash
@@ -1075,6 +1077,8 @@ orama app delete my-old-app
 #
 # ✅ Deployment 'my-old-app' deleted successfully
 ```
+
+As with rollback, any other answer deletes nothing and exits 7, and `--yes` deletes without asking.
 
 ---
 

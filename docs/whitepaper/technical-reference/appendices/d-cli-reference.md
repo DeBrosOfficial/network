@@ -288,8 +288,12 @@ Subcommands: `delete`, `env`, `get`, `grants`, `list`, `logs`, `rollback`, `stat
 Delete a deployment
 
 ```text
-orama app delete <name>
+orama app delete <name> [flags]
 ```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--yes` | `false` | Delete without asking |
 
 
 ## orama app env
@@ -451,6 +455,7 @@ orama app rollback <name> [flags]
 | Flag | Default | Description |
 |---|---|---|
 | `--version` | `0` | Version to rollback to (required) |
+| `--yes` | `false` | Roll back without asking |
 
 
 ## orama app stats
@@ -4769,6 +4774,7 @@ import runs at a time on a gateway.
 
 | Flag | Default | Description |
 |---|---|---|
+| `--yes` | `false` | Replace the database without typing the namespace name |
 | `-i`, `--input` | — | Input SQLite file path |
 
 

@@ -61,7 +61,7 @@ orama namespace rqlite export --output myapp.sqlite
 orama namespace rqlite import --input myapp.sqlite     # DESTRUCTIVE: replaces the namespace database
 ```
 
-Import is checked the same way as a restore.
+Import asks you to type the namespace name before it replaces anything; `--yes` skips that for scripts. Import is checked the same way as a restore.
 
 ## Per-database backups (SQLite)
 
