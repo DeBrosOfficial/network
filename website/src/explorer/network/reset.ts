@@ -1,6 +1,6 @@
 /**
- * A reset gives a network a new chain id (orama-stagenet-5 becomes
- * orama-stagenet-6, networks/README.md) and starts it again at block 1, so
+ * A reset gives a network a new chain id (orama-testnet-5 becomes
+ * orama-testnet-6, networks/README.md) and starts it again at block 1, so
  * nothing a link names exists on the new chain. Three chain ids can disagree:
  * the one the registry lists for the network, the one its gateway reports now,
  * and the one a URL was made on (`?chain=`).

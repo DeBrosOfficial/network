@@ -6,7 +6,7 @@ Every transaction pays a base fee. The base fee behaves like EIP-1559, with inte
 - The base fee can move by at most 12.5% from one block to the next.
 - The floor is 1 norama per unit of gas, and genesis starts the base fee there. That floor is a placeholder with no dollar peg.
 - 100% of the base fee is burned.
-- Fee adjustment needs the consensus `max_gas` to be set. The localnet and stagenet scripts set it to 100,000,000. If it is unset the base fee stays where it is. A node refuses to start a devnet, stagenet or production chain whose genesis leaves `max_gas` unlimited (and a production chain whose `max_gas`, `max_bytes` or vote-extension height is not the value `orama setup` writes), so only a localnet can run without a gas limit.
+- Fee adjustment needs the consensus `max_gas` to be set. The localnet and testnet scripts set it to 100,000,000. If it is unset the base fee stays where it is. A node refuses to start a devnet, testnet or production chain whose genesis leaves `max_gas` unlimited (and a production chain whose `max_gas`, `max_bytes` or vote-extension height is not the value `orama setup` writes), so only a localnet can run without a gas limit.
 
 A transaction must declare at least `base fee x gas limit`. Anything above that is a tip, and the tip goes to the block proposer's earnings account. If the proposer cannot be resolved the whole fee is burned.
 

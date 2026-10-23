@@ -110,7 +110,7 @@ REWRITE, REPLACE (generate from source), MOVE (re-home in the new tree).
 | supply | UPDATE | Check emission numbers against `x/emission` defaults (halving-with-tail). |
 | fees | UPDATE | Add the fee ante decorator order, fee grants, state deposits as implemented. |
 | validators | UPDATE | Add staking, delegation, unbonding, `orama global validator` key migration. |
-| running | REWRITE | Predates `orama global install`; describes the stagenet script only. |
+| running | REWRITE | Predates `orama global install`; describes the testnet script only. |
 
 `build-llms.mjs` copies these five files by name into `dist/llms/`. The names are kept
 (or the script updated in the same commit).

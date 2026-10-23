@@ -86,10 +86,10 @@ For every name the node's Caddy manages (the base domain, its wildcard and any s
 Certificate authority: https://acme-v02.api.letsencrypt.org/directory
 
 NAME                  CERTIFICATE  DETAIL
-*.stagenet.example    not held     the CA refused: rate limited
-stagenet.example      not held     the CA refused: rate limited
+*.testnet.example    not held     the CA refused: rate limited
+testnet.example      not held     the CA refused: rate limited
 
-stagenet.example: the last order failed at 2026-10-11 04:26:01 UTC: the CA answered HTTP 429 rateLimited: too many certificates (5) already issued for this exact set of identifiers in the last 168h0m0s, retry after 2026-10-12 04:26:01 UTC: see https://letsencrypt.org/docs/rate-limits/#new-certificates-per-exact-set-of-identifiers
+testnet.example: the last order failed at 2026-10-11 04:26:01 UTC: the CA answered HTTP 429 rateLimited: too many certificates (5) already issued for this exact set of identifiers in the last 168h0m0s, retry after 2026-10-12 04:26:01 UTC: see https://letsencrypt.org/docs/rate-limits/#new-certificates-per-exact-set-of-identifiers
 The CA will accept a new order after 2026-10-12 04:26:01 UTC.
 ```
 

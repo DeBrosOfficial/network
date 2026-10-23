@@ -41,7 +41,7 @@ Check each box before you start. Setup checks the hardware on every machine firs
 
 **On the chain**
 
-- ORAMA for the operator account: the bonds, and a validator's **1,000 ORAMA** self-bond. On a network with a faucet, such as stagenet, setup requests it from the network's seeds, with no node of yours involved. On any other network setup stops, tells you how much to send and to which address, and carries on when you run it again.
+- ORAMA for the operator account: the bonds, and a validator's **1,000 ORAMA** self-bond. On a network with a faucet, such as testnet, setup requests it from the network's seeds, with no node of yours involved. On any other network setup stops, tells you how much to send and to which address, and carries on when you run it again.
 
 **If you use your own domain:** a domain whose DNS you can change, delegated as described in [DNS](#5-dns).
 
@@ -63,13 +63,13 @@ Choose the network you are joining:
 
 ```bash
 orama network list
-orama network use stagenet
+orama network use testnet
 ```
 
 ## 4. Run `orama setup`
 
 ```bash
-orama setup --network stagenet --name alice 203.0.113.10 203.0.113.11 203.0.113.12
+orama setup --network testnet --name alice 203.0.113.10 203.0.113.11 203.0.113.12
 ```
 
 On a terminal, `orama setup` with no addresses asks for everything instead. In a script, add `--yes`: it then asks nothing, so give the addresses, `--name` and the host-key fingerprints.
@@ -109,7 +109,7 @@ Setup never turns an exit on for you. It needs `--exit`, a Tor network file and 
 
 There are two ways to be found by name.
 
-**A free identification name** (the default). `<name>.<zone>`, in the dedicated names sub-zone the network publishes under its domain (for example `nodes.stagenet.orama.network`), is one address record, A or AAAA, for each literal public IP of your node, served by the network's own nameservers from the chain. It identifies the node and nothing more: no NS records, no glue, no certificate, and nothing delegated to you. Setup claims it on the chain for the `--name` you give (`MsgClaimNodeName`, with a 1 ORAMA deposit that comes back when you release the name or retire the node), signed by your RootWallet like the other registrations. Names are 3 to 32 characters, first come first served, one per node. See [Serving node names](/docs/operator/nameserver#serving-node-names).
+**A free identification name** (the default). `<name>.<zone>`, in the dedicated names sub-zone the network publishes under its domain (for example `nodes.testnet.orama.network`), is one address record, A or AAAA, for each literal public IP of your node, served by the network's own nameservers from the chain. It identifies the node and nothing more: no NS records, no glue, no certificate, and nothing delegated to you. Setup claims it on the chain for the `--name` you give (`MsgClaimNodeName`, with a 1 ORAMA deposit that comes back when you release the name or retire the node), signed by your RootWallet like the other registrations. Names are 3 to 32 characters, first come first served, one per node. See [Serving node names](/docs/operator/nameserver#serving-node-names).
 
 **Your own domain** (`--domain`). Your cluster becomes the authoritative nameserver for it, so apps, namespaces and certificates under it are answered by your own nodes. You publish NS and glue records at your registrar, or in the parent zone for a subdomain. Setup prints the exact records in two rounds: once the first machine is installed, the records of its nameserver, which the cluster needs before any other machine can join; and at the end, the records the joined machines add. Each time it waits until they resolve and the cluster has a certificate. The steps, and the choice between a subdomain and a whole domain, are in [DNS and nameservers](/docs/operator/nameserver).
 

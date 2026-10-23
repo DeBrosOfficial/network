@@ -69,8 +69,8 @@ export function isCreated(m: NetworkManifest): boolean {
  * its seeds are what name the network's machines. A created network's seeds are
  * the nameservers ns1..nsN of its cluster's domain (orama setup --create-network),
  * and that domain is where the cluster's gateway answers (setup records
- * https://<domain>) and reaches any node: stagenet's seeds ns1..ns5.stagenet.orama.network
- * give https://stagenet.orama.network. Seeds of another shape are gateways
+ * https://<domain>) and reaches any node: the seeds ns1..ns5.testnet.orama.network
+ * give https://testnet.orama.network. Seeds of another shape are gateways
  * themselves (the CLI asks the faucet at https://<seed>), so the first one is used.
  * The result goes through chainBase: an https origin, or it throws.
  */

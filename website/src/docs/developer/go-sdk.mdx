@@ -424,7 +424,7 @@ The chain is not in `pkg/client`. `github.com/Orama-Network/orama/core/pkg/oncha
 
 ```go
 chain := onchain.Gateway{Reader: &chainread.Reader{Gateway: gatewayURL}} // or onchain.REST{Base: nodeRESTURL}
-c, err := onchain.New(chain, rwagent.New(os.Getenv("RW_AGENT_SOCK")), "orama-stagenet-5")
+c, err := onchain.New(chain, rwagent.New(os.Getenv("RW_AGENT_SOCK")), "orama-testnet-5")
 
 // Move 25 ORAMA of earnings to your own balance (there is no destination argument).
 _, err = c.WithdrawEarnings(ctx, "25000000000")

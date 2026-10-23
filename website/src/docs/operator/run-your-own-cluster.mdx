@@ -26,7 +26,7 @@ nothing else.
 **A domain.** Genesis records the environment gateway as `https://<base-domain>`.
 That name has to reach the cluster, which means NS records and glue for its
 nameservers. For a name you registered (`example.com`), the glue is stored at
-the registrar. For a name under a zone you already host (`stagenet.example.com`),
+the registrar. For a name under a zone you already host (`testnet.example.com`),
 the glue is an ordinary A record in the parent zone. `--cloudflare-token-file`
 writes that parent zone when it is hosted at Cloudflare, and it refuses a
 registry TLD (a parent with no dot, such as `com`). The record format is

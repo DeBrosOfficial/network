@@ -133,7 +133,7 @@ A role that is left out is your release key at threshold 1, so without `--keys` 
 
 ## Install a published release
 
-The Orama release repository (`https://releases.orama.network/`) publishes the releases of three channels: `nightly` (the stagenet), `main` (the future testnet) and `dev/<branch>`. Each release is signed by the project's TUF release root with the owner's RootWallet key; the archives are Gitea release assets (`ICXCNIKA/orama` on `git.icxcnika.io`) that the repository redirects to, and every byte is checked against the signed length and hashes.
+The Orama release repository (`https://releases.orama.network/`) publishes the releases of three channels: `nightly` (what a test network follows unless it names another channel), `main` (what a production network follows) and `dev/<branch>`. Each release is signed by the project's TUF release root with the owner's RootWallet key; the archives are Gitea release assets (`ICXCNIKA/orama` on `git.icxcnika.io`) that the repository redirects to, and every byte is checked against the signed length and hashes.
 
 You need no build and your wallet signs nothing. A network's manifest names the repository, the channel, the minimum version and the SHA-256 of the root it trusts; the root itself ships inside the CLI. To install, the CLI:
 

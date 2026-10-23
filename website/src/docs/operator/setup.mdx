@@ -33,7 +33,7 @@ On a terminal, with no addresses or no name, setup asks the questions: addresses
 Unattended, give the answers as flags and `--yes`:
 
 ```bash
-orama setup --network stagenet --name alice --yes \
+orama setup --network testnet --name alice --yes \
   --ip 203.0.113.10 --ip 203.0.113.11 --ip 203.0.113.12 \
   --host-key 203.0.113.10=SHA256:... --host-key 203.0.113.11=SHA256:... --host-key 203.0.113.12=SHA256:...
 ```
@@ -73,12 +73,12 @@ orama setup --network stagenet --name alice --yes \
 
 ## Create a network
 
-`orama setup --create-network <name>` makes a network instead of joining one. Every machine you give it becomes a bootstrap validator of the new chain, the committee that holds equal power from block 1 without any stake ([the bootstrap committee](/docs/blockchain/validators#the-bootstrap-committee-and-the-hand-over)). It is how a test network such as stagenet is started, and how you run a test network of your own: **`--create-network` is for test networks only** (a chain id of the form `orama-[<name>-]stagenet-<id>` or `orama-[<name>-]devnet-<id>`). A production chain id is refused whatever the number of machines, before any machine is touched, because creating a production network needs seat accounts held by the RootWallet, which setup does not build yet.
+`orama setup --create-network <name>` makes a network instead of joining one. Every machine you give it becomes a bootstrap validator of the new chain, the committee that holds equal power from block 1 without any stake ([the bootstrap committee](/docs/blockchain/validators#the-bootstrap-committee-and-the-hand-over)). It is how a test network such as testnet is started, and how you run a test network of your own: **`--create-network` is for test networks only** (a chain id of the form `orama-[<name>-]testnet-<id>` or `orama-[<name>-]devnet-<id>`). A production chain id is refused whatever the number of machines, before any machine is touched, because creating a production network needs seat accounts held by the RootWallet, which setup does not build yet.
 
 ### What you need
 
 - **The same as a join:** RootWallet unlocked, fresh machines, and each machine's SSH host key.
-- **A chain id** (`--chain-id`; an [announced network](#announce-it-first) supplies it). A test network's is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>`, for example `orama-stagenet-7`; an id that only contains one of those words (`orama-1-stagenet-x`) is a production id, and so is one whose `<name>` is a class word (`orama-devnet-localnet-1` is ambiguous). Every reset of a network gets a new chain id, and a published chain id keeps its genesis for good. An `orama-localnet-<id>` id is refused (the chain locks no parameter on a localnet, which is for one machine). Any other id is a production one: the chain refuses it with fewer than 30 bootstrap validators, a faucet, a genesis supply and short epochs, and setup refuses it outright, with the reason, before it touches any machine: this command creates test networks only, because it keeps each seat's key in `oramad`'s unencrypted test keyring.
+- **A chain id** (`--chain-id`; an [announced network](#announce-it-first) supplies it). A test network's is exactly `orama-[<name>-]testnet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>`, for example `orama-testnet-7`; an id that only contains one of those words (`orama-1-testnet-x`) is a production id, and so is one whose `<name>` is a class word (`orama-devnet-localnet-1` is ambiguous). Every reset of a network gets a new chain id, and a published chain id keeps its genesis for good. An `orama-localnet-<id>` id is refused (the chain locks no parameter on a localnet, which is for one machine). Any other id is a production one: the chain refuses it with fewer than 30 bootstrap validators, a faucet, a genesis supply and short epochs, and setup refuses it outright, with the reason, before it touches any machine: this command creates test networks only, because it keeps each seat's key in `oramad`'s unencrypted test keyring.
 - **The release root** (`--release-root`): the `release-root.json` the network's releases are verified against. The manifest pins its digest, and the release setup installs is fetched from `--release-repo` (default `https://releases.orama.network`), channel `--channel` (default `nightly`, `main` for a production id), and verified against this root. For an announced network none of these flags is needed: the announcement carries them (below).
 - **Machines of the full profile**, since each runs the chain. `--cluster-only` and `--no-validator` make no sense here and are refused.
 - **Public addresses.** With a Tor network (the default from three machines, below) every machine is in its network file, which refuses a reserved range (a documentation, private or carrier-grade address) and a name; that is checked before any machine is touched.
@@ -87,7 +87,7 @@ orama setup --network stagenet --name alice --yes \
 ### The command
 
 ```bash
-orama setup --create-network stagenet --chain-id orama-stagenet-7 \
+orama setup --create-network testnet --chain-id orama-testnet-7 \
   --release-root ./release-root.json --yes \
   --ip 57.129.166.16 --ip 57.129.166.17 --ip 161.97.184.199 --ip 161.97.184.202 --ip 161.97.151.255 \
   --host-key 57.129.166.16=SHA256:... --host-key 57.129.166.17=SHA256:... --host-key 161.97.184.199=SHA256:... \
@@ -97,7 +97,7 @@ orama setup --create-network stagenet --chain-id orama-stagenet-7 \
 On a terminal with no flags, the wizard offers **Create a new network** at the list of networks and asks for the name, the chain id and the release root (for an announced name, only the name). A network that was announced needs none of the flags above but the machines:
 
 ```bash
-orama setup --create-network stagenet --yes --ip 57.129.166.16 --ip 57.129.166.17 ... --host-key 57.129.166.16=SHA256:... ...
+orama setup --create-network testnet --yes --ip 57.129.166.16 --ip 57.129.166.17 ... --host-key 57.129.166.16=SHA256:... ...
 ```
 
 The nodes are named `--name` (default `founder`), `founder-2`, and so on, in the order of the addresses: their names are their ids on the chain, so they follow the same rules as a joining node's name (`seed` is not allowed: the chain keeps `seed<N>` for the labels the zone publishes itself). The wizard asks for the name and refuses one the chain would refuse.
@@ -122,9 +122,9 @@ The nodes are named `--name` (default `founder`), `founder-2`, and so on, in the
 A network can be announced before it exists. A maintainer writes `networks/<name>/` with `manifest.json` and `release-root.json` and **no genesis** (the manifest's `genesis_sha256` is empty), commits it and builds a CLI release; from then on every CLI that carries it knows the name, the chain id the network will have, the channel, the release repository, the digest of its release root, whether it has a faucet and its seeds, and a newcomer who creates the network needs no file from anywhere.
 
 ```bash
-orama maint network announce --name stagenet --chain-id orama-stagenet-7 \
+orama maint network announce --name testnet --chain-id orama-testnet-7 \
   --release-repo https://releases.orama.network --release-root ./release-root.json \
-  --channel nightly --faucet --seed ns1.stagenet.orama.network --seed ns2.stagenet.orama.network
+  --channel nightly --faucet --seed ns1.testnet.orama.network --seed ns2.testnet.orama.network
 make -C core sync-networks
 ```
 
@@ -179,8 +179,8 @@ Setup ends by printing what makes the network joinable:
 Until a release carries the network, anyone can join it from the website's copy:
 
 ```bash
-orama network add https://orama.network/networks/stagenet/manifest.json
-orama setup --network stagenet --name alice --ip ...
+orama network add https://orama.network/networks/testnet/manifest.json
+orama setup --network testnet --name alice --ip ...
 ```
 
 `orama network add` shows the digest of the release root and asks for confirmation. The manifest is not secret and does not change: a joiner checks the genesis it fetches against the digest the manifest pins.
@@ -209,7 +209,7 @@ After an epoch settles, `orama status` lists each relay with the last payout it 
 
 The operator account needs ORAMA for the bonds (the storage bond is the network's bond per GiB times the capacity you declare, the relay and exit bonds are the network's minimums), the validator's 1,000 ORAMA self-bond, and fees. Setup reads the network's parameters and tells you the exact amount.
 
-- On a network with a faucet (its manifest says so), setup asks the faucet of the network's seeds for the shortfall: `POST /v1/chain/faucet` on `https://<seed>`, in the order the manifest lists them, until one pays. A seed that serves no faucet, is busy or has no funds is passed over; what the chain itself refused (the recipient drew within the last day, the amount is over the network's maximum drip, the epoch's cap is spent) ends the asking at once, since no other seed could change it. After a seed pays, setup waits, for up to two minutes, until the node it reads the chain through shows the balance (that node can be a block behind the seed). If no seed pays, setup shows every seed's answer and then the usual amount and address to fund by hand. The network must allow one drip to cover the need: the validator's self-bond alone is 1,000 ORAMA. Operators of a network can still fund an account with `orama chain faucet`, which signs on a node of theirs over SSH. The creator of a network is funded that way, by a drip signed on a seat: the seeds of a network that has just been created serve no public faucet. A maintainer turns it on, once, with `chain/scripts/stagenet/deploy.sh faucet` on stagenet: it makes the faucet key on every node (`orama maint faucet init`), funds each faucet account with a drip signed by that node's seat key, writes `chain.faucet.enabled: true` into the node's `node.yaml` and restarts the nodes one at a time with `orama node restart`, whose health gate decides when the next one may go. That is a maintainer step, not part of `orama setup --create-network`.
+- On a network with a faucet (its manifest says so), setup asks the faucet of the network's seeds for the shortfall: `POST /v1/chain/faucet` on `https://<seed>`, in the order the manifest lists them, until one pays. A seed that serves no faucet, is busy or has no funds is passed over; what the chain itself refused (the recipient drew within the last day, the amount is over the network's maximum drip, the epoch's cap is spent) ends the asking at once, since no other seed could change it. After a seed pays, setup waits, for up to two minutes, until the node it reads the chain through shows the balance (that node can be a block behind the seed). If no seed pays, setup shows every seed's answer and then the usual amount and address to fund by hand. The network must allow one drip to cover the need: the validator's self-bond alone is 1,000 ORAMA. Operators of a network can still fund an account with `orama chain faucet`, which signs on a node of theirs over SSH. The creator of a network is funded that way, by a drip signed on a seat: the seeds of a network that has just been created serve no public faucet. A maintainer turns it on, once, with `chain/scripts/testnet/deploy.sh faucet` on testnet: it makes the faucet key on every node (`orama maint faucet init`), funds each faucet account with a drip signed by that node's seat key, writes `chain.faucet.enabled: true` into the node's `node.yaml` and restarts the nodes one at a time with `orama node restart`, whose health gate decides when the next one may go. That is a maintainer step, not part of `orama setup --create-network`.
 - Otherwise setup stops with the exact amount and your operator address. Send it and run the same command again: it resumes where it stopped and bonds only what is missing.
 - `--no-validator` skips the validator and its self-bond.
 
@@ -229,7 +229,7 @@ When a run stops at a step that waits (the chain, DNS), the error ends with the 
 - **A created network has no archiver.** The full profile installs the chain, public storage and its provider. Every node of the cluster a creation makes also runs the chain indexer: that cluster's gateway is the network's public face, read by the explorer and by `/v1/chain/index/`, and DNS sends a visitor to any of its nodes. A join's private cluster runs no indexer, and its gateway answers the index routes with 503.
 - **A resumed creation of an announced network needs the announcement.** The command a stopped run prints repeats the chain id and the other values it took from the announcement, but not the release root: it is still read from the announcement, so run it again before the registry replaces the announcement with the created network, or pass `--release-root`.
 - **The seeds are not checked.** Setup prints the DNS records and does not wait for them; a joiner needs them, the seeds' gateways and their certificates.
-- **A created network has no public faucet until a maintainer turns it on.** Creating funds the creator by a drip signed on a seat over SSH; the public faucet that newcomers' `orama setup` asks needs the key, the funding and the `node.yaml` setting on each seed, which is the maintainer step `chain/scripts/stagenet/deploy.sh faucet` (see Funding).
+- **A created network has no public faucet until a maintainer turns it on.** Creating funds the creator by a drip signed on a seat over SSH; the public faucet that newcomers' `orama setup` asks needs the key, the funding and the `node.yaml` setting on each seed, which is the maintainer step `chain/scripts/testnet/deploy.sh faucet` (see Funding).
 - **A created network's authorities keep their identity key and its passphrase on their own machine.** The key is encrypted (mode `0400`, a generated passphrase of 256 bits beside it, also `0400`, in a root-only directory outside every tor DataDirectory), and it is the arrangement of a test network, like the seat keyring. A production Tor network runs the [ceremony](/docs/operator/tor-network#key-ceremony) on an offline machine and keeps the identity key there; rotating a signing certificate needs that key. Nothing reads a certificate's expiry back from a host, so the 12 months are the operator's to remember.
 - **A created network's Tor step installs no validator onion service,** so `tor-network.json` lists no `validator_onions`; the authorities do not register the directory authority role on the chain (the machines register storage, and a relay machine registers the relay and exit roles); and a relay's fingerprint is registered in the Tor step, after the first consensus lists the relay, with the same messages as a joined node's (see "A relay is registered with the chain" below).
 - **The Tor step needs the RootWallet unlocked for its whole length,** about two and a half hours: it polls each machine over SSH once a minute, each poll a session with the RootWallet key. It needs the `orama` the machines run to carry `orama maint global tor authority-keys`, so the network's release channel must hold a build that has it.

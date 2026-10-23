@@ -1,6 +1,6 @@
 # Supply and emission
 
-A normal genesis creates no `norama`. A genesis with coins already in accounts is allowed only on a devnet, stagenet or localnet chain id, and only when emission is started with `--allow-bootstrap-stake`.
+A normal genesis creates no `norama`. A genesis with coins already in accounts is allowed only on a devnet, testnet or localnet chain id, and only when emission is started with `--allow-bootstrap-stake`.
 
 New coins are minted once per epoch, not once per block, and only the `x/emission` module can mint `norama`. Every other module that needs new coins (storage, relay, development) asks `x/emission`, which refuses anything above that epoch's ceiling.
 
@@ -13,7 +13,7 @@ Both conditions have to be true:
 
 If blocks arrive faster than that, the epoch still waits for the 24 hours. If they arrive slower, it waits for the 14,400th block. A halt does not mint the epochs that were missed: the next close moves the schedule forward by exactly one epoch. The block that closes an epoch emits an `emission_epoch_closed` event (the epoch, the blocks it held, when it began), so a reader can find where an epoch ended without working it out from the two thresholds, which governance can change.
 
-On a devnet, stagenet or localnet chain id, `allow_bootstrap_stake` relaxes both floors. The stagenet installer uses a 300 second epoch with 10 blocks; the localnet script uses 30 seconds with 5 blocks. Neither is the production schedule.
+On a devnet, testnet or localnet chain id, `allow_bootstrap_stake` relaxes both floors. The testnet installer uses a 300 second epoch with 10 blocks; the localnet script uses 30 seconds with 5 blocks. Neither is the production schedule.
 
 The three emission parameters (`epoch_duration_seconds` = 86,400, `min_blocks_per_epoch` = 14,400, `allow_bootstrap_stake` = false) are immutable after genesis. `x/emission` has no message that can change the schedule.
 
@@ -56,7 +56,7 @@ The split can move, but only through governance and only within bounds: each sha
 | Storage service payments and the PRIVATE-deal subsidy | `x/storage` at epoch close | The epoch's storage ceiling |
 | Relay rewards | `x/relay` end block | The epoch's relay ceiling. Of each operator's total, 5% is burned and 5% goes to the archive fund |
 | Development spend | A passed `x/houses` proposal | The epoch's development ceiling minus what was already minted |
-| Test-network faucet | `MsgFaucet` | Only on a chain id that is exactly `orama-[<name>-]stagenet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>` (a production id that merely contains one of those words is not a test network, and `<name>` is never itself `localnet`, `devnet` or `stagenet`). Off by default. Max drip 1,000 ORAMA, 100,000 ORAMA per epoch, 24 hour recipient cooldown |
+| Test-network faucet | `MsgFaucet` | Only on a chain id that is exactly `orama-[<name>-]testnet-<id>`, `orama-[<name>-]devnet-<id>` or `orama-[<name>-]localnet-<id>` (a production id that merely contains one of those words is not a test network, and `<name>` is never itself `localnet`, `devnet` or `testnet`). Off by default. Max drip 1,000 ORAMA, 100,000 ORAMA per epoch, 24 hour recipient cooldown |
 | Token factory | `x/token` | Mints only its own `factory/…` denoms. A mint of `norama` is refused |
 
 ## The supply identity

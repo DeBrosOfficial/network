@@ -406,12 +406,12 @@ const chain = new OramaChainClient({
 const signer = new LocalSigner(privateKeyHex);  // or any OramaSigner, such as RootWallet
 const msg = MSG.nodesFundHotKey.create({ operator: signer.address, nodeId: "node-1", amount: "2500000000" });
 const { signed, result } = await chain.signAndBroadcast([msg], signer, {
-  chainId: "orama-stagenet-1", gasLimit: 300_000, feeNorama: 300_000,
+  chainId: "orama-testnet-1", gasLimit: 300_000, feeNorama: 300_000,
 });
 console.log(result.txHash, describeTx(signed.txBytes).messages[0].summary);
 
 // Use earnings: withdraw them to your balance, then pay in the open by saying so.
-const tx = { chainId: "orama-stagenet-1", gasLimit: 200_000, feeNorama: 200_000 };
+const tx = { chainId: "orama-testnet-1", gasLimit: 200_000, feeNorama: 200_000 };
 await chain.withdrawEarnings(25_000_000_000n, signer, tx);                       // 25 ORAMA
 const paid = await chain.transfer({ to: recipient, amount: 5_000_000_000n, public: true }, { signer, tx });
 console.log(paid.warning);   // the sender, the recipient and the amount are visible on the chain
