@@ -30,6 +30,8 @@ var tenantTriggers = []string{
 	"CREATE TRIGGER stamp AFTER INSERT ON messages BEGIN INSERT INTO log(date) VALUES (new.date); END",
 	// A column called begin, qualified, does not open the body.
 	"CREATE TRIGGER b AFTER INSERT ON spans WHEN new.begin > 0 BEGIN DELETE FROM log WHERE id = new.id; END",
+	// A pragma function on the allowlist reads the tenant's own schema.
+	"CREATE TRIGGER cols AFTER INSERT ON spans BEGIN INSERT INTO log(msg) SELECT name FROM pragma_table_info('spans'); END",
 }
 
 func TestCheck_acceptsTriggersOnTenantTables(t *testing.T) {
@@ -50,6 +52,9 @@ func TestCheck_refusesATriggerBodyByTheRulesOfADirectStatement(t *testing.T) {
 		{head + `UPDATE "function_secrets" SET value = 'x'; END`, "function_secrets"},
 		{head + "SELECT * FROM sqlite_dbpage; END", "sqlite_dbpage"},
 		{head + "PRAGMA writable_schema = 1; END", "trigger body statement 1 (PRAGMA writable_schema = 1): PRAGMA is not available in a trigger body"},
+		{head + "INSERT INTO log SELECT file FROM pragma_database_list; END", "trigger body statement 1 (INSERT INTO log SELECT file FROM pragma_database_list): pragma_database_list runs PRAGMA database_list"},
+		{head + "INSERT INTO log SELECT * FROM 'pragma_compile_options'; END", "pragma_compile_options runs PRAGMA compile_options"},
+		{"CREATE TRIGGER t AFTER INSERT ON messages WHEN EXISTS (SELECT 1 FROM pragma_database_list) BEGIN DELETE FROM log; END", "the trigger's definition: pragma_database_list runs PRAGMA database_list"},
 		{head + "ATTACH DATABASE '/x.db' AS x; END", "ATTACH is not available in a trigger body"},
 		{head + "VACUUM INTO '/x.db'; END", "VACUUM is not available in a trigger body"},
 		{head + "DETACH DATABASE x; END", "DETACH is not available in a trigger body"},

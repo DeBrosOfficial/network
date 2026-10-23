@@ -317,6 +317,34 @@ func TestRQLiteIsolation_triggerAndHistoryTablesRefusedToADeveloper(t *testing.T
 	}
 }
 
+// TestRQLiteIsolation_pragmaFunctionsHeldToTheAllowlist: a table-valued pragma
+// function runs a pragma without the PRAGMA keyword, so the raw-database routes
+// hold it to the allowlist the tenant SQLite route uses
+// (docs/whitepaper/technical-reference/vol1/17-database.md "The SQL guard",
+// "What it reads"). pragma_database_list returned the absolute path of the
+// node's database file; it is refused as a query and inside a trigger, while
+// pragma_table_info still reads the tenant's own schema.
+func TestRQLiteIsolation_pragmaFunctionsHeldToTheAllowlist(t *testing.T) {
+	t.Parallel()
+	n := tenancy.Namespace(t, harness.Fleet(t), ns.Options{})
+	dev := &db{t: t, n: n, who: tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleDeveloper).Token()}, c: n.Client}
+	if r := dev.call(pathCreateTable, map[string]any{"schema": "CREATE TABLE pragma_ok (id INTEGER PRIMARY KEY, v TEXT)"}); r.Status >= 300 {
+		t.Fatalf("a developer's own table was refused: HTTP %d %s", r.Status, r.ErrorCode())
+	}
+	for path, body := range map[string]map[string]any{
+		pathQuery: {"sql": "SELECT * FROM pragma_database_list"},
+		pathExec:  {"sql": "CREATE TRIGGER pragma_leak AFTER INSERT ON pragma_ok BEGIN UPDATE pragma_ok SET v = (SELECT file FROM pragma_database_list) WHERE id = new.id; END"},
+	} {
+		r := dev.call(path, body)
+		if r.Status != http.StatusForbidden || r.ErrorCode() != "SQL_NOT_ALLOWED" {
+			t.Errorf("%s %v: HTTP %d %s, want 403 SQL_NOT_ALLOWED", path, body["sql"], r.Status, r.ErrorCode())
+		}
+	}
+	if got := dev.query("SELECT name FROM pragma_table_info('pragma_ok')"); got.Count != 2 {
+		t.Errorf("pragma_table_info of the developer's own table: %d columns, want 2", got.Count)
+	}
+}
+
 func TestSchemaStatus_inSyncOnEveryGateway(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)

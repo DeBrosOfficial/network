@@ -307,7 +307,8 @@ The legacy `db_execute` is kept indefinitely so existing functions don't break. 
 
 **What a function's SQL may not do.** The same filter runs on the namespace gateway's raw-database routes (see the technical reference's database chapter (`docs/whitepaper/technical-reference/vol1/17-database.md`)). Every database host function refuses,
 before anything runs: a second statement in one call; `ATTACH`, `DETACH`,
-`PRAGMA` and `VACUUM`; `sqlite_dbpage` and `dbstat`; any
+`PRAGMA` and `VACUUM`; a `pragma_*` table function other than the per-file ones
+such as `pragma_table_info`; `sqlite_dbpage` and `dbstat`; any
 identifier that is a platform table's name, however it is quoted and in any
 role — table, column, alias or named parameter; and a string literal whose whole
 text is one, such as `VALUES ('grants')`, because SQLite reads a string literal

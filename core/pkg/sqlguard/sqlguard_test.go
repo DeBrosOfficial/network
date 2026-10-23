@@ -631,3 +631,40 @@ func TestCheck_refusesTheRuntimeCreatedPeerTables(t *testing.T) {
 		}
 	}
 }
+
+// Check holds the table-valued pragma functions to the allowlist CheckTenantSQLite
+// does: pragma_database_list returned the RQLite node's file path on the ORM
+// routes and to function host calls, while /v1/db/sqlite/query refused it.
+func TestCheck_holdsPragmaFunctionsToTheAllowlist(t *testing.T) {
+	for _, tc := range []struct {
+		query   string
+		allowed bool
+	}{
+		{"SELECT * FROM pragma_database_list", false},
+		{`SELECT * FROM "pragma_database_list"`, false},
+		{"SELECT * FROM [PRAGMA_DATABASE_LIST]", false},
+		{"SELECT * FROM 'pragma_database_list'", false},
+		{"SELECT * FROM pragma_compile_options", false},
+		{"SELECT * FROM pragma_hard_heap_limit(1)", false},
+		{"SELECT name FROM messages WHERE name IN (SELECT name FROM pragma_function_list)", false},
+		{"SELECT * FROM main.pragma_module_list", false},
+		{"SELECT * FROM pragma_table_info('messages')", true},
+		{"SELECT name, pk FROM pragma_table_info('t') WHERE pk > 0", true},
+		{"SELECT * FROM pragma_index_list('messages')", true},
+		{"SELECT page_count FROM pragma_page_count()", true},
+		{"SELECT 'pragma_notes are data'", true},
+		{"SELECT * FROM 'pragma_table_info'", true},
+	} {
+		err := Check(tc.query)
+		if tc.allowed {
+			if err != nil {
+				t.Errorf("Check(%q) = %v, want nil", tc.query, err)
+			}
+			continue
+		}
+		var refused *ErrNotAllowed
+		if !errors.As(err, &refused) || !strings.Contains(err.Error(), "which is not available to tenant SQL") {
+			t.Errorf("Check(%q) = %v, want a pragma refusal", tc.query, err)
+		}
+	}
+}

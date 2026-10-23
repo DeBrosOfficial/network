@@ -235,14 +235,20 @@ func Check(query string) error {
 	return nil
 }
 
-// checkName refuses a token that names a platform table or a raw-storage
-// table: a word or quoted identifier in any role, or a string literal whose
-// whole text is one.
+// checkName refuses a token that names a platform table, a raw-storage table
+// or a pragma function outside tenantAllowedPragmas: a word or quoted
+// identifier in any role, or a string literal whose whole text is one.
 func checkName(tok token) error {
 	switch tok.kind {
 	case tokenWord, tokenQuotedIdent:
+		if err := checkPragmaFunction(tok.text); err != nil {
+			return err
+		}
 		return refuseProtected(tok.text)
 	case tokenString:
+		if err := checkPragmaFunction(tok.text); err != nil {
+			return err
+		}
 		return refuseProtectedLiteral(tok.text)
 	}
 	return nil
@@ -297,7 +303,8 @@ func checkTenantPragma(tokens []token) error {
 // PRAGMA keyword; they are held to the same allowlist, as a word, a quoted
 // name or a string literal. A string whose whole text is such a name is
 // refused as data too: telling a table name from a value would mean
-// re-implementing SQLite's grammar. Bind it as an argument instead.
+// re-implementing SQLite's grammar. Bind it as an argument instead. Check
+// (through checkName) and CheckTenantSQLite both judge them here.
 const pragmaFunctionPrefix = "pragma_"
 
 func checkPragmaFunction(name string) error {

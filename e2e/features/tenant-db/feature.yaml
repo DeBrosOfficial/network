@@ -4,7 +4,8 @@
 # interpolated, constraint and syntax errors that change nothing, malformed and
 # oversized input, roles and keys (the raw database is admin), namespace
 # isolation, the cluster registry closed to tenants (NOT_AN_OPERATOR), the
-# platform tables in the namespace database closed to a non-owner, and
+# platform tables in the namespace database closed to a non-owner, pragma
+# functions held to the per-file allowlist, and
 # /v1/schema-status on every node. SQLite: `orama db` end to end and every
 # route, 0600/0700 files on the home node, forwarding from every node,
 # ATTACH/DETACH/multi-statement/VACUUM INTO refused, name validation, backups,
