@@ -192,7 +192,10 @@ func (h *HostFunctions) FunctionInvokeAsync(ctx context.Context, name string, pa
 	snapshot := *cur
 	payloadCopy := make([]byte, len(payload))
 	copy(payloadCopy, payload)
-	logger := h.logger
+	// The target's failure is logged within the calling invocation's host log
+	// budget, so a guest looping on function_invoke_async cannot flood the log
+	// through its targets either.
+	logger := serverless.HostLogger(ctx, h.logger)
 
 	go func() {
 		if h.asyncInvokeSem != nil {

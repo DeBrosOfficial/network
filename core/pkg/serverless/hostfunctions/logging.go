@@ -10,7 +10,8 @@ import (
 )
 
 // LogInfo logs an info message into the per-invocation LogBuffer attached to
-// ctx (see log_buffer.go), and to the gateway's own log either way.
+// ctx (see log_buffer.go), and to the gateway's own log within the
+// invocation's host log budget (serverless.MaxHostLogLinesPerInvocation).
 func (h *HostFunctions) LogInfo(ctx context.Context, message string) {
 	entry := serverless.LogEntry{
 		Level:     "info",
@@ -25,7 +26,7 @@ func (h *HostFunctions) LogInfo(ctx context.Context, message string) {
 		buf.Append(entry)
 	}
 
-	h.logger.Info(message,
+	serverless.HostLogger(ctx, h.logger).Info(message,
 		zap.String("request_id", h.GetRequestID(ctx)),
 		zap.String("level", "function"),
 	)
@@ -46,7 +47,7 @@ func (h *HostFunctions) LogError(ctx context.Context, message string) {
 		buf.Append(entry)
 	}
 
-	h.logger.Error(message,
+	serverless.HostLogger(ctx, h.logger).Error(message,
 		zap.String("request_id", h.GetRequestID(ctx)),
 		zap.String("level", "function"),
 	)

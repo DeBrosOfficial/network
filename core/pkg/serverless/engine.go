@@ -360,6 +360,10 @@ func (e *Engine) Execute(ctx context.Context, fn *Function, input []byte, invCtx
 	// Likewise for the webrtc_* host calls, each of which writes the namespace's
 	// database and calls every SFU.
 	execCtx = WithWebRTCCounter(execCtx)
+	// And for the gateway log lines its host calls write (bugboard #424).
+	execCtx, logBudget := WithHostLogBudget(execCtx)
+	defer logBudget.Summarize(e.logger, zap.String("namespace", invCtx.Namespace),
+		zap.String("function", fn.Name), zap.String("request_id", invCtx.RequestID))
 
 	// Raw-HTTP-response mode (bugboard #835). Only RawHTTPResponse functions
 	// get a collector attached — set_http_response is a validated no-op for
@@ -1060,14 +1064,14 @@ func (e *Engine) hDBQuery(ctx context.Context, mod api.Module, queryPtr, queryLe
 	var args []interface{}
 	if argsLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, argsPtr, argsLen, &args); err != nil {
-			e.logger.Error("failed to unmarshal db_query arguments", zap.Error(err))
+			HostLogger(ctx, e.logger).Error("failed to unmarshal db_query arguments", zap.Error(err))
 			return 0
 		}
 	}
 
 	results, err := e.hostServices.DBQuery(ctx, string(query), args)
 	if err != nil {
-		e.logger.Error("host function db_query failed", zap.Error(err), zap.String("query", string(query)))
+		HostLogger(ctx, e.logger).Error("host function db_query failed", zap.Error(err), zap.String("query", string(query)))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, results)
@@ -1082,14 +1086,14 @@ func (e *Engine) hDBExecute(ctx context.Context, mod api.Module, queryPtr, query
 	var args []interface{}
 	if argsLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, argsPtr, argsLen, &args); err != nil {
-			e.logger.Error("failed to unmarshal db_execute arguments", zap.Error(err))
+			HostLogger(ctx, e.logger).Error("failed to unmarshal db_execute arguments", zap.Error(err))
 			return 0
 		}
 	}
 
 	affected, err := e.hostServices.DBExecute(ctx, string(query), args)
 	if err != nil {
-		e.logger.Error("host function db_execute failed", zap.Error(err), zap.String("query", string(query)))
+		HostLogger(ctx, e.logger).Error("host function db_execute failed", zap.Error(err), zap.String("query", string(query)))
 		return 0
 	}
 	return uint32(affected)
@@ -1105,7 +1109,7 @@ func (e *Engine) hCacheGet(ctx context.Context, mod api.Module, keyPtr, keyLen u
 		// A miss is the normal answer and returns empty. Anything else is a
 		// failure the guest cannot tell from a miss, so it is logged.
 		if !errors.Is(err, ErrCacheMiss) {
-			e.logger.Error("host function cache_get failed", zap.Error(err), zap.String("key", logSafeKey(key)))
+			HostLogger(ctx, e.logger).Error("host function cache_get failed", zap.Error(err), zap.String("key", logSafeKey(key)))
 		}
 		return 0
 	}
@@ -1126,10 +1130,10 @@ func (e *Engine) hCacheSet(ctx context.Context, mod api.Module, keyPtr, keyLen, 
 	if err := e.hostServices.CacheSet(ctx, string(key), val, ttl); err != nil {
 		fields := []zap.Field{zap.Error(err), zap.String("key", logSafeKey(key)), zap.Int64("ttl_seconds", ttl)}
 		if errors.Is(err, ErrInvalidCacheTTL) {
-			e.logger.Warn("host function cache_set refused its ttl", fields...)
+			HostLogger(ctx, e.logger).Warn("host function cache_set refused its ttl", fields...)
 			return
 		}
-		e.logger.Error("host function cache_set failed", fields...)
+		HostLogger(ctx, e.logger).Error("host function cache_set failed", fields...)
 	}
 }
 
@@ -1153,7 +1157,7 @@ func (e *Engine) hCacheDelete(ctx context.Context, mod api.Module, keyPtr, keyLe
 		return 0
 	}
 	if err := e.hostServices.CacheDelete(ctx, string(key)); err != nil {
-		e.logger.Error("host function cache_delete failed", zap.Error(err), zap.String("key", logSafeKey(key)))
+		HostLogger(ctx, e.logger).Error("host function cache_delete failed", zap.Error(err), zap.String("key", logSafeKey(key)))
 		return 0
 	}
 	return 1
@@ -1166,7 +1170,7 @@ func (e *Engine) hCacheIncr(ctx context.Context, mod api.Module, keyPtr, keyLen 
 	}
 	val, err := e.hostServices.CacheIncr(ctx, string(key))
 	if err != nil {
-		e.logger.Error("host function cache_incr failed", zap.Error(err), zap.String("key", logSafeKey(key)))
+		HostLogger(ctx, e.logger).Error("host function cache_incr failed", zap.Error(err), zap.String("key", logSafeKey(key)))
 		return 0
 	}
 	return val
@@ -1179,7 +1183,7 @@ func (e *Engine) hCacheIncrBy(ctx context.Context, mod api.Module, keyPtr, keyLe
 	}
 	val, err := e.hostServices.CacheIncrBy(ctx, string(key), delta)
 	if err != nil {
-		e.logger.Error("host function cache_incr_by failed", zap.Error(err), zap.String("key", logSafeKey(key)), zap.Int64("delta", delta))
+		HostLogger(ctx, e.logger).Error("host function cache_incr_by failed", zap.Error(err), zap.String("key", logSafeKey(key)), zap.Int64("delta", delta))
 		return 0
 	}
 	return val
@@ -1198,10 +1202,10 @@ func (e *Engine) hCacheIncrTTL(ctx context.Context, mod api.Module, keyPtr, keyL
 	if err != nil {
 		fields := []zap.Field{zap.Error(err), zap.String("key", logSafeKey(key)), zap.Int64("delta", delta), zap.Int64("ttl_seconds", ttl)}
 		if errors.Is(err, ErrInvalidCacheTTL) {
-			e.logger.Warn("host function cache_incr_ttl refused its ttl", fields...)
+			HostLogger(ctx, e.logger).Warn("host function cache_incr_ttl refused its ttl", fields...)
 			return 0
 		}
-		e.logger.Error("host function cache_incr_ttl failed", fields...)
+		HostLogger(ctx, e.logger).Error("host function cache_incr_ttl failed", fields...)
 		return 0
 	}
 	return val
@@ -1220,7 +1224,7 @@ func (e *Engine) hHTTPFetch(ctx context.Context, mod api.Module, methodPtr, meth
 	var headers map[string]string
 	if headersLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, headersPtr, headersLen, &headers); err != nil {
-			e.logger.Error("failed to unmarshal http_fetch headers", zap.Error(err))
+			HostLogger(ctx, e.logger).Error("failed to unmarshal http_fetch headers", zap.Error(err))
 			return 0
 		}
 	}
@@ -1234,7 +1238,7 @@ func (e *Engine) hHTTPFetch(ctx context.Context, mod api.Module, methodPtr, meth
 	if err != nil {
 		// The client's error quotes the whole URL, and a credential or the
 		// user's address may be in its path or query: only the origin is named.
-		e.logger.Error("host function http_fetch failed",
+		HostLogger(ctx, e.logger).Error("host function http_fetch failed",
 			zap.String("error", httputil.FailureReason(err)), zap.String("origin", httputil.Origin(string(u))))
 		return 0
 	}
@@ -1254,7 +1258,7 @@ func (e *Engine) hSetHTTPResponse(ctx context.Context, mod api.Module,
 	var headers map[string]string
 	if headersLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, headersPtr, headersLen, &headers); err != nil {
-			e.logger.Warn("set_http_response: failed to unmarshal headers", zap.Error(err))
+			HostLogger(ctx, e.logger).Warn("set_http_response: failed to unmarshal headers", zap.Error(err))
 			return 0
 		}
 	}
@@ -1269,7 +1273,7 @@ func (e *Engine) hSetHTTPResponse(ctx context.Context, mod api.Module,
 	}
 
 	if err := e.hostServices.SetHTTPResponse(ctx, int(status), headers, body); err != nil {
-		e.logger.Warn("host function set_http_response failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function set_http_response failed", zap.Error(err))
 		return 0
 	}
 	return 1
@@ -1306,7 +1310,7 @@ func (e *Engine) hAnonFetch(ctx context.Context, mod api.Module, methodPtr, meth
 	var headers map[string]string
 	if headersLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, headersPtr, headersLen, &headers); err != nil {
-			e.logger.Error("failed to unmarshal anon_fetch headers", zap.Error(err))
+			HostLogger(ctx, e.logger).Error("failed to unmarshal anon_fetch headers", zap.Error(err))
 			return 0
 		}
 	}
@@ -1321,7 +1325,7 @@ func (e *Engine) hAnonFetch(ctx context.Context, mod api.Module, methodPtr, meth
 		// An anon_fetch caller chose Tor so the node could not say where the
 		// function went: neither the URL nor the error text, which names the
 		// destination, is logged.
-		e.logger.Error("host function anon_fetch failed", zap.String("error_class", anonproxy.ErrorClass(err)))
+		HostLogger(ctx, e.logger).Error("host function anon_fetch failed", zap.String("error_class", anonproxy.ErrorClass(err)))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, resp)
@@ -1340,7 +1344,7 @@ func (e *Engine) hPubSubPublish(ctx context.Context, mod api.Module, topicPtr, t
 
 	err := e.hostServices.PubSubPublish(ctx, string(topic), data)
 	if err != nil {
-		e.logger.Error("host function pubsub_publish failed", zap.Error(err), zap.String("topic", string(topic)))
+		HostLogger(ctx, e.logger).Error("host function pubsub_publish failed", zap.Error(err), zap.String("topic", string(topic)))
 		return 0
 	}
 	return 1 // Success
@@ -1355,7 +1359,7 @@ func (e *Engine) hPubSubPublishBatch(ctx context.Context, mod api.Module, msgsPt
 		return 0
 	}
 	if err := e.hostServices.PubSubPublishBatch(ctx, msgsJSON); err != nil {
-		e.logger.Error("host function pubsub_publish_batch failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Error("host function pubsub_publish_batch failed", zap.Error(err))
 		return 0
 	}
 	return 1
@@ -1373,13 +1377,13 @@ func (e *Engine) hDBExecuteV2(ctx context.Context, mod api.Module, queryPtr, que
 	var args []interface{}
 	if argsLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, argsPtr, argsLen, &args); err != nil {
-			e.logger.Warn("db_execute_v2: failed to unmarshal args", zap.Error(err))
+			HostLogger(ctx, e.logger).Warn("db_execute_v2: failed to unmarshal args", zap.Error(err))
 			return 0
 		}
 	}
 	out, err := e.hostServices.DBExecuteV2(ctx, string(query), args)
 	if err != nil {
-		e.logger.Warn("host function db_execute_v2 failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function db_execute_v2 failed", zap.Error(err))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, out)
@@ -1394,13 +1398,13 @@ func (e *Engine) hDBQueryV2(ctx context.Context, mod api.Module, queryPtr, query
 	var args []interface{}
 	if argsLen > 0 {
 		if err := e.executor.UnmarshalJSONFromGuest(mod, argsPtr, argsLen, &args); err != nil {
-			e.logger.Warn("db_query_v2: failed to unmarshal args", zap.Error(err))
+			HostLogger(ctx, e.logger).Warn("db_query_v2: failed to unmarshal args", zap.Error(err))
 			return 0
 		}
 	}
 	out, err := e.hostServices.DBQueryV2(ctx, string(query), args)
 	if err != nil {
-		e.logger.Warn("host function db_query_v2 failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function db_query_v2 failed", zap.Error(err))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, out)
@@ -1430,7 +1434,7 @@ func (e *Engine) hDBTransaction(ctx context.Context, mod api.Module, opsPtr, ops
 		// MaxBatchOps failed deterministically, and neither the function nor
 		// its operators could see why — the reason existed only in the
 		// gateway's own journal, which tenants cannot read.
-		e.logger.Warn("host function db_transaction failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function db_transaction failed", zap.Error(err))
 		return e.writeBatchRejection(ctx, mod, "db_transaction", err)
 	}
 	return e.executor.WriteToGuest(ctx, mod, out)
@@ -1465,7 +1469,7 @@ func batchRejectionPayload(cause error) ([]byte, error) {
 func (e *Engine) writeBatchRejection(ctx context.Context, mod api.Module, hostFn string, cause error) uint64 {
 	payload, mErr := batchRejectionPayload(cause)
 	if mErr != nil {
-		e.logger.Error("failed to marshal host function rejection envelope",
+		HostLogger(ctx, e.logger).Error("failed to marshal host function rejection envelope",
 			zap.String("host_fn", hostFn), zap.Error(mErr))
 		return 0
 	}
@@ -1489,7 +1493,7 @@ func (e *Engine) hDBQueryBatch(ctx context.Context, mod api.Module, opsPtr, opsL
 	out, err := e.hostServices.DBQueryBatch(ctx, opsJSON)
 	if err != nil {
 		// Structured rejection rather than an empty buffer (bugboard #175).
-		e.logger.Warn("host function db_query_batch failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function db_query_batch failed", zap.Error(err))
 		return e.writeBatchRejection(ctx, mod, "db_query_batch", err)
 	}
 	return e.executor.WriteToGuest(ctx, mod, out)
@@ -1525,7 +1529,7 @@ func (e *Engine) hExecAndPublish(ctx context.Context, mod api.Module,
 	out, err := e.hostServices.ExecAndPublish(ctx, opsJSON, string(topic), data)
 	if err != nil {
 		// Structured rejection rather than an empty buffer (bugboard #175).
-		e.logger.Warn("host function exec_and_publish failed",
+		HostLogger(ctx, e.logger).Warn("host function exec_and_publish failed",
 			zap.String("topic", string(topic)),
 			zap.Error(err))
 		return e.writeBatchRejection(ctx, mod, "exec_and_publish", err)
@@ -1546,7 +1550,7 @@ func (e *Engine) hWSPubSubBridge(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.WSPubSubBridge(ctx, string(cid), string(topic)); err != nil {
-		e.logger.Warn("ws_pubsub_bridge failed",
+		HostLogger(ctx, e.logger).Warn("ws_pubsub_bridge failed",
 			zap.String("client_id", string(cid)),
 			zap.String("topic", string(topic)),
 			zap.Error(err))
@@ -1567,7 +1571,7 @@ func (e *Engine) hWSPubSubUnbridge(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.WSPubSubUnbridge(ctx, string(cid), string(topic)); err != nil {
-		e.logger.Warn("ws_pubsub_unbridge failed",
+		HostLogger(ctx, e.logger).Warn("ws_pubsub_unbridge failed",
 			zap.String("client_id", string(cid)),
 			zap.String("topic", string(topic)),
 			zap.Error(err))
@@ -1610,11 +1614,11 @@ func (e *Engine) hFunctionInvoke(ctx context.Context, mod api.Module,
 		// cron reconciler reported SUCCESS while settling nothing for weeks
 		// because this was one undifferentiated Warn.
 		if IsUnauthorized(err) {
-			e.logger.Error("function_invoke unauthorized",
+			HostLogger(ctx, e.logger).Error("function_invoke unauthorized",
 				zap.String("name", string(name)),
 				zap.Error(err))
 		} else {
-			e.logger.Warn("function_invoke failed",
+			HostLogger(ctx, e.logger).Warn("function_invoke failed",
 				zap.String("name", string(name)),
 				zap.Error(err))
 		}
@@ -1644,7 +1648,7 @@ func (e *Engine) hFunctionInvokeAsync(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.FunctionInvokeAsync(ctx, string(name), payload); err != nil {
-		e.logger.Warn("function_invoke_async rejected",
+		HostLogger(ctx, e.logger).Warn("function_invoke_async rejected",
 			zap.String("name", string(name)),
 			zap.Error(err))
 		return 0
@@ -1667,7 +1671,7 @@ func (e *Engine) hWSSend(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.WSSend(ctx, string(cid), data); err != nil {
-		e.logger.Warn("ws_send failed",
+		HostLogger(ctx, e.logger).Warn("ws_send failed",
 			zap.String("client_id", string(cid)),
 			zap.Error(err))
 		return 0
@@ -1690,7 +1694,7 @@ func (e *Engine) hWSBroadcast(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.WSBroadcast(ctx, string(topic), data); err != nil {
-		e.logger.Warn("ws_broadcast failed",
+		HostLogger(ctx, e.logger).Warn("ws_broadcast failed",
 			zap.String("topic", string(topic)),
 			zap.Error(err))
 		return 0
@@ -1724,7 +1728,7 @@ func (e *Engine) hEphemeralStateSet(ctx context.Context, mod api.Module,
 		payload = p
 	}
 	if err := e.hostServices.EphemeralStateSet(ctx, string(topic), string(key), payload, ttlMs); err != nil {
-		e.logger.Warn("host function ephemeral_state_set failed",
+		HostLogger(ctx, e.logger).Warn("host function ephemeral_state_set failed",
 			zap.String("topic", string(topic)),
 			zap.String("key", string(key)),
 			zap.Error(err))
@@ -1750,7 +1754,7 @@ func (e *Engine) hEphemeralStateClear(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.EphemeralStateClear(ctx, string(topic), string(key)); err != nil {
-		e.logger.Warn("host function ephemeral_state_clear failed",
+		HostLogger(ctx, e.logger).Warn("host function ephemeral_state_clear failed",
 			zap.String("topic", string(topic)),
 			zap.String("key", string(key)),
 			zap.Error(err))
@@ -1778,7 +1782,7 @@ func (e *Engine) hEphemeralStateList(ctx context.Context, mod api.Module,
 	}
 	out, err := e.hostServices.EphemeralStateList(ctx, string(topic))
 	if err != nil {
-		e.logger.Warn("host function ephemeral_state_list failed",
+		HostLogger(ctx, e.logger).Warn("host function ephemeral_state_list failed",
 			zap.String("topic", string(topic)),
 			zap.Error(err))
 		return 0
@@ -1805,7 +1809,7 @@ func (e *Engine) hPushSend(ctx context.Context, mod api.Module,
 		return 0
 	}
 	if err := e.hostServices.PushSend(ctx, string(userID), msgJSON); err != nil {
-		e.logger.Error("host function push_send failed",
+		HostLogger(ctx, e.logger).Error("host function push_send failed",
 			zap.String("user_id", string(userID)),
 			zap.Error(err))
 		return 0
@@ -1837,7 +1841,7 @@ func (e *Engine) hPushSendV2(ctx context.Context, mod api.Module,
 	}
 	out, err := e.hostServices.PushSendV2(ctx, string(userID), msgJSON)
 	if err != nil {
-		e.logger.Warn("host function push_send_v2 failed",
+		HostLogger(ctx, e.logger).Warn("host function push_send_v2 failed",
 			zap.String("user_id", string(userID)),
 			zap.Error(err))
 		return 0
@@ -1861,7 +1865,7 @@ func (e *Engine) hPushSendTopic(ctx context.Context, mod api.Module,
 	}
 	out, err := e.hostServices.PushSendTopic(ctx, string(topicID), msgJSON)
 	if err != nil {
-		e.logger.Warn("host function push_send_topic failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function push_send_topic failed", zap.Error(err))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, out)
@@ -1878,7 +1882,7 @@ func (e *Engine) hPushSendTopic(ctx context.Context, mod api.Module,
 func (e *Engine) hTurnCredentials(ctx context.Context, mod api.Module) uint64 {
 	out, err := e.hostServices.TurnCredentials(ctx)
 	if err != nil {
-		e.logger.Warn("host function turn_credentials failed",
+		HostLogger(ctx, e.logger).Warn("host function turn_credentials failed",
 			zap.Error(err))
 		return 0
 	}

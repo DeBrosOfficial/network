@@ -89,7 +89,7 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, bodyReader)
 	if err != nil {
-		h.logger.Error(fnName+" request creation error", fetchLogFields(fnName, rawURL, err)...)
+		serverless.HostLogger(ctx, h.logger).Error(fnName+" request creation error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
 			"error":  "failed to create request: " + httputil.FailureReason(err),
 			"status": 0,
@@ -103,7 +103,7 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 
 	resp, err := client.Do(req)
 	if err != nil {
-		h.logger.Error(fnName+" transport error", fetchLogFields(fnName, rawURL, err)...)
+		serverless.HostLogger(ctx, h.logger).Error(fnName+" transport error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
 			"error":  httputil.FailureReason(err),
 			"status": 0, // Transport error
@@ -114,7 +114,7 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		h.logger.Error(fnName+" response read error", fetchLogFields(fnName, rawURL, err)...)
+		serverless.HostLogger(ctx, h.logger).Error(fnName+" response read error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
 			"error":  "failed to read response: " + httputil.FailureReason(err),
 			"status": resp.StatusCode,

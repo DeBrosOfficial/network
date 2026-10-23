@@ -73,7 +73,7 @@ func (h *HostFunctions) RevokeCapability(ctx context.Context, token string) erro
 			// The function gets the constant; the cause names why the
 			// registry could not be reached, and stays in the log.
 			if h.logger != nil {
-				h.logger.Error("capability revoke could not reach the revocation list",
+				serverless.HostLogger(ctx, h.logger).Error("capability revoke could not reach the revocation list",
 					zap.String("namespace", cur.Namespace), zap.Error(err))
 			}
 			return capabilityErr("capability_revoke", serverless.ErrCapabilityUnavailable)
@@ -94,7 +94,7 @@ func (h *HostFunctions) GetCallerCapability(ctx context.Context) string {
 	out, err := json.Marshal(cur.CallerCapability)
 	if err != nil {
 		if h.logger != nil {
-			h.logger.Error("could not encode the caller's capability", zap.Error(err))
+			serverless.HostLogger(ctx, h.logger).Error("could not encode the caller's capability", zap.Error(err))
 		}
 		return ""
 	}

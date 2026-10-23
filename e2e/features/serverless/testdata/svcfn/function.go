@@ -140,7 +140,9 @@ func dispatchData(req request) any {
 	case "db_batch_sum":
 		return summarize(unpack(dbQueryBatch(ptr(ops), size(ops))))
 	case "cache_set":
-		cacheSet(ptr(req.Key), size(req.Key), ptr(req.Value), size(req.Value), req.TTL)
+		for i := 0; i < max(req.Count, 1); i++ {
+			cacheSet(ptr(req.Key), size(req.Key), ptr(req.Value), size(req.Value), req.TTL)
+		}
 		return map[string]any{"set": true}
 	case "cache_get":
 		return map[string]any{"value": unpack(cacheGet(ptr(req.Key), size(req.Key)))}

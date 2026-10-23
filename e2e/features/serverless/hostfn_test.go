@@ -199,6 +199,41 @@ func TestHostCache_atomicsAndTTL(t *testing.T) {
 	}
 }
 
+// TestHostLogBudget_loopWritesTheBudgetAndASummary: a guest looping on a
+// failing host call writes at most the per-invocation budget of gateway log
+// lines and then one summary line, however long it loops
+// (website/src/docs/developer/functions.mdx#host-functions-api, bugboard #424).
+func TestHostLogBudget_loopWritesTheBudgetAndASummary(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn, calls, budget = "e2e-log-budget", 2000, 32
+	deploy(t, fx, fnSpec{name: fn})
+	mark := fmt.Sprintf("e2elogbudget%d", time.Now().UnixNano())
+	since := time.Now().Add(-time.Minute).Unix()
+	// A negative ttl is refused before any network call: the cheapest failure.
+	call(t, fx, fn, map[string]any{"op": "cache_set", "key": mark, "value": "x", "ttl": -1, "count": calls})
+	// count is the journal lines, on every node, that contain needle and also.
+	count := func(needle, also string) int {
+		total := 0
+		for _, n := range fx.f.State.Nodes {
+			out := fx.f.MustExec(t, n, fmt.Sprintf("journalctl --no-pager -q -o cat --since @%d | grep -F %s | grep -c -F %s; true",
+				since, fleet.ShellQuote(needle), fleet.ShellQuote(also)))
+			c, err := strconv.Atoi(strings.TrimSpace(out.Stdout))
+			if err != nil {
+				t.Fatalf("%s: grep printed %q", n.Name, out.Stdout)
+			}
+			total += c
+		}
+		return total
+	}
+	eventually.Require(t, time.Second, cacheBudget, "the invocation's summary line in a journal", func() (bool, error) {
+		return count("host log lines suppressed", fn) >= 1, nil
+	})
+	if got := count(mark, "cache_set"); got == 0 || got > budget {
+		t.Errorf("%d refused cache_set calls wrote %d journal lines naming the key, want 1..%d", calls, got, budget)
+	}
+}
+
 // incrementsThatRan reports every increment that did not get a 200 and returns,
 // sorted, the values of those that did.
 func incrementsThatRan(t *testing.T, replies []*gw.Response, errs []error) []int {

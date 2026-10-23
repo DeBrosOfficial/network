@@ -760,6 +760,14 @@ function WebSocket client without invoking the function per message (and
 | `log_info(message)` | Log info-level message (captured in invocation logs). |
 | `log_error(message)` | Log error-level message. |
 
+`log_info` and `log_error` lines always reach the invocation's own log (`orama
+function logs`). The gateway also writes them to its journal, along with any
+host function failure, but at most 32 such lines per invocation (per callback
+for a persistent WebSocket function); after that it writes one `host log lines
+suppressed for this invocation` line naming the function, the request and how
+many lines it dropped. A function looping on a failing call cannot flood the
+node's log.
+
 ### Other host functions
 
 | Function | Description |

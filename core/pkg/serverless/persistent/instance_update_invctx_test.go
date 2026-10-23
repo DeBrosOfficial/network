@@ -19,7 +19,7 @@ func TestUpdateInvocationContext_swapVisibleToWithInvCtx(t *testing.T) {
 	i := &Instance{invCtx: original}
 
 	// Pre-swap: withInvCtx returns ctx carrying original.
-	ctx := i.withInvCtx(context.Background())
+	ctx := withInvCtxOnly(i)
 	got := serverless.InvocationContextFromCtx(ctx)
 	if got.CallerJWTSubject != "user-A" {
 		t.Errorf("pre-swap: CallerJWTSubject = %q; want user-A", got.CallerJWTSubject)
@@ -31,7 +31,7 @@ func TestUpdateInvocationContext_swapVisibleToWithInvCtx(t *testing.T) {
 	}
 
 	// Post-swap: withInvCtx returns ctx carrying updated.
-	ctx = i.withInvCtx(context.Background())
+	ctx = withInvCtxOnly(i)
 	got = serverless.InvocationContextFromCtx(ctx)
 	if got.CallerJWTSubject != "user-A-refreshed" {
 		t.Errorf("post-swap: CallerJWTSubject = %q; want user-A-refreshed", got.CallerJWTSubject)
@@ -51,7 +51,7 @@ func TestUpdateInvocationContext_nilRejected(t *testing.T) {
 	}
 
 	// Original must be untouched after the failed swap.
-	ctx := i.withInvCtx(context.Background())
+	ctx := withInvCtxOnly(i)
 	got := serverless.InvocationContextFromCtx(ctx)
 	if got.CallerJWTSubject != "user-A" {
 		t.Errorf("after rejected nil swap: CallerJWTSubject = %q; want user-A (unchanged)",
@@ -82,7 +82,7 @@ func TestUpdateInvocationContext_concurrentSwapsAndReads(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for n := 0; n < writes*readsPerW; n++ {
-				ctx := i.withInvCtx(context.Background())
+				ctx := withInvCtxOnly(i)
 				if got := serverless.InvocationContextFromCtx(ctx); got == nil {
 					t.Errorf("withInvCtx returned ctx with nil invCtx during concurrent swap")
 					return
@@ -126,7 +126,7 @@ func TestUpdateInvocationContext_swapDoesNotAffectInFlightCtx(t *testing.T) {
 	i := &Instance{invCtx: original}
 
 	// Snapshot a ctx using the original invCtx.
-	inflightCtx := i.withInvCtx(context.Background())
+	inflightCtx := withInvCtxOnly(i)
 
 	// Swap.
 	if err := i.UpdateInvocationContext(updated); err != nil {
@@ -141,9 +141,15 @@ func TestUpdateInvocationContext_swapDoesNotAffectInFlightCtx(t *testing.T) {
 	}
 
 	// New withInvCtx calls see "after".
-	freshCtx := i.withInvCtx(context.Background())
+	freshCtx := withInvCtxOnly(i)
 	got = serverless.InvocationContextFromCtx(freshCtx)
 	if got.CallerJWTSubject != "after" {
 		t.Errorf("post-swap fresh ctx = %q; want 'after'", got.CallerJWTSubject)
 	}
+}
+
+// withInvCtxOnly is withInvCtx for tests that read only the context.
+func withInvCtxOnly(i *Instance) context.Context {
+	ctx, _ := i.withInvCtx(context.Background())
+	return ctx
 }
