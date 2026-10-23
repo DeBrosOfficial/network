@@ -18,9 +18,6 @@ comptime {
     _ = @import("crypto/hmac.zig");
     _ = @import("crypto/hkdf.zig");
     _ = @import("crypto/secure_mem.zig");
-    _ = @import("crypto/pq_kem.zig");
-    _ = @import("crypto/pq_sig.zig");
-    _ = @import("crypto/hybrid.zig");
 }
 
 // Storage

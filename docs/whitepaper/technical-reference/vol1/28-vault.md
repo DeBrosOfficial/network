@@ -241,13 +241,10 @@ Only HMAC-SHA256 (`vault/src/crypto/hmac.zig`: compute, and a constant-time veri
 - `aes.zig`: AES-256-GCM with a random 12-byte nonce.
 - `hkdf.zig`: HKDF-SHA256 extract and expand.
 - `secure_mem.zig`: a volatile zero-fill, `mlock` on Linux (failure is silently ignored) and a `SecureBuffer` wrapper. The daemon never uses it; the systemd unit grants `LimitMEMLOCK=67108864` but nothing locks memory, and `server_secret` and `integrity_key` are ordinary arrays zeroed at shutdown.
-- `pq_kem.zig`, `pq_sig.zig`, `hybrid.zig`: described next.
 
 ### Post-quantum status
 
-`pq_kem.zig` has the ML-KEM-768 sizes (public key 1,184, secret key 2,400, ciphertext 1,088, shared secret 32 bytes) and functions that produce random bytes. `encaps` derives the shared secret as HMAC of the first 32 bytes of the public key over a random ciphertext; `decaps` does the same with the secret key. The keys are independent random bytes, so the two sides never agree. `pq_sig.zig` has ML-DSA-65 sizes (public key 1,952, secret key 4,032, signature up to 3,309) and a `sign` that returns SHA-256 of the message; `verify` recomputes that hash, ignores the public key, and rejects a mismatch. Anyone can produce a valid "signature". `hybrid.zig` combines a working X25519 exchange with the KEM through HKDF (info `orama-hybrid-v1`, zero salt), and since the KEM half cannot agree, the hybrid does not either. Each stub logs a one-time warning.
-
-There is no liboqs binding, no call to any of this from the daemon, and no post-quantum primitive in `core/pkg/shamir` or `sdk-vault`. The Shamir layer is information-theoretic and unaffected by quantum computers. What a quantum adversary changes is the Ed25519 ownership proof (forgeable with Shor's algorithm) and, for stored ciphertext, whatever the client's encryption is.
+The vault has no post-quantum cryptography: no ML-KEM or ML-DSA implementation, no liboqs binding, and no post-quantum primitive in `core/pkg/shamir` or `sdk-vault`. The Shamir layer is information-theoretic and unaffected by quantum computers. What a quantum adversary changes is the Ed25519 ownership proof (forgeable with Shor's algorithm) and, for stored ciphertext, whatever the client's encryption is.
 
 ### Deployment: how a guardian gets onto a node
 
@@ -426,7 +423,6 @@ The gateway's limiters are per gateway process. With G gateways the effective pe
 - **No quota, expiry or deletion for V1.** Anyone can create identities and store up to 512 KiB each, per source IP at 30 a minute, on every guardian. There is no V1 delete route; removal is manual.
 - **Case variants of an identity are distinct.** The hex check accepts upper and lower case, the ownership check compares case-insensitively, and storage paths, rate-limit buckets and the signed message use the string as sent. One key owns many directories and many per-identity budgets (`core/pkg/gateway/handlers/vault/handlers.go:isValidIdentity`). The per-IP limit still applies.
 - **Tenant gateways.** The vault routes are registered wherever the vault handlers are built, and their guardian list comes from `dns_nodes`, which a tenant RQLite holds empty ([membership](08-membership-and-failure-detection.md)). Which database a tenant gateway's client reads is not established by this code path and no e2e exercises it.
-- **The post-quantum modules provide nothing and are not linked.** `pq_kem.zig` cannot agree on a secret; `pq_sig.zig:verify` ignores the public key; `hybrid.zig` inherits the failure. The header comment of `pq_sig.zig` says verify always succeeds while the code rejects mismatches.
 - **`secure_mem` is dead code in the daemon.** `LimitMEMLOCK` is set and nothing locks memory.
 - **Dead and broken client code.** The gateway's `verifySecretPut`, `verifySecretGet`, `verifySecretDelete` and `verifySecretList` have no caller outside tests (`core/pkg/gateway/handlers/vault/ownership.go`). `sdk-vault`'s V1 `GuardianClient.push` and `pull` carry no authentication and would be refused.
 - **The V1 to V2 migration tool is unused and reads a file V1 no longer writes** (`vault/src/storage/migrate_v1_v2.zig`).
