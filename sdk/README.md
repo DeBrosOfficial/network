@@ -563,7 +563,7 @@ console.log(result.cid); // "Qm..."
 // Node.js
 import { readFileSync } from "fs";
 const buffer = readFileSync("image.jpg");
-const result = await client.storage.upload(buffer, "image.jpg", { pin: true });
+const result = await client.storage.upload(buffer, "image.jpg");
 ```
 
 #### Retrieve Content

@@ -162,10 +162,9 @@ func TestUploadHandler_contentToBePinnedIsImportedLocally(t *testing.T) {
 	}
 }
 
-// An upload that asks for no pin keeps Add.
-func TestUploadHandler_unpinnedUploadKeepsAdd(t *testing.T) {
-	h := storageHandlers(t)
-	m := h.ipfsClient.(*mockIPFSClient)
+// uploadWithPinField is a multipart upload of doc.txt carrying pin=value.
+func uploadWithPinField(t *testing.T, value string) *http.Request {
+	t.Helper()
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	fw, err := mw.CreateFormFile("file", "doc.txt")
@@ -175,7 +174,7 @@ func TestUploadHandler_unpinnedUploadKeepsAdd(t *testing.T) {
 	if _, err := fw.Write([]byte("hello")); err != nil {
 		t.Fatal(err)
 	}
-	if err := mw.WriteField("pin", "false"); err != nil {
+	if err := mw.WriteField("pin", value); err != nil {
 		t.Fatal(err)
 	}
 	if err := mw.Close(); err != nil {
@@ -183,10 +182,34 @@ func TestUploadHandler_unpinnedUploadKeepsAdd(t *testing.T) {
 	}
 	r := httptest.NewRequest(http.MethodPost, "/v1/storage/upload", &body)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r = r.WithContext(context.WithValue(r.Context(), ctxkeys.NamespaceOverride, "anchat"))
-	h.UploadHandler(httptest.NewRecorder(), r)
-	if m.adds.Load() != 1 || m.localAdds.Load() != 0 {
-		t.Fatalf("Add %d, AddLocal %d for an unpinned upload, want Add 1", m.adds.Load(), m.localAdds.Load())
+	return r.WithContext(context.WithValue(r.Context(), ctxkeys.NamespaceOverride, "anchat"))
+}
+
+// bugboard #432: pin=false pinned on every peer with no reference. Every stored
+// object is pinned now, and an upload asking otherwise is refused before
+// anything is imported.
+func TestUploadHandler_refusesAnUnpinnedUpload(t *testing.T) {
+	for _, value := range []string{"false", "0", "no"} {
+		h := storageHandlers(t)
+		m := h.ipfsClient.(*mockIPFSClient)
+		rec := httptest.NewRecorder()
+		h.UploadHandler(rec, uploadWithPinField(t, value))
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "UNPINNED_UPLOAD_REFUSED") {
+			t.Fatalf("pin=%s: status %d body %s, want 400 UNPINNED_UPLOAD_REFUSED", value, rec.Code, rec.Body.String())
+		}
+		if m.adds.Load() != 0 || m.localAdds.Load() != 0 {
+			t.Fatalf("pin=%s: content was imported (Add %d, AddLocal %d)", value, m.adds.Load(), m.localAdds.Load())
+		}
+	}
+}
+
+// SDKs before 0.3.5 send pin=true on every upload; it is still accepted.
+func TestUploadHandler_acceptsPinTrue(t *testing.T) {
+	h := storageHandlers(t)
+	m := h.ipfsClient.(*mockIPFSClient)
+	h.UploadHandler(httptest.NewRecorder(), uploadWithPinField(t, "true"))
+	if m.localAdds.Load() != 1 || m.adds.Load() != 0 {
+		t.Fatalf("pin=true: AddLocal %d, Add %d, want the pinned import", m.localAdds.Load(), m.adds.Load())
 	}
 }
 

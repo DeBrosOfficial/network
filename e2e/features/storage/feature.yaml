@@ -38,6 +38,7 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys: a token exchanged for an app-runtime or invoke-only key is refused unpin (403 INSUFFICIENT_SCOPE); a storage key's token unpins (bugboard #946)"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#sealing-private-blobs: a namespace reads, pins and unpins only CIDs it owns"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md: private blobs are AES-256-GCM sealed (ORMAW1) before Add; tarballs are not"
+    - "docs/whitepaper/technical-reference/vol1/19-storage.md#upload-and-pin: every upload is pinned; pin=false is refused 400 UNPINNED_UPLOAD_REFUSED and pin=true is still accepted"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#download: a 20 MiB object, streamed in the clear or opened sealed, downloads through every node byte for byte with the whole object's Content-Length"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#the-ipfs-layer-on-a-node: Kubo requires its bearer; IPFS Cluster REST requires basic auth; service.json is 0600; all bind loopback"
     - "website/src/docs/contributor/architecture-reference.mdx#node-process-model: serve-ipfs-cluster admits only sockets owned by the orama user"

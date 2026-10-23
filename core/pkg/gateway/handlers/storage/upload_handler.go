@@ -52,7 +52,6 @@ func (h *Handlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	var reader io.Reader
 	var name string
 	var inputSize int64
-	var shouldPin bool = true // Default to true
 
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// Handle multipart upload
@@ -72,9 +71,15 @@ func (h *Handlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		name = header.Filename
 		inputSize = header.Size
 
-		// Parse pin flag from form (default: true)
-		if pinValue := r.FormValue("pin"); pinValue != "" {
-			shouldPin = strings.ToLower(pinValue) == "true"
+		// Every stored object is pinned. The pin field remains accepted as
+		// "true" because SDKs before 0.3.5 send it on every upload; anything
+		// else asked for an unpinned object, which could not be downloaded
+		// (the read path serves only what the pinset lists) and would be
+		// reclaimed, so it is refused (bugboard #432).
+		if pinValue := r.FormValue("pin"); pinValue != "" && !strings.EqualFold(pinValue, "true") {
+			httputil.WriteRPCError(w, http.StatusBadRequest, httputil.ErrCodeUnpinnedUploadRefused,
+				"every stored object is pinned; send no pin field (pin=false is no longer supported)")
+			return
 		}
 	} else {
 		// Handle JSON request with base64 data
@@ -100,7 +105,6 @@ func (h *Handlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		reader = bytes.NewReader(data)
 		name = req.Name
 		inputSize = int64(len(data))
-		// For JSON requests, pin defaults to true (can be extended if needed)
 	}
 
 	ctx := r.Context()
@@ -146,15 +150,10 @@ func (h *Handlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add to IPFS. Content that is to be pinned is imported here only and
-	// pinned once, with its replication factor, by pinAsync: Add would pin it
-	// everywhere first, and narrowing that made every other peer start
-	// fetching it and then cancel and unpin it.
-	add := h.ipfsClient.Add
-	if shouldPin {
-		add = h.ipfsClient.AddLocal
-	}
-	addResp, err := add(ctx, reader, name)
+	// Import into this node only; pinAsync pins it once, with its replication
+	// factor. Pinning everywhere first and narrowing after made every other
+	// peer start fetching it and then cancel and unpin it.
+	addResp, err := h.ipfsClient.AddLocal(ctx, reader, name)
 	if err != nil {
 		h.logger.ComponentError(logging.ComponentGeneral, "failed to add content to IPFS", zap.Error(err))
 		httputil.WriteError(w, http.StatusInternalServerError, fmt.Sprintf("failed to add content: %v", err))
@@ -179,18 +178,13 @@ func (h *Handlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The reference goes into the cluster index before the pin is requested, so
 	// another namespace unpinning the same bytes right now counts it.
-	if shouldPin {
-		if err := h.registerRef(ctx, addResp.Cid, namespace); err != nil {
-			h.logger.ComponentError(logging.ComponentGeneral, "failed to record the pin reference", zap.Error(err), zap.String("cid", addResp.Cid))
-			httputil.WriteError(w, http.StatusServiceUnavailable, "the content was stored but could not be registered for pinning; retry the upload")
-			return
-		}
+	if err := h.registerRef(ctx, addResp.Cid, namespace); err != nil {
+		h.logger.ComponentError(logging.ComponentGeneral, "failed to record the pin reference", zap.Error(err), zap.String("cid", addResp.Cid))
+		httputil.WriteError(w, http.StatusServiceUnavailable, "the content was stored but could not be registered for pinning; retry the upload")
+		return
 	}
 
-	// Pin asynchronously in background if requested
-	if shouldPin {
-		go h.pinAsync(addResp.Cid, name, replicationFactor, namespace)
-	}
+	go h.pinAsync(addResp.Cid, name, replicationFactor, namespace)
 
 	httputil.WriteJSON(w, http.StatusOK, response)
 }

@@ -64,6 +64,11 @@ const (
 	// (bugboard #141). Non-retryable: the caller must free space or raise the
 	// budget. Only enforced for namespaces that have a positive budget row.
 	ErrCodeStorageQuotaExceeded RPCErrorCode = "STORAGE_QUOTA_EXCEEDED"
+	// ErrCodeUnpinnedUploadRefused — an upload asked not to be pinned (pin
+	// other than "true"). Every stored object is pinned with the namespace's
+	// replication factor and counted against its references; an unpinned one
+	// could not be downloaded and would be reclaimed (bugboard #432).
+	ErrCodeUnpinnedUploadRefused RPCErrorCode = "UNPINNED_UPLOAD_REFUSED"
 
 	// 5xx — server error
 	ErrCodeInternal           RPCErrorCode = "INTERNAL"

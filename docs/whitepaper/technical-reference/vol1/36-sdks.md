@@ -165,7 +165,7 @@ The reconnect reuses the URL, including the token, that the first connect built.
 
 ### Storage
 
-`StorageClient` maps to `/v1/storage/upload` (multipart, `pin` flag defaulting to true, 5 min), `/pin`, `/status/<cid>`, `/get/<cid>` and `/unpin/<cid>`. `upload` accepts `File`, `Blob`, `ArrayBuffer`, `Uint8Array` and `ReadableStream`; a stream is read fully into memory first.
+`StorageClient` maps to `/v1/storage/upload` (multipart, 5 min; every upload is pinned, and `upload` has no pin option since 0.3.5, so a caller passing `{ pin: false }` fails to compile), `/pin`, `/status/<cid>`, `/get/<cid>` and `/unpin/<cid>`. `upload` accepts `File`, `Blob`, `ArrayBuffer`, `Uint8Array` and `ReadableStream`; a stream is read fully into memory first.
 
 A CID is addressable the moment the upload returns, but the pin has to propagate across the IPFS Cluster peers before every node can serve it. A read soon after a write can legitimately 404. `get`, `getBinary` and `fetchWith` therefore re-ask on a 404: 8 attempts, waiting 1, 2, 3, 3, 3, 3 and 3 s, 18 s in all (`sdk/src/storage/pin-propagation.ts`). If the gateway marks a 404 `retryable: false`, which it does once the content is known to be gone, the SDK stops at once; a gateway that says nothing keeps the old behaviour of retrying every 404. The loop is one function shared by `get` and `getBinary`; they used to each carry a copy.
 

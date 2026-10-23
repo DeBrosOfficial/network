@@ -28,7 +28,7 @@ await client.storage.pin(existingCid, "report.pdf");
 await client.storage.unpin(cid);
 ```
 
-`upload` works in the browser and in Node, has a 5 minute timeout for large files, and pins by default. A read that closely follows a write can legitimately 404 while the pin propagates, so reads retry a 404 for about eighteen seconds, but only while the gateway marks it retryable (a CID uploaded or pinned in the last two minutes). A 404 for content that is gone is returned at once.
+`upload` works in the browser and in Node, has a 5 minute timeout for large files, and pins every upload: there is no unpinned upload (an SDK before 0.3.5 took `{ pin: false }`; the option is gone, and the gateway refuses a `pin` field other than `true` with `400 UNPINNED_UPLOAD_REFUSED`). A read that closely follows a write can legitimately 404 while the pin propagates, so reads retry a 404 for about eighteen seconds, but only while the gateway marks it retryable (a CID uploaded or pinned in the last two minutes). A 404 for content that is gone is returned at once.
 
 ### Read errors
 
@@ -72,7 +72,7 @@ Minting needs a **device-bound session**, the storage read grant and ownership o
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/v1/storage/upload` | Upload (multipart/form-data with `file` and optional `pin`) |
+| `POST` | `/v1/storage/upload` | Upload (multipart/form-data with `file`). Always pinned; a `pin` field other than `true` is `400 UNPINNED_UPLOAD_REFUSED` |
 | `GET` | `/v1/storage/get/{cid}` | Download a file. Always sends `Content-Length`; a body shorter than it was cut off and should be fetched again |
 | `POST` | `/v1/storage/pin` | Pin an existing CID. Body `{cid, name?}` |
 | `GET` | `/v1/storage/status/{cid}` | Pin status |
