@@ -26,3 +26,4 @@ covers:
     - "website/src/docs/contributor/architecture-reference.mdx: /v1/health reports checks.anon_proxy ok"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#network-and-proxy: the proxy and the tunnel need a logged-in user with the proxy grant; a key alone is USER_JWT_REQUIRED"
     - "docs/whitepaper/technical-reference/vol1/27-rate-limits-and-egress-controls.md#connection-and-stream-caps: literal internal destinations are DESTINATION_NOT_ALLOWED; the tunnel reaches only ports 80 and 443"
+    - "docs/whitepaper/technical-reference/vol2/38-anonymity-and-tor.md: a reserved destination is refused in every notation a resolver reads (2130706433, 0177.0.0.1, 0x7f.1, 127.1), by the proxy and the tunnel"

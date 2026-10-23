@@ -30,10 +30,11 @@ func TestAnon_fetchesThroughTor(t *testing.T) {
 	})
 }
 
-// TestAnon_destinationMatrix: literal loopback, private and link-local
-// destinations are DESTINATION_NOT_ALLOWED (403) before Tor is asked; other
-// internal forms Tor itself refuses (ClientRejectInternalAddresses) — never
-// a 200 carrying a node's own service.
+// TestAnon_destinationMatrix: loopback, private, link-local, CGNAT and zero
+// destinations are DESTINATION_NOT_ALLOWED (403) before Tor is asked, in every
+// notation a resolver reads (decimal, octal, hex and short IPv4 forms, mapped
+// IPv6; bug #712); a name that resolves internally Tor itself refuses
+// (ClientRejectInternalAddresses) — never a 200 carrying a node's own service.
 func TestAnon_destinationMatrix(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
@@ -41,14 +42,16 @@ func TestAnon_destinationMatrix(t *testing.T) {
 	owner := tenancy.Owner(n)
 	for _, u := range []string{"http://127.0.0.1:10104/v1/health", "http://localhost/", "http://10.0.0.1:10104/",
 		"http://" + f.State.Nodes[0].WGIP + ":10104/", "http://192.168.0.1/", "http://172.16.0.1/",
-		"http://169.254.169.254/latest/meta-data/", "http://[::1]:10104/", "http://[fe80::1]/"} {
+		"http://169.254.169.254/latest/meta-data/", "http://[::1]:10104/", "http://[fe80::1]/",
+		"http://100.64.0.1/", "http://0.0.0.0:10104/", "http://0:10104/", "http://2130706433:10104/",
+		"http://0x7f000001:10104/", "http://0177.0.0.1:10104/", "http://127.1:10104/", "http://0x7f.1:10104/",
+		"http://0xa9fea9fe/latest/meta-data/", "http://localhost./", "http://[::ffff:127.0.0.1]:10104/"} {
 		r, _ := anon(t, n.Client, owner, u, "GET")
 		if r.Status != http.StatusForbidden || r.ErrorCode() != codeNotAllowed {
 			t.Errorf("%s: want 403 %s, got %d %.200s", u, codeNotAllowed, r.Status, r.Body)
 		}
 	}
-	for _, u := range []string{"http://100.64.0.1/", "http://0.0.0.0:10104/", "http://2130706433:10104/", "http://localtest.me:10104/",
-		"http://[::ffff:127.0.0.1]:10104/"} {
+	for _, u := range []string{"http://localtest.me:10104/"} {
 		if r, res := anon(t, n.Client, owner, u, "GET"); r.Status == http.StatusOK && res.StatusCode != 0 {
 			t.Errorf("%s reached a destination (status %d)", u, res.StatusCode)
 		}
@@ -129,7 +132,8 @@ func TestTunnel_refusals(t *testing.T) {
 		"loopback": {"127.0.0.1", "443"}, "overlay": {f.State.Nodes[0].WGIP, "443"}, "localhost": {"localhost", "80"},
 		"sub.localhost": {"x.localhost", "80"}, "ipv6 loopback": {"[::1]", "443"}, "no host": {"", "443"},
 		"host with path": {publicTarget + "/x", "443"}, "userinfo": {"a@" + publicTarget, "443"},
-		"too long": {strings.Repeat("a", 254), "443"},
+		"too long": {strings.Repeat("a", 254), "443"}, "decimal loopback": {"2130706433", "443"},
+		"short loopback": {"127.1", "443"}, "hex loopback": {"0x7f.1", "443"}, "decimal overlay": {"167772161", "443"},
 	} {
 		if conn, status, _ := openTunnel(t, n.Client, tok, hp[0], hp[1]); conn != nil || status != http.StatusBadRequest {
 			t.Errorf("%s: want 400, got %d", name, status)

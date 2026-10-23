@@ -199,6 +199,17 @@ func TestDenyInternalURL(t *testing.T) {
 		{"localhost", "http://localhost:10000/", true},
 		{"localhost suffix", "http://rqlite.localhost/", true},
 		{"gcp metadata name", "http://metadata.google.internal/", true},
+		// Bug #712: the notations a resolver reads as an address. anon_fetch
+		// hands the host to Tor unresolved, so this is its only check.
+		{"decimal loopback", "http://2130706433:10000/", true},
+		{"hex loopback", "http://0x7f000001/", true},
+		{"octal loopback", "http://0177.0.0.1/", true},
+		{"short loopback", "http://127.1/", true},
+		{"short hex overlay", "http://0xa.5/", true},
+		{"decimal metadata", "http://2852039166/latest/meta-data/", true},
+		{"zero", "http://0/", true},
+		{"localhost with trailing dot", "http://localhost./", true},
+		{"decimal public", "https://16843009/", false},
 		{"file scheme", "file:///etc/passwd", true},
 		{"gopher scheme", "gopher://example.com/", true},
 		{"no host", "http:///path", true},

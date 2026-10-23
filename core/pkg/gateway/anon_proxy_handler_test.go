@@ -160,30 +160,42 @@ func TestIsHopByHopHeader(t *testing.T) {
 	}
 }
 
-func TestIsPrivateOrLocalHost(t *testing.T) {
-	tests := []struct {
-		host     string
-		expected bool
-	}{
-		{"localhost", true},
-		{"localhost", true},
-		{"::1", true},
-		{"10.0.0.1", true},
-		{"192.168.1.1", true},
-		{"172.16.0.1", true},
-		{"172.31.255.255", true},
-		{"example.com", false},
-		{"8.8.8.8", false},
-		{"1.1.1.1", false},
-		{"172.32.0.1", false}, // Not in private range
-	}
+// Bug #712: a reserved destination is DESTINATION_NOT_ALLOWED in every
+// notation the exit's resolver reads, before Tor is asked; a public address in
+// a numeric notation is not refused. The handler hands the host to Tor
+// unresolved, so it is judged on the text (netguard.ReservedHost).
+func TestAnonProxyHandler_destinationNotations(t *testing.T) {
+	gw := newTestGateway(t)
+	torAsked := false
+	prev := anonProxyRunning
+	anonProxyRunning = func() bool { torAsked = true; return false }
+	t.Cleanup(func() { anonProxyRunning = prev })
 
-	for _, tt := range tests {
-		t.Run(tt.host, func(t *testing.T) {
-			result := isPrivateOrLocalHost(tt.host)
-			if result != tt.expected {
-				t.Errorf("isPrivateOrLocalHost(%s) = %v, want %v", tt.host, result, tt.expected)
-			}
-		})
+	send := func(u string) *httptest.ResponseRecorder {
+		body, _ := json.Marshal(anonProxyRequest{URL: u, Method: "GET"})
+		w := httptest.NewRecorder()
+		gw.anonProxyHandler(w, httptest.NewRequest(http.MethodPost, "/v1/proxy/anon", bytes.NewBuffer(body)))
+		return w
+	}
+	for _, u := range []string{
+		"http://127.0.0.1/", "http://localhost/", "http://LOCALHOST./", "http://app.localhost/",
+		"http://2130706433:10104/", "http://0x7f000001/", "http://017700000001/", "http://0177.0.0.1/",
+		"http://127.1/", "http://0x7f.1/", "http://167772161/", "http://10.1/", "http://0xa9fea9fe/latest/meta-data/",
+		"http://100.64.0.1/", "http://0.0.0.0:10104/", "http://0/", "http://198.18.0.2/",
+		"http://[::1]/", "http://[::ffff:127.0.0.1]:10104/", "http://[::ffff:7f00:1]/", "http://[fe80::1%25eth0]/",
+	} {
+		torAsked = false
+		w := send(u)
+		if w.Code != http.StatusForbidden || !bytes.Contains(w.Body.Bytes(), []byte(CodeDestinationNotAllowed)) {
+			t.Errorf("%s: got %d %s, want 403 %s", u, w.Code, w.Body.String(), CodeDestinationNotAllowed)
+		}
+		if torAsked {
+			t.Errorf("%s: Tor was asked before the destination was refused", u)
+		}
+	}
+	for _, u := range []string{"https://example.com/", "http://134744072/", "http://8.8.8.8/", "http://[2606:4700:4700::1111]/"} {
+		if w := send(u); w.Code != http.StatusServiceUnavailable {
+			t.Errorf("%s: got %d %s, want it past validation (503 with Tor down)", u, w.Code, w.Body.String())
+		}
 	}
 }

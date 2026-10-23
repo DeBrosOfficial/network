@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/Orama-Network/orama/core/pkg/anonproxy"
 	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
@@ -149,8 +149,10 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 // The real check is guardEgressAddress, which runs on the socket itself with
 // the resolved address, for every attempt and every redirect hop. What is left
 // here is what can be settled without resolving anything: the scheme, the names
-// that mean the machine itself, and an IP literal that is already refusable —
-// answered as a clear message rather than as a connection failure.
+// that mean the machine itself, and an address that is already refusable in any
+// notation a resolver reads (netguard.ReservedHost) — answered as a clear
+// message rather than as a connection failure. For anon_fetch this is the
+// gateway's only check: its socket goes to Tor, which resolves the name.
 func denyInternalURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
@@ -161,10 +163,7 @@ func denyInternalURL(raw string) error {
 		return fmt.Errorf("url scheme not allowed")
 	}
 	host := strings.ToLower(u.Hostname())
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") || host == "metadata.google.internal" {
-		return fmt.Errorf("url host not allowed")
-	}
-	if ip := net.ParseIP(host); ip != nil && blockedIP(ip) {
+	if host == "metadata.google.internal" || netguard.ReservedHost(host) {
 		return fmt.Errorf("url host not allowed")
 	}
 	return nil
