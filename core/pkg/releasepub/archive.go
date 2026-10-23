@@ -26,7 +26,7 @@ func globalLayerFiles(arch string) []string {
 // one without the global layer. It reads the manifest; the build that made the
 // archive hashed every file. It returns the commit the manifest names.
 func checkArchive(path string, ref releaseverify.ArchiveRef, clusterOnly bool) (string, error) {
-	manifestJSON, signed, err := archivetrust.ReadArchiveManifest(path)
+	manifestJSON, sig, err := archivetrust.ReadArchiveManifest(path)
 	if err != nil {
 		return "", err
 	}
@@ -35,7 +35,7 @@ func checkArchive(path string, ref releaseverify.ArchiveRef, clusterOnly bool) (
 		return "", fmt.Errorf("%s: %w", path, err)
 	}
 	switch {
-	case signed:
+	case sig != nil:
 		return "", fmt.Errorf("%s carries a %s: a release is built with `orama maint build --unsigned` and trusted through the release root, and a node refuses a signed archive staged that way", path, archivetrust.SignatureName)
 	case m.Signers != nil || m.ReleaseRoot != "":
 		return "", fmt.Errorf("%s carries a signer list or a release root; a release decides what code runs, not who is trusted", path)

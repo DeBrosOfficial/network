@@ -4,7 +4,8 @@
 # command resumes once it is fixed; an unknown node is refused. On a fleet
 # installed from the previous release: a mixed-release window, then the
 # rolling upgrade to HEAD under live namespace traffic, with identities and
-# data preserved and the old CLI still reading the new cluster.
+# data preserved and the old CLI still reading the new cluster. A second
+# push of the archive a node just staged skips it and uploads nothing.
 id: rollout-upgrade
 title: Rolling upgrade, halt and resume, N-1 to N
 area: infrastructure
@@ -25,3 +26,4 @@ covers:
     - "website/src/docs/operator/upgrades.mdx: a node that fails its upgrade stops the rollout; the remaining nodes are untouched"
     - "website/src/docs/contributor/architecture-reference.mdx: orama node upgrade does not restart the index stack again once its health gate has seen the node serving"
     - "docs/whitepaper/technical-reference/vol1/31-rolling-upgrades.md#rolling-upgrades: followers first, leader last; a mixed-release cluster keeps working"
+    - "docs/whitepaper/technical-reference/vol1/30-install-and-upgrade.md: a second push of an archive a node already staged uploads nothing and leaves the staged build untouched"

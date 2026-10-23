@@ -13,6 +13,7 @@ import (
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
 	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/install"
 	"github.com/Orama-Network/orama/core/pkg/remotessh"
 )
 
@@ -151,15 +152,29 @@ func ToNodes(archivePath string, nodes []inspector.Node, direct bool, trust []st
 	return pushDirect(nodes, stager)
 }
 
-// pushDirect uploads the archive to each node sequentially.
+// pushDirect puts the archive on each node in turn. A node whose staged tree
+// is already this archive's is skipped (staged.go); every other node gets a
+// resumable upload (chunked.go) and the node-side stage.
 func pushDirect(nodes []inspector.Node, stager *nodeStager) error {
+	check, identifiable, err := stagedCheck(stager.archive)
+	if err != nil {
+		return fmt.Errorf("refusing to push %s: %w", stager.archive, err)
+	}
+	plan, err := planUpload(stager.archive, uploadChunkSize)
+	if err != nil {
+		return err
+	}
 	for i, node := range nodes {
 		fmt.Printf("[%d/%d] Pushing to %s...\n", i+1, len(nodes), node.Host)
+		if identifiable && alreadyStaged(nodeScript(node), install.OramaBase, check) {
+			fmt.Printf("  ✓ %s already staged this archive; nothing uploaded\n\n", node.Host)
+			continue
+		}
 		dir, err := makeUploadDir(func(cmd string) (string, error) { return remotessh.RunSSHOutput(node, cmd) })
 		if err != nil {
 			return fmt.Errorf("upload to %s failed: %w", node.Host, err)
 		}
-		if err := remotessh.UploadFile(node, stager.archive, uploadPath(dir)); err != nil {
+		if err := newNodeUploader(node).upload(plan, dir); err != nil {
 			if rmErr := remotessh.RunSSHStreaming(node, remotessh.SudoPrefix(node)+"rm -rf "+dir); rmErr != nil {
 				err = errors.Join(err, fmt.Errorf("remove the upload %s on %s: %w", dir, node.Host, rmErr))
 			}
@@ -173,6 +188,14 @@ func pushDirect(nodes []inspector.Node, stager *nodeStager) error {
 
 	fmt.Printf("✓ Push complete (%d nodes)\n", len(nodes))
 	return nil
+}
+
+// nodeScript runs a script on node as root and fails unless it exits 0.
+func nodeScript(node inspector.Node) func(script string) error {
+	return func(script string) error {
+		_, err := remotessh.RunSSHOutput(node, remotessh.ScriptCommand(remotessh.SudoPrefix(node), script))
+		return err
+	}
 }
 
 // stageCommand is the node-side step: the node's installed orama verifies the

@@ -20,6 +20,8 @@ orama maint rollout --env <env> --no-build --archive <path> --yes
 
 A network whose release channel is published (testnet follows `nightly`) is upgraded with `orama upgrade` instead: it takes the newest signed release, stages it on every node and rolls it one node at a time ([Upgrades](/docs/operator/upgrades)). The commands above are for a build of your own. `--archive` is required for `push`: the newest archive in `/tmp` may be another checkout's build.
 
+A push skips every node that already staged exactly this archive (`already staged this archive; nothing uploaded`): its manifest, signature and every file the manifest lists match on the node. The upload to the others goes in 16 MiB chunks, each checked by SHA-256 on the node, and a dropped connection resends only the chunk it interrupted (up to five times). After a push that failed on a slow or unstable uplink, run the same command again: it continues from the node it stopped at.
+
 Upgrading from 0.122.x the first time: see [First upgrade from 0.122.x](/docs/operator/upgrade-notes#first-upgrade-from-0122x).
 
 RootWallet must be open and unlocked for the whole run. The first run after a rebuild asks you to approve the new `orama` binary once (approval is keyed on the binary's hash).
