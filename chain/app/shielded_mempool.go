@@ -98,6 +98,7 @@ func (m *mempoolVerifier) warm() {
 	m.warming = true
 	m.attempts++
 	m.mu.Unlock()
+	// nosemgrep: consensus-goroutine -- starts the mempool's verifier child; its only output is the readiness CheckTx consults, never chain state
 	go func() {
 		err := m.proc.Warm()
 		m.mu.Lock()

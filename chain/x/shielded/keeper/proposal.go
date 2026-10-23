@@ -117,9 +117,11 @@ func (c *ProposalChecker) Admit(checks []ProofCheck) error {
 		}
 	}
 	c.gas = gas
+	// nosemgrep: consensus-map-iteration -- set insert, order-independent
 	for h := range hashes {
 		c.hashes[h] = struct{}{}
 	}
+	// nosemgrep: consensus-map-iteration -- set insert, order-independent
 	for nf := range nullifiers {
 		c.nullifiers[nf] = struct{}{}
 	}

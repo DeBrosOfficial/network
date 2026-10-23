@@ -36,8 +36,8 @@ ignore = [
     { id = "RUSTSEC-2026-0235", reason = "rkyv 0.8.10 (wasmer): insufficient archive validation, out-of-bounds read in Rc/Arc archives. Same exposure as RUSTSEC-2026-0233. Fixed in rkyv 0.8.17. (review-by 2027-01-12)" },
     { id = "RUSTSEC-2026-0204", reason = "crossbeam-epoch 0.9.18: invalid pointer dereference in the Display impl of Atomic/Shared. Reached only through crossbeam-deque and rayon in the BLS12-381 precompiles of cosmwasm-crypto; crossbeam-deque never formats an epoch pointer. Fixed in 0.9.20. (review-by 2027-01-12)" },
     { id = "RUSTSEC-2026-0009", reason = "time 0.3.41: stack exhaustion when parsing RFC 2822 input. libwasmvm enables only the formatting feature and uses it to print one RFC 3339 timestamp (libwasmvm/src/calls.rs); it parses nothing. Fixed in 0.3.47. (review-by 2027-01-12)" },
-    # The five below are in native/Cargo.lock but are build-dependencies of wasmer's build script
-    # (tar, and rustls with rustls-webpki through ureq): they run on the build machine and are not
+    # The ones below, down to the ruzstd entry, are in native/Cargo.lock but are build-dependencies of
+    # wasmer's build script (tar, and rustls, rustls-webpki and webpki-roots through ureq): they run on the build machine and are not
     # linked into the static library. `cargo tree -e normal -i <crate>` prints nothing for them.
     { id = "RUSTSEC-2026-0067", reason = "tar 0.4.44: unpack_in can chmod directories through symlinks. Build-dependency of wasmer only; the library never unpacks an archive. (review-by 2027-01-12)" },
     { id = "RUSTSEC-2026-0068", reason = "tar 0.4.44: PAX size header ignored. Same as RUSTSEC-2026-0067: build-dependency only. (review-by 2027-01-12)" },
@@ -46,6 +46,13 @@ ignore = [
     { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.103.3: URI name constraints. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
     { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.103.3: wildcard name constraints. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
     { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.103.3: panic parsing a CRL. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
+    { id = "RUSTSEC-2026-0346", reason = "rustls 0.23.28: Debug impls of client session values print TLS secrets. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
+    { id = "RUSTSEC-2026-0348", reason = "rustls 0.23.28: brotli certificate decompression allocates before authentication. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
+    { id = "RUSTSEC-2026-0349", reason = "rustls 0.23.28: an unauthenticated ServerHello downgrades later key exchange. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
+    { id = "RUSTSEC-2026-0382", reason = "rustls-webpki 0.103.3: distrusted intermediates accepted. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
+    { id = "RUSTSEC-2026-0381", reason = "webpki-roots 1.0.1: bundles distrusted emSign intermediates. Build-dependency of wasmer (through ureq); not linked into the static library. (review-by 2027-01-12)" },
+    # ruzstd is linked (object, with its default features, under wasmer-compiler) but not reached.
+    { id = "RUSTSEC-2026-0344", reason = "ruzstd 0.5.0 (object 0.32, wasmer-compiler): decompression bomb. ruzstd runs only when object reads a compressed section; wasmer-compiler uses object's write side alone (features = [\"write\"]; object::write in src/object), to emit, and nothing in the VM reads an object file. Fixed in ruzstd 0.9.1, outside object 0.32's range; take it with the next wasmvm bump. (review-by 2027-01-12)" },
 ]
 
 [licenses]

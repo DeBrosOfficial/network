@@ -279,7 +279,7 @@ Every command the chain jobs run is a target of `chain/Makefile` or `chain/ci.mk
 
 `make -C chain ci` runs the first three jobs' commands in one go; it builds libwasmvm and the Orchard verifiers first, so it takes a while.
 
-`test-race` builds libwasmvm from the source in the Go module cache (`wasmvm-lib`: the version `go.mod` pins, checked against `go.sum`) and links it with `-tags sys_wasmvm`. Nothing prebuilt is downloaded, the same rule `native/build.sh` follows for the release library.
+`test-race` builds libwasmvm from the source in the Go module cache (`wasmvm-lib`: the version `go.mod` pins, checked against `go.sum`) and links it with `-tags sys_wasmvm`. Nothing prebuilt is downloaded, the same rule `native/build.sh` follows for the release library. On Linux the copy is given the release library's `__rust_probestack` (`native/src/probestack.rs`), without which no test binary links with the pinned Rust toolchain.
 
 staticcheck and govulncheck are judged the way the fleet `scanners` feature judges them, by `e2e/cmd/scangate`, which reuses the fleet code (`harness/vulnaccept`, `harness/staticfind`) without a fleet. A reachable vulnerability that is not in `e2e/features/scanners/govulncheck-accepted.yaml` fails, and so does an entry that govulncheck no longer reports and one past its `review_by`. The only staticcheck findings tolerated are the deprecation warnings in files protoc-gen-grpc-gateway v1 generated. A scanner that crashed, or printed nothing it could parse, is a failure and never a clean run.
 
