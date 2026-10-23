@@ -1,8 +1,5 @@
 // Package expo wraps the Expo push relay as a push.PushProvider.
 //
-// This is a thin port of the legacy gateway.PushNotificationService —
-// behaviour preserved, surface adapted to the provider abstraction.
-//
 // Long term Expo is intended to be replaced with direct APNs (iOS) +
 // ntfy (Android). This provider exists so the gateway can keep using
 // Expo while the migration happens.
@@ -29,8 +26,7 @@ type Config struct {
 	// as a Bearer token, which Expo uses for higher-priority delivery
 	// and to attribute the send to your account.
 	AccessToken string
-	// Timeout bounds each Send call. 0 selects 10 seconds (matching the
-	// previous PushNotificationService default).
+	// Timeout bounds each Send call. 0 selects 10 seconds.
 	Timeout time.Duration
 }
 

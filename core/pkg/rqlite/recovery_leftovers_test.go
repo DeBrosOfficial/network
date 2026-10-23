@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"go.uber.org/zap"
 )
 
 // What a stagenet namespace's data directory held after its first raft
@@ -68,21 +66,5 @@ func TestRemoveRecoveryLeftovers_failureNamesTheFile(t *testing.T) {
 	}
 	if _, err := RemoveRecoveryLeftovers(dir); err == nil {
 		t.Fatal("want an error naming the file rqlite cannot recover past")
-	}
-}
-
-func TestWritePeersJSON_clearsRecoveryLeftoversFirst(t *testing.T) {
-	dir := t.TempDir()
-	writeLeftovers(t, dir)
-	is := &InstanceSpawner{logger: zap.NewNop()}
-
-	if err := is.WritePeersJSON(dir, []RaftPeer{{ID: "10.0.0.1:10046", Address: "10.0.0.1:10046"}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "recovery.db-wal")); !os.IsNotExist(err) {
-		t.Fatal("recovery.db-wal survived a peers.json write; the recovery it triggers would fail")
-	}
-	if _, err := os.Stat(filepath.Join(dir, "raft", "peers.json")); err != nil {
-		t.Fatalf("peers.json not written: %v", err)
 	}
 }

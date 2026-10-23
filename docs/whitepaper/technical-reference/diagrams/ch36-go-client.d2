@@ -14,7 +14,7 @@ db: "Database()" {
 st: "Storage()\nHTTP /v1/storage/*\nupload 5 min, get 5 min, others 30-60 s"
 ps: "PubSub()\nunix socket HTTP client\n(node-local only)"
 net: "Network()\nlibp2p peers, local IPFS API,\nIPFS Cluster REST"
-err: "Errors\ngatewayStatusError -> pkg/errors sentinels\nClientError, ErrNotConnected, ..."
+err: "Errors\ngatewayStatusError -> pkg/errors sentinels\nErrNotConnected, ErrInvalidPeer, ..."
 
 cfg -> connect
 connect -> access

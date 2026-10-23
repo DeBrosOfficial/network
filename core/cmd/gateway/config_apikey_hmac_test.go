@@ -6,12 +6,13 @@ import (
 
 	"github.com/Orama-Network/orama/core/pkg/config"
 	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	"gopkg.in/yaml.v3"
 )
 
 // TestSpawnedGatewayConfig_apiKeyHMACSecret is the bugboard #160 regression
 // test: a YAML written by the namespace gateway spawner
-// (gateway.GatewayYAMLConfig with APIKeyHMACSecret set) must (a) pass the
+// (gatewayspec.GatewayYAMLConfig with APIKeyHMACSecret set) must (a) pass the
 // standalone gateway's STRICT decoder — i.e. api_key_hmac_secret is a known
 // field, not rejected — and (b) end up in gateway.Config.APIKeyHMACSecret via
 // the same trim/assign parseGatewayConfig uses. Without this, namespace
@@ -42,7 +43,7 @@ func applyAPIKeyHMACSecret(cfg *gateway.Config, y yamlCfgMirror) {
 func TestSpawnedGatewayConfig_apiKeyHMACSecretPresent_isApplied(t *testing.T) {
 	const secret = "the-hmac-secret"
 
-	written := gateway.GatewayYAMLConfig{
+	written := gatewayspec.GatewayYAMLConfig{
 		ListenAddr:       ":6001",
 		ClientNamespace:  "anchat-test",
 		RQLiteDSN:        "http://localhost:10000",

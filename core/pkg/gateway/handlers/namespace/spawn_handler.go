@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/auth"
-	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
 	"github.com/Orama-Network/orama/core/pkg/olric"
 	"github.com/Orama-Network/orama/core/pkg/rqlite"
@@ -360,7 +360,7 @@ func (h *SpawnHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeSpawnResponse(w, http.StatusInternalServerError, SpawnResponse{Error: err.Error()})
 			return
 		}
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             req.Namespace,
 			NodeID:                req.NodeID,
 			HTTPPort:              req.GatewayHTTPPort,
@@ -421,7 +421,7 @@ func (h *SpawnHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeSpawnResponse(w, http.StatusInternalServerError, SpawnResponse{Error: err.Error()})
 			return
 		}
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             req.Namespace,
 			NodeID:                req.NodeID,
 			HTTPPort:              req.GatewayHTTPPort,
