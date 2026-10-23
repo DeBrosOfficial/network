@@ -47,7 +47,8 @@ func setSignIn(t testing.TB, n *ns.Namespace, policy string) map[string]any {
 // TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt walks the opt-in:
 // a wallet with no grant is refused a members namespace (NAMESPACE_NOT_OWNED);
 // once the owner opens sign-in it gets a session and no key, is refused what a
-// grantless wallet may not do, and when the owner closes it again its refresh
+// grantless wallet may not do (the keys, publishing, the database, the
+// function control plane), and when the owner closes it again its refresh
 // and any new sign-in are refused (docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy).
 func TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt(t *testing.T) {
 	t.Parallel()
@@ -81,6 +82,15 @@ func TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt(t *testing.T) {
 	if resp := n.Owner.Client.MustSend(t, gw.Req{Method: http.MethodPost, Path: "/v1/pubsub/publish", Bearer: session.AccessToken,
 		Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{"topic":"e2e","data_base64":"aGk="}`)}); resp.Status != http.StatusForbidden {
 		t.Errorf("an end user published to a topic: %d %.200s", resp.Status, resp.Body)
+	}
+	// Signing in confers no ownership and no admin (bugboard #929): the
+	// namespace database and the function control plane stay out of reach.
+	if resp := n.Owner.Client.MustSend(t, gw.Req{Method: http.MethodPost, Path: "/v1/rqlite/query", Bearer: session.AccessToken,
+		Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{"sql":"SELECT 1"}`)}); resp.Status != http.StatusForbidden {
+		t.Errorf("an end user queried the namespace database: %d %.200s", resp.Status, resp.Body)
+	}
+	if resp := n.Owner.Client.MustSend(t, gw.Req{Path: "/v1/functions", Bearer: session.AccessToken}); resp.Status != http.StatusForbidden {
+		t.Errorf("an end user listed the namespace's functions: %d %.200s", resp.Status, resp.Body)
 	}
 	req := signed(t, endUser, challengeFor(t, c, gw.ChallengeRequest{Wallet: endUser.Address(), Namespace: n.Name}).Message)
 	expectRefusal(t, postJSON(t, c, gw.PathAPIKey, "", map[string]string{"message": req.Message, "signature": req.Signature}),

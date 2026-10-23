@@ -50,6 +50,7 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#revocation: a revocation takes effect on every gateway within the 10-second reload"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-sign-in-gate: JWKS serves every live key with the namespace it is bound to; a namespace gateway's key is bound to its namespace"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: a wallet with no grant is refused a members namespace (NAMESPACE_NOT_OWNED); open sign-in admits it as a grantless end user with no API key (ROLE_HAS_NO_KEY on /v1/auth/api-key)"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: an open sign-in writes no grant or claim: the end user is refused the namespace's keys, publishing, /v1/rqlite and the function control plane"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: closing sign-in refuses a grantless wallet's refresh (SIGN_IN_CLOSED) and any new sign-in"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: orama namespace session-policy shows and sets the policy, a field left out keeps its value"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#namespace-management: namespace names are validated and the platform's names are reserved"
