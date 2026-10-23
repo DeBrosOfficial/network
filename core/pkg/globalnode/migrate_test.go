@@ -3,9 +3,11 @@ package globalnode
 import (
 	"bytes"
 	"crypto/rand"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"golang.org/x/crypto/nacl/box"
@@ -174,6 +176,9 @@ func TestImportMigration_sameKeyTwiceIsIdempotent(t *testing.T) {
 	}
 }
 
+// maxFileNameLen is NAME_MAX, the longest file name Linux and macOS accept.
+const maxFileNameLen = 255
+
 func TestImportMigration_stateWriteFailureInstallsNoKey(t *testing.T) {
 	src, dst := newHost(t), newHost(t)
 	write(t, src.StatePath, stateJSON("1200", 0, 3))
@@ -186,13 +191,14 @@ func TestImportMigration_stateWriteFailureInstallsNoKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dataDir := filepath.Dir(dst.StatePath)
-	if err := os.Chmod(dataDir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.Chmod(dataDir, 0o700) })
-	if _, err := dst.ImportMigration(bundle, nil); err == nil {
-		t.Fatal("the import succeeded without writing the state")
+	// The state file's name is as long as a name can be, so the temporary
+	// file written beside it to replace it atomically cannot be created: the
+	// write fails with ENAMETOOLONG, which root gets as well. The file itself
+	// reads as any other, and the floor is recorded before it as usual.
+	dst.StatePath = filepath.Join(filepath.Dir(dst.StatePath), strings.Repeat("s", maxFileNameLen))
+	write(t, dst.StatePath, emptySignState)
+	if _, err := dst.ImportMigration(bundle, nil); !errors.Is(err, syscall.ENAMETOOLONG) {
+		t.Fatalf("the import did not fail on writing the state: %v", err)
 	}
 	if !bytes.Equal(read(t, dst.KeyPath), before) {
 		t.Fatal("the migrated key was installed although its state was not")

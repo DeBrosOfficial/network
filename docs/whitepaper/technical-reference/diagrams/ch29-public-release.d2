@@ -9,6 +9,7 @@ gtrel: "Gitea Release\n(prerelease: auto)"
 arch: "archive job:\namd64 (global layer) + arm64 (cluster-only),\nreproducible, attached"
 sdk: "publish-sdk job"
 npm: "Gitea npm registry: @orama-network/orama, @orama-network/orama-vault\ndist-tag from prerelease suffix"
+deb: "Gitea Debian registry: orama, orama-node\nstable/main, or nightly/main for a prerelease"
 
 dev -> tag
 tag -> rel
@@ -19,5 +20,6 @@ chk -> tag: "differ: job fails" {
 }
 gr -> gtrel
 gtrel -> arch
-gtrel -> sdk
+rel -> sdk
+gr -> deb
 sdk -> npm

@@ -1,6 +1,6 @@
 {
   "name": "@orama-network/orama-vault",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Client for the Orama Network vault guardians — Shamir-split secret storage for operators and RootWallet",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -72,6 +72,7 @@
   "publishConfig": {
     "registry": "https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
   },
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.19"
   }

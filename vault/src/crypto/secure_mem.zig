@@ -19,10 +19,9 @@ pub fn secureZero(buf: []u8) void {
 /// Non-fatal: logs warning on failure but doesn't error.
 pub fn mlock(ptr: [*]const u8, len: usize) void {
     if (builtin.os.tag == .linux) {
-        const result = std.posix.mlock(ptr[0..len]);
-        if (result) |_| {} else |_| {
-            // mlock failure is non-fatal — might need CAP_IPC_LOCK or higher RLIMIT_MEMLOCK
-        }
+        // mlock failure is non-fatal — might need CAP_IPC_LOCK or higher RLIMIT_MEMLOCK.
+        // Zig 0.15 has no std.posix.mlock; the raw syscall's errno is not needed.
+        _ = std.os.linux.mlock(ptr, len);
     }
     // macOS: mlock exists but not worth the complexity for development
 }
@@ -30,7 +29,7 @@ pub fn mlock(ptr: [*]const u8, len: usize) void {
 /// Unlocks previously locked memory pages.
 pub fn munlock(ptr: [*]const u8, len: usize) void {
     if (builtin.os.tag == .linux) {
-        std.posix.munlock(ptr[0..len]) catch {};
+        _ = std.os.linux.munlock(ptr, len);
     }
 }
 

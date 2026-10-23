@@ -122,6 +122,7 @@ func (a *admission) rememberFault(key [sha256.Size]byte) {
 	if len(a.faults) >= MaxRememberedFaults {
 		var oldest [sha256.Size]byte
 		var oldestAt time.Time
+		// nosemgrep: consensus-map-iteration -- CheckTx-only fault memory local to this node; a block never reads it, so which of two equally old entries is evicted changes nothing on the chain
 		for k, until := range a.faults {
 			if !now.Before(until) {
 				delete(a.faults, k)

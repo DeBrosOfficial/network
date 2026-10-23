@@ -1,6 +1,6 @@
 {
   "name": "@orama-network/orama",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "TypeScript SDK for Orama Network - Database, PubSub, Cache, Storage, Functions, and more",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -135,6 +135,7 @@
   "publishConfig": {
     "registry": "https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
   },
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.19"
   }

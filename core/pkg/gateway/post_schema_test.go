@@ -263,14 +263,23 @@ func TestRunAfterReady_aStuckStepDoesNotBlockTheOthers(t *testing.T) {
 	g := &Gateway{logger: newRQLiteTestLogger(), ready: newReadiness()}
 	g.ready.set(ReadinessReady, "", "")
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	ran := make(chan struct{})
 	steps := []postSchemaStep{
 		{name: "stuck", run: func(context.Context) error { return errors.New("core registry has no leader") }},
 		{name: "start", run: func(context.Context) error { close(ran); return nil }},
 	}
-	go g.runAfterReady(ctx, steps)
+	done := make(chan struct{})
+	go func() {
+		g.runAfterReady(ctx, steps)
+		close(done)
+	}()
+	// The stuck step retries until ctx ends and reads the backoff as it goes:
+	// stop it and wait, before shortBackoff's cleanup restores the backoff.
+	defer func() {
+		cancel()
+		<-done
+	}()
 	select {
 	case <-ran:
 	case <-time.After(5 * time.Second):

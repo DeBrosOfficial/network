@@ -1,6 +1,6 @@
 module github.com/Orama-Network/orama/core/thirdparty/ipfs-cluster
 
-go 1.27.2
+go 1.27.3
 
 tool github.com/ipfs-cluster/ipfs-cluster/cmd/ipfs-cluster-service
 

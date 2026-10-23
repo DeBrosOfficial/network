@@ -24,6 +24,11 @@ type flakyDriver struct {
 
 func (d *flakyDriver) Open(string) (driver.Conn, error) { return &flakyConn{d: d}, nil }
 
+// Connect and Driver make flakyDriver its own driver.Connector, opened with
+// sql.OpenDB: database/sql's registry refuses the same name twice under -count.
+func (d *flakyDriver) Connect(context.Context) (driver.Conn, error) { return d.Open("") }
+func (d *flakyDriver) Driver() driver.Driver                        { return d }
+
 type flakyConn struct{ d *flakyDriver }
 
 func (c *flakyConn) Prepare(string) (driver.Stmt, error) { return &flakyStmt{d: c.d}, nil }
@@ -59,12 +64,7 @@ func (r *emptyRows) Next(dest []driver.Value) error { return io.EOF }
 
 func registerFlaky(t *testing.T, d *flakyDriver) *sql.DB {
 	t.Helper()
-	name := "flaky-" + t.Name()
-	sql.Register(name, d)
-	db, err := sql.Open(name, "")
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
+	db := sql.OpenDB(d)
 	t.Cleanup(func() { db.Close() })
 	return db
 }

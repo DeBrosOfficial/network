@@ -22,6 +22,8 @@ toolchain="${RUST_TOOLCHAIN:-1.98.1}"
 zig="${ORAMA_ZIG:-zig}"
 out="${OUT:-$chain/build/native}"
 
+# `go list -m` reports no directory for a module missing from the module cache (a clean runner).
+(cd "$chain" && go mod download github.com/CosmWasm/wasmvm/v3)
 wasmvm_dir="$(cd "$chain" && go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3)"
 wasmvm_ver="$(cd "$chain" && go list -m -f '{{.Version}}' github.com/CosmWasm/wasmvm/v3)"
 [ -d "$wasmvm_dir/libwasmvm" ] || { echo "no libwasmvm in $wasmvm_dir" >&2; exit 1; }

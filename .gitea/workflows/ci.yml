@@ -1,14 +1,23 @@
 name: CI
 
+# Not on branch pushes: those are constant and would keep the runners busy for
+# nothing. CI runs on a release tag, on a pull request, and on demand.
 on:
   push:
-    branches:
-      - main
-      - nightly
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
       - nightly
+  workflow_dispatch:
+
+# Each job gets its own tool cache. The runner's act-toolcache volume is shared
+# by every job on a host, and @actions/tool-cache empties a version's directory
+# before filling it, so jobs installing a new Go or Node at the same moment
+# delete each other's files (ENOENT, then a half-installed toolchain).
+env:
+  RUNNER_TOOL_CACHE: /tmp/toolcache
 
 permissions:
   contents: read
@@ -27,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: core/go.sum
 
       - name: Vet
@@ -66,16 +75,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
 
       # native/build.sh builds with this toolchain; the Rust host library of the Orchard verifier,
       # the verifier binary and libwasmvm are built with it so the cgo tests run, not skip.
       - name: Rust toolchain
-        run: |
-          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
-          rustup toolchain install "$toolchain" --profile minimal
-          rustup default "$toolchain"
+        run: .gitea/scripts/setup-rust.sh
 
       - name: Build for the release targets
         run: make -C chain build
@@ -102,7 +108,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
 
       # staticcheck, gosec (high severity, high confidence) and govulncheck over the chain, with
@@ -142,14 +148,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: chain/go.sum
 
       - name: Rust toolchain
-        run: |
-          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
-          rustup toolchain install "$toolchain" --profile minimal --component clippy
-          rustup default "$toolchain"
+        run: .gitea/scripts/setup-rust.sh --component clippy
 
       # orchardffi, orchardverifier-bin, wallet and native (libwasmvm + the Orchard library).
       - name: clippy
@@ -180,17 +183,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: |
             chain/go.sum
             core/go.sum
 
       # The Orchard library (cgo) and the verifier binary are built for the differential targets.
       - name: Rust toolchain
-        run: |
-          toolchain="$(make -s -C chain print-RUST_TOOLCHAIN)"
-          rustup toolchain install "$toolchain" --profile minimal
-          rustup default "$toolchain"
+        run: .gitea/scripts/setup-rust.sh
 
       - name: Fuzz every target
         run: make -C chain fuzz-short
@@ -212,7 +212,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: e2e/go.sum
 
       # The same scan as the fleet scanners feature (TestSecretScan_committedTree), with the same
@@ -231,7 +231,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
           cache-dependency-path: os/agent/go.sum
 
       - name: Vet
@@ -274,7 +274,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9
+          package_json_file: sdk/package.json
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -313,7 +313,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9
+          package_json_file: sdk-vault/package.json
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -143,7 +143,7 @@ handle_stable_release() {
     fi
     
     log "Current branch: nightly"
-    info "Next step: Create PR from nightly → main in GitHub"
+    info "Next step: Create PR from nightly → main in Gitea"
     info "Once PR is merged, this script will create the release tag"
     echo ""
     echo -e "${YELLOW}Have you already merged the PR to main? (yes/no)${NOCOLOR}"
@@ -197,7 +197,7 @@ push_release() {
     echo -e "${CYAN}=== Pushing Release ===${NOCOLOR}"
     log "Pushing tag $tag to origin..."
     echo ""
-    echo -e "${YELLOW}This will trigger GitHub Actions to build and publish the release.${NOCOLOR}"
+    echo -e "${YELLOW}This will trigger Gitea Actions to build and publish the release.${NOCOLOR}"
     read -p "Continue? (yes/no): " confirm_push
     
     if [[ "$confirm_push" != "yes" ]]; then

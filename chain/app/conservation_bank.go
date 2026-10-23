@@ -133,6 +133,7 @@ func sortedDenoms(maps ...map[string]math.Int) []string {
 		}
 	}
 	out := make([]string, 0, len(seen))
+	// nosemgrep: consensus-map-iteration -- keys are collected and sorted before use
 	for denom := range seen {
 		out = append(out, denom)
 	}

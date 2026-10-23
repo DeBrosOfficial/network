@@ -32,7 +32,7 @@ const (
 // modules. A staticcheck installed on the runner is as old as its last
 // install: 2025.1.1 cannot load Go 1.27 code and reported that as findings.
 // It is built from staticcheckModfile, which pins v0.8.1 (staticcheck 2026.2.1,
-// the first release after Go 1.27) with golang.org/x/tools v0.51.0: Go 1.27.2
+// the first release after Go 1.27) with golang.org/x/tools v0.51.0: Go 1.27.3
 // writes export data version 5, which the x/tools that v0.8.1 requires cannot
 // read ("export data version 5 is greater than maximum supported version 4").
 const (

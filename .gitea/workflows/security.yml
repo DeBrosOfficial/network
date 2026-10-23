@@ -1,7 +1,8 @@
 # Orama baseline security CI workflow (orama-specific).
 #
 # Runs supply-chain + vulnerability checks per the Orama baseline rules.
-# Triggers on main pushes/PRs and weekly to catch newly-published CVEs.
+# Triggers on release tags, PRs to main, on demand, and weekly to catch
+# newly-published CVEs. Not on branch pushes.
 #
 
 name: security
@@ -10,11 +11,19 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
   schedule:
     # Weekly scan even on quiet weeks — catches newly-published CVEs
     # in existing dependencies.
     - cron: "0 8 * * 1"
+
+# Each job gets its own tool cache. The runner's act-toolcache volume is shared
+# by every job on a host, and @actions/tool-cache empties a version's directory
+# before filling it, so jobs installing a new Go or Node at the same moment
+# delete each other's files (ENOENT, then a half-installed toolchain).
+env:
+  RUNNER_TOOL_CACHE: /tmp/toolcache
 
 permissions:
   contents: read
@@ -47,7 +56,7 @@ jobs:
 
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9
+          package_json_file: sdk/package.json
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

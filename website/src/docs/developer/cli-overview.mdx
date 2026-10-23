@@ -6,11 +6,16 @@ The pages under "CLI commands" in the sidebar are generated from the command tre
 
 ## Install
 
-There is no Homebrew formula at the moment. Debian and Ubuntu packages and tarballs (`orama_<version>_linux_<arch>.tar.gz`) for macOS and Linux (amd64 and arm64) are on the [releases page](https://git.icxcnika.io/ICXCNIKA/orama/releases):
+There is no Homebrew formula at the moment. On Debian and Ubuntu (amd64 and arm64), install from the Orama apt repository, which every release publishes to:
 
 ```bash
-sudo dpkg -i orama_<version>_linux_amd64.deb
+sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSL https://git.icxcnika.io/api/packages/ICXCNIKA/debian/repository.key -o /etc/apt/keyrings/orama.asc
+echo "deb [signed-by=/etc/apt/keyrings/orama.asc] https://git.icxcnika.io/api/packages/ICXCNIKA/debian stable main" | sudo tee /etc/apt/sources.list.d/orama.list
+sudo apt update && sudo apt install orama
 ```
+
+`stable` carries releases; prereleases (a version with a `-suffix`) go to `nightly` instead. The same `.deb` files and tarballs (`orama_<version>_<os>_<arch>.tar.gz`) for macOS and Linux (amd64 and arm64) are on the [releases page](https://git.icxcnika.io/ICXCNIKA/orama/releases).
 
 From source, in a checkout of the repository:
 

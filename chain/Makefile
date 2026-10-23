@@ -19,8 +19,10 @@ BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 
 # Static cross-compiles pass -tags nowasm. They do not link libwasmvm and do not include CosmWasm.
 # The default host build (build-wasm, and `go test` without -tags nowasm when cgo is on) links
-# github.com/CosmWasm/wasmvm/v3 v3.0.7's libwasmvm when that library is present.
-WASMVM_DIR := $(shell go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3 2>/dev/null)
+# github.com/CosmWasm/wasmvm/v3 v3.0.7's libwasmvm when that library is present. `go list -m`
+# reports no directory for a module that is not in the module cache yet (a clean runner), so the
+# module is downloaded first; with a warm cache the download is a local check.
+WASMVM_DIR := $(shell go mod download github.com/CosmWasm/wasmvm/v3 && go list -m -f '{{.Dir}}' github.com/CosmWasm/wasmvm/v3)
 LIBWASMVM := $(firstword $(wildcard $(WASMVM_DIR)/internal/api/libwasmvm.dylib $(WASMVM_DIR)/internal/api/libwasmvm.aarch64.so $(WASMVM_DIR)/internal/api/libwasmvm.x86_64.so))
 
 .PHONY: bench bench-baseline bench-compare bench-load build build-linux-amd64-full build-linux-amd64-global build-linux-amd64-orchard build-wasm chain-sim chain-test contracts-verify lint localnet localnet-clean localnet-stop native-lib-linux-amd64 orchard-lib orchard-lib-linux-amd64 orchard-smoke orchard-smoke-linux-amd64 orchard-test orchard-verifier orchard-verifier-linux-amd64 proto-emission proto-fees proto-houses proto-nodes proto-power proto-relay proto-shielded test upgrade-check

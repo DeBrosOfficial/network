@@ -1,6 +1,6 @@
 module github.com/Orama-Network/orama/e2e
 
-go 1.27.2
+go 1.27.3
 
 replace github.com/Orama-Network/orama/core => ../core
 

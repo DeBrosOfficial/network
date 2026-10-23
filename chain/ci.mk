@@ -54,7 +54,8 @@ CLIPPY_ALLOW := -A clippy::manual_is_multiple_of -A clippy::chunks_exact_to_as_c
 # Advisories cargo-audit ignores. The list and the reasons are in deny.toml; keep both in step.
 RUST_AUDIT_IGNORE := RUSTSEC-2026-0007 RUSTSEC-2026-0001 RUSTSEC-2026-0233 RUSTSEC-2026-0234 \
 	RUSTSEC-2026-0235 RUSTSEC-2026-0204 RUSTSEC-2026-0009 RUSTSEC-2026-0067 RUSTSEC-2026-0068 \
-	RUSTSEC-2026-0285 RUSTSEC-2026-0049 RUSTSEC-2026-0098 RUSTSEC-2026-0099 RUSTSEC-2026-0104
+	RUSTSEC-2026-0285 RUSTSEC-2026-0049 RUSTSEC-2026-0098 RUSTSEC-2026-0099 RUSTSEC-2026-0104 \
+	RUSTSEC-2026-0346 RUSTSEC-2026-0348 RUSTSEC-2026-0349 RUSTSEC-2026-0382 RUSTSEC-2026-0381 RUSTSEC-2026-0344
 
 # The state-machine packages the consensus rules (.semgrep/consensus.yml) apply to.
 SEMGREP_SCOPE := app $(wildcard x/*/keeper) $(wildcard x/*/types) $(wildcard x/*/ante) x/inclusion
@@ -116,7 +117,10 @@ ci-nightly: nilaway mutation rust-miri rust-asan fuzz-long rust-fuzz
 
 ## wasmvm-lib: build libwasmvm from the source in the Go module cache (the version go.mod pins,
 ## checked against go.sum) into build/wasmvm, so the cgo tests that run CosmWasm do not need a
-## downloaded binary. Pair with -tags sys_wasmvm and CGO_LDFLAGS=-L$(WASMVM_OUT).
+## downloaded binary. Pair with -tags sys_wasmvm and CGO_LDFLAGS=-L$(WASMVM_OUT). On Linux the
+## copy gets native/src/probestack.rs, the same __rust_probestack the release library links: with
+## RUST_TOOLCHAIN's compiler_builtins the symbol wasmer_vm calls is otherwise undefined and every
+## test binary fails to link.
 WASMVM_OUT := $(CURDIR)/$(BUILD_DIR)/wasmvm
 WASMVM_SO := $(if $(filter darwin,$(HOST_GOOS)),libwasmvm.dylib,libwasmvm.so)
 wasmvm-lib:
@@ -124,6 +128,10 @@ wasmvm-lib:
 	mkdir -p $(WASMVM_OUT)
 	cp -R $(WASMVM_DIR)/libwasmvm $(WASMVM_OUT)/src
 	chmod -R u+w $(WASMVM_OUT)/src
+ifeq ($(HOST_GOOS),linux)
+	cp native/src/probestack.rs $(WASMVM_OUT)/src/src/orama_probestack.rs
+	printf '\nmod orama_probestack;\n' >> $(WASMVM_OUT)/src/src/lib.rs
+endif
 	cd $(WASMVM_OUT)/src && cargo +$(RUST_TOOLCHAIN) build --release --locked
 	cp $(WASMVM_OUT)/src/target/release/$(WASMVM_SO) $(WASMVM_OUT)/$(WASMVM_SO)
 

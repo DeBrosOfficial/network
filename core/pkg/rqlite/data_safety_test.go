@@ -140,11 +140,11 @@ func TestGetPersistedRaftLogIndex_unreadableMetaIsUnknown(t *testing.T) {
 		Index uint64 `json:"Index"`
 	}{Index: 7})
 
-	metaPath := filepath.Join(dir, raftSnapshotsDir, "snap-1", "meta.json")
-	if err := os.Chmod(metaPath, 0o000); err != nil {
-		t.Skipf("cannot make the file unreadable here: %v", err)
+	// meta.json is a directory, which no one can read as a file: a mode of
+	// 000 would not stop the root that CI runs as.
+	if err := os.MkdirAll(filepath.Join(dir, raftSnapshotsDir, "snap-2", "meta.json"), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(metaPath, 0o644) })
 
 	if _, known := r.getPersistedRaftLogIndex(); known {
 		t.Fatal("an unreadable snapshot reported a known index")
