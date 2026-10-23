@@ -48,7 +48,7 @@ Every request carries `Authorization: Bearer <token>` and nothing else. A config
 
 ### The request pipeline
 
-The loop retries only statuses the gateway returned, and only when a repeat is safe: the gateway's `retryable` verdict when it gave one (so never a function that ran past its timeout, `FUNCTION_TIMEOUT`), otherwise an idempotent method, a read sent as `POST`, or a 429, which the gateway answers before doing any work. A write answered 5xx with no verdict may already have landed and goes back to the caller. It waits as long as the `Retry-After` header asks (capped at 30 s) or about 1, 2 and 3 s with up to 25% jitter. Transport failures are not retried, a cancel is final, and the 60 s timeout covers the whole call including retries. Failures become typed errors, and `httpStatus` 0 marks "no HTTP response". Error codes and grants are constants checked by tests against the gateway's Go sources. Neither client chooses between gateways: the URL names the namespace, and failover is the application's job through an `onNetworkError` hook.
+The loop retries only statuses the gateway returned, and only when a repeat is safe: the gateway's `retryable` verdict if given (never for `FUNCTION_TIMEOUT`), else an idempotent method, a read sent as `POST`, or a 429. A write answered 5xx with no verdict goes back to the caller. It waits for `Retry-After` (capped at 30 s) or about 1, 2 and 3 s with up to 25% jitter. Transport failures are not retried, a cancel is final, and the 60 s timeout covers the whole call including retries. Failures become typed errors, and `httpStatus` 0 marks "no HTTP response". Error codes and grants are constants checked by tests against the gateway's Go sources. Neither client chooses between gateways: the URL names the namespace, and failover is the application's job through an `onNetworkError` hook.
 
 ### WebSockets, storage and relayed fetch
 
@@ -72,4 +72,4 @@ Fixtures under `contracts/` pair each route's request, response and SDK call. A 
 
 A stolen laptop disk yields a session the gateway can revoke, not the fleet, since the seed and node keys stay in the vault. A browser bundle holds whatever credential it is given, so the SDK sends a long-lived key only once per 15 min.
 
-The limit that matters most is that a write the SDK did not resend has an unknown outcome: a `POST` answered 500, 502, 503 or 504 with no `retryable` verdict may have landed. The gateway has no idempotency keys, so an application that resends a write needs that write to be idempotent.
+The limit that matters most is that a write the SDK did not resend has an unknown outcome: a `POST` answered 5xx with no `retryable` verdict may have landed. The gateway has no idempotency keys, so a resent write must be idempotent.
