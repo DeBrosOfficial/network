@@ -219,7 +219,8 @@ bump:
 	@printf '%s\n' "$(VER)" > pkg/version/version.txt
 	@cd ../sdk && npm version $(VER) --no-git-tag-version > /dev/null
 	@cd ../sdk-vault && npm version $(VER) --no-git-tag-version > /dev/null
-	@echo "Bumped VERSION, pkg/version/version.txt, sdk/package.json and sdk-vault/package.json to $(VER)"
+	@$(MAKE) --no-print-directory docs > /dev/null
+	@echo "Bumped VERSION, pkg/version/version.txt, sdk/package.json and sdk-vault/package.json to $(VER), and regenerated the CLI reference (its defaults name the version)"
 	@echo "Next: re-verify the Technical Reference against $(VER) and stamp it; make whitepaper-check fails until you do"
 	@echo "      (docs/whitepaper/technical-reference/README.md, Releasing)"
 	@echo "Then: git add ../VERSION pkg/version/version.txt ../sdk/package.json ../sdk-vault/package.json ../docs/whitepaper/technical-reference && git commit -m 'release: $(VER)'"
