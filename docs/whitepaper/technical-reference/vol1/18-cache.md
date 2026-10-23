@@ -40,7 +40,7 @@ The constant is called `OlricHTTPPort` and the config key `server.bindPort`, but
 | DMap | Name | Written by | Notes |
 |---|---|---|---|
 | Tenant REST cache | `gateway_cache:<namespace>` | `/v1/cache/*` handlers | every tenant `dmap` folded into the key |
-| Serverless cache | `:serverless_cache:<namespace>` | `cache_get`, `cache_set`, `cache_delete`, `cache_incr` host functions | keys as given by the function |
+| Serverless cache | `:serverless_cache:<namespace>` | `cache_get`, `cache_set`, `cache_delete`, `cache_incr`, `cache_incr_by`, `cache_incr_ttl` host functions | keys as given by the function |
 | Dispatch dedup | `pubsub_dispatch_dedup` | trigger dispatcher | NX claim, 30 s TTL |
 | Publish depth | `pubsub_publish_depth` | trigger dispatcher | loop-guard records, 30 s TTL |
 | Health | `_health_check` | the gateway's Olric client probe | a key per probe, deleted at once |

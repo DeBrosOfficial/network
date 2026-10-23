@@ -531,6 +531,9 @@ type HostServices interface {
 	CacheDelete(ctx context.Context, key string) error
 	CacheIncr(ctx context.Context, key string) (int64, error)
 	CacheIncrBy(ctx context.Context, key string, delta int64) (int64, error)
+	// CacheIncrByTTL is CacheIncrBy that gives the counter an expiry of
+	// ttlSeconds when the call creates it; an existing counter keeps its own.
+	CacheIncrByTTL(ctx context.Context, key string, delta, ttlSeconds int64) (int64, error)
 
 	// Storage operations
 	StoragePut(ctx context.Context, data []byte) (string, error)

@@ -148,6 +148,8 @@ func dispatchData(req request) any {
 		return map[string]any{"deleted": cacheDelete(ptr(req.Key), size(req.Key))}
 	case "cache_incr":
 		return map[string]any{"value": cacheIncrBy(ptr(req.Key), size(req.Key), req.Delta)}
+	case "cache_incr_ttl":
+		return map[string]any{"value": cacheIncrTTL(ptr(req.Key), size(req.Key), req.Delta, req.TTL)}
 	}
 	return dispatchNet(req)
 }

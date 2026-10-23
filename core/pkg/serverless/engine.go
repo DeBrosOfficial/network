@@ -951,6 +951,7 @@ func (e *Engine) registerHostModule(ctx context.Context) error {
 			NewFunctionBuilder().WithFunc(e.hCacheDelete).Export("cache_delete").
 			NewFunctionBuilder().WithFunc(e.hCacheIncr).Export("cache_incr").
 			NewFunctionBuilder().WithFunc(e.hCacheIncrBy).Export("cache_incr_by").
+			NewFunctionBuilder().WithFunc(e.hCacheIncrTTL).Export("cache_incr_ttl").
 			NewFunctionBuilder().WithFunc(e.hHTTPFetch).Export("http_fetch").
 			NewFunctionBuilder().WithFunc(e.hAnonFetch).Export(AnonFetchExport).
 			NewFunctionBuilder().WithFunc(e.hAnonFetch).Export(AnyoneFetchDeprecatedExport).
@@ -1179,6 +1180,28 @@ func (e *Engine) hCacheIncrBy(ctx context.Context, mod api.Module, keyPtr, keyLe
 	val, err := e.hostServices.CacheIncrBy(ctx, string(key), delta)
 	if err != nil {
 		e.logger.Error("host function cache_incr_by failed", zap.Error(err), zap.String("key", logSafeKey(key)), zap.Int64("delta", delta))
+		return 0
+	}
+	return val
+}
+
+// hCacheIncrTTL is cache_incr_by for a counter that must expire: the counter
+// expires ttl seconds after the call that creates it (bugboard #741). It is a
+// new export rather than a parameter on cache_incr_by because a deployed
+// module's import signature is fixed.
+func (e *Engine) hCacheIncrTTL(ctx context.Context, mod api.Module, keyPtr, keyLen uint32, delta, ttl int64) int64 {
+	key, ok := e.executor.ReadFromGuest(mod, keyPtr, keyLen)
+	if !ok {
+		return 0
+	}
+	val, err := e.hostServices.CacheIncrByTTL(ctx, string(key), delta, ttl)
+	if err != nil {
+		fields := []zap.Field{zap.Error(err), zap.String("key", logSafeKey(key)), zap.Int64("delta", delta), zap.Int64("ttl_seconds", ttl)}
+		if errors.Is(err, ErrInvalidCacheTTL) {
+			e.logger.Warn("host function cache_incr_ttl refused its ttl", fields...)
+			return 0
+		}
+		e.logger.Error("host function cache_incr_ttl failed", fields...)
 		return 0
 	}
 	return val

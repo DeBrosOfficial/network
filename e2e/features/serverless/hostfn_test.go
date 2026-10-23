@@ -129,7 +129,7 @@ const unresolvableHost = "orama-e2e-fetch.invalid"
 
 // TestHostCache_atomicsAndTTL: cache_incr is atomic under concurrent
 // invocations; set/get/delete round-trip; a TTL expires; a negative TTL is
-// refused (website/src/docs/developer/functions.mdx#cache-olric-distributed-cache).
+// refused; a cache_incr_ttl counter expires (website/src/docs/developer/functions.mdx#cache-olric-distributed-cache).
 //
 // Every increment's reply is checked. A call the edge refused (a 503 from an
 // open circuit) never ran, so it is reported as a refusal and not left to show
@@ -178,6 +178,25 @@ func TestHostCache_atomicsAndTTL(t *testing.T) {
 	eventually.Require(t, time.Second, cacheBudget, "a 2s entry to expire", func() (bool, error) {
 		return call(t, fx, fn, map[string]any{"op": "cache_get", "key": "short"})["value"] == "", nil
 	})
+
+	// A time-bucketed counter (bugboard #741): cache_incr_ttl creates it with
+	// its expiry, a later call counts on without moving it, and once it has
+	// expired the next call starts a new counter.
+	bucket := "e2e-bucket-" + fx.n.Name
+	for want := 1; want <= 2; want++ {
+		if got := call(t, fx, fn, map[string]any{"op": "cache_incr_ttl", "key": bucket, "delta": 1, "ttl": 2})["value"]; got != float64(want) {
+			t.Errorf("cache_incr_ttl call %d returned %v, want %d", want, got, want)
+		}
+	}
+	eventually.Require(t, time.Second, cacheBudget, "a counter cache_incr_ttl created with a 2s ttl to expire", func() (bool, error) {
+		return call(t, fx, fn, map[string]any{"op": "cache_get", "key": bucket})["value"] == "", nil
+	})
+	if got := call(t, fx, fn, map[string]any{"op": "cache_incr_ttl", "key": bucket, "delta": 5, "ttl": 60})["value"]; got != float64(5) {
+		t.Errorf("cache_incr_ttl after the counter expired returned %v, want a new counter at 5", got)
+	}
+	if got := call(t, fx, fn, map[string]any{"op": "cache_incr_ttl", "key": "refused", "delta": 1, "ttl": -1})["value"]; got != float64(0) {
+		t.Errorf("cache_incr_ttl with a negative ttl returned %v, want 0 (refused)", got)
+	}
 }
 
 // incrementsThatRan reports every increment that did not get a 200 and returns,

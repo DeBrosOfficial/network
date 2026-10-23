@@ -244,10 +244,13 @@ curl -X POST https://ns-myapp.example.com/v1/functions \
 orama function list
 orama function get my-function
 orama function versions my-function
+orama function list --all
+orama function rollback my-function 2
 orama function logs my-function --limit 100
 orama function disable my-function
 orama function enable my-function
 orama function delete my-function --force
+orama function delete my-function --purge --force
 ```
 
 ## Host Functions API
@@ -556,6 +559,7 @@ bound. Any other `consistency` value is refused.
 | `cache_delete(key)` → u32 | Remove a key. Returns 1 when the key is gone afterwards (including when it was never set), 0 on failure. The only way to clear a no-expiry entry. Requires gateway 0.200.0 or later on every node of the namespace: wazero resolves imports at instantiation, so a function importing it fails every invocation on an older gateway. |
 | `cache_incr(key)` → int64 | Atomically increment by 1 (init to 0 if missing). Returns the new value, or 0 on failure. |
 | `cache_incr_by(key, delta)` → int64 | Atomically increment by `delta` (may be negative). Same return. |
+| `cache_incr_ttl(key, delta, ttl)` → int64 | `cache_incr_by` for a counter that must expire: a call that creates the counter gives it an expiry of `ttl` seconds; an existing counter keeps the expiry it has. `ttl` follows `cache_set` (`0` is no expiry, negative or longer than 10 years is refused and returns 0). Same return. Requires gateway 0.3.5 or later on every node of the namespace, for the same reason as `cache_delete`. |
 
 Each namespace has its own cache map (`:serverless_cache:<namespace>`), so a
 function reaches only its own namespace's keys, whichever Olric the gateway
@@ -563,18 +567,22 @@ running it talks to. The cache
 host functions need an invocation, so they are unavailable while a warm-pool
 (stateless) reactor module runs `_initialize`; call them from `handle()`.
 
-**Counter guarantees.** `cache_incr` and `cache_incr_by` are one call to Olric's
-atomic `Incr` on the key's partition owner, under a per-key lock; nothing reads
-the value and writes it back. So:
+**Counter guarantees.** `cache_incr`, `cache_incr_by` and `cache_incr_ttl` count
+with one call to Olric's atomic `Incr` on the key's partition owner, under a
+per-key lock; nothing reads the value and writes it back. So:
 
 - Concurrent increments from any number of invocations, on any number of the
   namespace's gateways, are all counted, and each returns a distinct value: `n`
   increments of 1 on a new key return `1..n`, each once.
-- An increment never sets or changes an expiry. A counter an increment created
-  has none (clear it with `cache_delete`); a counter `cache_set` stored with a
-  `ttl` keeps that deadline through increments, and once it expires the next
-  increment starts again from 0. To count in a window, `cache_set` the key with
-  the window as its `ttl` first; do not expect `cache_incr` to start the clock.
+- An increment never changes an existing expiry. A counter `cache_incr` or
+  `cache_incr_by` created has none (clear it with `cache_delete`); a counter
+  `cache_set` or `cache_incr_ttl` gave a `ttl` keeps that deadline through
+  increments, and once it expires the next increment starts again from 0.
+- To count in a window, use `cache_incr_ttl` with a key per window, for example
+  `rl:<wallet>:<minute>` with `ttl` 60: the first call of the window creates the
+  counter with its expiry already set (before it is incremented, so no reader
+  sees it without one), every later call in the window counts on, and the key
+  is gone a minute after it was created, so per-caller buckets do not pile up.
 - A value that is missing, expired or not a number counts as 0 and is replaced
   by the result. `cache_get` on a counter returns its decimal text.
 - A failed call returns 0 to the function and is not retried by the platform.
@@ -899,24 +907,50 @@ in **RQLite**, one `functions` row per version, keyed `(namespace, name, version
 # List versions
 orama function versions my-function
 
-# Invoke a specific version
-curl -X POST .../v1/functions/my-function@2/invoke
+# Every version row of every function, whatever its status
+orama function list --all
+
+# Make version 2 the current version again
+orama function rollback my-function 2
 ```
 
-- The **current** version is the highest version that is active. Invoking, the
-  WebSocket, `function list` and a trigger that fires all use it; `name@N` runs
-  exactly version N and answers 404 `function version not found` when N does not
-  exist, was pruned or is disabled.
-- Triggers (cron, pub/sub, database) follow the current version: a deploy moves
-  them to the new row.
+- Only the **current** version of a function is invoked. Invoking, the
+  WebSocket, `function list` and a trigger that fires all use it. A deploy makes
+  the new version current and marks the one it replaces `superseded`.
+- `name@N` answers only when N is the current version. A superseded version
+  answers 404 with code `FUNCTION_VERSION_SUPERSEDED`. A version that does not
+  exist, was pruned, is disabled or was deleted answers 404 `NOT_FOUND`
+  (`function version not found`). Each WebSocket frame sent to `name@N` of a
+  superseded version gets the same code.
+- `rollback <name> <version>` is how an earlier version runs again. That
+  version becomes current, the one it replaces becomes superseded, and the
+  function's triggers move to it. Rolling back a disabled function serves the
+  version you name. A deleted or pruned version cannot be rolled back to (404).
+  The next deploy is current again and takes the next version number.
+- Triggers (cron, pub/sub, database) follow the current version: a deploy or a
+  rollback moves them to that row.
 - The last **10** versions are kept. A deploy past that removes the oldest; its
   invocation history stays readable under the function's name.
-- `delete` without a version, `disable` and `enable` act on every version of the
-  function. A deleted function's versions are no longer invocable, and the next
-  deploy continues the numbering. A function deleted by a release before this
-  one carries status `inactive`, the same status `disable` sets, so `enable`
-  cannot tell it from a disabled function and brings it back; only deletes made
-  with this release or later are protected from `enable`.
+- `disable` and `enable` act on the current version, so a disabled function
+  runs nothing, and `enable` never brings back a superseded or deleted version.
+- `delete` marks every version deleted, or with `--version N` only that one.
+  A deleted version is never invoked again and cannot be enabled or rolled back
+  to. Its row stays, so `list --all` still shows it and the next deploy
+  continues the numbering. Deleting the current version by number leaves the
+  function with no current version until you roll back.
+- `delete --purge` removes the rows for good: every version (or the one named
+  with `--version`), with its environment variables, triggers, invocation
+  history, logs and jobs. Only the namespace's owner or an admin can purge; a
+  developer gets 403. The namespace's secrets are shared by all its functions
+  and stay. Purging the current version leaves the function with no current
+  version until you roll back. After a purge of the whole function, the next
+  deploy starts again at version 1. The WASM stays pinned in the cluster's
+  IPFS. Function WASM is sealed under the cluster key, and the cluster cannot
+  yet tell whether another namespace deployed the same bytes, so it is never
+  unpinned.
+- Rows that predate this behaviour are brought in line when the gateway
+  upgrades (migration `086`). Of each function's versions that can run, the
+  highest keeps its status and every lower one becomes superseded.
 
 ### Invocation Logging
 
@@ -943,7 +977,10 @@ is generated from the command tree.
 | `orama function invoke <name> --data <json>` | Invoke a function |
 | `orama function list` | List deployed functions |
 | `orama function get <name>` | Get function details |
-| `orama function delete <name>` | Delete a function |
+| `orama function list --all` | List every version row, including disabled, superseded and deleted ones |
+| `orama function delete <name>` | Delete a function (`--version N` for one version) |
+| `orama function delete <name> --purge` | Remove a function's rows, triggers and history for good (owner or admin) |
+| `orama function rollback <name> <version>` | Make an earlier version the current one |
 | `orama function logs <name>` | View invocation logs |
 | `orama function versions <name>` | List function versions |
 | `orama function disable <name>` | Stop serving a function without deleting it |
@@ -960,9 +997,10 @@ is generated from the command tree.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/v1/functions` | Deploy function (multipart/form-data) |
-| GET | `/v1/functions` | List functions |
+| GET | `/v1/functions` | List functions (`?all=true`: every version row, whatever its status) |
 | GET | `/v1/functions/{name}` | Get function info |
-| DELETE | `/v1/functions/{name}` | Delete function |
+| DELETE | `/v1/functions/{name}[@{version}]` | Delete function, or one version (`?purge=true`: remove for good; owner or admin) |
+| POST | `/v1/functions/{name}@{version}/rollback` | Make that version the current one |
 | POST | `/v1/functions/{name}/invoke` | Invoke function |
 | GET | `/v1/functions/{name}/versions` | List versions |
 | GET | `/v1/functions/{name}/logs` | Get logs |

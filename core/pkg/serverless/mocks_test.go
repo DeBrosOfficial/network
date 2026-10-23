@@ -192,6 +192,10 @@ func (m *MockHostServices) CacheIncrBy(ctx context.Context, key string, delta in
 	return newValue, nil
 }
 
+func (m *MockHostServices) CacheIncrByTTL(ctx context.Context, key string, delta, _ int64) (int64, error) {
+	return m.CacheIncrBy(ctx, key, delta)
+}
+
 func (m *MockHostServices) StoragePut(ctx context.Context, data []byte) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
