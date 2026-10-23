@@ -137,6 +137,10 @@ software keys: `testtuf init -dir D`, `testtuf publish -dir D -channel stable
 -archive orama-0.3.1-linux-amd64.tar.gz`, and `testtuf refresh -dir D` before the
 timestamp (7 days by default) expires. Serve `D/repo` over HTTPS and give
 operators `D/repo/root.json`. Never adopt a test root on a production cluster.
+The testnet's repository (`test-releases.orama.network`) keeps `D` on its release
+host and refreshes itself daily with `website/deploy/test-releases-refresh.timer`:
+whoever controls that host can sign test releases for testnet nodes, which a
+test root accepts and a production root never does.
 A root changes through the repository's numbered root files (each signed by the
 previous root's keys, which a node following the repository walks), through
 `add-root --replace`, or through a new signed archive.
