@@ -1,7 +1,8 @@
 export { NetworkClient } from "./client";
 export type {
-  PeerInfo,
   NetworkStatus,
+  IPFSPeerInfo,
+  IPFSClusterPeerInfo,
   ProxyRequest,
   ProxyResponse,
 } from "./client";

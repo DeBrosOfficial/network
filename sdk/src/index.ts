@@ -141,8 +141,9 @@ export type {
 } from "./pubsub/types";
 export { type PubSubMessage } from "./pubsub/types";
 export type {
-  PeerInfo,
   NetworkStatus,
+  IPFSPeerInfo,
+  IPFSClusterPeerInfo,
   ProxyRequest,
   ProxyResponse,
 } from "./network/client";

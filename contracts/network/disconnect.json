@@ -1,0 +1,18 @@
+{
+  "route": "/v1/network/disconnect",
+  "method": "POST",
+  "sdk": "network.disconnect()",
+  "goStruct": "gateway.networkDisconnectRequest",
+  "call": {
+    "module": "network",
+    "method": "disconnect",
+    "args": ["12D3KooWGzBLmKGtJ4TJ7XFUH8uPEM1L6Nwrn4UtqFLy3RqvQoHb"]
+  },
+  "request": {
+    "peer_id": "12D3KooWGzBLmKGtJ4TJ7XFUH8uPEM1L6Nwrn4UtqFLy3RqvQoHb"
+  },
+  "response": {
+    "status": "ok"
+  },
+  "returns": null
+}

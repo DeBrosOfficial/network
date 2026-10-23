@@ -135,15 +135,25 @@ func writeNetworkMutationError(w http.ResponseWriter, err error) {
 	}
 }
 
+// networkConnectRequest is the body of POST /v1/network/connect, the one the
+// TypeScript SDK's network.connect sends (contracts/network/connect.json).
+type networkConnectRequest struct {
+	Multiaddr string `json:"multiaddr"`
+}
+
+// networkDisconnectRequest is the body of POST /v1/network/disconnect
+// (contracts/network/disconnect.json).
+type networkDisconnectRequest struct {
+	PeerID string `json:"peer_id"`
+}
+
 // networkConnectHandler handles POST /v1/network/connect.
 // It connects to a peer specified by multiaddr.
 func (g *Gateway) networkConnectHandler(w http.ResponseWriter, r *http.Request) {
 	if !g.authorizeNetworkMutation(w, r) {
 		return
 	}
-	var body struct {
-		Multiaddr string `json:"multiaddr"`
-	}
+	var body networkConnectRequest
 	if !decodeNetworkMutationBody(w, r, &body, "multiaddr") {
 		return
 	}
@@ -168,9 +178,7 @@ func (g *Gateway) networkDisconnectHandler(w http.ResponseWriter, r *http.Reques
 	if !g.authorizeNetworkMutation(w, r) {
 		return
 	}
-	var body struct {
-		PeerID string `json:"peer_id"`
-	}
+	var body networkDisconnectRequest
 	if !decodeNetworkMutationBody(w, r, &body, "peer_id") {
 		return
 	}

@@ -319,7 +319,7 @@ Errors:
 
 ## Network
 
-`client.network` has `health`, `status`, `peers`, `connect`, `disconnect` and `proxyAnon` (the Tor anonymity proxy; see [Tor](/docs/privacy/tor)).
+`client.network` has `health`, `status`, `peers`, `connect`, `disconnect` and `proxyAnon` (the Tor anonymity proxy; see [Tor](/docs/privacy/tor)). `status()` resolves to the gateway's `NetworkStatus` (node and peer id, connection state, peer count, uptime in nanoseconds, and the node's IPFS and IPFS Cluster identities when they answer). `peers()` resolves to multiaddr strings: a `/p2p/<peer id>` entry for each peer, then its addresses. `connect(multiaddr)` sends `{multiaddr}` (`/ip4/<ip>/tcp/<port>/p2p/<peer id>`) and `disconnect(peerId)` sends `{peer_id}`; both are an operator's, so anyone else gets a `ScopeError` with code `NOT_AN_OPERATOR` (`AuthCode.OperatorRequired`, 403).
 
 ## Cancelling work
 

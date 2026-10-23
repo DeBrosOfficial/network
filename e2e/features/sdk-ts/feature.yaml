@@ -5,7 +5,8 @@
 # list and device link pending, storage getBinary, db Repository and
 # dropTable, functions.invoke not-found, the chain read proxy, every key
 # profile minted with exactly the SDK's scopes, the workload client's
-# refusals, a WebSocket closed when its session ends), each vitest test
+# refusals, a WebSocket closed when its session ends, network connect and
+# disconnect refused to an owner who is not an operator), each vitest test
 # reported as a Go subtest. Needs node and pnpm on the runner and sdk/
 # installed; without them the package is not applicable (not covered).
 id: sdk-ts
@@ -29,7 +30,10 @@ covers:
     - /v1/pubsub/ws
     - /v1/namespace/keys
     - /v1/namespace/keys/
+    - /v1/network/connect
+    - /v1/network/disconnect
   claims:
     - "website/src/docs/developer/sdk-reference.mdx: the SDK's methods work against a live gateway with a namespace session"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md: ending a session closes the sockets its tokens hold open within ten seconds"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md: the chain proxy is read-only and refuses every other path"
+    - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#network-and-proxy: client.network.connect and disconnect reach the operator-only routes and a non-operator owner is NOT_AN_OPERATOR"
