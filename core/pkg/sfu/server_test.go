@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/sfu/ctrlauth"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 	"github.com/gorilla/websocket"
 )
 
@@ -138,6 +139,10 @@ func TestCredentialRefresh_sendsRefreshCredentialsFrame(t *testing.T) {
 			}
 			if initial != 1 {
 				t.Fatalf("saw %d turn-credentials frames before the refresh, want exactly 1", initial)
+			}
+			// bugboard #391: the credential names the participant, u1.
+			if want := ":" + cfg.Namespace + ":" + turn.SubjectID(cfg.TURNSecret, "u1"); !strings.HasSuffix(got.Username, want) {
+				t.Fatalf("refreshed username %q does not end with %q", got.Username, want)
 			}
 			return
 		}

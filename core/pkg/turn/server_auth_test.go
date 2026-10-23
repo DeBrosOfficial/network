@@ -1,6 +1,7 @@
 package turn
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -70,22 +71,30 @@ func allocateWith(t *testing.T, srv *Server, username, password string) error {
 
 func TestServer_allocateWithValidCredentials(t *testing.T) {
 	srv := startAuthTestServer(t)
-	user, pass := GenerateCredentials(authTestSecret, authTestNamespace, time.Hour)
+	user, pass := mustCredentials(t, authTestNamespace, time.Hour)
 	if err := allocateWith(t, srv, user, pass); err != nil {
 		t.Fatalf("Allocate with valid credentials: %v", err)
+	}
+	// bugboard #391: during the transition a credential from the release
+	// before subjects still allocates.
+	legacy := fmt.Sprintf("%d:%s", time.Now().Add(time.Hour).Unix(), authTestNamespace)
+	if err := allocateWith(t, srv, legacy, GeneratePassword(authTestSecret, legacy)); err != nil {
+		t.Fatalf("Allocate with a two-field credential: %v", err)
 	}
 }
 
 func TestServer_allocateRejectsBadCredentials(t *testing.T) {
 	srv := startAuthTestServer(t)
-	validUser, _ := GenerateCredentials(authTestSecret, authTestNamespace, time.Hour)
-	expiredUser, expiredPass := GenerateCredentials(authTestSecret, authTestNamespace, -time.Hour)
-	otherUser, otherPass := GenerateCredentials(authTestSecret, "other-ns", time.Hour)
+	validUser, _ := mustCredentials(t, authTestNamespace, time.Hour)
+	expiredUser, expiredPass := mustCredentials(t, authTestNamespace, -time.Hour)
+	otherUser, otherPass := mustCredentials(t, "other-ns", time.Hour)
+	_, bobPass := mustCredentials(t, authTestNamespace, time.Hour, "0xbob")
 
 	tests := []struct {
 		name, user, pass string
 	}{
 		{"wrong password", validUser, "not-the-password"},
+		{"another subject's password", validUser, bobPass},
 		{"expired credential", expiredUser, expiredPass},
 		{"namespace this server does not serve", otherUser, otherPass},
 		{"malformed username", "no-colon", "x"},
@@ -97,4 +106,19 @@ func TestServer_allocateRejectsBadCredentials(t *testing.T) {
 			}
 		})
 	}
+}
+
+// mustCredentials mints a credential in namespace for subject, 0xalice when
+// none is named.
+func mustCredentials(t *testing.T, namespace string, ttl time.Duration, subject ...string) (string, string) {
+	t.Helper()
+	who := "0xalice"
+	if len(subject) > 0 {
+		who = subject[0]
+	}
+	user, pass, err := GenerateCredentials(authTestSecret, namespace, who, ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return user, pass
 }

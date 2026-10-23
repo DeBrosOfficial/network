@@ -49,6 +49,7 @@ covers:
     - "website/src/docs/operator/webrtc-operations.mdx#room-placement: every peer of a room reaches the room's one SFU whichever node's gateway it connects through (1:1 and group calls across three gateways)"
     - "website/src/docs/operator/webrtc-operations.mdx#turn-topology: one shared TURN per host; turn.yaml is 0600; isolation is the per-tenant secret; relays from 49152-65535"
     - "website/src/docs/developer/webrtc.mdx#turn-credential-protocol: REST credentials last 24 h; SFU credentials 600 s refreshed at 80%"
+    - "website/src/docs/developer/webrtc.mdx#turn-credential-protocol: a credential is <expiry>:<namespace>:<subject id>, the subject id differs per user, one user's password does not authenticate another's subject, and a two-field credential of the previous release still allocates during the transition"
     - "website/src/docs/developer/webrtc.mdx#turn-credential-protocol: the SFU's own relay credential lasts 24 h and is swapped before it expires, so a call outlives the 600 s signalled credential and the allocation lifetime after it"
     - "website/src/docs/developer/webrtc.mdx#negotiation-offer-glare-and-the-polite-sfu: a client offer that crosses the SFU's own is answered, not refused (no offer_failed), and both directions carry media"
     - "website/src/docs/developer/webrtc.mdx#keyframes-plifir: a subscriber's PLI on a video track is relayed to the track's publisher"

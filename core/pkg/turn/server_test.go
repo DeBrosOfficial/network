@@ -1,7 +1,10 @@
 package turn
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -11,7 +14,10 @@ func TestGenerateCredentials(t *testing.T) {
 	namespace := "test-namespace"
 	ttl := 10 * time.Minute
 
-	username, password := GenerateCredentials(secret, namespace, ttl)
+	username, password, err := GenerateCredentials(secret, namespace, "0xalice", ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if username == "" {
 		t.Fatal("username should not be empty")
@@ -20,16 +26,23 @@ func TestGenerateCredentials(t *testing.T) {
 		t.Fatal("password should not be empty")
 	}
 
-	// Username should be "{timestamp}:{namespace}"
-	var ts int64
-	var ns string
-	n, err := fmt.Sscanf(username, "%d:%s", &ts, &ns)
-	if err != nil || n != 2 {
-		t.Fatalf("username format should be timestamp:namespace, got %q", username)
+	// Username should be "{timestamp}:{namespace}:{subject id}"
+	parts := strings.Split(username, ":")
+	if len(parts) != 3 {
+		t.Fatalf("username format should be timestamp:namespace:subject, got %q", username)
 	}
-
-	if ns != namespace {
-		t.Fatalf("namespace in username should be %q, got %q", namespace, ns)
+	ts, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		t.Fatalf("timestamp in %q: %v", username, err)
+	}
+	if parts[1] != namespace {
+		t.Fatalf("namespace in username should be %q, got %q", namespace, parts[1])
+	}
+	if parts[2] != SubjectID(secret, "0xalice") {
+		t.Fatalf("subject in username should be the caller's subject id, got %q", parts[2])
+	}
+	if strings.Contains(username, "0xalice") {
+		t.Fatalf("username %q carries the caller's identity in the clear", username)
 	}
 
 	// Timestamp should be ~10 minutes in the future
@@ -71,7 +84,11 @@ func TestValidateCredentials(t *testing.T) {
 	ttl := 10 * time.Minute
 
 	// Generate valid credentials
-	username, password := GenerateCredentials(secret, namespace, ttl)
+	username, password, err := GenerateCredentials(secret, namespace, "0xalice", ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := fmt.Sprintf("%d:%s", time.Now().Add(ttl).Unix(), namespace)
 
 	tests := []struct {
 		name      string
@@ -88,6 +105,24 @@ func TestValidateCredentials(t *testing.T) {
 			password:  password,
 			namespace: namespace,
 			wantValid: true,
+		},
+		{
+			// bugboard #391: the release that adds subjects still accepts a
+			// credential minted by the one before it.
+			name:      "a two-field credential from the previous release",
+			secret:    secret,
+			username:  legacy,
+			password:  GeneratePassword(secret, legacy),
+			namespace: namespace,
+			wantValid: true,
+		},
+		{
+			name:      "a subject that is not a subject id",
+			secret:    secret,
+			username:  legacy + ":0xalice",
+			password:  GeneratePassword(secret, legacy+":0xalice"),
+			namespace: namespace,
+			wantValid: false,
 		},
 		{
 			name:      "wrong secret",
@@ -224,5 +259,38 @@ func TestConfigValidation(t *testing.T) {
 				t.Errorf("Validate() returned %d errors, want %d: %v", len(errs), tt.wantErrs, errs)
 			}
 		})
+	}
+}
+
+// bugboard #391: a credential names the user it was minted for, so two users
+// asking in the same second get different credentials, and one minted for one
+// user is not another's.
+func TestGenerateCredentials_namesTheSubject(t *testing.T) {
+	const secret, namespace = "test-secret-key", "my-namespace"
+	alice, alicePass, err := GenerateCredentials(secret, namespace, "0xalice", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, _, err := GenerateCredentials(secret, namespace, "0xbob", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if alice == bob {
+		t.Fatalf("two users got the same credential %q", alice)
+	}
+	// Alice's password under Bob's username is not a credential.
+	if ValidateCredentials(secret, bob, alicePass, namespace) {
+		t.Fatal("a password minted for one subject validated for another")
+	}
+	if SubjectID(secret, "0xalice") == SubjectID("another-namespace-secret", "0xalice") {
+		t.Fatal("one user's subject id is the same in two namespaces")
+	}
+}
+
+func TestGenerateCredentials_refusesNoSubject(t *testing.T) {
+	for _, subject := range []string{"", "  "} {
+		if _, _, err := GenerateCredentials("s", "ns", subject, time.Hour); !errors.Is(err, ErrNoSubject) {
+			t.Errorf("subject %q: err = %v, want ErrNoSubject", subject, err)
+		}
 	}
 }

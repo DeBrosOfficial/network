@@ -21,6 +21,11 @@ const (
 	// sfuTURNRefreshInterval is when a session swaps the credential, well
 	// before sfuTURNCredentialTTL ends.
 	sfuTURNRefreshInterval = sfuTURNCredentialTTL / 5 * 4
+
+	// sfuTURNSubject is who the SFU's own TURN credential is for. No
+	// namespace account or wallet has this form, so it never shares a subject
+	// id with a participant.
+	sfuTURNSubject = "orama:sfu"
 )
 
 // turnURIs lists the TURN URIs of servers: one turns: URI for a secure
@@ -46,7 +51,10 @@ func (r *Room) buildICEServers() []webrtc.ICEServer {
 		return nil
 	}
 
-	username, password := turn.GenerateCredentials(r.config.TURNSecret, r.config.Namespace, sfuTURNCredentialTTL)
+	username, password, err := turn.GenerateCredentials(r.config.TURNSecret, r.config.Namespace, sfuTURNSubject, sfuTURNCredentialTTL)
+	if err != nil {
+		return nil
+	}
 
 	return []webrtc.ICEServer{
 		{

@@ -185,7 +185,7 @@ Sign-ins, key and grant changes, namespace, deployment and function changes, sec
 - **Ubuntu nodes are trusted.** Their operators have root and SSH access, and their disks are not encrypted. This is why node operation is invite-only today. A disk snapshot of an Ubuntu node exposes the cluster's shared secrets.
 - **Nodes share a cluster secret,** and every node is a member of the registry database. A compromised node can still write cluster state. Rotating the cluster secret itself, and the WireGuard keys, requires a maintenance window, and no rotation tooling exists for the mesh keys yet.
 - **Some internal services trust the mesh.** Media signaling and messaging gossip do not yet authenticate each peer individually.
-- **TURN credentials are namespace-wide** and last 24 hours, and cannot be revoked per user.
+- **A TURN credential cannot be revoked by itself.** It names the user it was issued to, and one from the REST route lasts 24 hours.
 - **Deletion is not erasure.** A deleted database row remains in the replication log until compaction. IPFS content is reclaimed by garbage collection every six hours, or immediately when requested.
 
 ## 6. Privacy by design

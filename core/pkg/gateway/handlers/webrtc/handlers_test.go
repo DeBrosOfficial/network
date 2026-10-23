@@ -363,3 +363,35 @@ func TestWriteJSON(t *testing.T) {
 		t.Errorf("Content-Type = %q, want %q", ct, "application/json")
 	}
 }
+
+// bugboard #391: the credential names the caller it was issued to, by an
+// opaque subject id, and a request with no caller gets none.
+func TestCredentialsHandler_namesTheCaller(t *testing.T) {
+	h := testHandlers()
+	usernameFor := func(user string) string {
+		req := httptest.NewRequest(http.MethodPost, "/v1/webrtc/turn/credentials", nil)
+		req = req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "test-ns"))
+		w := httptest.NewRecorder()
+		h.CredentialsHandler(w, asCaller(req, user, ""))
+		var result struct{ Username string }
+		if err := json.NewDecoder(w.Body).Decode(&result); err != nil || w.Code != http.StatusOK {
+			t.Fatalf("status %d, decode %v", w.Code, err)
+		}
+		return result.Username
+	}
+	alice, bob := usernameFor("0xalice"), usernameFor("0xbob")
+	if want := ":test-ns:" + turn.SubjectID("test-secret-key-32bytes-long!!!!", "0xalice"); !strings.HasSuffix(alice, want) {
+		t.Errorf("username %q does not end with %q", alice, want)
+	}
+	if alice == bob || strings.Contains(alice, "0xalice") {
+		t.Errorf("usernames %q and %q: want distinct, with no identity in the clear", alice, bob)
+	}
+
+	anonymous := httptest.NewRequest(http.MethodPost, "/v1/webrtc/turn/credentials", nil)
+	anonymous = anonymous.WithContext(context.WithValue(anonymous.Context(), ctxkeys.NamespaceOverride, "test-ns"))
+	w := httptest.NewRecorder()
+	h.CredentialsHandler(w, anonymous)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("no caller: status %d, want 401", w.Code)
+	}
+}

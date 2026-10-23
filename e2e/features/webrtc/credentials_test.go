@@ -8,6 +8,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"net/http"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,16 +17,17 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/Orama-Network/orama/core/pkg/turn"
 	"github.com/Orama-Network/orama/e2e/features/internal/services"
 	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
 	"github.com/Orama-Network/orama/e2e/harness/fleet"
 	"github.com/Orama-Network/orama/e2e/harness/gw"
-	"github.com/Orama-Network/orama/core/pkg/turn"
 )
 
 // TestCredentials_restShapeAndAccess: the REST credential is
-// "<expiry>:<namespace>" for 24 h with the udp/tcp/turns ladder; it needs a
-// signed-in user with the webrtc grant (website/src/docs/developer/webrtc.mdx#1-get-turn-credentials,
+// "<expiry>:<namespace>:<subject id>" for 24 h with the udp/tcp/turns ladder,
+// the subject id differs per user (bug-391); it needs a signed-in user with
+// the webrtc grant (website/src/docs/developer/webrtc.mdx#1-get-turn-credentials,
 // #turn-credential-protocol).
 func TestCredentials_restShapeAndAccess(t *testing.T) {
 	t.Parallel()
@@ -33,10 +35,14 @@ func TestCredentials_restShapeAndAccess(t *testing.T) {
 	waitPlaced(t, fx)
 	r, cr := restCreds(t, fx.c, fx.token)
 	r.Expect(t, http.StatusOK)
-	parts := strings.SplitN(cr.Username, ":", 2)
+	parts := strings.Split(cr.Username, ":")
 	exp, err := strconv.ParseInt(parts[0], 10, 64)
-	if len(parts) != 2 || err != nil || parts[1] != fx.n.Name || cr.TTL != int(restTTL.Seconds()) {
-		t.Fatalf("credential %q ttl %d, want <expiry>:%s with ttl %d", cr.Username, cr.TTL, fx.n.Name, int(restTTL.Seconds()))
+	if len(parts) != 3 || err != nil || parts[1] != fx.n.Name || !subjectID.MatchString(parts[2]) || cr.TTL != int(restTTL.Seconds()) {
+		t.Fatalf("credential %q ttl %d, want <expiry>:%s:<subject id> with ttl %d", cr.Username, cr.TTL, fx.n.Name, int(restTTL.Seconds()))
+	}
+	_, other := restCreds(t, fx.c, member(t, fx.n, "runtime"))
+	if otherParts := strings.Split(other.Username, ":"); len(otherParts) != 3 || otherParts[2] == parts[2] {
+		t.Errorf("two users' credentials %q and %q do not name different subjects", cr.Username, other.Username)
 	}
 	if left := time.Until(time.Unix(exp, 0)); left < restTTL-time.Minute || left > restTTL+time.Minute {
 		t.Errorf("the credential expires in %s, want 24h", left)
@@ -57,8 +63,10 @@ func TestCredentials_restShapeAndAccess(t *testing.T) {
 
 // TestTURN_relayOnlyAuth: the namespace's credentials allocate relays on the
 // TURN nodes, from the host-wide 49152-65535 range; a credential naming a
-// namespace the server does not serve, a tampered password, or one for an
-// expiry that was changed after signing allocates nothing
+// namespace the server does not serve, a tampered password, one for an
+// expiry that was changed after signing, or one user's password under another
+// user's subject allocates nothing; a two-field credential of the release
+// before subjects still allocates during the transition (bug-391)
 // (website/src/docs/operator/webrtc-operations.mdx#turn-topology: isolation is the per-tenant secret).
 func TestTURN_relayOnlyAuth(t *testing.T) {
 	t.Parallel()
@@ -76,23 +84,35 @@ func TestTURN_relayOnlyAuth(t *testing.T) {
 			t.Errorf("relay %s is not a TURN node's address in %d-%d", c, relayLow, relayHigh)
 		}
 	}
-	parts := strings.SplitN(cr.Username, ":", 2)
+	parts := strings.Split(cr.Username, ":")
+	if len(parts) != 3 {
+		t.Fatalf("credential %q is not <expiry>:<namespace>:<subject id>", cr.Username)
+	}
 	// The two forgeries that must isolate the namespace and the expiry checks
 	// are signed with the namespace's real secret: signed with a wrong one
 	// they would be refused for that alone.
 	secret := tenantSecret(t, fx, holders[0])
 	forged := map[string]services.TURNCreds{
-		"unknown namespace":  {URIs: cr.URIs, Username: parts[0] + ":e2e-no-such-ns", Password: sign(secret, parts[0]+":e2e-no-such-ns")},
+		"unknown namespace":  {URIs: cr.URIs, Username: parts[0] + ":e2e-no-such-ns:" + parts[2], Password: sign(secret, parts[0]+":e2e-no-such-ns:"+parts[2])},
 		"tampered password":  {URIs: cr.URIs, Username: cr.Username, Password: sign("guess", cr.Username)},
-		"moved expiry":       {URIs: cr.URIs, Username: strconv.FormatInt(time.Now().Add(48*time.Hour).Unix(), 10) + ":" + fx.n.Name, Password: cr.Password},
-		"expired, re-signed": {URIs: cr.URIs, Username: "1:" + fx.n.Name, Password: sign(secret, "1:"+fx.n.Name)},
+		"moved expiry":       {URIs: cr.URIs, Username: strconv.FormatInt(time.Now().Add(48*time.Hour).Unix(), 10) + ":" + fx.n.Name + ":" + parts[2], Password: cr.Password},
+		"expired, re-signed": {URIs: cr.URIs, Username: "1:" + fx.n.Name + ":" + parts[2], Password: sign(secret, "1:"+fx.n.Name+":"+parts[2])},
+		"another subject":    {URIs: cr.URIs, Username: parts[0] + ":" + fx.n.Name + ":0123456789abcdef", Password: cr.Password},
 	}
 	for name, bad := range forged {
 		if got := gather(t, bad); len(got) != 0 {
 			t.Errorf("%s: allocated %v", name, got)
 		}
 	}
+	legacy := parts[0] + ":" + fx.n.Name
+	if got := gather(t, services.TURNCreds{URIs: cr.URIs, Username: legacy, Password: sign(secret, legacy)}); len(got) == 0 {
+		t.Error("a two-field credential from the release before subjects allocated nothing during the transition")
+	}
 }
+
+// subjectID is the shape of the subject id a credential names
+// (core/pkg/turn.SubjectID).
+var subjectID = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
 // tenantSecret is the namespace's TURN secret as the shared TURN process on n
 // holds it (website/src/docs/operator/webrtc-operations.mdx#turn-topology, turn.yaml).

@@ -79,7 +79,7 @@ Response shape:
 ```typescript
 interface TURNCredentials {
   uris: string[];       // TURN server URIs (UDP, TCP, TLS)
-  username: string;     // "{expiry_unix}:{namespace}"
+  username: string;     // "{expiry_unix}:{namespace}:{subject_id}"
   password: string;     // HMAC-SHA1 derived, base64-encoded
   ttl: number;          // Seconds until expiry (86400, 24h, for this REST call)
 }
@@ -643,8 +643,27 @@ not kept for late joiners, who learn state from the frames that follow their joi
 ## TURN Credential Protocol
 
 - Credentials use HMAC-SHA1 with a per-namespace shared secret
-- Username format: `{expiry_unix}:{namespace}`
+- Username format: `{expiry_unix}:{namespace}:{subject_id}`, the TURN REST
+  convention of an expiry and the user, with the namespace between them because
+  one TURN server serves several namespaces. The subject id names the caller the
+  credential was issued to: 16 hex digits of an HMAC-SHA256, under the
+  namespace's secret, of the account or wallet the token names (a deployed app's
+  workload for an app; inside a function, the invocation's wallet, else its key,
+  else `fn:<name>`). It is opaque because a TURN username crosses the network in
+  the clear on UDP and TCP. Two users never share a credential, and one user's
+  password does not authenticate another's username.
+- Orama 0.3.5 still accepts the two-field `{expiry_unix}:{namespace}` username
+  minted by the release before it, so credentials in flight during the upgrade
+  keep working for their lifetime. The release after it accepts only the
+  three-field form.
 - Password: `base64(HMAC-SHA1(shared_secret, username))`
+- Revoking: TURN's long-term credentials carry no state to cancel, so a single
+  credential cannot be revoked (coturn's `use-auth-secret` is the same). The
+  TURN server checks the expiry on every authenticated request, so an
+  allocation is not refreshed past it: a user who is no longer issued
+  credentials (signed out, removed, kicked from the room) loses relay access when
+  the last one expires. Disabling and re-enabling WebRTC for the namespace
+  replaces its secret and ends every credential at once.
 - One-shot REST / `turn_credentials` host-fn TTL: 24h (`turn.DefaultCredentialTTL`).
   These paths mint once at call setup and are never refreshed, so the credential
   must outlast the whole call — a short TTL tore down relay-only media at expiry.
@@ -817,7 +836,7 @@ pc.ondatachannel = (event) => {
 - **A logged-in user, not a key**: every WebRTC endpoint requires a wallet token, or a deployed app's own workload token (`Authorization: Bearer`). An API key alone is refused, which is what makes a runtime key extracted from an app bundle worthless here. On the signalling WebSocket the token goes in `?jwt=`, because a browser cannot set a header on an upgrade (`?token=` is read as an API key, which these endpoints refuse).
 - **Identity and admission**: a peer is the user the gateway authenticated, carried to the SFU in a short-lived ticket signed with a key derived from the namespace's TURN secret; a namespace may admit only the users its functions admitted (see "Identity, admission and moderation").
 - **Room lifecycle**: there is no create/close API. A room is created by its first join (which needs an authenticated user and, if the namespace requires admission, an admitted one) and removed by the SFU 60 seconds after it empties.
-- **Known limit**: TURN credentials are namespace-wide and cannot be revoked per user.
+- **Known limit**: a TURN credential names its user but cannot be revoked by itself: it lasts until its expiry (24 h from the REST call and the host function, 600 s by default over signalling). See "TURN Credential Protocol".
 - **SFU on WireGuard only**: SFU binds to 10.0.0.x, never 0.0.0.0. Only reachable via TURN relay.
 - **Permissions-Policy**: `camera=(self), microphone=(self)` — only same-origin can access media devices.
 

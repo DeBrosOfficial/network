@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 	webrtchandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/webrtc"
 	"github.com/Orama-Network/orama/core/pkg/logging"
@@ -24,7 +25,9 @@ func turnURIsFor(t *testing.T, cfg *Config) []string {
 	applyTURNHosts(h, cfg)
 
 	req := httptest.NewRequest("POST", "/v1/webrtc/turn/credentials", nil)
-	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "ns-a"))
+	ctx := context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "ns-a")
+	// A credential is issued to a caller (bugboard #391).
+	req = req.WithContext(context.WithValue(ctx, ctxkeys.JWT, &auth.JWTClaims{Sub: "0xalice"}))
 	w := httptest.NewRecorder()
 	h.CredentialsHandler(w, req)
 	if w.Code != 200 {
