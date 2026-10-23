@@ -16,8 +16,21 @@ on:
 # by every job on a host, and @actions/tool-cache empties a version's directory
 # before filling it, so jobs installing a new Go or Node at the same moment
 # delete each other's files (ENOENT, then a half-installed toolchain).
+#
+# Caches. Each job keeps its own Go cache (module cache and build cache) and, if it
+# builds Rust, its own cargo cache, keyed on the job, the toolchain and the lock
+# files of what it builds, through act_runner's cache server. The lock files are
+# hashed by .gitea/scripts/cache-key.sh, because act_runner evaluates hashFiles()
+# on the runner host, where the checkout is not, and gets "". setup-go's built-in
+# cache is off: it keys on go.sum alone, so every job of a module (and security.yml,
+# and the nightly jobs) shared one key, the first job to finish wrote it with its
+# own build modes, and every other job compiled the Cosmos SDK from cold. A key is
+# written once, by the first passing run that missed it; the runner's cache server
+# keeps the newest entry per key and drops an entry unused for 7 days. Each runner
+# host has its own cache server, so each host warms its own copy.
 env:
   RUNNER_TOOL_CACHE: /tmp/toolcache
+  GO_VERSION: "1.27.3"
 
 permissions:
   contents: read
@@ -33,33 +46,38 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go core/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: core/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Vet
         working-directory: core
         run: go vet ./...
 
+      # -count=1: the build cache is restored, and a cached test result would
+      # stand in for a run. Tests that read files above the module (the contract
+      # fixtures, the chain vectors, the generated CLI reference) would then pass
+      # on a stale result after a fixture-only change, because the test cache
+      # does not treat those files as inputs.
       - name: Test
         working-directory: core
-        run: go test -race -timeout 5m ./...
-
-      # The contract fixtures live above the Go module, so the test cache does
-      # not treat them as an input and a fixture-only change would report a
-      # stale pass. -count=1 is the point of this step.
-      - name: Contract tests
-        working-directory: core
-        run: go test -count=1 -run Contract ./...
-
-      # The CLI reference is generated from the cobra tree; this fails when the
-      # committed file and the tree disagree. It lives above the module too, so
-      # it needs the same -count=1.
-      - name: CLI reference is current
-        working-directory: core
-        run: go test -count=1 ./cmd/orama -run TestCLIReference
+        run: go test -race -count=1 -timeout 5m ./...
 
   # The chain (Orama L1, Cosmos SDK + CosmWasm + the Orchard shielded verifier) was not built or
   # tested by anything in CI, nor by the pre-push hook or the root `make test`; it was run by hand.
@@ -69,19 +87,55 @@ jobs:
     name: Chain build and race tests
     runs-on: orama
     timeout-minutes: 90
+    # The restored build cache holds test results too; every test runs every time (the reason
+    # is at the core tests). test-race passes -count=1 itself, `make test` does not.
+    env:
+      GOFLAGS: -count=1
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum
+          .gitea/scripts/cache-key.sh cargo chain/x/shielded/orchardffi/Cargo.lock chain/x/shielded/orchardverifier-bin/Cargo.lock chain/go.sum
 
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       # native/build.sh builds with this toolchain; the Rust host library of the Orchard verifier,
       # the verifier binary and libwasmvm are built with it so the cgo tests run, not skip.
       - name: Rust toolchain
+        id: rust
         run: .gitea/scripts/setup-rust.sh
+
+      # Cargo's registry and the target directories of the crates this job builds. Restoring
+      # an older key after a lock-file change keeps the dependencies that did not change; a
+      # toolchain change starts the cache over.
+      - name: Cargo registry and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            chain/x/shielded/orchardffi/target
+            chain/x/shielded/orchardverifier-bin/target
+            chain/build/wasmvm-target
+          key: cargo-${{ github.job }}-${{ steps.rust.outputs.toolchain }}-${{ steps.keys.outputs.cargo }}
+          restore-keys: cargo-${{ github.job }}-${{ steps.rust.outputs.toolchain }}-
 
       - name: Build for the release targets
         run: make -C chain build
@@ -105,11 +159,26 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum e2e/go.sum e2e/features/scanners/staticcheck.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/staticcheck
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       # staticcheck, gosec (high severity, high confidence) and govulncheck over the chain, with
       # the same acceptance rules as the fleet scanners feature (e2e/features/scanners): a
@@ -136,7 +205,7 @@ jobs:
 
       - name: Fleet-scanner gate logic
         working-directory: e2e
-        run: go test ./cmd/scangate/ ./harness/vulnaccept/ ./harness/staticfind/
+        run: go test -count=1 ./cmd/scangate/ ./harness/vulnaccept/ ./harness/staticfind/
 
   chain-rust:
     name: Chain Rust crates (clippy, audit, deny)
@@ -145,14 +214,47 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum
+          .gitea/scripts/cache-key.sh cargo chain/x/shielded/orchardffi/Cargo.lock chain/x/shielded/orchardverifier-bin/Cargo.lock chain/x/shielded/wallet/Cargo.lock chain/native/Cargo.lock
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Rust toolchain
+        id: rust
         run: .gitea/scripts/setup-rust.sh --component clippy
+
+      # Cargo's registry and the target directories of the crates this job builds. Restoring
+      # an older key after a lock-file change keeps the dependencies that did not change; a
+      # toolchain change starts the cache over.
+      - name: Cargo registry and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            chain/x/shielded/orchardffi/target
+            chain/x/shielded/orchardverifier-bin/target
+            chain/x/shielded/wallet/target
+            chain/native/target
+          key: cargo-${{ github.job }}-${{ steps.rust.outputs.toolchain }}-${{ steps.keys.outputs.cargo }}
+          restore-keys: cargo-${{ github.job }}-${{ steps.rust.outputs.toolchain }}-
 
       # orchardffi, orchardverifier-bin, wallet and native (libwasmvm + the Orchard library).
       - name: clippy
@@ -180,17 +282,46 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum core/go.sum
+          .gitea/scripts/cache-key.sh cargo chain/x/shielded/orchardffi/Cargo.lock chain/x/shielded/orchardverifier-bin/Cargo.lock
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: |
-            chain/go.sum
-            core/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       # The Orchard library (cgo) and the verifier binary are built for the differential targets.
       - name: Rust toolchain
+        id: rust
         run: .gitea/scripts/setup-rust.sh
+
+      # Cargo's registry and the target directories of the crates this job builds. Restoring
+      # an older key after a lock-file change keeps the dependencies that did not change; a
+      # toolchain change starts the cache over.
+      - name: Cargo registry and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            chain/x/shielded/orchardffi/target
+            chain/x/shielded/orchardverifier-bin/target
+          key: cargo-${{ github.job }}-${{ steps.rust.outputs.toolchain }}-${{ steps.keys.outputs.cargo }}
+          restore-keys: cargo-${{ github.job }}-${{ steps.rust.outputs.toolchain }}-
 
       - name: Fuzz every target
         run: make -C chain fuzz-short
@@ -206,20 +337,30 @@ jobs:
   secrets:
     name: Secret scan of the committed tree
     runs-on: orama
+    env:
+      GITLEAKS_VERSION: v8.30.1
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: e2e/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-gitleaks-${{ env.GITLEAKS_VERSION }}
 
       # The same scan as the fleet scanners feature (TestSecretScan_committedTree), with the same
       # allowlist, .gitleaks.toml. Every path in it was looked at; a new fixture is added by name.
       - name: gitleaks
         run: |
-          go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          go install "github.com/zricethezav/gitleaks/v8@${GITLEAKS_VERSION}"
           "$(go env GOPATH)/bin/gitleaks" dir . --no-banner --redact --exit-code 3
 
   agent-test:
@@ -228,11 +369,25 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go os/agent/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: os/agent/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Vet
         working-directory: os/agent
@@ -240,16 +395,12 @@ jobs:
 
       # Nothing built or tested this module. It is the only root process on an
       # OramaOS node, and its command receiver had no authentication at all.
+      # -count=1 for the reason the core tests give: the enrollment seal vector
+      # (TestSeal) lives above the module, so a cached result would survive a
+      # change to it.
       - name: Test
         working-directory: os/agent
-        run: go test -race -timeout 5m ./...
-
-      # The enrollment seal has a copy in each of two Go modules, and the
-      # shared vector lives above both, so the test cache does not treat it as
-      # an input.
-      - name: Enrollment seal matches the gateway
-        working-directory: os/agent
-        run: go test -count=1 -run TestSeal ./internal/enroll/
+        run: go test -race -count=1 -timeout 5m ./...
 
       # The agent ships as a Linux binary; the non-Linux build exists only so
       # the module can be tested on a developer's machine.

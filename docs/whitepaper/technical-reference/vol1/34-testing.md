@@ -97,7 +97,7 @@ The live half is the fleet feature `contracts-live` (stage 4). It sends each fix
 
 `contracts/enrollment/seal.json` is a different kind of file. The gateway (`core/pkg/gateway/handlers/enroll/sealed_contract_test.go`) and the OramaOS agent (`os/agent/internal/enroll/sealed_contract_test.go`) are separate Go modules and each carries a copy of the seal. The vector names the algorithm (HKDF-SHA256 with no salt and info `orama-enrollment-seal-v1`, 32-byte output, AES-256-GCM, base64 of nonce, ciphertext and tag), a code, the derived key and a plaintext. Each side derives the key from the code and compares, and round-trips the plaintext. An agent that derived a different key would fail every enrollment in a way that looks like the network.
 
-These tests read files above their Go module. Go's test cache keys on files inside the module, so a fixture-only edit leaves a cached pass in place. That is why `make -C core test-contracts` and the CI step both run `go test -count=1 -run Contract ./...`.
+These tests read files above their Go module. Go's test cache keys on files inside the module, so a fixture-only edit leaves a cached pass in place. That is why `make -C core test-contracts` runs `go test -count=1 -run Contract ./...`, and why CI runs every core test with `-count=1`: CI restores the build cache, test results included, from an earlier run.
 
 ### Cross-language vectors
 
@@ -336,9 +336,9 @@ The book you are reading is tested like code. `core/tools/whitepaper check` (run
 | Check | `make test` | CI |
 |---|---|---|
 | `core` `go vet ./...` | no | yes |
-| `core` `go test ./...` | yes, `go test -v ./...` (no race detector, Go's default timeout) | yes, `go test -race -timeout 5m ./...` |
-| Contract tests with `-count=1` | no (`make -C core test-contracts` by hand) | yes |
-| CLI reference with `-count=1` | only inside `./...`, cacheable | yes |
+| `core` `go test ./...` | yes, `go test -v ./...` (no race detector, Go's default timeout) | yes, `go test -race -count=1 -timeout 5m ./...` |
+| Contract tests with `-count=1` | no (`make -C core test-contracts` by hand) | yes, inside the race run |
+| CLI reference with `-count=1` | only inside `./...`, cacheable | yes, inside the race run |
 | `os/agent` module: vet, race tests, seal vector, linux build | no | yes |
 | `sdk`: lint, typecheck, build, unit tests | no | yes |
 | `sdk-vault`: lint, typecheck, build, unit tests | no | yes |
@@ -362,7 +362,7 @@ The book you are reading is tested like code. `core/tools/whitepaper check` (run
 | `govulncheck` on `core`, `pnpm audit --prod` on `sdk` | no | `security.yml`: pull requests to `main`, `v*` tags, on demand, and Mondays 08:00 UTC |
 | `/VERSION` against the two `package.json` files | no (a core test checks `version.txt`) | warns only |
 
-CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`release.yml`, run by a `v*` tag pushed to Gitea) run on Gitea Actions; GitHub is a code-only mirror with Actions disabled. CI triggers on pushes and pull requests to `main` and `nightly`, with the concurrency group cancelling superseded runs; `security.yml` does not trigger on `nightly`. The release workflow runs few tests: its `goreleaser` job checks that `/VERSION` matches the tag and then builds, its `archive` job builds the cluster archive twice and fails unless the two are byte-identical, and its `publish-sdk` job runs typecheck, build and unit tests before publishing both packages to the Gitea npm registry. The fleet suite is run by the owner with `make e2e-fleet` (Infisical supplies the secrets and `E2E_RUNNER_CIDR` is required). `core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under every build-tag set (the race-detector tests stay in CI so the hook stays short); it unsets the `GIT_*` variables git sets for hooks before it runs anything.
+CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`release.yml`, run by a `v*` tag pushed to Gitea) run on Gitea Actions; GitHub is a code-only mirror with Actions disabled. `ci.yml` runs on a `v*` tag, on pull requests to `main` and `nightly` and on demand, never on a plain branch push, with the concurrency group cancelling superseded runs; `security.yml` runs on pull requests to `main`, on a `v*` tag, on demand and on Mondays. Each job restores its own Go cache and, if it builds Rust, its own cargo cache through act_runner's cache server, keyed on the job, the toolchain and lock files that `.gitea/scripts/cache-key.sh` hashes inside the job (act_runner's `hashFiles()` reads the runner host, where the checkout is not, and returns an empty string). The release workflow runs few tests: its `goreleaser` job checks that `/VERSION` matches the tag and then builds, its `archive` job builds the cluster archive twice and fails unless the two are byte-identical, and its `publish-sdk` job runs typecheck, build and unit tests before publishing both packages to the Gitea npm registry. The fleet suite is run by the owner with `make e2e-fleet` (Infisical supplies the secrets and `E2E_RUNNER_CIDR` is required). `core/.githooks/pre-push` runs `go test ./...` in `core`, then builds the chain (`-tags nowasm`) and vets it under every build-tag set (the race-detector tests stay in CI so the hook stays short); it unsets the `GIT_*` variables git sets for hooks before it runs anything.
 
 ## State it owns
 
@@ -406,7 +406,7 @@ CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`re
 | A covered command is removed | `covers` entry matches nothing | UNKNOWN COVERS; also STALE WAIVERS if it was waived |
 | CLI reference not regenerated | the book reference test prints the first differing line | `go test ./cmd/orama` fails; fix with `make -C core docs` |
 | SDK sends a field the gateway drops | `DecodeStrict` rejects the fixture | Go contract test names the SDK method |
-| Fixture edited, test cached | out-of-module files are not cache inputs | a stale PASS unless `-count=1` (CI does this only for `Contract` tests and the CLI reference) |
+| Fixture edited, test cached | out-of-module files are not cache inputs | a stale PASS locally unless `-count=1`; CI runs every Go test with `-count=1` |
 | Package started without fleet state | `harness.Main` exits 1 in strict mode | package failure, never a silent skip |
 | A test skips | counted as not covered | verdict INCOMPLETE, never PASS |
 | A test fails once, passes on re-run | labelled flaky; verdict ignores the re-run | FAIL with a flaky count |
@@ -484,7 +484,6 @@ CI (`ci.yml`, `security.yml`, `chain-nightly.yml`) and the release workflow (`re
 
 - **The chain's shipped binary is not the one CI tests.** The race run links libwasmvm, the Orchard library and the verifier binary on `ubuntu-latest` against glibc; the static musl release build that ships (`make build-linux-amd64-full`, linked through zig) is built only by the tag-triggered `release-archive.yml` and tested by no workflow, so a link or musl-only fault surfaces at release time. Location: `.gitea/workflows/ci.yml` job `chain-test`, `chain/ci.mk` target `test-race`.
 - **CI lacks the no-server gates.** `ci.yml` does not run `caddy`, the `e2e` module's lint, coverage gate or unit tests, or the book gates, so a pull request can merge with a failing coverage gate or a broken anchor that `make test` would catch.
-- **Cache can hide a vector change.** Only the `Contract` and CLI reference steps use `-count=1`. Tests that read files outside the `core` module (`core/pkg/pieceroot/commit_test.go:TestRootsMatchTheChainVectors`, `core/pkg/storagefile/outer_vectors_test.go:TestApplyOuter_matchesTheChainVectors`, the gateway seal test, `core/pkg/version/version_test.go`) can report a cached pass in CI after the file changes.
 - **A transaction with no fee panics in the ante chain.** The SDK decodes it and its first decorator dereferences the missing fee; BaseApp recovers the panic per transaction and answers the panic code, in `CheckTx` and in a block, with the same verdict on every node and no state touched. A decorator in front that refuses it would change the result code of such a transaction in a block, which is a consensus change, so it is left as it is and `chain/app/fuzz_test.go:FuzzCheckTx` tolerates the panic for transactions that state no fee and no others.
 - **Fuzzing covers the parsers that were inventoried, not every input.** The targets are the untrusted-input decoders and verifiers of the chain and of the core packages that carry chain trust (the list is in `website/src/docs/contributor/testing.mdx`, "Fuzzing"). Not fuzzed: the HTTP handlers of the provider, the repair fetcher and the faucet, the handlers of `x/storage`, `x/nodes` and `x/houses` below the message decoder, and the installers in `core/pkg/install`. The CI job runs each target for ten seconds and the nightly job for five minutes, from the committed seeds; an input a run finds is kept only when the run fails, so the corpus of a night is not carried to the next, and the four cargo-fuzz targets start from `fuzz/seeds/` every night.
 - **The release workflow checks no report.** `release.sh` and `orama maint release cut` refuse a commit without a passing, runner-signed report, but the attestation stays on the runner's disk and `release.yml` builds any pushed `v*` tag, so a tag pushed without `release.sh` still publishes the public channel.
@@ -503,7 +502,7 @@ Pure-file checks that need no servers:
 make test                                              # core, caddy, e2e lint/coverage/unit, book gates
 make e2e-coverage                                      # the coverage gate on its own
 cd e2e && go run ./cmd/e2e-fleet coverage --json       # the whole matrix
-cd core && go test -count=1 -run Contract ./...        # fixtures, as CI runs them
+cd core && go test -count=1 -run Contract ./...        # fixtures, uncached as in CI
 cd core && go test -count=1 ./cmd/orama -run TestCLIReference
 cd core && go test ./pkg/gateway/ -run 'TestEvery|TestRoutePolicy|TestAuthCodes'
 cd sdk && pnpm test:unit                               # TypeScript halves

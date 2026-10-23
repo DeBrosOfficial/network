@@ -7,7 +7,9 @@
 #
 # The default toolchain is RUST_TOOLCHAIN from chain/ci.mk. --nightly also
 # installs RUST_NIGHTLY, and the components and targets then go to it instead.
-# ~/.cargo/bin is added to GITHUB_PATH for the job's later steps.
+# ~/.cargo/bin is added to GITHUB_PATH for the job's later steps, and the
+# step's output `toolchain` is RUST_TOOLCHAIN (the workflows key their cargo
+# caches on it).
 set -euo pipefail
 
 nightly=false
@@ -57,3 +59,4 @@ if [ ${#targets[@]} -gt 0 ]; then
 fi
 
 echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+echo "toolchain=$stable" >> "$GITHUB_OUTPUT"
