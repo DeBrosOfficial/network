@@ -3,16 +3,16 @@
 > **At a glance.**
 >
 > - **Hand-written.** Who owns each gateway route: the SDK, the CLI, a direct caller or another node. [Gateway routes](c-gateway-routes.md) is the generated list of the same routes with their policy; this table is the owner of each and the reason a route is not in the SDK.
-> - **Owners:** SDK 43, CLI 81, direct 27, internal 23.
+> - **Owners:** SDK 43, CLI 82, direct 27, internal 23.
 
-Every route the gateway registers, and which client owns it. Humans use the CLI, programs use the SDK and this HTTP API, and there is no Orama dashboard ([the CLI](../vol1/35-the-cli.md), [SDKs](../vol1/36-sdks.md)). The TypeScript SDK's coverage is a decision rather than an accident: it reaches 43 of 174 routes, and the other 131 are here with a reason.
+Every route the gateway registers, and which client owns it. Humans use the CLI, programs use the SDK and this HTTP API, and there is no Orama dashboard ([the CLI](../vol1/35-the-cli.md), [SDKs](../vol1/36-sdks.md)). The TypeScript SDK's coverage is a decision rather than an accident: it reaches 43 of 175 routes, and the other 132 are here with a reason.
 
 The route set in this appendix and the set the gateway registers must be identical. The test `core/pkg/gateway/api_surface_test.go` reads the first two cells of every table row whose first cell is a backticked path, so a registered route missing here fails, and so does a documented route no longer registered. Adding a route means deciding who calls it.
 
 | Owner | Meaning | Count |
 |-------|---------|-------|
 | `SDK` | `@orama-network/orama` calls it | 43 |
-| `CLI` | The `orama` CLI calls it. An application has no reason to: deploying, minting keys and managing nodes are operator actions. | 81 |
+| `CLI` | The `orama` CLI calls it. An application has no reason to: deploying, minting keys and managing nodes are operator actions. | 82 |
 | `direct` | Reachable by a client, but not through the SDK by design. The reason is in the row. | 27 |
 | `internal` | Node-to-node over the WireGuard overlay. Never reachable by a client. | 23 |
 
@@ -52,6 +52,7 @@ The request and response shapes of the `SDK` routes are pinned by the fixtures i
 | `/v1/auth/verify` | SDK | `auth.verify()` |
 | `/v1/auth/whoami` | SDK | `auth.whoami()` |
 | `/v1/audit` | CLI | The namespace's record of who was given what and when. Admin grant; the namespace comes from the credential, never the query string. `?action=`, `?principal=`, `?since=` and `?limit=` narrow it (50 by default, 200 at most). `orama audit [--follow]`. |
+| `/v1/operator/audit` | CLI | The cluster's own audit events: the rows recorded under no namespace (invites minted, nodes joining and claimed, namespaces deleted, by their owner or by an operator). Operator route. The same filters and page as `/v1/audit`; the answer carries `"scope":"cluster"`. `orama audit --cluster [--follow]`. |
 
 ### Database (RQLite)
 

@@ -272,6 +272,10 @@ func buildRoutePolicies() *routepolicy.Table {
 	// every other secret the cluster holds. It asked for `*:*:*`, which every
 	// namespace owner holds in their own namespace.
 	t.Add(operatorRoute(), "/v1/operator/invite")
+	// The cluster's own audit events (namespace IS NULL): invites minted,
+	// nodes joining and claimed, namespaces deleted. They name operators,
+	// nodes and every tenant's deletion, so they are an operator's to read.
+	t.Add(operatorRoute(), "/v1/operator/audit")
 	// Removing a namespace its owner can no longer delete. The namespace comes
 	// from the body, not the host.
 	t.Add(operatorRoute(), "/v1/operator/namespaces/remove")

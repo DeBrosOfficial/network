@@ -44,10 +44,13 @@ type AuditFilter struct {
 	Since     string
 	Limit     int
 	Follow    bool
+	// Cluster reads the cluster's own events (operator only) instead of a
+	// namespace's: invites, nodes joining and claimed, namespaces deleted.
+	Cluster bool
 }
 
-// AuditList prints a namespace's audit trail, oldest first, and keeps printing
-// when Follow is set.
+// AuditList prints a namespace's audit trail, or with Cluster the cluster's
+// own, oldest first, and keeps printing when Follow is set.
 func AuditList(out *printer.Printer, filter AuditFilter) error {
 	if filter.Action != "" && !auth.IsAuditAction(filter.Action) {
 		return clierr.Usage("unknown action %q. Known actions: %s",
@@ -130,8 +133,11 @@ func fetchAuditPage(gatewayURL, apiKey string, filter AuditFilter) ([][]string, 
 		query.Set("since", filter.Since)
 	}
 
-	result, err := nsRequest("read the audit trail", http.MethodGet,
-		gatewayURL+"/v1/audit?"+query.Encode(), apiKey, nil)
+	path, what := "/v1/audit", "read the audit trail"
+	if filter.Cluster {
+		path, what = "/v1/operator/audit", "read the cluster's audit trail"
+	}
+	result, err := nsRequest(what, http.MethodGet, gatewayURL+path+"?"+query.Encode(), apiKey, nil)
 	if err != nil {
 		return nil, "", err
 	}

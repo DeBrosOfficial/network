@@ -22,7 +22,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama app logs`](#orama-app-logs) - Stream deployment logs
   - [`orama app rollback`](#orama-app-rollback) - Rollback a deployment to a previous version
   - [`orama app stats`](#orama-app-stats) - Show resource usage for a deployment
-- [`orama audit`](#orama-audit) - Read this namespace's audit trail
+- [`orama audit`](#orama-audit) - Read this namespace's audit trail, or the cluster's
 - [`orama auth`](#orama-auth) - Authentication management
   - [`orama auth approve`](#orama-auth-approve) - Approve a login waiting on another machine
   - [`orama auth list`](#orama-auth-list) - List all stored credentials
@@ -471,7 +471,7 @@ orama app stats <name>
 
 ## orama audit
 
-Read this namespace's audit trail
+Read this namespace's audit trail, or the cluster's
 
 ```text
 orama audit [flags]
@@ -480,6 +480,10 @@ orama audit [flags]
 ```text
 Print what has happened in a namespace: sign-ins, keys minted and revoked,
 grants given and taken away, deployments, functions, secrets and namespace changes.
+
+--cluster prints the cluster's own events instead, the ones recorded under no
+namespace: invites minted, nodes joining and being claimed, and namespaces
+deleted. Only a wallet on the cluster's operator list may read them.
 
 Events are shown oldest first. --follow keeps the command running and prints new
 ones as they are recorded.
@@ -490,6 +494,7 @@ Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.lo
 | Flag | Default | Description |
 |---|---|---|
 | `--action` | — | Show only this action |
+| `--cluster` | `false` | Read the cluster's own events (invites, node joins and claims, namespace deletions); operators only |
 | `--limit` | `0` | How many events to fetch at once (default 50, max 200) |
 | `--namespace` | — | Namespace name |
 | `--principal` | — | Show only what this wallet or key did |

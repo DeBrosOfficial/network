@@ -192,3 +192,5 @@ orama audit --action key.issue --principal 0xabc… --since 2026-09-01T00:00:00Z
 Recorded: sign-ins and their failures, the refresh-replay tripwire, keys minted, rotated and revoked, grants given and taken away, ownership transferred, namespaces created and deleted, functions and deployments deployed and deleted, secrets set and deleted, sign-in and device policy changes, and operator actions. A **refused** request is deliberately *not* recorded: one row per 401 would let anyone with a network connection fill a table replicated to every node. Events are kept 90 days.
 
 The actor is never a credential: a wallet is recorded as itself, anything else as a fingerprint. The trail is readable by every owner of the namespace.
+
+The cluster's own events — invites minted, nodes joining and being claimed, namespaces deleted — are recorded under no namespace, so no namespace's trail shows them (a namespace created again under a deleted one's name starts with an empty trail). A wallet on the cluster's operator list reads them with `orama audit --cluster` (`GET /v1/operator/audit`), which takes the same flags.

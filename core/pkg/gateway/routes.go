@@ -141,6 +141,7 @@ func (g *Gateway) Routes() http.Handler {
 		mux.HandleFunc("/v1/namespace/devices", g.authHandlers.NamespaceDevicesHandler)
 		mux.HandleFunc("/v1/namespace/devices/", g.authHandlers.NamespaceDeviceByIDHandler)
 		mux.HandleFunc("/v1/audit", g.authHandlers.AuditHandler)
+		mux.HandleFunc("/v1/operator/audit", g.authHandlers.OperatorAuditHandler)
 	}
 
 	// RQLite native backup/restore proxy (namespace auth via /v1/rqlite/ prefix)

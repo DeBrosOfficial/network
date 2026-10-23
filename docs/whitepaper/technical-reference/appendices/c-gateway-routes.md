@@ -210,6 +210,7 @@ Access is `credential` (an API key or a JWT, resolved by the middleware), `open`
 
 | Route | Handler | Access | Grant | Token | Notes |
 |---|---|---|---|---|---|
+| `/v1/operator/audit` | `g.authHandlers.OperatorAuditHandler` | credential |  | any | operator, main |
 | `/v1/operator/creators` | `g.operatorHandler.HandleCreators` | credential |  | any | operator, main |
 | `/v1/operator/creators/` | `g.operatorHandler.HandleCreators` | credential |  | any | operator, main |
 | `/v1/operator/health` | `g.operatorHealthHandler` | credential |  | any | operator, main |

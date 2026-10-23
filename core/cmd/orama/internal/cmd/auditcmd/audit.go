@@ -12,9 +12,13 @@ import (
 // Cmd reads a namespace's audit trail.
 var Cmd = &cobra.Command{
 	Use:   "audit",
-	Short: "Read this namespace's audit trail",
+	Short: "Read this namespace's audit trail, or the cluster's",
 	Long: `Print what has happened in a namespace: sign-ins, keys minted and revoked,
 grants given and taken away, deployments, functions, secrets and namespace changes.
+
+--cluster prints the cluster's own events instead, the ones recorded under no
+namespace: invites minted, nodes joining and being claimed, and namespaces
+deleted. Only a wallet on the cluster's operator list may read them.
 
 Events are shown oldest first. --follow keeps the command running and prints new
 ones as they are recorded.
@@ -27,6 +31,7 @@ Actions: ` + strings.Join(auth.AuditActions, ", "),
 		since, _ := cmd.Flags().GetString("since")
 		limit, _ := cmd.Flags().GetInt("limit")
 		follow, _ := cmd.Flags().GetBool("follow")
+		cluster, _ := cmd.Flags().GetBool("cluster")
 		return cli.AuditList(printer.For(cmd), cli.AuditFilter{
 			Namespace: ns,
 			Action:    action,
@@ -34,6 +39,7 @@ Actions: ` + strings.Join(auth.AuditActions, ", "),
 			Since:     since,
 			Limit:     limit,
 			Follow:    follow,
+			Cluster:   cluster,
 		})
 	},
 }
@@ -45,4 +51,5 @@ func init() {
 	Cmd.Flags().String("since", "", "Show only what happened after this time (RFC3339, or the created_at of a row)")
 	Cmd.Flags().Int("limit", 0, "How many events to fetch at once (default 50, max 200)")
 	Cmd.Flags().BoolP("follow", "f", false, "Keep running and print new events as they are recorded")
+	Cmd.Flags().Bool("cluster", false, "Read the cluster's own events (invites, node joins and claims, namespace deletions); operators only")
 }

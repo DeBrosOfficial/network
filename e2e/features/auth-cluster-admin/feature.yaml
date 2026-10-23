@@ -36,6 +36,7 @@ covers:
     - orama maint operator rotate-secrets
     - orama maint operator rotate-signing-key
   routes:
+    - /v1/operator/audit
     - /v1/operator/creators
     - /v1/operator/creators/
     - /v1/operator/namespaces/remove
@@ -56,4 +57,5 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-operator-rotate-secrets: the walker is idempotent"
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md#refusals-and-the-error-code-table: TOO_MANY_CHALLENGES after ten unanswered challenges"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#api-surface: an operator removes a namespace whose owner can no longer delete it; its owner, not an operator, is refused"
+    - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#api-surface: an operator reads the cluster's own audit events (orama audit --cluster); a namespace owner is refused NOT_AN_OPERATOR"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#single-use-by-a-conditional-update-and-its-row-count: a nonce is single-use cluster-wide; concurrent verifies on every gateway have exactly one winner"
