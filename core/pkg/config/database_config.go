@@ -29,21 +29,14 @@ type DatabaseConfig struct {
 	RQLiteUsername string `yaml:"rqlite_username"`
 	RQLitePassword string `yaml:"rqlite_password"`
 
-	// RQLiteAuthFile is the rqlite auth JSON that carries the same user. It is
-	// the file rqlited is pointed at when RQLiteEnforceAuth is set.
+	// RQLiteAuthFile is the rqlite auth JSON that carries the same user. The
+	// spawner copies it to where rqlited reads it and starts rqlited with
+	// -auth pointing at the copy.
 	RQLiteAuthFile string `yaml:"rqlite_auth_file"`
 
-	// RQLiteEnforceAuth starts rqlited with `-auth`, making it reject
-	// unauthenticated requests.
-	//
-	// Separate from RQLiteAuthFile on purpose. The two used to be one setting,
-	// so the only way to give clients credentials was to simultaneously start
-	// refusing everyone who had none — including every peer still running the
-	// previous release, whose /join, /status and /remove calls would 401 in the
-	// middle of a rolling upgrade and look exactly like raft breaking.
-	//
-	// The rollout is therefore two passes: first every node ships credentials
-	// (RQLiteAuthFile, enforcement off), then enforcement is switched on.
+	// RQLiteEnforceAuth is accepted so DecodeStrict still reads a node.yaml
+	// that sets it. Nothing reads it: rqlited always runs with -auth
+	// (namespace.SystemdSpawner), so there is no enforcement to switch on.
 	RQLiteEnforceAuth bool `yaml:"rqlite_enforce_auth"`
 
 	// Raft tuning (passed through to rqlited CLI flags).

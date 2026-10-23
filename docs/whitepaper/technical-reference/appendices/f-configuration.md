@@ -37,8 +37,8 @@ The node's configuration, written by `orama maint node install` and read by `ora
 | `database.node_no_verify` | `bool` | Skip certificate verification (for testing/self-signed certs) |
 | `database.rqlite_username` | `string` | RQLite HTTP Basic Auth credentials, used by every client this node opens — the SQL DSN and the admin API (AdminClient) — and by the orama CLI and installer, which read them from node.yaml (rqlite.IndexEndpoint). rqlited always runs with -auth, so they are required. |
 | `database.rqlite_password` | `string` |  |
-| `database.rqlite_auth_file` | `string` | RQLiteAuthFile is the rqlite auth JSON that carries the same user. It is the file rqlited is pointed at when RQLiteEnforceAuth is set. |
-| `database.rqlite_enforce_auth` | `bool` | RQLiteEnforceAuth starts rqlited with `-auth`, making it reject unauthenticated requests. Separate from RQLiteAuthFile on purpose. The two used to be one setting, so the only way to give clients credentials was to simultaneously start refusing everyone who had none — including every peer still running the previous release, whose /join, /status and /remove calls would 401 in the middle of a rolling upgrade and look exactly like raft breaking. The rollout is therefore two passes: first every node ships credentials (RQLiteAuthFile, enforcement off), then enforcement is switched on. |
+| `database.rqlite_auth_file` | `string` | RQLiteAuthFile is the rqlite auth JSON that carries the same user. The spawner copies it to where rqlited reads it and starts rqlited with -auth pointing at the copy. |
+| `database.rqlite_enforce_auth` | `bool` | RQLiteEnforceAuth is accepted so DecodeStrict still reads a node.yaml that sets it. Nothing reads it: rqlited always runs with -auth (namespace.SystemdSpawner), so there is no enforcement to switch on. |
 | `database.raft_election_timeout` | `time.Duration` | Raft tuning (passed through to rqlited CLI flags). Higher defaults than rqlited's 1s suit WireGuard latency. |
 | `database.raft_heartbeat_timeout` | `time.Duration` | default: 2s |
 | `database.raft_apply_timeout` | `time.Duration` | default: 30s |

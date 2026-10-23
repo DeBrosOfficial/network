@@ -675,8 +675,8 @@ func (cg *ConfigGenerator) persistTURNSecret(secret string) error {
 // The vault config uses key=value format (not YAML, despite the file extension).
 // The guardian reads its guardian list from the index RQLite's dns_nodes
 // (vault/src/membership/node_list.zig), authenticated as the cluster's RQLite
-// user with the password file EnsureRQLiteAuth writes, so it keeps working
-// once rqlite_enforce_auth is on. The file is read at every refresh, never
+// user with the password file EnsureRQLiteAuth writes, which rqlited's -auth
+// requires. The file is read at every refresh, never
 // copied into vault.yaml.
 func (cg *ConfigGenerator) GenerateVaultConfig(vpsIP string) string {
 	dataDir := filepath.Join(cg.oramaDir, "data", "vault")
