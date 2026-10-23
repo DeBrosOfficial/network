@@ -315,7 +315,7 @@ The gates, all run by `check` (`core/tools/whitepaper/check.go:runChecks`):
 |---|---|
 | version | `book.yaml` `version` or a chapter's `verified` differs from `/VERSION` |
 | ownership | a tracked file is explained by no chapter's `owns:` and is not excluded; an `owns:` entry is too broad, duplicated or matches nothing |
-| anchors | a backticked path (`core/`, `chain/`, `vault/`, `sdk/`, `sdk-vault/`, `caddy/`, `e2e/`, `contracts/`, `docs/`, `website/`, `plans/`) does not exist, or its `:Identifier` does not appear in the file |
+| anchors | a backticked path (`core/`, `chain/`, `vault/`, `sdk/`, `sdk-vault/`, `caddy/`, `e2e/`, `contracts/`, `docs/`, `website/`) does not exist, or its `:Identifier` does not appear in the file |
 | structure | the title, At-a-glance block or the 11 section headings of a subsystem chapter depart from the contract |
 | markdown | raw HTML, curly braces, a bare less-than sign, footnotes or heading attributes outside code |
 | links | an image or link points at a missing file or heading |
