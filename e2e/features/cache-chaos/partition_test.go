@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Orama-Network/orama/e2e/features/internal/edge"
 	"github.com/Orama-Network/orama/e2e/features/internal/infra"
 	"github.com/Orama-Network/orama/e2e/features/internal/realistic"
 	"github.com/Orama-Network/orama/e2e/harness"
@@ -81,7 +82,10 @@ func TestOlricChaos_indexPartitionIsHealedByOneRestart(t *testing.T) {
 			o, err := readIndexOlric(t, f, target)
 			return err == nil && o.MemberCount == 1, err
 		})
-		time.Sleep(partitionHold)
+		edge.Hold(t, 5*time.Second, partitionHold, "the split, past memberlist's gossip-to-the-dead window", func() (bool, error) {
+			o, err := readIndexOlric(t, f, target)
+			return err == nil && o.MemberCount == 1, err
+		})
 	}) // the cut's rules are removed when the subtest ends
 
 	for _, n := range nodes {
