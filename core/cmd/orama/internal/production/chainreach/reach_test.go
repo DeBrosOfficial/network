@@ -3,13 +3,16 @@ package chainreach
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 func TestParseProbe(t *testing.T) {
@@ -227,5 +230,11 @@ func TestPin(t *testing.T) {
 	expectedChainID = func(string) (string, string, error) { return "", "", errors.New("store unreadable") }
 	if _, err := Pin("testnet", ""); err == nil || !strings.Contains(err.Error(), "store unreadable") {
 		t.Errorf("a registry that cannot be read is an error with its cause: %v", err)
+	}
+	expectedChainID = func(string) (string, string, error) {
+		return "", "devnet", fmt.Errorf("network devnet: %w", netregistry.ErrClusterOnly)
+	}
+	if _, err := Pin("dev", "orama-mine-1"); clierr.CodeOf(err) != clierr.CodeUsage || !strings.Contains(err.Error(), "no chain for the wallet to sign for") {
+		t.Errorf("a cluster-only network: %v (code %d), want a usage error even with --chain-id", err, clierr.CodeOf(err))
 	}
 }

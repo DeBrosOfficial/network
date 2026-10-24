@@ -152,6 +152,39 @@ func TestRegistryNetworks_defaultsAndRefusals(t *testing.T) {
 	}
 }
 
+func TestRegistryNetworks_aClusterOnlyNetworkIsNeverTheDefault(t *testing.T) {
+	load := testRegistry(t, "testnet")
+	reg, err := load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := []byte("release-root-devnet")
+	m := netregistry.Manifest{Name: "devnet", Channel: "nightly", MinVersion: "0.3.6", ReleaseRepo: "https://releases.example", ReleaseRootSHA256: netregistry.Digest(root)}
+	data, err := m.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	devnet, err := netregistry.LoadFS(fstest.MapFS{"registry/devnet/manifest.json": {Data: data}, "registry/devnet/release-root.json": {Data: root}}, "registry")
+	if err != nil {
+		t.Fatal(err)
+	}
+	both, err := reg.Merge(devnet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := registryNetworks{load: func() (*netregistry.Registry, error) { return both, nil }, active: func() (string, error) { return "", errors.New("none") }}
+	if n, err := r.Resolve(context.Background(), ""); err != nil || n.Manifest.Name != "testnet" {
+		t.Fatalf("the only network with a chain is the default: %v, %v", n, err)
+	}
+	if n, err := r.Resolve(context.Background(), "devnet"); err != nil || !n.Manifest.ClusterOnly() {
+		t.Errorf("a cluster-only network is chosen by its name: %v, %v", n, err)
+	}
+	alone := registryNetworks{load: func() (*netregistry.Registry, error) { return devnet, nil }, active: func() (string, error) { return "", errors.New("none") }}
+	if _, err := alone.Resolve(context.Background(), ""); err == nil || !strings.Contains(err.Error(), "--network") {
+		t.Errorf("only a cluster-only network and no choice: %v", err)
+	}
+}
+
 // ---- ASN
 
 func TestOriginASN(t *testing.T) {

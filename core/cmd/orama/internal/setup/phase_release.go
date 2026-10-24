@@ -3,12 +3,12 @@ package setup
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strconv"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/releasedownload"
 )
 
 const (
@@ -25,26 +25,6 @@ const (
 // told.
 const uploadReleaseHint = "if the machine cannot reach the release repository (a closed outbound firewall, a private network), " +
 	"run setup with --upload-release to upload the archive from this computer instead"
-
-// curlExit is how curl reports a failure in its message ("curl: (6) ...").
-var curlExit = regexp.MustCompile(`curl: \((\d+)\)`)
-
-// unreachableCurlExits are the curl exit codes of a repository the machine cannot
-// reach: the proxy or host does not resolve (5, 6), the connection is refused or
-// times out (7, 28), the TLS handshake or certificate fails (35, 51, 58, 59, 60,
-// 77), or the transfer is cut (52, 55, 56). A repository that answered 404 (22), a
-// download of the wrong size or a digest that differs are not these.
-var unreachableCurlExits = map[int]bool{5: true, 6: true, 7: true, 28: true, 35: true, 51: true, 52: true, 55: true, 56: true, 58: true, 59: true, 60: true, 77: true}
-
-// unreachable says whether err is a machine that could not reach the repository.
-func unreachable(err error) bool {
-	m := curlExit.FindStringSubmatch(err.Error())
-	if m == nil {
-		return false
-	}
-	code, convErr := strconv.Atoi(m[1])
-	return convErr == nil && unreachableCurlExits[code]
-}
 
 // stageArch puts the release for one architecture on its machines: each
 // downloads it itself, or, with --upload-release, this computer downloads it and
@@ -145,7 +125,7 @@ func (r *runner) fetchOn(ctx context.Context, rr *releaseRun, n *nodeRun) error 
 	r.emit(ip, StepRelease, StateRunning, "downloading "+ref.Version+" from the release repository")
 	f, err := n.m.FetchRelease(ctx, ref)
 	if err != nil {
-		return r.releaseFailed(rr, ip, fmt.Errorf("download release %s from %s: %w", ref.Version, ref.URL, err), unreachable(err), ctx.Err() != nil)
+		return r.releaseFailed(rr, ip, fmt.Errorf("download release %s from %s: %w", ref.Version, ref.URL, err), releasedownload.Unreachable(err), ctx.Err() != nil)
 	}
 	stageBegun := false
 	defer func() {

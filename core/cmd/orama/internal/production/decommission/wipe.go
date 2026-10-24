@@ -77,6 +77,7 @@ prior_forward="$(cat %[20]s 2>/dev/null || true)"
 case "$prior_forward" in 0|1) sysctl -q -w net.ipv4.ip_forward="$prior_forward" ;; esac
 %[21]s
 %[22]s
+%[24]s
 
 # The privileged helper: stop its socket so nothing can reach root through it
 # while the rest is torn down. Its unit files and binary go below.
@@ -187,6 +188,7 @@ rm -rf %[16]s
 # Clean configs
 rm -rf /etc/coredns
 rm -rf /etc/caddy
+%[25]s
 rm -rf %[5]s
 # The archive trust anchor and its rotation mark: a machine wiped and set up
 # again must trust the cluster it next joins or creates, not this one.
@@ -208,6 +210,7 @@ if [ -n "$NUCLEAR" ]; then
     rm -f %[7]s
     systemctl unmask %[8]s 2>/dev/null || true
 %[23]s
+%[26]s
 %[13]s
 fi
 
@@ -236,6 +239,7 @@ fi
 		globalnetns.HostTable, globalnetns.HostIface, globalnetns.Name,
 		filepath.Join(constants.GlobalStateRoot, constants.GlobalNetnsPriorForwardFile),
 		restoreSysctlsFunc(), ipv6RestoreBlock(), ramHygieneRestoreBlock(),
+		hostFilesBlock(), resolverRestoreBlock(), nuclearHostFilesBlock(),
 	)
 }
 

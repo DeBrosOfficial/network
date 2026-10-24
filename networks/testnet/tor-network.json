@@ -1,5 +1,5 @@
 {
-  "name": "stagenet",
+  "name": "testnet",
   "private": true,
   "bootstrap": false,
   "allow_exit": false,
@@ -14,27 +14,27 @@
       "address": "57.129.166.16",
       "or_port": 31020,
       "dir_port": 31021,
-      "v3_ident": "669E7ADFCCBF4824856AF43C339F2904350A11F4",
-      "fingerprint": "36348B57535B45716A13C6EC85D0E1E83D32020C",
-      "ed25519_id": "bq9ihD+fAtpaeeZOiAhE54hPUv9pSFWywHPPtki/tyY"
+      "v3_ident": "284E3C7C5777F794057AF3E7542710B17B1DA2DA",
+      "fingerprint": "36E672C46DEC7537C77377884AB93D86F9DAC97F",
+      "ed25519_id": "RBBV/spsV+x+fJukr3iofX3JyJrFL2acLWIyjqBoM74"
     },
     {
       "nickname": "OramaAuth02",
       "address": "57.129.166.17",
       "or_port": 31020,
       "dir_port": 31021,
-      "v3_ident": "DF1A7EDAD347099E4C84C51E3C41D17054D2451F",
-      "fingerprint": "F3F9E3EDBC612045C66F03242877F06EF1EB4879",
-      "ed25519_id": "kjhAIv6Z257/+XM7Ywjthcq/9NcegtOrZZ5MPYl1gIU"
+      "v3_ident": "9778E1B51FA22809F23956E40A3BC574E6EB10C1",
+      "fingerprint": "B37F08517D7D08672433B0BAAEBA36E43D5D0932",
+      "ed25519_id": "4eBCl0natGdmfi0Ajzl60hyFFHrhVZvbT5D2Vktpr+M"
     },
     {
       "nickname": "OramaAuth03",
       "address": "161.97.184.199",
       "or_port": 31020,
       "dir_port": 31021,
-      "v3_ident": "6A4041F7655BE3A8099530087880384142C3F26F",
-      "fingerprint": "3FBD9BCBC7FA03F6263CFA4E7A2473ACA5321598",
-      "ed25519_id": "OD/yO9XcL1xR+cPkP+s4YfJjyaVsJg315Uw/JoF2shw"
+      "v3_ident": "01C3955E0C88AD89945FC634C53D3A5FCF44E1AF",
+      "fingerprint": "AB4C688B263BDEA36F57B8BFD69C92B518F8F016",
+      "ed25519_id": "HFufilKyerpKoS6iGlUZIKYIglSyPx7JGMnELsFVfNg"
     }
   ]
 }

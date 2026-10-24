@@ -31,6 +31,10 @@ type Options struct {
 	Reinstall bool
 	// SSH reads what the nodes run over SSH instead of the gateway's telemetry.
 	SSH bool
+	// UploadRelease downloads the archive on this machine and uploads it to every
+	// node, for nodes that cannot reach the release repository; by default each
+	// node downloads it from the repository itself.
+	UploadRelease bool
 	// Delay is how many seconds a node has to rejoin before the rollout stops.
 	Delay int
 	// In answers the confirmation; Out receives the plan. Nil are os.Stdin and os.Stdout.
@@ -48,11 +52,14 @@ type roller interface {
 // seams are the parts of `orama upgrade` that reach the network or a node; a
 // test replaces them.
 type seams struct {
-	arch   func(node inspector.Node) (string, error)
-	fetch  func(ctx context.Context, p releasefetch.Params) (*releasefetch.Release, error)
-	states func(ctx context.Context, env string, ssh bool) (map[string]NodeState, error)
-	stage  func(node inspector.Node, rel push.ReleaseFiles) (string, error)
-	global func(node inspector.Node) error
+	arch func(node inspector.Node) (string, error)
+	// fetch downloads the release here (--upload-release); resolve verifies its
+	// metadata alone, for the nodes to download it.
+	fetch   func(ctx context.Context, p releasefetch.Params) (*archRelease, error)
+	resolve func(ctx context.Context, p releasefetch.Params) (*archRelease, error)
+	states  func(ctx context.Context, env string, ssh bool) (map[string]NodeState, error)
+	stage   func(node inspector.Node, rel push.ReleaseFiles) (string, error)
+	global  func(node inspector.Node) error
 }
 
 // runner is one `orama upgrade`.
@@ -147,6 +154,9 @@ func (r *runner) run(ctx context.Context) error {
 	if err := r.stageAll(steps, releases, out); err != nil {
 		return err
 	}
+	if err := releases.accept(); err != nil {
+		return clierr.Failure("%v", err)
+	}
 	rolling := &rollout.Plan{Steps: steps, Nameservers: order.Nameservers}
 	return r.roller.Roll(rolling, r.afterUpgrade)
 }
@@ -182,11 +192,12 @@ func (r realRoller) Roll(plan *rollout.Plan, after func(inspector.Node) error) e
 
 func defaultSeams() seams {
 	return seams{
-		arch:   nodeArch,
-		fetch:  releasefetch.Fetch,
-		states: snapshotStates,
-		stage:  push.ReleaseToNode,
-		global: refreshGlobalLayer,
+		arch:    nodeArch,
+		fetch:   fetchRelease,
+		resolve: resolveRelease,
+		states:  snapshotStates,
+		stage:   push.ReleaseToNode,
+		global:  refreshGlobalLayer,
 	}
 }
 

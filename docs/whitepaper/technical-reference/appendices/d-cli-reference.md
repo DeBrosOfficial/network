@@ -141,6 +141,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama maint invite`](#orama-maint-invite) - Mint an invite for a new node
   - [`orama maint network`](#orama-maint-network) - Maintain the published networks
     - [`orama maint network announce`](#orama-maint-network-announce) - Write networks/&lt;name>/ for a network that does not exist yet
+    - [`orama maint network cluster-only`](#orama-maint-network-cluster-only) - Write networks/&lt;name>/ for a network of clusters that runs no chain
     - [`orama maint network publish`](#orama-maint-network-publish) - Write networks/&lt;name>/ for a chain that was just deployed
   - [`orama maint node`](#orama-maint-node) - Install, stage, recover and migrate nodes
     - [`orama maint node autoupdate`](#orama-maint-node-autoupdate) - Decide whether a newer release should be installed
@@ -1744,7 +1745,11 @@ orama function versions <name>
 ```
 
 ```text
-Shows all deployed versions of a specific function.
+Shows all deployed versions of a specific function. WASM SHA256 is the
+SHA-256 of the WASM each version was deployed with, as uploaded, to compare
+with 'shasum -a 256 function.wasm'; "-" for a version deployed before the
+gateway recorded it. The WASM CID is of the sealed blob and differs on every
+deploy.
 ```
 
 
@@ -3192,7 +3197,7 @@ Maintain the published networks
 orama maint network
 ```
 
-Subcommands: `announce`, `publish`
+Subcommands: `announce`, `cluster-only`, `publish`
 
 ## orama maint network announce
 
@@ -3228,11 +3233,51 @@ commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--channel` | — | Release channel: nightly, main or dev/&lt;branch> [required] |
 | `--dir` | `networks` | The repository's networks directory |
 | `--faucet` | `false` | The network funds new operators from a faucet |
-| `--min-version` | `0.3.6` | Oldest orama version that may join, X.Y.Z |
+| `--min-version` | `0.3.8` | Oldest orama version that may join, X.Y.Z |
 | `--name` | — | Network name, for example testnet [required] |
 | `--release-repo` | — | https base URL of the release repository [required] |
 | `--release-root` | — | The release-root.json file its releases are verified against [required] |
 | `--seed` | — | A seed DNS name (repeatable; default: the creator's ns&lt;N>.&lt;name>.orama.network) |
+
+
+## orama maint network cluster-only
+
+Write networks/&lt;name>/ for a network of clusters that runs no chain
+
+```text
+orama maint network cluster-only [flags]
+```
+
+```text
+Write networks/<name>/ (release-root.json and, last, manifest.json) for a
+cluster-only network: one that runs no chain, only clusters whose nodes follow a
+release channel. The manifest names the release repository, the channel, the
+oldest version that may join and the release root its releases are verified
+against. Its chain_id and genesis_sha256 are empty and it has no seeds, faucet or
+Tor network file.
+
+A cluster on such a network is upgraded from its channel with 'orama upgrade'
+once its environment names the network ('orama network add <name> <gateway URL>
+--network <name>'). 'orama setup' installs only cluster nodes on it (--cluster-only),
+and a command that signs for a chain is refused there: it has none.
+
+It can be written again to change the channel, the repository, the minimum version
+or the root. A network whose manifest names a chain, announced or created, is
+refused. A cluster-only network that is to get a chain is announced
+('orama maint network announce') or created over it.
+
+Afterwards run 'make -C core sync-networks' so the binary embeds the manifest, and
+commit networks/ and core/pkg/netregistry/embedded/ together.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--channel` | — | Release channel: nightly, main or dev/&lt;branch> [required] |
+| `--dir` | `networks` | The repository's networks directory |
+| `--min-version` | `0.3.8` | Oldest orama version that may join, X.Y.Z |
+| `--name` | — | Network name, for example devnet [required] |
+| `--release-repo` | — | https base URL of the release repository [required] |
+| `--release-root` | — | The release-root.json file its releases are verified against [required] |
 
 
 ## orama maint network publish
@@ -5611,6 +5656,10 @@ anything is; the system accounts are removed only with --nuclear.
 Every wipe removes the IPv6 sysctl drop-in and puts IPv6 back to its value from before the install
 (enabled when the install recorded none); --nuclear also removes the RAM hygiene drop-in and puts back
 the values it recorded.
+Every wipe removes the host files the install wrote for Orama alone: the log rotation policy
+/etc/logrotate.d/orama (so logrotate.service never fails on the orama user once it is gone) and the
+systemd-resolved drop-ins, and links /etc/resolv.conf back to resolved's stub while it is still the
+file the install wrote; --nuclear also removes the coredump drop-in and the Node.js runtime.
 
 Target-side only: this says nothing to the cluster. If the node is still a
 member, use 'orama remove' instead — otherwise the survivors keep
@@ -5803,7 +5852,7 @@ machine until every machine passes.
 | `--ip` | — | Public IPv4 address of a machine, or &lt;user>@&lt;address> to log in to that machine as &lt;user> instead of --user (repeatable; the addresses can also be given as arguments) |
 | `--min-version` | — | With --create-network: the oldest orama version that may join, X.Y.Z (default: this CLI's version) |
 | `--name` | — | Node name, the node's id on the chain; several machines are named &lt;name>, &lt;name>-2, ... (required unless --cluster-only) |
-| `--network` | — | Network to join: a name from `orama network list` (default: the active network, or the only one) |
+| `--network` | — | Network to join: a name from `orama network list` (default: the active network, or the only one that runs a chain) |
 | `--no-faucet` | `false` | With --create-network: leave the test-network faucet out of the genesis |
 | `--no-relay` | `false` | Run no relay though the network pins a Tor network file |
 | `--no-validator` | `false` | Do not create a validator (and do not bond the 1,000 ORAMA self-bond) |
@@ -6388,14 +6437,17 @@ orama upgrade [flags]
 ```
 
 ```text
-Fetch the newest release of your network's channel, show what each node runs and
+Find the newest release of your network's channel, show what each node runs and
 what it will go through, and after you confirm, upgrade the nodes one at a time.
 
 The release comes from the release repository and channel the network publishes
-(orama network list). It is verified here against the release root built into this
-CLI before anything is sent: the signed metadata, then the archive's length and
-hashes. Every node verifies it again against the release root it adopted, and
-refuses a release that does not match, before it replaces a file.
+(orama network list). Its signed metadata is verified here against the release
+root built into this CLI; the archive is not downloaded here. Each node downloads
+the archive from the repository itself, checks it against the signed length and
+SHA-256, and verifies it again against the release root it adopted, refusing a
+release that does not match, before it replaces a file. --upload-release
+downloads and verifies the archive here instead and uploads it to each node over
+SSH, for nodes that cannot reach the repository.
 
 The plan lists each node with the release it runs now (from the cluster's
 telemetry, as 'orama status' shows it), the release it will run, and its place in
@@ -6420,6 +6472,7 @@ Examples:
   orama upgrade                    # Show the plan, ask, then roll
   orama upgrade --yes              # Roll without asking
   orama upgrade --node 203.0.113.7
+  orama upgrade --upload-release   # Nodes that cannot reach the repository
 ```
 
 | Flag | Default | Description |
@@ -6430,6 +6483,7 @@ Examples:
 | `--node` | — | Upgrade only the node with this public IP |
 | `--reinstall` | `false` | Put the release in place again on nodes that already run it |
 | `--ssh` | `false` | Read what the nodes run over SSH instead of the gateway's telemetry |
+| `--upload-release` | `false` | Download the release on this computer and upload it to each node over SSH, instead of each node downloading it from the release repository (for nodes that cannot reach the repository) |
 | `--yes` | `false` | Do not ask for confirmation |
 
 

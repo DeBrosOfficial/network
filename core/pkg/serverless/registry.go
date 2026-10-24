@@ -3,7 +3,9 @@ package serverless
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -174,7 +176,9 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 		return nil, &DeployError{FunctionName: fn.Name, Cause: err}
 	}
 
-	// Upload WASM to IPFS
+	// The digest is of the bytes as received: the upload seals them, so the
+	// CID cannot name the code (migration 093).
+	wasmSHA256 := wasmDigest(wasmBytes)
 	wasmCID, err := r.uploadWASM(ctx, wasmBytes, fn.Name)
 	if err != nil {
 		return nil, &DeployError{FunctionName: fn.Name, Cause: err}
@@ -205,7 +209,7 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 
 	query := `
 		INSERT INTO functions (
-			id, name, namespace, version, wasm_cid,
+			id, name, namespace, version, wasm_cid, wasm_sha256,
 			memory_limit_mb, timeout_seconds, is_public, is_internal,
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
@@ -213,11 +217,11 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 			raw_http_response, ws_auth,
 			rate_limit_caller_requests, rate_limit_caller_window_sec,
 			rate_limit_ip_requests, rate_limit_ip_window_sec
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	callerRequests, callerWindow, ipRequests, ipWindow := fn.RateLimit.columns()
 	_, err = r.db.Exec(ctx, query,
-		id, fn.Name, fn.Namespace, version, wasmCID,
+		id, fn.Name, fn.Namespace, version, wasmCID, wasmSHA256,
 		memoryLimit, timeout, fn.IsPublic, fn.IsInternal,
 		fn.RetryCount, retryDelay, fn.DLQTopic,
 		string(FunctionStatusActive), now, now, fn.Namespace,
@@ -246,6 +250,7 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 		zap.String("name", fn.Name),
 		zap.String("namespace", fn.Namespace),
 		zap.String("wasm_cid", wasmCID),
+		zap.String("wasm_sha256", wasmSHA256),
 		zap.Int("version", version),
 		zap.Bool("updated", oldFn != nil),
 	)
@@ -275,7 +280,7 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 	if version == 0 {
 		// Get latest version
 		query = `
-			SELECT id, name, namespace, version, wasm_cid, source_cid,
+			SELECT id, name, namespace, version, wasm_cid, wasm_sha256, source_cid,
 				memory_limit_mb, timeout_seconds, is_public, is_internal,
 				retry_count, retry_delay_seconds, dlq_topic,
 				status, created_at, updated_at, created_by,
@@ -295,7 +300,7 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 		// superseded too: a gateway older than the superseded status deploys
 		// without marking the version it replaced.
 		query = `
-			SELECT id, name, namespace, version, wasm_cid, source_cid,
+			SELECT id, name, namespace, version, wasm_cid, wasm_sha256, source_cid,
 				memory_limit_mb, timeout_seconds, is_public, is_internal,
 				retry_count, retry_delay_seconds, dlq_topic,
 				CASE WHEN status = ? AND EXISTS (
@@ -347,7 +352,7 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 func (r *Registry) List(ctx context.Context, namespace string) ([]*Function, error) {
 	// Get latest version of each function in the namespace
 	query := `
-		SELECT f.id, f.name, f.namespace, f.version, f.wasm_cid, f.source_cid,
+		SELECT f.id, f.name, f.namespace, f.version, f.wasm_cid, f.wasm_sha256, f.source_cid,
 			f.memory_limit_mb, f.timeout_seconds, f.is_public, f.is_internal,
 			f.retry_count, f.retry_delay_seconds, f.dlq_topic,
 			f.status, f.created_at, f.updated_at, f.created_by,
@@ -685,7 +690,7 @@ func (r *Registry) GetEnvVars(ctx context.Context, functionID string) (map[strin
 // GetByID retrieves a function by its ID.
 func (r *Registry) GetByID(ctx context.Context, id string) (*Function, error) {
 	query := `
-		SELECT id, name, namespace, version, wasm_cid, source_cid,
+		SELECT id, name, namespace, version, wasm_cid, wasm_sha256, source_cid,
 			memory_limit_mb, timeout_seconds, is_public, is_internal,
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
@@ -712,7 +717,7 @@ func (r *Registry) GetByID(ctx context.Context, id string) (*Function, error) {
 // ListVersions returns all versions of a function.
 func (r *Registry) ListVersions(ctx context.Context, namespace, name string) ([]*Function, error) {
 	query := `
-		SELECT id, name, namespace, version, wasm_cid, source_cid,
+		SELECT id, name, namespace, version, wasm_cid, wasm_sha256, source_cid,
 			memory_limit_mb, timeout_seconds, is_public, is_internal,
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
@@ -745,7 +750,7 @@ func (r *Registry) ListVersions(ctx context.Context, namespace, name string) ([]
 // MaxRetainedFunctionVersions rows per function.
 func (r *Registry) ListAll(ctx context.Context, namespace string) ([]*Function, error) {
 	query := `
-		SELECT id, name, namespace, version, wasm_cid, source_cid,
+		SELECT id, name, namespace, version, wasm_cid, wasm_sha256, source_cid,
 			memory_limit_mb, timeout_seconds, is_public, is_internal,
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
@@ -1024,6 +1029,13 @@ func (r *Registry) uploadWASM(ctx context.Context, wasmBytes []byte, name string
 	return resp.Cid, nil
 }
 
+// wasmDigest is the lowercase hex SHA-256 of a function's WASM, the value
+// `shasum -a 256 function.wasm` prints for the file the owner built.
+func wasmDigest(wasmBytes []byte) string {
+	sum := sha256.Sum256(wasmBytes)
+	return hex.EncodeToString(sum[:])
+}
+
 // verifyPinnedEverywhere polls PinStatus until the CID reports "pinned" on every
 // cluster peer or wasmPinVerifyTimeout elapses. On timeout it returns a wrapped
 // error naming the cid, the last observed status, and the pinned/total peer
@@ -1074,7 +1086,7 @@ func (r *Registry) getByNameInternal(ctx context.Context, namespace, name string
 	name = strings.TrimSpace(name)
 
 	query := `
-		SELECT id, name, namespace, version, wasm_cid, source_cid,
+		SELECT id, name, namespace, version, wasm_cid, wasm_sha256, source_cid,
 			memory_limit_mb, timeout_seconds, is_public, is_internal,
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
@@ -1131,6 +1143,7 @@ func (r *Registry) rowToFunction(row *functionRow) *Function {
 		Namespace:         row.Namespace,
 		Version:           row.Version,
 		WASMCID:           row.WASMCID,
+		WASMSHA256:        nullableString(row.WASMSHA256),
 		SourceCID:         row.SourceCID.String,
 		MemoryLimitMB:     row.MemoryLimitMB,
 		TimeoutSeconds:    row.TimeoutSeconds,
@@ -1171,6 +1184,15 @@ func (r *Registry) rowToFunction(row *functionRow) *Function {
 	}
 }
 
+// nullableString is a NULL column as nil, so the API answers null rather than
+// an empty string.
+func nullableString(v sql.NullString) *string {
+	if !v.Valid {
+		return nil
+	}
+	return &v.String
+}
+
 // -----------------------------------------------------------------------------
 // Database row types (internal)
 // -----------------------------------------------------------------------------
@@ -1181,6 +1203,7 @@ type functionRow struct {
 	Namespace         string         `db:"namespace"`
 	Version           int            `db:"version"`
 	WASMCID           string         `db:"wasm_cid"`
+	WASMSHA256        sql.NullString `db:"wasm_sha256"`
 	SourceCID         sql.NullString `db:"source_cid"`
 	MemoryLimitMB     int            `db:"memory_limit_mb"`
 	TimeoutSeconds    int            `db:"timeout_seconds"`

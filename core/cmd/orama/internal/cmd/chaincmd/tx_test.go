@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 	"github.com/Orama-Network/orama/core/pkg/chainread"
 	"github.com/Orama-Network/orama/core/pkg/clusterreg"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 	"github.com/Orama-Network/orama/core/pkg/onchain"
 	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
@@ -376,6 +378,12 @@ func TestPinnedChainID(t *testing.T) {
 	expectedChainID = func() (string, string, error) { return "", "", errors.New("registry unreadable") }
 	if _, err := pinnedChainID("x"); err == nil {
 		t.Error("an unreadable registry was ignored")
+	}
+	expectedChainID = func() (string, string, error) {
+		return "", "devnet", fmt.Errorf("network devnet: %w", netregistry.ErrClusterOnly)
+	}
+	if _, err := pinnedChainID("my-chain-1"); clierr.CodeOf(err) != clierr.CodeUsage || !strings.Contains(err.Error(), "no chain for the wallet to sign for") {
+		t.Errorf("a cluster-only network: %v (code %d), want a usage error even with --chain-id", err, clierr.CodeOf(err))
 	}
 }
 

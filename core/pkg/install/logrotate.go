@@ -6,14 +6,8 @@ import (
 	"path/filepath"
 )
 
-const (
-	// logrotateConfigPath is where the Orama log-rotation policy is installed.
-	// Debian/Ubuntu's logrotate reads every file in this directory daily.
-	logrotateConfigPath = "/etc/logrotate.d/orama"
-
-	// logrotateFileMode matches what logrotate expects for its config files.
-	logrotateFileMode = 0o644
-)
+// logrotateFileMode matches what logrotate expects for its config files.
+const logrotateFileMode = 0o644
 
 // GenerateLogrotateConfig renders the rotation policy for the log files under
 // <oramaDir>/logs.
@@ -49,12 +43,12 @@ func GenerateLogrotateConfig(oramaDir string) string {
 `, logGlob)
 }
 
-// InstallLogrotateConfig writes the rotation policy to logrotateConfigPath.
+// InstallLogrotateConfig writes the rotation policy to LogrotateConfigPath.
 // Requires root.
 func InstallLogrotateConfig(oramaDir string) error {
 	cfg := GenerateLogrotateConfig(oramaDir)
-	if err := os.WriteFile(logrotateConfigPath, []byte(cfg), logrotateFileMode); err != nil {
-		return fmt.Errorf("failed to write %s: %w", logrotateConfigPath, err)
+	if err := os.WriteFile(LogrotateConfigPath, []byte(cfg), logrotateFileMode); err != nil {
+		return fmt.Errorf("failed to write %s: %w", LogrotateConfigPath, err)
 	}
 	return nil
 }

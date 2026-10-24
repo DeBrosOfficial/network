@@ -167,10 +167,16 @@ func (m *Model) takeNetwork(n NetworkChoice) (tea.Model, tea.Cmd) {
 }
 
 // chooseNetwork records the network. One that pins its Tor network file runs a relay unless the
-// person says otherwise, so the relay row starts on.
+// person says otherwise, so the relay row starts on. A cluster-only network has no chain, so its
+// machines run a cluster node and nothing of the global layer, and the row stays off.
 func (m *Model) chooseNetwork(n NetworkChoice) {
 	m.opts.Network = n.Name
 	m.torPinned = n.TorNetwork
+	m.clusterOnlyNet = n.ClusterOnly
+	if n.ClusterOnly {
+		m.toggles[optGlobal], m.toggles[optRelay], m.toggles[optExit] = false, false, false
+		return
+	}
 	if n.TorNetwork {
 		m.toggles[optRelay] = m.toggles[optGlobal] && !m.opts.NoRelay
 	}

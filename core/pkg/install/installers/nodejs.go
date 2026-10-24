@@ -33,8 +33,9 @@ const (
 	// https://nodejs.org/dist/v<ver>/SHASUMS256.txt.
 	nodeVersion = "24.21.0"
 
-	nodeInstallRoot = "/usr/local/lib/nodejs"
-	nodeBinDir      = "/usr/bin"
+	// NodeJSInstallRoot holds the unpacked releases.
+	NodeJSInstallRoot = "/usr/local/lib/nodejs"
+	nodeBinDir        = "/usr/bin"
 	// nodeTarballMaxBytes bounds the download (the release is ~58 MB).
 	nodeTarballMaxBytes = 200 * 1024 * 1024
 	nodeDownloadTimeout = 10 * time.Minute
@@ -52,16 +53,26 @@ var nodeDistArch = map[string]string{"amd64": "x64", "arm64": "arm64"}
 // nodeCommands are linked into nodeBinDir, each to bin/<name> of the release.
 var nodeCommands = []string{"node", "npm", "npx"}
 
+// NodeJSCommandLinks are the links the installer puts in nodeBinDir, each
+// pointing into a release under NodeJSInstallRoot.
+func NodeJSCommandLinks() []string {
+	links := make([]string, len(nodeCommands))
+	for i, name := range nodeCommands {
+		links[i] = filepath.Join(nodeBinDir, name)
+	}
+	return links
+}
+
 // NodeJSInstaller installs the pinned Node.js release.
 type NodeJSInstaller struct {
 	*BaseInstaller
-	// root and binDir are nodeInstallRoot and nodeBinDir; tests point them elsewhere.
+	// root and binDir are NodeJSInstallRoot and nodeBinDir; tests point them elsewhere.
 	root, binDir string
 }
 
 // NewNodeJSInstaller returns an installer for arch (a Go arch, amd64 or arm64).
 func NewNodeJSInstaller(arch string, logWriter io.Writer) *NodeJSInstaller {
-	return &NodeJSInstaller{BaseInstaller: NewBaseInstaller(arch, logWriter), root: nodeInstallRoot, binDir: nodeBinDir}
+	return &NodeJSInstaller{BaseInstaller: NewBaseInstaller(arch, logWriter), root: NodeJSInstallRoot, binDir: nodeBinDir}
 }
 
 func (ni *NodeJSInstaller) goArch() string {

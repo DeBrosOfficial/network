@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/releasedownload"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
 	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 	"github.com/Orama-Network/orama/core/pkg/remotessh"
@@ -31,11 +32,14 @@ var releaseTargetPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,255
 // metadataNamePattern is one path element of a metadata file.
 var metadataNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 
-// ReleaseFiles is a release already fetched and verified on this machine
-// (releasefetch.Fetch).
+// ReleaseFiles is a release whose metadata was verified on this machine: with
+// the archive fetched here too (releasefetch.Fetch), or only resolved, for the
+// node to download (releasefetch.Resolve).
 type ReleaseFiles struct {
-	// Archive is the release archive.
-	Archive string
+	// Archive is the release archive on this machine, uploaded to the node.
+	// Download is where the node downloads it from instead. Exactly one is set.
+	Archive  string
+	Download *releasedownload.Archive
 	// MetadataDir holds the TUF metadata the archive verified against.
 	MetadataDir string
 	// Target is the archive's name in the signed targets.
@@ -44,17 +48,22 @@ type ReleaseFiles struct {
 	Root []byte
 }
 
-// ReleaseToNode stages a verified release on one node: it uploads the archive,
-// the metadata and the root to a private directory, adopts the root when the
-// node has none or rotates to it when it is the next version of the node's, and has the node's installed orama verify the archive against
-// the adopted root (`node stage-archive --release-only`) before it replaces
-// anything under /opt/orama. A node that trusts a different root refuses the
-// release and says so. Nothing is restarted. It returns what the node's stage
-// printed, and writes nothing to the terminal, so several nodes can be staged
-// at once.
+// ReleaseToNode stages a verified release on one node: it uploads the metadata
+// and the root to a private directory, and the archive too unless the node
+// downloads it from the repository itself (rel.Download), checked against the
+// signed length and SHA-256 before anything else reads it. The node then adopts
+// the root when it has none or rotates to it when it is the next version of its
+// own, and its installed orama verifies the archive against the adopted root
+// (`node stage-archive --release-only`) before it replaces anything under
+// /opt/orama. A node that trusts a different root refuses the release and says
+// so. Nothing is restarted. It returns what the node's stage printed, and
+// writes nothing to the terminal, so several nodes can be staged at once.
 func ReleaseToNode(node inspector.Node, rel ReleaseFiles) (out string, err error) {
 	if !releaseTargetPattern.MatchString(rel.Target) {
 		return "", fmt.Errorf("release target %q is not a name in the signed targets", rel.Target)
+	}
+	if (rel.Archive == "") == (rel.Download == nil) {
+		return "", errors.New("a release is staged from an uploaded archive or from a download, and exactly one is given")
 	}
 	files, err := metadataFiles(rel.MetadataDir)
 	if err != nil {
@@ -72,6 +81,15 @@ func ReleaseToNode(node inspector.Node, rel ReleaseFiles) (out string, err error
 	}()
 	if err := uploadRelease(node, dir, rel, files); err != nil {
 		return "", fmt.Errorf("upload to %s failed: %w", node.Host, err)
+	}
+	if rel.Download != nil {
+		download, err := releaseDownloadCommand(dir, *rel.Download)
+		if err != nil {
+			return "", err
+		}
+		if _, err := run(download); err != nil {
+			return "", fmt.Errorf("%s could not download the release from %s: %w", node.Host, rel.Download.URL, err)
+		}
 	}
 	out, err = run(releaseStageCommand(remotessh.SudoPrefix(node), dir, rel.Target))
 	if err != nil {
@@ -119,13 +137,16 @@ func metadataFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
-// uploadRelease copies the archive, the metadata and the root into dir.
+// uploadRelease copies the metadata, the root and, unless the node downloads
+// it, the archive into dir.
 func uploadRelease(node inspector.Node, dir string, rel ReleaseFiles, files []string) error {
 	if _, err := remotessh.RunSSHOutput(node, "mkdir -p "+strings.Join(metadataDirs(dir, files), " ")); err != nil {
 		return err
 	}
-	if err := remotessh.UploadFile(node, rel.Archive, uploadPath(dir)); err != nil {
-		return err
+	if rel.Archive != "" {
+		if err := remotessh.UploadFile(node, rel.Archive, uploadPath(dir)); err != nil {
+			return err
+		}
 	}
 	for _, f := range files {
 		if err := remotessh.UploadFile(node, filepath.Join(rel.MetadataDir, filepath.FromSlash(f)), path.Join(dir, uploadMetadataDir, f)); err != nil {
@@ -158,7 +179,23 @@ func metadataDirs(dir string, files []string) []string {
 	return dirs
 }
 
-// releaseStageCommand is the node-side step for an uploaded release. The node's
+// releaseDownloadCommand has the node download the archive into dir from the
+// repository and refuse it unless it has the signed length and SHA-256
+// (releasedownload). Those values reach the node over the SSH session, not
+// through the repository; the stage that follows verifies the archive again,
+// against the node's own root. It runs as the login user, who owns dir, as an
+// upload does: nothing fetched from the network needs root to be written. A
+// refused download is removed with dir.
+func releaseDownloadCommand(dir string, dl releasedownload.Archive) (string, error) {
+	download, err := dl.Lines(uploadPath(dir))
+	if err != nil {
+		return "", err
+	}
+	script := strings.Join(append([]string{"set -eu -o pipefail"}, download...), "\n") + "\n"
+	return remotessh.ScriptCommand("", script), nil
+}
+
+// releaseStageCommand is the node-side step for a release in dir. The node's
 // installed orama adopts the root when the node has none, follows it when it is the next version of
 // the root the node holds (a rotation checked against that root, never taken on the pusher's word),
 // then stages the archive on the release root's checks alone. The script travels base64-encoded

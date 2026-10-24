@@ -363,6 +363,8 @@ type fakeNetworks struct {
 	// announced makes the network one whose chain is not created yet, and
 	// unknown makes it one the registry does not have.
 	announced, unknown bool
+	// clusterOnly makes it a network that runs no chain.
+	clusterOnly bool
 	// torNetwork is the Tor network file the network pins; nil pins none.
 	torNetwork []byte
 }
@@ -380,6 +382,9 @@ func (n fakeNetworks) Resolve(_ context.Context, name string) (*netregistry.Netw
 	if n.announced {
 		m.GenesisSHA256 = ""
 	}
+	if n.clusterOnly {
+		m.ChainID, m.GenesisSHA256, m.Seeds, m.Faucet = "", "", nil, false
+	}
 	if n.torNetwork != nil {
 		m.TorNetworkSHA256 = netregistry.Digest(n.torNetwork)
 	}
@@ -387,6 +392,9 @@ func (n fakeNetworks) Resolve(_ context.Context, name string) (*netregistry.Netw
 }
 
 func (n fakeNetworks) Genesis(context.Context, *netregistry.Network) ([]byte, error) {
+	if n.clusterOnly {
+		n.w.add("genesis of a cluster-only network")
+	}
 	return testGenesisDoc(), n.genesisErr
 }
 

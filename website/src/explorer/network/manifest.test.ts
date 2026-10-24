@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GATEWAY_ORIGIN } from "../data/chain/client";
-import { ManifestError, gatewayOrigin, isCreated, parseManifest } from "./manifest";
+import { ManifestError, gatewayOrigin, isClusterOnly, isCreated, parseManifest } from "./manifest";
 
 const SHA = "84ee8d46628343b85c464185e1009974beb34f91c99477a75a5dfb66a5918b67";
 
@@ -33,8 +33,17 @@ describe("parseManifest", () => {
     expect(isCreated(parseManifest(testnet))).toBe(true);
   });
 
+  it("TestParseManifest_a_cluster_only_network_has_no_chain_and_is_not_created", () => {
+    const m = parseManifest({ ...testnet, name: "devnet", chain_id: "", genesis_sha256: "", seeds: [], faucet: false });
+    expect(isClusterOnly(m)).toBe(true);
+    expect(isCreated(m)).toBe(false);
+    expect(isClusterOnly(parseManifest(testnet))).toBe(false);
+  });
+
   it.each([
     ["not an object", null],
+    ["no chain id but a genesis", { ...testnet, chain_id: "" }],
+    ["no chain id but seeds", { ...testnet, chain_id: "", genesis_sha256: "" }],
     ["an array", []],
     ["a name with capitals", { ...testnet, name: "Testnet" }],
     ["a name that starts with a digit", { ...testnet, name: "1net" }],

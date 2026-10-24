@@ -109,10 +109,12 @@ type Model struct {
 	announced map[string]bool
 	toggles   [optCount]bool
 	// torPinned says the chosen network pins its Tor network file.
-	torPinned   bool
-	exitAsked   bool
-	inspections []setup.Inspection
-	plan        *setup.Plan
+	torPinned bool
+	// clusterOnlyNet says the chosen network runs no chain, so the global layer cannot be chosen.
+	clusterOnlyNet bool
+	exitAsked      bool
+	inspections    []setup.Inspection
+	plan           *setup.Plan
 
 	events map[string]map[setup.Step]setup.Event
 	lines  []string

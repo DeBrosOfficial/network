@@ -519,6 +519,7 @@ Placement says which database holds a table: `Cluster` tables live only in the c
 | `rate_limit_caller_window_sec` | INTEGER | yes | `0` |  |
 | `rate_limit_ip_requests` | INTEGER | yes | `0` |  |
 | `rate_limit_ip_window_sec` | INTEGER | yes | `0` |  |
+| `wasm_sha256` | TEXT | no | - |  |
 
 ## global_deployment_subdomains
 

@@ -3,7 +3,11 @@
 package serverless
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -144,4 +148,45 @@ func TestVersions_deleteAndPurge(t *testing.T) {
 	if got := mark(t, fx, fn+"@1"); got != "fresh" {
 		t.Errorf("%s@1 after purge and deploy ran MARK=%v, want fresh", fn, got)
 	}
+}
+
+// TestVersions_wasmSHA256IsOfTheUploadedFile: deploying the same function.wasm
+// twice records the same wasm_sha256 on both versions, equal to the file's
+// SHA-256, in `function get`, `function versions` and the versions route,
+// although the sealed upload's wasm_cid may differ
+// (website/src/docs/developer/functions.mdx#versioning, chg-956).
+func TestVersions_wasmSHA256IsOfTheUploadedFile(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn = "e2e-sha"
+	dir := deploy(t, fx, fnSpec{name: fn})
+	sum := sha256.Sum256(readFile(t, filepath.Join(dir, "function.wasm")))
+	want := hex.EncodeToString(sum[:])
+	redeploy(t, fx, dir, "")
+
+	var got map[string]any
+	if out := fx.n.CLI.MustOK(t, "function", "get", fn).Stdout; json.Unmarshal([]byte(out), &got) != nil || got["wasm_sha256"] != want {
+		t.Errorf("function get: wasm_sha256 = %v, want %s (shasum of function.wasm)\n%s", got["wasm_sha256"], want, out)
+	}
+	if out := fx.n.CLI.MustOK(t, "function", "versions", fn).Stdout; strings.Count(out, want) != 2 {
+		t.Errorf("function versions must show %s on both versions:\n%s", want, out)
+	}
+
+	r := fx.c.MustSend(t, gw.Req{Method: http.MethodGet, Path: "/v1/functions/" + fn + "/versions", Bearer: fx.admin})
+	var listing struct {
+		Versions []struct {
+			Version    int     `json:"version"`
+			WASMSHA256 *string `json:"wasm_sha256"`
+			WASMCID    string  `json:"wasm_cid"`
+		} `json:"versions"`
+	}
+	if r.Status != http.StatusOK || json.Unmarshal(r.Body, &listing) != nil || len(listing.Versions) != 2 {
+		t.Fatalf("GET versions: %d %.300s", r.Status, r.Body)
+	}
+	for _, v := range listing.Versions {
+		if v.WASMSHA256 == nil || *v.WASMSHA256 != want {
+			t.Errorf("version %d: wasm_sha256 = %v, want %s", v.Version, v.WASMSHA256, want)
+		}
+	}
+	t.Logf("wasm_cid of the two deploys: %s, %s", listing.Versions[0].WASMCID, listing.Versions[1].WASMCID)
 }

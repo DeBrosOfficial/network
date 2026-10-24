@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/releasedownload"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
 )
 
@@ -127,5 +128,50 @@ func TestMetadataDirs_createsEachSubdirectoryOnce(t *testing.T) {
 func TestUploadRoot_refusesAnEmptyRoot(t *testing.T) {
 	if err := uploadRoot(inspector.Node{Host: "h"}, "/tmp/orama-push.AbCd1234", nil); err == nil {
 		t.Fatal("a release with no root must be refused before anything is uploaded")
+	}
+}
+
+func TestReleaseDownloadCommand_theLoginUserDownloadsIntoTheUploadDirectoryAndChecksTheSignedFile(t *testing.T) {
+	dl := releasedownload.Archive{URL: "https://releases.example/targets/nightly/a.tar.gz", Length: 42, SHA256: strings.Repeat("a", 64)}
+	cmd, err := releaseDownloadCommand("/tmp/orama-push.AbCd1234", dl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(cmd, "| bash -s") || strings.Contains(cmd, "sudo") {
+		t.Errorf("command = %q, want it run as the login user", cmd)
+	}
+	script := decodeScript(t, cmd)
+	for _, want := range []string{
+		"set -eu -o pipefail",
+		"--max-filesize 42 --output /tmp/orama-push.AbCd1234/archive.tar.gz 'https://releases.example/targets/nightly/a.tar.gz'",
+		`[ "$sum" = ` + dl.SHA256 + ` ]`,
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("missing %q in:\n%s", want, script)
+		}
+	}
+	for _, forbidden := range []string{"stage-archive", "add-root", "tar "} {
+		if strings.Contains(script, forbidden) {
+			t.Errorf("the download script must not %q:\n%s", forbidden, script)
+		}
+	}
+}
+
+func TestReleaseDownloadCommand_refusesADigestThatCouldInjectShell(t *testing.T) {
+	dl := releasedownload.Archive{URL: "https://releases.example/a", Length: 1, SHA256: "$(reboot)"}
+	if _, err := releaseDownloadCommand("/tmp/orama-push.AbCd1234", dl); err == nil {
+		t.Error("a digest that is no SHA-256 went into a node's shell")
+	}
+}
+
+func TestReleaseToNode_takesAnUploadOrADownloadAndNeverBothOrNeither(t *testing.T) {
+	dl := &releasedownload.Archive{URL: "https://releases.example/a", Length: 1, SHA256: strings.Repeat("a", 64)}
+	for name, rel := range map[string]ReleaseFiles{
+		"neither": {Target: "nightly/a.tar.gz", MetadataDir: t.TempDir()},
+		"both":    {Target: "nightly/a.tar.gz", MetadataDir: t.TempDir(), Archive: "/w/a.tar.gz", Download: dl},
+	} {
+		if _, err := ReleaseToNode(inspector.Node{Host: "h"}, rel); err == nil || !strings.Contains(err.Error(), "exactly one") {
+			t.Errorf("%s: err = %v, want a refusal before any SSH", name, err)
+		}
 	}
 }

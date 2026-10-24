@@ -102,5 +102,5 @@ func choicesFrom(reg *netregistry.Registry, active string) ([]wizard.NetworkChoi
 // chain is created yet, and whether its manifest pins the Tor network file its relays join.
 func choiceOf(n *netregistry.Network, active string) wizard.NetworkChoice {
 	m := n.Manifest
-	return wizard.NetworkChoice{Name: m.Name, ChainID: m.ChainID, Default: m.Name == active, Announced: m.Announced(), TorNetwork: m.TorNetworkSHA256 != ""}
+	return wizard.NetworkChoice{Name: m.Name, ChainID: m.ChainID, Default: m.Name == active, Announced: m.Announced(), TorNetwork: m.TorNetworkSHA256 != "", ClusterOnly: m.ClusterOnly()}
 }

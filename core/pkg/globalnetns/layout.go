@@ -210,24 +210,35 @@ func writeReplaceHeader(b *strings.Builder, table string) {
 }
 
 // RenderHostRules is the ruleset loaded in the root namespace. It publishes
-// the listed ports into the namespace with DNAT, masquerades the namespace's
-// outbound traffic, refuses it any private destination, refuses everything
+// the listed ports into the namespace with DNAT, on every one of the host's
+// addresses and whichever interface the connection arrives on, masquerades the
+// namespace's outbound traffic, refuses it any private destination, refuses everything
 // arriving from the veth at the host itself (so the namespace cannot reach a
 // cluster service through the host's public or WireGuard address), and
 // forwards into the namespace only DNAT'd connections and their replies. Its output chain lets
 // only root and the accounts in HostClientUIDs open a connection to the host-only ports on the
 // namespace address: any other local process would otherwise reach them through the veth.
+//
+// The DNAT also applies to what arrives from the veth, so the namespace reaches its own published
+// ports at the host's public address, as every other machine does (a Tor directory authority
+// uploads its own descriptor to its own DirPort, and tests its own ORPort, that way). Such a
+// hairpinned connection leaves through the veth it came in on, so postrouting masquerades it to
+// HostAddr: the namespace would otherwise get a packet from its own address and drop it as a
+// martian, and its reply would never pass back through the host's conntrack to be un-DNAT'd. A
+// connection from anywhere else keeps its source address. The DNAT only ever leads to NSAddr, so
+// the namespace reaches nothing through it but its own listeners.
 func (l Layout) RenderHostRules() string {
 	var b strings.Builder
 	writeReplaceHeader(&b, HostTable)
 	b.WriteString("\tchain prerouting {\n\t\ttype nat hook prerouting priority dstnat; policy accept;\n")
 	for _, proto := range []string{"tcp", "udp"} {
 		if set := l.portSet(proto); set != "" {
-			fmt.Fprintf(&b, "\t\tiifname != %q fib daddr type local %s dport %s dnat to %s\n", HostIface, proto, set, NSAddr)
+			fmt.Fprintf(&b, "\t\tfib daddr type local %s dport %s dnat to %s\n", proto, set, NSAddr)
 		}
 	}
 	b.WriteString("\t}\n")
-	fmt.Fprintf(&b, "\tchain postrouting {\n\t\ttype nat hook postrouting priority srcnat; policy accept;\n\t\tip saddr %s oifname != %q masquerade\n\t}\n", Subnet, HostIface)
+	fmt.Fprintf(&b, "\tchain postrouting {\n\t\ttype nat hook postrouting priority srcnat; policy accept;\n\t\tip saddr %s oifname != %q masquerade\n", Subnet, HostIface)
+	fmt.Fprintf(&b, "\t\tip saddr %s oifname %q ct status dnat masquerade\n\t}\n", NSAddr, HostIface)
 	fmt.Fprintf(&b, "\tchain forward {\n\t\ttype filter hook forward priority -1; policy accept;\n")
 	fmt.Fprintf(&b, "\t\tiifname %q ip daddr %s drop\n", HostIface, privateSet())
 	fmt.Fprintf(&b, "\t\toifname %q ct state established,related accept\n", HostIface)

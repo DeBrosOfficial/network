@@ -20,6 +20,13 @@ const (
 	rollOwnBuild   = "orama maint rollout --env "
 	nothingToDo    = "nothing to do"
 	completeText   = "Rolling upgrade complete"
+	// nodesDownload is the line of a run in which every node downloads the
+	// archive from the release repository; operatorDownloads is the line of one
+	// in which the operator's computer downloads it (--upload-release).
+	nodesDownload     = "each node downloads it from "
+	operatorDownloads = "Fetching the newest "
+	// uploadDirs counts the private directories a stage leaves on a node.
+	uploadDirs = "ls -d /tmp/orama-push.* 2>/dev/null | wc -l"
 )
 
 var (
@@ -102,7 +109,10 @@ func TestUpgrade_dryRunPrintsThePlanAndChangesNothing(t *testing.T) {
 
 	res := infra.Run(t, harness.CLI(t), "upgrade", "--env", f.State.Env, "--dry-run")
 
-	infra.ExpectExit(t, res, infra.ExitOK, "newest release", "ACTION")
+	infra.ExpectExit(t, res, infra.ExitOK, "newest release", "ACTION", nodesDownload)
+	if strings.Contains(res.Stdout, operatorDownloads) {
+		t.Errorf("a dry run downloaded the archive on this computer:\n%s", res.Stdout)
+	}
 	for _, n := range f.State.Nodes {
 		if !strings.Contains(res.Stdout, n.PublicIP) {
 			t.Errorf("the plan does not list %s:\n%s", n.PublicIP, res.Stdout)
@@ -110,6 +120,21 @@ func TestUpgrade_dryRunPrintsThePlanAndChangesNothing(t *testing.T) {
 	}
 	if after := starts(t, f); !sameStarts(before, after) {
 		t.Errorf("a dry run restarted a node: %v -> %v", before, after)
+	}
+}
+
+// TestUpgrade_aDryRunWithUploadReleaseReadsTheMetadataOnly: --upload-release
+// is for staging, so a dry run with it verifies the metadata alone and never
+// downloads the archive to this computer.
+func TestUpgrade_aDryRunWithUploadReleaseReadsTheMetadataOnly(t *testing.T) {
+	f := harness.Fleet(t)
+	requireChannel(t)
+
+	res := infra.Run(t, harness.CLI(t), "upgrade", "--env", f.State.Env, "--upload-release", "--dry-run")
+
+	infra.ExpectExit(t, res, infra.ExitOK, "newest release", nodesDownload)
+	if strings.Contains(res.Stdout, operatorDownloads) {
+		t.Errorf("a dry run with --upload-release downloaded the archive on this computer:\n%s", res.Stdout)
 	}
 }
 
@@ -125,9 +150,11 @@ func TestUpgrade_aNodeOutsideTheNetworkIsRefused(t *testing.T) {
 }
 
 // TestUpgrade_rollingToTheSameReleaseKeepsTheClusterConverged: --reinstall --yes
-// puts the channel's release on every node, one at a time with the raft leader
-// last, the cluster ends converged with every node on that release, and the next
-// plain run finds every node current and restarts nothing.
+// has every node download the channel's release from the repository itself (the
+// operator's computer verifies the metadata only), stage it and leave no upload
+// directory behind, then puts it on every node, one at a time with the raft
+// leader last; the cluster ends converged with every node on that release, and
+// the next plain run finds every node current and restarts nothing.
 func TestUpgrade_rollingToTheSameReleaseKeepsTheClusterConverged(t *testing.T) {
 	f := harness.Fleet(t)
 	requireChannel(t)
@@ -136,7 +163,15 @@ func TestUpgrade_rollingToTheSameReleaseKeepsTheClusterConverged(t *testing.T) {
 
 	res := infra.RunFor(t, harness.CLI(t), infra.UpgradeBudget, "upgrade", "--env", f.State.Env, "--reinstall", "--yes")
 
-	infra.ExpectExit(t, res, infra.ExitOK, completeText)
+	infra.ExpectExit(t, res, infra.ExitOK, completeText, nodesDownload)
+	if strings.Contains(res.Stdout, operatorDownloads) {
+		t.Errorf("the archive was downloaded on this computer, not by the nodes:\n%s", res.Stdout)
+	}
+	for _, n := range f.State.Nodes {
+		if left := strings.TrimSpace(f.MustExec(t, n, uploadDirs).Stdout); left != "0" {
+			t.Errorf("%s keeps %s upload directories after staging", n.Name, left)
+		}
+	}
 	order := upgradingLine.FindAllStringSubmatch(res.Stdout, -1)
 	if len(order) != len(f.State.Nodes) {
 		t.Fatalf("%d nodes were upgraded, want %d:\n%s", len(order), len(f.State.Nodes), res.Stdout)

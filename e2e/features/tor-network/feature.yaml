@@ -39,5 +39,7 @@ covers:
     - "website/src/docs/operator/tor-network.mdx#directory-authorities: the authorities sign a consensus that lists every relay, and the archive's manifest matches the files"
     - "website/src/docs/operator/tor-network.mdx#exits: an exit refuses reserved ranges and mail ports; a relay that was not installed as an exit has no Exit flag"
     - "website/src/docs/operator/tor-network.mdx#relays: the ORPort is reachable from outside and the tx gate is not"
+    - "website/src/docs/blockchain/run-a-global-node.mdx#the-rulesets: the namespace reaches its own published ports at the host's public address (a relay its ORPort, an authority its DirPort, from where its tor runs)"
+    - "website/src/docs/operator/global-nodes.mdx#sharing-a-machine-with-a-cluster-node: a directory authority uploads its own descriptor to itself, so each authority's own vote lists it"
     - "website/src/docs/operator/tor-network.mdx#relays: a relay and a directory authority each write monitor.json in their own home (in_consensus), which the node report reads"
     - "website/src/docs/operator/tor-network.mdx#onion-service-time-periods: the authorities vote hsdir_interval as 24 voting intervals, one shared-random run, so a validator's onion service stays reachable across the descriptor rotation at the end of each run"

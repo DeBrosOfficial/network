@@ -277,6 +277,23 @@ func TestWizard_clusterOnlySkipsStorageAndNeedsNoName(t *testing.T) {
 	}
 }
 
+// A cluster-only network runs no chain: the global layer starts off and cannot be turned on.
+func TestWizard_aClusterOnlyNetworkRunsOnlyTheClusterNode(t *testing.T) {
+	f := newFake()
+	f.networks[0].ClusterOnly, f.networks[0].ChainID = true, ""
+	d := newDriver(t, f, setup.Options{})
+	d.toOptions()
+	d.wantView("[ ] Run the global layer")
+	d.wantView("This network is cluster-only")
+	d.key(tea.KeyMsg{Type: tea.KeySpace}) // try to turn the global layer on
+	d.wantView("[ ] Run the global layer")
+	d.enter()
+	d.wantStep(stepName)
+	if !d.m.opts.ClusterOnly || d.m.opts.StorageGB != 0 {
+		t.Errorf("options %+v: a cluster-only network takes cluster nodes alone", d.m.opts)
+	}
+}
+
 func TestWizard_theExitRoleNeedsTheWarningAccepted(t *testing.T) {
 	d := newDriver(t, newFake(), setup.Options{})
 	d.toOptions()

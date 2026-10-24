@@ -100,6 +100,10 @@ const createNetworkLabel = "Create a new network: these machines become its firs
 func (m *Model) networkLabels() []string {
 	labels := make([]string, 0, len(m.networks)+1)
 	for _, n := range m.networks {
+		if n.ClusterOnly {
+			labels = append(labels, n.Name+"  (cluster-only, no chain)")
+			continue
+		}
 		labels = append(labels, fmt.Sprintf("%s  (chain %s)", n.Name, n.ChainID))
 	}
 	return append(labels, createNetworkLabel)
@@ -145,6 +149,9 @@ func (m *Model) optionsBody() string {
 			box = "[x]"
 		}
 		b.WriteString(mark + box + " " + row + "\n")
+	}
+	if m.clusterOnlyNet {
+		b.WriteString("\n" + faint("This network is cluster-only: it runs no chain, so there is no global layer to run.") + "\n")
 	}
 	if !m.toggles[optGlobal] {
 		b.WriteString("\n" + faint("Without the global layer the machines run only a cluster node (2 vCPU, 2 GiB, 10 GiB).") + "\n")

@@ -13,7 +13,26 @@ const (
 	resolvedStubDropInFile   = "no-stub.conf"
 	resolvedMulticastDropIn  = "10-orama-no-multicast.conf"
 	resolvedMulticastContent = "[Resolve]\nLLMNR=no\nMulticastDNS=no\n"
+
+	// ResolvConfPath is the host's resolver configuration.
+	ResolvConfPath = "/etc/resolv.conf"
+	// OramaResolvConf is what DisableResolvedStubListener writes to
+	// ResolvConfPath: CoreDNS on the node first, a public resolver after it.
+	OramaResolvConf = "nameserver 127.0.0.1\nnameserver 8.8.8.8\n"
+	// ResolvedStubResolvConf is the file systemd-resolved keeps for
+	// ResolvConfPath to link to while its stub listener runs, the
+	// Debian and Ubuntu default the installer replaced.
+	ResolvedStubResolvConf = "/run/systemd/resolve/stub-resolv.conf"
 )
+
+// ResolvedDropInPaths are the systemd-resolved drop-ins the installer writes:
+// the stub listener off on a nameserver, LLMNR and mDNS off on every node.
+func ResolvedDropInPaths() []string {
+	return []string{
+		filepath.Join(resolvedDropInDir, resolvedStubDropInFile),
+		filepath.Join(resolvedDropInDir, resolvedMulticastDropIn),
+	}
+}
 
 // writeResolvedDropIn writes a systemd-resolved drop-in and reports whether the
 // file's content changed, so a caller restarts resolved only when it has to.

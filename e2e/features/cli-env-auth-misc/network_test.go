@@ -3,8 +3,10 @@
 package clienvauthmisc
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -127,5 +129,73 @@ func TestMaintNetworkAnnounce_writesAnAnnouncementAndRefusesACreatedNetwork(t *t
 	again := run(t, cli, announce...)
 	if again.Exit != exitConflict || !strings.Contains(output(again), "already created") {
 		t.Errorf("announcing a created network: exit %d, want %d and the reason\n%s", again.Exit, exitConflict, output(again))
+	}
+}
+
+// cluster-only writes manifest.json and release-root.json with no chain id, can be
+// written again, refuses a channel no release is published on, and refuses a
+// network whose manifest names a chain; the devnet built into the binary is one
+// and lists no chain
+// (docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-network-cluster-only).
+func TestMaintNetworkClusterOnly_writesANetworkWithNoChainAndRefusesOneWithAChain(t *testing.T) {
+	t.Parallel()
+	cli := isolated(t)
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root.json")
+	if err := os.WriteFile(root, []byte(`{"signed":{"_type":"root"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	networks := filepath.Join(dir, "networks")
+	write := func(name, channel string) []string {
+		return []string{"maint", "network", "cluster-only", "--dir", networks, "--name", name,
+			"--release-repo", "https://releases.example.org", "--release-root", root, "--channel", channel, "--min-version", "0.3.6"}
+	}
+	res := cli.MustOK(t, write("e2edev", "nightly")...)
+	if !strings.Contains(res.Stdout, "Wrote cluster-only network e2edev") || !strings.Contains(res.Stdout, "--network e2edev") {
+		t.Errorf("cluster-only printed:\n%s", res.Stdout)
+	}
+	manifest, err := os.ReadFile(filepath.Join(networks, "e2edev", "manifest.json"))
+	if err != nil || !strings.Contains(string(manifest), `"chain_id": ""`) || !strings.Contains(string(manifest), `"seeds": []`) {
+		t.Errorf("manifest.json: %v\n%s", err, manifest)
+	}
+	cli.MustOK(t, write("e2edev", "main")...)
+
+	if stable := run(t, cli, write("e2edev", "stable")...); stable.Exit != exitUsage {
+		t.Errorf("an unpublished channel: exit %d, want %d\n%s", stable.Exit, exitUsage, output(stable))
+	}
+
+	cli.MustOK(t, "maint", "network", "announce", "--dir", networks, "--name", "e2echain", "--chain-id", "orama-e2echain-testnet-1",
+		"--release-repo", "https://releases.example.org", "--release-root", root, "--channel", "nightly")
+	if over := run(t, cli, write("e2echain", "nightly")...); over.Exit != exitConflict || !strings.Contains(output(over), "orama-e2echain-testnet-1") {
+		t.Errorf("over a network with a chain: exit %d, want %d naming the chain\n%s", over.Exit, exitConflict, output(over))
+	}
+
+	if row := networkRow(t, cli, "devnet"); row["chain"] != "none (cluster-only)" {
+		t.Errorf("the built-in devnet lists chain %q, want none (cluster-only)", row["chain"])
+	}
+}
+
+// testnetChainID is the chain id class of the public test network (core/pkg/netclass).
+var testnetChainID = regexp.MustCompile(`^orama-testnet-[0-9]+$`)
+
+// TestNetworkList_builtinTestnetReplacesStagenet: the binary embeds testnet
+// (networks/testnet, core/pkg/netregistry/embedded) with its testnet-class chain id,
+// and no longer the retired stagenet
+// (website/src/docs/operator/upgrade-notes.mdx, "the test class is testnet, not stagenet").
+func TestNetworkList_builtinTestnetReplacesStagenet(t *testing.T) {
+	t.Parallel()
+	cli := emptyHome(t)
+	row := networkRow(t, cli, "testnet")
+	if !testnetChainID.MatchString(row["chain"]) || row["source"] != "built in" {
+		t.Errorf("the built-in testnet lists chain %q from %q, want an orama-testnet-<n> chain built in", row["chain"], row["source"])
+	}
+	var rows []map[string]string
+	if err := json.Unmarshal([]byte(cli.MustOK(t, "network", "list", "--json").Stdout), &rows); err != nil {
+		t.Fatalf("orama network list --json: %v", err)
+	}
+	for _, r := range rows {
+		if r["name"] == "stagenet" {
+			t.Errorf("orama network list still lists the retired stagenet: %v", r)
+		}
 	}
 }

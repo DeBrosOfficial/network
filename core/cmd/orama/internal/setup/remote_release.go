@@ -5,12 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/clusterops"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/releasedownload"
 	psetup "github.com/Orama-Network/orama/core/cmd/orama/internal/production/setup"
 	"github.com/Orama-Network/orama/core/pkg/archivetrust"
 )
@@ -22,25 +20,10 @@ const (
 	// releaseCleanupBudget bounds removing a download, which does not use the run's
 	// context: that may be the reason it is removed.
 	releaseCleanupBudget = time.Minute
-	// fetchConnectSeconds, fetchStallSeconds and fetchStallBytes are curl's limits
-	// on a download that does not move: no connection in 30 s, or less than 1 KiB/s
-	// for a minute, ends it with an error instead of leaving it to the budget.
-	fetchConnectSeconds = 30
-	fetchStallSeconds   = 60
-	fetchStallBytes     = 1024
-	// fetchMaxRedirects: GitHub release assets redirect once or twice.
-	fetchMaxRedirects = 5
 	// releaseSpaceFactor is how many times the archive the filesystem of the download
 	// must have free: the download, its unpacked tree (a release compresses about
 	// 2.3 to 1) and the archive packed again, with the download gone by then.
 	releaseSpaceFactor = 4
-	// fileLimitBlock is the unit `ulimit -f` is told in. bash counts 1024 bytes, POSIX
-	// mode 512; the smaller is assumed, so the cap is never below the archive.
-	fileLimitBlock = 512
-	// fileLimitSlack is the blocks the cap has above the archive: enough that an
-	// archive of exactly the signed length is written whole, and a longer one is cut
-	// at the cap and found too long by the size check.
-	fileLimitSlack = 2
 	// downloadedName, endorsedManifestName and endorsedSignatureName are the files in
 	// the machine's archive directory; archive.tar.gz is what StageArchiveCommand
 	// stages.
@@ -71,35 +54,22 @@ func toolCheck() string {
 
 // fetchReleaseScript, as root on a machine that has no orama yet: makes the
 // private directory dir, which this computer named, checks the filesystem has
-// room for the release, downloads ref.URL into it with curl, and refuses the file
-// unless it has the length and the SHA-256 the signed targets metadata gives. The
-// directory is removed when anything fails, and kept, with the digest printed,
-// when the file is the signed one. Nothing from the file is run or extracted here.
-//
-// The download is bounded whatever the server sends: curl stops at the length it
-// was told, and `ulimit -f` caps what the process can write when the server gives
-// no Content-Length. -q keeps a ~/.curlrc out of it and --globoff makes the URL
-// literal. Every value interpolated is quoted or a number: dir was named by
-// NewArchiveDir, the URL was built by the repository client from a validated
-// target name, and the digest is hex.
+// room for the release, downloads ref.URL into it and refuses the file unless it
+// has the length and the SHA-256 the signed targets metadata gives
+// (releasedownload). The directory is removed when anything fails, and kept, with
+// the digest printed, when the file is the signed one. Nothing from the file is
+// run or extracted here. dir was named by NewArchiveDir.
 func fetchReleaseScript(dir string, ref *ReleaseRef) (string, error) {
 	if !psetup.ValidArchiveDir(dir) {
 		return "", fmt.Errorf("%q is not an archive directory", dir)
 	}
-	u, err := url.Parse(ref.URL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return "", fmt.Errorf("the release URL %q is not an http(s) URL", ref.URL)
-	}
-	if !sha256Hex.MatchString(ref.SHA256) {
-		return "", fmt.Errorf("the release digest %q is not a SHA-256", ref.SHA256)
-	}
-	if ref.Length <= 0 {
-		return "", fmt.Errorf("the release length %d is not a size", ref.Length)
-	}
-	length := strconv.FormatInt(ref.Length, 10)
-	needKiB := (ref.Length*releaseSpaceFactor + 1023) / 1024
 	file := `"$dir/` + downloadedName + `"`
-	return strings.Join([]string{
+	download, err := releasedownload.Archive{URL: ref.URL, Length: ref.Length, SHA256: ref.SHA256}.Lines(file)
+	if err != nil {
+		return "", err
+	}
+	needKiB := (ref.Length*releaseSpaceFactor + 1023) / 1024
+	lines := []string{
 		"set -eu -o pipefail",
 		toolCheck(),
 		"dir=" + dir,
@@ -109,19 +79,10 @@ func fetchReleaseScript(dir string, ref *ReleaseRef) (string, error) {
 		`free=$(df -Pk "$dir" | awk 'NR==2 {print $4}')`,
 		fmt.Sprintf(`[ "$free" -ge %d ] || { echo "the filesystem of $dir has $((free / 1024)) MiB free, and the release needs %d MiB (%d times its size) to be unpacked and packed again" >&2; exit 1; }`,
 			needKiB, needKiB/1024, releaseSpaceFactor),
-		// The protocol is the repository's own; a redirect may only go to https, so a
-		// repository cannot send the machine to a plain-HTTP mirror.
-		fmt.Sprintf("( ulimit -f %d; curl -q --fail --silent --show-error --location --globoff --proto %s --proto-redir '=https' --max-redirs %d "+
-			"--connect-timeout %d --speed-limit %d --speed-time %d --max-filesize %s --output %s %s )",
-			ref.Length/fileLimitBlock+fileLimitSlack, clusterops.ShellQuote("="+u.Scheme), fetchMaxRedirects, fetchConnectSeconds,
-			fetchStallBytes, fetchStallSeconds, length, file, clusterops.ShellQuote(ref.URL)),
-		"size=$(stat -c %s " + file + ")",
-		fmt.Sprintf(`[ "$size" = %s ] || { echo "the download is $size bytes, the signed metadata says %s" >&2; exit 1; }`, length, length),
-		"sum=$(sha256sum " + file + " | cut -d' ' -f1)",
-		fmt.Sprintf(`[ "$sum" = %s ] || { echo "the download has sha256 $sum, the signed metadata says %s" >&2; exit 1; }`, ref.SHA256, ref.SHA256),
-		"ok=1",
-		"echo " + markReleaseSum + `; echo "$sum"`,
-	}, "\n"), nil
+	}
+	lines = append(lines, download...)
+	lines = append(lines, "ok=1", "echo "+markReleaseSum+`; echo "$sum"`)
+	return strings.Join(lines, "\n"), nil
 }
 
 // assembleEndorsedScript, as root: makes the archive the operator endorsed from

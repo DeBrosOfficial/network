@@ -51,11 +51,10 @@ func (ci *CoreDNSInstaller) DisableResolvedStubListener() error {
 	}
 
 	// Point resolv.conf to localhost (CoreDNS) and a fallback
-	resolvConf := "nameserver 127.0.0.1\nnameserver 8.8.8.8\n"
-	if err := os.Remove("/etc/resolv.conf"); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove /etc/resolv.conf so CoreDNS can own it: %w", err)
+	if err := os.Remove(ResolvConfPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s so CoreDNS can own it: %w", ResolvConfPath, err)
 	}
-	if err := os.WriteFile("/etc/resolv.conf", []byte(resolvConf), 0644); err != nil {
+	if err := os.WriteFile(ResolvConfPath, []byte(OramaResolvConf), 0644); err != nil {
 		return fmt.Errorf("failed to write resolv.conf: %w", err)
 	}
 

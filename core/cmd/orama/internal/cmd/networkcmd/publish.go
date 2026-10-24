@@ -21,7 +21,7 @@ var MaintCmd = &cobra.Command{
 	Short: "Maintain the published networks",
 }
 
-func init() { MaintCmd.AddCommand(newPublishCmd(), newAnnounceCmd()) }
+func init() { MaintCmd.AddCommand(newPublishCmd(), newAnnounceCmd(), newClusterOnlyCmd()) }
 
 func newPublishCmd() *cobra.Command {
 	var (

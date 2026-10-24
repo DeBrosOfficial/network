@@ -1,6 +1,6 @@
-// Package relupgrade is `orama upgrade`: it fetches the newest signed release
+// Package relupgrade is `orama upgrade`: it verifies the newest signed release
 // of the active network's channel, shows what each node would go through,
-// stages the verified archive on every node, and then runs the existing rolling
+// has every node download and stage it, and then runs the existing rolling
 // upgrade (production/upgrade) one node at a time, the co-located global layer
 // included.
 package relupgrade

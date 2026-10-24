@@ -54,8 +54,16 @@ func (c *CreateOptions) takeAnnounced(n *netregistry.Network) {
 
 // checkJoinable refuses to join a network that is only announced: it has no
 // genesis, so no chain to join, until its creator has run
-// `orama setup --create-network`.
-func checkJoinable(n *netregistry.Network) error {
+// `orama setup --create-network`. A cluster-only network has no chain at all:
+// machines join it as cluster nodes alone (clusterOnly), never with the global
+// layer, which would join a chain.
+func checkJoinable(n *netregistry.Network, clusterOnly bool) error {
+	if n.Manifest.ClusterOnly() {
+		if clusterOnly {
+			return nil
+		}
+		return clierr.Wrap(clierr.CodeUsage, fmt.Errorf("%w, so the machines can run only a cluster node: pass --cluster-only", n.Manifest.CheckCreated()))
+	}
 	if err := n.Manifest.CheckCreated(); err != nil {
 		return clierr.Wrap(clierr.CodeUsage, err)
 	}

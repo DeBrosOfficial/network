@@ -28,6 +28,12 @@ and `orama setup --create-network <name>` takes the chain id, release repository
 seeds, faucet and release root from it; when the chain exists the created network's files
 replace the announcement.
 
+A network can be *cluster-only*: clusters that follow a release channel, and no chain.
+`orama maint network cluster-only` writes `manifest.json` (with an empty `chain_id` and
+`genesis_sha256`, no seeds and no faucet) and `release-root.json`. The CLI lists it with no
+chain, `orama upgrade` follows its channel, `orama setup` joins it only with `--cluster-only`,
+and commands that sign for a chain refuse it. `devnet/` is one.
+
 Every reset of a network gets a new chain id (`orama-testnet-5` becomes
 `orama-testnet-6`); `publish` refuses to give an already published chain id a
 different genesis.

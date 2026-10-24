@@ -72,7 +72,7 @@ func (m *Model) onOptionsKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) toggle(row int) (tea.Model, tea.Cmd) {
 	switch row {
 	case optGlobal:
-		m.toggles[optGlobal] = !m.toggles[optGlobal]
+		m.toggles[optGlobal] = !m.toggles[optGlobal] && !m.clusterOnlyNet
 		if !m.toggles[optGlobal] {
 			m.toggles[optRelay], m.toggles[optExit] = false, false
 		}

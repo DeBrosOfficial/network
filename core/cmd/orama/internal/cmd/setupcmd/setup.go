@@ -120,7 +120,7 @@ var flags struct {
 
 func init() {
 	f := Cmd.Flags()
-	f.StringVar(&flags.network, "network", "", "Network to join: a name from `orama network list` (default: the active network, or the only one)")
+	f.StringVar(&flags.network, "network", "", "Network to join: a name from `orama network list` (default: the active network, or the only one that runs a chain)")
 	f.StringSliceVar(&flags.ips, "ip", nil, "Public IPv4 address of a machine, or <user>@<address> to log in to that machine as <user> instead of --user (repeatable; the addresses can also be given as arguments)")
 	f.StringVar(&flags.name, "name", "", "Node name, the node's id on the chain; several machines are named <name>, <name>-2, ... (required unless --cluster-only)")
 	f.BoolVar(&flags.clusterOnly, "cluster-only", false, "Install the cluster node only, without the chain, storage or relay")

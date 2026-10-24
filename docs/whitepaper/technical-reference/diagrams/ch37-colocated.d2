@@ -3,7 +3,7 @@ direction: right
 net: "Public network" {shape: cloud}
 
 host: "Root network namespace (cluster node: orama-node, WireGuard 10.0.0.x, gateway, Kubo 10107)" {
-  nft: "table ip orama_global\nDNAT published ports -> 198.18.0.2\nMASQUERADE 198.18.0.0/30\nforward: drop private ranges,\nonly DNAT + replies into the namespace\ninput from veth: drop\noutput to 198.18.0.2 host-only ports:\nonly root + allowed uids"
+  nft: "table ip orama_global\nDNAT published ports -> 198.18.0.2\nMASQUERADE 198.18.0.0/30\nhairpin: namespace -> own published\nports, masqueraded to 198.18.0.1\nforward: drop private ranges,\nonly DNAT + replies into the namespace\ninput from veth: drop\noutput to 198.18.0.2 host-only ports:\nonly root + allowed uids"
   veth_h: "ogl-host\n198.18.0.1/30"
   gw: "cluster gateway /v1/chain/ proxy,\nnode report, inspector\n(run as account orama)"
   nft -> veth_h

@@ -2,8 +2,10 @@
 # node at a time. An environment on no registry network has no channel and is
 # refused with the way to roll a build of your own. On a network of the registry
 # (the testnet target) the plan lists every node with what it runs, the release
-# and the action, and --dry-run changes nothing; an unknown --node is refused;
-# --reinstall --yes rolls the release onto every node with the raft leader last,
+# and the action, and --dry-run changes nothing and, with --upload-release too,
+# downloads no archive here; an unknown --node is refused; --reinstall --yes has
+# every node download the release from the repository itself (only its metadata
+# is verified on this computer) and rolls it onto every node with the raft leader last,
 # leaves the cluster converged on one version, and the next plain run finds every
 # node current and restarts nothing.
 id: release-upgrade
@@ -24,3 +26,5 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-upgrade: an environment on no registry network has no release channel and is refused"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-upgrade: nodes are restarted one at a time, followers first and the raft leader last"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-upgrade: a node that already runs the release is left alone unless --reinstall"
+    - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-upgrade: each node downloads the archive from the release repository itself and verifies it against the root it adopted; only the signed metadata is verified on the operator's computer and the archive does not pass through it"
+    - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-upgrade: --upload-release downloads the archive on the operator's computer and uploads it to each node instead, and a dry run with it reads the metadata only (the upload path and the hint for a node that cannot reach the repository are unit-tested in cmd/orama/internal/production/relupgrade)"

@@ -352,8 +352,8 @@ fuzz-corpus:
 	go run ./scripts/fuzzcorpus -dir reporter/testdata/fuzz/FuzzReporterParseVote -prefix vote -file reporter/testdata/vote-sample.vote
 	go run ./scripts/fuzzcorpus -dir piece/testdata/fuzz/FuzzPieceRoundTrip -prefix vector -post uint64:1 -post uint16:3 \
 		-hexjson piece/testdata/vectors.json#data_hex
-	go run ./scripts/fuzzcorpus -dir ../core/pkg/netregistry/testdata/fuzz/FuzzNetregistryManifest -prefix stagenet -file ../networks/stagenet/manifest.json
-	go run ./scripts/fuzzcorpus -dir ../core/pkg/tornet/testdata/fuzz/FuzzTornetNetwork -prefix stagenet -file ../networks/stagenet/tor-network.json
+	go run ./scripts/fuzzcorpus -dir ../core/pkg/netregistry/testdata/fuzz/FuzzNetregistryManifest -prefix testnet -file ../networks/testnet/manifest.json
+	go run ./scripts/fuzzcorpus -dir ../core/pkg/tornet/testdata/fuzz/FuzzTornetNetwork -prefix testnet -file ../networks/testnet/tor-network.json
 
 ## rust-fuzz-tools: install the pinned cargo-fuzz and the dated nightly Rust it runs on.
 rust-fuzz-tools:

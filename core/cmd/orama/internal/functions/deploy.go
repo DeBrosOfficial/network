@@ -74,6 +74,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		if v, ok := fn["version"]; ok {
 			fmt.Printf("  Version:   %v\n", v)
 		}
+		fmt.Printf("  SHA256:    %s\n", valStrOrDash(fn, "wasm_sha256"))
 		if wc, ok := fn["wasm_cid"]; ok {
 			fmt.Printf("  WASM CID:  %s\n", wc)
 		}

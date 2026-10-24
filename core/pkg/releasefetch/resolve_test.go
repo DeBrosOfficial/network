@@ -190,3 +190,35 @@ func TestAccept_aTargetTheMetadataDoesNotNameIsRefused(t *testing.T) {
 		t.Error("a refused acceptance raised the rollback record")
 	}
 }
+
+func TestResolve_theMetadataItKeepsVerifiesTheArchiveUnderTheRoot(t *testing.T) {
+	r := newRepo(t)
+	p := r.params(t)
+	res, err := Resolve(t.Context(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = res.Remove() })
+	node := t.TempDir()
+	rootPath, archivePath := filepath.Join(node, "root.json"), filepath.Join(node, "archive.tar.gz")
+	if err := os.WriteFile(rootPath, res.Root, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(archivePath, r.archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	_, err = releaseverify.CheckFile(releaseverify.FileCheck{
+		RootPath: rootPath, SeenPath: filepath.Join(node, "seen.json"), MetadataDir: res.MetadataDir,
+		Target: res.Target, File: f, Now: p.Now,
+	})
+
+	if err != nil {
+		t.Fatalf("a node given the resolved metadata cannot verify the signed archive under the root: %v", err)
+	}
+}
