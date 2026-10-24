@@ -3,8 +3,10 @@
 package clienvauthmisc
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -170,5 +172,30 @@ func TestMaintNetworkClusterOnly_writesANetworkWithNoChainAndRefusesOneWithAChai
 
 	if row := networkRow(t, cli, "devnet"); row["chain"] != "none (cluster-only)" {
 		t.Errorf("the built-in devnet lists chain %q, want none (cluster-only)", row["chain"])
+	}
+}
+
+// testnetChainID is the chain id class of the public test network (core/pkg/netclass).
+var testnetChainID = regexp.MustCompile(`^orama-testnet-[0-9]+$`)
+
+// TestNetworkList_builtinTestnetReplacesStagenet: the binary embeds testnet
+// (networks/testnet, core/pkg/netregistry/embedded) with its testnet-class chain id,
+// and no longer the retired stagenet
+// (website/src/docs/operator/upgrade-notes.mdx, "the test class is testnet, not stagenet").
+func TestNetworkList_builtinTestnetReplacesStagenet(t *testing.T) {
+	t.Parallel()
+	cli := emptyHome(t)
+	row := networkRow(t, cli, "testnet")
+	if !testnetChainID.MatchString(row["chain"]) || row["source"] != "built in" {
+		t.Errorf("the built-in testnet lists chain %q from %q, want an orama-testnet-<n> chain built in", row["chain"], row["source"])
+	}
+	var rows []map[string]string
+	if err := json.Unmarshal([]byte(cli.MustOK(t, "network", "list", "--json").Stdout), &rows); err != nil {
+		t.Fatalf("orama network list --json: %v", err)
+	}
+	for _, r := range rows {
+		if r["name"] == "stagenet" {
+			t.Errorf("orama network list still lists the retired stagenet: %v", r)
+		}
 	}
 }

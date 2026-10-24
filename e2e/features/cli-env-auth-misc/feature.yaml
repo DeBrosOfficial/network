@@ -16,7 +16,8 @@
 # does not exist yet, and refuses one that is created; `orama maint network
 # cluster-only` writes one with no chain id (a release channel only), refuses an
 # unpublished channel and a network that names a chain, and the built-in devnet
-# lists no chain;
+# lists no chain; the built-in testnet lists its orama-testnet-<n> chain and
+# stagenet is no longer built in;
 # the hidden `orama maint` groups answer --help like the rest of the tree.
 # Nothing here changes the fleet.
 id: cli-env-auth-misc

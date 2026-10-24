@@ -15,7 +15,7 @@ import (
 // credentials, query or fragment, and survives being written and read again unchanged. The digest
 // of the bytes is stable.
 func FuzzNetregistryManifest(f *testing.F) {
-	// The stagenet manifest is in the committed corpus (testdata/fuzz, made from networks/stagenet by
+	// The testnet manifest is in the committed corpus (testdata/fuzz, made from networks/testnet by
 	// make -C chain fuzz-corpus), so this target needs nothing outside the core module.
 	valid := []byte(`{"name":"testnet","chain_id":"orama-testnet-10","genesis_sha256":"` + strings.Repeat("ab", 32) +
 		`","seeds":["ns1.example.org","ns2.example.org"],"channel":"nightly","min_version":"0.3.0",` +

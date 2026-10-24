@@ -89,8 +89,8 @@ export class ChainIndexUnavailable extends ChainReadError {
 const CHAIN_PATH = "/v1/chain";
 
 /**
- * The gateway of the public testnet, the network a bare /explorer opens once the
- * registry ships it (src/explorer/network/registry.ts PREFERRED_DEFAULT), which a
+ * The gateway of the public testnet, the network a bare /explorer opens
+ * (src/explorer/network/registry.ts PREFERRED_DEFAULT), which a
  * source reads when it is given no other base; the explorer's network switcher names the
  * gateway of the network a URL selects (src/explorer/network). The page is served
  * from orama.network, which has no chain behind it, so the browser calls the

@@ -70,12 +70,12 @@ describe("buildRegistry", () => {
 });
 
 describe("the shipped registry", () => {
-  it("TestRegistry_opens_testnet_once_it_ships_else_the_first_network", () => {
+  it("TestRegistry_opens_the_shipped_testnet", () => {
     const testnet = findNetwork(REGISTRY, PREFERRED_DEFAULT);
-    expect(REGISTRY.defaultName).toBe(testnet === undefined ? REGISTRY.networks[0]?.manifest.name : PREFERRED_DEFAULT);
-    if (testnet === undefined) return;
-    expect(testnet.gateway).toBe(DEFAULT_GATEWAY_ORIGIN);
-    expect(testnet.manifest.chainId).toMatch(/^orama-testnet-\d+$/);
+    expect(testnet).toBeDefined();
+    expect(REGISTRY.defaultName).toBe(PREFERRED_DEFAULT);
+    expect(testnet?.gateway).toBe(DEFAULT_GATEWAY_ORIGIN);
+    expect(testnet?.manifest.chainId).toMatch(/^orama-testnet-\d+$/);
   });
 
   it("TestRegistry_every_gateway_is_an_https_origin", () => {

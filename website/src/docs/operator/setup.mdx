@@ -123,8 +123,8 @@ A network can be announced before it exists. A maintainer writes `networks/<name
 
 ```bash
 orama maint network announce --name testnet --chain-id orama-testnet-7 \
-  --release-repo https://releases.orama.network --release-root ./release-root.json \
-  --channel nightly --faucet --seed ns1.testnet.orama.network --seed ns2.testnet.orama.network
+  --release-repo https://test-releases.orama.network --release-root ./release-root.json \
+  --channel main --faucet --seed ns1.testnet.orama.network --seed ns2.testnet.orama.network
 make -C core sync-networks
 ```
 

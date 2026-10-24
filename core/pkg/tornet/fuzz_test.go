@@ -12,8 +12,8 @@ import (
 // built from it can be split into another line (a nickname or address that held a newline would add
 // a directive to every node's configuration).
 func FuzzTornetNetwork(f *testing.F) {
-	// The stagenet network file is in the committed corpus (testdata/fuzz, made from
-	// networks/stagenet by make -C chain fuzz-corpus), so this target needs nothing outside core.
+	// The testnet network file is in the committed corpus (testdata/fuzz, made from
+	// networks/testnet by make -C chain fuzz-corpus), so this target needs nothing outside core.
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`{"name":"x","private":false}`))
 	f.Add([]byte(`null`))
