@@ -160,10 +160,11 @@ jobs:
 
       - name: Install zig
         run: |
-          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
-          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          tarball="${RUNNER_TEMP}/zig.tar.xz"
+          curl -fsSL -o "${tarball}" "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+          echo "${ZIG_SHA256}  ${tarball}" | sha256sum -c -
           mkdir -p "${RUNNER_TEMP}/zig"
-          tar -xJf zig.tar.xz -C "${RUNNER_TEMP}/zig" --strip-components=1
+          tar -xJf "${tarball}" -C "${RUNNER_TEMP}/zig" --strip-components=1
           echo "ORAMA_ZIG=${RUNNER_TEMP}/zig/zig" >> "$GITHUB_ENV"
 
       # The amd64 archive carries the global layer (oramad, its orchard verifier,
