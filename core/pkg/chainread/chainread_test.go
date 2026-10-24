@@ -66,6 +66,26 @@ func TestEncodeRequest_wireBytes(t *testing.T) {
 	}
 }
 
+// A dynamicpb message keeps its fields in a Go map: without a deterministic marshal the three
+// pagination fields came out in a different order on some calls (fuzz corpus 9527f7f5edf06759).
+func TestEncodeRequest_deterministic(t *testing.T) {
+	m, err := Lookup("orama.nodes.v1.Query/Nodes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const request = `{"pagination":{"limit":"5","offset":"2","count_total":true}}`
+	const encodings = 200
+	for i := 0; i < encodings; i++ {
+		got, err := m.EncodeRequest(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hex.EncodeToString(got) != "0a06100218052001" {
+			t.Fatalf("encoding %d = %x", i, got)
+		}
+	}
+}
+
 func TestDecodeResponse_nodeUsesProtoNames(t *testing.T) {
 	m, _ := Lookup("orama.nodes.v1.Query/Node")
 	// QueryNodeResponse{node: Node{node_id: "abc", declared_capacity_bytes: 300}}

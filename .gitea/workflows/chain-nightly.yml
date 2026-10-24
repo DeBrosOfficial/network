@@ -247,9 +247,12 @@ jobs:
           restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Nightly Rust with Miri and rust-src
-        run: |
-          .gitea/scripts/setup-rust.sh --nightly --component miri --component rust-src
-          cargo "+$(make -s -C chain print-RUST_NIGHTLY)" miri setup
+        run: .gitea/scripts/setup-rust.sh --nightly --component miri --component rust-src
+
+      # A separate step: setup-rust.sh puts ~/.cargo/bin on GITHUB_PATH, which only the job's
+      # later steps see.
+      - name: Miri sysroot
+        run: cargo "+$(make -s -C chain print-RUST_NIGHTLY)" miri setup
 
       - name: Miri
         run: make -C chain rust-miri
