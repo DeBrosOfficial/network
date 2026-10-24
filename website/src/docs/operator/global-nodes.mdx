@@ -167,7 +167,7 @@ sudo orama global install --colocated --services chain,ipfs,provider \
   --public-storage-gb 500 --staged-dir /opt/orama/bin --enable-firewall --ssh-port 22
 ```
 
-Run it on a machine where `orama node setup` has already installed the cluster node. The namespace cannot reach the WireGuard mesh, so chain peers use public addresses. Removing the layout means restoring `net.ipv4.ip_forward` from `/var/lib/orama-global/netns-prior-ip-forward` before deleting `/var/lib/orama-global`.
+Run it on a machine where `orama node setup` has already installed the cluster node. The namespace cannot reach the WireGuard mesh, so chain peers use public addresses. It does reach its own published ports at the host's public address, as every other machine does (a Tor directory authority uploads its own descriptor to itself that way); the host itself reaches the global services at `198.18.0.2`. Removing the layout means restoring `net.ipv4.ip_forward` from `/var/lib/orama-global/netns-prior-ip-forward` before deleting `/var/lib/orama-global`.
 
 ## Run a faucet
 

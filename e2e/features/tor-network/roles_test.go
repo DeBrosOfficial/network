@@ -3,9 +3,14 @@
 package tornetwork
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -201,6 +206,74 @@ func TestRelays_orPortIsReachableAndTheGateIsNot(t *testing.T) {
 		if reach(n, constants.GlobalTorDirPort) {
 			t.Errorf("%s: a relay that is not an authority serves a DirPort", n.Name)
 		}
+	}
+}
+
+// TestPublishers_reachTheirOwnPublishedPortsAtTheirPublicAddress: from where its
+// tor runs (inside the orama-global namespace on a co-located node), a relay
+// reaches its own ORPort, and an authority its own DirPort, at the node's public
+// address. An authority tests every relay's ORPort by connecting to it, its own
+// included, and uploads its own descriptor to its own DirPort: one that cannot
+// is missing from its own votes (website/src/docs/blockchain/run-a-global-node.mdx, the root namespace's rules).
+func TestPublishers_reachTheirOwnPublishedPortsAtTheirPublicAddress(t *testing.T) {
+	t.Parallel()
+	f, r := requireRoles(t)
+	space := gateSpaceOf(f)
+	reachSelf := func(n fleet.Node, port int) {
+		addr := fmt.Sprintf("/dev/tcp/%s/%d", n.PublicIP, port)
+		out := f.Exec(t, n, fmt.Sprintf("%stimeout %d bash -c %s", space.prefix, int(dialTimeout.Seconds()), fleet.ShellQuote("</"+addr)))
+		if out.Exit != 0 {
+			t.Errorf("%s: its own %s:%d is not reachable from where its tor runs (exit %d): %s", n.Name, n.PublicIP, port, out.Exit, out.Stderr)
+		}
+	}
+	for _, n := range r.publishers() {
+		reachSelf(n, constants.GlobalTorORPort)
+	}
+	for _, n := range r.dirauth {
+		reachSelf(n, constants.GlobalTorDirPort)
+	}
+}
+
+// TestAuthorities_ownVoteListsThemselves: the vote each authority last cast,
+// fetched from its DirPort, lists the authority's own relay. An authority that
+// could not upload its descriptor to itself would hold none of its own and
+// leave itself out.
+func TestAuthorities_ownVoteListsThemselves(t *testing.T) {
+	t.Parallel()
+	f, r := requireRoles(t)
+	if len(r.dirauth) == 0 {
+		harness.SkipNotApplicable(t, "no node of this target is a directory authority (--services dirauth)")
+	}
+	client := &http.Client{Timeout: dialTimeout * 4}
+	for _, n := range r.dirauth {
+		info := homeInfo(t, infoOf(t, f, n), n, constants.GlobalTorDirauthHome)
+		digest, err := hex.DecodeString(info.Fingerprint)
+		if err != nil || len(digest) != sha1.Size {
+			t.Fatalf("%s: fingerprint %q: %v", n.Name, info.Fingerprint, err)
+		}
+		identity := base64.RawStdEncoding.EncodeToString(digest)
+		url := fmt.Sprintf("http://%s/tor/status-vote/current/authority", net.JoinHostPort(n.PublicIP, strconv.Itoa(constants.GlobalTorDirPort)))
+		eventually.Require(t, pollEvery, consensusBudget, n.Name+"'s own vote to list it", func() (bool, error) {
+			resp, err := client.Get(url)
+			if err != nil {
+				return false, err
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return false, err
+			}
+			if resp.StatusCode != http.StatusOK {
+				return false, fmt.Errorf("%s: %d %.120s", url, resp.StatusCode, body)
+			}
+			for line := range strings.Lines(string(body)) {
+				// A router entry: `r <nickname> <identity> <digest> ...`.
+				if fields := strings.Fields(line); len(fields) > 2 && fields[0] == "r" && fields[2] == identity {
+					return true, nil
+				}
+			}
+			return false, fmt.Errorf("the vote has no router entry with identity %s (fingerprint %s)", identity, info.Fingerprint)
+		})
 	}
 }
 

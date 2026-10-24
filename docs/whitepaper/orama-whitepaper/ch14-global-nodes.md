@@ -44,9 +44,9 @@ If the old host is dead, the operator restores from a sealed key backup. With no
 
 ## Co-location
 
-A small operator can run both layers on one server. The cluster's loopback holds sensitive listeners (the Kubo RPC, the gateway's loopback trust, the Caddy admin socket), so a global unit sharing it could reach them. With `--colocated`, the global units join a network namespace, `orama-global`, with its own loopback and port space, joined to the root namespace by one veth pair on `198.18.0.0/30`.
+A small operator can run both layers on one server. The cluster's loopback holds sensitive listeners (Kubo RPC, the gateway's loopback trust, the Caddy admin socket) a global unit sharing it could reach. With `--colocated`, the global units join the `orama-global` network namespace, with its own loopback and port space, joined to the root namespace by one veth pair on `198.18.0.0/30`.
 
-Two nftables tables, each replaced atomically, define the boundary. Published ports are DNAT'd in; forwarding from the namespace to any private range, WireGuard included, is dropped; inside, input and forward default to drop. The chain's RPC and REST listen on the namespace address and are not published; only root, the cluster node's account and named client accounts may connect. The residue: the rule names accounts, not programs, so any process of the `orama` account can reach those ports. A tenant's dynamic user cannot.
+Two nftables tables, each replaced atomically, define the boundary. Published ports are DNAT'd in, also from the namespace (masqueraded), as a Tor authority must reach its own DirPort; forwarding from the namespace to any private range, WireGuard included, is dropped; inside, input and forward default to drop. The chain's RPC and REST listen on the namespace address, unpublished; only root, the cluster node's account and named accounts may connect. The rule names accounts, not programs: any `orama` process can reach those ports; a tenant's dynamic user cannot.
 
 ## The registry
 

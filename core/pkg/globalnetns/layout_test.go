@@ -41,9 +41,9 @@ func TestRenderUnit_buildsAndTearsDownTheNamespace(t *testing.T) {
 func TestRenderHostRules_publishesOnlyTheListedPorts(t *testing.T) {
 	rules := testLayout().RenderHostRules()
 	for _, want := range []string{
-		`tcp dport { 31000, 31013 } dnat to 198.18.0.2`,
-		`udp dport { 31000 } dnat to 198.18.0.2`,
-		`masquerade`,
+		"\t\tfib daddr type local tcp dport { 31000, 31013 } dnat to 198.18.0.2\n",
+		"\t\tfib daddr type local udp dport { 31000 } dnat to 198.18.0.2\n",
+		"\t\tip saddr 198.18.0.0/30 oifname != \"ogl-host\" masquerade\n",
 		`iifname "ogl-host" ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 } drop`,
 		`oifname "ogl-host" ct status dnat accept`,
 		`oifname "ogl-host" drop`,
@@ -52,6 +52,29 @@ func TestRenderHostRules_publishesOnlyTheListedPorts(t *testing.T) {
 		if !strings.Contains(rules, want) {
 			t.Errorf("host rules lack %q:\n%s", want, rules)
 		}
+	}
+}
+
+// The namespace reaches its own published ports at the host's addresses: the DNAT applies whatever
+// interface a connection arrives on, the veth included, and a connection hairpinned back into the
+// veth is masqueraded to the host end so the reply returns through the host's conntrack. Only the
+// namespace's own hairpinned connections are masqueraded: one from outside keeps its source.
+func TestRenderHostRules_hairpinTheNamespaceToItsOwnPublishedPorts(t *testing.T) {
+	rules := testLayout().RenderHostRules()
+	if strings.Contains(rules, `iifname != "ogl-host"`) {
+		t.Errorf("the DNAT skips connections from the namespace, which then cannot reach its own published ports:\n%s", rules)
+	}
+	hairpin := "\t\tip saddr 198.18.0.2 oifname \"ogl-host\" ct status dnat masquerade\n"
+	if !strings.Contains(rules, hairpin) {
+		t.Errorf("host rules lack the hairpin masquerade %q:\n%s", hairpin, rules)
+	}
+	if got := strings.Count(rules, "masquerade"); got != 2 {
+		t.Errorf("host rules masquerade %d times, want the outbound and the hairpin rule:\n%s", got, rules)
+	}
+	post := rules[strings.Index(rules, "chain postrouting"):]
+	post = post[:strings.Index(post, "}")]
+	if !strings.Contains(post, hairpin) {
+		t.Errorf("the hairpin masquerade is not in the postrouting chain:\n%s", rules)
 	}
 }
 
