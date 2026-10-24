@@ -304,15 +304,20 @@ type DBTriggerConfig struct {
 
 // Function represents a deployed serverless function.
 type Function struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Namespace      string `json:"namespace"`
-	Version        int    `json:"version"`
-	WASMCID        string `json:"wasm_cid"`
-	SourceCID      string `json:"source_cid,omitempty"`
-	MemoryLimitMB  int    `json:"memory_limit_mb"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
-	IsPublic       bool   `json:"is_public"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Version   int    `json:"version"`
+	WASMCID   string `json:"wasm_cid"`
+	// WASMSHA256 is the lowercase hex SHA-256 of the WASM as the gateway
+	// received it, before sealing: unlike WASMCID, the same bytes always give
+	// the same value. nil (JSON null) for a version deployed before the
+	// column existed (migration 093).
+	WASMSHA256     *string `json:"wasm_sha256"`
+	SourceCID      string  `json:"source_cid,omitempty"`
+	MemoryLimitMB  int     `json:"memory_limit_mb"`
+	TimeoutSeconds int     `json:"timeout_seconds"`
+	IsPublic       bool    `json:"is_public"`
 	// IsInternal marks a function invokable ONLY by a system trigger or an
 	// admin caller (bugboard #152). Enforced in canInvokeFn; default false
 	// so every existing function stays invokable exactly as before.

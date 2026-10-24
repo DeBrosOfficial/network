@@ -975,6 +975,15 @@ orama function rollback my-function 2
   IPFS. Function WASM is sealed under the cluster key, and the cluster cannot
   yet tell whether another namespace deployed the same bytes, so it is never
   unpinned.
+- Each version names the code it runs by `wasm_sha256`: the lowercase hex
+  SHA-256 of the WASM exactly as the gateway received it, before it is sealed.
+  `orama function get`, each row of `orama function versions` and the JSON of
+  `GET /v1/functions/{name}` and `GET /v1/functions/{name}/versions` carry it.
+  Deploying the same `function.wasm` twice gives the same value, the one
+  `shasum -a 256 function.wasm` prints. `wasm_cid` cannot serve for this: it is
+  the CID of the sealed blob, which differs on every deploy of the same bytes.
+  A version deployed before gateways recorded the hash (migration `093`) has
+  `wasm_sha256: null` (`-` in `function versions`); redeploying records it.
 - Rows that predate this behaviour are brought in line when the gateway
   upgrades (migration `086`). Of each function's versions that can run, the
   highest keeps its status and every lower one becomes superseded.

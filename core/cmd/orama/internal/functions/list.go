@@ -105,6 +105,14 @@ func valStr(m map[string]interface{}, key string) string {
 	return ""
 }
 
+// valStrOrDash is valStr for a field that may be null or absent, shown as "-".
+func valStrOrDash(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return "-"
+}
+
 func valNum(m map[string]interface{}, key string) int {
 	if v, ok := m[key].(float64); ok {
 		return int(v)

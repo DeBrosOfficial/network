@@ -3,7 +3,7 @@
 # CLI: init/build/deploy/list/get/invoke/logs/versions/disable/enable/delete,
 # secrets and triggers; only the current version runs (name@N of a superseded
 # version is 404 FUNCTION_VERSION_SUPERSEDED on both invoke routes, rollback,
-# list --all, delete --version, purge refused to a developer and a runtime
+# list --all, wasm_sha256 of the uploaded file on every version, delete --version, purge refused to a developer and a runtime
 # member and done by the owner); invocation access (private, public, keys,
 # /v1/invoke, another namespace, the main gateway), limits (timeout -> 504 FUNCTION_TIMEOUT,
 # memory, per-namespace concurrency, server-side range), function rate limits
@@ -69,6 +69,7 @@ covers:
     - "website/src/docs/developer/functions.mdx#versioning: only the current version is invoked; name@N of a superseded version answers 404 FUNCTION_VERSION_SUPERSEDED, a version that does not exist 404 NOT_FOUND"
     - "website/src/docs/developer/functions.mdx#versioning: rollback makes an earlier version current; the next deploy is current again with the next number"
     - "website/src/docs/developer/functions.mdx#versioning: list --all shows every version row with its status, deleted ones included"
+    - "website/src/docs/developer/functions.mdx#versioning: deploying the same function.wasm twice records the same wasm_sha256, the file's SHA-256, on both versions in function get, function versions and GET /v1/functions/{name}/versions"
     - "website/src/docs/developer/functions.mdx#versioning: delete --purge removes every row, trigger and log of a function; only the owner or an admin can purge, a developer gets 403"
     - "website/src/docs/developer/functions.mdx#http-api-reference: management acts on the credential's namespace; another namespace is refused"
     - "website/src/docs/developer/functions.mdx#host-functions-api: an import from a module other than env, host or orama fails to instantiate"

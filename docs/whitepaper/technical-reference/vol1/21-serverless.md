@@ -25,7 +25,7 @@ A cold TinyGo start is slow: the code records about 550 ms for the `_initialize`
 
 ## The model
 
-**Function.** A row in `functions`, keyed by `(namespace, name, version)`, pointing at a WASM binary by CID (`core/pkg/serverless/types.go:Function`). It carries limits (`memory_limit_mb`, `timeout_seconds`), flags (`is_public`, `is_internal`, `ws_persistent`, `raw_http_response`, `ws_auth`), a retry policy and an optional DLQ topic. Environment variables live in `function_env_vars`, keyed by the row's id.
+**Function.** A row in `functions`, keyed by `(namespace, name, version)`, pointing at a WASM binary by CID and naming it by `wasm_sha256`, the SHA-256 of the WASM as uploaded (`core/pkg/serverless/types.go:Function`). The CID is of the sealed blob, so it differs on every deploy; the hash is the same for the same bytes. A row deployed before migration `093_function_wasm_sha256.sql` has NULL, answered as `null`: filling it would mean fetching and unsealing every retained version's blob, which a SQL migration cannot do, and a redeploy records it. It carries limits (`memory_limit_mb`, `timeout_seconds`), flags (`is_public`, `is_internal`, `ws_persistent`, `raw_http_response`, `ws_auth`), a retry policy and an optional DLQ topic. Environment variables live in `function_env_vars`, keyed by the row's id.
 
 **Version.** Every deploy inserts a new row with the next version number and makes it the current version: the rows that could run before it (`active`, or `inactive` while the function is disabled) become `superseded`. Only the current version is invoked. `name@N` resolves only when N is the current version, and a rollback, not `name@N`, is how an earlier version runs again. The registry keeps 10 versions. A row's status is one of `active` (current), `inactive` (current, disabled), `superseded` (replaced, kept as a rollback target) and `deleted`.
 
@@ -83,9 +83,9 @@ The handler validates limits from the form and the metadata against the gateway'
 
 `Registry.Register` then does five things in order.
 
-1. **Upload.** `ipfs.AddLocal` imports the bytes into the local Kubo, sealed in the `ORMAW1` envelope under the cluster-wide wrap key when the client has one (AES-256-GCM with a random nonce, see [storage](19-storage.md#sealing-private-blobs)). The CID is therefore of the ciphertext, and deploying the same bytes twice yields two CIDs.
+1. **Upload.** `ipfs.AddLocal` imports the bytes into the local Kubo, sealed in the `ORMAW1` envelope under the cluster-wide wrap key when the client has one (AES-256-GCM with a random nonce, see [storage](19-storage.md#sealing-private-blobs)). The CID is therefore of the ciphertext, and deploying the same bytes twice yields two CIDs. Before the upload `Register` takes the lowercase hex SHA-256 of the bytes as received (`wasmDigest`), which the row stores as `wasm_sha256` so the owner can compare the deployed code with `shasum -a 256 function.wasm`.
 2. **Pin everywhere.** `Pin` with replication factor -1 pins the CID on every IPFS Cluster peer, and `verifyPinnedEverywhere` polls the pin status every 2 s for up to 30 s until the cluster reports it pinned. A timeout fails the deploy. The reasons are bugboard #137 (a gateway on a node without the block timed out) and a garbage collection that deleted functions pinned only with RF 3 (`core/pkg/serverless/registry.go:uploadWASM`). The check covers the peers the cluster reports for the CID; a peer that is down may be absent from that list, and the startup backfill re-covers it.
-3. **Insert the row.** `INSERT INTO functions` with `version = previous + 1`. The table's key is `(namespace, name, version)` (migration `core/migrations/068_function_versions.sql`), so two concurrent deploys cannot both claim a version: one insert fails and the caller sees a deploy error.
+3. **Insert the row.** `INSERT INTO functions` with `version = previous + 1`, the CID and `wasm_sha256`. The table's key is `(namespace, name, version)` (migration `core/migrations/068_function_versions.sql`), so two concurrent deploys cannot both claim a version: one insert fails and the caller sees a deploy error.
 4. **Save the environment.** Existing rows for the new id are deleted, then each variable is inserted in its own statement.
 5. **Adopt version state.** One transaction marks every earlier `active` or `inactive` row `superseded`, moves every trigger row (`function_cron_triggers`, `function_pubsub_triggers`, `function_db_triggers`, `function_timers`) from the earlier versions onto the new row (`makeCurrent`), then prunes: versions older than the newest 10 are deleted, their env vars are dropped, and their invocations, logs and jobs are re-pointed at the oldest retained version so history by name survives (`core/pkg/serverless/registry_versions.go:adoptVersionState`).
 
@@ -402,7 +402,7 @@ A function owns no port, file or process. Its state is rows in the namespace's d
 
 | Item | Holds | Written by | Read by | Where |
 |---|---|---|---|---|
-| `functions` | one row per `(namespace, name, version)`: CID, limits, flags, status | `Register`, `SetEnabled`, `Delete`, `Rollback`, `Purge` | invoker, handlers, schedulers | namespace RQLite |
+| `functions` | one row per `(namespace, name, version)`: CID, WASM SHA-256, limits, flags, status | `Register`, `SetEnabled`, `Delete`, `Rollback`, `Purge` | invoker, handlers, schedulers | namespace RQLite |
 | `function_env_vars` | plain-text variables per row id | `Register` | invoker (5 s cache) | namespace RQLite |
 | `function_secrets` | sealed secrets per `(namespace, name)` | secrets routes | `get_secret` | namespace RQLite |
 | `function_cron_triggers` | expression, `next_run_at`, last status | triggers route, deploy | every gateway's scheduler | namespace RQLite |

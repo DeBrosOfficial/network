@@ -358,5 +358,9 @@ orama function versions <name>
 ```
 
 ```text
-Shows all deployed versions of a specific function.
+Shows all deployed versions of a specific function. WASM SHA256 is the
+SHA-256 of the WASM each version was deployed with, as uploaded, to compare
+with 'shasum -a 256 function.wasm'; "-" for a version deployed before the
+gateway recorded it. The WASM CID is of the sealed blob and differs on every
+deploy.
 ```
