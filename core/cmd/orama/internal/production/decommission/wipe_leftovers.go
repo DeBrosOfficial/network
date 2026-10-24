@@ -21,14 +21,14 @@ const maxSystemUID = 1000
 // looks at the same list, so a path added to the removal and not to the check, or the
 // other way round, fails the guard test.
 func wipedPaths() []string {
-	return []string{
+	return append([]string{
 		install.OramaBase, "/etc/orama", "/etc/wireguard/wg0.conf",
 		"/var/lib/orama-unit-env", "/var/lib/orama-deploy", "/var/lib/orama-autoupdate",
 		"/var/lib/caddy", "/var/lib/ntfy", "/etc/ntfy", "/etc/coredns", "/etc/caddy",
 		filepath.Dir(constants.TorConfigPath), installers.TorDataDir,
 		filepath.Join(systemdUnitDir, "coredns.service"), filepath.Join(systemdUnitDir, "caddy.service"),
 		archivetrust.AnchorPath, privhelper.Path, install.IPv6DisableSysctlPath,
-	}
+	}, append(install.HostFiles(), installers.ResolvedDropInPaths()...)...)
 }
 
 // globalPaths are what `orama global install` writes outside the unit directory: its
@@ -47,16 +47,16 @@ func globalPaths() []string {
 	}
 }
 
-// nuclearPaths are the shared binaries, the Tor apt source and the RAM hygiene sysctl drop-in
-// that only --nuclear removes.
+// nuclearPaths are the shared binaries, the Node.js runtime, the Tor apt source and the RAM
+// hygiene files that only --nuclear removes.
 func nuclearPaths() []string {
-	return []string{
+	return append([]string{
 		"/usr/local/bin/orama", "/usr/local/bin/orama-node", "/usr/local/bin/gateway",
 		"/usr/local/bin/identity", "/usr/local/bin/sfu", "/usr/local/bin/turn", "/usr/local/bin/orama-sni-router",
 		"/usr/local/bin/olric-server", "/usr/local/bin/ipfs", "/usr/local/bin/ipfs-cluster-service",
 		"/usr/local/bin/rqlited", "/usr/local/bin/coredns", "/usr/local/bin/ntfy", "/usr/bin/caddy",
-		installers.TorAptSourcePath, installers.TorKeyringPath, install.RAMHygieneSysctlPath,
-	}
+		installers.TorAptSourcePath, installers.TorKeyringPath, install.RAMHygieneSysctlPath, installers.NodeJSInstallRoot,
+	}, install.HardeningHostFiles()...)
 }
 
 // purgeAccountsBlock is the part of the nuclear wipe that deletes the system accounts
@@ -104,7 +104,7 @@ for path in $(find /etc/systemd/system -maxdepth 2 -name "orama-*" 2>/dev/null);
 for unit in $(systemctl list-units --all --plain --no-legend "orama-*" | while read -r name _; do echo "$name"; done); do
     left "systemd unit $unit"
 done
-for key in $sysctl_unrestored; do left "sysctl $key (could not be put back to its value from before the install)"; done
+` + resolverLeftoverCheck() + `for key in $sysctl_unrestored; do left "sysctl $key (could not be put back to its value from before the install)"; done
 if ip link show wg0 >/dev/null 2>&1; then left "network interface wg0"; fi
 if ip netns list 2>/dev/null | grep -qw ` + globalnetns.Name + `; then left "network namespace ` + globalnetns.Name + `"; fi
 if ip link show ` + globalnetns.HostIface + ` >/dev/null 2>&1; then left "network interface ` + globalnetns.HostIface + `"; fi
@@ -117,6 +117,7 @@ else
 fi
 `)
 	if nuclear {
+		b.WriteString(nodeJSLeftoverCheck())
 		b.WriteString(`for name in $(orama_accounts); do left "system user $name"; done
 for name in $(orama_groups); do left "system group $name"; done
 `)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/Orama-Network/orama/core/pkg/constants"
@@ -424,11 +425,11 @@ func (fp *FirewallProvisioner) persistRAMHygiene() error {
 		return err
 	}
 
-	if err := exec.Command("mkdir", "-p", "/etc/systemd/coredump.conf.d").Run(); err != nil {
+	if err := exec.Command("mkdir", "-p", filepath.Dir(CoredumpDropInPath)).Run(); err != nil {
 		return fmt.Errorf("mkdir coredump.conf.d: %w", err)
 	}
 	coredump := "[Coredump]\nStorage=none\nProcessSizeMax=0\n"
-	cmd = exec.Command("tee", "/etc/systemd/coredump.conf.d/orama.conf")
+	cmd = exec.Command("tee", CoredumpDropInPath)
 	cmd.Stdin = strings.NewReader(coredump)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to write coredump.conf: %w\n%s", err, string(output))

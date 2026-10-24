@@ -450,6 +450,8 @@ With `--colocated` the services run in the `orama-global` network namespace so t
 | Key-copy marker | `legacy-signing-keys.copied` in the index gateway state directory | `legacylayout` | key remover |
 | Operator side | `~/.orama/known_hosts`, `environments.json` | `setup`, `dns delegation` | later SSH commands |
 
+The files install writes into the operating system's own directories, outside `/opt/orama`, `/etc/orama` and the `orama-*` unit entries, are named in one place (`core/pkg/install/hostfiles.go`, with the resolver and Node.js names in `installers`), and `orama node wipe` removes them through the same names ([chapter 33](33-recovery.md#the-wipe)). A test reads every host path the installer's code names and fails unless a wipe removes it or it is listed with the reason it stays.
+
 ## Lifecycle
 
 **Boot.** `orama-node` is enabled and starts on every boot; `wg0` comes up on its own through `orama-namespace-wireguard@index`, enabled by install. It once existed only if the supervisor got as far as starting it, so a bad `node.yaml` left a node with no overlay, reachable only by public-IP SSH. The first start across 0.200 runs the layout migration before any other component.

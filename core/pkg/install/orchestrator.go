@@ -657,7 +657,7 @@ func (ps *ProductionSetup) Phase5WriteSystemdServices(enableHTTPS bool) error {
 	if err := InstallLogrotateConfig(ps.oramaDir); err != nil {
 		return err
 	}
-	ps.logf("  ✓ Log rotation configured (%s)", logrotateConfigPath)
+	ps.logf("  ✓ Log rotation configured (%s)", LogrotateConfigPath)
 
 	if err := ps.serviceController.DaemonReload(); err != nil {
 		return fmt.Errorf("failed to reload systemd: %w", err)

@@ -58,6 +58,10 @@ anything is; the system accounts are removed only with --nuclear.
 Every wipe removes the IPv6 sysctl drop-in and puts IPv6 back to its value from before the install
 (enabled when the install recorded none); --nuclear also removes the RAM hygiene drop-in and puts back
 the values it recorded.
+Every wipe removes the host files the install wrote for Orama alone: the log rotation policy
+/etc/logrotate.d/orama (so logrotate.service never fails on the orama user once it is gone) and the
+systemd-resolved drop-ins, and links /etc/resolv.conf back to resolved's stub while it is still the
+file the install wrote; --nuclear also removes the coredump drop-in and the Node.js runtime.
 
 Target-side only: this says nothing to the cluster. If the node is still a
 member, use 'orama remove' instead — otherwise the survivors keep

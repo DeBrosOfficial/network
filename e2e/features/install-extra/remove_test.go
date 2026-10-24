@@ -110,11 +110,44 @@ const (
 	priorIPv6Key = "net.ipv6.conf.all.disable_ipv6"
 )
 
+// The host files the installer writes outside the Orama trees (pkg/install HostFiles,
+// installers.ResolvedDropInPaths) and the resolv.conf it writes (installers.OramaResolvConf).
+const (
+	logrotateConfig  = "/etc/logrotate.d/orama"
+	legacySudoers    = "/etc/sudoers.d/orama-namespaces"
+	resolvedNoStub   = "/etc/systemd/resolved.conf.d/no-stub.conf"
+	resolvedNoMcast  = "/etc/systemd/resolved.conf.d/10-orama-no-multicast.conf"
+	resolvConf       = "/etc/resolv.conf"
+	oramaResolvFirst = "nameserver 127.0.0.1"
+	logrotateUnit    = "logrotate.service"
+)
+
+// wipeLeftNoHostFiles: the wipe took the host files the installer wrote with it, so the
+// daily logrotate.service, which failed on every wiped testnet machine over the policy's
+// `su orama orama` once the user was gone (2026-10-24), runs clean; and the host resolver
+// is systemd-resolved's again, not CoreDNS on 127.0.0.1
+// (docs/whitepaper/technical-reference/appendices/d-cli-reference.md "orama node wipe").
+func wipeLeftNoHostFiles(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
+	for _, gone := range []string{logrotateConfig, legacySudoers, resolvedNoStub, resolvedNoMcast} {
+		if f.Exec(t, extra.Node, "test -e "+gone).Exit == 0 {
+			t.Errorf("the wiped node still has %s", gone)
+		}
+	}
+	if out := f.Exec(t, extra.Node, "systemctl start "+logrotateUnit); out.Exit != 0 {
+		t.Errorf("%s fails on the wiped node (exit %d):\n%s%s", logrotateUnit, out.Exit, out.Stdout, out.Stderr)
+	}
+	if out := f.Exec(t, extra.Node, "head -n1 "+resolvConf); strings.TrimSpace(out.Stdout) == oramaResolvFirst {
+		t.Errorf("the wiped node still resolves through CoreDNS, which the wipe removed: %s is the file the installer wrote", resolvConf)
+	}
+	f.MustExec(t, extra.Node, "getent hosts deb.debian.org")
+}
+
 // removeRetiresAndWipes: remove takes the node out of raft and the mesh on
 // every survivor, then wipes it: no /opt/orama, no units, no wg0, no trust
 // anchor, no orama-tagged firewall rule beyond SSH, and the operator's own
 // rule untouched, the IPv6 drop-in gone and IPv6 back at the value the install found, the
-// RAM hygiene drop-in kept (only --nuclear removes it)
+// RAM hygiene drop-in kept (only --nuclear removes it), the log rotation policy and the
+// resolver drop-ins gone, logrotate.service running clean and resolv.conf no longer CoreDNS's
 // (docs/whitepaper/technical-reference/appendices/d-cli-reference.md "orama node remove", "orama node wipe").
 func removeRetiresAndWipes(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
 	f.MustExec(t, extra.Node, "ufw allow "+operatorPort+" comment "+operatorComment)
@@ -125,6 +158,7 @@ func removeRetiresAndWipes(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
 		t.Fatalf("the install recorded IPv6 as %q in %s; the fresh machine had it on (0)", priorIPv6, ipv6DropIn)
 	}
 	f.MustExec(t, extra.Node, "test -e "+ramDropIn)
+	f.MustExec(t, extra.Node, "test -e "+logrotateConfig)
 	rep := monitor.Fetch(t, harness.CLI(t), f.State.Env)
 	wg, err := infra.WGIPOf(rep, extra.PublicIP)
 	if err != nil {
@@ -171,6 +205,7 @@ func removeRetiresAndWipes(t *testing.T, f *fleet.Fleet, extra harness.Extra) {
 	if out := f.Exec(t, extra.Node, `find /etc/systemd/system -maxdepth 2 -name "orama-*"`); strings.TrimSpace(out.Stdout) != "" {
 		t.Errorf("the wiped node still has orama-named unit files or drop-in directories:\n%s", out.Stdout)
 	}
+	wipeLeftNoHostFiles(t, f, extra)
 	rules := infra.UFWRules(t, f, extra.Node)
 	if !infra.HasRule(rules, operatorPort, operatorComment) {
 		t.Errorf("the wipe removed the operator's own rule %s", operatorPort)

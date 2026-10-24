@@ -21,10 +21,9 @@ const privHelperBinary = "orama-privhelper"
 // point them at a temporary directory and a stand-in for systemctl; nothing
 // else assigns them.
 var (
-	privHelperDest = privhelper.Path
-	systemdUnitDir = constants.SystemdUnitDir
-	// legacySudoersPath held the wildcard sudoers rules the helper replaced.
-	legacySudoersPath = "/etc/sudoers.d/orama-namespaces"
+	privHelperDest    = privhelper.Path
+	systemdUnitDir    = constants.SystemdUnitDir
+	legacySudoersPath = LegacySudoersPath
 	chownRoot         = func(path string) error { return os.Chown(path, 0, 0) }
 	runSystemctl      = func(args ...string) ([]byte, error) { return exec.Command("systemctl", args...).CombinedOutput() }
 )
