@@ -134,7 +134,9 @@ func Lookup(name string) (*Method, error) {
 }
 
 // EncodeRequest turns a JSON request (field names as in the proto, snake_case
-// or lowerCamel) into protobuf bytes. Empty means the empty request.
+// or lowerCamel) into protobuf bytes. Empty means the empty request. The
+// encoding is deterministic: a dynamicpb message keeps its fields in a Go map,
+// so a plain proto.Marshal writes them in a different order from call to call.
 func (m *Method) EncodeRequest(requestJSON string) ([]byte, error) {
 	msg := dynamicpb.NewMessage(m.input)
 	if strings.TrimSpace(requestJSON) != "" {
@@ -146,7 +148,7 @@ func (m *Method) EncodeRequest(requestJSON string) ([]byte, error) {
 			return nil, fmt.Errorf("request for %s: %w", m.Path, err)
 		}
 	}
-	return proto.Marshal(msg)
+	return proto.MarshalOptions{Deterministic: true}.Marshal(msg)
 }
 
 // DecodeResponse turns the response bytes into JSON with the proto field names.
