@@ -67,7 +67,7 @@ var (
 // wizard.
 type Options struct {
 	// Network is a registry network name or a manifest URL; empty means the
-	// active network, or the only one the registry has.
+	// active network, or the only one the registry has that runs a chain.
 	Network string
 	// IPs are the machines, in the order they are set up. The first creates the
 	// cluster unless the environment already has one.

@@ -7,8 +7,9 @@ import { chainBase } from "../data/chain/client";
  */
 export interface NetworkManifest {
   name: string;
+  /** Empty for a cluster-only network, which runs no chain. */
   chainId: string;
-  /** Empty while the network is announced and its chain does not exist yet. */
+  /** Empty while the network is announced and its chain does not exist yet, and on a cluster-only network. */
   genesisSha256: string;
   seeds: string[];
 }
@@ -48,7 +49,7 @@ export function parseManifest(raw: unknown, where = "manifest"): NetworkManifest
   const chainId = field(obj, "chain_id", where);
   const genesisSha256 = field(obj, "genesis_sha256", where);
   if (!NAME.test(name)) throw new ManifestError(`${where}: name "${name}" is not a network name`);
-  if (!CHAIN_ID.test(chainId)) throw new ManifestError(`${where}: chain_id "${chainId}" is not a chain id`);
+  if (chainId !== "" && !CHAIN_ID.test(chainId)) throw new ManifestError(`${where}: chain_id "${chainId}" is not a chain id`);
   if (genesisSha256 !== "" && !SHA256_HEX.test(genesisSha256)) {
     throw new ManifestError(`${where}: genesis_sha256 is not 64 lowercase hex characters`);
   }
@@ -56,10 +57,21 @@ export function parseManifest(raw: unknown, where = "manifest"): NetworkManifest
   if (!Array.isArray(seeds) || seeds.length > MAX_SEEDS || !seeds.every((s) => typeof s === "string" && isDnsName(s))) {
     throw new ManifestError(`${where}: seeds is not a list of DNS names`);
   }
+  if (chainId === "" && (genesisSha256 !== "" || seeds.length > 0)) {
+    throw new ManifestError(`${where}: a manifest with no chain_id is cluster-only and carries no genesis_sha256 or seeds`);
+  }
   return { name, chainId, genesisSha256, seeds: seeds as string[] };
 }
 
-/** True once the network's chain exists: an announcement has no genesis yet, so there is nothing to read. */
+/** True for a cluster-only network: it names a release channel and no chain. */
+export function isClusterOnly(m: NetworkManifest): boolean {
+  return m.chainId === "";
+}
+
+/**
+ * True once the network's chain exists: an announcement has no genesis yet, and a
+ * cluster-only network has no chain at all, so neither has anything to read.
+ */
 export function isCreated(m: NetworkManifest): boolean {
   return m.genesisSha256 !== "";
 }

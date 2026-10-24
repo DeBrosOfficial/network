@@ -1,6 +1,7 @@
 // Package netregistry is the list of networks the CLI knows: a manifest names a
 // network's chain, the digest of its genesis, the seeds to join through and the
-// release root its software is verified against.
+// release root its software is verified against. A cluster-only network has no
+// chain: its manifest names only where its releases come from.
 //
 // A network is trusted because its manifest was built into the CLI the operator
 // installed, or because the operator confirmed a manifest they added by URL.
@@ -82,14 +83,35 @@ func (e *notCreatedError) Error() string {
 
 func (e *notCreatedError) Is(target error) bool { return target == ErrNotCreated }
 
-// Manifest is one network's published description. A manifest whose
-// genesis_sha256 is empty is an announcement: the network's name, the chain id it
-// will have, where its releases come from and the root they are verified against,
-// published before the chain exists. It is valid but not joinable (see Announced).
+// ErrClusterOnly says a network is cluster-only: its manifest names a release
+// channel and no chain, so there is no genesis to join and no chain id to sign
+// for. Callers match it to refuse what needs a chain.
+var ErrClusterOnly = errors.New("the network is cluster-only: it runs no chain")
+
+// clusterOnlyError is ErrClusterOnly, naming the network.
+type clusterOnlyError struct{ name string }
+
+func (e *clusterOnlyError) Error() string {
+	return fmt.Sprintf("%s is a cluster-only network: it runs no chain, only clusters that follow its release channel", e.name)
+}
+
+func (e *clusterOnlyError) Is(target error) bool { return target == ErrClusterOnly }
+
+// Manifest is one network's published description. It is one of three kinds:
+//
+//   - created: a chain id and the genesis_sha256 of that chain;
+//   - announced: a chain id and an empty genesis_sha256 — the network's name, the
+//     chain id it will have, where its releases come from and the root they are
+//     verified against, published before the chain exists. It is valid but not
+//     joinable (see Announced);
+//   - cluster-only: an empty chain_id, and so no genesis, seeds, faucet or Tor
+//     network file: only the release repository, channel, minimum version and
+//     release root its clusters follow (see ClusterOnly).
 type Manifest struct {
 	// Name is the network's short name: testnet, or an operator's own.
 	Name string `json:"name"`
-	// ChainID is the chain's id. A reset of the chain gets a new one.
+	// ChainID is the chain's id. A reset of the chain gets a new one. Empty for a
+	// cluster-only network.
 	ChainID string `json:"chain_id"`
 	// GenesisSHA256 is the SHA-256 of the genesis.json that goes with ChainID,
 	// in lowercase hex. Empty while the network is only announced.
@@ -137,32 +159,38 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	return &m, nil
 }
 
+// ClusterOnly reports whether the network is cluster-only: its manifest names no
+// chain.
+func (m *Manifest) ClusterOnly() bool { return m.ChainID == "" }
+
 // Announced reports whether the network is announced and not yet created: its
-// manifest pins no genesis.
-func (m *Manifest) Announced() bool { return m.GenesisSHA256 == "" }
+// manifest names a chain and pins no genesis.
+func (m *Manifest) Announced() bool { return !m.ClusterOnly() && m.GenesisSHA256 == "" }
+
+// Created reports whether the network's chain exists: its manifest pins a genesis.
+func (m *Manifest) Created() bool { return m.GenesisSHA256 != "" }
 
 // CheckCreated returns an error matching ErrNotCreated while the network is only
-// announced.
+// announced, and one matching ErrClusterOnly for a cluster-only network, which
+// has no chain to create.
 func (m *Manifest) CheckCreated() error {
-	if m.Announced() {
+	switch {
+	case m.ClusterOnly():
+		return &clusterOnlyError{name: m.Name}
+	case m.Announced():
 		return &notCreatedError{name: m.Name}
 	}
 	return nil
 }
 
 // Validate checks every field. The first problem is returned, naming the field.
-// An announcement passes without a genesis digest, and may carry no seeds.
+// An announcement passes without a genesis digest, and may carry no seeds. A
+// cluster-only manifest has no chain id, and then carries nothing of a chain.
 func (m *Manifest) Validate() error {
 	if !nameRE.MatchString(m.Name) {
 		return fmt.Errorf("manifest name %q: use 1-32 characters of a-z, 0-9 and -, starting with a letter", m.Name)
 	}
-	if !netclass.ValidChainID(m.ChainID) {
-		return fmt.Errorf("manifest chain_id %q: use 1-48 characters of a-z, 0-9 and -, starting and ending with a letter or digit", m.ChainID)
-	}
-	if !m.Announced() && !sha256HexRE.MatchString(m.GenesisSHA256) {
-		return fmt.Errorf("manifest genesis_sha256 %q is not 64 lowercase hex characters (empty announces a network that is not created yet)", m.GenesisSHA256)
-	}
-	if err := validateSeeds(m.Seeds, m.Announced()); err != nil {
+	if err := m.validateChain(); err != nil {
 		return err
 	}
 	if err := validateChannel(m.Channel); err != nil {
@@ -179,6 +207,37 @@ func (m *Manifest) Validate() error {
 	}
 	if m.TorNetworkSHA256 != "" && !sha256HexRE.MatchString(m.TorNetworkSHA256) {
 		return fmt.Errorf("manifest tor_network_sha256 %q is not 64 lowercase hex characters (or leave it out)", m.TorNetworkSHA256)
+	}
+	return nil
+}
+
+// validateChain checks the chain fields: those of a created or announced
+// network, or their absence on a cluster-only one.
+func (m *Manifest) validateChain() error {
+	if m.ClusterOnly() {
+		return m.validateNoChain()
+	}
+	if !netclass.ValidChainID(m.ChainID) {
+		return fmt.Errorf("manifest chain_id %q: use 1-48 characters of a-z, 0-9 and -, starting and ending with a letter or digit (empty makes a cluster-only network)", m.ChainID)
+	}
+	if m.Created() && !sha256HexRE.MatchString(m.GenesisSHA256) {
+		return fmt.Errorf("manifest genesis_sha256 %q is not 64 lowercase hex characters (empty announces a network that is not created yet)", m.GenesisSHA256)
+	}
+	return validateSeeds(m.Seeds, m.Announced())
+}
+
+// validateNoChain refuses a cluster-only manifest that carries a field of a
+// chain: each needs the chain the manifest does not name.
+func (m *Manifest) validateNoChain() error {
+	switch {
+	case m.GenesisSHA256 != "":
+		return errors.New("manifest genesis_sha256 is set but chain_id is empty: a genesis is a chain's, and a cluster-only network has none")
+	case len(m.Seeds) > 0:
+		return errors.New("manifest seeds are set but chain_id is empty: seeds are how a joiner reaches the chain, and a cluster-only network has none")
+	case m.Faucet:
+		return errors.New("manifest faucet is set but chain_id is empty: a faucet funds accounts on the chain, and a cluster-only network has none")
+	case m.TorNetworkSHA256 != "":
+		return errors.New("manifest tor_network_sha256 is set but chain_id is empty: a relay registers on the chain, and a cluster-only network has none")
 	}
 	return nil
 }
@@ -251,7 +310,8 @@ func Digest(data []byte) string {
 }
 
 // VerifyGenesis checks genesis against the manifest's genesis_sha256. An
-// announced network has none to check against: ErrNotCreated.
+// announced network has none to check against: ErrNotCreated; a cluster-only one
+// has no chain: ErrClusterOnly.
 func (m *Manifest) VerifyGenesis(genesis []byte) error {
 	if err := m.CheckCreated(); err != nil {
 		return err

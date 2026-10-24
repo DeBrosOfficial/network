@@ -73,7 +73,7 @@ func Publish(in PublishInput) (*Manifest, error) {
 			return nil, err
 		}
 	}
-	if prev != nil && !prev.Announced() && prev.ChainID == m.ChainID && prev.GenesisSHA256 != m.GenesisSHA256 {
+	if prev != nil && prev.Created() && prev.ChainID == m.ChainID && prev.GenesisSHA256 != m.GenesisSHA256 {
 		return nil, fmt.Errorf("%w: chain %s has genesis sha256 %s, the new genesis is %s; a reset needs a new chain id",
 			ErrGenesisChange, m.ChainID, prev.GenesisSHA256, m.GenesisSHA256)
 	}

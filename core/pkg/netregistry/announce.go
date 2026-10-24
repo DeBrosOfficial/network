@@ -34,7 +34,8 @@ var ErrAlreadyCreated = errors.New("the network is already created")
 
 // Announce writes networks/<name>/ for a network whose chain does not exist yet:
 // release-root.json and, last, manifest.json with no genesis digest. It replaces an
-// earlier announcement of the same name; it refuses a network that is already
+// earlier announcement of the same name, or the cluster-only manifest of a network
+// that is to get a chain; it refuses a network that is already
 // created, because a reset gets a new chain id from `orama setup --create-network`
 // and not a new announcement.
 func Announce(in AnnounceInput) (*Manifest, error) {
@@ -43,7 +44,7 @@ func Announce(in AnnounceInput) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	if prev != nil && !prev.Announced() {
+	if prev != nil && prev.Created() {
 		return nil, fmt.Errorf("%w: %s is published with chain %s and its genesis; a reset of it is made with orama setup --create-network %s --chain-id <new chain id>",
 			ErrAlreadyCreated, in.Name, prev.ChainID, in.Name)
 	}

@@ -46,14 +46,27 @@ func (r registryNetworks) defaultName(reg *netregistry.Registry) (string, error)
 			return active, nil
 		}
 	}
-	names := reg.Names()
+	names := chainNetworks(reg)
 	switch len(names) {
 	case 0:
-		return "", fmt.Errorf("this CLI knows no network: add one with `orama network add <manifest-url>`")
+		return "", fmt.Errorf("this CLI knows no network that runs a chain: add one with `orama network add <manifest-url>`, or name a cluster-only one with --network")
 	case 1:
 		return names[0], nil
 	}
 	return "", fmt.Errorf("this CLI knows %d networks (%s): choose one with --network", len(names), strings.Join(names, ", "))
+}
+
+// chainNetworks are the names of the registry's networks that name a chain. A
+// cluster-only network is never the default: its machines join it as cluster
+// nodes alone, which the operator asks for by naming it.
+func chainNetworks(reg *netregistry.Registry) []string {
+	var names []string
+	for _, name := range reg.Names() {
+		if n, err := reg.Get(name); err == nil && !n.Manifest.ClusterOnly() {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // Genesis fetches the genesis and checks it against the manifest's digest.

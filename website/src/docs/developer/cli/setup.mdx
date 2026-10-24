@@ -95,7 +95,7 @@ machine until every machine passes.
 | `--ip` | — | Public IPv4 address of a machine, or &amp;lt;user>@&amp;lt;address> to log in to that machine as &amp;lt;user> instead of --user (repeatable; the addresses can also be given as arguments) |
 | `--min-version` | — | With --create-network: the oldest orama version that may join, X.Y.Z (default: this CLI's version) |
 | `--name` | — | Node name, the node's id on the chain; several machines are named &amp;lt;name>, &amp;lt;name>-2, ... (required unless --cluster-only) |
-| `--network` | — | Network to join: a name from `orama network list` (default: the active network, or the only one) |
+| `--network` | — | Network to join: a name from `orama network list` (default: the active network, or the only one that runs a chain) |
 | `--no-faucet` | `false` | With --create-network: leave the test-network faucet out of the genesis |
 | `--no-relay` | `false` | Run no relay though the network pins a Tor network file |
 | `--no-validator` | `false` | Do not create a validator (and do not bond the 1,000 ORAMA self-bond) |

@@ -17,6 +17,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/chainread"
 	"github.com/Orama-Network/orama/core/pkg/httputil"
 	"github.com/Orama-Network/orama/core/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 	"github.com/Orama-Network/orama/core/pkg/onchain"
 	"github.com/Orama-Network/orama/core/pkg/rwagent"
 )
@@ -100,6 +101,9 @@ var openClient = func(cmd *cobra.Command) (txClient, error) {
 // names, or the one --chain-id says when the network names none. The two may not disagree.
 func pinnedChainID(explicit string) (string, error) {
 	pinned, network, err := expectedChainID()
+	if errors.Is(err, netregistry.ErrClusterOnly) {
+		return "", clierr.Usage("%v: there is no chain for the wallet to sign for", err)
+	}
 	if err != nil {
 		return "", clierr.Failure("%v", err)
 	}

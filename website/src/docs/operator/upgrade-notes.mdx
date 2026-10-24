@@ -2,6 +2,14 @@
 
 What a rolling upgrade does differently when it crosses a release that changes how a node is laid out, which service versions it runs, or the registry schema. Read the section that matches the release you are leaving before the first node is restarted. Everything here is in addition to the procedure on [Upgrades](/docs/operator/upgrades); the rule that never changes is one node at a time, followers first, the leader last.
 
+## Nightly after 0.3.6: devnet is a built-in cluster-only network
+
+The CLI's registry now carries `devnet`, a [cluster-only network](/docs/operator/setup#a-network-with-no-chain): a manifest with no chain id that names the `nightly` channel of `https://test-releases.orama.network`, release root sha256 `3bf95cd2…4525`. Nothing on a node changes.
+
+- **Put the devnet environment on it** to upgrade devnet from its channel: `orama network add devnet https://<devnet gateway> --network devnet`, then `orama upgrade --env devnet`. Until then the environment is on no registry network and `orama upgrade` refuses it, as before.
+- **A `devnet` you added by URL clashes with the built-in one.** A CLI fails to load its networks when a network you added has the name of a built-in one. `orama network remove devnet` drops yours, and with it a gateway configured under that name: add the gateway again as above.
+- **`orama setup` without `--network` is unchanged:** a cluster-only network is never its default. `orama setup --network devnet` needs `--cluster-only`.
+
 ## Nightly after 0.3.4: only an operator's wallet session operates the cluster
 
 The node routes (`/v1/node/status`, `logs`, `command`, `leave`), the network routes and every `/v1/operator/*` route now admit only a wallet session on the cluster's operator list, and nothing else. Before, they asked for an `operator` permission that every namespace owner's and admin's `*:*:*` held, and the node routes checked nothing more, so any namespace owner or admin API key could command, read the logs of and remove the cluster's nodes (bugboard bug-55). An API key also counted as the wallet that owned its namespace, so an admin key of a namespace an operator owned passed every operator check. Nothing in the registry changes; what changes for you:

@@ -242,7 +242,11 @@ func (n NodePlan) ServiceNames() []string {
 
 // Summary is the plan as the lines the operator confirms.
 func (p *Plan) Summary() []string {
-	lines := []string{fmt.Sprintf("network %s (chain %s, channel %s)", p.Network, p.ChainID, p.Channel)}
+	chain := "chain " + p.ChainID
+	if p.ChainID == "" {
+		chain = "cluster-only, no chain"
+	}
+	lines := []string{fmt.Sprintf("network %s (%s, channel %s)", p.Network, chain, p.Channel)}
 	if p.JoinsExisting {
 		lines = append(lines, fmt.Sprintf("adds to the cluster already recorded as %q; use --env for a cluster of its own", p.Env))
 	}

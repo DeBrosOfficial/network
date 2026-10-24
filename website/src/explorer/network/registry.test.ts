@@ -41,6 +41,14 @@ describe("buildRegistry", () => {
     expect(r.networks.map((n) => n.manifest.name)).toEqual(["testnet"]);
   });
 
+  it("TestBuildRegistry_a_cluster_only_network_has_no_chain_and_is_left_out", () => {
+    const r = buildRegistry({
+      [at("testnet")]: manifest("testnet"),
+      [at("devnet")]: manifest("devnet", { chain_id: "", genesis_sha256: "", seeds: [] }),
+    });
+    expect(r.networks.map((n) => n.manifest.name)).toEqual(["testnet"]);
+  });
+
   it("TestBuildRegistry_a_manifest_named_differently_from_its_directory_is_refused", () => {
     expect(() => buildRegistry({ [at("devnet")]: manifest("testnet") })).toThrow(/names the network "testnet"/);
   });

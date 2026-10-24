@@ -38,6 +38,8 @@ const (
 
 	// noValue stands for a cell with nothing in it.
 	noValue = "-"
+	// noChainLabel is the chain of a cluster-only network, which runs none.
+	noChainLabel = "none (cluster-only)"
 )
 
 // networkStoreDirFn and embeddedNetworksFn are overridden by tests.
@@ -111,7 +113,7 @@ func networkRows(cfg *EnvironmentConfig, registry *netregistry.Registry) [][]str
 		if n.Builtin {
 			source = sourceBuiltin
 		}
-		rows[name] = []string{name, n.Manifest.ChainID, noValue, "", source, noValue}
+		rows[name] = []string{name, chainLabel(n.Manifest), noValue, "", source, noValue}
 	}
 	for _, env := range cfg.Environments {
 		row, known := rows[env.Name]
@@ -148,15 +150,25 @@ func chainOf(env Environment, registry *netregistry.Registry) string {
 		return noValue
 	}
 	if n, err := registry.Get(env.Network); err == nil {
-		return n.Manifest.ChainID
+		return chainLabel(n.Manifest)
 	}
 	return noValue
+}
+
+// chainLabel is the chain a manifest names, as the network list shows it: its
+// chain id, or that a cluster-only network has none.
+func chainLabel(m *netregistry.Manifest) string {
+	if m.ClusterOnly() {
+		return noChainLabel
+	}
+	return m.ChainID
 }
 
 // ExpectedChainID is the chain id the active network is known to run, read from the manifest of its
 // registry network, with that network's name. Both are empty when no network is active or the active
 // one belongs to no registry network (a cluster added by its gateway URL alone): nothing then says
-// which chain it runs, and a command that signs must be told.
+// which chain it runs, and a command that signs must be told. A network that is cluster-only runs
+// no chain to sign for: the error then matches netregistry.ErrClusterOnly.
 func ExpectedChainID() (chainID, network string, err error) {
 	env, err := GetActiveEnvironment()
 	if errors.Is(err, ErrNoActiveNetwork) {
@@ -198,6 +210,9 @@ func expectedChainIDOf(env *Environment) (chainID, network string, err error) {
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("find network %q in the registry: %w", env.Network, err)
+	}
+	if n.Manifest.ClusterOnly() {
+		return "", env.Network, fmt.Errorf("the %q environment runs on network %q: %w", env.Name, env.Network, n.Manifest.CheckCreated())
 	}
 	return n.Manifest.ChainID, env.Network, nil
 }
@@ -383,7 +398,7 @@ func NetworkAddManifest(ctx context.Context, p *printer.Printer, client *http.Cl
 		return clierr.Failure("%w", err)
 	}
 	p.Printf("Network:       %s\n", m.Name)
-	p.Printf("Chain id:      %s\n", m.ChainID)
+	p.Printf("Chain id:      %s\n", chainLabel(m))
 	p.Printf("Release root:  sha256 %s\n", m.ReleaseRootSHA256)
 	p.Printf("Release repo:  %s (channel %s)\n", m.ReleaseRepo, m.Channel)
 	if m.TorNetworkSHA256 != "" {
@@ -406,7 +421,7 @@ func NetworkAddManifest(ctx context.Context, p *printer.Printer, client *http.Cl
 	if err := store.Save(n); err != nil {
 		return clierr.Failure("%w", err)
 	}
-	p.Printf("Added network: %s (chain %s)\n", m.Name, m.ChainID)
+	p.Printf("Added network: %s (chain %s)\n", m.Name, chainLabel(m))
 	return nil
 }
 
@@ -421,7 +436,7 @@ func replacedBy(store netregistry.Store, name string) string {
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("chain %s, release root sha256 %s", old.Manifest.ChainID, old.Manifest.ReleaseRootSHA256)
+	return fmt.Sprintf("chain %s, release root sha256 %s", chainLabel(old.Manifest), old.Manifest.ReleaseRootSHA256)
 }
 
 // NetworkRemove forgets a network: the added network and the configured gateway

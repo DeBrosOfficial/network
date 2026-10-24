@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
@@ -181,6 +182,48 @@ func TestRun_anAnnouncedNetworkCannotBeJoined(t *testing.T) {
 				t.Errorf("a machine was contacted:\n%s", strings.Join(h.w.entries(), "\n"))
 			}
 		})
+	}
+}
+
+func TestRun_aClusterOnlyNetworkIsJoinedWithoutTheGlobalLayer(t *testing.T) {
+	h := newHarness()
+	h.deps.Networks = fakeNetworks{w: h.w, clusterOnly: true}
+	_, err := run(t, h, h.opts(ip1))
+	if clierr.CodeOf(err) != clierr.CodeUsage || !strings.Contains(err.Error(), "testnet is a cluster-only network") || !strings.Contains(err.Error(), "--cluster-only") {
+		t.Fatalf("a full join of a cluster-only network: %v (code %d), want a usage error naming --cluster-only", err, clierr.CodeOf(err))
+	}
+	if h.w.index("enroll ") >= 0 {
+		t.Errorf("a machine was contacted:\n%s", strings.Join(h.w.entries(), "\n"))
+	}
+
+	h = newHarness()
+	h.deps.Networks = fakeNetworks{w: h.w, clusterOnly: true}
+	opts := h.opts(ip1)
+	opts.ClusterOnly, opts.Name, opts.StorageGB = true, "", 0
+	res := mustRun(t, h, opts)
+	if res.Plan.ChainID != "" || res.Operator != "" {
+		t.Errorf("plan chain %q, operator %q: a cluster-only network has neither", res.Plan.ChainID, res.Operator)
+	}
+	if summary := res.Plan.Summary()[0]; summary != "network testnet (cluster-only, no chain, channel nightly)" {
+		t.Errorf("summary = %q", summary)
+	}
+	for _, chainStep := range []string{"genesis of a cluster-only network", "trust point"} {
+		if h.w.index(chainStep) >= 0 {
+			t.Errorf("the run reached for the chain (%s):\n%s", chainStep, strings.Join(h.w.entries(), "\n"))
+		}
+	}
+}
+
+func TestPlanFor_aClusterOnlyNetworkNeedsClusterOnly(t *testing.T) {
+	h := newHarness()
+	h.deps.Networks = fakeNetworks{w: h.w, clusterOnly: true}
+	if _, err := PlanFor(context.Background(), h.opts(ip1), h.deps); !errors.Is(err, netregistry.ErrClusterOnly) {
+		t.Fatalf("got %v, want ErrClusterOnly", err)
+	}
+	opts := h.opts(ip1)
+	opts.ClusterOnly, opts.Name, opts.StorageGB = true, "", 0
+	if _, err := PlanFor(context.Background(), opts, h.deps); err != nil {
+		t.Fatalf("a cluster-only plan: %v", err)
 	}
 }
 

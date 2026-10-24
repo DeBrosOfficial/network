@@ -23,8 +23,8 @@ const MANIFEST_FILE = /(?:^|\/)([^/]+)\/manifest\.json$/;
 
 /**
  * The registry from the manifests of networks/<name>/manifest.json, keyed by
- * their path. A network that is only announced has no chain to read and is
- * left out. A manifest the explorer cannot read, or whose name differs from its
+ * their path. A network that is only announced, or that is cluster-only, has no
+ * chain to read and is left out. A manifest the explorer cannot read, or whose name differs from its
  * directory, or that is named like a page of the explorer (it would take the
  * place of that page in the URL), throws: the registry is part of the build.
  */

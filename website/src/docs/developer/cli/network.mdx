@@ -14,7 +14,7 @@ Maintain the published networks
 orama maint network
 ```
 
-Subcommands: `announce`, `publish`
+Subcommands: `announce`, `cluster-only`, `publish`
 
 ## orama maint network announce
 
@@ -50,11 +50,50 @@ commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--channel` | — | Release channel: nightly, main or dev/&amp;lt;branch> [required] |
 | `--dir` | `networks` | The repository's networks directory |
 | `--faucet` | `false` | The network funds new operators from a faucet |
-| `--min-version` | `0.3.4` | Oldest orama version that may join, X.Y.Z |
+| `--min-version` | `0.3.6` | Oldest orama version that may join, X.Y.Z |
 | `--name` | — | Network name, for example testnet [required] |
 | `--release-repo` | — | https base URL of the release repository [required] |
 | `--release-root` | — | The release-root.json file its releases are verified against [required] |
 | `--seed` | — | A seed DNS name (repeatable; default: the creator's ns&amp;lt;N>.&amp;lt;name>.orama.network) |
+
+## orama maint network cluster-only
+
+Write networks/&amp;lt;name>/ for a network of clusters that runs no chain
+
+```text
+orama maint network cluster-only [flags]
+```
+
+```text
+Write networks/<name>/ (release-root.json and, last, manifest.json) for a
+cluster-only network: one that runs no chain, only clusters whose nodes follow a
+release channel. The manifest names the release repository, the channel, the
+oldest version that may join and the release root its releases are verified
+against. Its chain_id and genesis_sha256 are empty and it has no seeds, faucet or
+Tor network file.
+
+A cluster on such a network is upgraded from its channel with 'orama upgrade'
+once its environment names the network ('orama network add <name> <gateway URL>
+--network <name>'). 'orama setup' installs only cluster nodes on it (--cluster-only),
+and a command that signs for a chain is refused there: it has none.
+
+It can be written again to change the channel, the repository, the minimum version
+or the root. A network whose manifest names a chain, announced or created, is
+refused. A cluster-only network that is to get a chain is announced
+('orama maint network announce') or created over it.
+
+Afterwards run 'make -C core sync-networks' so the binary embeds the manifest, and
+commit networks/ and core/pkg/netregistry/embedded/ together.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--channel` | — | Release channel: nightly, main or dev/&amp;lt;branch> [required] |
+| `--dir` | `networks` | The repository's networks directory |
+| `--min-version` | `0.3.6` | Oldest orama version that may join, X.Y.Z |
+| `--name` | — | Network name, for example devnet [required] |
+| `--release-repo` | — | https base URL of the release repository [required] |
+| `--release-root` | — | The release-root.json file its releases are verified against [required] |
 
 ## orama maint network publish
 

@@ -18,6 +18,15 @@ orama upgrade --upload-release   # for nodes that cannot reach the release repos
 
 `orama upgrade` takes the **newest signed release of your network's channel**. The channel is the release repository and channel your network's manifest names (`orama network list` shows the network; testnet follows `nightly`). Your machine verifies only the release's **signed metadata** (a few kilobytes) against the release root built into the CLI; the archive does not pass through it. Each node downloads the archive (a few hundred megabytes) from the release repository over its own link, checks it against the length and SHA-256 of the verified metadata, which reach the node over the SSH session and not through the repository, and then verifies it again against the release root it adopted before it replaces a file. A node that cannot reach the repository (a closed outbound firewall, a private network) fails with a hint to run `orama upgrade --upload-release`, which downloads and verifies the archive on your machine instead and uploads it to each node over SSH; `--dry-run` reads the metadata only, even with `--upload-release`. An environment that is on no network of the registry (a cluster you added by its gateway) has no channel; `orama upgrade` says so and points at `orama maint rollout`, which builds and rolls your own archive (below).
 
+A network does not need a chain to have a channel. A **cluster-only** network's manifest names only the release repository, the channel, the oldest version that may join and the release root (no chain id, genesis, seeds or faucet); devnet is one, following `nightly` from `https://test-releases.orama.network`, and `orama network list` shows its chain as `none (cluster-only)`. Put the cluster's environment on it and `orama upgrade` works as above:
+
+```bash
+orama network add devnet https://<gateway of the devnet cluster> --network devnet
+orama upgrade --env devnet --dry-run
+```
+
+A maintainer writes such a network with `orama maint network cluster-only` (see [setting up a network](/docs/operator/setup#a-network-with-no-chain)).
+
 The plan is a table, one row per node, in the order the rolling upgrade will restart them:
 
 ```text

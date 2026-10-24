@@ -1,9 +1,12 @@
 package chainreach
 
 import (
+	"errors"
+
 	"github.com/Orama-Network/orama/core/cmd/orama/internal"
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"github.com/Orama-Network/orama/core/pkg/netclass"
+	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
 // expectedChainID is the chain id the environment is known to run (cli.ExpectedChainIDOf); a test
@@ -19,6 +22,9 @@ func Pin(env, explicit string) (string, error) {
 		return "", clierr.Usage("--chain-id %q is not a chain id: 1 to %d characters of a-z, 0-9 and '-'", explicit, netclass.MaxChainIDLen)
 	}
 	pinned, network, err := expectedChainID(env)
+	if errors.Is(err, netregistry.ErrClusterOnly) {
+		return "", clierr.Usage("%v: there is no chain for the wallet to sign for", err)
+	}
 	if err != nil {
 		return "", clierr.Failure("%v", err)
 	}

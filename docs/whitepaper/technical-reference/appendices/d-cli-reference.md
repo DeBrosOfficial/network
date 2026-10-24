@@ -141,6 +141,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama maint invite`](#orama-maint-invite) - Mint an invite for a new node
   - [`orama maint network`](#orama-maint-network) - Maintain the published networks
     - [`orama maint network announce`](#orama-maint-network-announce) - Write networks/&lt;name>/ for a network that does not exist yet
+    - [`orama maint network cluster-only`](#orama-maint-network-cluster-only) - Write networks/&lt;name>/ for a network of clusters that runs no chain
     - [`orama maint network publish`](#orama-maint-network-publish) - Write networks/&lt;name>/ for a chain that was just deployed
   - [`orama maint node`](#orama-maint-node) - Install, stage, recover and migrate nodes
     - [`orama maint node autoupdate`](#orama-maint-node-autoupdate) - Decide whether a newer release should be installed
@@ -3192,7 +3193,7 @@ Maintain the published networks
 orama maint network
 ```
 
-Subcommands: `announce`, `publish`
+Subcommands: `announce`, `cluster-only`, `publish`
 
 ## orama maint network announce
 
@@ -3233,6 +3234,46 @@ commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--release-repo` | — | https base URL of the release repository [required] |
 | `--release-root` | — | The release-root.json file its releases are verified against [required] |
 | `--seed` | — | A seed DNS name (repeatable; default: the creator's ns&lt;N>.&lt;name>.orama.network) |
+
+
+## orama maint network cluster-only
+
+Write networks/&lt;name>/ for a network of clusters that runs no chain
+
+```text
+orama maint network cluster-only [flags]
+```
+
+```text
+Write networks/<name>/ (release-root.json and, last, manifest.json) for a
+cluster-only network: one that runs no chain, only clusters whose nodes follow a
+release channel. The manifest names the release repository, the channel, the
+oldest version that may join and the release root its releases are verified
+against. Its chain_id and genesis_sha256 are empty and it has no seeds, faucet or
+Tor network file.
+
+A cluster on such a network is upgraded from its channel with 'orama upgrade'
+once its environment names the network ('orama network add <name> <gateway URL>
+--network <name>'). 'orama setup' installs only cluster nodes on it (--cluster-only),
+and a command that signs for a chain is refused there: it has none.
+
+It can be written again to change the channel, the repository, the minimum version
+or the root. A network whose manifest names a chain, announced or created, is
+refused. A cluster-only network that is to get a chain is announced
+('orama maint network announce') or created over it.
+
+Afterwards run 'make -C core sync-networks' so the binary embeds the manifest, and
+commit networks/ and core/pkg/netregistry/embedded/ together.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--channel` | — | Release channel: nightly, main or dev/&lt;branch> [required] |
+| `--dir` | `networks` | The repository's networks directory |
+| `--min-version` | `0.3.6` | Oldest orama version that may join, X.Y.Z |
+| `--name` | — | Network name, for example devnet [required] |
+| `--release-repo` | — | https base URL of the release repository [required] |
+| `--release-root` | — | The release-root.json file its releases are verified against [required] |
 
 
 ## orama maint network publish
@@ -5803,7 +5844,7 @@ machine until every machine passes.
 | `--ip` | — | Public IPv4 address of a machine, or &lt;user>@&lt;address> to log in to that machine as &lt;user> instead of --user (repeatable; the addresses can also be given as arguments) |
 | `--min-version` | — | With --create-network: the oldest orama version that may join, X.Y.Z (default: this CLI's version) |
 | `--name` | — | Node name, the node's id on the chain; several machines are named &lt;name>, &lt;name>-2, ... (required unless --cluster-only) |
-| `--network` | — | Network to join: a name from `orama network list` (default: the active network, or the only one) |
+| `--network` | — | Network to join: a name from `orama network list` (default: the active network, or the only one that runs a chain) |
 | `--no-faucet` | `false` | With --create-network: leave the test-network faucet out of the genesis |
 | `--no-relay` | `false` | Run no relay though the network pins a Tor network file |
 | `--no-validator` | `false` | Do not create a validator (and do not bond the 1,000 ORAMA self-bond) |

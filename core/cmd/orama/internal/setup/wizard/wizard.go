@@ -31,6 +31,9 @@ type NetworkChoice struct {
 	// TorNetwork says the network pins the Tor network file its relays join, so a relay
 	// needs no file from the person.
 	TorNetwork bool
+	// ClusterOnly marks a network that runs no chain: its machines run a cluster node and
+	// nothing of the global layer.
+	ClusterOnly bool
 }
 
 // Services is what the wizard needs from the outside. Each is called from a

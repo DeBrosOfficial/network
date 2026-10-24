@@ -537,3 +537,50 @@ func TestExpectedChainIDOf_followsTheNamedEnvironmentNotTheActiveOne(t *testing.
 		t.Errorf("an environment that is not configured has no pin: %q, %v", id, err)
 	}
 }
+
+// useClusterOnlyNetwork makes the built-in registry testnet and the cluster-only network name: a
+// release channel and no chain.
+func useClusterOnlyNetwork(t *testing.T, cfg *EnvironmentConfig, name string) {
+	t.Helper()
+	useNetworkFixtures(t, cfg, "testnet")
+	m := netregistry.Manifest{
+		Name: name, Channel: "nightly", MinVersion: "0.3.6",
+		ReleaseRepo: "https://releases.example.org", ReleaseRootSHA256: netregistry.Digest(networkTestRoot),
+	}
+	fsys := fstest.MapFS{
+		"embedded/testnet/manifest.json":          {Data: manifestJSON(t, networkManifest("testnet", "orama-testnet-1"))},
+		"embedded/testnet/release-root.json":      {Data: networkTestRoot},
+		"embedded/" + name + "/manifest.json":     {Data: manifestJSON(t, m)},
+		"embedded/" + name + "/release-root.json": {Data: networkTestRoot},
+	}
+	embeddedNetworksFn = func() (*netregistry.Registry, error) { return netregistry.LoadFS(fsys, "embedded") }
+}
+
+func TestNetworkList_aClusterOnlyNetworkRunsNoChain(t *testing.T) {
+	cfg := &EnvironmentConfig{Environments: []Environment{{Name: "dev", GatewayURL: "https://dev.example.org", Network: "devnet"}}}
+	useClusterOnlyNetwork(t, cfg, "devnet")
+	p, out := capture(t)
+	if err := NetworkList(p.WithJSON(true)); err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]string
+	if err := json.Unmarshal(out.Bytes(), &rows); err != nil || len(rows) != 3 {
+		t.Fatalf("not three JSON rows: %v\n%s", err, out)
+	}
+	chains := map[string]string{}
+	for _, row := range rows {
+		chains[row["name"]] = row["chain"]
+	}
+	if chains["dev"] != noChainLabel || chains["devnet"] != noChainLabel || chains["testnet"] != "orama-testnet-1" {
+		t.Errorf("chains = %v: a cluster-only network and the gateway on it show %q", chains, noChainLabel)
+	}
+}
+
+func TestExpectedChainIDOf_aClusterOnlyNetworkHasNoChainToSignFor(t *testing.T) {
+	cfg := &EnvironmentConfig{Environments: []Environment{{Name: "dev", GatewayURL: "https://dev.example.org", Network: "devnet"}}}
+	useClusterOnlyNetwork(t, cfg, "devnet")
+	id, network, err := ExpectedChainIDOf("dev")
+	if !errors.Is(err, netregistry.ErrClusterOnly) || id != "" || network != "devnet" || !strings.Contains(err.Error(), `"dev" environment runs on network "devnet"`) {
+		t.Fatalf("ExpectedChainIDOf = %q, %q, %v; want ErrClusterOnly naming the environment and the network", id, network, err)
+	}
+}

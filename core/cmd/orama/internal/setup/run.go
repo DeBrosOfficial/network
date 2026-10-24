@@ -168,7 +168,7 @@ func (r *runner) preflight(ctx context.Context) error {
 	if r.net, err = r.d.Networks.Resolve(ctx, r.opts.Network); err != nil {
 		return err
 	}
-	if err = checkJoinable(r.net); err != nil {
+	if err = checkJoinable(r.net, r.opts.ClusterOnly); err != nil {
 		return err
 	}
 	if r.evm, err = r.d.Wallet.EVMAddress(ctx); err != nil {
@@ -226,7 +226,7 @@ func PlanFor(ctx context.Context, opts Options, d Deps) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := checkJoinable(n); err != nil {
+	if err := checkJoinable(n, opts.ClusterOnly); err != nil {
 		return nil, err
 	}
 	return planForNetwork(opts, d, n)

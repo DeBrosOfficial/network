@@ -9,7 +9,7 @@ This page describes what the command does today. The flags are in the [`orama se
 ## Before you run it
 
 - **RootWallet open and unlocked.** Every step after the first signs something.
-- **A network the CLI knows.** `orama network list` shows them. A network that is only *announced* (its name, its chain id and its release root are published, but nobody has created the chain yet) is listed too and cannot be joined: `orama setup --network <name>` says `<name> has not been created yet; its creator runs orama setup --create-network <name>`. A network is chosen with `--network <name>`; without it, setup uses the network the active environment runs on, or the only one the CLI has. A network you add by URL (`orama network add <manifest-url>`) shows the digest of its release root and asks you to confirm it first; `--network` takes only the name, never a URL.
+- **A network the CLI knows.** `orama network list` shows them. A network that is only *announced* (its name, its chain id and its release root are published, but nobody has created the chain yet) is listed too and cannot be joined: `orama setup --network <name>` says `<name> has not been created yet; its creator runs orama setup --create-network <name>`. A [cluster-only network](#a-network-with-no-chain) (one with no chain, such as devnet) takes cluster nodes alone, with `--cluster-only`. A network is chosen with `--network <name>`; without it, setup uses the network the active environment runs on, or the only one the CLI has that runs a chain. A network you add by URL (`orama network add <manifest-url>`) shows the digest of its release root and asks you to confirm it first; `--network` takes only the name, never a URL.
 - **Fresh machines** with a public IPv4 address, a supported OS ([What you need](/docs/operator/getting-started)) and a way in: a key your RootWallet already has installed, the root password stored in your vault (`rw vault add <ip>`, then `--password`), or a private key that opens it today (`--bootstrap-key`). Setup logs in as `root` unless you pass `--user`; a machine whose image logs in differently (Ubuntu images often use `ubuntu`) gets its own login as `--ip ubuntu@<address>`, so machines from several providers can be set up in one run.
 - **Outbound HTTPS from the machines to the release repository** (the manifest's `release_repo`; Gitea release assets for `https://releases.orama.network`), because each machine downloads the release itself, and `curl` on the machine. Machines that cannot reach it need `--upload-release`.
 - **The machine's SSH host key**, from your provider's console. Setup never uses your credential on a host key it was not shown and given: interactively it asks you to compare the fingerprint, unattended it needs `--host-key`.
@@ -184,6 +184,27 @@ orama setup --network testnet --name alice --ip ...
 ```
 
 `orama network add` shows the digest of the release root and asks for confirmation. The manifest is not secret and does not change: a joiner checks the genesis it fetches against the digest the manifest pins.
+
+## A network with no chain
+
+A network of the registry can be **cluster-only**: clusters whose nodes follow one release channel, and no chain. Its manifest has an empty `chain_id` and `genesis_sha256`, no seeds, no faucet and no Tor network file; it names the release repository, the channel, the oldest version that may join and the digest of its release root. Devnet is one. A maintainer writes it and builds a CLI release that carries it:
+
+```bash
+orama maint network cluster-only --name devnet \
+  --release-repo https://test-releases.orama.network --release-root ./release-root.json \
+  --channel nightly --min-version 0.3.6
+make -C core sync-networks
+```
+
+`--min-version` defaults to this CLI's version. Commit `networks/` and `core/pkg/netregistry/embedded/` together. Writing it again replaces it; a network whose manifest names a chain, announced or created, is refused. When a cluster-only network is to get a chain, announce it or create it over the cluster-only manifest.
+
+On such a network:
+
+- `orama network list` shows its chain as `none (cluster-only)`.
+- `orama upgrade` follows its channel ([upgrades](/docs/operator/upgrades)) once the cluster's environment names it (`orama network add <env> <gateway URL> --network devnet`).
+- `orama setup --network devnet` installs cluster nodes only: without `--cluster-only` it is refused before any machine is touched, since the global layer would join a chain. It is never the network setup picks when `--network` is left out.
+- A command that signs a transaction on an environment on it is refused before the wallet is asked: there is no chain to sign for.
+- The explorer does not list it.
 
 ## The consensus binding
 
