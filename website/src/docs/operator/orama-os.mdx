@@ -69,6 +69,8 @@ curl -X POST "http://<node-ip>:9998/v1/agent/unlock" \
   -H "Content-Type: application/json" -d '{"key":"<base64 32-byte LUKS key>"}'
 ```
 
+It answers `{"status":"unlocking"}` and takes the first 32-byte key it is sent. A second key sent while the first is being used is refused with 409.
+
 **Known issue (bugboard #89).** This server is plain HTTP with no credential, and it binds `:9998`, which is every network interface, including the public one. Nothing in the agent or the image restricts it: the agent installs no firewall rule (the image ships `iptables`, but no code configures it), so it is reachable from wherever your provider's firewall lets port 9998 through. Only the command receiver, which starts after the node is unlocked, is deliberately bound to the overlay address. Until the unlock server is bound to the overlay address too, block port 9998 in your provider's firewall except from the operator machine. The same applies to the enrollment port 9999, which the agent also binds on every interface (it is protected by the sealed registration code, not by the network).
 
 ## Not yet implemented
@@ -87,14 +89,14 @@ Until the genesis path is built, an operator must record the genesis node's raw 
 
 ## Managing a node
 
-Since OramaOS has no SSH, all management is through the gateway API, which proxies to the agent over WireGuard (port 9998). The command receiver binds only the node's overlay address and requires the node's agent token, so on an unlocked node it is not reachable from the public internet (the genesis unlock server above is the exception while a node waits for its key). These calls need an **admin** API key (or the owner's JWT):
+Since OramaOS has no SSH, all management is through the gateway API, which proxies to the agent over WireGuard (port 9998). The command receiver binds only the node's overlay address and requires the node's agent token, so on an unlocked node it is not reachable from the public internet (the genesis unlock server above is the exception while a node waits for its key). These are operator routes: they need the access token of a wallet session on the cluster's operator list (`orama auth login` as an operator). A namespace owner, a namespace admin and every API key are refused `403 NOT_AN_OPERATOR`, even a key of a namespace an operator owns:
 
 ```bash
-curl "https://cluster.example.com/v1/node/status?node_id=<id>"           -H "Authorization: Bearer <admin key>"
-curl -X POST "https://cluster.example.com/v1/node/command?node_id=<id>"  -H "Authorization: Bearer <admin key>" \
+curl "https://cluster.example.com/v1/node/status?node_id=<id>"           -H "Authorization: Bearer <operator session token>"
+curl -X POST "https://cluster.example.com/v1/node/command?node_id=<id>"  -H "Authorization: Bearer <operator session token>" \
   -H "Content-Type: application/json" -d '{"action":"restart","service":"rqlite"}'
-curl "https://cluster.example.com/v1/node/logs?node_id=<id>&service=gateway&lines=100" -H "Authorization: Bearer <admin key>"
-curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bearer <admin key>" \
+curl "https://cluster.example.com/v1/node/logs?node_id=<id>&service=gateway&lines=100" -H "Authorization: Bearer <operator session token>"
+curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bearer <operator session token>" \
   -H "Content-Type: application/json" -d '{"node_id":"<id>"}'
 ```
 
@@ -104,9 +106,9 @@ curl -X POST "https://cluster.example.com/v1/node/leave" -H "Authorization: Bear
 
 A/B partition scheme:
 
-1. The agent checks for new versions hourly (`https://updates.orama.network/v1/latest`).
-2. Downloads the signed image over HTTPS.
-3. Verifies the SHA-256 and the RootWallet EVM signature against the embedded public key.
+1. The agent checks for new versions hourly, at `https://updates.orama.network/v1/latest` unless the image was built with `ORAMA_UPDATE_URL` (written to `/etc/orama/update-url` on the read-only rootfs; it must be an absolute `https` URL without a query, and an image with a malformed one refuses to start its services). Only whoever builds the image can change it, so a QEMU test image can be pointed at a test release server; the signature check below still applies.
+2. Downloads the update payload over HTTPS: the root filesystem image, which `make build` writes as `orama-os-<version>-<arch>.rootfs.squashfs`.
+3. Verifies the payload's SHA-256, then the RootWallet EVM signature: an EIP-191 `personal_sign` over that SHA-256 in lowercase hex, which must recover to the signer address built into the agent. An unsigned update, or one signed by any other key, is refused before anything is written. `make sign` (`os/scripts/sign.sh`) signs exactly that message and writes it to `orama-os-<version>-<arch>.sig`.
 4. Writes to the standby partition.
 5. Sets systemd-boot to boot from it with `tries_left=3`.
 6. On the next reboot (the agent does not reboot by itself), the node boots into it.
@@ -132,7 +134,7 @@ Each service runs in its own mount namespace, UTS namespace and dedicated UID an
 
 `orama node wipe` cannot reach it (no SSH).
 
-- **Graceful departure:** `POST /v1/node/leave` (there is no `orama node leave` subcommand). It stops services and removes the WireGuard peer.
+- **Graceful departure:** `POST /v1/node/leave` (there is no `orama node leave` subcommand). It asks the node's agent to stop its services and removes the WireGuard peer only once the agent confirms the stop (HTTP 200 `{"status":"stopped"}`). When the agent does not confirm (it is unreachable, refuses, or the node has no agent), nothing is removed and the call answers `502 NODE_STOP_UNCONFIRMED`; a dead node leaves through the cluster-side removal below.
 - **Cluster-side removal:** `orama node remove --env <env> --node <ip> --offline` from a survivor. `--offline` is required: the command never tries to reach an OramaOS node.
 - **Factory reset:** reflash the image at your provider. Data is unrecoverable, because the key is distributed across peers.
 

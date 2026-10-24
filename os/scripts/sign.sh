@@ -1,59 +1,71 @@
 #!/bin/bash
-# Sign OramaOS image artifacts with rootwallet.
+# Sign an OramaOS update with rootwallet.
 #
 # Usage:
 #   ./scripts/sign.sh output/orama-os-1.0.0-amd64
+#   ./scripts/sign.sh --message output/orama-os-1.0.0-amd64
 #
-# This signs the checksum file, producing a .sig file that can be verified
-# with the embedded public key on nodes.
+# The update payload is <prefix>.rootfs.squashfs, the root filesystem the
+# agent writes to its standby partition. The signed message is that file's
+# SHA-256 in lowercase hex: exactly what the agent verifies, since it checks
+# the downloaded payload against VersionInfo.sha256 and then the EVM
+# personal_sign signature over that same hex string
+# (os/agent/internal/update/verify.go). The signature goes to <prefix>.sig.
+#
+# --message prints the message that would be signed and signs nothing; the
+# agent's tests use it to hold the two sides to one digest.
 set -euo pipefail
 
-PREFIX="$1"
+PRINT_ONLY=0
+if [ "${1:-}" = "--message" ]; then
+    PRINT_ONLY=1
+    shift
+fi
 
+PREFIX="${1:-}"
 if [ -z "$PREFIX" ]; then
-    echo "Usage: $0 <artifact-prefix>"
-    echo "  e.g.: $0 output/orama-os-1.0.0-amd64"
+    echo "Usage: $0 [--message] <artifact-prefix>" >&2
+    echo "  e.g.: $0 output/orama-os-1.0.0-amd64" >&2
     exit 1
 fi
 
-CHECKSUM_FILE="${PREFIX}.sha256"
-if [ ! -f "$CHECKSUM_FILE" ]; then
-    echo "Error: checksum file not found: $CHECKSUM_FILE"
-    echo "Run 'make build' first."
+PAYLOAD="${PREFIX}.rootfs.squashfs"
+if [ ! -f "$PAYLOAD" ]; then
+    echo "Error: update payload not found: $PAYLOAD" >&2
+    echo "Run 'make build' first." >&2
     exit 1
 fi
 
-# Compute hash of the checksum file
-HASH=$(sha256sum "$CHECKSUM_FILE" | awk '{print $1}')
-echo "Signing hash: $HASH"
+MESSAGE=$(sha256sum "$PAYLOAD" | awk '{print $1}')
+if [ "$PRINT_ONLY" = 1 ]; then
+    echo "$MESSAGE"
+    exit 0
+fi
+echo "Signing the SHA-256 of $PAYLOAD: $MESSAGE"
 
 # Sign with rootwallet (EVM secp256k1 personal_sign)
 if ! command -v rw &>/dev/null; then
-    echo "Error: 'rw' (rootwallet CLI) not found in PATH"
+    echo "Error: 'rw' (rootwallet CLI) not found in PATH" >&2
     exit 1
 fi
 
-SIGNATURE=$(rw sign "$HASH" --chain evm 2>&1)
-if [ $? -ne 0 ]; then
-    echo "Error: rw sign failed: $SIGNATURE"
+if ! SIGNATURE=$(rw sign "$MESSAGE" --chain evm 2>&1); then
+    echo "Error: rw sign failed: $SIGNATURE" >&2
     exit 1
 fi
 
-# Write signature file
 SIG_FILE="${PREFIX}.sig"
 echo "$SIGNATURE" > "$SIG_FILE"
 echo "Signature written: $SIG_FILE"
 
-# Verify the signature
 echo "Verifying signature..."
-VERIFY=$(rw verify "$HASH" "$SIGNATURE" --chain evm 2>&1)
-if [ $? -ne 0 ]; then
-    echo "WARNING: Signature verification failed: $VERIFY"
+if ! VERIFY=$(rw verify "$MESSAGE" "$SIGNATURE" --chain evm 2>&1); then
+    echo "Error: signature verification failed: $VERIFY" >&2
     exit 1
 fi
 
 echo "Signature verified successfully."
 echo ""
 echo "Artifacts:"
-echo "  Checksum:  $CHECKSUM_FILE"
-echo "  Signature: $SIG_FILE"
+echo "  Update payload: $PAYLOAD (sha256 $MESSAGE)"
+echo "  Signature:      $SIG_FILE"

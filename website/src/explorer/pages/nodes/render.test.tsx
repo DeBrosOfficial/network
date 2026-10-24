@@ -102,7 +102,7 @@ describe("the nodes page states", () => {
   });
 
   it("TestStatusUrl_is_the_gateways_status_page_and_absent_when_no_gateway_is_known", () => {
-    expect(statusUrl("https://stagenet.orama.network")).toBe("https://stagenet.orama.network/status");
+    expect(statusUrl("https://testnet.orama.network")).toBe("https://testnet.orama.network/status");
     expect(statusUrl(null)).toBeNull();
   });
 });

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,11 +18,12 @@ import (
 )
 
 const (
-	// storageFetchTimeout bounds a download's IPFS retrieval, networked fetch
-	// included. It sits below the main gateway's 30s proxy budget, so a fetch
-	// that cannot finish is answered here with a classified TIMEOUT instead
-	// of being cut off by the proxy, whose error cannot say what was slow.
-	storageFetchTimeout = 20 * time.Second
+	// storageIdleTimeout bounds every wait of a download's IPFS retrieval: for
+	// the first byte, networked fetch included, and between reads after it. It
+	// is not a budget for the whole object (bugboard #428): a large video that
+	// keeps arriving is served however long it takes, and a fetch that stalls
+	// is answered with a classified TIMEOUT, or ended, once it has started.
+	storageIdleTimeout = 20 * time.Second
 
 	// pinPropagationWindow is how long after an upload or pin request a CID
 	// missing from this node's pinset is reported as not yet visible
@@ -80,35 +80,32 @@ func (h *Handlers) DownloadHandler(w http.ResponseWriter, r *http.Request) {
 // serveStored writes an owned, authorized CID's content as an octet-stream
 // attachment. It is the body of a download, shared by the credentialed route and
 // the relayed one so the two answer identically.
+//
+// The content is streamed as it arrives from IPFS, with Content-Length always
+// set: a client reading through a relayed TLS stream detects a body cut short
+// by it. A retrieval that stalls after the headers went out can only end the
+// body early; the log says why.
 func (h *Handlers) serveStored(w http.ResponseWriter, r *http.Request, cid, namespace string) {
-	reader, ok := h.fetchStored(r.Context(), w, cid, namespace)
+	content, ok := h.fetchStored(r.Context(), w, cid, namespace)
 	if !ok {
 		return
 	}
-	defer reader.Close()
+	defer content.Body.Close()
 
-	// GetStored hands back a fully buffered reader that knows its size, so the
-	// length is known before the first byte goes out. Content-Length is always
-	// sent: a client reading through a relayed TLS stream detects a truncated
-	// body by it.
-	sized, ok := reader.(interface{ Len() int })
-	if !ok {
-		h.logger.ComponentError(logging.ComponentGeneral, "the storage client returned content of unknown length",
-			zap.String("cid", cid))
-		httputil.WriteRPCError(w, http.StatusInternalServerError, httputil.ErrCodeInternal,
-			fmt.Sprintf("failed to read content %s from the storage node", cid))
-		return
-	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", cid))
-	w.Header().Set("Content-Length", strconv.Itoa(sized.Len()))
+	w.Header().Set("Content-Length", strconv.FormatInt(content.Size, 10))
 
-	if _, err := io.Copy(w, reader); err != nil {
+	// The server's write timeout is a budget for the whole response; a large
+	// object to a slow client would be cut off by it, so each write gets its
+	// own instead.
+	if _, err := httputil.StreamWithIdleWrites(w, content.Body, storageIdleTimeout); err != nil {
 		if r.Context().Err() != nil {
 			h.logger.ComponentDebug(logging.ComponentGeneral, "client went away mid-download", zap.String("cid", cid))
 			return
 		}
-		h.logger.ComponentError(logging.ComponentGeneral, "failed to write content", zap.Error(err))
+		h.logger.ComponentError(logging.ComponentGeneral, "download ended before the whole content was sent",
+			zap.String("cid", cid), zap.Int64("size", content.Size), zap.Error(err))
 	}
 }
 
@@ -151,18 +148,14 @@ func (h *Handlers) requireOwnedCID(w http.ResponseWriter, r *http.Request, cid, 
 // pinset is consulted before any network search: a CID nobody pins could only
 // run out the fetch deadline, which used to cost the client 30 seconds and a
 // TIMEOUT indistinguishable from a slow read. It is NOT_FOUND at once now.
-func (h *Handlers) fetchStored(ctx context.Context, w http.ResponseWriter, cid, namespace string) (io.ReadCloser, bool) {
-	// Cancelling fetchCtx on return is safe only because GetStored returns a
-	// fully buffered reader; a streaming reader would be cut off here.
-	fetchCtx, cancel := context.WithTimeout(ctx, storageFetchTimeout)
-	defer cancel()
+func (h *Handlers) fetchStored(ctx context.Context, w http.ResponseWriter, cid, namespace string) (*ipfs.StoredContent, bool) {
 	ipfsAPIURL := h.config.IPFSAPIURL
 	if ipfsAPIURL == "" {
 		ipfsAPIURL = constants.LocalIPFSAPIURL()
 	}
-	reader, err := h.ipfsClient.GetStored(fetchCtx, cid, ipfsAPIURL)
+	content, err := h.ipfsClient.GetStored(ctx, cid, ipfsAPIURL, storageIdleTimeout)
 	if err == nil {
-		return reader, true
+		return content, true
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
 		// The client went away; there is nobody to answer.

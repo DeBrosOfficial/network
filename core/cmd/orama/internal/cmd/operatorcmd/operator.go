@@ -18,8 +18,9 @@ var Cmd = &cobra.Command{
 	Short: "Operate the cluster",
 	Long: `Commands for the wallets on the cluster's operator list.
 
-Every one of them needs the admin grant and a wallet on that list; a namespace's
-own admin key is not enough.`,
+Every one of them needs you signed in with a wallet on that list. No role in a
+namespace and no API key is an operator's, not even a key of a namespace an
+operator owns.`,
 }
 
 var rotateSigningKeyCmd = &cobra.Command{

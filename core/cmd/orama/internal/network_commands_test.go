@@ -72,11 +72,11 @@ func TestNetworkList_unionOfRegistryAndGateways(t *testing.T) {
 	cfg := &EnvironmentConfig{
 		ActiveEnvironment: "lab",
 		Environments: []Environment{
-			{Name: "lab", GatewayURL: "https://lab.example.org", Description: "my lab", Network: "stagenet"},
-			{Name: "stagenet", GatewayURL: "https://stagenet.example.org"},
+			{Name: "lab", GatewayURL: "https://lab.example.org", Description: "my lab", Network: "testnet"},
+			{Name: "testnet", GatewayURL: "https://testnet.example.org"},
 		},
 	}
-	useNetworkFixtures(t, cfg, "stagenet", "testnet")
+	useNetworkFixtures(t, cfg, "testnet", "worknet")
 	p, out := capture(t)
 
 	if err := NetworkList(p); err != nil {
@@ -84,15 +84,15 @@ func TestNetworkList_unionOfRegistryAndGateways(t *testing.T) {
 	}
 	got := out.String()
 	for _, want := range []string{
-		"lab", "orama-stagenet-1", "https://lab.example.org", "my lab", "configured",
-		"built in, configured", "https://stagenet.example.org",
+		"lab", "orama-testnet-1", "https://lab.example.org", "my lab", "configured",
+		"built in, configured", "https://testnet.example.org",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("list is missing %q:\n%s", want, got)
 		}
 	}
 	lines := strings.Split(strings.TrimSpace(got), "\n")
-	if len(lines) != 4 || !strings.HasPrefix(lines[1], "lab") || !strings.HasPrefix(lines[2], "stagenet") || !strings.HasPrefix(lines[3], "testnet") {
+	if len(lines) != 4 || !strings.HasPrefix(lines[1], "lab") || !strings.HasPrefix(lines[2], "testnet") || !strings.HasPrefix(lines[3], "worknet") {
 		t.Errorf("rows are not the three names sorted:\n%s", got)
 	}
 	if !strings.Contains(lines[1], "*") || strings.Contains(lines[2], "*") {
@@ -101,7 +101,7 @@ func TestNetworkList_unionOfRegistryAndGateways(t *testing.T) {
 }
 
 func TestNetworkList_jsonKeysTheColumns(t *testing.T) {
-	useNetworkFixtures(t, &EnvironmentConfig{Environments: []Environment{{Name: "lab", GatewayURL: "https://lab.example.org"}}}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{Environments: []Environment{{Name: "lab", GatewayURL: "https://lab.example.org"}}}, "testnet")
 	p, out := capture(t)
 	if err := NetworkList(p.WithJSON(true)); err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestNetworkList_jsonKeysTheColumns(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &rows); err != nil || len(rows) != 2 {
 		t.Fatalf("not two JSON rows: %v\n%s", err, out)
 	}
-	if rows[1]["name"] != "stagenet" || rows[1]["chain"] != "orama-stagenet-1" || rows[0]["gateway"] != "https://lab.example.org" {
+	if rows[1]["name"] != "testnet" || rows[1]["chain"] != "orama-testnet-1" || rows[0]["gateway"] != "https://lab.example.org" {
 		t.Errorf("rows = %v", rows)
 	}
 }
@@ -174,11 +174,11 @@ func TestNetworkCommands_readAndKeepAnEnvironmentsFileOfTheOldShape(t *testing.T
 
 func TestNetworkUse_byGatewayNameByRegistryNetworkAndNeither(t *testing.T) {
 	cfg := &EnvironmentConfig{Environments: []Environment{
-		{Name: "lab", GatewayURL: "https://lab.example.org", Network: "stagenet"},
-		{Name: "one", GatewayURL: "https://one.example.org", Network: "testnet"},
-		{Name: "two", GatewayURL: "https://two.example.org", Network: "testnet"},
+		{Name: "lab", GatewayURL: "https://lab.example.org", Network: "testnet"},
+		{Name: "one", GatewayURL: "https://one.example.org", Network: "worknet"},
+		{Name: "two", GatewayURL: "https://two.example.org", Network: "worknet"},
 	}}
-	useNetworkFixtures(t, cfg, "stagenet", "testnet")
+	useNetworkFixtures(t, cfg, "testnet", "worknet")
 	p, _ := capture(t)
 
 	if err := NetworkUse(p, "lab"); err != nil {
@@ -187,10 +187,10 @@ func TestNetworkUse_byGatewayNameByRegistryNetworkAndNeither(t *testing.T) {
 	if env, _ := GetActiveEnvironment(); env.Name != "lab" {
 		t.Errorf("active = %v", env)
 	}
-	if err := NetworkUse(p, "stagenet"); err != nil {
+	if err := NetworkUse(p, "testnet"); err != nil {
 		t.Fatalf("by registry network with one gateway: %v", err)
 	}
-	if err := NetworkUse(p, "testnet"); clierr.CodeOf(err) != clierr.CodeUsage || !strings.Contains(err.Error(), "one, two") {
+	if err := NetworkUse(p, "worknet"); clierr.CodeOf(err) != clierr.CodeUsage || !strings.Contains(err.Error(), "one, two") {
 		t.Errorf("two gateways on one network: %v", err)
 	}
 	if err := NetworkUse(p, "nowhere"); clierr.CodeOf(err) != clierr.CodeNotFound || !strings.Contains(err.Error(), "orama network add") {
@@ -199,31 +199,31 @@ func TestNetworkUse_byGatewayNameByRegistryNetworkAndNeither(t *testing.T) {
 }
 
 func TestNetworkAddCluster_recordsTheRegistryNetwork(t *testing.T) {
-	useNetworkFixtures(t, &EnvironmentConfig{}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{}, "testnet")
 	p, out := capture(t)
 
-	err := NetworkAddCluster(p, []string{"mine", "https://mine.example.org", "my cluster"}, ClusterOptions{Network: "stagenet"})
+	err := NetworkAddCluster(p, []string{"mine", "https://mine.example.org", "my cluster"}, ClusterOptions{Network: "testnet"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	env, err := GetEnvironmentByName("mine")
-	if err != nil || env.Network != "stagenet" || env.Description != "my cluster" {
+	if err != nil || env.Network != "testnet" || env.Description != "my cluster" {
 		t.Fatalf("stored %+v, %v", env, err)
 	}
-	if !strings.Contains(out.String(), "Added network: mine") || !strings.Contains(out.String(), "Registry network: stagenet") {
+	if !strings.Contains(out.String(), "Added network: mine") || !strings.Contains(out.String(), "Registry network: testnet") {
 		t.Errorf("output:\n%s", out)
 	}
 	// Adding it again without --network keeps the association.
 	if err := NetworkAddCluster(p, []string{"mine", "https://mine.example.org"}, ClusterOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if env, _ := GetEnvironmentByName("mine"); env.Network != "stagenet" {
+	if env, _ := GetEnvironmentByName("mine"); env.Network != "testnet" {
 		t.Errorf("re-adding dropped the network: %+v", env)
 	}
 }
 
 func TestNetworkAddCluster_refusals(t *testing.T) {
-	useNetworkFixtures(t, &EnvironmentConfig{}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{}, "testnet")
 	p, _ := capture(t)
 	for name, tc := range map[string]struct {
 		args []string
@@ -272,7 +272,7 @@ func manifestServer(t *testing.T, edit func(files map[string][]byte)) (string, *
 }
 
 func TestNetworkAddManifest_showsTheDigestAndStoresOnlyAfterYes(t *testing.T) {
-	dir := useNetworkFixtures(t, &EnvironmentConfig{}, "stagenet")
+	dir := useNetworkFixtures(t, &EnvironmentConfig{}, "testnet")
 	url, client := manifestServer(t, nil)
 	p, out := capture(t)
 
@@ -298,7 +298,7 @@ func TestNetworkAddManifest_showsTheDigestAndStoresOnlyAfterYes(t *testing.T) {
 }
 
 func TestNetworkAddManifest_aPinnedTorNetworkIsShownAndStored(t *testing.T) {
-	dir := useNetworkFixtures(t, &EnvironmentConfig{}, "stagenet")
+	dir := useNetworkFixtures(t, &EnvironmentConfig{}, "testnet")
 	torFile := tornettest.NetworkFile(t)
 	url, client := manifestServer(t, func(files map[string][]byte) {
 		m := networkManifest("custom", "orama-custom-1")
@@ -322,7 +322,7 @@ func TestNetworkAddManifest_aPinnedTorNetworkIsShownAndStored(t *testing.T) {
 // A Tor network that allows two relays of one /16 in a circuit weakens path selection: whoever
 // is asked to trust the network is told, beside the digest they confirm.
 func TestNetworkAddManifest_aTorNetworkThatAllowsSharedSubnetsSaysSo(t *testing.T) {
-	useNetworkFixtures(t, &EnvironmentConfig{}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{}, "testnet")
 	tor, err := tornet.ParseNetwork(tornettest.NetworkFile(t))
 	if err != nil {
 		t.Fatal(err)
@@ -422,7 +422,7 @@ func TestNetworkAddManifest_replacingShowsWhatItReplaces(t *testing.T) {
 }
 
 func TestNetworkRemove_addedNetworkAndGatewayAndBuiltIn(t *testing.T) {
-	useNetworkFixtures(t, &EnvironmentConfig{Environments: []Environment{{Name: "custom", GatewayURL: "https://c.example.org"}, {Name: "stagenet", GatewayURL: "https://s.example.org"}}}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{Environments: []Environment{{Name: "custom", GatewayURL: "https://c.example.org"}, {Name: "testnet", GatewayURL: "https://s.example.org"}}}, "testnet")
 	url, client := manifestServer(t, nil)
 	p, out := capture(t)
 	if err := NetworkAddManifest(context.Background(), p, client, strings.NewReader(""), url, true); err != nil {
@@ -441,7 +441,7 @@ func TestNetworkRemove_addedNetworkAndGatewayAndBuiltIn(t *testing.T) {
 	}
 
 	out.Reset()
-	if err := NetworkRemove(p, "stagenet"); err != nil {
+	if err := NetworkRemove(p, "testnet"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "built into this binary") {
@@ -479,13 +479,13 @@ func TestExpectedChainID(t *testing.T) {
 		wantID      string
 		wantNetwork string
 	}{
-		"a registry network names its chain": {cfg("main", "stagenet"), "orama-stagenet-1", "stagenet"},
+		"a registry network names its chain": {cfg("main", "testnet"), "orama-testnet-1", "testnet"},
 		"no network configured":              {&EnvironmentConfig{}, "", ""},
-		"the active one is not configured":   {cfg("gone", "stagenet"), "", ""},
+		"the active one is not configured":   {cfg("gone", "testnet"), "", ""},
 		"the gateway belongs to no network":  {cfg("main", ""), "", ""},
 		"the network is not in the registry": {cfg("main", "ghost"), "", ""},
 	} {
-		useNetworkFixtures(t, tc.cfg, "stagenet")
+		useNetworkFixtures(t, tc.cfg, "testnet")
 		id, network, err := ExpectedChainID()
 		if err != nil || id != tc.wantID || network != tc.wantNetwork {
 			t.Errorf("%s: %q, %q, %v; want %q, %q", name, id, network, err, tc.wantID, tc.wantNetwork)
@@ -497,7 +497,7 @@ func TestExpectedChainID(t *testing.T) {
 // configuration or a registry that cannot be read is an error carrying the real cause: swallowing
 // it would turn a fault into "name your chain with --chain-id", or worse, into no check.
 func TestExpectedChainID_aFaultIsAnErrorWithItsCause(t *testing.T) {
-	useNetworkFixtures(t, &EnvironmentConfig{ActiveEnvironment: "main", Environments: []Environment{{Name: "main", Network: "stagenet"}}}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{ActiveEnvironment: "main", Environments: []Environment{{Name: "main", Network: "testnet"}}}, "testnet")
 	path, err := getEnvironmentConfigPathFn()
 	if err != nil {
 		t.Fatal(err)
@@ -510,7 +510,7 @@ func TestExpectedChainID_aFaultIsAnErrorWithItsCause(t *testing.T) {
 		t.Fatalf("an unreadable configuration: err = %v", err)
 	}
 
-	useNetworkFixtures(t, &EnvironmentConfig{ActiveEnvironment: "main", Environments: []Environment{{Name: "main", Network: "stagenet"}}}, "stagenet")
+	useNetworkFixtures(t, &EnvironmentConfig{ActiveEnvironment: "main", Environments: []Environment{{Name: "main", Network: "testnet"}}}, "testnet")
 	boom := errors.New("store unreadable")
 	embeddedNetworksFn = func() (*netregistry.Registry, error) { return nil, boom }
 	if _, _, err = ExpectedChainID(); !errors.Is(err, boom) {
@@ -522,12 +522,12 @@ func TestExpectedChainIDOf_followsTheNamedEnvironmentNotTheActiveOne(t *testing.
 	cfg := &EnvironmentConfig{
 		ActiveEnvironment: "other",
 		Environments: []Environment{
-			{Name: "main", GatewayURL: "https://gw.example.org", Network: "stagenet"},
+			{Name: "main", GatewayURL: "https://gw.example.org", Network: "testnet"},
 			{Name: "other", GatewayURL: "https://other.example.org", Network: ""},
 		},
 	}
-	useNetworkFixtures(t, cfg, "stagenet")
-	if id, network, err := ExpectedChainIDOf("main"); err != nil || id != "orama-stagenet-1" || network != "stagenet" {
+	useNetworkFixtures(t, cfg, "testnet")
+	if id, network, err := ExpectedChainIDOf("main"); err != nil || id != "orama-testnet-1" || network != "testnet" {
 		t.Errorf("main: %q, %q, %v", id, network, err)
 	}
 	if id, _, err := ExpectedChainIDOf("other"); err != nil || id != "" {

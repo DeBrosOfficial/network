@@ -11,10 +11,10 @@ storage:read:avatars/*      read anything under avatars/
 db:write:posts              write one table
 fn:invoke:checkout          run one function
 deploy:*:*                  everything about deployments
-*:*:*                       everything
+*:*:*                       everything in the namespace
 ```
 
-A *domain* is a part of the platform: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy`, `fn` on the **data plane**; `db`, `deploy`, `secrets`, `members`, `namespace`, `audit`, `operator` on the **control plane**. An *action* is `read`, `write`, `invoke` or `manage`. A *resource* is a glob, and `*` matches any run of characters, including `/`, deliberately, so `avatars/*` covers `avatars/2026/03/me.png`.
+A *domain* is a part of the platform: `storage`, `pubsub`, `cache`, `push`, `webrtc`, `proxy`, `fn` on the **data plane**; `db`, `deploy`, `secrets`, `members`, `namespace`, `audit` on the **control plane**. An *action* is `read`, `write`, `invoke`, `manage` or `send`. `send` is push's: `push:write` registers your own devices and topics, and `push:send` sends a notification to any user or topic of the namespace. A *resource* is a glob, and `*` matches any run of characters, including `/`, deliberately, so `avatars/*` covers `avatars/2026/03/me.png`.
 
 The check happens twice, and they are different questions. The **gate**, before the handler runs, asks whether the credential reaches this domain and action at all. The **handler** asks again with the object: this CID, this topic, this key. A credential that reaches storage and is narrowed to `avatars/*` passes the first and is refused at the second for anything else. An object nothing could name (a CID the namespace recorded no name for) is refused by a narrowed permission and reached by an unrestricted one: "I could not work out what you are touching" is not a reason to allow it.
 
@@ -22,11 +22,13 @@ The check happens twice, and they are different questions. The **gate**, before 
 
 | Role | Holds |
 |---|---|
-| `owner` | Everything. Only one wallet at a time |
+| `owner` | Everything in the namespace. Only one wallet at a time |
 | `admin` | Everything the owner does, except being the owner |
-| `developer` | The data plane, plus `db`, `deploy`, `secrets` and `fn:manage`. **Not** `members`, `namespace` or `operator` |
-| `runtime` | The data plane: storage, pub/sub, cache, push, WebRTC, proxy, and invoking functions |
+| `developer` | The data plane, plus `db`, `deploy`, `secrets`, `fn:manage` and `push:send`. **Not** `members` or `namespace` |
+| `runtime` | The data plane: storage, pub/sub, cache, push registration (`push:write`), WebRTC, proxy, and invoking functions. **Not** `push:send` |
 | `reader` | Nothing beyond the routes that ask for no permission |
+
+Every permission is a namespace's, so none of them, `*:*:*` included, reaches the cluster itself. Node status, logs, commands and removal, network mutation and every `/v1/operator/*` route are the cluster operator's: they admit only a wallet session on the cluster's operator list, and refuse an owner, an admin and every API key, even one of a namespace an operator owns, with `403 NOT_AN_OPERATOR`.
 
 `developer` is for somebody who builds and runs the application but does not decide who else may.
 
@@ -66,7 +68,18 @@ A selector can only narrow. `storage:avatars/*` on a `reader`, who holds nothing
 
 ### The end user's special case
 
-A wallet that holds no grant holds the data plane, as every signed-in user does, with one exception: it may *read* pub/sub (subscribe, list topics, see who is present) and may not *publish*. Announcing presence also needs pub/sub write. The refusal is `403 INSUFFICIENT_SCOPE` with `required_permission: pubsub:write:*`. A topic an end user may write to is the application's decision: grant the wallet `pubsub` write, or publish from a function.
+A wallet that holds no grant holds the data plane, as every signed-in user does, with two exceptions in pub/sub. It may not *publish*: the refusal is `403 INSUFFICIENT_SCOPE` with `required_permission: pubsub:write:*`, and announcing presence also needs pub/sub write. A topic an end user may write to is the application's decision: grant the wallet `pubsub` write, or publish from a function.
+
+And it *reads* (subscribes to, sees in the topic listing, sees who is present on) only the topics the namespace lists for its end users. **The list starts empty**, so an end user reads no topic until the owner names it:
+
+```bash
+orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+orama namespace session-policy --namespace myapp --end-user-topics ''   # none again
+```
+
+Over HTTP it is `end_user_topics` on `PUT /v1/namespace/session-policy` (a list of at most 64 patterns, replacing the previous one; `[]` clears it), and `GET` returns it. A pattern matches like a `pubsub:topic=` selector: `*` matches any run of characters, `/` included. Topics under `_orama/` cannot be listed. Setting it needs `namespace:write` (the owner or an admin), and every gateway applies a change within 5 seconds. With nothing listed, `/v1/pubsub/ws`, `/v1/pubsub/topics` and `/v1/pubsub/presence` answer an end user `403 INSUFFICIENT_SCOPE`; with a list, a topic outside it is refused `403` and left out of the listing.
+
+Members holding a grant are not affected: their grant (and its `pubsub:topic=` selector, if any) says what they read. Neither is a function socket that bridges topics to its users (`ws_pubsub_bridge`): the function chooses those topics, so an app whose realtime goes through its own socket lists only the topics its client subscribes to directly. Before Orama 0.3.5 an end user read every topic of the namespace.
 
 ### Reserved pub/sub topics
 
@@ -75,7 +88,8 @@ Topics under `_orama/` belong to the platform (today `_orama/webrtc/<room>`, the
 ## API keys
 
 ```bash
-orama namespace keys create --scope app-runtime --label web
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+orama namespace keys create --scope storage --label prune-fn
 orama namespace keys create --scope admin --label ci --expires-in-days 30
 orama namespace keys create --scope invoke,pubsub,cache --label worker
 orama namespace keys list
@@ -88,21 +102,52 @@ orama namespace keys revoke --id 12
 | Profile | Grants |
 |---|---|
 | `invoke-only` | invoke |
-| `app-runtime` | invoke, storage, push, webrtc, proxy. **Not** pubsub and **not** cache |
+| `app-runtime` | invoke, push, webrtc, proxy. **Not** storage, **not** pubsub and **not** cache |
 | `admin` | Everything, including the control plane |
 
-Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
+Grant names: `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `push-send`, `storage`, `webrtc`. A key that publishes or uses the cache is minted with them named. `push` registers devices and topics; `push-send` sends to any user or topic (`/v1/push/send`, `/v1/push/topics/send`), so it goes on a server's key and on no profile.
 
-- **For a script:** `orama namespace keys create --json` prints one JSON object (`id`, `scopes`, `namespace`, `expires`, `label` and `key`) and nothing else.
+Before Orama 0.3.5, `push` also sent, so any key an app shipped could push a notification to every user of the namespace. From 0.3.5 a key holding `push` and not `push-send` is refused `403 INSUFFICIENT_SCOPE` on both send routes, a `runtime` member's session too, and a signed-in user with no grant is refused `403` by the ownership gate. A backend that sends over HTTP mints `--scope push-send` and keeps it on the server. A function sends with the `push_send` host functions, which need no key.
+
+`app-runtime` held `storage` before Orama 0.3.5. A token exchanged for a storage key may unpin any object the namespace stores, so anyone who pulled such a key out of an app could empty the namespace's storage. Upgrading takes `storage` off every live key minted from the profile: a key whose grants are exactly `invoke,proxy,push,storage,webrtc` becomes `invoke,proxy,push,webrtc`, within a minute on every gateway. A key minted with any other grant list, `storage` alone included, keeps what it has. A gateway still on the earlier release mints the old set during the rolling upgrade, so re-mint an `app-runtime` key created while the upgrade ran. The membership role a key is recorded with is `runtime` or `admin` and nothing finer, so it never widens a key past its scopes.
+
+- **For a script:** `orama namespace keys create --json` prints one JSON object (`id`, `scopes`, `resources` when the key is narrowed, `namespace`, `expires`, `label` and `key`) and nothing else.
 - **Format.** `orama_<type>_<payload>_<checksum>`, base62. `sk` labels a key holding the control plane and `rk` one holding only the data plane; the row decides authority, not the label. The checksum is not a security property, but a leaked key is recognisable offline by a secret scanner, and a mistyped one is refused without a database lookup.
 - **It does not name its namespace.** It used to be `ak_<random>:<namespace>`, so a key pasted into an issue published which tenant it belonged to.
 - **Every key expires:** 90 days by default, a year at most (`--expires-in-days`). There is no way to ask for one that does not.
 - **Stored as an HMAC** under a server-side secret. The gateway never holds the key it issued. **The raw key is shown once and is not recoverable.**
-- **Rotating** mints a successor with the same grants and shortens the original's life to an overlap (7 days by default, 30 at most) instead of revoking it, so there is a window to deploy the new one. Revoking in the same breath as minting is an outage.
+- **Rotating** mints a successor with the same grants, resources and label, and shortens the original's life to an overlap (7 days by default, 30 at most) instead of revoking it, so there is a window to deploy the new one. Revoking in the same breath as minting is an outage.
 - **Revoking** a key refuses it within about ten seconds on every gateway, and refuses the tokens exchanged from it.
 - `orama namespace keys revoke-legacy` revokes every legacy (unscoped) key: the cutover step from before scoped keys.
 
-**Where a key belongs.** A key in a browser bundle is public. Give it the data plane and nothing else, and let the user's own login carry the rest: storage, WebRTC and proxy refuse a key on its own anyway (they need a logged-in user, or a deployed app's own workload token). A key that touches the control plane belongs on a server.
+### Narrowing a key to functions
+
+A key can be limited to the functions it names, so the key an application ships reaches those functions and nothing else:
+
+```bash
+orama namespace keys create --scope invoke-only --resource fn:premium-status
+orama namespace keys create --scope invoke-only --resource 'fn:premium-*'
+orama namespace keys create --scope invoke-only \
+  --resource fn:subscription-read --resource fn:user-find-by-wallet
+```
+
+`--resource` repeats, up to 32 times, and a pattern's `*` matches any run of characters. Over HTTP the create body takes `resource` (one selector) and `resources` (a list), and `GET /v1/namespace/keys` returns each key's `resources`.
+
+- **On a function it names,** the key behaves as any invoke key.
+- **On any other function** it is refused `403 FORBIDDEN`, the refusal a member narrowed with `members add --resource` gets: over `POST /v1/invoke/<namespace>/<function>`, `POST /v1/functions/<function>/invoke` and the function WebSocket alike. That includes a public function outside the list: drop the key, or add the function, to call it. Deploying, deleting, logs and triggers stay refused, as for any invoke key.
+- **Every scope must be narrowed.** A narrowed key reaches only what its resources match, so `--scope app-runtime --resource fn:a` is refused (push, webrtc and proxy would reach nothing): mint `invoke-only`. An `admin` key cannot be narrowed, and a resource must narrow a scope the key holds (`fn:` needs `invoke`). The same domains a member can be narrowed in are accepted (`pubsub:`, `storage:`, `cache:` besides `fn:`).
+- **It holds everywhere the key is used:** sent bare, exchanged for a token, and on the namespace's own gateway. `orama namespace keys list` shows it as `[only fn:…]`, and a rotation carries it over.
+- **During a rolling upgrade** that introduces it, a gateway still on the earlier release does not know a key's resources, and serves the key as the whole of its scopes until the roll completes.
+
+A key with no `--resource` is unchanged: it reaches the whole of its scopes.
+
+**Where a key belongs.** A key in a browser or mobile bundle is public: whatever it holds, everyone who unpacks the app holds.
+
+- **An app that needs nothing before its user signs in ships no key.** `/v1/auth/challenge`, `/v1/auth/verify` and `/v1/auth/refresh` need no credential, nor does invoking a function deployed `public: true`, on the namespace gateway (`ns-<name>.<domain>`) as on the main one. After sign-in, the user's session reaches storage, push, WebRTC and the proxy.
+- **An app that must call functions before sign-in ships `invoke-only`,** narrowed with `--resource` to those functions.
+- **A function that reclaims storage without a user gets its own key,** `--scope storage`, kept in the namespace's secrets (`orama function secrets set`) and never shipped. A token exchanged for it may unpin (`DELETE /v1/storage/unpin/<cid>`) any object the namespace stores, which is what a prune job needs and why no key in a bundle holds `storage`. Upload, get and pin refuse it: they need a logged-in user, or a deployed app's own workload token.
+- **A backend that sends push notifications over HTTP gets its own key,** `--scope push-send`, kept on the server. It reaches any user's devices.
+- **A key that touches the control plane belongs on a server.**
 
 ## A deployed app's identity
 
@@ -143,7 +188,7 @@ A WebSocket is authorised once, at the upgrade. Every socket opened with a token
 | `4403` | The token, its session or its subject was revoked. Sign in again |
 | `4503` | The gateway could not check revocation for 2 minutes. Reconnect shortly |
 
-A persistent function socket takes `{"__orama":"auth.refresh","jwt":…}` and is held to the new token from then on. A refresh must be for the **same subject**, and a socket opened with an API key or no credential cannot take one. A socket opened with an API key has no token and is not re-checked: revoking the key stops it opening new sockets, not the ones it has open.
+A persistent function socket takes `{"__orama":"auth.refresh","jwt":…}` and is held to the new token from then on. A refresh must be for the **same subject**, and a socket opened with an API key or no credential cannot take one. A socket opened with an API key has no token; it is held to the key instead, and revoking the key closes its open sockets with `4403` within ten seconds as well as refusing new ones.
 
 The revocation list **fails closed**: if it cannot be read and its copy is over 10 seconds old, a request that presents a credential is refused `503 AUTH_UNAVAILABLE` with `Retry-After`. An unknown state is never treated as "not revoked".
 
@@ -158,3 +203,5 @@ orama audit --action key.issue --principal 0xabc… --since 2026-09-01T00:00:00Z
 Recorded: sign-ins and their failures, the refresh-replay tripwire, keys minted, rotated and revoked, grants given and taken away, ownership transferred, namespaces created and deleted, functions and deployments deployed and deleted, secrets set and deleted, sign-in and device policy changes, and operator actions. A **refused** request is deliberately *not* recorded: one row per 401 would let anyone with a network connection fill a table replicated to every node. Events are kept 90 days.
 
 The actor is never a credential: a wallet is recorded as itself, anything else as a fingerprint. The trail is readable by every owner of the namespace.
+
+The cluster's own events — invites minted, nodes joining and being claimed, namespaces deleted — are recorded under no namespace, so no namespace's trail shows them (a namespace created again under a deleted one's name starts with an empty trail). A wallet on the cluster's operator list reads them with `orama audit --cluster` (`GET /v1/operator/audit`), which takes the same flags.

@@ -192,10 +192,7 @@ func parseTunnelTarget(rawHost, rawPort string) (tunnelTarget, error) {
 	if strings.ContainsAny(host, " \t\r\n/\\?#@") {
 		return tunnelTarget{}, errors.New("host contains invalid characters")
 	}
-	if strings.EqualFold(host, "localhost") || strings.HasSuffix(strings.ToLower(host), ".localhost") {
-		return tunnelTarget{}, errors.New("destination is not permitted")
-	}
-	if ip := net.ParseIP(host); ip != nil && !isPublicIP(ip) {
+	if netguard.ReservedHost(host) {
 		return tunnelTarget{}, errors.New("destination is not permitted")
 	}
 
@@ -211,10 +208,6 @@ func parseTunnelTarget(rawHost, rawPort string) (tunnelTarget, error) {
 	}
 	return tunnelTarget{host: host, port: port}, nil
 }
-
-// isPublicIP reports whether an IP is routable on the public internet: not in any range of the
-// shared list in pkg/netguard.
-func isPublicIP(ip net.IP) bool { return !netguard.Reserved(ip) }
 
 // tunnelIsolationKey derives the SOCKS credential that pins a user to their own
 // circuit. It is an HMAC of the caller identity under the node's own key, so the

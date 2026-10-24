@@ -18,8 +18,8 @@ func joinInstall(user string, services ...install.GlobalService) GlobalInstall {
 		IP:   ip1, User: user, ChainID: testChainID, Contact: "ops@example.org",
 		Trust: &statesync.TrustPoint{
 			Height: 4900, Hash: testSeedHash,
-			Servers: []string{"https://seed1.stagenet.example/v1/chain/light", "https://seed2.stagenet.example/v1/chain/light"},
-			Peers:   []statesync.Peer{{NodeID: strings.Repeat("a", 40), Host: "seed1.stagenet.example"}, {NodeID: strings.Repeat("b", 40), Host: "seed2.stagenet.example"}},
+			Servers: []string{"https://seed1.testnet.example/v1/chain/light", "https://seed2.testnet.example/v1/chain/light"},
+			Peers:   []statesync.Peer{{NodeID: strings.Repeat("a", 40), Host: "seed1.testnet.example"}, {NodeID: strings.Repeat("b", 40), Host: "seed2.testnet.example"}},
 		},
 	}
 }
@@ -29,10 +29,10 @@ func TestGlobalInstallCommand_chainJoinedByStateSync(t *testing.T) {
 	for _, want := range []string{
 		"sudo /opt/orama/bin/orama global install --colocated", "--services 'chain,ipfs,provider'",
 		"--staged-dir /opt/orama/bin", "--manifest /opt/orama/manifest.json", "--public-storage-gb 50",
-		"--init-chain --chain-id 'orama-stagenet-6' --moniker 'alice' --genesis '/opt/orama/.setup-global/genesis.json'",
-		"--persistent-peers '" + strings.Repeat("a", 40) + "@seed1.stagenet.example:31000," + strings.Repeat("b", 40) + "@seed2.stagenet.example:31000'",
+		"--init-chain --chain-id 'orama-testnet-6' --moniker 'alice' --genesis '/opt/orama/.setup-global/genesis.json'",
+		"--persistent-peers '" + strings.Repeat("a", 40) + "@seed1.testnet.example:31000," + strings.Repeat("b", 40) + "@seed2.testnet.example:31000'",
 		"--external-address '203.0.113.11:31000'", "--statesync-trust-height 4900", "--statesync-trust-hash '" + testSeedHash + "'",
-		"--statesync-rpc 'https://seed1.stagenet.example/v1/chain/light' --statesync-rpc 'https://seed2.stagenet.example/v1/chain/light'",
+		"--statesync-rpc 'https://seed1.testnet.example/v1/chain/light' --statesync-rpc 'https://seed2.testnet.example/v1/chain/light'",
 	} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("command lacks %q:\n%s", want, cmd)
@@ -232,7 +232,7 @@ func TestParseIdentity_aConsensusBindingForAnotherKeyIsRefused(t *testing.T) {
 
 func TestIdentityScript_theConsensusKeySignsOnTheNode(t *testing.T) {
 	script := identityScript(IdentityRequest{ChainID: testChainID, Operator: testOperator, BindConsensus: true})
-	want := "global bind --chain-id 'orama-stagenet-6' --operator '" + testOperator + "' --service consensus --key-file /var/lib/orama-global/chain/config/priv_validator_key.json"
+	want := "global bind --chain-id 'orama-testnet-6' --operator '" + testOperator + "' --service consensus --key-file /var/lib/orama-global/chain/config/priv_validator_key.json"
 	if !strings.Contains(script, want) {
 		t.Errorf("script lacks %q:\n%s", want, script)
 	}
@@ -246,7 +246,7 @@ func TestIdentityScript_theConsensusKeySignsOnTheNode(t *testing.T) {
 
 func TestIdentityScript_neverPrintsAPrivateKey(t *testing.T) {
 	script := identityScript(IdentityRequest{ChainID: testChainID, Operator: testOperator})
-	for _, want := range []string{"comet show-node-id", "comet show-validator", "global bind --chain-id 'orama-stagenet-6' --operator '" + testOperator + "' --service hot-key", "--key-type secp256k1"} {
+	for _, want := range []string{"comet show-node-id", "comet show-validator", "global bind --chain-id 'orama-testnet-6' --operator '" + testOperator + "' --service hot-key", "--key-type secp256k1"} {
 		if !strings.Contains(script, want) {
 			t.Errorf("script lacks %q", want)
 		}

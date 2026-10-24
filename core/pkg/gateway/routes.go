@@ -141,6 +141,16 @@ func (g *Gateway) Routes() http.Handler {
 		mux.HandleFunc("/v1/namespace/devices", g.authHandlers.NamespaceDevicesHandler)
 		mux.HandleFunc("/v1/namespace/devices/", g.authHandlers.NamespaceDeviceByIDHandler)
 		mux.HandleFunc("/v1/audit", g.authHandlers.AuditHandler)
+		mux.HandleFunc("/v1/operator/audit", g.authHandlers.OperatorAuditHandler)
+	}
+
+	// Device attestation (feat-941): a device's challenge and its proof, and
+	// what the namespace admits.
+	if g.attestHandlers != nil {
+		mux.HandleFunc("/v1/attest/challenge", g.attestHandlers.ChallengeHandler)
+		mux.HandleFunc("/v1/attest/ios", g.attestHandlers.IOSHandler)
+		mux.HandleFunc("/v1/attest/android", g.attestHandlers.AndroidHandler)
+		mux.HandleFunc("/v1/namespace/attestation-policy", g.attestHandlers.PolicyHandler)
 	}
 
 	// RQLite native backup/restore proxy (namespace auth via /v1/rqlite/ prefix)
@@ -248,6 +258,10 @@ func (g *Gateway) Routes() http.Handler {
 	// ceiling. Falls back to gateway YAML defaults when no override is set.
 	if g.rateLimitHandlers != nil {
 		mux.HandleFunc("/v1/namespace/rate-limit", g.rateLimitConfigDispatcher)
+	}
+	// The browser origins a namespace admits beyond the built-in rule.
+	if g.corsOriginsHandler != nil {
+		mux.Handle("/v1/namespace/cors-origins", g.corsOriginsHandler)
 	}
 
 	// operator node management (wallet JWT auth via middleware)

@@ -63,9 +63,13 @@ timeout: 30             # Execution timeout in seconds (1-60, default: 30)
                         # Raise it toward the 60 s maximum for batch DB ops, schema migrations,
                         # or anything that does many sequential host calls.
                         # Exceeding this timeout on a direct invoke returns
-                        # HTTP 429 {ok:false, error:{code:"RATE_LIMITED",...}}
-                        # (retryable). The code "TIMEOUT" (HTTP 504) appears
-                        # only when the namespace-proxy budget is exceeded.
+                        # HTTP 504 {ok:false, error:{code:"FUNCTION_TIMEOUT",...}},
+                        # not retryable: the function ran, so what it did before
+                        # it was stopped may have happened. Repeat it only if the
+                        # call is idempotent. A rate limit is a different answer
+                        # (429 RATE_LIMITED: refused before it ran). The code
+                        # "TIMEOUT" (HTTP 504) appears only when the
+                        # namespace-proxy budget is exceeded.
 retry:
   count: 0              # Retry attempts on failure (0-5, default: 0 = never retry;
                         # a count above the gateway's max_retry_count or a negative
@@ -77,6 +81,18 @@ ws_auth: capability     # Optional. Also let the function's WebSocket be opened
                         # with a capability it minted, instead of a credential
                         # (see "Capabilities" below). Empty (default): a
                         # credential only. Refused on an internal function.
+rate_limit:             # Optional. The function's own invoke limits, on top of
+                        # the gateway's (see "Invoke rate limits" below).
+  per_caller:           # Each caller: a wallet; a caller with an API key and
+    requests: 5         # no wallet by key and address; an anonymous caller by
+    window: 1m          # address.
+  per_ip:               # Each client address, whichever wallet signs the call:
+    requests: 2         # the limit for account creation, where every call
+    window: 1h          # brings a fresh wallet.
+                        # requests 1-100,000; window 1s-24h in whole seconds
+                        # (30s, 1m, 1h). Out of range is refused at deploy
+                        # 400 VALIDATION_FAILED naming the field. A redeploy
+                        # changes the limits from the next call.
 ```
 
 ### function.go
@@ -228,10 +244,13 @@ curl -X POST https://ns-myapp.example.com/v1/functions \
 orama function list
 orama function get my-function
 orama function versions my-function
+orama function list --all
+orama function rollback my-function 2
 orama function logs my-function --limit 100
 orama function disable my-function
 orama function enable my-function
 orama function delete my-function --force
+orama function delete my-function --purge --force
 ```
 
 ## Host Functions API
@@ -261,6 +280,7 @@ If you see the runtime error `failed to instantiate module: module[X] not instan
 | `get_caller_wallet()` → string | Resolved caller wallet (JWT subject if Bearer auth, else namespace pseudo-id when API-key auth). |
 | `get_caller_jwt_subject()` → string | JWT `sub` claim explicitly. Empty when the request was not JWT-authenticated. Use this when binding on the JWT-signed identity matters (e.g. signup flows verifying the caller signed for the wallet they're registering). |
 | `get_caller_device_id()` → string | The device the caller's session is bound to: the RFC 7638 thumbprint of a key the device proved it holds when the session was issued (the token's `did`). Empty for a session bound to the account alone, an API key, or no credential. Set only by the gateway — a claims provider cannot, and a client cannot state it. Carried into nested `function_invoke` calls. Requires gateway 0.200.0 or later on every node of the namespace. See the technical reference's identity chapter (`docs/whitepaper/technical-reference/vol1/13-identity.md`). |
+| `get_caller_attestation()` → string | What the caller's device attestation proved, as JSON `{"platform", "app_id", "app_version", "attested_at"}`, or empty when the caller's token carries none. It is the gateway's verdict, from the token's signed `att` claim; nothing in the request reaches it. Carried into nested `function_invoke` calls. See [Device attestation](/docs/developer/device-attestation). |
 | `get_caller_capability()` → string | What the capability the caller's socket was opened with grants, as JSON `{"cap_id","resource","issuer_device","expires_at"}`. Empty when the caller came in on a credential. Not carried into nested `function_invoke` calls. See [Capabilities](#capabilities). |
 | `get_caller_claim(name)` → string | Custom JWT claim by name (tier, subscription, etc.). Empty if missing or non-JWT request. |
 | `get_request_id()` → string | Unique invocation ID |
@@ -303,23 +323,56 @@ The legacy `db_execute` is kept indefinitely so existing functions don't break. 
 
 **What a function's SQL may not do.** The same filter runs on the namespace gateway's raw-database routes (see the technical reference's database chapter (`docs/whitepaper/technical-reference/vol1/17-database.md`)). Every database host function refuses,
 before anything runs: a second statement in one call; `ATTACH`, `DETACH`,
-`PRAGMA`, `VACUUM` and `CREATE TRIGGER`; `sqlite_dbpage` and `dbstat`; any
+`PRAGMA` and `VACUUM`; a `pragma_*` table function other than the per-file ones
+such as `pragma_table_info`; `sqlite_dbpage` and `dbstat`; any
 identifier that is a platform table's name, however it is quoted and in any
 role — table, column, alias or named parameter; and a string literal whose whole
 text is one, such as `VALUES ('grants')`, because SQLite reads a string literal
 as a table name in many positions. Pass such a value as a bound argument (`?`)
 instead. A refusal is a failed host call: `db_query_v2` and `db_execute_v2` return `0`, which a function reads as no result at all (an accepted statement always returns a result object), and the reason goes to the gateway's log.
 
+**Triggers in your schema.** A schema may keep its invariants with triggers —
+for example, deleting the rows that existed only for a message when the message
+is deleted — and a `migrate` function creates them with `db_execute_v2` or in a
+`db_transaction` batch like any other DDL. A trigger body runs later, when a
+write fires it, so it is judged when it is created, by the rules a statement
+sent directly is judged by. `CREATE TRIGGER` is accepted when:
+
+- its table, its `WHEN` clause and every statement of its body name no platform
+  table, as an identifier or a string literal (a trigger *on* a platform table
+  is refused by the same rule);
+- every body statement is `INSERT`, `REPLACE`, `UPDATE`, `DELETE` or `SELECT`
+  (`RAISE(...)` included), so a body cannot `PRAGMA`, `ATTACH`, `VACUUM` or
+  create another trigger;
+- it is in the main schema: `CREATE TEMP TRIGGER` and `temp.` names are refused,
+  because a temporary trigger lives on one node's connection, not in the
+  replicated schema, and replicas would diverge;
+- nothing in it reads the clock or randomness: `random()`, `randomblob()`,
+  `CURRENT_TIMESTAMP`, `CURRENT_DATE`, `CURRENT_TIME` and the date and time
+  functions (`date`, `time`, `datetime`, `julianday`, `unixepoch`, `strftime`,
+  `timediff`), whatever their arguments. RQLite makes a write identical on
+  every node by rewriting those in the statement it receives, never inside a
+  trigger, so each node would compute its own value. Compute the value in the
+  statement that fires the trigger and store it in a column;
+- nothing follows its `END` but semicolons, and its text is at most 64 KiB.
+
+A refused trigger's reason names the body statement that broke a rule, for
+example `trigger body statement 2 (DELETE FROM api_keys): the name api_keys is
+reserved ...`. A trigger fires on every write to its table, so `RAISE` in it
+fails that write. SQLite's `recursive_triggers` is off and cannot be turned on,
+so a trigger never fires itself.
+
 The reserved names are `api_keys`, `wallet_api_keys`, `refresh_tokens`,
 `nonces`, `device_authorizations`, `session_devices`,
-`namespace_session_policy`, `invite_tokens`, `operators`, `cluster_settings`,
+`namespace_session_policy`, `namespace_attestation_policy`, `device_attestations`,
+`invite_tokens`, `operators`, `cluster_settings`,
 `namespace_creators`, `release_installs`, `principals`,
 `signing_keys`, `node_credentials`, `encryption_roots`, `grants`,
 `namespace_ownership` (0.122.x's ownership table, kept for the rolling upgrade),
 `api_keys_expiry_cutoff`,
 `wireguard_peers`, `namespace_push_credentials`, `push_topics`, `function_secrets`,
 `function_env_vars`, `revoked_tokens`, `audit_events`, `status_uptime_hourly`, `namespace_quotas`,
-`namespace_rate_limit_config`, `namespace_clusters`, `namespace_cluster_nodes`,
+`namespace_rate_limit_config`, `namespace_cors_origins`, `namespace_clusters`, `namespace_cluster_nodes`,
 `namespace_port_allocations`, `global_deployment_subdomains`, `dns_records`,
 `dns_nodes`, `dns_nameservers`, `raft_evicted_nodes`, `cluster_locks`, `tls_store`, `tls_locks`,
 `orama_schema_migrations`, `namespaces`, `ipfs_content_ownership`,
@@ -411,12 +464,28 @@ namespace outage diagnosable only by guessing.
 
 **Semantics**
 
-- All `exec` ops go to RQLite in one transactional request. Any failure rolls back
-  the entire batch.
-- `query` ops are sequenced **after** the exec batch commits, on the same node, and
-  see the committed writes. A failing query does **not** roll back the writes — its
-  own `results` entry gets `error` and `committed` stays `true`.
+- Every op, `exec` and `query` alike, goes to RQLite in one transactional
+  request and runs in input order inside one transaction. A `query` sees every
+  write the ops before it made, and nothing another commit wrote after this one
+  began: a function that allocates a sequence number (`UPDATE … SET next_seq =
+  next_seq + 1`) and reads it back (`SELECT next_seq …`) in the same batch gets
+  the value its own commit wrote, however many commits land at once.
+- Any failing statement, `exec` or `query`, rolls back the entire batch: nothing
+  is written, `committed` is `false`, and only `results[failed_index]` is filled
+  in. The entries before it describe statements that were rolled back, so they
+  are left empty.
+- SQLite, not `kind`, decides whether a statement reads or writes. `kind` names
+  what its `results` entry carries: an `exec` has `rows_affected` and
+  `last_insert_id`, plus `rows` when its statement has a `RETURNING` clause; a
+  `query` has `rows`.
+- A batch with a write is one Raft log entry, and its queries are applied with it
+  on every node, which is what makes their answers part of the commit. A batch of
+  only queries reads on the leader, in one transaction, and writes nothing to the
+  log.
 - Result order always matches input order.
+
+Before 0.3.5 the `query` ops ran as separate reads after the writes committed, so
+one could see a later commit's value and a failing query left the writes durable.
 
 **Limits** — exceeding the statement cap or the deadline fails the whole batch
 with `error` set. The row cap truncates only that op's rows; the byte cap is
@@ -471,10 +540,30 @@ if !res.Committed {
 **Read consistency** — `db_query_batch` (not `db_transaction`) accepts an optional
 `consistency` field on the request body:
 
-- omitted / `"weak"` (default) — leader-routed, always sees the latest committed
-  write. Costs one round trip to the raft leader.
+- omitted / `"weak"` (default) — routed to the node that believes it is the raft
+  leader, which answers from its own SQLite. Costs one round trip to the leader.
+  It sees every committed write except in the moment of a leadership change: a
+  deposed leader that has not yet noticed can answer without a write the new
+  leader committed.
 - `"none"` — served from the local node's SQLite. Much faster, but may be stale;
   only safe for reads that do not need read-your-own-writes.
+- `"linearizable"` — sees every write committed before the read began. The
+  leader confirms it is still leader with a heartbeat round to a quorum of
+  voters and waits until its commit index is applied before reading; nothing
+  goes through the raft log. It costs the weak read's round trip plus one
+  leader-to-quorum round trip (on a cross-region cluster, roughly double a weak
+  read), and every such read takes a heartbeat round from the leader, so keep
+  it to the rare reads whose answer is used to delete or overwrite what the
+  caller holds — for example a reconcile that drops rows the server no longer
+  lists. When no leader can confirm a quorum the batch fails with the
+  rejection envelope (`error` and `code`, typically `UNAVAILABLE`); it is never
+  answered at a weaker level. `freshness` cannot be combined with it. RQLite's
+  `strong` level, which sends the read through the raft log, is not offered:
+  it gives the same guarantee for a log write and an fsync on a quorum per read.
+
+`freshness` (a duration from `1ms` to `24h`) is accepted only with `"none"`: the
+read is refused with `stale_rejected: true` if the local node is staler than the
+bound. Any other `consistency` value is refused.
 
 `db_query_v2` does **not** accept `consistency`; wrap a single read as a one-op
 `db_query_batch` if you need it.
@@ -488,6 +577,7 @@ if !res.Committed {
 | `cache_delete(key)` → u32 | Remove a key. Returns 1 when the key is gone afterwards (including when it was never set), 0 on failure. The only way to clear a no-expiry entry. Requires gateway 0.200.0 or later on every node of the namespace: wazero resolves imports at instantiation, so a function importing it fails every invocation on an older gateway. |
 | `cache_incr(key)` → int64 | Atomically increment by 1 (init to 0 if missing). Returns the new value, or 0 on failure. |
 | `cache_incr_by(key, delta)` → int64 | Atomically increment by `delta` (may be negative). Same return. |
+| `cache_incr_ttl(key, delta, ttl)` → int64 | `cache_incr_by` for a counter that must expire: a call that creates the counter gives it an expiry of `ttl` seconds; an existing counter keeps the expiry it has. `ttl` follows `cache_set` (`0` is no expiry, negative or longer than 10 years is refused and returns 0). Same return. Requires gateway 0.3.5 or later on every node of the namespace, for the same reason as `cache_delete`. |
 
 Each namespace has its own cache map (`:serverless_cache:<namespace>`), so a
 function reaches only its own namespace's keys, whichever Olric the gateway
@@ -495,18 +585,22 @@ running it talks to. The cache
 host functions need an invocation, so they are unavailable while a warm-pool
 (stateless) reactor module runs `_initialize`; call them from `handle()`.
 
-**Counter guarantees.** `cache_incr` and `cache_incr_by` are one call to Olric's
-atomic `Incr` on the key's partition owner, under a per-key lock; nothing reads
-the value and writes it back. So:
+**Counter guarantees.** `cache_incr`, `cache_incr_by` and `cache_incr_ttl` count
+with one call to Olric's atomic `Incr` on the key's partition owner, under a
+per-key lock; nothing reads the value and writes it back. So:
 
 - Concurrent increments from any number of invocations, on any number of the
   namespace's gateways, are all counted, and each returns a distinct value: `n`
   increments of 1 on a new key return `1..n`, each once.
-- An increment never sets or changes an expiry. A counter an increment created
-  has none (clear it with `cache_delete`); a counter `cache_set` stored with a
-  `ttl` keeps that deadline through increments, and once it expires the next
-  increment starts again from 0. To count in a window, `cache_set` the key with
-  the window as its `ttl` first; do not expect `cache_incr` to start the clock.
+- An increment never changes an existing expiry. A counter `cache_incr` or
+  `cache_incr_by` created has none (clear it with `cache_delete`); a counter
+  `cache_set` or `cache_incr_ttl` gave a `ttl` keeps that deadline through
+  increments, and once it expires the next increment starts again from 0.
+- To count in a window, use `cache_incr_ttl` with a key per window, for example
+  `rl:<wallet>:<minute>` with `ttl` 60: the first call of the window creates the
+  counter with its expiry already set (before it is incremented, so no reader
+  sees it without one), every later call in the window counts on, and the key
+  is gone a minute after it was created, so per-caller buckets do not pile up.
 - A value that is missing, expired or not a number counts as 0 and is replaced
   by the result. `cache_get` on a counter returns its decimal text.
 - A failed call returns 0 to the function and is not retried by the platform.
@@ -531,8 +625,8 @@ cluster gateway.
 
 | Function | Description |
 |----------|-------------|
-| `http_fetch(method, url, headersJSON, body)` → JSON | Make outbound HTTP request. Headers as JSON object. Returns `{"status": 200, "headers": {...}, "body": "..."}`. Timeout: 30s. The destination is checked on the socket, so a hostname that resolves to an internal address and a redirect to one are both refused, not just an internal address written literally in the URL. |
-| `anon_fetch(method, url, headersJSON, body)` → JSON | `http_fetch` through the node's **Tor** client: the destination sees a Tor exit address, not the gateway's. Same signature, same envelope and 30s timeout. Every connection goes through Tor — there is no fallback to a direct request. The host name is resolved by the exit, and Tor refuses private and local addresses, including on a redirect. When Tor is down the call returns `{"status": 0, "error": "..."}`. |
+| `http_fetch(method, url, headersJSON, body)` → JSON | Make outbound HTTP request. Headers as JSON object. Returns `{"status": 200, "headers": {...}, "body": "..."}`. Timeout: 30s. The destination is checked on the socket, so a hostname that resolves to an internal address and a redirect to one are both refused, not just an internal address written literally in the URL. A failure returns `{"status": 0, "error": "..."}`; the error is the cause and does not repeat the URL. The node logs a failed fetch by its origin (scheme and host) and cause only, never the path, query or user info, so a key in the URL (`/v2/<key>`, `?api-key=`) or a user's address in the path stays out of operator logs. |
+| `anon_fetch(method, url, headersJSON, body)` → JSON | `http_fetch` through the node's **Tor** client: the destination sees a Tor exit address, not the gateway's. Same signature, same envelope and 30s timeout. Every connection goes through Tor — there is no fallback to a direct request. The host name is resolved by the exit, and Tor refuses private and local addresses, including on a redirect. Before that the gateway refuses `localhost` and a reserved address in any notation a resolver reads, so `http://2130706433/` and `http://127.1/` are refused like `http://127.0.0.1/`. When Tor is down the call returns `{"status": 0, "error": "..."}`. |
 | `anyone_fetch(method, url, headersJSON, body)` → JSON | **Deprecated** alias of `anon_fetch`: the same implementation, routed through **Tor**. It keeps the name it had while the anonymity backend was the Anyone network, which Orama no longer uses, because deployed functions import it and a module with a missing import fails to instantiate. New code imports `anon_fetch`. |
 
 ### Storage (IPFS)
@@ -684,6 +778,14 @@ function WebSocket client without invoking the function per message (and
 | `log_info(message)` | Log info-level message (captured in invocation logs). |
 | `log_error(message)` | Log error-level message. |
 
+`log_info` and `log_error` lines always reach the invocation's own log (`orama
+function logs`). The gateway also writes them to its journal, along with any
+host function failure, but at most 32 such lines per invocation (per callback
+for a persistent WebSocket function); after that it writes one `host log lines
+suppressed for this invocation` line naming the function, the request and how
+many lines it dropped. A function looping on a failing call cannot flood the
+node's log.
+
 ### Other host functions
 
 | Function | Description |
@@ -693,6 +795,7 @@ function WebSocket client without invoking the function per message (and
 | `ws_broadcast(topic, data)` | Send data to every WebSocket client subscribed to a topic. |
 | `function_invoke(name, payload)` → bytes | Invoke another function of the same namespace and wait for its output. The target inherits the caller's identity. |
 | `function_invoke_async(name, payload)` | Start another function and return at once. The call fails only when it cannot be accepted (no invoker, or the in-flight cap is reached); failures inside the target surface in the target's own logs or `ws_send`. |
+| `function_invoke_last_error()` → string | Why this invocation's last `function_invoke` or `function_invoke_async` call failed, as JSON `{"error","code"}`; empty when that call succeeded or none was made. `function_invoke` returns empty both for a target with no output and for a failure, so call this after an empty return. `code` is `AUTH_FORBIDDEN` (the caller may not invoke the target: a misconfiguration, never retry), `NOT_FOUND` (no such function or version), `INVALID_ARGUMENT` (the name or payload could not be read, or is too large), `RATE_LIMITED` (refused before it ran: retry later), `UNAVAILABLE` (the target could not be loaded or the gateway is at its async cap: it did not run, retry), `DEADLINE_EXCEEDED` (the target ran and was stopped: what it did may have happened) or `INTERNAL` (anything else, the target's own failure included: read `error`). For `function_invoke_async` it reports only whether the call was accepted. The value belongs to the invocation (one callback of a persistent WebSocket function): a new invocation always starts empty, so it never reports another request's call. Signature `() → i64`, the packed `ptr<<32 \| len`. Requires gateway 0.3.5 or later on every node of the namespace, for the same reason as `cache_delete`. |
 | `db_query_batch(opsJSON)` | Several reads in one round trip, with an optional `consistency` (see Database Transactions). |
 | `exec_and_publish(opsJSON)` | Run a transactional batch and publish to PubSub once it commits. `committed: true` with `published: false` and a `publish_error` means the writes are durable and only the publish can be retried. |
 | `pubsub_publish_batch(msgsJSON)` | Publish several messages, failing fast on the first error. |
@@ -831,24 +934,50 @@ in **RQLite**, one `functions` row per version, keyed `(namespace, name, version
 # List versions
 orama function versions my-function
 
-# Invoke a specific version
-curl -X POST .../v1/functions/my-function@2/invoke
+# Every version row of every function, whatever its status
+orama function list --all
+
+# Make version 2 the current version again
+orama function rollback my-function 2
 ```
 
-- The **current** version is the highest version that is active. Invoking, the
-  WebSocket, `function list` and a trigger that fires all use it; `name@N` runs
-  exactly version N and answers 404 `function version not found` when N does not
-  exist, was pruned or is disabled.
-- Triggers (cron, pub/sub, database) follow the current version: a deploy moves
-  them to the new row.
+- Only the **current** version of a function is invoked. Invoking, the
+  WebSocket, `function list` and a trigger that fires all use it. A deploy makes
+  the new version current and marks the one it replaces `superseded`.
+- `name@N` answers only when N is the current version. A superseded version
+  answers 404 with code `FUNCTION_VERSION_SUPERSEDED`. A version that does not
+  exist, was pruned, is disabled or was deleted answers 404 `NOT_FOUND`
+  (`function version not found`). Each WebSocket frame sent to `name@N` of a
+  superseded version gets the same code.
+- `rollback <name> <version>` is how an earlier version runs again. That
+  version becomes current, the one it replaces becomes superseded, and the
+  function's triggers move to it. Rolling back a disabled function serves the
+  version you name. A deleted or pruned version cannot be rolled back to (404).
+  The next deploy is current again and takes the next version number.
+- Triggers (cron, pub/sub, database) follow the current version: a deploy or a
+  rollback moves them to that row.
 - The last **10** versions are kept. A deploy past that removes the oldest; its
   invocation history stays readable under the function's name.
-- `delete` without a version, `disable` and `enable` act on every version of the
-  function. A deleted function's versions are no longer invocable, and the next
-  deploy continues the numbering. A function deleted by a release before this
-  one carries status `inactive`, the same status `disable` sets, so `enable`
-  cannot tell it from a disabled function and brings it back; only deletes made
-  with this release or later are protected from `enable`.
+- `disable` and `enable` act on the current version, so a disabled function
+  runs nothing, and `enable` never brings back a superseded or deleted version.
+- `delete` marks every version deleted, or with `--version N` only that one.
+  A deleted version is never invoked again and cannot be enabled or rolled back
+  to. Its row stays, so `list --all` still shows it and the next deploy
+  continues the numbering. Deleting the current version by number leaves the
+  function with no current version until you roll back.
+- `delete --purge` removes the rows for good: every version (or the one named
+  with `--version`), with its environment variables, triggers, invocation
+  history, logs and jobs. Only the namespace's owner or an admin can purge; a
+  developer gets 403. The namespace's secrets are shared by all its functions
+  and stay. Purging the current version leaves the function with no current
+  version until you roll back. After a purge of the whole function, the next
+  deploy starts again at version 1. The WASM stays pinned in the cluster's
+  IPFS. Function WASM is sealed under the cluster key, and the cluster cannot
+  yet tell whether another namespace deployed the same bytes, so it is never
+  unpinned.
+- Rows that predate this behaviour are brought in line when the gateway
+  upgrades (migration `086`). Of each function's versions that can run, the
+  highest keeps its status and every lower one becomes superseded.
 
 ### Invocation Logging
 
@@ -875,7 +1004,10 @@ is generated from the command tree.
 | `orama function invoke <name> --data <json>` | Invoke a function |
 | `orama function list` | List deployed functions |
 | `orama function get <name>` | Get function details |
-| `orama function delete <name>` | Delete a function |
+| `orama function list --all` | List every version row, including disabled, superseded and deleted ones |
+| `orama function delete <name>` | Delete a function (`--version N` for one version) |
+| `orama function delete <name> --purge` | Remove a function's rows, triggers and history for good (owner or admin) |
+| `orama function rollback <name> <version>` | Make an earlier version the current one |
 | `orama function logs <name>` | View invocation logs |
 | `orama function versions <name>` | List function versions |
 | `orama function disable <name>` | Stop serving a function without deleting it |
@@ -892,9 +1024,10 @@ is generated from the command tree.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/v1/functions` | Deploy function (multipart/form-data) |
-| GET | `/v1/functions` | List functions |
+| GET | `/v1/functions` | List functions (`?all=true`: every version row, whatever its status) |
 | GET | `/v1/functions/{name}` | Get function info |
-| DELETE | `/v1/functions/{name}` | Delete function |
+| DELETE | `/v1/functions/{name}[@{version}]` | Delete function, or one version (`?purge=true`: remove for good; owner or admin) |
+| POST | `/v1/functions/{name}@{version}/rollback` | Make that version the current one |
 | POST | `/v1/functions/{name}/invoke` | Invoke function |
 | GET | `/v1/functions/{name}/versions` | List versions |
 | GET | `/v1/functions/{name}/logs` | Get logs |
@@ -925,16 +1058,47 @@ the message and a `Retry-After` header:
 
 | Scope | Key | Sustained | Burst |
 |-------|-----|-----------|-------|
-| `per_function_wallet` | namespace, function, wallet | the function's own limit, only when it declares one | its own burst |
+| `per_function_ip` | namespace, function, address | the function's `rate_limit.per_ip`, only when it declares one | its `requests` |
+| `per_function_caller` | namespace, function, caller | the function's `rate_limit.per_caller`, only when it declares one | its `requests` |
+| `per_key` | namespace, API key, address (callers with a key and no wallet) | 600 a minute (10 a second) | 60 |
 | `per_wallet` | namespace, wallet | 600 a minute (10 a second) | 60 |
-| `per_ip` | namespace, address (callers with no wallet) | 120 a minute (2 a second) | 30 |
+| `per_ip` | namespace, address (callers with no credential) | 120 a minute (2 a second) | 30 |
+| `per_ip_authenticated` | namespace, client network (callers with a wallet or a key) | the namespace's `invokes_per_ip_minute` (default 1,200), only when it turned per-IP limits on | a tenth of that |
 | `per_namespace` | namespace | 250,000 a minute (about 4,166 a second) | 6,000 |
+
+The caller is a signed-in wallet; for a call with an API key (or a key's or
+an app's token) and no wallet, the key together with the client address; for a
+call with no credential, the address. An app that ships one key to all its
+users therefore gives each user, by address, a budget of their own, and one
+leaked or busy key does not spend another key's. The address is the real
+client address the gateway resolves from its own proxy chain, never a header
+the caller wrote.
+
+`per_ip_authenticated` is for a namespace with open sign-in, where one host can
+hold any number of wallets and would otherwise get `per_wallet` once for each.
+It is off until the namespace turns it on (`orama namespace session-policy
+--per-ip-limits on`, [Per-IP limits](/docs/developer/sign-in#per-ip-limits)),
+and then holds every signed-in caller, members included, to one budget per
+network (an IPv4 address or an IPv6 /64) after its own per-wallet or per-key
+bucket. A change reaches every gateway within 5 seconds. If a gateway cannot
+read the setting the invoke is refused `503 SERVICE_UNAVAILABLE`, retryable,
+rather than run past it.
+
+A `rate_limit` rule allows `requests` calls per `window`: the first `requests`
+pass at once, then one more every `window / requests`. Two signups an hour per
+address (`per_ip: {requests: 2, window: 1h}`) is two at once from an address,
+then one every 30 minutes, whichever wallet signs each one; the refusal is
+`429 RATE_LIMITED`, `retryable`, with `scope=per_function_ip` and a
+`Retry-After` of the wait. To raise a limit before a launch, change the
+function.yaml and redeploy: no gateway release is involved.
 
 An invoke is charged once, by the gateway that runs it; the hop that proxies a
 request to a namespace gateway is not charged. The buckets are per gateway, not
-shared across a namespace's gateways. A caller that sends 100 invokes at 30 a
-second from one wallet spends the 60-invoke burst in about two seconds and then
-gets 429s at the 10-a-second refill (the `per_wallet` scope).
+shared across a namespace's gateways, so a rule of n requests admits up to n on
+each of them: a namespace served by three gateways that needs at most n in all
+declares n / 3. A caller that sends 100 invokes at 30 a second from one wallet
+spends the 60-invoke burst in about two seconds and then gets 429s at the
+10-a-second refill (the `per_wallet` scope).
 
 ## WebSockets
 
@@ -965,8 +1129,9 @@ opened it for as long as it stays open:
   socket was opened with; any other is refused with `ok:false` and the socket keeps its
   current token. A socket opened with an API key, or with no credential on a
   public function, has no token and cannot take one on — reconnect instead.
-- A socket opened with an API key is not re-checked; revoking the key refuses
-  its next upgrade.
+- A socket opened with an API key is held to the key: revoking the key closes
+  its open sockets with `4403` ("API key revoked") within ten seconds, and
+  refuses its next upgrade.
 
 A stateless function socket and a `/v1/pubsub/ws` subscription are re-checked
 the same way. Neither takes `auth.refresh`, so either one is closed with `4401`
@@ -981,7 +1146,7 @@ correspondent downloads one stored object with, with no identity
 
 | Function | Description |
 |----------|-------------|
-| `storage_fetch_cap_mint(cid, count, ttl_seconds)` → string | Mints `count` (1 to 64) fetch capabilities to read `cid` of **this** namespace, issued by the calling session's device, for 1 hour to 7 days. Returns JSON `{"namespace","cid","caps":[{"id","token","revoke_key","expires_at"}]}` (`expires_at` in Unix seconds), the body `POST /v1/storage/fetch-caps` answers, or empty on failure (the gateway log says why): no device-bound caller, a `cid` not in canonical form, a count or ttl out of range, or a gateway without a cluster secret. Keep `revoke_key` with the `id`: revoking by id takes it. Neither ownership of `cid` nor a storage selector is checked here (the HTTP mint checks both because its caller is a credential that may be narrowed to `storage:avatars/*`): a function is the namespace's own code, and which of the namespace's objects a caller may read is the application's decision. This is the only storage access a function has — it cannot read or write IPFS itself (see [Storage](#storage-ipfs)) — and it reaches only the namespace's own objects: the serving gateway asks ownership on every use, so a token for a CID the namespace does not own opens nothing. Signature: `(cid_ptr, cid_len, count i32, ttl_seconds i64) → i64`, the packed `ptr<<32 \| len`. |
+| `storage_fetch_cap_mint(cid, count, ttl_seconds)` → string | Mints `count` (1 to 64) fetch capabilities to read `cid` of **this** namespace, issued by the calling session's device, for 1 hour to 7 days. Returns JSON `{"namespace","cid","caps":[{"id","token","revoke_key","expires_at"}]}` (`expires_at` in Unix seconds), the body `POST /v1/storage/fetch-caps` answers, or empty on failure (the gateway log says why): no device-bound caller, a caller with no device attestation in a namespace that enforces it, a `cid` not in canonical form, a count or ttl out of range, or a gateway without a cluster secret. Keep `revoke_key` with the `id`: revoking by id takes it. Neither ownership of `cid` nor a storage selector is checked here (the HTTP mint checks both because its caller is a credential that may be narrowed to `storage:avatars/*`): a function is the namespace's own code, and which of the namespace's objects a caller may read is the application's decision. This is the only storage access a function has — it cannot read or write IPFS itself (see [Storage](#storage-ipfs)) — and it reaches only the namespace's own objects: the serving gateway asks ownership on every use, so a token for a CID the namespace does not own opens nothing. Signature: `(cid_ptr, cid_len, count i32, ttl_seconds i64) → i64`, the packed `ptr<<32 \| len`. |
 
 ### Capabilities
 
@@ -997,8 +1162,8 @@ device-bound session (see the technical reference's identity chapter (`docs/whit
 
 | Function | Description |
 |----------|-------------|
-| `capability_mint(resource, ttl_seconds)` → string | Mints a capability that opens **this** function's socket, naming `resource` (up to 256 bytes, chosen by the application — a mailbox id), issued by the calling session's device, for 60 seconds to 7 days. Returns JSON `{"token","cap_id","resource","issuer_device","expires_at"}`, or empty on failure (the gateway log says why): no device-bound caller, a ttl out of range, or a gateway without a cluster secret. Signature: `(res_ptr, res_len i32, ttl_seconds i64) → i64`, the packed `ptr<<32 \| len`. |
-| `capability_revoke(token)` → i32 | Refuses one capability of this namespace from now on, named by the `token` `capability_mint` returned (an id alone is not accepted: only a capability the namespace was issued can be revoked); the sockets it opened are closed with `4403` within 10 seconds. `1` on success, including for one already revoked or expired; `0` for a token that is not this namespace's. Revoking the device that issued a capability refuses it too. Signature: `(token_ptr, token_len i32) → i32`. |
+| `capability_mint(resource, ttl_seconds)` → string | Mints a capability that opens **this** function's socket, naming `resource` (up to 256 bytes, chosen by the application — a mailbox id), issued by the calling session's device, for 60 seconds to 7 days. Returns JSON `{"token","cap_id","resource","issuer_device","expires_at"}`, or empty on failure (the gateway log says why): no device-bound caller, a caller with no device attestation in a namespace that enforces it ([Device attestation](/docs/developer/device-attestation)), a ttl out of range, or a gateway without a cluster secret. Signature: `(res_ptr, res_len i32, ttl_seconds i64) → i64`, the packed `ptr<<32 \| len`. |
+| `capability_revoke(token)` → i32 | Refuses one capability of this namespace from now on, named by the `token` `capability_mint` returned (an id alone is not accepted: only a capability the namespace was issued can be revoked); the sockets it opened are closed with `4403` within 10 seconds. `1` on success, including for one already revoked or expired; `0` for a token that is not this namespace's, and when the namespace already has 1,000 capability revocations in force (each stops counting when its capability expires; revoking the issuing device refuses all of its capabilities at once). Revoking the device that issued a capability refuses it too. Signature: `(token_ptr, token_len i32) → i32`. |
 | `get_caller_capability()` → string | See [Context](#context). |
 
 A socket opened with a capability reports no caller: `get_caller_wallet`,
@@ -1019,7 +1184,7 @@ function's own namespace** and on no other; the room, the user and the device ar
 
 | Function | Description |
 |----------|-------------|
-| `webrtc_admit(room, user, device, ttl_seconds)` → string | Admits `user` (the authenticated subject they will join as) to `room` for `ttl_seconds` (1 to 86400), from any device when `device` is empty or from that device only. A namespace that [requires admission](/docs/developer/webrtc#admission) lets in only users admitted this way. Admitting again extends the admission and lifts a revocation. Returns JSON `{"room","user_id","device_id","expires_at"}` (unix seconds), or empty on failure (the gateway log says why): an invalid room, a user or device over 256 bytes, a ttl out of range, or a gateway with no WebRTC set up. Signature: `(room_ptr, room_len, user_ptr, user_len, device_ptr, device_len i32, ttl_seconds i64) → i64`, the packed `ptr<<32 \| len`. |
+| `webrtc_admit(room, user, device, ttl_seconds)` → string | Admits `user` (the identity they will join as, which `webrtc_kick` and `webrtc_mute` take too: their `account_id` claim when the namespace's claims provider names one, otherwise their token's subject; see [Identity](/docs/developer/webrtc#identity)) to `room` for `ttl_seconds` (1 to 86400), from any device when `device` is empty or from that device only. A namespace that [requires admission](/docs/developer/webrtc#admission) lets in only users admitted this way. Admitting again extends the admission and lifts a revocation. Returns JSON `{"room","user_id","device_id","expires_at"}` (unix seconds), or empty on failure (the gateway log says why): an invalid room, a user or device over 256 bytes, a ttl out of range, or a gateway with no WebRTC set up. Signature: `(room_ptr, room_len, user_ptr, user_len, device_ptr, device_len i32, ttl_seconds i64) → i64`, the packed `ptr<<32 \| len`. |
 | `webrtc_kick(room, user)` → i32 | Revokes every admission of `user` to `room` and closes their connection on every SFU of the namespace; the rejoin is refused until they are admitted again. `1` when both were done, `0` otherwise: when any SFU could not be told, the revocation still stands (the log says so) and repeating the call is safe. Signature: `(room_ptr, room_len, user_ptr, user_len i32) → i32`. |
 | `webrtc_mute(room, user, muted)` → i32 | Stops (`muted` non-zero) or resumes the forwarding of `user`'s audio in `room`, on every SFU of the namespace, so a modified client that keeps sending is still silent. Recorded on their admissions, so it holds when they rejoin (for 7 days after the admission expires), and logged by each SFU so a ticket issued before it cannot undo it. `1` on success, `0` on failure. Signature: `(room_ptr, room_len, user_ptr, user_len, muted i32) → i32`. |
 

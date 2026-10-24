@@ -8,7 +8,7 @@ Global conventions are on the [CLI overview](/docs/developer/cli-overview).
 
 ## orama audit
 
-Read this namespace's audit trail
+Read this namespace's audit trail, or the cluster's
 
 ```text
 orama audit [flags]
@@ -18,15 +18,20 @@ orama audit [flags]
 Print what has happened in a namespace: sign-ins, keys minted and revoked,
 grants given and taken away, deployments, functions, secrets and namespace changes.
 
+--cluster prints the cluster's own events instead, the ones recorded under no
+namespace: invites minted, nodes joining and being claimed, and namespaces
+deleted. Only a wallet on the cluster's operator list may read them.
+
 Events are shown oldest first. --follow keeps the command running and prints new
 ones as they are recorded.
 
-Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, node.register, node.key.enrol
+Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, function.purge, function.rollback, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, namespace.attestation_policy, node.register, node.key.enrol
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--action` | — | Show only this action |
+| `--cluster` | `false` | Read the cluster's own events (invites, node joins and claims, namespace deletions); operators only |
 | `--limit` | `0` | How many events to fetch at once (default 50, max 200) |
 | `--namespace` | — | Namespace name |
 | `--principal` | — | Show only what this wallet or key did |
@@ -48,7 +53,8 @@ transfer the namespace itself.
 A namespace has exactly one owner. Everybody else holds a role:
 
   admin    the control plane — deployments, functions, secrets, keys, raw database
-  runtime  the data plane — invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane — invoke, storage, push registration, webrtc, proxy,
+           pubsub, cache; not sending push notifications
   reader   a member with no grant at all
 
 Ownership is not a role you can hand out: use 'orama members transfer'.

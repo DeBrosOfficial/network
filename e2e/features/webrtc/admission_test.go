@@ -76,12 +76,19 @@ func newRTCUser(t *testing.T, n *ns.Namespace, role string) rtcUser {
 // it at cleanup.
 func deployRTCFunction(t *testing.T, n *ns.Namespace) {
 	t.Helper()
+	deployFixture(t, n, rtcFixtureDir, rtcFunction)
+}
+
+// deployFixture deploys the TinyGo function in fixtureDir as name and removes it
+// at cleanup.
+func deployFixture(t *testing.T, n *ns.Namespace, fixtureDir, name string) {
+	t.Helper()
 	if _, err := exec.LookPath("tinygo"); err != nil {
 		harness.SkipNotApplicable(t, "tinygo is not on the runner's PATH; `orama function deploy` builds functions with it")
 	}
 	dir := t.TempDir()
 	for _, file := range []string{"function.go", "go.mod"} {
-		src, err := os.ReadFile(filepath.Join(rtcFixtureDir, file))
+		src, err := os.ReadFile(filepath.Join(fixtureDir, file))
 		if err != nil {
 			t.Fatalf("fixture %s: %v", file, err)
 		}
@@ -89,7 +96,7 @@ func deployRTCFunction(t *testing.T, n *ns.Namespace) {
 			t.Fatal(err)
 		}
 	}
-	yaml := "name: " + rtcFunction + "\npublic: false\nmemory: 64\ntimeout: 30\n"
+	yaml := "name: " + name + "\npublic: false\nmemory: 64\ntimeout: 30\n"
 	if err := os.WriteFile(filepath.Join(dir, "function.yaml"), []byte(yaml), fixturePerm); err != nil {
 		t.Fatal(err)
 	}
@@ -97,8 +104,8 @@ func deployRTCFunction(t *testing.T, n *ns.Namespace) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), cleanupBudget)
 		defer cancel()
-		if res, err := n.CLI.Run(ctx, "function", "delete", rtcFunction, "--force"); err != nil || res.Exit != 0 {
-			t.Errorf("cleanup: failed to delete function %s: %v %s", rtcFunction, err, res.Stderr)
+		if res, err := n.CLI.Run(ctx, "function", "delete", name, "--force"); err != nil || res.Exit != 0 {
+			t.Errorf("cleanup: failed to delete function %s: %v %s", name, err, res.Stderr)
 		}
 	})
 }

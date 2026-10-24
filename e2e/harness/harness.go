@@ -184,13 +184,13 @@ func RequireChain(t testing.TB) {
 	}
 }
 
-// RequireArchive skips (not covered) on the stagenet target when archive, a
+// RequireArchive skips (not covered) on the testnet target when archive, a
 // path from the run's state (ArchivePath, PreviousArchivePath), is empty: the
-// stagenet state is written without building, so it carries no release
+// testnet state is written without building, so it carries no release
 // archive. On a fleet run an empty path is a real fault and is left to fail.
 func RequireArchive(t testing.TB, archive string) {
 	t.Helper()
-	if archive == "" && Fleet(t).State.IsStagenet() {
-		SkipNotApplicable(t, "the stagenet state carries no release archive (the run did not build one): the existing cluster is only tested")
+	if archive == "" && Fleet(t).State.IsTestnet() {
+		SkipNotApplicable(t, "the testnet state carries no release archive (the run did not build one): the existing cluster is only tested")
 	}
 }

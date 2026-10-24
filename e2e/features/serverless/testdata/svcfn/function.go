@@ -140,7 +140,9 @@ func dispatchData(req request) any {
 	case "db_batch_sum":
 		return summarize(unpack(dbQueryBatch(ptr(ops), size(ops))))
 	case "cache_set":
-		cacheSet(ptr(req.Key), size(req.Key), ptr(req.Value), size(req.Value), req.TTL)
+		for i := 0; i < max(req.Count, 1); i++ {
+			cacheSet(ptr(req.Key), size(req.Key), ptr(req.Value), size(req.Value), req.TTL)
+		}
 		return map[string]any{"set": true}
 	case "cache_get":
 		return map[string]any{"value": unpack(cacheGet(ptr(req.Key), size(req.Key)))}
@@ -148,6 +150,8 @@ func dispatchData(req request) any {
 		return map[string]any{"deleted": cacheDelete(ptr(req.Key), size(req.Key))}
 	case "cache_incr":
 		return map[string]any{"value": cacheIncrBy(ptr(req.Key), size(req.Key), req.Delta)}
+	case "cache_incr_ttl":
+		return map[string]any{"value": cacheIncrTTL(ptr(req.Key), size(req.Key), req.Delta, req.TTL)}
 	}
 	return dispatchNet(req)
 }
@@ -181,7 +185,8 @@ func dispatchNet(req request) any {
 		return map[string]any{"result": raw(unpack(turnCredentials()))}
 	case "nested":
 		p := string(req.Data)
-		return map[string]any{"result": raw(unpack(functionInvoke(ptr(req.Name), size(req.Name), ptr(p), size(p))))}
+		out := unpack(functionInvoke(ptr(req.Name), size(req.Name), ptr(p), size(p)))
+		return map[string]any{"result": raw(out), "last_error": raw(unpack(functionInvokeLastError()))}
 	}
 	return dispatchEphemeral(req)
 }

@@ -42,6 +42,10 @@ type NodeReport struct {
 	// requests, not by a collector: it is what the gateway counted in memory.
 	Traffic *TrafficReport `json:"traffic,omitempty"`
 
+	// AttestationLists is filled in by the cluster gateway: the state of the
+	// two lists Android device attestation reads (feat-941).
+	AttestationLists *AttestationListsReport `json:"attestation_lists,omitempty"`
+
 	// Breakers is filled in by the cluster gateway: its circuit breakers toward
 	// the namespace gateways, and which of them are not closed.
 	Breakers *BreakersReport `json:"breakers,omitempty"`
@@ -131,6 +135,10 @@ type ServiceInfo struct {
 	CPUUsageNSec    int64  `json:"cpu_usage_nsec"`
 	MainPID         int    `json:"main_pid"`
 	RestartLoopRisk bool   `json:"restart_loop_risk"`
+	// NotNeeded marks a reconciler-owned unit (the shared TURN unit) that its
+	// reconciler does not want running on this node now: inactive is its
+	// intended state, not a fault.
+	NotNeeded bool `json:"not_needed,omitempty"`
 }
 
 // --- RQLite ---
@@ -196,6 +204,12 @@ type OlricReport struct {
 	LogErrors     int      `json:"log_errors_1h"`
 	LogSuspects   int      `json:"log_suspects_1h"`
 	LogFlapping   int      `json:"log_flapping_1h"`
+	// HealRestarts counts the restarts this node's partition healer made to
+	// merge a split index ring (bug-933); LastHealRestart and LastHealReason
+	// describe the last one.
+	HealRestarts    int        `json:"heal_restarts"`
+	LastHealRestart *time.Time `json:"last_heal_restart,omitempty"`
+	LastHealReason  string     `json:"last_heal_reason,omitempty"`
 }
 
 // --- IPFS ---

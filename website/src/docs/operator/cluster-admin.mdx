@@ -2,7 +2,7 @@
 
 The wallets on a cluster's **operator list** can change cluster-wide settings, manage who creates namespaces, rotate keys and see the whole cluster's health. This page covers those commands. Day-to-day node commands are in [Node management](/docs/operator/node-management).
 
-Operator commands need two things: the admin grant and a wallet on the operator list. A namespace's own admin key is not enough. Every change is written to the audit trail.
+Operator commands need you signed in with a wallet on the operator list (`orama auth login`; a session in any namespace, or in none, will do). No role in a namespace is an operator's, and no API key is either, not even an admin key of a namespace an operator owns: each is refused `403 NOT_AN_OPERATOR`. Every change is written to the audit trail.
 
 ## Operators
 

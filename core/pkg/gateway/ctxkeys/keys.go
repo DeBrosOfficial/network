@@ -17,6 +17,11 @@ const (
 	// request (bugboard #148). Set by the auth middleware after key lookup.
 	Scopes ContextKey = "api_key_scopes"
 
+	// KeyResources holds the auth.KeyResources an API key is narrowed to, read
+	// off its row with its scopes, or forwarded with them across the proxy
+	// hop. Absent or empty is a key that reaches the whole of its scopes.
+	KeyResources ContextKey = "api_key_resources"
+
 	// Grant holds the *auth.Grant the authorization middleware resolved for a
 	// request's SIWE wallet JWT in the namespace it names. It is what the scope
 	// gate turns into the caller's grant set, so an owner or admin reaches the
@@ -35,4 +40,23 @@ const (
 	// the handler knows which object; the handler asks again with the object.
 	// They used to be computed separately, from different inputs.
 	Permissions ContextKey = "permissions"
+
+	// KeyFingerprint holds auth.KeyFingerprint of the stored form of the API
+	// key that authenticated the request — set where the key was looked up,
+	// or read off the hop that forwarded it. It names the caller to the
+	// function invoke rate limiter without being the credential, and a key
+	// presented bare or exchanged for a token has the same one.
+	KeyFingerprint ContextKey = "api_key_fingerprint"
+
+	// KeyID holds the registry id (api_keys.id, int64) of the API key that
+	// authenticated the request bare — set where the key was looked up, or
+	// read off the hop that forwarded it. A socket the key opens is held to
+	// the key's revocation by it (bug-702).
+	KeyID ContextKey = "api_key_id"
+
+	// AttestationNamespace holds, on a WebSocket upgrade, the namespace whose
+	// attestation policy holds the socket once it is open: set by the
+	// attestation middleware for a caller it judges, absent for one it does
+	// not. The socket sweeper closes a socket the policy stops admitting.
+	AttestationNamespace ContextKey = "attestation_namespace"
 )

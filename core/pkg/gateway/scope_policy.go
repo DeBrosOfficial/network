@@ -33,6 +33,12 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 	ns, _ := ctx.Value(CtxKeyNamespaceOverride).(string)
 	inLobby := auth.IsLobbyNamespace(ns) || strings.TrimSpace(ns) == ""
 
+	// The resources an API key is narrowed to, read off its row with its
+	// scopes. Every answer below that comes from a key's scopes is narrowed
+	// by them, so a key limited to some functions holds those functions on
+	// every route, whichever of the three ways it was presented.
+	keyResources, _ := ctx.Value(ctxKeyKeyResources).(auth.KeyResources)
+
 	// The grant the authorization middleware resolved for this namespace, for
 	// whichever principal the credential named. It is the answer whenever the
 	// route resolves one.
@@ -44,7 +50,12 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			// A key's role is runtime or admin and nothing between, so its
 			// own scopes say what it holds.
 			scopes, _ := ctx.Value(ctxKeyScopes).(auth.ScopeSet)
-			return auth.KeyPermissions(scopes.Canonical(), grant.Role, grant.Resource)
+			return keyResources.Narrow(auth.KeyPermissions(scopes.Canonical(), grant.Role, grant.Resource))
+		}
+		if grant.PrincipalType == auth.PrincipalApp {
+			// A deployed app is server-side: its runtime role sends push
+			// notifications, which a runtime member's does not.
+			return auth.AppPermissions(grant.Role, grant.Resource)
 		}
 		return auth.PermissionsFor(grant.Role, grant.Resource)
 	}
@@ -57,7 +68,7 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			// the token carries. The claim is what made a narrowed grant take
 			// a token lifetime to bite.
 			if scopes, ok := ctx.Value(ctxKeyScopes).(auth.ScopeSet); ok {
-				return auth.PermissionsFromScopes(scopes.Canonical())
+				return keyResources.Narrow(auth.PermissionsFromScopes(scopes.Canonical()))
 			}
 			return auth.PermissionSet{}
 		}
@@ -68,13 +79,13 @@ func (g *Gateway) callerPermissions(r *http.Request) auth.PermissionSet {
 			return auth.PermissionSet{}
 		}
 		// A logged-in user with no grant in this namespace gets the data
-		// plane, as they always have, except publishing to pub/sub: see
-		// auth.NoGrantPermissions.
-		return auth.NoGrantPermissions()
+		// plane, except publishing to pub/sub, and reads only the topics the
+		// namespace lists for its end users: see auth.NoGrantPermissions.
+		return auth.NoGrantPermissions(endUserTopicsOf(ctx))
 	}
 
 	if scopes, ok := ctx.Value(ctxKeyScopes).(auth.ScopeSet); ok {
-		return auth.PermissionsFromScopes(scopes.Canonical())
+		return keyResources.Narrow(auth.PermissionsFromScopes(scopes.Canonical()))
 	}
 
 	// No identity resolved. The auth middleware has already gated every
@@ -142,11 +153,25 @@ func (g *Gateway) scopeMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		r, ok := g.withEndUserTopics(w, r, policy)
+		if !ok {
+			return
+		}
 		perms := g.callerPermissions(r)
 		// Carried on the request so the handler narrows the same answer the
 		// gate widened. Two computations of one thing is two things to keep
 		// in step.
 		r = r.WithContext(context.WithValue(r.Context(), ctxkeys.Permissions, perms))
+
+		// An operator route asks no permission: the operator list is the
+		// cluster's authority, and a namespace's permissions, `*:*:*`
+		// included, are not.
+		if policy.Operator {
+			if g.requireOperatorCaller(w, r) {
+				next.ServeHTTP(w, r)
+			}
+			return
+		}
 
 		if policy.Domain != "" {
 			required := auth.Resource{

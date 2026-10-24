@@ -2,6 +2,26 @@
 
 What a rolling upgrade does differently when it crosses a release that changes how a node is laid out, which service versions it runs, or the registry schema. Read the section that matches the release you are leaving before the first node is restarted. Everything here is in addition to the procedure on [Upgrades](/docs/operator/upgrades); the rule that never changes is one node at a time, followers first, the leader last.
 
+## Nightly after 0.3.4: only an operator's wallet session operates the cluster
+
+The node routes (`/v1/node/status`, `logs`, `command`, `leave`), the network routes and every `/v1/operator/*` route now admit only a wallet session on the cluster's operator list, and nothing else. Before, they asked for an `operator` permission that every namespace owner's and admin's `*:*:*` held, and the node routes checked nothing more, so any namespace owner or admin API key could command, read the logs of and remove the cluster's nodes (bugboard bug-55). An API key also counted as the wallet that owned its namespace, so an admin key of a namespace an operator owned passed every operator check. Nothing in the registry changes; what changes for you:
+
+- **Sign in with the operator wallet.** `orama maint operator`, `orama maint cluster`, `orama cluster namespace remove`, `orama maint invite`, `orama status` and the OramaOS node calls need `orama auth login` with a wallet on the operator list. A lobby session is enough; you no longer need to stand in a namespace you own.
+- **An API key in `ORAMA_TOKEN` no longer operates the cluster**, whichever namespace it belongs to: such a command answers `403 NOT_AN_OPERATOR`. A script that ran operator commands with a key needs the operator's wallet session instead.
+- **The `operator` permission domain is gone.** No grant, role or key can name it.
+
+Roll the gateways as usual; until every gateway runs this build, a gateway still on the old one keeps the hole.
+
+## Nightly after 0.3.3: the test class is testnet, not stagenet
+
+The chain-id class word of a shared test network is now `testnet`: a test network's id is exactly `orama-[<name>-](localnet|devnet|testnet)-<id>` (`chain/app/params/chainid.go`, `core/pkg/netclass`), for example `orama-testnet-1`. `stagenet` is no class word any more, and nothing accepts it during a transition:
+
+- **An `orama-stagenet-*` chain id is a production id.** `oramad` holds its genesis to the locked production parameters, the faucet refuses it, and `orama setup --create-network` refuses to create it. Do not stage this build on a node of the old stagenet chain (`orama-stagenet-11`): this `oramad` takes that chain for a production one, so it refuses the chain's faucet transactions and its genesis (`oramad genesis validate`), and a node on it would disagree with the nodes still on the old build. That chain is frozen and is wiped; the public test network is created again as `testnet`, chain id `orama-testnet-1`, base domain `testnet.orama.network`, with `orama setup --create-network testnet --chain-id orama-testnet-1 ...`.
+- **The built-in registry still carries `stagenet`** until `networks/testnet/` is published (`orama setup --create-network` writes it; copy it to `networks/`, then `make -C core sync-networks`). The explorer opens `testnet` by default once the registry ships it.
+- **A `testnet` you added by URL clashes with the built-in one.** A CLI fails to load its networks when a network you added has the name of a built-in network. If you ran `orama network add https://orama.network/networks/testnet/manifest.json` before your CLI embedded `testnet`, run `orama network remove testnet` once you have the CLI that embeds it (it also drops a gateway entry of that name; add the gateway again with `orama network add`).
+- **devnet moves to `devnet.orama.network`.** devnet's base domain was `orama-devnet.network`; it is now `devnet.orama.network`, delegated from the `orama.network` zone like `testnet.orama.network`. The core e2e suite's default gateway (`core/e2e/env.go`) and the CLI's examples name it; a devnet environment you recorded with the old gateway needs `orama network add devnet https://devnet.orama.network` again.
+- **Scripts and the e2e target moved.** `chain/scripts/stagenet/` is `chain/scripts/testnet/` (its node helper is `testnet-node`, installed under `/usr/local/lib/orama-testnet/`), and `e2e-fleet target stagenet` is `e2e-fleet target testnet`, pinned to env `testnet`, base domain `testnet.orama.network` and chain ids `^orama-testnet-[0-9]+$`; its local files are read from `~/orama-testnet-handoff/`.
+
 ## Nightly from commit 17dc142d: create the chain fresh
 
 **A nightly build from commit `17dc142d` onwards cannot be rolled onto a chain created before it. Create the network fresh.** Do not run `orama node upgrade` over a chain whose genesis predates it: the validators would compute different results and fork. The release changes the chain's consensus rules and there is no upgrade handler for it, because networks are created fresh (a stagenet is wiped and given a new chain id). What changed, all of it consensus-breaking:

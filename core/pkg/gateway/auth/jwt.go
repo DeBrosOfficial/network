@@ -97,10 +97,33 @@ type JWTClaims struct {
 	// Sid names the session, and stays the same across refresh-token
 	// rotations, so ending the session refuses every access token it minted.
 	Sid string `json:"sid,omitempty"`
+	// Att is what the device's attestation proved (feat-941), nil when the
+	// session's device has not attested or its namespace does not attest.
+	// Set by the gateway only, from a verified proof; a function reads it
+	// through get_caller_attestation.
+	Att *AttestationClaim `json:"att,omitempty"`
 	// Custom holds app-defined claims (e.g. tier, subscription state).
 	// Read by serverless functions via the get_caller_claim host call.
 	// May be nil if the token has no custom claims.
 	Custom map[string]string `json:"custom,omitempty"`
+}
+
+// AccountIDClaim is the custom claim a namespace sets, through its
+// auth-claims-provider function, to name the account a session belongs to
+// (e.g. AnChat's users.user_id). The subject is the credential that signed in —
+// a wallet — and one account may sign in with several; the account is who the
+// user is to the namespace.
+const AccountIDClaim = "account_id"
+
+// AccountIdentity is who the caller is to the namespace: the account the
+// namespace named in the AccountIDClaim custom claim, or the subject when the
+// token carries no such claim. The claim is signed into the token at mint time
+// by the gateway, so a client cannot choose it.
+func (c *JWTClaims) AccountIdentity() string {
+	if account := c.Custom[AccountIDClaim]; account != "" {
+		return account
+	}
+	return c.Sub
 }
 
 // revocationSubjectKeys returns the names a token's subject may have been
@@ -275,6 +298,8 @@ const MaxTokenLifetime = maxExchangedTokenLifetime
 type SessionBinding struct {
 	DeviceID  string
 	SessionID string
+	// Attestation is what the device's attestation proved, or nil.
+	Attestation *AttestationClaim
 }
 
 // GenerateJWT mints a signed access token. `custom` carries additive
@@ -315,6 +340,9 @@ func (s *Service) GenerateBoundJWT(ns, subject string, ttl time.Duration, custom
 	if binding.SessionID != "" {
 		payload["sid"] = binding.SessionID
 	}
+	if binding.Attestation != nil && binding.DeviceID != "" {
+		payload["att"] = binding.Attestation
+	}
 	pb, err := json.Marshal(payload)
 	if err != nil {
 		return "", 0, fmt.Errorf("encode token claims: %w", err)
@@ -337,7 +365,7 @@ func (s *Service) GenerateBoundJWT(ns, subject string, ttl time.Duration, custom
 // custom claims stored with a session before it did are replayed on every
 // rotation — so get_caller_claim("did") can never name a device the caller
 // did not prove it holds.
-var reservedCustomClaims = []string{"did", "sid", "jti"}
+var reservedCustomClaims = []string{"did", "sid", "jti", "att"}
 
 func withoutReservedCustomClaims(custom map[string]string) map[string]string {
 	clean := custom

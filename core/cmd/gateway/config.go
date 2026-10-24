@@ -98,13 +98,9 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 		// are derived from it, bug #215) and, from the orama directory it
 		// is in, the node's identity (NodePeerID) — loadNodeIdentity.
 		ClusterSecretPath string `yaml:"cluster_secret_path"`
-		// APIKeyHMACSecret: see GatewayYAMLConfig docstring. Optional;
-		// when set, the standalone gateway populates cfg.APIKeyHMACSecret
-		// so API keys are hashed the same way as the main gateway
-		// (bugboard #160 fix). Without it, a namespace gateway cannot
-		// authenticate any key from the core registry (which stores
-		// HMAC-SHA256 hashes) and would persist any key it issues itself
-		// in plaintext.
+		// APIKeyHMACSecret: see GatewayYAMLConfig docstring. Required
+		// (gateway.Config.ValidateConfig): every API key is stored and
+		// looked up as its HMAC under it.
 		APIKeyHMACSecret string `yaml:"api_key_hmac_secret"`
 		// NtfyBaseURL: see GatewayYAMLConfig docstring. Optional; when set,
 		// the standalone gateway populates cfg.NtfyBaseURL so the ntfy push
@@ -271,13 +267,9 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 		cfg.SecretsEncryptionKey = v
 	}
 
-	// API key HMAC secret — bugboard #160 fix. The host-managed gateway
-	// (pkg/node/gateway.go) reads this from secrets/api-key-hmac-secret; the
-	// standalone binary used by namespace gateways via systemd receives it
-	// through this YAML field. Without it, HashAPIKey returns keys
-	// unhashed, so a namespace gateway can't authenticate core-registry
-	// keys (stored as HMAC-SHA256 hashes) and stores any key it issues
-	// itself in plaintext.
+	// API key HMAC secret. The namespace spawner copies it into this YAML
+	// from secrets/api-key-hmac-secret; ValidateConfig refuses a gateway
+	// without one.
 	if v := strings.TrimSpace(y.APIKeyHMACSecret); v != "" {
 		cfg.APIKeyHMACSecret = v
 	}
@@ -295,12 +287,6 @@ func parseGatewayConfig(logger *logging.ColoredLogger) *gateway.Config {
 	}
 	if v := strings.TrimSpace(y.WebRTC.TURNStealthDomain); v != "" {
 		cfg.StealthCDNDomain = v
-	}
-
-	if strings.TrimSpace(cfg.APIKeyHMACSecret) == "" {
-		fmt.Fprintf(os.Stderr, "\napi_key_hmac_secret is required (bugboard #163).\n")
-		fmt.Fprintf(os.Stderr, "Spawn writes it from ~/.orama/secrets/api-key-hmac-secret.\n")
-		os.Exit(1)
 	}
 
 	// Validate configuration

@@ -3,6 +3,8 @@ package gateway
 import (
 	"sync"
 	"time"
+
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 )
 
 // middlewareCache provides in-memory TTL caching for frequently-queried middleware
@@ -27,6 +29,7 @@ type middlewareCache struct {
 type cachedValue struct {
 	value     string
 	scopes    string // api_keys.scopes (bugboard #148); "" means grandfather=admin
+	resources auth.KeyResources
 	expiresAt time.Time
 }
 
@@ -70,20 +73,20 @@ func (mc *middlewareCache) GetAPIKeyNamespace(apiKey string) (string, bool) {
 
 // SetAPIKeyNamespace caches an API key → namespace mapping.
 func (mc *middlewareCache) SetAPIKeyNamespace(apiKey, namespace string) {
-	mc.SetAPIKeyEntry(apiKey, namespace, "")
+	mc.SetAPIKeyEntry(apiKey, apiKeyEntry{namespace: namespace})
 }
 
-// GetAPIKeyEntry returns the cached namespace AND scopes for an API key
-// (bugboard #148). scopes is the raw api_keys.scopes value ("" = grandfather).
-func (mc *middlewareCache) GetAPIKeyEntry(apiKey string) (namespace, scopes string, ok bool) {
+// GetAPIKeyEntry returns the cached row of an API key: its namespace, its raw
+// scopes (bugboard #148) and the resources it is narrowed to.
+func (mc *middlewareCache) GetAPIKeyEntry(apiKey string) (apiKeyEntry, bool) {
 	mc.apiKeyNSMu.RLock()
 	defer mc.apiKeyNSMu.RUnlock()
 
 	entry, present := mc.apiKeyNS[apiKey]
 	if !present || time.Now().After(entry.expiresAt) {
-		return "", "", false
+		return apiKeyEntry{}, false
 	}
-	return entry.value, entry.scopes, true
+	return apiKeyEntry{namespace: entry.value, scopes: entry.scopes, resources: entry.resources}, true
 }
 
 // SetAPIKeyEntry caches an API key → (namespace, permissions) mapping.
@@ -92,15 +95,16 @@ func (mc *middlewareCache) GetAPIKeyEntry(apiKey string) (namespace, scopes stri
 // long a change to what a key may do takes to bite. **Revoking** a key is not
 // bounded by it: lookupAPIKeyEntry consults the replicated revocation list
 // before the cache, so a revoked key stops at once, everywhere. **Narrowing**
-// one — editing its scopes, or revoking a grant it holds — is, because the
+// one — editing its scopes or resources, or revoking a grant it holds — is, because the
 // permissions come off the cached row.
-func (mc *middlewareCache) SetAPIKeyEntry(apiKey, namespace, scopes string) {
+func (mc *middlewareCache) SetAPIKeyEntry(apiKey string, entry apiKeyEntry) {
 	mc.apiKeyNSMu.Lock()
 	defer mc.apiKeyNSMu.Unlock()
 
 	mc.apiKeyNS[apiKey] = &cachedValue{
-		value:     namespace,
-		scopes:    scopes,
+		value:     entry.namespace,
+		scopes:    entry.scopes,
+		resources: entry.resources,
 		expiresAt: time.Now().Add(mc.ttl),
 	}
 }

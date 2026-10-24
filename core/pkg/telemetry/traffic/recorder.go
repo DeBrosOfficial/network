@@ -61,6 +61,9 @@ type Recorder struct {
 	firstSeen time.Time
 	seen      bool
 	total     int64
+	// attestation counts device attestation's refusals since the epoch
+	// (attestation.go).
+	attestation map[attestationKey]int64
 }
 
 // New returns an empty Recorder that reads the time from now (time.Now when

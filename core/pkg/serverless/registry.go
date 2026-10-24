@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -209,9 +210,12 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
+	callerRequests, callerWindow, ipRequests, ipWindow := fn.RateLimit.columns()
 	_, err = r.db.Exec(ctx, query,
 		id, fn.Name, fn.Namespace, version, wasmCID,
 		memoryLimit, timeout, fn.IsPublic, fn.IsInternal,
@@ -219,6 +223,7 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 		string(FunctionStatusActive), now, now, fn.Namespace,
 		fn.WSPersistent, fn.WSIdleTimeoutSec, fn.WSMaxFrameBytes, fn.WSMaxInflightPerConn,
 		fn.RawHTTPResponse, fn.WSAuth,
+		callerRequests, callerWindow, ipRequests, ipWindow,
 	)
 	if err != nil {
 		return nil, &DeployError{FunctionName: fn.Name, Cause: fmt.Errorf("failed to register function: %w", err)}
@@ -249,7 +254,11 @@ func (r *Registry) Register(ctx context.Context, fn *FunctionDefinition, wasmByt
 }
 
 // Get retrieves a function by name and optional version.
-// If version is 0, returns the latest version.
+// If version is 0, returns the current version: the highest active one. A
+// version number resolves only when it is that current version; a version a
+// deploy or a rollback replaced is ErrVersionSuperseded, and a missing,
+// disabled or deleted one ErrVersionNotFound. Every invocation path (HTTP,
+// /v1/invoke, the WebSocket, triggers, function_invoke) resolves through here.
 func (r *Registry) Get(ctx context.Context, namespace, name string, version int) (*Function, error) {
 	namespace = strings.TrimSpace(namespace)
 	name = strings.TrimSpace(name)
@@ -271,7 +280,9 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 				retry_count, retry_delay_seconds, dlq_topic,
 				status, created_at, updated_at, created_by,
 				ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 			FROM functions
 			WHERE namespace = ? AND name = ? AND status = ?
 			ORDER BY version DESC
@@ -279,17 +290,31 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 		`
 		args = []interface{}{namespace, name, string(FunctionStatusActive)}
 	} else {
+		// The row of that version whatever its status, so a replaced version
+		// can say so. An active row with a higher active row beside it is
+		// superseded too: a gateway older than the superseded status deploys
+		// without marking the version it replaced.
 		query = `
 			SELECT id, name, namespace, version, wasm_cid, source_cid,
 				memory_limit_mb, timeout_seconds, is_public, is_internal,
 				retry_count, retry_delay_seconds, dlq_topic,
-				status, created_at, updated_at, created_by,
+				CASE WHEN status = ? AND EXISTS (
+					SELECT 1 FROM functions newer
+					WHERE newer.namespace = functions.namespace AND newer.name = functions.name
+					  AND newer.status = ? AND newer.version > functions.version
+				) THEN ? ELSE status END AS status,
+				created_at, updated_at, created_by,
 				ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 			FROM functions
-			WHERE namespace = ? AND name = ? AND version = ? AND status = ?
+			WHERE namespace = ? AND name = ? AND version = ?
 		`
-		args = []interface{}{namespace, name, version, string(FunctionStatusActive)}
+		args = []interface{}{
+			string(FunctionStatusActive), string(FunctionStatusActive), string(FunctionStatusSuperseded),
+			namespace, name, version,
+		}
 	}
 
 	var functions []functionRow
@@ -297,12 +322,19 @@ func (r *Registry) Get(ctx context.Context, namespace, name string, version int)
 		return nil, fmt.Errorf("failed to query function: %w", err)
 	}
 
+	// Misses are NOT cached — a just-deployed function must be visible
+	// immediately on the next call, not after the TTL.
 	if len(functions) == 0 {
-		// Do NOT cache misses — a just-deployed function must be visible
-		// immediately on the next call, not after the TTL.
 		if version == 0 {
 			return nil, ErrFunctionNotFound
 		}
+		return nil, ErrVersionNotFound
+	}
+	switch FunctionStatus(functions[0].Status) {
+	case FunctionStatusActive:
+	case FunctionStatusSuperseded:
+		return nil, ErrVersionSuperseded
+	default:
 		return nil, ErrVersionNotFound
 	}
 
@@ -320,7 +352,9 @@ func (r *Registry) List(ctx context.Context, namespace string) ([]*Function, err
 			f.retry_count, f.retry_delay_seconds, f.dlq_topic,
 			f.status, f.created_at, f.updated_at, f.created_by,
 			f.ws_persistent, f.ws_idle_timeout_sec, f.ws_max_frame_bytes, f.ws_max_inflight_per_conn,
-			f.raw_http_response, f.ws_auth
+			f.raw_http_response, f.ws_auth,
+			f.rate_limit_caller_requests, f.rate_limit_caller_window_sec,
+			f.rate_limit_ip_requests, f.rate_limit_ip_window_sec
 		FROM functions f
 		INNER JOIN (
 			SELECT namespace, name, MAX(version) as max_version
@@ -346,11 +380,12 @@ func (r *Registry) List(ctx context.Context, namespace string) ([]*Function, err
 	return functions, nil
 }
 
-// SetEnabled flips a function's status between active and inactive
-// without redeploying (plan 11.5 disable/enable). Targets ALL versions
-// of the function by name so a disable call pauses the whole function,
-// not a single version — operators use this during incident response.
-// Returns ErrFunctionNotFound when no row matches.
+// SetEnabled flips a function's current version between active and inactive
+// without redeploying (plan 11.5 disable/enable), so a disable pauses the
+// whole function: the current version is the only one that runs. Superseded
+// and deleted versions are left as they are, so enabling never revives code
+// the owner replaced or deleted. Returns ErrFunctionNotFound when the function
+// has no current version.
 func (r *Registry) SetEnabled(ctx context.Context, namespace, name string, enabled bool) error {
 	namespace = strings.TrimSpace(namespace)
 	name = strings.TrimSpace(name)
@@ -361,8 +396,9 @@ func (r *Registry) SetEnabled(ctx context.Context, namespace, name string, enabl
 	if enabled {
 		status = FunctionStatusActive
 	}
-	query := `UPDATE functions SET status = ?, updated_at = ? WHERE namespace = ? AND name = ? AND status != ?`
-	result, err := r.db.Exec(ctx, query, string(status), time.Now(), namespace, name, string(FunctionStatusDeleted))
+	query := `UPDATE functions SET status = ?, updated_at = ? WHERE namespace = ? AND name = ? AND status IN (?, ?)`
+	result, err := r.db.Exec(ctx, query, string(status), time.Now(), namespace, name,
+		string(FunctionStatusActive), string(FunctionStatusInactive))
 	if err != nil {
 		return fmt.Errorf("failed to set function enabled state: %w", err)
 	}
@@ -379,7 +415,8 @@ func (r *Registry) SetEnabled(ctx context.Context, namespace, name string, enabl
 	return nil
 }
 
-// Delete removes a function. If version is 0, removes all versions.
+// Delete marks a function deleted. If version is 0, marks all versions. The
+// rows stay, so `list --all` still shows them; Purge removes them.
 func (r *Registry) Delete(ctx context.Context, namespace, name string, version int) error {
 	namespace = strings.TrimSpace(namespace)
 	name = strings.TrimSpace(name)
@@ -452,7 +489,8 @@ var (
 // GetWASMBytes retrieves the compiled WASM bytecode for a function. On a cold
 // block it retries with a bounded per-attempt deadline and returns the typed
 // ErrWASMFetchTimeout (retryable infra failure) so callers don't misreport a
-// transient IPFS stall as a permanent function error.
+// transient IPFS stall as a permanent function error. WASM the cluster's
+// pinset does not list is ErrWASMNotStored at once.
 func (r *Registry) GetWASMBytes(ctx context.Context, wasmCID string) ([]byte, error) {
 	if wasmCID == "" {
 		return nil, &ValidationError{Field: "wasmCID", Message: "cannot be empty"}
@@ -463,6 +501,12 @@ func (r *Registry) GetWASMBytes(ctx context.Context, wasmCID string) ([]byte, er
 		data, err := r.fetchWASMOnce(ctx, wasmCID)
 		if err == nil {
 			return data, nil
+		}
+		// A CID the cluster's pinset does not list is stored nowhere it knows
+		// of: no retry, re-pin or wait can bring it back, and each would only
+		// spend the invocation's time (bugboard #432).
+		if errors.Is(err, ipfs.ErrNotInPinset) {
+			return nil, fmt.Errorf("%w: cid=%s: %v", ErrWASMNotStored, wasmCID, err)
 		}
 		lastErr = err
 
@@ -544,13 +588,13 @@ func (r *Registry) fetchWASMOnce(ctx context.Context, wasmCID string) ([]byte, e
 	fetchCtx, cancel := context.WithTimeout(ctx, wasmFetchTimeout)
 	defer cancel()
 
-	reader, err := r.ipfs.Get(fetchCtx, wasmCID, r.ipfsAPIURL)
+	content, err := r.ipfs.GetStored(fetchCtx, wasmCID, r.ipfsAPIURL, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get WASM from IPFS: %w", err)
 	}
-	defer reader.Close()
+	defer content.Body.Close()
 
-	data, err := io.ReadAll(reader)
+	data, err := io.ReadAll(content.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM data: %w", err)
 	}
@@ -558,9 +602,11 @@ func (r *Registry) fetchWASMOnce(ctx context.Context, wasmCID string) ([]byte, e
 	return data, nil
 }
 
-// RepinAllWASM re-pins every ACTIVE function's WASM on the cluster
-// (replication=-1) so functions deployed before the pin-everywhere fix become
-// durably pinned + GC-safe. Best-effort + idempotent; returns the count pinned.
+// RepinAllWASM re-pins the WASM of every version that can run again — the
+// current one, a disabled one, and a superseded one a rollback can make
+// current — on the cluster (replication=-1) so functions deployed before the
+// pin-everywhere fix become durably pinned + GC-safe. Best-effort +
+// idempotent; returns the count pinned.
 //
 // Incident 2026-06-24: scheduled IPFS GC reclaimed unpinned function WASM,
 // deleting the bytecode of functions that were only ever pinned RF=3 (or whose
@@ -569,8 +615,9 @@ func (r *Registry) fetchWASMOnce(ctx context.Context, wasmCID string) ([]byte, e
 // deploys are already covered by uploadWASM's pin-everywhere + hard-fail.
 func (r *Registry) RepinAllWASM(ctx context.Context) (int, error) {
 	var rows []wasmCIDRow
-	query := `SELECT DISTINCT wasm_cid FROM functions WHERE status = 'active' AND wasm_cid IS NOT NULL AND wasm_cid != ''`
-	if err := r.db.Query(ctx, &rows, query); err != nil {
+	query := `SELECT DISTINCT wasm_cid FROM functions WHERE status IN (?, ?, ?) AND wasm_cid IS NOT NULL AND wasm_cid != ''`
+	if err := r.db.Query(ctx, &rows, query,
+		string(FunctionStatusActive), string(FunctionStatusInactive), string(FunctionStatusSuperseded)); err != nil {
 		return 0, fmt.Errorf("failed to list function WASM CIDs: %w", err)
 	}
 
@@ -643,7 +690,9 @@ func (r *Registry) GetByID(ctx context.Context, id string) (*Function, error) {
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 		FROM functions
 		WHERE id = ?
 	`
@@ -668,7 +717,9 @@ func (r *Registry) ListVersions(ctx context.Context, namespace, name string) ([]
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 		FROM functions
 		WHERE namespace = ? AND name = ?
 		ORDER BY version DESC
@@ -684,6 +735,38 @@ func (r *Registry) ListVersions(ctx context.Context, namespace, name string) ([]
 		functions[i] = r.rowToFunction(&row)
 	}
 
+	return functions, nil
+}
+
+// ListAll returns every version row the namespace holds, whatever its status,
+// by name and then newest version first: the owner's view of what it has
+// deployed, including what `list` hides (disabled, superseded and deleted
+// versions) until it is purged. A namespace holds at most
+// MaxRetainedFunctionVersions rows per function.
+func (r *Registry) ListAll(ctx context.Context, namespace string) ([]*Function, error) {
+	query := `
+		SELECT id, name, namespace, version, wasm_cid, source_cid,
+			memory_limit_mb, timeout_seconds, is_public, is_internal,
+			retry_count, retry_delay_seconds, dlq_topic,
+			status, created_at, updated_at, created_by,
+			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
+		FROM functions
+		WHERE namespace = ?
+		ORDER BY name, version DESC
+	`
+
+	var rows []functionRow
+	if err := r.db.Query(ctx, &rows, query, strings.TrimSpace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list every function version: %w", err)
+	}
+
+	functions := make([]*Function, len(rows))
+	for i, row := range rows {
+		functions[i] = r.rowToFunction(&row)
+	}
 	return functions, nil
 }
 
@@ -996,7 +1079,9 @@ func (r *Registry) getByNameInternal(ctx context.Context, namespace, name string
 			retry_count, retry_delay_seconds, dlq_topic,
 			status, created_at, updated_at, created_by,
 			ws_persistent, ws_idle_timeout_sec, ws_max_frame_bytes, ws_max_inflight_per_conn,
-			raw_http_response, ws_auth
+			raw_http_response, ws_auth,
+			rate_limit_caller_requests, rate_limit_caller_window_sec,
+			rate_limit_ip_requests, rate_limit_ip_window_sec
 		FROM functions
 		WHERE namespace = ? AND name = ?
 		ORDER BY version DESC
@@ -1077,6 +1162,12 @@ func (r *Registry) rowToFunction(row *functionRow) *Function {
 		// reading it back a function declaring `ws_auth: capability`
 		// would refuse every capability.
 		WSAuth: row.WSAuth,
+
+		// The function's own invoke limits (bug-740). Without reading them
+		// back the limiter's per-function tier never runs, which is how it
+		// stayed dead before this column existed.
+		RateLimit: rateLimitFromColumns(row.RateLimitCallerRequests, row.RateLimitCallerWindowSec,
+			row.RateLimitIPRequests, row.RateLimitIPWindowSec),
 	}
 }
 
@@ -1135,6 +1226,13 @@ type functionRow struct {
 	// WSAuth is how the function's WebSocket may be opened (feat-264).
 	// Backed by migration 061; '' is a credential, as before.
 	WSAuth string `db:"ws_auth"`
+
+	// The function's own invoke limits (bug-740, migration 083). Zero is no
+	// rule, which every function deployed before the columns has.
+	RateLimitCallerRequests  int `db:"rate_limit_caller_requests"`
+	RateLimitCallerWindowSec int `db:"rate_limit_caller_window_sec"`
+	RateLimitIPRequests      int `db:"rate_limit_ip_requests"`
+	RateLimitIPWindowSec     int `db:"rate_limit_ip_window_sec"`
 }
 
 type envVarRow struct {

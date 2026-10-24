@@ -46,6 +46,9 @@ func cacheDelete(p, n uint32) uint32
 //go:wasmimport env cache_incr_by
 func cacheIncrBy(p, n uint32, delta int64) int64
 
+//go:wasmimport env cache_incr_ttl
+func cacheIncrTTL(p, n uint32, delta, ttl int64) int64
+
 //go:wasmimport env http_fetch
 func httpFetch(mp, mn, up, un, hp, hn, bp, bn uint32) uint64
 
@@ -75,6 +78,9 @@ func ephemeralStateList(tp, tn uint32) uint64
 
 //go:wasmimport env function_invoke
 func functionInvoke(np, nn, pp, pn uint32) uint64
+
+//go:wasmimport env function_invoke_last_error
+func functionInvokeLastError() uint64
 
 //go:wasmimport host log_info
 func logInfo(p, n uint32)

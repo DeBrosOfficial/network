@@ -91,7 +91,7 @@ func TestPlan_Render(t *testing.T) {
 
 	p.Render(&out)
 
-	for _, want := range []string{"stagenet", "nightly", "0.4.0", "refreshed after the node", "b runs 0.5.0, newer than the channel's 0.4.0: left alone."} {
+	for _, want := range []string{"testnet", "nightly", "0.4.0", "refreshed after the node", "b runs 0.5.0, newer than the channel's 0.4.0: left alone."} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("the plan lacks %q:\n%s", want, &out)
 		}

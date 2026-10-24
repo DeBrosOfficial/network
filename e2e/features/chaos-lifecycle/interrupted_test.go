@@ -48,7 +48,7 @@ func TestChaosLifecycle_gatewayKilledMidDeploy(t *testing.T) {
 	f := harness.Fleet(t)
 	infra.RequireHealthy(t)
 	tn := realistic.NewTenant(t)
-	dir := realistic.ServerApp(t, f, realistic.AppGo, "chaos-v1")
+	dir := realistic.ServerApp(t, realistic.AppGo, "chaos-v1")
 	t.Cleanup(func() { deleteApp(t, tn, "chaosapp") })
 	p := start(t, tn.N.CLI, "deploy", "go", dir, "--name", "chaosapp", "--env", "APP_VERSION=chaos-v1")
 	waitLine(t, p, uploadingLine)

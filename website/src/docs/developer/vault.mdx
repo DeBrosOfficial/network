@@ -1,6 +1,6 @@
 # Vault
 
-Orama Vault stores small secrets by splitting them with Shamir's Secret Sharing across guardian nodes, so that no guardian holds the secret. Status: partial; guardians do not yet discover each other and nothing re-shares or repairs shares, so do not use it as the only copy of anything important. Guardian nodes run the `vault-guardian` service, written in Zig. The vault is part of the network, not a separate product: operators run guardians as described in [Vault guardians](/docs/operator/vault-guardians).
+Orama Vault stores small secrets by splitting them with Shamir's Secret Sharing across guardian nodes, so that no guardian holds the secret. Status: partial; guardians know the guardian set but do not yet talk to each other, and nothing re-shares or repairs shares, so do not use it as the only copy of anything important. Guardian nodes run the `vault-guardian` service, written in Zig. The vault is part of the network, not a separate product: operators run guardians as described in [Vault guardians](/docs/operator/vault-guardians).
 
 ## How It Works
 
@@ -316,7 +316,7 @@ On each guardian, for operators. See [Vault guardians](/docs/operator/vault-guar
 |--------|------|------|-------------|
 | GET | `/v1/vault/health` | None | Status, version, share count, peers, `data_dir_ok` |
 | GET | `/v1/vault/status` | None | Runtime config (data_dir, ports) |
-| GET | `/v1/vault/guardians` | None | Guardians this guardian knows (empty today) |
+| GET | `/v1/vault/guardians` | None | The alive guardians this guardian knows (today only itself), the threshold and the total |
 
 ---
 

@@ -86,6 +86,7 @@ type Node struct {
 	monitoringOnce    sync.Once
 	wgSyncOnce        sync.Once
 	ipfsSwarmSyncOnce sync.Once
+	olricHealOnce     sync.Once
 	membershipOnce    sync.Once
 
 	// wgSyncMu serialises wg0.conf writes between a supervisor retry and the

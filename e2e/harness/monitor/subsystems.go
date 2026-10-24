@@ -28,6 +28,9 @@ type Service struct {
 	Enabled         bool   `json:"enabled"`
 	NRestarts       int    `json:"n_restarts"`
 	RestartLoopRisk bool   `json:"restart_loop_risk"`
+	// NotNeeded marks a reconciler-owned unit (orama-turn) its reconciler
+	// does not want running on this node now.
+	NotNeeded bool `json:"not_needed,omitempty"`
 }
 
 // RQLite is the node's rqlite.

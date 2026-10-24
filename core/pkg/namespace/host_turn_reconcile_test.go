@@ -59,7 +59,7 @@ func turnHostCM(t *testing.T, allocErr error) *ClusterManager {
 		db:                  db,
 		logger:              logger,
 		localNodeID:         "node-1",
-		baseDomain:          "orama-devnet.network",
+		baseDomain:          "devnet.orama.network",
 		baseDataDir:         nsBase,
 		systemdSpawner:      spawner,
 		webrtcPortAllocator: NewWebRTCPortAllocator(db, logger),

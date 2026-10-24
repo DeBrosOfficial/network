@@ -46,7 +46,7 @@ func registryNetwork(t testing.TB) string {
 func requireChannel(t testing.TB) {
 	t.Helper()
 	if registryNetwork(t) == "" {
-		harness.SkipNotApplicable(t, "the run's environment is a bare gateway, on no registry network and so with no release channel; run against the stagenet target, or add the network from its manifest")
+		harness.SkipNotApplicable(t, "the run's environment is a bare gateway, on no registry network and so with no release channel; run against the testnet target, or add the network from its manifest")
 	}
 }
 

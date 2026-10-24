@@ -21,6 +21,7 @@ export const SCOPES = [
   "proxy",
   "pubsub",
   "push",
+  "push-send",
   "storage",
   "webrtc",
 ] as const;
@@ -28,9 +29,14 @@ export const SCOPES = [
 export type Scope = (typeof SCOPES)[number];
 
 /**
- * Grants that are safe in a public client bundle. `admin` is the whole
- * control plane — deploys, secrets, migrations, key management, raw RQLite —
- * and belongs only in CI and on a developer's machine.
+ * The data-plane grants: everything but `admin`, which is the whole control
+ * plane — deploys, secrets, migrations, key management, raw RQLite — and
+ * belongs only in CI and on a developer's machine. Data-plane is not the same
+ * as safe to ship: a token exchanged for a `storage` key may unpin any of the
+ * namespace's objects, so `storage` belongs on a function's key, kept in the
+ * namespace's secrets, and on no key in an app. `push` registers devices and
+ * topics; `push-send` sends a notification to any user or topic of the
+ * namespace, so it belongs on a server's key and on no key in an app.
  */
 export const DATA_PLANE_SCOPES: readonly Scope[] = [
   "cache",
@@ -38,6 +44,7 @@ export const DATA_PLANE_SCOPES: readonly Scope[] = [
   "proxy",
   "pubsub",
   "push",
+  "push-send",
   "storage",
   "webrtc",
 ];
@@ -57,12 +64,15 @@ export const KEY_PROFILES = [
 
 export type KeyProfile = (typeof KEY_PROFILES)[number];
 
-/** What each profile grants. */
+/**
+ * What each profile grants. `app-runtime` is for a key an app ships, so it
+ * holds no `storage` and no `push-send`.
+ */
 export const PROFILE_SCOPES: Readonly<Record<KeyProfile, readonly Scope[]>> = {
   admin: ["admin"],
-  "app-runtime": ["invoke", "storage", "push", "webrtc", "proxy"],
-  runtime: ["invoke", "storage", "push", "webrtc", "proxy"],
-  app: ["invoke", "storage", "push", "webrtc", "proxy"],
+  "app-runtime": ["invoke", "push", "webrtc", "proxy"],
+  runtime: ["invoke", "push", "webrtc", "proxy"],
+  app: ["invoke", "push", "webrtc", "proxy"],
   "invoke-only": ["invoke"],
   invoke: ["invoke"],
 };

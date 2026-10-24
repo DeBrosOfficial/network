@@ -79,7 +79,7 @@ func TestRQLiteImport_refusalsChangeNothing(t *testing.T) {
 
 // TestRQLiteCLI_exportWritesAFileImportNeedsConfirmation: `orama namespace
 // rqlite export` writes the database; `import` refuses to replace it unless
-// the operator types the namespace name.
+// the operator types the namespace name or passes --yes.
 func TestRQLiteCLI_exportWritesAFileImportNeedsConfirmation(t *testing.T) {
 	t.Parallel()
 	n := tenancy.Namespace(t, harness.Fleet(t), ns.Options{Via: ns.ViaOperator})
@@ -96,6 +96,8 @@ func TestRQLiteCLI_exportWritesAFileImportNeedsConfirmation(t *testing.T) {
 	if res.Exit == 0 || !strings.Contains(res.Stderr+res.Stdout, "aborted") {
 		t.Fatalf("an unconfirmed import did not abort: exit %d %s", res.Exit, res.Stdout)
 	}
+	// --yes replaces without the typed name; the namespace's own export loads back.
+	n.CLI.MustOK(t, "namespace", "rqlite", "import", "-i", out, "--yes")
 	for _, args := range [][]string{{"import", "-i", filepath.Join(t.TempDir(), "none")}, {"import", "-i", t.TempDir()}} {
 		if r, err := n.CLI.Run(t.Context(), append([]string{"namespace", "rqlite"}, args...)...); err != nil || r.Exit == 0 {
 			t.Errorf("rqlite %v succeeded (%v)", args, err)

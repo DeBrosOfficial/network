@@ -43,9 +43,9 @@ type Client interface {
 	Tx(ctx context.Context, fn func(tx Tx) error) error
 
 	// Batch executes ops as a single atomic transaction via the native
-	// RQLite /db/execute?transaction endpoint. All-or-nothing: any failing
-	// exec rolls the entire batch back. Query ops are sequenced after the
-	// commit and see the just-committed state.
+	// RQLite /db/request?transaction endpoint. Ops run in input order inside
+	// the transaction, so a query sees the writes before it. All-or-nothing:
+	// any failing statement rolls the entire batch back.
 	//
 	// Requires the client to have been constructed with a *gorqlite.Connection
 	// (NewClientWithDSN or NewClientWithConn). Returns an error otherwise.

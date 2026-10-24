@@ -187,12 +187,12 @@ func TestRequireRecipient(t *testing.T) {
 }
 
 func TestRequireTestNetwork(t *testing.T) {
-	for _, ok := range []string{"orama-stagenet-1", "orama-devnet-e2e-ab12cd", "orama-localnet-1"} {
+	for _, ok := range []string{"orama-testnet-1", "orama-devnet-e2e-ab12cd", "orama-localnet-1"} {
 		if err := requireTestNetwork(ok); err != nil {
 			t.Errorf("%s refused: %v", ok, err)
 		}
 	}
-	for _, bad := range []string{"orama-1", "orama-mainnet-1", "", "stagenet", "orama-testnet-1"} {
+	for _, bad := range []string{"orama-1", "orama-mainnet-1", "", "testnet", "orama-stagenet-1"} {
 		err := requireTestNetwork(bad)
 		if err == nil || !strings.Contains(err.Error(), "not a test network") || clierr.CodeOf(err) != clierr.CodeUsage {
 			t.Errorf("%q: error = %v, want the not-a-test-network usage error", bad, err)
@@ -211,16 +211,16 @@ func TestOrama(t *testing.T) {
 
 func TestPickNode(t *testing.T) {
 	nodes := []inspector.Node{{Host: "a"}, {Host: "b"}}
-	if n, err := pickNode(nodes, "", "stagenet"); err != nil || n.Host != "a" {
+	if n, err := pickNode(nodes, "", "testnet"); err != nil || n.Host != "a" {
 		t.Errorf("default = %v, %v; want the first node", n, err)
 	}
-	if n, err := pickNode(nodes, "b", "stagenet"); err != nil || n.Host != "b" {
+	if n, err := pickNode(nodes, "b", "testnet"); err != nil || n.Host != "b" {
 		t.Errorf("--node b = %v, %v", n, err)
 	}
-	if _, err := pickNode(nodes, "c", "stagenet"); clierr.CodeOf(err) != clierr.CodeNotFound {
+	if _, err := pickNode(nodes, "c", "testnet"); clierr.CodeOf(err) != clierr.CodeNotFound {
 		t.Errorf("an unknown node: %v", err)
 	}
-	if _, err := pickNode(nil, "", "stagenet"); clierr.CodeOf(err) != clierr.CodeNotFound {
+	if _, err := pickNode(nil, "", "testnet"); clierr.CodeOf(err) != clierr.CodeNotFound {
 		t.Errorf("no nodes: %v", err)
 	}
 }
@@ -229,27 +229,27 @@ func TestParseProbe_refusesWhatIsNotAChainStatus(t *testing.T) {
 	if _, err := parseProbe(markStatus + "\n{}\n" + markSigner + "\n" + testAddr + "\n"); err == nil {
 		t.Error("a status without a chain id was accepted")
 	}
-	if _, err := parseProbe(probeOut("orama-stagenet-1", "cosmos1xyz")); err == nil {
+	if _, err := parseProbe(probeOut("orama-testnet-1", "cosmos1xyz")); err == nil {
 		t.Error("a signer that is not an orama account was accepted")
 	}
-	p, err := parseProbe(probeOut("orama-stagenet-1", testAddr))
-	if err != nil || p.ChainID != "orama-stagenet-1" || p.Signer != testAddr {
+	p, err := parseProbe(probeOut("orama-testnet-1", testAddr))
+	if err != nil || p.ChainID != "orama-testnet-1" || p.Signer != testAddr {
 		t.Errorf("probe = %+v, %v", p, err)
 	}
 }
 
 func TestFaucet_dripsAndReports(t *testing.T) {
 	f := &fakeNode{answers: []string{
-		probeOut("orama-stagenet-1", testAddr),
+		probeOut("orama-testnet-1", testAddr),
 		broadcastOut(0, ""),
 		resultOut(0, "", "5000000000"),
 	}}
 	f.install(t)
-	out, err := runFaucetCmd(t, faucetRecipient, "--env", "stagenet", "--amount", "5000000000")
+	out, err := runFaucetCmd(t, faucetRecipient, "--env", "testnet", "--amount", "5000000000")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{faucetTxHash, "5000000000", faucetRecipient, "height 77", "orama-stagenet-1"} {
+	for _, want := range []string{faucetTxHash, "5000000000", faucetRecipient, "height 77", "orama-testnet-1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
@@ -317,14 +317,14 @@ func TestFaucet_refusesANonTestChainBeforeSigning(t *testing.T) {
 
 func TestFaucet_refusalsFromTheChainCarryItsWords(t *testing.T) {
 	cases := map[string][]string{
-		"before a block": {probeOut("orama-stagenet-1", testAddr), broadcastOut(18, "faucet is not enabled"), ""},
-		"in its block":   {probeOut("orama-stagenet-1", testAddr), broadcastOut(0, ""), resultOut(21, "recipient is in its 24h cooldown", "0")},
+		"before a block": {probeOut("orama-testnet-1", testAddr), broadcastOut(18, "faucet is not enabled"), ""},
+		"in its block":   {probeOut("orama-testnet-1", testAddr), broadcastOut(0, ""), resultOut(21, "recipient is in its 24h cooldown", "0")},
 	}
 	wants := map[string]string{"before a block": "faucet is not enabled", "in its block": "24h cooldown"}
 	for name, answers := range cases {
 		f := &fakeNode{answers: answers}
 		f.install(t)
-		_, err := runFaucetCmd(t, faucetRecipient, "--env", "stagenet")
+		_, err := runFaucetCmd(t, faucetRecipient, "--env", "testnet")
 		if err == nil || !strings.Contains(err.Error(), wants[name]) || !strings.Contains(err.Error(), name) {
 			t.Errorf("%s: error = %v, want the chain's refusal %q", name, err, wants[name])
 		}
@@ -333,9 +333,9 @@ func TestFaucet_refusalsFromTheChainCarryItsWords(t *testing.T) {
 
 func TestFaucet_remoteFailuresAreWrappedWithContext(t *testing.T) {
 	for step := 1; step <= 3; step++ {
-		f := &fakeNode{errAt: step, answers: []string{probeOut("orama-stagenet-1", testAddr), broadcastOut(0, ""), resultOut(0, "", "1")}}
+		f := &fakeNode{errAt: step, answers: []string{probeOut("orama-testnet-1", testAddr), broadcastOut(0, ""), resultOut(0, "", "1")}}
 		f.install(t)
-		_, err := runFaucetCmd(t, faucetRecipient, "--env", "stagenet")
+		_, err := runFaucetCmd(t, faucetRecipient, "--env", "testnet")
 		if err == nil || !strings.Contains(err.Error(), "boom") || !strings.Contains(err.Error(), "203.0.113.1") {
 			t.Errorf("step %d: error = %v, want the host and the cause", step, err)
 		}
@@ -346,10 +346,10 @@ func TestFaucet_usageErrorsReachNoNode(t *testing.T) {
 	f := &fakeNode{}
 	f.install(t)
 	for _, args := range [][]string{
-		{"not-an-address", "--env", "stagenet"},
-		{faucetRecipient, "--env", "stagenet", "--amount", "0"},
-		{faucetRecipient, "--env", "stagenet", "--amount", "-1"},
-		{faucetRecipient, "--env", "stagenet", "--node", "198.51.100.9"},
+		{"not-an-address", "--env", "testnet"},
+		{faucetRecipient, "--env", "testnet", "--amount", "0"},
+		{faucetRecipient, "--env", "testnet", "--amount", "-1"},
+		{faucetRecipient, "--env", "testnet", "--node", "198.51.100.9"},
 	} {
 		if _, err := runFaucetCmd(t, args...); err == nil {
 			t.Errorf("%v succeeded", args)
@@ -380,7 +380,7 @@ func TestFaucetScripts_parseAsBash(t *testing.T) {
 	}
 	for name, script := range map[string]string{
 		"probe":  probeScript(),
-		"sign":   faucetTxScript("orama-stagenet-1", []byte(`{"it's":"x"}`)),
+		"sign":   faucetTxScript("orama-testnet-1", []byte(`{"it's":"x"}`)),
 		"result": resultScript(faucetTxHash, faucetRecipient),
 	} {
 		if out, err := exec.Command(bash, "-n", "-c", script).CombinedOutput(); err != nil {

@@ -3,7 +3,7 @@
 /// The Guardian is the main runtime object that ties together:
 /// - HTTP server (client-facing, port 7500)
 /// - Peer protocol (guardian-to-guardian, port 7501)
-/// - Node membership (via RQLite or static config)
+/// - Node membership (the cluster's active nodes, read from the index RQLite)
 /// - Heartbeat/health management
 /// - Storage operations
 const std = @import("std");
@@ -13,9 +13,26 @@ const node_list = @import("membership/node_list.zig");
 const quorum = @import("membership/quorum.zig");
 const heartbeat = @import("peer/heartbeat.zig");
 
+/// How often the guardian list is re-read from RQLite. A node's dns_nodes row
+/// goes inactive after 120 s without a heartbeat, so 30 s follows membership
+/// closely; one indexed query per guardian every 30 s is nothing for RQLite at
+/// any cluster size.
+pub const discovery_interval_ns: i128 = 30 * std.time.ns_per_s;
+
+/// Upper bound on the RQLite password file.
+const max_password_bytes = 4096;
+
+pub const DiscoveryConfigError = error{
+    /// rqlite_username is set without rqlite_password_file.
+    RqlitePasswordFileMissing,
+};
+
 pub const Guardian = struct {
     cfg: config.Config,
+    /// The guardian list. The HTTP thread reads it and the housekeeping
+    /// thread replaces it, so every access holds nodes_mu.
     nodes: node_list.NodeList,
+    nodes_mu: std.Thread.Mutex = .{},
     allocator: std.mem.Allocator,
     /// Random server secret for HMAC-based auth (generated at startup).
     /// Ephemeral by design: regenerated each boot and used only to sign
@@ -36,30 +53,48 @@ pub const Guardian = struct {
         // Load (or create) the persistent at-rest integrity key.
         const integrity_key = loadOrCreateIntegrityKey(cfg.data_dir, allocator);
 
-        // Try to load node list from RQLite, fall back to self-only
-        var nodes = node_list.fetchFromRqlite(allocator, cfg.rqlite_url, cfg.client_port) catch blk: {
-            log.warn("failed to fetch node list from RQLite, running in single-node mode", .{});
-            const self_addr = [_][]const u8{cfg.listen_address};
-            break :blk try node_list.fromStatic(allocator, &self_addr, cfg.client_port);
-        };
-
-        // Mark self as alive
-        if (nodes.nodes.len > 0) {
-            nodes.self_index = 0;
-            nodes.nodes[0].state = .alive;
-            nodes.nodes[0].last_seen_ns = std.time.nanoTimestamp();
-        }
-
         const share_count = heartbeat.countShares(cfg.data_dir);
 
-        return Guardian{
+        var g = Guardian{
             .cfg = cfg,
-            .nodes = nodes,
+            .nodes = try node_list.empty(allocator),
             .allocator = allocator,
             .server_secret = secret,
             .integrity_key = integrity_key,
             .share_count = share_count,
         };
+        // RQLite may not be up yet when the guardian starts; the list stays
+        // empty until the housekeeping thread's next refresh reads it.
+        g.refreshNodes() catch |err| {
+            log.warn("guardian list not read from RQLite ({}); next attempt in {d} s", .{ err, @divTrunc(discovery_interval_ns, std.time.ns_per_s) });
+        };
+        return g;
+    }
+
+    /// Re-read the guardian list from RQLite and adopt it, keeping each known
+    /// node's heartbeat state. On an error the current list is kept.
+    pub fn refreshNodes(self: *Guardian) !void {
+        const password = try self.readRqlitePassword();
+        defer if (password) |p| {
+            std.crypto.secureZero(u8, p);
+            self.allocator.free(p);
+        };
+        const auth: ?node_list.RqliteAuth = if (self.cfg.rqlite_username) |user|
+            .{ .username = user, .password = std.mem.trim(u8, password.?, " \t\r\n") }
+        else
+            null;
+
+        const fresh = try node_list.fetchFromRqlite(self.allocator, self.cfg.rqlite_url, auth, self.cfg.client_port);
+        self.nodes_mu.lock();
+        defer self.nodes_mu.unlock();
+        self.nodes.adopt(fresh, self.cfg.listen_address);
+    }
+
+    /// The RQLite password, or null when no user is configured.
+    fn readRqlitePassword(self: *const Guardian) !?[]u8 {
+        if (self.cfg.rqlite_username == null) return null;
+        const path = self.cfg.rqlite_password_file orelse return DiscoveryConfigError.RqlitePasswordFileMissing;
+        return try std.fs.cwd().readFileAlloc(self.allocator, path, max_password_bytes);
     }
 
     pub fn deinit(self: *Guardian) void {
@@ -69,7 +104,7 @@ pub const Guardian = struct {
         @memset(&self.integrity_key, 0);
     }
 
-    /// Get current write quorum requirement.
+    /// Get current write quorum requirement. The caller holds nodes_mu.
     pub fn writeQuorum(self: *const Guardian) usize {
         return quorum.writeQuorum(self.nodes.aliveCount());
     }
@@ -79,7 +114,7 @@ pub const Guardian = struct {
     /// This used to call a second implementation on NodeList that still
     /// returned max(3, floor(N/3)) after quorum.zig moved to a floor of 2, so
     /// GET /v1/vault/guardians advertised a threshold the cluster does not use.
-    /// quorum.readQuorum is the one definition.
+    /// quorum.readQuorum is the one definition. The caller holds nodes_mu.
     pub fn readThreshold(self: *const Guardian) usize {
         return quorum.readQuorum(self.nodes.aliveCount());
     }

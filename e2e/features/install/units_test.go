@@ -116,7 +116,9 @@ func installUnitsDown(out string) (down []string, listed bool) {
 
 // TestInstall_nodeStatusAndDoctor: the local commands an operator runs on
 // the node itself report a healthy install: `orama node status` lists
-// orama-node and the @index stack running, `orama node doctor` passes every check
+// orama-node and the @index stack running, `orama node doctor` passes every check,
+// its Olric check included, which holds the index Olric's member count to the
+// index cluster's node count (bug-933)
 // (docs/whitepaper/technical-reference/appendices/d-cli-reference.md "orama node status", "orama node doctor").
 func TestInstall_nodeStatusAndDoctor(t *testing.T) {
 	t.Parallel()

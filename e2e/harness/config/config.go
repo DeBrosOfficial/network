@@ -32,6 +32,10 @@ const (
 	EnvHCloudToken = "HCLOUD_TOKEN"
 	EnvCFToken     = "CF_API_TOKEN"
 	EnvCFZone      = "CF_ZONE"
+	// EnvRunnerSigningKey is the runner's Ed25519 private key (PKCS #8 PEM)
+	// that signs a run's report, so a release can stand on it. Optional: a
+	// run without it writes an unsigned report.
+	EnvRunnerSigningKey = "E2E_RUNNER_SIGNING_KEY"
 )
 
 // RequiredRunEnv is what `e2e-fleet run` and `provision` refuse to start without.
@@ -90,7 +94,7 @@ func Bool(lookup func(string) (string, bool), name string, def bool) (bool, erro
 }
 
 // CheckRunName refuses a name that contains testnet, mainnet, devnet or
-// stagenet. what says which name it is ("run id", "zone"), so the refusal is
+// testnet. what says which name it is ("run id", "zone"), so the refusal is
 // actionable.
 func CheckRunName(what, name string) error {
 	return denyParts(what, name, forbiddenNameParts)

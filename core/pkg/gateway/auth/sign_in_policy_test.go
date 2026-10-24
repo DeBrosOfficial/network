@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -190,7 +192,7 @@ func TestCachedSignInPolicyOf_isBoundedByTheStaleness(t *testing.T) {
 	if p, _ := s.cachedSignInPolicyOf(ctx, "anchat"); p != SignInOpen {
 		t.Errorf("a read inside the staleness bound went to the registry: %q", p)
 	}
-	s.signInPolicies = signInPolicyCache{}
+	s.signInPolicies = policyCache[SignInPolicy]{}
 	if p, _ := s.cachedSignInPolicyOf(ctx, "anchat"); p != SignInMembers {
 		t.Errorf("after the bound the read still said %q", p)
 	}
@@ -245,5 +247,54 @@ func TestIssueDeviceTokens_aGrantlessWalletIsRefusedOnceSignInCloses(t *testing.
 	var owned *ErrNamespaceOwnedByAnother
 	if !errors.As(err, &owned) {
 		t.Errorf("a session was issued to a grantless wallet after sign-in closed: %v", err)
+	}
+}
+
+// bugboard #733: a namespace lists no end-user topic until its owner names
+// some; the list is validated, canonical, and kept beside the sign-in policy
+// without changing it.
+func TestEndUserTopics_setReadAndValidate(t *testing.T) {
+	s, _, _ := openNamespace(t)
+	ctx := context.Background()
+	if got, err := s.EndUserTopicsOf(ctx, "anchat"); err != nil || len(got) != 0 {
+		t.Fatalf("a namespace that named none lists %v, %v", got, err)
+	}
+	set, err := s.SetEndUserTopics(ctx, "anchat", []string{" users/global", "presence/*", "users/global"}, "0xowner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.endUserTopics = policyCache[[]string]{}
+	got, err := s.EndUserTopicsOf(ctx, "anchat")
+	if err != nil || len(got) != 2 || got[0] != "presence/*" || got[1] != "users/global" || len(set) != 2 {
+		t.Fatalf("recorded %v, read back %v, %v; want [presence/* users/global]", set, got, err)
+	}
+	if p, err := s.SignInPolicyOf(ctx, "anchat"); err != nil || p != SignInOpen {
+		t.Errorf("setting the topics changed the sign-in policy to %q, %v", p, err)
+	}
+	if _, err := s.SetEndUserTopics(ctx, "anchat", nil, "0xowner"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.CachedEndUserTopicsOf(ctx, "anchat"); len(got) != 0 {
+		t.Errorf("clearing the list left %v", got)
+	}
+
+	tooMany := make([]string, MaxEndUserTopics+1)
+	for i := range tooMany {
+		tooMany[i] = "t" + strconv.Itoa(i)
+	}
+	for name, patterns := range map[string][]string{
+		"empty pattern":  {""},
+		"a space":        {"chat room"},
+		"reserved":       {"_orama/webrtc/*"},
+		"reserved, case": {"_ORAMA/x"},
+		"too long":       {strings.Repeat("a", maxSelectorLength+1)},
+		"too many":       tooMany,
+	} {
+		if _, err := s.SetEndUserTopics(ctx, "anchat", patterns, "0xowner"); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	if _, err := s.SetEndUserTopics(ctx, LobbyNamespace, []string{"x"}, "0xowner"); err == nil {
+		t.Error("the lobby took an end-user topic list")
 	}
 }

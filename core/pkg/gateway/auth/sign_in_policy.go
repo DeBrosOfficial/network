@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/client"
@@ -51,38 +50,6 @@ func ParseSignInPolicy(raw string) (SignInPolicy, error) {
 	default:
 		return "", fmt.Errorf("sign-in policy is one of members, open (got %q)", raw)
 	}
-}
-
-// signInPolicyCache holds what each namespace's sign-in policy was, briefly. It
-// is devicePolicyCache for the other column of the same row, and is read by the
-// same callers for the same reason: a refresh asks on every rotation.
-type signInPolicyCache struct {
-	mu      sync.Mutex
-	entries map[string]cachedSignInPolicy
-}
-
-type cachedSignInPolicy struct {
-	policy SignInPolicy
-	readAt time.Time
-}
-
-func (c *signInPolicyCache) get(namespace string, now time.Time) (SignInPolicy, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	e, ok := c.entries[namespace]
-	if !ok || now.Sub(e.readAt) >= devicePolicyStaleness {
-		return "", false
-	}
-	return e.policy, true
-}
-
-func (c *signInPolicyCache) put(namespace string, policy SignInPolicy, now time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.entries == nil {
-		c.entries = map[string]cachedSignInPolicy{}
-	}
-	c.entries[namespace] = cachedSignInPolicy{policy: policy, readAt: now}
 }
 
 // SignInPolicyOf returns a namespace's sign-in policy, as recorded now.

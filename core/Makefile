@@ -257,7 +257,7 @@ help:
 	@echo "  make test-e2e             - Generic E2E tests (auto-discovers config)"
 	@echo ""
 	@echo "  Example:"
-	@echo "    ORAMA_GATEWAY_URL=https://orama-devnet.network make test-e2e-prod"
+	@echo "    ORAMA_GATEWAY_URL=https://devnet.orama.network make test-e2e-prod"
 	@echo ""
 	@echo "Deployment:"
 	@echo "  make build-archive         - Build pre-compiled binary archive for deployment"

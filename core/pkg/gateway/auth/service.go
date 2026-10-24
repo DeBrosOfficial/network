@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Orama-Network/orama/core/pkg/attest"
 	"github.com/Orama-Network/orama/core/pkg/client"
 	"github.com/Orama-Network/orama/core/pkg/logging"
 	"github.com/Orama-Network/orama/core/pkg/rqlite"
@@ -54,16 +55,35 @@ type Service struct {
 
 	// devicePolicies remembers each namespace's session policy for
 	// devicePolicyStaleness, because every account-level refresh asks.
-	devicePolicies devicePolicyCache
+	devicePolicies policyCache[DevicePolicy]
 	// signInPolicies is the same for the sign-in policy, which shares the
 	// row and the staleness bound.
-	signInPolicies signInPolicyCache
+	signInPolicies policyCache[SignInPolicy]
+	// endUserTopics is the same for the topics a namespace's end users may
+	// read (bugboard #733), asked on every pub/sub read by one.
+	endUserTopics policyCache[[]string]
+	// perIPLimits is the same for the namespace's per-network ceilings
+	// (bugboard #749), asked on every authenticated invoke.
+	perIPLimits policyCache[PerIPLimits]
+	// newWallets counts the wallets new to a namespace each client network
+	// signs in (bugboard #749); nil until SetNewWalletCounter.
+	newWallets WindowCounter
+
+	// attestationPolicies is this gateway's copy of every namespace's
+	// attestation policy, and attestVerifier what checks a device's proof
+	// (feat-941). Built alongside the revocations.
+	attestationPolicies *AttestationPolicies
+	attestVerifier      attest.Verifier
 }
 
 // minRSAKeyBits is the smallest RSA signing key this gateway will use. 2048 is
 // the floor everyone agrees on; below it the signature on an access token is
 // not worth checking.
 const minRSAKeyBits = 2048
+
+// ErrNoAPIKeyHMACSecret refuses to build a service with no API key HMAC
+// secret (gateway.api_key_hmac_secret).
+var ErrNoAPIKeyHMACSecret = errors.New("the API key HMAC secret is required (api_key_hmac_secret, from secrets/api-key-hmac-secret)")
 
 // ErrTokenRevoked is returned for a token whose signature verifies but which
 // has been revoked — a key that was revoked, or a session that was ended.
@@ -73,11 +93,18 @@ var ErrTokenRevoked = errors.New("token revoked")
 // lifetime has run out. Its text is what callers have always seen.
 var ErrTokenExpired = errors.New("token expired")
 
-func NewService(logger *logging.ColoredLogger, orm client.NetworkClient, signingKeyPEM string, defaultNS string) (*Service, error) {
+// NewService builds the auth service. apiKeyHMACSecret is required: every API
+// key is stored and looked up as HMAC-SHA256(key, secret), and a service
+// without one has no way to store or compare a key that is not the key itself.
+func NewService(logger *logging.ColoredLogger, orm client.NetworkClient, signingKeyPEM string, defaultNS string, apiKeyHMACSecret string) (*Service, error) {
+	if strings.TrimSpace(apiKeyHMACSecret) == "" {
+		return nil, ErrNoAPIKeyHMACSecret
+	}
 	s := &Service{
-		logger:    logger,
-		orm:       orm,
-		defaultNS: defaultNS,
+		logger:           logger,
+		orm:              orm,
+		defaultNS:        defaultNS,
+		apiKeyHMACSecret: apiKeyHMACSecret,
 	}
 
 	// Every Service with a database consults the revocations. There is no way
@@ -85,6 +112,7 @@ func NewService(logger *logging.ColoredLogger, orm client.NetworkClient, signing
 	if orm != nil {
 		s.revocations = NewRevocationList(s.registryDatabase, logger)
 		s.audit = NewAuditLog(s.registryDatabase, logger)
+		s.attestationPolicies = NewAttestationPolicies(s.registryDatabase, logger)
 	}
 	// Always present, database or not: a gateway with no database still has to
 	// verify what it minted itself.
@@ -117,12 +145,6 @@ func NewService(logger *logging.ColoredLogger, orm client.NetworkClient, signing
 	}
 
 	return s, nil
-}
-
-// SetAPIKeyHMACSecret configures the HMAC secret used to hash API keys before storage.
-// When set, API keys are stored as HMAC-SHA256(key, secret) in the database.
-func (s *Service) SetAPIKeyHMACSecret(secret string) {
-	s.apiKeyHMACSecret = secret
 }
 
 // SetAPIKeyRegistry points API-key reads/writes at the core/index RQLite
@@ -279,12 +301,11 @@ func isEVMAddress(wallet string) bool {
 	return len(wallet) >= 2 && wallet[0] == '0' && (wallet[1] == 'x' || wallet[1] == 'X')
 }
 
-// HashAPIKey returns the HMAC-SHA256 hash of an API key if the HMAC secret is set,
-// or returns the raw key for backward compatibility during rolling upgrade.
+// HashAPIKey returns the HMAC-SHA256 hash of an API key: the only form a key is
+// stored, revoked or looked up by. It used to return the raw key when no secret
+// was configured, so a gateway missing the secret stored the keys it minted in
+// plaintext and compared presented keys against plaintext rows.
 func (s *Service) HashAPIKey(key string) string {
-	if s.apiKeyHMACSecret == "" {
-		return key
-	}
 	return HmacSHA256Hex(key, s.apiKeyHMACSecret)
 }
 
@@ -471,7 +492,11 @@ func (s *Service) IssueDeviceTokens(ctx context.Context, wallet, namespace, devi
 	if err != nil {
 		return "", "", 0, err
 	}
-	binding := SessionBinding{DeviceID: deviceID, SessionID: sessionID}
+	att, err := s.attestationForToken(ctx, namespace, deviceID, nil)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("read the device's attestation: %w", err)
+	}
+	binding := SessionBinding{DeviceID: deviceID, SessionID: sessionID, Attestation: att}
 	token, expUnix, err := s.GenerateBoundJWT(namespace, wallet, AccessTokenLifetime, custom, binding)
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to generate JWT: %w", err)
@@ -592,13 +617,17 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken, namespace stri
 	}
 
 	nsID, err := s.ResolveNamespaceID(ctx, namespace)
+	var unknown *ErrNoSuchNamespace
+	if errors.As(err, &unknown) {
+		// The registry answered: no such namespace (deleted, or never
+		// created). No token of it can be renewed, so this is the refusal
+		// (→ 401), not a retry the client would repeat for ever.
+		return "", "", "", 0, err
+	}
 	if err != nil {
 		// Bugboard #125: namespace resolution runs an rqlite query BEFORE the
 		// token lookup, so a leader re-election during a rolling restart fails
-		// here too. Treat it as retryable (→ 503), not a bad token (→ 401) —
-		// the refresh-path namespace comes from an already-authenticated
-		// session, so a resolution failure is a transient DB error, never the
-		// client's fault.
+		// here too. Treat it as retryable (→ 503), not a bad token (→ 401).
 		s.logger.ComponentWarn(logging.ComponentGeneral,
 			"refresh namespace resolution failed (transient, surfacing retryable)",
 			zap.String("namespace", namespace),
@@ -743,6 +772,14 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken, namespace stri
 		}
 	}
 
+	// What the device's attestation proved, when its namespace attests. Read
+	// before the rotation below, so a registry that cannot say leaves the
+	// refresh token unspent for the client's retry.
+	att, err := s.attestationForToken(ctx, namespace, session.deviceID, proof)
+	if err != nil {
+		return "", "", "", 0, fmt.Errorf("%w: read the device's attestation: %v", ErrRefreshTransient, err)
+	}
+
 	// Step 2: atomic CAS — revoke the old row. RowsAffected is the lock.
 	// Two concurrent calls with the same refresh token: exactly one wins
 	// the UPDATE (RowsAffected == 1); the other sees RowsAffected == 0
@@ -784,7 +821,7 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken, namespace stri
 	// Step 3: mint the new access JWT, carrying forward the stored custom
 	// claims so a rotated token keeps the same account_id etc. (bugboard #548).
 	accessToken, expUnix, err = s.GenerateBoundJWT(namespace, subject, AccessTokenLifetime, custom,
-		SessionBinding{DeviceID: session.deviceID, SessionID: session.sessionID})
+		SessionBinding{DeviceID: session.deviceID, SessionID: session.sessionID, Attestation: att})
 	if err != nil {
 		return "", "", "", 0, fmt.Errorf("%w: generate access token: %v", ErrRefreshTransient, err)
 	}

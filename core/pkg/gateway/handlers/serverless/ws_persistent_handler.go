@@ -108,7 +108,7 @@ func (h *ServerlessHandlers) handlePersistentWebSocket(
 	// gateway's sweeper closes it once the token expires or is revoked, and
 	// the read loop below refuses frames past expiry in between sweeps. A
 	// successful auth.refresh control frame moves it to the new token.
-	sock := h.sessions.Register(h.socketClaims(r), h.closeClient(clientID))
+	sock := h.registerSocket(r, h.closeClient(clientID))
 	defer sock.Unregister()
 
 	// Instantiate the persistent module. This compiles once (cached) and
@@ -287,19 +287,21 @@ func (h *ServerlessHandlers) buildPersistentInvocationContext(
 	// returned, the child never ran, and the client got no reply.
 	callerWallet, callerIsAdmin, callerHasInvoke := h.socketCaller(r)
 	return &serverless.InvocationContext{
-		FunctionID:       fn.ID,
-		FunctionName:     fn.Name,
-		Namespace:        fn.Namespace,
-		CallerWallet:     callerWallet,
-		CallerIsAdmin:    callerIsAdmin,
-		CallerHasInvoke:  callerHasInvoke,
-		CallerIP:         extractRemoteIP(r),
-		CallerClaims:     h.getCallerClaimsFromRequest(r),
-		CallerJWTSubject: h.getJWTSubjectFromRequest(r),
-		CallerDeviceID:   h.getDeviceIDFromRequest(r),
-		CallerCapability: socketCapability(r),
-		WSClientID:       clientID,
-		TriggerType:      serverless.TriggerTypeWebSocket,
+		FunctionID:        fn.ID,
+		FunctionName:      fn.Name,
+		Namespace:         fn.Namespace,
+		CallerWallet:      callerWallet,
+		CallerIsAdmin:     callerIsAdmin,
+		CallerHasInvoke:   callerHasInvoke,
+		CallerIP:          extractRemoteIP(r),
+		CallerKey:         h.socketCallerKey(r),
+		CallerClaims:      h.getCallerClaimsFromRequest(r),
+		CallerJWTSubject:  h.getJWTSubjectFromRequest(r),
+		CallerDeviceID:    h.getDeviceIDFromRequest(r),
+		CallerAttestation: h.getAttestationFromRequest(r),
+		CallerCapability:  socketCapability(r),
+		WSClientID:        clientID,
+		TriggerType:       serverless.TriggerTypeWebSocket,
 	}
 }
 
@@ -494,18 +496,19 @@ func refreshedInvocationContext(
 		customClaims[k] = v
 	}
 	return &serverless.InvocationContext{
-		FunctionID:       fn.ID,
-		FunctionName:     fn.Name,
-		Namespace:        fn.Namespace,
-		CallerWallet:     claims.Sub,
-		CallerClaims:     customClaims,
-		CallerJWTSubject: claims.Sub,
-		CallerDeviceID:   claims.Did,
-		CallerIP:         prevIP,
-		CallerIsAdmin:    prevIsAdmin,
-		CallerHasInvoke:  prevHasInvoke,
-		WSClientID:       clientID,
-		TriggerType:      serverless.TriggerTypeWebSocket,
+		FunctionID:        fn.ID,
+		FunctionName:      fn.Name,
+		Namespace:         fn.Namespace,
+		CallerWallet:      claims.Sub,
+		CallerClaims:      customClaims,
+		CallerJWTSubject:  claims.Sub,
+		CallerDeviceID:    claims.Did,
+		CallerAttestation: callerAttestation(claims.Att),
+		CallerIP:          prevIP,
+		CallerIsAdmin:     prevIsAdmin,
+		CallerHasInvoke:   prevHasInvoke,
+		WSClientID:        clientID,
+		TriggerType:       serverless.TriggerTypeWebSocket,
 	}
 }
 

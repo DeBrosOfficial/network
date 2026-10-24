@@ -125,3 +125,45 @@ func TestDBQueryBatch_invalidConsistencyErrors(t *testing.T) {
 		t.Fatal("DBQueryBatch must reject an unknown consistency value")
 	}
 }
+
+// feat-802: "linearizable" reaches the client's linearizable read, fails when
+// the client cannot serve one (never a silent weak read), and takes no
+// freshness bound.
+func TestResolveBatchQuery_linearizable(t *testing.T) {
+	ops := []rqlite.BatchOp{{Kind: rqlite.BatchOpQuery, SQL: "SELECT 1"}}
+
+	fake := &consistencyAwareClient{}
+	if _, err := newHFWithDB(fake).resolveBatchQuery(context.Background(), ops, "linearizable", "", false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fake.consistencyCalls != 1 || fake.batchQueryCalls != 0 || fake.lastConsistency != rqlite.ReadConsistencyLinearizable {
+		t.Errorf("linearizable routed to consistency=%d weak=%d level=%q", fake.consistencyCalls, fake.batchQueryCalls, fake.lastConsistency)
+	}
+
+	weakOnly := &weakOnlyClient{}
+	if _, err := newHFWithDB(weakOnly).resolveBatchQuery(context.Background(), ops, "linearizable", "", false); err == nil {
+		t.Error("a client without a linearizable read must fail the read")
+	}
+	if weakOnly.batchQueryCalls != 0 {
+		t.Error("a linearizable read was served as a weak one")
+	}
+
+	fake = &consistencyAwareClient{}
+	if _, err := newHFWithDB(fake).resolveBatchQuery(context.Background(), ops, "linearizable", "2s", false); err == nil {
+		t.Error("freshness with linearizable must be refused at the boundary")
+	}
+	if fake.consistencyCalls != 0 || fake.batchQueryCalls != 0 {
+		t.Error("a refused combination ran a query")
+	}
+}
+
+func TestDBQueryBatch_consistencyLinearizable(t *testing.T) {
+	fake := &consistencyAwareClient{}
+	in := []byte(`{"consistency":"linearizable","ops":[{"sql":"SELECT 1"}]}`)
+	if _, err := newHFWithDB(fake).DBQueryBatch(nsCtx(), in); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fake.lastConsistency != rqlite.ReadConsistencyLinearizable {
+		t.Errorf("DBQueryBatch read at %q, want linearizable", fake.lastConsistency)
+	}
+}

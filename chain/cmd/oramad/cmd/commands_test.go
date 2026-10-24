@@ -67,7 +67,7 @@ func TestCheckQueryGasLimit_refusesUnboundedOffLocalnet(t *testing.T) {
 		{"bounded public chain", "orama-1", 2_000_000, false},
 		{"unbounded public chain", "orama-1", 0, true},
 		{"unbounded devnet", "orama-devnet-1", 0, true},
-		{"unbounded stagenet", "orama-stagenet-1", 0, true},
+		{"unbounded testnet", "orama-testnet-1", 0, true},
 		{"unbounded localnet", "orama-localnet-1", 0, false},
 		{"bounded localnet", "orama-localnet-1", 5, false},
 	}
@@ -109,9 +109,9 @@ func TestGuardStart_refusesUnsafeNodesBeforeStart(t *testing.T) {
 	if called, err := run("orama-localnet-1", 0); err != nil || !called {
 		t.Fatalf("a localnet was refused: called=%v err=%v", called, err)
 	}
-	called, err := run("orama-stagenet-1", 2_000_000)
+	called, err := run("orama-testnet-1", 2_000_000)
 	if err == nil || called || !strings.Contains(err.Error(), app.ShieldedVerifierBinary) {
-		t.Fatalf("a stagenet node with no shielded verifier started: called=%v err=%v", called, err)
+		t.Fatalf("a testnet node with no shielded verifier started: called=%v err=%v", called, err)
 	}
 }
 

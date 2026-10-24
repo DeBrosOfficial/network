@@ -58,7 +58,6 @@ type Config struct {
 	// chain.faucet.key_file. Loaded from YAML faucet_key_file.
 	FaucetKeyFile string
 
-
 	// DataDir is the node's orama directory (/opt/orama/.orama). The gateway
 	// only READS under it (secrets/, identity, node config) and writes the
 	// shared trees under data/ (SQLite databases, deployments): secrets/ and
@@ -88,9 +87,9 @@ type Config struct {
 	// WireGuard mesh configuration
 	ClusterSecret string // Cluster secret for authenticating internal WireGuard peer exchange
 
-	// API key HMAC secret for hashing API keys before storage.
-	// When set, API keys are stored as HMAC-SHA256(key, secret) in the database.
-	// Loaded from ~/.orama/secrets/api-key-hmac-secret.
+	// APIKeyHMACSecret hashes API keys: every key is stored and looked up as
+	// HMAC-SHA256(key, secret). Required; written by install to
+	// secrets/api-key-hmac-secret.
 	APIKeyHMACSecret string
 
 	// SecretsEncryptionKey is the AES-256 key (32 bytes, hex-encoded → 64
@@ -160,9 +159,7 @@ const (
 	// defaultRQLiteReadyTimeout is short because failing it is no longer
 	// terminal — the readiness loop retries. It used to be 90s, which made
 	// sense when giving up meant the gateway was broken; now a long budget only
-	// delays the gateway reporting WHY it is not ready, and two consecutive
-	// attempts could outlast the 120s window InstanceSpawner.waitForInstanceReady
-	// allows, turning a slow election into a failed spawn.
+	// delays the gateway reporting WHY it is not ready.
 	defaultRQLiteReadyTimeout = 20 * time.Second
 
 	// defaultSchemaApplyTimeout bounds the migration apply itself.

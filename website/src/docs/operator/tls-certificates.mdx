@@ -49,6 +49,8 @@ orama network add mycluster https://cluster.example.com --ca-file le-staging.pem
 
 Every command then verifies `<base-domain>` and names under it against those roots as well as the system's, and every other host against the system's alone. A missing CA file is an error naming the environment. Browsers will still show a warning.
 
+Apps deployed on the cluster need nothing of the kind: every node of a staging cluster keeps the staging roots in `/etc/orama/cluster-ca.pem` and points each deployment's runtime at them (`NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`), so an app reaches `ORAMA_GATEWAY_URL` with its default TLS client ([What the platform sets for you](/docs/developer/deployments#what-the-platform-sets-for-you)).
+
 ### Changing a running cluster's CA
 
 Upgrade every node with the new one:
@@ -58,6 +60,8 @@ orama node upgrade --env mycluster --acme-ca letsencrypt --yes
 ```
 
 Each node records it in `node.yaml` and restarts Caddy, one node at a time. The first node with the new CA obtains the certificates for the cluster; the others load them. The certificates of the previous CA stay in the store under their own CA.
+
+Each node also writes or removes the roots it hands deployments (`/etc/orama/cluster-ca.pem`): present for staging, absent for production. A running deployment picks the change up at its next start.
 
 ### Upgrading from a release before the shared store
 
@@ -86,10 +90,10 @@ For every name the node's Caddy manages (the base domain, its wildcard and any s
 Certificate authority: https://acme-v02.api.letsencrypt.org/directory
 
 NAME                  CERTIFICATE  DETAIL
-*.stagenet.example    not held     the CA refused: rate limited
-stagenet.example      not held     the CA refused: rate limited
+*.testnet.example    not held     the CA refused: rate limited
+testnet.example      not held     the CA refused: rate limited
 
-stagenet.example: the last order failed at 2026-10-11 04:26:01 UTC: the CA answered HTTP 429 rateLimited: too many certificates (5) already issued for this exact set of identifiers in the last 168h0m0s, retry after 2026-10-12 04:26:01 UTC: see https://letsencrypt.org/docs/rate-limits/#new-certificates-per-exact-set-of-identifiers
+testnet.example: the last order failed at 2026-10-11 04:26:01 UTC: the CA answered HTTP 429 rateLimited: too many certificates (5) already issued for this exact set of identifiers in the last 168h0m0s, retry after 2026-10-12 04:26:01 UTC: see https://letsencrypt.org/docs/rate-limits/#new-certificates-per-exact-set-of-identifiers
 The CA will accept a new order after 2026-10-12 04:26:01 UTC.
 ```
 

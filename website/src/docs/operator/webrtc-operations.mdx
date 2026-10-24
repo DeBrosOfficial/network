@@ -269,12 +269,11 @@ sudo orama node logs orama-namespace-sfu@myapp -f
 # TURN logs — one shared server per host, serving every namespace on it
 sudo orama node logs turn -f
 
-# The node's units, with their state
+# The node's units with their state, the shared orama-turn unit included
 sudo orama node status
-
-# The shared TURN unit is host-level, so it is not in that list yet
-systemctl status orama-turn
 ```
+
+`orama node status`, `orama node doctor` and the node report behind `orama status` and `orama monitor` list `orama-turn` whenever its unit file is installed. The TURN reconciler runs it only while the node holds a TURN allocation, so on a node with none it shows `inactive (not needed)`, doctor does not count it as stopped, and `orama status` raises no alert for it (the report marks it `not_needed`). A failed unit is always reported. `orama node start`, `stop`, `restart` and upgrades leave it alone: the reconciler owns it.
 
 ## Firewall
 

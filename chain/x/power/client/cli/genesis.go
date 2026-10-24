@@ -152,7 +152,7 @@ need no self-bond - see docs/whitepaper/technical-reference/vol2/39-chain-archit
 	cmd.Flags().String(flagMoniker, "", "human-readable label for this committee seat")
 	cmd.Flags().String(flagConsensusPubkeyBase64, "", "raw base64 ed25519 consensus pubkey (takes priority over --consensus-pubkey-file)")
 	cmd.Flags().String(flagConsensusPubkeyFile, "", "priv_validator_key.json to read the consensus pubkey from (default: --home's own)")
-	cmd.Flags().Uint64(flagMinCommitteeSize, 0, "if set (>0), overwrite params.min_committee_size (devnet/stagenet/localnet chain-ids only need to satisfy this, not the 30-member production floor)")
+	cmd.Flags().Uint64(flagMinCommitteeSize, 0, "if set (>0), overwrite params.min_committee_size (devnet/testnet/localnet chain-ids only need to satisfy this, not the 30-member production floor)")
 	cmd.Flags().String(flags.FlagHome, defaultNodeHome, "The application home directory")
 
 	return cmd

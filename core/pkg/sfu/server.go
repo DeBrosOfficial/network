@@ -249,7 +249,11 @@ func (s *Server) closeRateLimited(peer *Peer, cause error) {
 // turn-credentials on join, refresh-credentials on the 80%-of-TTL refresh.
 func (s *Server) sendTURNCredentials(peer *Peer, msgType MessageType) {
 	ttl := time.Duration(s.config.TURNCredentialTTL) * time.Second
-	username, password := turn.GenerateCredentials(s.config.TURNSecret, s.config.Namespace, ttl)
+	username, password, err := turn.GenerateCredentials(s.config.TURNSecret, s.config.Namespace, peer.UserID, ttl)
+	if err != nil {
+		s.logger.Error("No TURN credential for a peer the gateway named nobody for", zap.String("peer_id", peer.ID), zap.Error(err))
+		return
+	}
 
 	peer.SendMessage(NewServerMessage(msgType, &TURNCredentialsData{
 		Username: username,

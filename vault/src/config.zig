@@ -11,8 +11,13 @@ pub const Config = struct {
     peer_port: u16 = 7501,
     /// Data storage directory
     data_dir: []const u8 = "/opt/orama/.orama/data/vault",
-    /// RQLite endpoint for node discovery
+    /// The index RQLite the guardian list is read from (dns_nodes).
     rqlite_url: []const u8 = "http://127.0.0.1:4001",
+    /// RQLite user to authenticate as; null sends no credentials.
+    rqlite_username: ?[]const u8 = null,
+    /// File holding that user's password (secrets/rqlite-password), read at
+    /// every fetch so a rotated password is picked up.
+    rqlite_password_file: ?[]const u8 = null,
 
     /// Arena allocator that owns duped strings (null when using defaults)
     _arena: ?std.heap.ArenaAllocator = null,
@@ -76,6 +81,10 @@ pub fn loadOrDefault(allocator: std.mem.Allocator, path: []const u8) !Config {
             cfg.data_dir = try arena_alloc.dupe(u8, value);
         } else if (std.mem.eql(u8, key, "rqlite_url")) {
             cfg.rqlite_url = try arena_alloc.dupe(u8, value);
+        } else if (std.mem.eql(u8, key, "rqlite_username")) {
+            cfg.rqlite_username = try arena_alloc.dupe(u8, value);
+        } else if (std.mem.eql(u8, key, "rqlite_password_file")) {
+            cfg.rqlite_password_file = try arena_alloc.dupe(u8, value);
         }
         // Unknown keys are silently ignored
     }
@@ -95,6 +104,8 @@ test "config: defaults when file not found" {
     try std.testing.expectEqual(@as(u16, 7501), cfg.peer_port);
     try std.testing.expectEqualSlices(u8, "/opt/orama/.orama/data/vault", cfg.data_dir);
     try std.testing.expectEqualSlices(u8, "http://127.0.0.1:4001", cfg.rqlite_url);
+    try std.testing.expect(cfg.rqlite_username == null);
+    try std.testing.expect(cfg.rqlite_password_file == null);
 }
 
 test "config: parse key=value file" {
@@ -110,6 +121,8 @@ test "config: parse key=value file" {
         \\peer_port = 8081
         \\data_dir = /tmp/vault-test
         \\rqlite_url = http://10.0.0.1:4001
+        \\rqlite_username = orama
+        \\rqlite_password_file = /opt/orama/.orama/secrets/rqlite-password
         \\
         \\# Another comment
         \\unknown_key = ignored
@@ -131,6 +144,8 @@ test "config: parse key=value file" {
     try std.testing.expectEqual(@as(u16, 8081), cfg.peer_port);
     try std.testing.expectEqualSlices(u8, "/tmp/vault-test", cfg.data_dir);
     try std.testing.expectEqualSlices(u8, "http://10.0.0.1:4001", cfg.rqlite_url);
+    try std.testing.expectEqualSlices(u8, "orama", cfg.rqlite_username.?);
+    try std.testing.expectEqualSlices(u8, "/opt/orama/.orama/secrets/rqlite-password", cfg.rqlite_password_file.?);
 }
 
 test "config: partial config uses defaults for missing keys" {

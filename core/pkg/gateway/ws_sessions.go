@@ -21,5 +21,8 @@ func (g *Gateway) startWSSessionSweeper() {
 			"no auth service: WebSockets are not held to token expiry or revocation")
 		return
 	}
+	// Sockets the attestation middleware judged at their upgrade are held to
+	// their namespace's attestation policy too (feat-941).
+	g.wsSessions.SetGate(attestationSocketGate{authService: g.authService})
 	go g.wsSessions.Run(g.shutdownCtx, g.authService, wssession.SweepInterval)
 }

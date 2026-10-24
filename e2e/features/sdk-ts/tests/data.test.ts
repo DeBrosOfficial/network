@@ -1,8 +1,8 @@
 // Data-plane methods the SDK's own e2e suite does not reach: storage
 // getBinary, db dropTable and the Repository, functions.invoke of a function
-// that does not exist.
-import { NotFoundError, SDKError } from "../../../../sdk/src/index";
-import { onFleet, ownerClient, unique } from "./fleet";
+// that does not exist, cache multiGet answering misses and raising a refusal.
+import { AuthError, NotFoundError, SDKError } from "../../../../sdk/src/index";
+import { nsClient, onFleet, ownerClient, unique } from "./fleet";
 
 describe.skipIf(!onFleet)("sdk data plane", () => {
   it("storage.getBinary streams back exactly the uploaded bytes", async () => {
@@ -68,5 +68,23 @@ describe.skipIf(!onFleet)("sdk data plane", () => {
     expect(err).toBeInstanceOf(SDKError);
     expect(err).toBeInstanceOf(NotFoundError);
     expect((err as SDKError).httpStatus).toBe(404);
+  });
+
+  it("cache.multiGet maps every key, null for a miss", async () => {
+    const client = ownerClient();
+    const dmap = unique("e2e_mget");
+    await client.cache.put(dmap, "held", { n: 1 });
+    const got = await client.cache.multiGet(dmap, ["held", "absent"]);
+    expect(got.get("held")).toEqual({ n: 1 });
+    expect(got.has("absent")).toBe(true);
+    expect(got.get("absent")).toBeNull();
+  });
+
+  // bug-385: a refused multiGet used to answer a map of nulls, so a refusal
+  // read as a run of misses.
+  it("cache.multiGet raises a refusal instead of answering misses", async () => {
+    const err = await nsClient().cache.multiGet(unique("e2e_mget"), ["a"]).catch((e) => e);
+    expect(err).toBeInstanceOf(AuthError);
+    expect((err as SDKError).httpStatus).toBe(401);
   });
 });

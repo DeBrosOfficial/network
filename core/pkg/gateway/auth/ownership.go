@@ -92,26 +92,33 @@ var ErrNamespaceUnowned = errors.New("this namespace has no owner, so nobody may
 // owner. That is now the only path that writes an owner grant, which is the
 // invariant the epic asks for.
 func (s *Service) RequireSignInAllowed(ctx context.Context, wallet, namespace string) error {
+	_, err := s.signInAdmission(ctx, wallet, namespace)
+	return err
+}
+
+// signInAdmission is RequireSignInAllowed, and reports whether the wallet was
+// let in as a grantless end user of an open namespace.
+func (s *Service) signInAdmission(ctx context.Context, wallet, namespace string) (endUser bool, err error) {
 	if s.keyORM() == nil {
-		return fmt.Errorf("client not initialized")
+		return false, fmt.Errorf("client not initialized")
 	}
 	if strings.TrimSpace(wallet) == "" {
-		return fmt.Errorf("wallet is required")
+		return false, fmt.Errorf("wallet is required")
 	}
 	if IsLobbyNamespace(namespace) {
-		return nil
+		return false, nil
 	}
 
 	nsID, err := s.resolveKeyNamespaceID(ctx, namespace)
 	if err != nil {
-		return fmt.Errorf("failed to resolve namespace %q: %w", namespace, err)
+		return false, fmt.Errorf("failed to resolve namespace %q: %w", namespace, err)
 	}
 	db := s.keyORM().Database()
 
 	if _, err := s.GrantIn(ctx, db, nsID, PrincipalWallet, NormalizeWallet(wallet)); err == nil {
-		return nil
+		return false, nil
 	} else if !errors.Is(err, ErrNotAMember) {
-		return fmt.Errorf("failed to read the grants of namespace %q: %w", namespace, err)
+		return false, fmt.Errorf("failed to read the grants of namespace %q: %w", namespace, err)
 	}
 
 	// Which refusal it is matters to whoever reads it: a namespace with an
@@ -119,21 +126,21 @@ func (s *Service) RequireSignInAllowed(ctx context.Context, wallet, namespace st
 	// created it properly.
 	owner, err := s.ownerOf(ctx, db, nsID)
 	if err != nil {
-		return fmt.Errorf("failed to read the owner of namespace %q: %w", namespace, err)
+		return false, fmt.Errorf("failed to read the owner of namespace %q: %w", namespace, err)
 	}
 	if owner == "" {
-		return fmt.Errorf("%w: %q", ErrNamespaceUnowned, namespace)
+		return false, fmt.Errorf("%w: %q", ErrNamespaceUnowned, namespace)
 	}
 	// Read now, not from the refresh cache: this is the path that issues a
 	// session, and one issued in the stale window would outlive the closing.
 	policy, err := s.SignInPolicyOf(ctx, namespace)
 	if err != nil {
-		return fmt.Errorf("failed to read the sign-in policy of namespace %q: %w", namespace, err)
+		return false, fmt.Errorf("failed to read the sign-in policy of namespace %q: %w", namespace, err)
 	}
 	if policy == SignInOpen {
-		return nil
+		return true, nil
 	}
-	return &ErrNamespaceOwnedByAnother{Namespace: namespace}
+	return false, &ErrNamespaceOwnedByAnother{Namespace: namespace}
 }
 
 // ownerOf returns the namespace's owner, or "" when it has none.

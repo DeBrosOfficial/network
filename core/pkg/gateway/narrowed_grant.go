@@ -166,42 +166,51 @@ func (g *Gateway) refuseUnreadableGrant(w http.ResponseWriter, err error) {
 	writeError(w, http.StatusServiceUnavailable, "the caller's grant could not be read right now; retry shortly")
 }
 
-// narrowOpenRoute carries a narrowed grant onto a route that is open to anyone
-// (invoking a function). Such a route skips the authorization and scope
+// narrowOpenRoute carries a narrowed credential onto a route that is open to
+// anyone (invoking a function). Such a route skips the authorization and scope
 // gates, so a caller's grant was never resolved and its selector never read:
 // a wallet narrowed to `fn:name=checkout` invoked any function of the
-// namespace. A caller with no credential, no grant, or a grant with no
-// selector is left as it was — whether it may run the function is the
-// invoker's decision, and this only takes access away.
+// namespace. An API key narrowed to resources is the same case, whether it is
+// presented bare or exchanged for a token. A caller with no credential, or one
+// narrowed by neither a grant selector nor key resources, is left as it was —
+// whether it may run the function is the invoker's decision, and this only
+// takes access away.
 //
 // It reports whether the request may continue; on false the response has been
 // written.
 func (g *Gateway) narrowOpenRoute(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
-	claims, _ := r.Context().Value(ctxKeyJWT).(*auth.JWTClaims)
-	if claims == nil {
-		return r, true
+	if claims, _ := r.Context().Value(ctxKeyJWT).(*auth.JWTClaims); claims != nil {
+		// Invoking is the data plane, the hot path: the cached read.
+		grant, err := g.cachedRequestGrant(r, claims.Sub)
+		if err != nil {
+			g.refuseUnreadableGrant(w, err)
+			return nil, false
+		}
+		// The grant is carried whatever it says, because the invoker reads
+		// it: an `internal: true` function runs only for an admin, and a
+		// wallet's admin is its grant (getCallerIsAdminFromRequest), so the
+		// namespace's own owner was refused every internal function. A
+		// workload's invoke grant is read off it too, because the scopes its
+		// token was minted with are the grant of the moment the unit started
+		// (see getCallerHasInvokeFromRequest).
+		if grant != nil {
+			r = markGrant(r, grant)
+		}
 	}
-	// Invoking is the data plane, the hot path: the cached read.
-	grant, err := g.cachedRequestGrant(r, claims.Sub)
-	if err != nil {
-		g.refuseUnreadableGrant(w, err)
-		return nil, false
-	}
-	if grant == nil {
-		return r, true
-	}
-	// The grant is carried whatever it says, because the invoker reads it: an
-	// `internal: true` function runs only for an admin, and a wallet's admin
-	// is its grant (getCallerIsAdminFromRequest), so the namespace's own owner
-	// was refused every internal function. A workload's invoke grant is read
-	// off it too, because the scopes its token was minted with are the grant
-	// of the moment the unit started (see getCallerHasInvokeFromRequest).
-	r = markGrant(r, grant)
-	// Without a selector the grant narrows nothing. Permissions are set from a
-	// grant only when it narrows, or a reader app would be refused a public
-	// function by the resource check that follows.
-	if strings.TrimSpace(grant.Resource) == "" {
+	// Permissions are set only when something narrows, or a reader app would
+	// be refused a public function by the resource check that follows.
+	if !callerIsNarrowed(r) {
 		return r, true
 	}
 	return r.WithContext(context.WithValue(r.Context(), ctxkeys.Permissions, g.callerPermissions(r))), true
+}
+
+// callerIsNarrowed reports whether the request's credential is limited to
+// named resources: by its grant's selector, or by the resources on its key.
+func callerIsNarrowed(r *http.Request) bool {
+	if grant, _ := r.Context().Value(ctxKeyGrant).(*auth.Grant); grant != nil && strings.TrimSpace(grant.Resource) != "" {
+		return true
+	}
+	resources, _ := r.Context().Value(ctxKeyKeyResources).(auth.KeyResources)
+	return len(resources) > 0
 }

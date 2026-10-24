@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Orama-Network/orama/core/pkg/fleetattest"
 	"github.com/Orama-Network/orama/e2e/harness/config"
 	"github.com/Orama-Network/orama/e2e/harness/fleet"
 	"github.com/Orama-Network/orama/e2e/harness/provision"
@@ -36,7 +37,7 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 }
 
 func cmdProvision(parent context.Context, args []string) (int, error) {
-	if err := refuseStagenetEnv("provision"); err != nil {
+	if err := refuseTestnetEnv("provision"); err != nil {
 		return exitFail, err
 	}
 	if err := parseFlags(flag.NewFlagSet("provision", flag.ContinueOnError), args); err != nil {
@@ -94,8 +95,8 @@ func cmdTest(parent context.Context, args []string) (int, error) {
 	if err != nil {
 		return exitFail, err
 	}
-	if st.IsStagenet() {
-		if err := signInStagenetOperator(ctx, st); err != nil {
+	if st.IsTestnet() {
+		if err := signInTestnetOperator(ctx, st); err != nil {
 			return exitFail, err
 		}
 	} else if _, err := runTTL(lay, os.LookupEnv); err != nil {
@@ -141,24 +142,24 @@ func splitFeatures(list string) []string {
 	return out
 }
 
-// stagenetTestParallel bounds how many tests of a package run at once on the stagenet target: its
+// testnetTestParallel bounds how many tests of a package run at once on the testnet target: its
 // three nodes are shared, oversubscribed VPSs that also serve the cluster, and ten namespaces
 // provisioning at once starved one of them until provisioning rolled back (2026-09-30).
-const stagenetTestParallel = 2
+const testnetTestParallel = 2
 
 // testParallel is the -parallel for st: flag when set (>= 0), else the target's default.
 func testParallel(st *fleet.State, flag int) int {
 	if flag >= 0 {
 		return flag
 	}
-	if st.IsStagenet() {
-		return stagenetTestParallel
+	if st.IsTestnet() {
+		return testnetTestParallel
 	}
 	return 0
 }
 
 func cmdTeardown(parent context.Context, args []string) (int, error) {
-	if err := refuseStagenetEnv("teardown"); err != nil {
+	if err := refuseTestnetEnv("teardown"); err != nil {
 		return exitFail, err
 	}
 	if err := parseFlags(flag.NewFlagSet("teardown", flag.ContinueOnError), args); err != nil {
@@ -177,7 +178,7 @@ func cmdTeardown(parent context.Context, args []string) (int, error) {
 }
 
 func cmdSweep(parent context.Context, args []string) (int, error) {
-	if err := refuseStagenetEnv("sweep"); err != nil {
+	if err := refuseTestnetEnv("sweep"); err != nil {
 		return exitFail, err
 	}
 	fs := flag.NewFlagSet("sweep", flag.ContinueOnError)
@@ -241,6 +242,9 @@ func writeReport(lay layout, run reportRun, bugs bool) (int, error) {
 		return exitFail, err
 	}
 	if err := report.WriteAll(run.artifactDir, rep, bugs); err != nil {
+		return exitFail, err
+	}
+	if err := fleetattest.Remove(run.artifactDir); err != nil {
 		return exitFail, err
 	}
 	fmt.Println(rep.Notification)

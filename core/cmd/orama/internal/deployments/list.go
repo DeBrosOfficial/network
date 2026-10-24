@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/printer"
 	"github.com/spf13/cobra"
 )
 
@@ -45,11 +46,27 @@ var RollbackCmd = &cobra.Command{
 
 var (
 	rollbackVersion int
+	rollbackYes     bool
+	deleteYes       bool
 )
 
 func init() {
 	RollbackCmd.Flags().IntVar(&rollbackVersion, "version", 0, "Version to rollback to (required)")
 	RollbackCmd.MarkFlagRequired("version")
+	RollbackCmd.Flags().BoolVar(&rollbackYes, "yes", false, "Roll back without asking")
+	DeleteCmd.Flags().BoolVar(&deleteYes, "yes", false, "Delete without asking")
+}
+
+// confirmYN asks prompt on out and takes y or yes from in, unless yes is set.
+// Any other answer, end of input included, is an Aborted error, so a script
+// that does not confirm exits non-zero instead of reading "nothing happened"
+// as success.
+func confirmYN(in io.Reader, out io.Writer, yes bool, prompt string) error {
+	if yes {
+		return nil
+	}
+	fmt.Fprint(out, prompt)
+	return clierr.Confirm(in, "y", "Y", "yes")
 }
 
 func listDeployments(cmd *cobra.Command, args []string) error {
@@ -221,13 +238,9 @@ func getDeployment(cmd *cobra.Command, args []string) error {
 func deleteDeployment(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
-	fmt.Printf("⚠️  Are you sure you want to delete deployment '%s'? (y/N): ", name)
-	var confirm string
-	fmt.Scanln(&confirm)
-
-	if confirm != "y" && confirm != "Y" {
-		fmt.Println("Cancelled")
-		return nil
+	prompt := fmt.Sprintf("⚠️  Are you sure you want to delete deployment '%s'? (y/N): ", name)
+	if err := confirmYN(cmd.InOrStdin(), cmd.OutOrStdout(), deleteYes, prompt); err != nil {
+		return err
 	}
 
 	apiURL, err := getAPIURL()
@@ -275,13 +288,9 @@ func rollbackDeployment(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("version must be positive")
 	}
 
-	fmt.Printf("⚠️  Rolling back '%s' to version %d. Continue? (y/N): ", name, rollbackVersion)
-	var confirm string
-	fmt.Scanln(&confirm)
-
-	if confirm != "y" && confirm != "Y" {
-		fmt.Println("Cancelled")
-		return nil
+	prompt := fmt.Sprintf("⚠️  Rolling back '%s' to version %d. Continue? (y/N): ", name, rollbackVersion)
+	if err := confirmYN(cmd.InOrStdin(), cmd.OutOrStdout(), rollbackYes, prompt); err != nil {
+		return err
 	}
 
 	apiURL, err := getAPIURL()

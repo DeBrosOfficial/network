@@ -79,7 +79,7 @@ When TTL is omitted (or `"0s"`), the entry does not expire automatically. A TTL 
 
 ### Multi-Get
 
-Fetch multiple keys from the same dmap in a single request. Returns a `Map<string, any | null>` where missing keys have a value of `null`.
+Fetch multiple keys from the same dmap in a single request. Returns a `Map<string, any | null>` where missing keys have a value of `null`. A failed request (the cache unavailable, the credential refused) rejects with an `SDKError`; it is never answered with nulls.
 
 ```typescript
 const results = await client.cache.multiGet("sessions", [
@@ -264,7 +264,7 @@ async function destroySession(token: string) {
 | `put` | `put(dmap, key, value, ttl?)` | Store a value. TTL is a duration string (`"1h"`, `"30m"`, `"5s"`). |
 | `get` | `get(dmap, key)` | Retrieve a value. Returns `null` on cache miss. |
 | `delete` | `delete(dmap, key)` | Remove a value. |
-| `multiGet` | `multiGet(dmap, keys)` | Fetch multiple keys. Returns `Map<string, any \| null>`. |
+| `multiGet` | `multiGet(dmap, keys)` | Fetch multiple keys. Returns `Map<string, any \| null>`; rejects on a failed request. |
 | `scan` | `scan(dmap, match?)` | List keys in a dmap, optionally filtered by regex. |
 | `health` | `health()` | Check cache service health. |
 

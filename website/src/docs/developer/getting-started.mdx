@@ -71,7 +71,7 @@ This is a per-namespace SQLite database, reached from the CLI. The namespace als
 
 ## 7. Call it from code
 
-What a key may do depends on its grants. Two keys cover a typical app.
+What a key may do depends on its grants. A typical app needs one key, on its server, and ships none.
 
 **On a server, in CI or in a script:** an `admin` key. It reaches the control plane, including the namespace's RQLite database, so it never goes in a browser or mobile bundle.
 
@@ -94,26 +94,29 @@ await server.db.exec("INSERT INTO messages (room, body) VALUES (?, ?)", ["genera
 const rows = await server.db.query("SELECT * FROM messages WHERE room = ?", ["general"]);
 ```
 
-**In a browser or mobile app:** a key with data-plane grants only, named explicitly. The `app-runtime` profile does not include `pubsub` or `cache`, so ask for them.
-
-```bash
-orama namespace keys create --scope invoke,pubsub,cache --label web
-```
+**In a browser or mobile app:** no key, if the app needs nothing before its user signs in. Anything in a bundle is public. Signing in and invoking a function deployed `public: true` need no credential, and once the user has signed in with their wallet ([Wallet login](/docs/developer/sdk-reference#wallet-login)) their session reaches storage, push, WebRTC and the cache:
 
 ```ts
 const client = createClient({
   baseURL: "https://ns-myapp.cluster.example.com",
-  apiKey: process.env.ORAMA_WEB_KEY,      // injected at build time
 });
 
+// after the user has signed in
+const { cid } = await client.storage.upload(new Blob(["file contents"]), "hello.txt");
 await client.cache.put("sessions", "alice", { seen: Date.now() }, "1h");
-await client.pubsub.publish("room:general", "hello");
 ```
 
-Storage is different: the gateway refuses a key on its own and wants the signed-in user as well, so upload after the user has signed in with their wallet ([Wallet login](/docs/developer/sdk-reference#wallet-login)):
+If the app must call private functions before sign-in, ship an `invoke-only` key narrowed to them:
 
-```ts
-const { cid } = await client.storage.upload(new Blob(["file contents"]), "hello.txt");
+```bash
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+```
+
+**In a function that cleans up storage:** a function that unpins with no user signed in (a prune job, say) gets a key of its own with the `storage` grant alone, set as a secret and never shipped:
+
+```bash
+orama namespace keys create --scope storage --label prune-fn
+orama function secrets set STORAGE_KEY "<the key>"
 ```
 
 Where a key may live, and what each profile can do: [Access control and keys](/docs/developer/access-control). The full client: [TypeScript SDK](/docs/developer/sdk-reference).
@@ -176,8 +179,12 @@ Deploying uses your own credentials. An application that talks to the gateway at
 runtime needs a key of its own, and which one depends on where the code runs:
 
 ```bash
-# Safe in a browser bundle: data-plane grants only
-orama namespace keys create --scope app-runtime --label web
+# A browser or mobile app that needs nothing before sign-in ships no key.
+# One that must call functions first ships invoke-only, narrowed to them:
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+
+# A function that reclaims storage: storage alone, kept in the namespace's secrets
+orama namespace keys create --scope storage --label prune-fn
 
 # Server-side only: the whole control plane
 orama namespace keys create --scope admin --label ci

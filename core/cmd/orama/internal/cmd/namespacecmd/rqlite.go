@@ -42,8 +42,9 @@ WebRTC settings) will be replaced with the imported file. The file must be a SQL
 database, as 'export' writes; at most 256 MiB. Live keys and grants (in the cluster
 registry) are not replaced, and stale copies in the file are ignored. The namespace's
 storage quota stays as it was. The gateway checks the file before loading it and
-refuses (400, nothing written) one that is damaged or carries triggers, views over
-platform tables or stored-object records for content only other namespaces hold;
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold;
 it removes plaintext API keys and other namespaces' records an older file may carry,
 and checks again, after the load. One backup, restore, export or
 import runs at a time on a gateway.`,
@@ -55,6 +56,7 @@ func init() {
 
 	rqliteImportCmd.Flags().StringP("input", "i", "", "Input SQLite file path")
 	_ = rqliteImportCmd.MarkFlagRequired("input")
+	rqliteImportCmd.Flags().Bool("yes", false, "Replace the database without typing the namespace name")
 
 	rqliteCmd.AddCommand(rqliteExportCmd)
 	rqliteCmd.AddCommand(rqliteImportCmd)
@@ -148,13 +150,13 @@ func rqliteImport(cmd *cobra.Command, args []string) error {
 	fmt.Printf("WARNING: This will REPLACE the entire RQLite database for namespace '%s'.\n", namespace)
 	fmt.Printf("All existing data (your tables, functions, function secrets, stored-object records, push and WebRTC settings) will be lost.\n")
 	fmt.Printf("Importing from: %s (%d bytes)\n\n", input, info.Size())
-	fmt.Printf("Type the namespace name '%s' to confirm: ", namespace)
-
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	confirmation := strings.TrimSpace(scanner.Text())
-	if confirmation != namespace {
-		return fmt.Errorf("aborted - namespace name did not match")
+	if yes, _ := cmd.Flags().GetBool("yes"); !yes {
+		fmt.Printf("Type the namespace name '%s' to confirm: ", namespace)
+		scanner := bufio.NewScanner(cmd.InOrStdin())
+		scanner.Scan()
+		if strings.TrimSpace(scanner.Text()) != namespace {
+			return fmt.Errorf("aborted - namespace name did not match")
+		}
 	}
 
 	file, err := os.Open(input)

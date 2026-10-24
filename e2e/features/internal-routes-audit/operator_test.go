@@ -25,11 +25,10 @@ type refusal struct {
 }
 
 // operatorRefusals are the callers who are not operators of the cluster:
-// nobody (401 AUTH_MISSING); the namespace's owner and its admin key, whose
-// owner grant reaches the operator domain and whose wallet is not on the
-// operator list (403 NOT_AN_OPERATOR, handlers/operator/authorize.go); a
-// runtime member and a lobby session, which never reach the domain (403
-// INSUFFICIENT_SCOPE, scope_policy.go).
+// nobody (401 AUTH_MISSING); the namespace's owner, its admin key, a runtime
+// member and a lobby session, none of them on the operator list (403
+// NOT_AN_OPERATOR, the scope gate in operator_gate.go): no permission reaches
+// an operator route.
 func operatorRefusals(t *testing.T, n *ns.Namespace) []refusal {
 	t.Helper()
 	lobby := gw.NewUser(t, harness.Fleet(t), gw.LobbyNamespace)
@@ -37,13 +36,13 @@ func operatorRefusals(t *testing.T, n *ns.Namespace) []refusal {
 		{"no credential", tenancy.Cred{}, http.StatusUnauthorized, tenancy.CodeMissing},
 		{"namespace owner", tenancy.Owner(n), http.StatusForbidden, tenancy.CodeNotOperator},
 		{"admin API key", tenancy.Cred{APIKey: tenancy.APIKey(t, n, scopeAdmin)}, http.StatusForbidden, tenancy.CodeNotOperator},
-		{"runtime member", tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleRuntime).Token()}, http.StatusForbidden, tenancy.CodeScope},
-		{"lobby session", tenancy.Cred{Bearer: lobby.Token()}, http.StatusForbidden, tenancy.CodeScope},
+		{"runtime member", tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleRuntime).Token()}, http.StatusForbidden, tenancy.CodeNotOperator},
+		{"lobby session", tenancy.Cred{Bearer: lobby.Token()}, http.StatusForbidden, tenancy.CodeNotOperator},
 	}
 }
 
 // TestOperatorNodeRegister_nonOperatorsRefused: recording a node in the
-// inventory needs the operator grant and the wallet on the operator list; a
+// inventory needs a wallet session on the operator list; a
 // plain namespace admin — which any fresh wallet is, of its own namespace —
 // is refused before the body is read, with or without spoofed headers. The
 // body names no node, so even a missing gate would answer 400 and write

@@ -72,6 +72,32 @@ func platformEnv(namespace, serviceName, gatewayURL, entryPoint string, port int
 	return env
 }
 
+// ClusterTrustEnvKeys point a deployment's runtime at the roots its cluster's
+// certificates chain to when the system roots are not enough (a cluster on
+// Let's Encrypt staging, pkg/clustertrust), so an app can call
+// ORAMA_GATEWAY_URL with its runtime's default TLS client. Both name the same
+// file, which holds only the extra roots and adds to the system roots:
+//
+//   - NODE_EXTRA_CA_CERTS: Node.js (and Next.js) adds the file to its bundled
+//     roots.
+//   - SSL_CERT_FILE: Go's crypto/x509 on Linux and OpenSSL (Python, Ruby,
+//     curl) read it in place of the system bundle file, and still read the
+//     system certificate directory /etc/ssl/certs, which holds every system
+//     root.
+//
+// They are set only on such a cluster, and a tenant can set them on none
+// (the gateway reserves them with PlatformEnvKeys).
+var ClusterTrustEnvKeys = []string{"NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"}
+
+// clusterTrustEnv returns the variables that point a runtime at trustFile.
+func clusterTrustEnv(trustFile string) map[string]string {
+	env := make(map[string]string, len(ClusterTrustEnvKeys))
+	for _, key := range ClusterTrustEnvKeys {
+		env[key] = trustFile
+	}
+	return env
+}
+
 // mergeEnv returns the deployment's environment with the platform's variables
 // applied last, so a tenant value can never displace one of them.
 func mergeEnv(tenant map[string]string, platform map[string]string) map[string]string {

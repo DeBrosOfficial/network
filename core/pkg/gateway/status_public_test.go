@@ -165,7 +165,7 @@ func TestNetworkDetail_admitsANodeOverTheMesh(t *testing.T) {
 }
 
 // The policy sends only a stamped request past the middleware without a
-// credential; everything else needs the operator grant first.
+// credential; everything else is an operator route.
 func TestNetworkDetailPolicy(t *testing.T) {
 	plain := httptest.NewRequest(http.MethodGet, "/v1/network/status", nil)
 	if networkDetailPolicy(plain).Access.Anonymous() {

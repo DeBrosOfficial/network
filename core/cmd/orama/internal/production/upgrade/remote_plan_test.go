@@ -10,15 +10,15 @@ import (
 )
 
 // A three-voter cluster; 37.59.116.212 is the stagenet node from the bug.
-var stagenet = []inspector.Node{
-	{Environment: "stagenet", Host: "37.59.116.212", Role: "nameserver-ns1"},
-	{Environment: "stagenet", Host: "203.0.113.2", Role: "nameserver-ns2"},
-	{Environment: "stagenet", Host: "203.0.113.3", Role: "nameserver-ns3"},
+var testnet = []inspector.Node{
+	{Environment: "testnet", Host: "37.59.116.212", Role: "nameserver-ns1"},
+	{Environment: "testnet", Host: "203.0.113.2", Role: "nameserver-ns2"},
+	{Environment: "testnet", Host: "203.0.113.3", Role: "nameserver-ns3"},
 }
 
 func rolesWithLeader(leader string) map[string]rollout.RaftRole {
 	roles := map[string]rollout.RaftRole{}
-	for _, n := range stagenet {
+	for _, n := range testnet {
 		roles[n.Host] = rollout.RoleFollower
 	}
 	roles[leader] = rollout.RoleLeader
@@ -28,7 +28,7 @@ func rolesWithLeader(leader string) map[string]rollout.RaftRole {
 // Bugboard 2721: `--node 37.59.116.212` on a healthy cluster read only that
 // follower, found no leader, and refused with "the cluster has no quorum".
 func TestPlanRollout_filteredFollowerInHealthyCluster(t *testing.T) {
-	plan, err := planRollout(stagenet, rolesWithLeader("203.0.113.2"), "37.59.116.212")
+	plan, err := planRollout(testnet, rolesWithLeader("203.0.113.2"), "37.59.116.212")
 	if err != nil {
 		t.Fatalf("a healthy cluster must plan a single follower: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestPlanRollout_filteredFollowerInHealthyCluster(t *testing.T) {
 // Naming the leader keeps its leader step; the node-side upgrade hands
 // leadership over before it stops anything.
 func TestPlanRollout_filteredLeaderKeepsLeaderStep(t *testing.T) {
-	plan, err := planRollout(stagenet, rolesWithLeader("37.59.116.212"), "37.59.116.212")
+	plan, err := planRollout(testnet, rolesWithLeader("37.59.116.212"), "37.59.116.212")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,10 +59,10 @@ func TestPlanRollout_filteredLeaderKeepsLeaderStep(t *testing.T) {
 // The preconditions are about the cluster, so a filter does not relax them.
 func TestPlanRollout_filterStillRefusesWithoutLeader(t *testing.T) {
 	roles := map[string]rollout.RaftRole{}
-	for _, n := range stagenet {
+	for _, n := range testnet {
 		roles[n.Host] = rollout.RoleFollower
 	}
-	_, err := planRollout(stagenet, roles, "37.59.116.212")
+	_, err := planRollout(testnet, roles, "37.59.116.212")
 	var noLeader *rollout.ErrNoLeader
 	if !errors.As(err, &noLeader) {
 		t.Fatalf("err = %v, want ErrNoLeader", err)
@@ -74,7 +74,7 @@ func TestPlanRollout_filterStillRefusesWithoutLeader(t *testing.T) {
 func TestPlanRollout_filterStillRefusesWhenAnotherNodeIsUnreadable(t *testing.T) {
 	roles := rolesWithLeader("203.0.113.2")
 	roles["203.0.113.3"] = rollout.RoleUnknown
-	_, err := planRollout(stagenet, roles, "37.59.116.212")
+	_, err := planRollout(testnet, roles, "37.59.116.212")
 	var unreachable *rollout.ErrUnreachable
 	if !errors.As(err, &unreachable) {
 		t.Fatalf("err = %v, want ErrUnreachable", err)
@@ -85,19 +85,19 @@ func TestPlanRollout_filterStillRefusesWhenAnotherNodeIsUnreadable(t *testing.T)
 }
 
 func TestPlanRollout_unknownNodeErrors(t *testing.T) {
-	_, err := planRollout(stagenet, rolesWithLeader("203.0.113.2"), "10.9.9.9")
+	_, err := planRollout(testnet, rolesWithLeader("203.0.113.2"), "10.9.9.9")
 	if err == nil || !strings.Contains(err.Error(), "10.9.9.9") {
 		t.Fatalf("err = %v, want an error naming the unknown node", err)
 	}
 }
 
 func TestPlanRollout_noFilterPlansEveryNode(t *testing.T) {
-	plan, err := planRollout(stagenet, rolesWithLeader("203.0.113.2"), "")
+	plan, err := planRollout(testnet, rolesWithLeader("203.0.113.2"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Steps) != len(stagenet) {
-		t.Fatalf("steps = %d, want %d", len(plan.Steps), len(stagenet))
+	if len(plan.Steps) != len(testnet) {
+		t.Fatalf("steps = %d, want %d", len(plan.Steps), len(testnet))
 	}
 	if last := plan.Steps[len(plan.Steps)-1]; last.Node.Host != "203.0.113.2" {
 		t.Fatalf("leader %s is not last: %s", "203.0.113.2", plan)

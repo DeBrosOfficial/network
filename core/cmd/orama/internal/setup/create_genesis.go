@@ -10,7 +10,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/constants"
 )
 
-// The genesis of a network setup creates is built the way chain/scripts/stagenet/
+// The genesis of a network setup creates is built the way chain/scripts/testnet/
 // deploy.sh built stagenet's: oramad's own `genesis` commands in a scratch home,
 // on the first machine, from every machine's public keys; then one edit of the
 // consensus parameters, which no module owns.

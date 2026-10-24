@@ -25,7 +25,7 @@ const (
 	maxOverlapDays  = 30
 	dayTolerance    = 10 * time.Minute
 	// appRuntimeScopes is the app-runtime profile, canonical and sorted.
-	appRuntimeScopes = "invoke,proxy,push,storage,webrtc"
+	appRuntimeScopes = "invoke,proxy,push,webrtc"
 )
 
 // keyShape is orama_<sk|rk>_<base62>_<base62 checksum> (docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys).
@@ -267,5 +267,77 @@ func TestKeys_revokeLegacyCutover(t *testing.T) {
 		if out.Status != "revoked-legacy" || out.Revoked != 0 {
 			t.Errorf("run %d: %+v", i+1, out)
 		}
+	}
+}
+
+// fiveFunctions is one key's whole reach: five functions sharing no single
+// pattern (docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys).
+var fiveFunctions = []string{
+	"fn:subscription-intent-create",
+	"fn:subscription-read",
+	"fn:subscription-record-payment",
+	"fn:user-find-by-username",
+	"fn:user-find-by-wallet",
+}
+
+// TestKeys_narrowedToResources: a key minted with resources reports them,
+// the list shows them, a rotation carries them to the successor, and a
+// resource the key could not be narrowed to is refused at mint
+// (docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys). What
+// a narrowed key may invoke is asserted where functions are deployed
+// (auth-capability-ws).
+func TestKeys_narrowedToResources(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	n := ns.New(t, f, ns.Options{})
+	c := harness.GW(t)
+
+	k := mintKey(t, n, map[string]any{"scope": "invoke-only", "label": "five", "resources": fiveFunctions})
+	if strings.Join(k.Resources, ",") != strings.Join(fiveFunctions, ",") {
+		t.Errorf("minted resources %v, want %v", k.Resources, fiveFunctions)
+	}
+	pattern := mintKey(t, n, map[string]any{"scope": "invoke-only", "resource": "fn:premium-*"})
+	if strings.Join(pattern.Resources, ",") != "fn:premium-*" {
+		t.Errorf("minted resources %v, want [fn:premium-*]", pattern.Resources)
+	}
+
+	for name, body := range map[string]map[string]any{
+		"a domain the key does not hold": {"scope": "invoke-only", "resource": "storage:avatars/*"},
+		"a domain nothing applies":       {"scope": "push", "resource": "push:topic=x"},
+		"an admin key":                   {"scope": "admin", "resource": "fn:a"},
+		"a scope no resource narrows":    {"scope": "app-runtime", "resource": "fn:a"},
+		"not a selector":                 {"scope": "invoke-only", "resource": "premium-status"},
+	} {
+		if r := send(t, c, http.MethodPost, pathKeys, n.Owner.Token(), body); r.Status != http.StatusBadRequest {
+			t.Errorf("%s: want 400, got %d %s", name, r.Status, r.Body)
+		}
+	}
+
+	var rot struct {
+		ID     int64  `json:"id"`
+		APIKey string `json:"api_key"`
+	}
+	if err := send(t, c, http.MethodPost, keyPath(k.ID)+"/rotate", n.Owner.Token(), nil).Expect(t, http.StatusCreated).Decode(&rot); err != nil {
+		t.Fatal(err)
+	}
+	protect(t, c, rot.APIKey)
+	t.Cleanup(func() { revokeAtCleanup(t, n, rot.ID) })
+
+	var list struct {
+		Keys []struct {
+			ID        int64    `json:"id"`
+			Resources []string `json:"resources"`
+		} `json:"keys"`
+	}
+	if err := send(t, c, http.MethodGet, pathKeys, n.Owner.Token(), nil).Expect(t, http.StatusOK).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	listed := map[int64]string{}
+	for _, row := range list.Keys {
+		listed[row.ID] = strings.Join(row.Resources, ",")
+	}
+	want := strings.Join(fiveFunctions, ",")
+	if listed[k.ID] != want || listed[rot.ID] != want {
+		t.Errorf("listed resources: key %d %q, successor %d %q, want %q", k.ID, listed[k.ID], rot.ID, listed[rot.ID], want)
 	}
 }

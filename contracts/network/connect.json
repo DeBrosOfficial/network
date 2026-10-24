@@ -1,0 +1,18 @@
+{
+  "route": "/v1/network/connect",
+  "method": "POST",
+  "sdk": "network.connect()",
+  "goStruct": "gateway.networkConnectRequest",
+  "call": {
+    "module": "network",
+    "method": "connect",
+    "args": ["/ip4/10.0.0.2/tcp/4001/p2p/12D3KooWGzBLmKGtJ4TJ7XFUH8uPEM1L6Nwrn4UtqFLy3RqvQoHb"]
+  },
+  "request": {
+    "multiaddr": "/ip4/10.0.0.2/tcp/4001/p2p/12D3KooWGzBLmKGtJ4TJ7XFUH8uPEM1L6Nwrn4UtqFLy3RqvQoHb"
+  },
+  "response": {
+    "status": "ok"
+  },
+  "returns": null
+}

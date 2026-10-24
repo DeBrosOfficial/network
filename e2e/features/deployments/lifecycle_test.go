@@ -43,16 +43,21 @@ func TestDeployLifecycle_updateRollbackVersions(t *testing.T) {
 	if versions.Current != 2 || seen[1] != 1 || seen[2] != 1 || len(seen) != 2 {
 		t.Errorf("after one update the versions are %+v at current %d, want exactly one row each for 1 and 2", versions.Versions, versions.Current)
 	}
-	// The rollback asks "(y/N)" on stdin; without an answer it cancels and
-	// exits 0, so every run here answers y and a refusal is the API's.
-	confirm := oramacli.RunOpts{Stdin: []byte("y\n")}
-	rolled, err := tn.cli.RunWith(t.Context(), confirm, "app", "rollback", "life", "--version", "1")
-	if err != nil || rolled.Exit != 0 || strings.Contains(rolled.Stdout, "Cancelled") {
-		t.Fatalf("orama app rollback life --version 1: exit %d %v %s", rolled.Exit, err, rolled.Stdout)
+	// The rollback asks "(y/N)" on stdin; nothing typed aborts it with
+	// exitAborted and rolls nothing back.
+	unconfirmed, err := tn.cli.Run(t.Context(), "app", "rollback", "life", "--version", "1")
+	if err != nil || unconfirmed.Exit != exitAborted {
+		t.Fatalf("an unconfirmed rollback: exit %d %v %s, want %d", unconfirmed.Exit, err, unconfirmed.Stdout, exitAborted)
+	}
+	serving(t, tn.app(u), "/version", "life-v2")
+	// --yes rolls back without asking; every refusal below is the API's.
+	rolled, err := tn.cli.Run(t.Context(), "app", "rollback", "life", "--version", "1", "--yes")
+	if err != nil || rolled.Exit != 0 {
+		t.Fatalf("orama app rollback life --version 1 --yes: exit %d %v %s", rolled.Exit, err, rolled.Stdout)
 	}
 	serving(t, tn.app(u), "/version", "life-v1")
-	for _, bad := range [][]string{{"app", "rollback", "life", "--version", "99"}, {"app", "rollback", "life"}, {"app", "rollback", "nope", "--version", "1"}} {
-		if res, err := tn.cli.RunWith(t.Context(), confirm, bad...); err != nil || res.Exit == 0 {
+	for _, bad := range [][]string{{"app", "rollback", "life", "--version", "99", "--yes"}, {"app", "rollback", "life", "--yes"}, {"app", "rollback", "nope", "--version", "1", "--yes"}} {
+		if res, err := tn.cli.Run(t.Context(), bad...); err != nil || res.Exit == 0 {
 			t.Errorf("orama %s succeeded (%v): %s", strings.Join(bad, " "), err, res.Stdout)
 		}
 	}
@@ -93,16 +98,19 @@ func (tn *tenant) describes(t testing.TB, name string) {
 }
 
 // TestDeployLifecycle_cliDeleteNeedsConfirmation: `orama app delete` asks for
-// "y"; with nothing typed nothing is deleted.
+// "y"; with nothing typed nothing is deleted and the exit is exitAborted.
+// --yes deletes without asking.
 func TestDeployLifecycle_cliDeleteNeedsConfirmation(t *testing.T) {
 	t.Parallel()
 	tn := newTenant(t)
 	u := tn.deploy(t, "static", staticSite(t, "keep-me"), "keep")
-	out := tn.cli.MustOK(t, "app", "delete", "keep").Stdout
-	if !strings.Contains(out, "Cancelled") {
-		t.Fatalf("an unconfirmed delete printed %q", out)
+	res, err := tn.cli.Run(t.Context(), "app", "delete", "keep")
+	if err != nil || res.Exit != exitAborted {
+		t.Fatalf("an unconfirmed delete: exit %d %v %s, want %d", res.Exit, err, res.Stdout, exitAborted)
 	}
 	serving(t, tn.app(u), "/", "keep-me")
+	tn.cli.MustOK(t, "app", "delete", "keep", "--yes")
+	tn.api(t, http.MethodGet, pathGet+"?name=keep", nil).Expect(t, http.StatusNotFound)
 	help := tn.cli.MustOK(t, "app", "--help").Stdout
 	for _, sub := range []string{"delete", "env", "get", "grants", "list", "logs", "rollback", "stats"} {
 		if !strings.Contains(help, sub) {

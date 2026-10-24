@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/serverless"
-	"github.com/Orama-Network/orama/core/pkg/serverless/registry"
 	"go.uber.org/zap"
 )
 
@@ -129,7 +128,7 @@ func (p *jwtClaimsProvider) ResolveClaims(ctx context.Context, wallet, namespace
 		if err == nil && resp != nil && resp.Status == serverless.InvocationStatusSuccess {
 			return sanitizeProviderClaims(resp.Output)
 		}
-		if errors.Is(err, registry.ErrFunctionNotFound) {
+		if errors.Is(err, serverless.ErrFunctionNotFound) {
 			// No provider deployed — the normal no-claims case. Stay silent, no retry.
 			return nil
 		}

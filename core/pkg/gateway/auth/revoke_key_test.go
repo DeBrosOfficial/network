@@ -69,9 +69,8 @@ func TestRevokeKey_alsoRevokesTheTokensAlreadyIssuedFromTheKey(t *testing.T) {
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	if len(db.revocations) != 1 {
-		t.Fatalf("%d revocations recorded; the key stopped authenticating but its tokens did not",
-			len(db.revocations))
+	if len(db.revocations) == 0 {
+		t.Fatal("no revocation recorded; the key stopped authenticating but its tokens did not")
 	}
 	rev := db.revocations[0]
 	if rev.subject != s.HashAPIKey(rawKey) {
@@ -83,6 +82,41 @@ func TestRevokeKey_alsoRevokesTheTokensAlreadyIssuedFromTheKey(t *testing.T) {
 	if rev.expiresAt <= rev.issuedBefore {
 		t.Errorf("the revocation expires at %d, before or when it starts (%d), so it covers nothing",
 			rev.expiresAt, rev.issuedBefore)
+	}
+}
+
+// bug-702: a socket opened with the bare key holds no token, so revoking the
+// key also revokes its registry id, which the socket sweeper asks by — and a
+// gateway that never recorded the revocation sees it after a reload.
+func TestRevokeKey_revokesTheKeyIDTheSweeperAsksBy(t *testing.T) {
+	s := &Service{apiKeyHMACSecret: "test-hmac-secret"}
+	db := &keyRegistryDB{hashedKey: "hashed"}
+	s.orm = &keyRegistryNet{db: db}
+	s.revocations = NewRevocationList(s.registryDatabase, nil)
+
+	if revoked, err := s.RevokedKey(7); err != nil || revoked {
+		t.Fatalf("before the revocation key 7 reads revoked=%v, %v", revoked, err)
+	}
+	if err := s.RevokeKey(context.Background(), "acme", 7); err != nil {
+		t.Fatalf("RevokeKey: %v", err)
+	}
+	if revoked, err := s.RevokedKey(7); err != nil || !revoked {
+		t.Errorf("after the revocation key 7 reads revoked=%v, %v", revoked, err)
+	}
+	if revoked, _ := s.RevokedKey(8); revoked {
+		t.Error("revoking key 7 revoked key 8")
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	found := false
+	for _, rev := range db.revocations {
+		if rev.subject == keyIDRevocationSubject(7) && rev.expiresAt > rev.issuedBefore {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no live revocation of the key's id was written: %+v", db.revocations)
 	}
 }
 

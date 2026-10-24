@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// wasmFakeIPFS embeds the basic MockIPFSClient and overrides Pin/Get so we can
+// wasmFakeIPFS embeds the basic MockIPFSClient and overrides Pin/GetStored so we can
 // assert the replication factor, force a pin failure, and simulate a cold
 // fetch that fails a few times before the block resolves (bugboard #137).
 type wasmFakeIPFS struct {
@@ -24,9 +24,10 @@ type wasmFakeIPFS struct {
 	failCID       string   // simulate a pin failure for this specific CID (gone block)
 	pinnedCIDs    []string // CIDs successfully pinned
 
-	getErrN  int // return an error for the first N Get calls
-	getCalls int
-	getData  []byte
+	getErrN     int // return an error for the first N GetStored calls
+	getCalls    int
+	getData     []byte
+	notInPinset bool // GetStored answers ErrNotInPinset: the WASM is gone
 
 	// PinStatus control (bugboard #137 pin verification).
 	pinStatus      string // aggregated status to report; "" => "pinned"
@@ -89,12 +90,15 @@ func wasmFakeContains(s []string, want string) bool {
 	return false
 }
 
-func (f *wasmFakeIPFS) Get(ctx context.Context, cid, apiURL string) (io.ReadCloser, error) {
+func (f *wasmFakeIPFS) GetStored(ctx context.Context, cid, apiURL string, _ time.Duration) (*ipfs.StoredContent, error) {
 	f.getCalls++
+	if f.notInPinset {
+		return nil, fmt.Errorf("%w: %s", ipfs.ErrNotInPinset, cid)
+	}
 	if f.getCalls <= f.getErrN {
 		return nil, fmt.Errorf("simulated cold IPFS fetch failure (attempt %d)", f.getCalls)
 	}
-	return io.NopCloser(bytes.NewReader(f.getData)), nil
+	return &ipfs.StoredContent{Body: io.NopCloser(bytes.NewReader(f.getData)), Size: int64(len(f.getData))}, nil
 }
 
 func newWASMTestRegistry(t *testing.T, ip ipfs.IPFSClient) *Registry {
@@ -152,7 +156,7 @@ func TestGetWASMBytes_retriesColdFetch(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	if ip.getCalls != 3 {
-		t.Errorf("Get called %d times, want 3 (2 failures + 1 success)", ip.getCalls)
+		t.Errorf("GetStored called %d times, want 3 (2 failures + 1 success)", ip.getCalls)
 	}
 }
 
@@ -173,7 +177,27 @@ func TestGetWASMBytes_exhaustedReturnsTypedTimeout(t *testing.T) {
 	// wasmFetchMaxAttempts local fetches + 1 post-repin recovery fetch, all of
 	// which fail here (block gone everywhere), so the typed timeout still wins.
 	if ip.getCalls != wasmFetchMaxAttempts+1 {
-		t.Errorf("Get attempted %d times, want %d (local attempts + 1 recovery fetch)", ip.getCalls, wasmFetchMaxAttempts+1)
+		t.Errorf("GetStored attempted %d times, want %d (local attempts + 1 recovery fetch)", ip.getCalls, wasmFetchMaxAttempts+1)
+	}
+}
+
+// bugboard #432: WASM the pinset does not list is gone. GetWASMBytes says so at
+// once, without the retries, re-pin and wait meant for a cold block, which
+// could only spend the invocation's time.
+func TestGetWASMBytes_goneCIDFailsAtOnce(t *testing.T) {
+	ip := &wasmFakeIPFS{MockIPFSClient: NewMockIPFSClient(), notInPinset: true}
+	registry := newWASMTestRegistry(t, ip)
+
+	start := time.Now()
+	_, err := registry.GetWASMBytes(context.Background(), "QmGoneEverywhere")
+	if !errors.Is(err, ErrWASMNotStored) || errors.Is(err, ErrWASMFetchTimeout) {
+		t.Fatalf("err = %v, want ErrWASMNotStored and not the retryable timeout", err)
+	}
+	if ip.getCalls != 1 || ip.pinCalls != 0 {
+		t.Errorf("GetStored called %d times and Pin %d times, want 1 and 0", ip.getCalls, ip.pinCalls)
+	}
+	if took := time.Since(start); took > time.Second {
+		t.Errorf("a gone CID took %s", took)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/capability"
 	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
+	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
 	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
@@ -201,6 +202,15 @@ func (h *ServerlessHandlers) socketCaller(r *http.Request) (wallet string, isAdm
 	return h.getWalletFromRequest(r), h.getCallerIsAdminFromRequest(r), h.getCallerHasInvokeFromRequest(r)
 }
 
+// socketCallerKey is the credential fingerprint the socket's invocations are
+// rate-limited by: none for a capability, which names no account.
+func (h *ServerlessHandlers) socketCallerKey(r *http.Request) string {
+	if requestCapability(r) != nil {
+		return ""
+	}
+	return h.getCallerKeyFromRequest(r)
+}
+
 // socketClaims is what a socket is held to: the verified token it was opened
 // with, or its capability, which the sweeper checks the same way.
 func (h *ServerlessHandlers) socketClaims(r *http.Request) *auth.JWTClaims {
@@ -208,6 +218,23 @@ func (h *ServerlessHandlers) socketClaims(r *http.Request) *auth.JWTClaims {
 		return c.RevocationClaims()
 	}
 	return h.getJWTClaimsFromRequest(r)
+}
+
+// registerSocket holds a socket to the credential that opened it: its token
+// or capability (socketClaims), or the bare API key, by the key's registry id,
+// so revoking the key closes it too (bug-702). A socket whose upgrade the
+// attestation middleware judged is held to its namespace's policy as well.
+func (h *ServerlessHandlers) registerSocket(r *http.Request, closeFn wssession.Closer) *wssession.Socket {
+	var sock *wssession.Socket
+	if claims := h.socketClaims(r); claims != nil {
+		sock = h.sessions.Register(claims, closeFn)
+	} else {
+		keyID, _ := r.Context().Value(ctxkeys.KeyID).(int64)
+		sock = h.sessions.RegisterKey(keyID, closeFn)
+	}
+	ns, _ := r.Context().Value(ctxkeys.AttestationNamespace).(string)
+	sock.HoldToAttestation(ns)
+	return sock
 }
 
 // socketCounter counts the sockets each capability holds open.

@@ -34,7 +34,7 @@ loaded
 ===ORAMA_GLOBAL chain_state===
 active
 ===ORAMA_GLOBAL status===
-{"jsonrpc":"2.0","id":-1,"result":{"node_info":{"id":"aa","network":"orama-stagenet-1","version":"0.39.4"},"sync_info":{"latest_block_height":"100","latest_block_time":"2026-09-28T00:00:00Z","catching_up":false},"validator_info":{"address":"0000000000000000000000000000000000000000","voting_power":"10"}}}
+{"jsonrpc":"2.0","id":-1,"result":{"node_info":{"id":"aa","network":"orama-testnet-1","version":"0.39.4"},"sync_info":{"latest_block_height":"100","latest_block_time":"2026-09-28T00:00:00Z","catching_up":false},"validator_info":{"address":"0000000000000000000000000000000000000000","voting_power":"10"}}}
 ===ORAMA_GLOBAL net===
 {"jsonrpc":"2.0","id":-1,"result":{"n_peers":"0"}}
 ===ORAMA_GLOBAL validators===

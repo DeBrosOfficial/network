@@ -144,6 +144,33 @@ func TestUpload_emptyFile(t *testing.T) {
 	}
 }
 
+// TestUpload_unpinnedIsRefused: every stored object is pinned. An upload with
+// pin=false is refused 400 UNPINNED_UPLOAD_REFUSED and stores nothing; the
+// pin=true that SDKs before 0.3.5 send is still accepted and the object is
+// pinned (docs/whitepaper/technical-reference/vol1/19-storage.md#upload-and-pin, bugboard #432).
+func TestUpload_unpinnedIsRefused(t *testing.T) {
+	t.Parallel()
+	n := tenancy.Namespace(t, harness.Fleet(t), ns.Options{})
+	who := tenancy.Owner(n)
+	send := func(pin string) *gw.Response {
+		body, ct := multipartBody(t, "pinflag.bin", randomBytes(t, smallBytes), pin)
+		return n.Client.MustSend(t, gw.Req{Method: http.MethodPost, Path: pathUpload, Bearer: who.Bearer, APIKey: who.APIKey,
+			Header: http.Header{"Content-Type": {ct}}, Body: body})
+	}
+	r := send("false")
+	var env struct {
+		Error struct{ Code string } `json:"error"`
+	}
+	if r.Status != http.StatusBadRequest || r.Decode(&env) != nil || env.Error.Code != "UNPINNED_UPLOAD_REFUSED" {
+		t.Errorf("pin=false: HTTP %d %.200s, want 400 UNPINNED_UPLOAD_REFUSED", r.Status, r.Body)
+	}
+	var u uploaded
+	if err := send("true").Expect(t, http.StatusOK).Decode(&u); err != nil || u.Cid == "" {
+		t.Fatalf("pin=true: %v", err)
+	}
+	waitPinned(t, n.Client, who, u.Cid)
+}
+
 // TestGet_rangeHeaderNeverWrongSlice: the download handler streams the whole
 // object; a Range request gets 206 with exactly the range or 200 with all of
 // it, never a different slice.

@@ -7,7 +7,7 @@ import (
 )
 
 // ProductionMinCommitteeSize is the minimum bootstrap committee size Keeper.InitGenesis requires
-// on a production chain-id (plans/open-network.md D16: "at least 30"). A devnet, stagenet or
+// on a production chain-id (plans/open-network.md D16: "at least 30"). A devnet, testnet or
 // localnet chain-id may declare as few as MinCommitteeSizeFloor instead (see
 // keeper.checkCommitteeSizeChainIDGate).
 const ProductionMinCommitteeSize uint64 = 30

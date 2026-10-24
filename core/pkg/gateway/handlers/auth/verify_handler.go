@@ -13,15 +13,15 @@ import (
 
 // VerifyHandler verifies a wallet signature and issues JWT tokens and an API key.
 // This completes the authentication flow by validating the signed nonce and returning
-// access credentials. For non-default namespaces, may trigger cluster provisioning
-// and return 202 Accepted with credentials + poll URL.
+// access credentials. A sign-in whose device waits for another of the account's
+// devices to approve it gets 202 with the device code to poll instead.
 //
 // POST /v1/auth/verify
 // Request body: VerifyRequest
 // Response 200: { "access_token", "token_type", "expires_in", "refresh_token", "subject", "namespace", "nonce", "signature_verified" }
 // plus "api_key", except in the lobby namespace, on a device-bound sign-in, and for
 // a member whose role holds no grant (a reader), none of which gets one.
-// Response 202: { "status": "provisioning", "cluster_id", "poll_url", "access_token", "refresh_token", "api_key", ... }
+// Response 202: { "status": "pending_approval", "code": "DEVICE_PENDING", "hint", "device_id", "device_code", "user_code", "expires_in", "interval", "subject", "namespace" }
 func (h *Handlers) VerifyHandler(w http.ResponseWriter, r *http.Request) {
 	if h.authService == nil {
 		writeError(w, http.StatusServiceUnavailable, "auth service not initialized")
@@ -52,8 +52,9 @@ func (h *Handlers) VerifyHandler(w http.ResponseWriter, r *http.Request) {
 	wallet, namespace := in.Wallet, in.Namespace
 
 	// Refuse before anything is issued or provisioned: a namespace that belongs
-	// to another wallet is not this caller's to sign in to.
-	if err := h.authService.RequireSignInAllowed(ctx, wallet, namespace); err != nil {
+	// to another wallet is not this caller's to sign in to, and an open one
+	// may cap how many new wallets this caller's network signs in.
+	if err := h.authService.AdmitSignIn(ctx, wallet, namespace, signInClient(r)); err != nil {
 		writeCredentialError(w, namespace, err)
 		return
 	}

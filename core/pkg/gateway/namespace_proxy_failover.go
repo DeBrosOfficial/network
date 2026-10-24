@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -53,6 +55,29 @@ func isDialFailure(err error) bool {
 	return errors.As(err, &opErr) && opErr.Op == "dial"
 }
 
+// idempotentMethods are the methods whose repeat has the effect of one request
+// (RFC 9110, section 9.2.2).
+var idempotentMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+	http.MethodPut:     true,
+	http.MethodDelete:  true,
+}
+
+// proxyFailureRetryable sets the envelope's retryable bit for a request the
+// proxy got no answer to, after lastErr. The bit tells a client the request is
+// safe to send again as it is. That holds when no member was reached (every
+// attempt failed to connect, so nothing was sent) or when the method is
+// idempotent. A POST that reached a member and then timed out or lost its
+// connection may have done its work there: a database write committed, a
+// function ran. Marking it retryable made the SDK send it again (bug-426).
+func proxyFailureRetryable(method string, lastErr error) httputil.RPCErrorOption {
+	safe := isDialFailure(lastErr) || idempotentMethods[method]
+	return func(d *httputil.RPCErrorDetail) { d.Retryable = safe }
+}
+
 // errNoClusterSecret is returned by namespaceProxyRequest when the hop cannot
 // be signed.
 var errNoClusterSecret = errors.New("this gateway has no cluster secret, so it cannot authenticate itself to the namespace gateway")
@@ -65,6 +90,53 @@ var errNoClusterSecret = errors.New("this gateway has no cluster secret, so it c
 // let one function that returned 503 take its whole namespace out of rotation.
 func isUpstreamFailure(resp *http.Response) bool {
 	return IsResponseFailure(resp.StatusCode) && !hasTenantOriginMarker(resp.Header)
+}
+
+// maxClassifiedErrorBytes bounds how much of a namespace gateway's 502, 503 or
+// 504 is read to see whether it is a classified error. The canonical envelope
+// is well under 1 KiB; a body larger than this is not one.
+const maxClassifiedErrorBytes = 16 << 10
+
+// isNamespaceGatewayFailure is isUpstreamFailure for an answer from a namespace
+// gateway, which also leaves out the errors the gateway classified. A 502, 503
+// or 504 in the canonical error envelope (httputil.WriteRPCError: ok false and
+// a code) is a handler's verdict on one request, for example a storage read
+// answering SERVICE_UNAVAILABLE while the node's IPFS Cluster peer restarts, or
+// TIMEOUT for a slow retrieval. The gateway that wrote it is up and routing, and
+// counting it let one dependency of one service take the namespace's database
+// and function traffic on that member out of rotation for 30 s (bugboard #429).
+// What still counts is what says the gateway itself cannot serve: no answer at
+// all (counted where the request fails) and a 5xx outside the envelope, such as
+// the readiness gate's refusal of a gateway that is starting or blocked.
+//
+// To judge the body it reads at most maxClassifiedErrorBytes of it, and puts
+// back a body that replays them, so the client gets the answer unchanged.
+func isNamespaceGatewayFailure(resp *http.Response) bool {
+	if !isUpstreamFailure(resp) {
+		return false
+	}
+	head, err := io.ReadAll(io.LimitReader(resp.Body, maxClassifiedErrorBytes))
+	resp.Body = replayedBody{Reader: io.MultiReader(bytes.NewReader(head), resp.Body), Closer: resp.Body}
+	if err != nil {
+		return true
+	}
+	return !isClassifiedError(head)
+}
+
+// isClassifiedError reports whether body is the canonical error envelope.
+func isClassifiedError(body []byte) bool {
+	var env httputil.RPCErrorEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return false
+	}
+	return !env.OK && env.Error != nil && env.Error.Code != ""
+}
+
+// replayedBody is a response body whose first bytes were already read and are
+// served again before the rest; Close closes the original.
+type replayedBody struct {
+	io.Reader
+	io.Closer
 }
 
 // hasTenantOriginMarker reports whether h carries the tenant-origin marker at

@@ -2,6 +2,7 @@ package namespace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -18,6 +19,10 @@ import (
 type NamespacePortAllocator struct {
 	db     rqlite.Client
 	logger *zap.Logger
+	// prober tells which ports of the range are held on the target node, so a
+	// block the table calls free but something holds is skipped (bug-276). The
+	// ClusterManager sets itself; it is nil only in tests of the table logic.
+	prober PortProber
 }
 
 // NewNamespacePortAllocator creates a new port allocator
@@ -70,9 +75,14 @@ func (npa *NamespacePortAllocator) AllocatePortBlock(ctx context.Context, nodeID
 		return existingBlock, owed, nil
 	}
 
+	held, err := npa.heldOnNode(ctx, namespaceClusterID, nodeID)
+	if err != nil {
+		return nil, false, err
+	}
+
 	retryDelay := portAllocInitialBackoff
 	for attempt := 1; attempt <= portAllocMaxAttempts; attempt++ {
-		block, err := npa.tryAllocatePortBlock(internalCtx, nodeID, namespaceClusterID, bp)
+		block, err := npa.tryAllocatePortBlock(internalCtx, nodeID, namespaceClusterID, bp, held)
 		if err == nil {
 			npa.logger.Info("Port block allocated successfully",
 				zap.String("node_id", nodeID),
@@ -116,6 +126,34 @@ func (npa *NamespacePortAllocator) AllocatePortBlock(ctx context.Context, nodeID
 	return nil, false, &ClusterError{
 		Message: fmt.Sprintf("failed to allocate port block after %d retries", portAllocMaxAttempts),
 	}
+}
+
+// heldOnNode is the ports of the namespace range something holds on the node,
+// as ranges of one port each. A node on a release before the probe answers
+// that it cannot be asked; the allocation then goes by the table alone, as it
+// did on that release, and the spawner refuses a held port at start.
+func (npa *NamespacePortAllocator) heldOnNode(ctx context.Context, namespaceClusterID, nodeID string) ([]allocatedRange, error) {
+	if npa.prober == nil {
+		return nil, nil
+	}
+	ports, err := npa.prober.BoundPorts(ctx, namespaceClusterID, nodeID)
+	if errors.Is(err, errProbeUnsupported) {
+		npa.logger.Warn("The target node cannot report the ports it holds (an older release); allocating from the table alone",
+			zap.String("node_id", nodeID), zap.Error(err))
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("allocate a port block of cluster %s on node %s: %w", namespaceClusterID, nodeID, err)
+	}
+	held := make([]allocatedRange, len(ports))
+	for i, p := range ports {
+		held[i] = allocatedRange{Start: p, End: p}
+	}
+	if len(held) > 0 {
+		npa.logger.Info("Ports held on the target node are skipped",
+			zap.String("node_id", nodeID), zap.Ints("ports", ports))
+	}
+	return held, nil
 }
 
 type allocatedRange struct {
@@ -264,7 +302,10 @@ func (npa *NamespacePortAllocator) allocatedRanges(ctx context.Context, nodeID s
 }
 
 // tryAllocatePortBlock attempts to allocate a port block (single attempt)
-func (npa *NamespacePortAllocator) tryAllocatePortBlock(ctx context.Context, nodeID, namespaceClusterID string, bp Blueprint) (*PortBlock, error) {
+//
+// held are the ports something holds on the node (heldOnNode): a block is
+// chosen around them as around the recorded allocations.
+func (npa *NamespacePortAllocator) tryAllocatePortBlock(ctx context.Context, nodeID, namespaceClusterID string, bp Blueprint, held []allocatedRange) (*PortBlock, error) {
 	size := bp.PortNeedCount()
 	if size <= 0 {
 		return nil, &ClusterError{Message: "blueprint needs no ports"}
@@ -275,7 +316,7 @@ func (npa *NamespacePortAllocator) tryAllocatePortBlock(ctx context.Context, nod
 		return nil, err
 	}
 
-	portStart, ok := findFreeBlock(allocated, NamespacePortRangeStart, NamespacePortRangeEnd, size)
+	portStart, ok := findFreeBlock(append(allocated, held...), NamespacePortRangeStart, NamespacePortRangeEnd, size)
 	if !ok {
 		return nil, ErrNoPortsAvailable
 	}

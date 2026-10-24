@@ -21,10 +21,20 @@ import (
 // paths so both transports report identical, machine-readable error semantics.
 // A cold-WASM fetch timeout is a transient infra failure (retryable); a genuine
 // error raised inside the function is FUNCTION_EXECUTION_FAILED (not retryable).
+// A function stopped at its timeout is 504 FUNCTION_TIMEOUT, never
+// RATE_LIMITED: a rate limit refuses the request before the function runs, and
+// a timeout means it ran, so a client that read one as the other would repeat
+// a call whose effects (a payment broadcast) already happened.
 func classifyInvokeError(err error) (int, httputil.RPCErrorCode, bool) {
 	switch {
 	case errors.Is(err, serverless.ErrWASMFetchTimeout):
 		return http.StatusServiceUnavailable, httputil.ErrCodeFunctionUnavailable, true
+	case errors.Is(err, serverless.ErrInvokeLimitsUnavailable):
+		return http.StatusServiceUnavailable, httputil.ErrCodeServiceUnavailable, true
+	case serverless.IsTimeout(err):
+		return http.StatusGatewayTimeout, httputil.ErrCodeFunctionTimeout, false
+	case errors.Is(err, serverless.ErrVersionSuperseded):
+		return http.StatusNotFound, httputil.ErrCodeFunctionVersionSuperseded, false
 	case serverless.IsNotFound(err):
 		return http.StatusNotFound, httputil.ErrCodeNotFound, false
 	case serverless.IsResourceExhausted(err):
@@ -91,18 +101,20 @@ func (h *ServerlessHandlers) InvokeFunction(w http.ResponseWriter, r *http.Reque
 	defer cancel()
 
 	req := &serverless.InvokeRequest{
-		Namespace:        namespace,
-		FunctionName:     name,
-		Version:          version,
-		Input:            input,
-		TriggerType:      serverless.TriggerTypeHTTP,
-		CallerWallet:     callerWallet,
-		CallerIsAdmin:    h.getCallerIsAdminFromRequest(r),
-		CallerHasInvoke:  h.getCallerHasInvokeFromRequest(r),
-		CallerIP:         extractRemoteIP(r),
-		CallerClaims:     h.getCallerClaimsFromRequest(r),
-		CallerJWTSubject: h.getJWTSubjectFromRequest(r),
-		CallerDeviceID:   h.getDeviceIDFromRequest(r),
+		Namespace:         namespace,
+		FunctionName:      name,
+		Version:           version,
+		Input:             input,
+		TriggerType:       serverless.TriggerTypeHTTP,
+		CallerWallet:      callerWallet,
+		CallerIsAdmin:     h.getCallerIsAdminFromRequest(r),
+		CallerHasInvoke:   h.getCallerHasInvokeFromRequest(r),
+		CallerIP:          extractRemoteIP(r),
+		CallerKey:         h.getCallerKeyFromRequest(r),
+		CallerClaims:      h.getCallerClaimsFromRequest(r),
+		CallerJWTSubject:  h.getJWTSubjectFromRequest(r),
+		CallerDeviceID:    h.getDeviceIDFromRequest(r),
+		CallerAttestation: h.getAttestationFromRequest(r),
 	}
 
 	// From here the response is the function's: its output, its own status, or

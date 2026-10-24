@@ -46,7 +46,7 @@ describe("legacyDec", () => {
     expect(legacyDec("1", "x")).toBeCloseTo(1e-18, 30);
   });
 
-  it("TestLegacyDec_the_lambda_the_live_stagenet_gateway_sent", () => {
+  it("TestLegacyDec_the_lambda_the_live_testnet_gateway_sent", () => {
     // 10,000 of 271,000 ORAMA bonded: lambda = 0.036900369...
     expect(legacyDec("36900369003690037", "lambda")).toBeCloseTo(10 / 271, 12);
     expect(decShare("36900369003690037", "lambda")).toBeLessThan(0.04);

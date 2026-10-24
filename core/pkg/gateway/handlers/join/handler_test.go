@@ -175,12 +175,12 @@ func TestReadJoinSecrets_readsEverythingPresent(t *testing.T) {
 }
 
 func TestReadJoinSecrets_missingRequiredSecretIsAnError(t *testing.T) {
-	// A join that cannot hand over the cluster secret or the swarm key produces
-	// a node that will never work. Failing here — before the token is consumed
+	// A join that cannot hand over the cluster secret, the swarm key or the API
+	// key HMAC secret produces a node that will never work. Failing here — before the token is consumed
 	// and before a peer row exists — is the entire point of the reordering.
-	for _, missing := range []string{"cluster-secret", "swarm.key"} {
+	for _, missing := range []string{"cluster-secret", "swarm.key", "api-key-hmac-secret"} {
 		t.Run(missing, func(t *testing.T) {
-			files := map[string]string{"cluster-secret": "cs", "swarm.key": "sk"}
+			files := map[string]string{"cluster-secret": "cs", "swarm.key": "sk", "api-key-hmac-secret": "hmac"}
 			delete(files, missing)
 
 			dir := t.TempDir()
@@ -198,14 +198,14 @@ func TestReadJoinSecrets_optionalSecretsMayBeAbsent(t *testing.T) {
 	// A cluster installed before these files existed has none of them, and a
 	// joining node handles their absence.
 	dir := t.TempDir()
-	writeSecrets(t, dir, map[string]string{"cluster-secret": "cs", "swarm.key": "sk"})
+	writeSecrets(t, dir, map[string]string{"cluster-secret": "cs", "swarm.key": "sk", "api-key-hmac-secret": "hmac"})
 
 	h := &Handler{logger: zap.NewNop(), oramaDir: dir}
 	got, err := h.readJoinSecrets()
 	if err != nil {
 		t.Fatalf("readJoinSecrets: %v", err)
 	}
-	if got.APIKeyHMACSecret != "" || got.RQLitePassword != "" ||
+	if got.RQLitePassword != "" ||
 		got.SecretsEncryptionKey != "" || got.TURNSecret != "" {
 		t.Fatalf("expected the optional secrets to be empty, got %+v", got)
 	}
@@ -591,9 +591,10 @@ func joinableHandler(t *testing.T, c rqlite.Client) *Handler {
 	t.Helper()
 	dir := t.TempDir()
 	writeSecrets(t, dir, map[string]string{
-		"cluster-secret": "cs",
-		"swarm.key":      "sk",
-		"wg-public-key":  "local-key",
+		"cluster-secret":      "cs",
+		"swarm.key":           "sk",
+		"api-key-hmac-secret": "hmac",
+		"wg-public-key":       "local-key",
 	})
 
 	restore := func(ip func() (string, error), key func(string) (string, error), pub func() (string, error)) {
@@ -721,5 +722,15 @@ func TestHandleJoin_withNoPeerIdClearsNothing(t *testing.T) {
 		if strings.Contains(stmt, "node_credentials") {
 			t.Errorf("a join with no peer id touched node_credentials: %q", stmt)
 		}
+	}
+}
+
+// An empty HMAC secret file is as useless to a joining node as a missing one.
+func TestReadJoinSecrets_emptyAPIKeyHMACSecretIsAnError(t *testing.T) {
+	dir := t.TempDir()
+	writeSecrets(t, dir, map[string]string{"cluster-secret": "cs", "swarm.key": "sk", "api-key-hmac-secret": " \n"})
+	h := &Handler{logger: zap.NewNop(), oramaDir: dir}
+	if _, err := h.readJoinSecrets(); err == nil {
+		t.Fatal("an empty API key HMAC secret was handed to a joining node")
 	}
 }

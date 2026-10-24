@@ -13,6 +13,8 @@ own: "route requires Ownership?"
 grant: "live grant in the namespace?\n(wallet, app or key hash;\nany registry error counts as none)"
 r403own: "403 OWNERSHIP_REQUIRED" {shape: oval}
 perms: "callerPermissions:\npermissions from grant, key row or\nNoGrantPermissions\n(unreadable grant on this path: 503)"
+op: "operator route?"
+opl: "wallet session on the operator list?\n(no permission is asked; a key names no wallet;\nunreadable list: 503)"
 dom: "PermitsDomain(route Domain, Action)?"
 r403scope: "403 INSUFFICIENT_SCOPE\nrequired_scope, required_permission" {shape: oval}
 tok: "route Token requirement met?\n(admin is exempt)"
@@ -36,7 +38,11 @@ own -> grant: "yes"
 own -> perms: "no (grant resolved for\ndata-plane and narrowed callers)"
 grant -> r403own: "no"
 grant -> perms: "yes"
-perms -> dom
+perms -> op
+op -> opl: "yes"
+op -> dom: "no"
+opl -> r403op: "no"
+opl -> h: "yes"
 dom -> r403scope: "no"
 dom -> tok: "yes"
 tok -> r401tok: "no"

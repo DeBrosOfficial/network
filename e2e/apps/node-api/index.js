@@ -12,11 +12,10 @@
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
-const path = require('path');
 
-// ca.pem is the cluster's trust, shipped with the app by whoever deploys it
-// (a test fleet's certificates chain to Let's Encrypt staging).
-const ca = fs.readFileSync(path.join(__dirname, 'ca.pem'));
+// No CA of its own: on a cluster whose certificates chain to Let's Encrypt
+// staging (a test fleet) the platform sets NODE_EXTRA_CA_CERTS to the
+// cluster's roots, so Node's default trust verifies the gateway.
 const base = new URL(process.env.ORAMA_GATEWAY_URL);
 const storeFn = process.env.STORE_FN || 'store';
 const listMap = 'ref-todos';
@@ -32,7 +31,7 @@ function call(method, route, bearer, payload) {
     headers['Content-Length'] = Buffer.byteLength(body);
   }
   return new Promise((resolve, reject) => {
-    const req = https.request({hostname: base.hostname, port: base.port || 443, path: route, method, headers, ca, timeout: 30000}, (res) => {
+    const req = https.request({hostname: base.hostname, port: base.port || 443, path: route, method, headers, timeout: 30000}, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {

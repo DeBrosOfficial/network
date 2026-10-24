@@ -33,7 +33,7 @@ func TestPermissionsFromScopes_giveEachLegacyWordExactlyWhatItHad(t *testing.T) 
 				t.Errorf("%q became the unrestricted set", tc.scope)
 			}
 			// A data-plane word reaches its own domain and nothing else.
-			for _, other := range []Domain{DomainDeploy, DomainMembers, DomainOperator, DomainNamespace} {
+			for _, other := range []Domain{DomainDeploy, DomainMembers, DomainNamespace} {
 				if perms.PermitsDomain(other, ActionWrite) {
 					t.Errorf("%q now reaches %s, which is the control plane", tc.scope, other)
 				}
@@ -183,7 +183,7 @@ func TestRolePermissions(t *testing.T) {
 		}
 	}
 	// The boundary that makes the role worth having.
-	for _, denied := range []Domain{DomainMembers, DomainNamespace, DomainOperator} {
+	for _, denied := range []Domain{DomainMembers, DomainNamespace} {
 		if developer.PermitsDomain(denied, ActionWrite) {
 			t.Errorf("a developer reaches %s, which is the owner's", denied)
 		}
@@ -305,5 +305,17 @@ func TestIsAdmin_meansEveryPermissionAndNotAWildcardSomewhere(t *testing.T) {
 				t.Errorf("%v counted as admin, which exempts it from the logged-in-user requirement", set.List())
 			}
 		})
+	}
+}
+
+// Operating the cluster is not a permission (bugboard bug-55): a permission set
+// is a namespace's, and the operator is whoever the cluster's operator list
+// names. An `operator` domain is refused like any unknown one, so no grant or
+// key can claim it.
+func TestParsePermission_noPermissionNamesTheCluster(t *testing.T) {
+	for _, raw := range []string{"operator", "operator:*:*", "operator:read:*", "operator:write:nodes"} {
+		if p, err := ParsePermission(raw); err == nil {
+			t.Errorf("ParsePermission(%q) = %v, want refused: the cluster is not a namespace's to grant", raw, p)
+		}
 	}
 }

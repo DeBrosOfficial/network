@@ -21,6 +21,7 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/deployments"
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/corsorigins"
 	"github.com/Orama-Network/orama/core/pkg/gateway/routepolicy"
 	"github.com/Orama-Network/orama/core/pkg/httputil"
 	"github.com/Orama-Network/orama/core/pkg/logging"
@@ -34,6 +35,7 @@ import (
 //   - /v1/functions/.../invoke and /v1/invoke/...        — up to 300s per fn
 //   - /v1/functions/.../ws                                — long-lived WS
 //   - /v1/storage/upload, /v1/storage/pin                 — IPFS add can be slow
+//   - /v1/storage/get/, /v1/storage/relayed/              — a stored object of any size, streamed
 //   - /v1/namespace/backup, /v1/namespace/restore         — a database of up to 256 MiB, sealed or applied
 //   - /v1/rqlite/export, /v1/rqlite/import                — the whole database, streamed
 //
@@ -43,6 +45,11 @@ func isLongRunningProxyPath(p string) bool {
 	switch {
 	case strings.HasPrefix(p, "/v1/storage/upload"),
 		strings.HasPrefix(p, "/v1/storage/pin"),
+		// A download's body is relayed under the proxy's whole-request budget:
+		// at 30 s, a fetch that took 18 s left 12 s to relay the object, and
+		// a 200 already sent was cut off (bugboard #428).
+		strings.HasPrefix(p, "/v1/storage/get/"),
+		strings.HasPrefix(p, "/v1/storage/relayed/"),
 		isWholeDatabasePath(p),
 		// Deploys reach a namespace gateway through this proxy since bugboard
 		// #427, and the handler itself allows the upload a minute.
@@ -160,6 +167,32 @@ func setInternalAuthJWTHeaders(h http.Header, claims *auth.JWTClaims) {
 	if sid := strings.TrimSpace(claims.Sid); sid != "" {
 		h.Set(HeaderInternalAuthJWTSid, sid)
 	}
+	// What the device's attestation proved, so the namespace gateway judges
+	// the request by its namespace's policy and tells the function.
+	if claims.Att != nil {
+		if buf, err := json.Marshal(claims.Att); err == nil {
+			h.Set(HeaderInternalAuthJWTAtt, base64.StdEncoding.EncodeToString(buf))
+		}
+	}
+}
+
+// setInternalAuthKeyHeaders writes an API-key caller's effective scopes (#148),
+// the resources narrowing them and the key's fingerprint onto an outbound proxy
+// request. No-op for a caller that is not a key.
+func setInternalAuthKeyHeaders(h http.Header, key keyAuthority) {
+	if key.scopes == "" {
+		return
+	}
+	h.Set(HeaderInternalAuthScopes, key.scopes)
+	if len(key.resources) > 0 {
+		h.Set(HeaderInternalAuthKeyResources, key.resources.Stored())
+	}
+	if key.fingerprint != "" {
+		h.Set(HeaderInternalAuthKeyFingerprint, key.fingerprint)
+	}
+	if key.id > 0 {
+		h.Set(HeaderInternalAuthKeyID, strconv.FormatInt(key.id, 10))
+	}
 }
 
 // stripInboundInternalAuthHeaders deletes the X-Internal-Auth-* headers from
@@ -252,7 +285,31 @@ func claimsFromInternalAuthHeaders(h http.Header, namespace string, now time.Tim
 			}
 		}
 	}
+	// An attestation is only ever of the device the token is bound to; one
+	// with no device asserts nothing.
+	if raw := strings.TrimSpace(h.Get(HeaderInternalAuthJWTAtt)); raw != "" && claims.Did != "" {
+		att, err := decodeHopAttestation(raw)
+		if err != nil {
+			return nil, err
+		}
+		claims.Att = att
+	}
 	return claims, nil
+}
+
+// decodeHopAttestation reads HeaderInternalAuthJWTAtt. The MAC verified it, so
+// a value that cannot be read is the main gateway's own bug, and the identity
+// is refused rather than served without the attestation it was sent with.
+func decodeHopAttestation(raw string) (*auth.AttestationClaim, error) {
+	decoded, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("the forwarded attestation is not base64: %w", err)
+	}
+	var att auth.AttestationClaim
+	if err := json.Unmarshal(decoded, &att); err != nil {
+		return nil, fmt.Errorf("the forwarded attestation is not one: %w", err)
+	}
+	return &att, nil
 }
 
 // sessionRevokedMessage is what a refused revoked token says. The namespace
@@ -302,7 +359,7 @@ func namespaceProxyAuthCode(errMsg string) string {
 //   - ("", nil, "") if no auth credentials provided (for public paths).
 //
 
-func (g *Gateway) validateAuthForNamespaceProxy(r *http.Request) (namespace string, claims *auth.JWTClaims, scopes string, errMsg string) {
+func (g *Gateway) validateAuthForNamespaceProxy(r *http.Request) (namespace string, claims *auth.JWTClaims, key keyAuthority, errMsg string) {
 	// 1) Try JWT Bearer first
 	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
 		lower := strings.ToLower(authHeader)
@@ -312,23 +369,23 @@ func (g *Gateway) validateAuthForNamespaceProxy(r *http.Request) (namespace stri
 				c, err := g.authService.ParseAndVerifyJWT(tok)
 				if err == nil {
 					if ns := strings.TrimSpace(c.Namespace); ns != "" {
-						scopes, _, scopeErr := g.exchangedKeyScopes(r.Context(), c)
-						if scopeErr != "" {
-							return "", nil, "", scopeErr
+						key, _, keyErr := g.exchangedKeyScopes(r.Context(), c)
+						if keyErr != "" {
+							return "", nil, keyAuthority{}, keyErr
 						}
-						return ns, c, scopes, ""
+						return ns, c, key, ""
 					}
 				}
 				// A revoked token is not an absent one: falling through would
 				// have the request answered "no credential was presented".
 				if errors.Is(err, auth.ErrTokenRevoked) {
-					return "", nil, "", sessionRevokedMessage
+					return "", nil, keyAuthority{}, sessionRevokedMessage
 				}
 				if errors.Is(err, auth.ErrRevocationsUnavailable) {
-					return "", nil, "", authUnavailableMessage
+					return "", nil, keyAuthority{}, authUnavailableMessage
 				}
 				if errors.Is(err, auth.ErrTokenExpired) {
-					return "", nil, "", tokenExpiredMessage
+					return "", nil, keyAuthority{}, tokenExpiredMessage
 				}
 				// JWT verification failed - fall through to API key check
 			}
@@ -348,41 +405,42 @@ func (g *Gateway) validateAuthForNamespaceProxy(r *http.Request) (namespace stri
 			c, err := g.authService.ParseAndVerifyJWT(tok)
 			if err == nil {
 				if ns := strings.TrimSpace(c.Namespace); ns != "" {
-					scopes, _, scopeErr := g.exchangedKeyScopes(r.Context(), c)
-					if scopeErr != "" {
-						return "", nil, "", scopeErr
+					key, _, keyErr := g.exchangedKeyScopes(r.Context(), c)
+					if keyErr != "" {
+						return "", nil, keyAuthority{}, keyErr
 					}
-					return ns, c, scopes, ""
+					return ns, c, key, ""
 				}
 			}
 			if errors.Is(err, auth.ErrTokenRevoked) {
-				return "", nil, "", sessionRevokedMessage
+				return "", nil, keyAuthority{}, sessionRevokedMessage
 			}
 			if errors.Is(err, auth.ErrRevocationsUnavailable) {
-				return "", nil, "", authUnavailableMessage
+				return "", nil, keyAuthority{}, authUnavailableMessage
 			}
 			if errors.Is(err, auth.ErrTokenExpired) {
-				return "", nil, "", tokenExpiredMessage
+				return "", nil, keyAuthority{}, tokenExpiredMessage
 			}
 		}
 	}
 
 	// 2) Try API key
-	key := extractAPIKey(r)
-	if key == "" {
-		return "", nil, "", "" // No credentials provided
+	rawKey := extractAPIKey(r)
+	if rawKey == "" {
+		return "", nil, keyAuthority{}, "" // No credentials provided
 	}
 
-	// Resolve namespace AND the key's scopes so they can be forwarded to the
-	// namespace gateway, which does not re-look-up the key (bugboard #148).
-	ns, rawScopes, err := g.lookupAPIKeyEntry(r.Context(), key, g.apiKeyDB())
+	// Resolve namespace AND the key's scopes and resources so they can be
+	// forwarded to the namespace gateway, which does not re-look-up the key
+	// (bugboard #148).
+	entry, err := g.lookupAPIKeyEntry(r.Context(), rawKey, g.apiKeyDB())
 	if err != nil {
 		if errors.Is(err, auth.ErrRevocationsUnavailable) {
-			return "", nil, "", authUnavailableMessage
+			return "", nil, keyAuthority{}, authUnavailableMessage
 		}
-		return "", nil, "", "invalid API key"
+		return "", nil, keyAuthority{}, "invalid API key"
 	}
-	return ns, nil, auth.ScopesFromStored(rawScopes).Canonical(), ""
+	return entry.namespace, nil, entry.authority(), ""
 }
 
 // lookupAPIKeyNamespace resolves an API key to its namespace using cache and DB.
@@ -390,22 +448,57 @@ func (g *Gateway) validateAuthForNamespaceProxy(r *http.Request) (namespace stri
 // apiKeyDB in apikey_querier.go), never a namespace's own RQLite.
 // Returns the namespace name or an error if the key is invalid.
 //
-// Dual lookup strategy for rolling upgrade: tries HMAC-hashed key first (new keys),
-// then falls back to raw key lookup (existing unhashed keys during transition).
+// The key is looked up by its HMAC hash only; api_keys never holds a raw key.
 func (g *Gateway) lookupAPIKeyNamespace(ctx context.Context, key string, q apiKeyQuerier) (string, error) {
-	ns, _, err := g.lookupAPIKeyEntry(ctx, key, q)
-	return ns, err
+	entry, err := g.lookupAPIKeyEntry(ctx, key, q)
+	return entry.namespace, err
 }
 
-// lookupAPIKeyEntry resolves an API key to its (namespace, scopes) using cache
-// and DB. scopes is the raw api_keys.scopes value ("" = legacy/grandfather).
-// Revoked keys (revoked_at IS NOT NULL) are treated as invalid (bugboard #148).
+// apiKeyEntry is what a key's row says: its registry id, the namespace it
+// belongs to, its raw api_keys.scopes value, and the resources it is narrowed
+// to (migration 082).
+type apiKeyEntry struct {
+	id        int64
+	namespace string
+	scopes    string
+	resources auth.KeyResources
+	// stored is the key as api_keys.key holds it (HashAPIKey of the raw key,
+	// or an exchanged token's subject), which both spellings of one key share.
+	stored string
+}
+
+// authority is the part of the row that says what the key may reach, in the
+// form the proxy hop forwards, with the fingerprint that names the key.
+func (e apiKeyEntry) authority() keyAuthority {
+	return keyAuthority{
+		scopes:      auth.ScopesFromStored(e.scopes).Canonical(),
+		resources:   e.resources,
+		fingerprint: auth.KeyFingerprint(e.stored),
+		id:          e.id,
+	}
+}
+
+// keyAuthority is an API key as the main gateway forwards it to a namespace
+// gateway: its canonical scopes and the resources narrowing them (what it may
+// reach), its fingerprint (what the invoke rate limiter buckets it by) and its
+// registry id (what request_logs.api_key_id records). All empty for a caller
+// that is not a key.
+type keyAuthority struct {
+	scopes      string
+	resources   auth.KeyResources
+	fingerprint string
+	id          int64
+}
+
+// lookupAPIKeyEntry resolves an API key to its row (namespace, scopes,
+// resources) using cache and DB. Revoked keys (revoked_at IS NOT NULL) are
+// treated as invalid (bugboard #148).
 //
 // q must be the global/core API-key registry querier (apiKeyDB()) — API keys
 // are created by `orama namespace keys create` into the global/core RQLite,
 // so that is the only store that can ever resolve them. A namespace's own
 // RQLite is never authoritative for API keys.
-func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQuerier) (string, string, error) {
+func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQuerier) (apiKeyEntry, error) {
 	// A revoked key must stop working now, not when the cache entry ages out.
 	//
 	// The entry below is held for a minute, so revoking a key left it working
@@ -416,22 +509,22 @@ func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQue
 	if g.authService != nil {
 		denied, err := g.authService.Revocations().DeniesSubject(key, g.authService.HashAPIKey(key))
 		if err != nil {
-			return "", "", fmt.Errorf("lookupAPIKeyEntry: %w", err)
+			return apiKeyEntry{}, fmt.Errorf("lookupAPIKeyEntry: %w", err)
 		}
 		if denied {
-			return "", "", fmt.Errorf("invalid API key")
+			return apiKeyEntry{}, fmt.Errorf("invalid API key")
 		}
 	}
 
 	// Cache uses raw key as cache key (in-memory only, never persisted)
 	if g.mwCache != nil {
-		if cachedNS, cachedScopes, ok := g.mwCache.GetAPIKeyEntry(key); ok {
-			return cachedNS, cachedScopes, nil
+		if cached, ok := g.mwCache.GetAPIKeyEntry(key); ok {
+			return cached, nil
 		}
 	}
 
 	if q == nil {
-		return "", "", fmt.Errorf("lookupAPIKeyEntry: no database querier configured for this gateway")
+		return apiKeyEntry{}, fmt.Errorf("lookupAPIKeyEntry: no database querier configured for this gateway")
 	}
 
 	internalCtx := client.WithInternalAuth(ctx)
@@ -442,19 +535,14 @@ func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQue
 	hashedKey := g.authService.HashAPIKey(key)
 	res, err := q.Query(internalCtx, apiKeyByStoredSQL, hashedKey)
 	if err != nil {
-		return "", "", fmt.Errorf("lookupAPIKeyEntry: hashed-key query failed: %w", err)
+		return apiKeyEntry{}, fmt.Errorf("lookupAPIKeyEntry: hashed-key query failed: %w", err)
 	}
-	if res != nil && res.Count > 0 && len(res.Rows) > 0 && len(res.Rows[0]) > 0 {
-		if ns := getString(res.Rows[0][0]); ns != "" {
-			scopes := ""
-			if len(res.Rows[0]) > 1 {
-				scopes = getString(res.Rows[0][1])
-			}
-			if g.mwCache != nil {
-				g.mwCache.SetAPIKeyEntry(key, ns, scopes)
-			}
-			return ns, scopes, nil
+	if entry, ok := apiKeyEntryFromRow(res); ok {
+		entry.stored = hashedKey
+		if g.mwCache != nil {
+			g.mwCache.SetAPIKeyEntry(key, entry)
 		}
+		return entry, nil
 	}
 
 	orphanSQL := "SELECT api_keys.id FROM api_keys LEFT JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? AND namespaces.id IS NULL LIMIT 1"
@@ -463,84 +551,102 @@ func (g *Gateway) lookupAPIKeyEntry(ctx context.Context, key string, q apiKeyQue
 			zap.Int64("hits", ores.Count))
 	}
 
-	return "", "", fmt.Errorf("invalid API key")
+	return apiKeyEntry{}, fmt.Errorf("invalid API key")
 }
 
 // apiKeyByStoredSQL resolves a key by the value stored in api_keys.key. That
 // value is the HMAC when one is configured and the raw key when it is not.
 // An exchanged token's subject is already that value, so it must not be
 // hashed a second time.
-const apiKeyByStoredSQL = "SELECT namespaces.name, api_keys.scopes FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? AND api_keys.revoked_at IS NULL AND api_keys.expires_at > datetime('now') LIMIT 1"
+const apiKeyByStoredSQL = "SELECT namespaces.name, api_keys.scopes, api_keys.resources, api_keys.id FROM api_keys JOIN namespaces ON api_keys.namespace_id = namespaces.id WHERE api_keys.key = ? AND api_keys.revoked_at IS NULL AND api_keys.expires_at > datetime('now') LIMIT 1"
+
+// apiKeyEntryFromRow reads the row apiKeyByStoredSQL returns. ok is false when
+// it names no namespace.
+func apiKeyEntryFromRow(res *client.QueryResult) (apiKeyEntry, bool) {
+	if res == nil || res.Count == 0 || len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
+		return apiKeyEntry{}, false
+	}
+	row := res.Rows[0]
+	entry := apiKeyEntry{namespace: getString(row[0])}
+	if entry.namespace == "" {
+		return apiKeyEntry{}, false
+	}
+	if len(row) > 1 {
+		entry.scopes = getString(row[1])
+	}
+	if len(row) > 2 {
+		entry.resources = auth.KeyResourcesFromStored(getString(row[2]))
+	}
+	if len(row) > 3 {
+		entry.id = int64(getInt(row[3]))
+	}
+	return entry, true
+}
 
 // lookupStoredAPIKey resolves the key an exchanged token names. The subject is
 // the stored form. Hashing it again finds nothing, which is how a token the
 // gateway itself minted was refused on every route that reads scopes.
-func (g *Gateway) lookupStoredAPIKey(ctx context.Context, stored string) (string, string, error) {
+func (g *Gateway) lookupStoredAPIKey(ctx context.Context, stored string) (apiKeyEntry, error) {
 	stored = strings.TrimSpace(stored)
 	if stored == "" {
-		return "", "", fmt.Errorf("invalid API key")
+		return apiKeyEntry{}, fmt.Errorf("invalid API key")
 	}
 	if g.authService != nil {
 		denied, err := g.authService.Revocations().DeniesSubject(stored)
 		if err != nil {
-			return "", "", fmt.Errorf("lookupStoredAPIKey: %w", err)
+			return apiKeyEntry{}, fmt.Errorf("lookupStoredAPIKey: %w", err)
 		}
 		if denied {
-			return "", "", fmt.Errorf("invalid API key")
+			return apiKeyEntry{}, fmt.Errorf("invalid API key")
 		}
 	}
 	if g.mwCache != nil {
-		if cachedNS, cachedScopes, ok := g.mwCache.GetAPIKeyEntry(stored); ok {
-			return cachedNS, cachedScopes, nil
+		if cached, ok := g.mwCache.GetAPIKeyEntry(stored); ok {
+			return cached, nil
 		}
 	}
 	q := g.apiKeyDB()
 	if q == nil {
-		return "", "", fmt.Errorf("lookupStoredAPIKey: no database querier configured for this gateway")
+		return apiKeyEntry{}, fmt.Errorf("lookupStoredAPIKey: no database querier configured for this gateway")
 	}
 	internalCtx := client.WithInternalAuth(ctx)
 	res, err := q.Query(internalCtx, apiKeyByStoredSQL, stored)
 	if err != nil {
-		return "", "", fmt.Errorf("lookupStoredAPIKey: query failed: %w", err)
+		return apiKeyEntry{}, fmt.Errorf("lookupStoredAPIKey: query failed: %w", err)
 	}
-	if res != nil && res.Count > 0 && len(res.Rows) > 0 && len(res.Rows[0]) > 0 {
-		if ns := getString(res.Rows[0][0]); ns != "" {
-			scopes := ""
-			if len(res.Rows[0]) > 1 {
-				scopes = getString(res.Rows[0][1])
-			}
-			if g.mwCache != nil {
-				g.mwCache.SetAPIKeyEntry(stored, ns, scopes)
-			}
-			return ns, scopes, nil
+	if entry, ok := apiKeyEntryFromRow(res); ok {
+		entry.stored = stored
+		if g.mwCache != nil {
+			g.mwCache.SetAPIKeyEntry(stored, entry)
 		}
+		return entry, nil
 	}
-	return "", "", fmt.Errorf("invalid API key")
+	return apiKeyEntry{}, fmt.Errorf("invalid API key")
 }
 
-// exchangedKeyScopes is the scope set a verified token may use when its subject
-// is a stored API key. The scopes claim inside the token is not read: it was
-// copied when the token was minted, and the row is what a later change to the
-// key has to meet. A wallet or a workload returns empty with no error; a
+// exchangedKeyScopes is the scope set, and the resources narrowing it, a
+// verified token may use when its subject is a stored API key. The scopes
+// claim inside the token is not read: it was copied when the token was minted,
+// and the row is what a later change to the key has to meet. A wallet or a workload returns empty with no error; a
 // workload's authority is its own grant.
 //
 // errMsg is set when the key cannot be used. keyNS is the row's namespace,
 // which is what a mismatch report names.
-func (g *Gateway) exchangedKeyScopes(ctx context.Context, claims *auth.JWTClaims) (scopes, keyNS, errMsg string) {
+func (g *Gateway) exchangedKeyScopes(ctx context.Context, claims *auth.JWTClaims) (key keyAuthority, keyNS, errMsg string) {
 	if claims == nil || !auth.IsStoredAPIKeySubject(claims.Sub) {
-		return "", "", ""
+		return keyAuthority{}, "", ""
 	}
-	ns, raw, err := g.lookupStoredAPIKey(ctx, claims.Sub)
+	entry, err := g.lookupStoredAPIKey(ctx, claims.Sub)
 	if err != nil {
 		if errors.Is(err, auth.ErrRevocationsUnavailable) {
-			return "", "", authUnavailableMessage
+			return keyAuthority{}, "", authUnavailableMessage
 		}
-		return "", "", "this API key is not one this cluster knows"
+		return keyAuthority{}, "", "this API key is not one this cluster knows"
 	}
-	if tokenNS := strings.TrimSpace(claims.Namespace); tokenNS != "" && ns != tokenNS {
-		return "", ns, "this credential belongs to another namespace"
+	if tokenNS := strings.TrimSpace(claims.Namespace); tokenNS != "" && entry.namespace != tokenNS {
+		return keyAuthority{}, entry.namespace, "this credential belongs to another namespace"
 	}
-	return auth.ScopesFromStored(raw).Canonical(), ns, ""
+	return entry.authority(), entry.namespace, ""
 }
 
 // withExchangedKeyScopes attaches exchangedKeyScopes to the request. ok is
@@ -549,7 +655,7 @@ func (g *Gateway) withExchangedKeyScopes(w http.ResponseWriter, ctx context.Cont
 	if claims == nil || !auth.IsStoredAPIKeySubject(claims.Sub) {
 		return ctx, true
 	}
-	scopes, keyNS, errMsg := g.exchangedKeyScopes(ctx, claims)
+	key, keyNS, errMsg := g.exchangedKeyScopes(ctx, claims)
 	if errMsg != "" {
 		if isPublic {
 			return ctx, true
@@ -566,7 +672,47 @@ func (g *Gateway) withExchangedKeyScopes(w http.ResponseWriter, ctx context.Cont
 		unauthorized(w, CodeAuthInvalidKey, errMsg, nil)
 		return ctx, false
 	}
-	return context.WithValue(ctx, ctxKeyScopes, auth.ParseScopes(scopes)), true
+	markRequestKey(ctx, key.id)
+	return withKeyFingerprint(withKeyAuthority(ctx, key.scopes, key.resources), key.fingerprint), true
+}
+
+// withKeyAuthority attaches what an API key may reach: its scopes, and the
+// resources narrowing them when it has any.
+func withKeyAuthority(ctx context.Context, scopes string, resources auth.KeyResources) context.Context {
+	ctx = context.WithValue(ctx, ctxKeyScopes, auth.ParseScopes(scopes))
+	if len(resources) > 0 {
+		ctx = context.WithValue(ctx, ctxKeyKeyResources, resources)
+	}
+	return ctx
+}
+
+// markHopRequestKey records, for request_logs, the registry id of the API key
+// the main gateway authenticated, as the hop carries it. The MAC verified, so
+// a value that is not an id is the main gateway's own bug; it is reported and
+// the row records no key rather than a guessed one. The id is also put on the
+// context, where a socket the key opens is held to its revocation (bug-702).
+func (g *Gateway) markHopRequestKey(ctx context.Context, r *http.Request) context.Context {
+	raw := strings.TrimSpace(r.Header.Get(HeaderInternalAuthKeyID))
+	if raw == "" {
+		return ctx
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		g.logger.ComponentWarn("gateway", "dropped a hop API key id that is not one",
+			zap.String("path", r.URL.Path), zap.String("key_id", raw))
+		return ctx
+	}
+	markRequestKey(ctx, id)
+	return context.WithValue(ctx, ctxKeyKeyID, id)
+}
+
+// withKeyFingerprint attaches the fingerprint of the API key that
+// authenticated the request, when there is one.
+func withKeyFingerprint(ctx context.Context, fingerprint string) context.Context {
+	if fingerprint = strings.TrimSpace(fingerprint); fingerprint != "" {
+		ctx = context.WithValue(ctx, ctxKeyKeyFingerprint, fingerprint)
+	}
+	return ctx
 }
 
 // isWebSocketUpgrade checks if the request is a WebSocket upgrade request
@@ -689,8 +835,8 @@ func (g *Gateway) tunnelWebSocket(w http.ResponseWriter, r *http.Request, target
 func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 	// Order: internal-auth -> route policy -> logging -> security headers ->
 	// CORS -> rate limit -> readiness -> domain routing -> cluster serverless
-	// routing -> auth -> authorization -> scope -> namespace rate limit ->
-	// long-request deadlines -> handler
+	// routing -> auth -> traffic attribution -> attestation -> authorization ->
+	// scope -> namespace rate limit -> long-request deadlines -> handler
 	//
 	// CORS is above the rate limit so that a refusal by the limiter (a 429)
 	// carries the same CORS headers as any answer: a browser page from an
@@ -745,9 +891,10 @@ func (g *Gateway) withMiddleware(next http.Handler) http.Handler {
 									g.clusterServerlessRoutingMiddleware(
 										g.authMiddleware(
 											g.trafficAttributionMiddleware(
-												g.authorizationMiddleware(
-													g.scopeMiddleware(
-														g.namespaceRateLimitMiddleware(longRequestDeadlines(next))))))))))))))))
+												g.attestationMiddleware(
+													g.authorizationMiddleware(
+														g.scopeMiddleware(
+															g.namespaceRateLimitMiddleware(longRequestDeadlines(next)))))))))))))))))
 }
 
 // securityHeadersMiddleware adds standard security headers to all responses
@@ -800,13 +947,7 @@ func (g *Gateway) loggingMiddleware(next http.Handler) http.Handler {
 
 		// Enqueue log entry for batched persistence (replaces per-request DB writes)
 		if g.logBatcher != nil {
-			apiKey := ""
-			if v := r.Context().Value(ctxKeyAPIKey); v != nil {
-				if s, ok := v.(string); ok {
-					apiKey = s
-				}
-			}
-			g.logBatcher.Add(newRequestLogEntry(r, policy, srw.status, srw.bytes, dur, apiKey))
+			g.logBatcher.Add(newRequestLogEntry(r, policy, srw.status, srw.bytes, dur, attribution.keyID))
 		}
 	})
 }
@@ -874,8 +1015,13 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 				// #148: hydrate the API-key caller's effective scopes from the
 				// trusted internal-auth header so scopeMiddleware can enforce
 				// them (the namespace gateway does not re-look-up the key).
+				// The resources narrowing those scopes travel with them, so a
+				// key limited to some functions is limited here too.
 				if raw := strings.TrimSpace(r.Header.Get(HeaderInternalAuthScopes)); raw != "" {
-					reqCtx = context.WithValue(reqCtx, ctxKeyScopes, auth.ParseScopes(raw))
+					reqCtx = withKeyAuthority(reqCtx, raw,
+						auth.KeyResourcesFromStored(r.Header.Get(HeaderInternalAuthKeyResources)))
+					reqCtx = withKeyFingerprint(reqCtx, r.Header.Get(HeaderInternalAuthKeyFingerprint))
+					reqCtx = g.markHopRequestKey(reqCtx, r)
 				}
 				next.ServeHTTP(w, r.WithContext(reqCtx))
 				return
@@ -1000,7 +1146,7 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 		// (g.apiKeyDB(): authClient when GlobalRQLiteDSN is set, else
 		// g.client). Keys are created only in that registry (bugboard #162).
 		// A namespace gateway's own RQLite is never authoritative for keys.
-		ns, rawScopes, err := g.lookupAPIKeyEntry(r.Context(), key, g.apiKeyDB())
+		entry, err := g.lookupAPIKeyEntry(r.Context(), key, g.apiKeyDB())
 		if err != nil {
 			if isPublic {
 				next.ServeHTTP(w, r)
@@ -1016,11 +1162,15 @@ func (g *Gateway) authMiddleware(next http.Handler) http.Handler {
 
 		// Attach auth metadata to context for downstream use. The scope set
 		// (bugboard #148) is applied by scopeMiddleware; a key whose scopes
-		// column is empty grants nothing.
+		// column is empty grants nothing. Its resources narrow it wherever
+		// its scopes are read (callerPermissions).
 		reqCtx := context.WithValue(r.Context(), ctxKeyAPIKey, key)
-		reqCtx = context.WithValue(reqCtx, CtxKeyNamespaceOverride, ns)
-		reqCtx = context.WithValue(reqCtx, ctxKeyScopes, auth.ScopesFromStored(rawScopes))
-		g.recordDeprecatedCredential(r, ns, form)
+		reqCtx = context.WithValue(reqCtx, CtxKeyNamespaceOverride, entry.namespace)
+		reqCtx = withKeyAuthority(reqCtx, entry.scopes, entry.resources)
+		reqCtx = withKeyFingerprint(reqCtx, entry.authority().fingerprint)
+		reqCtx = context.WithValue(reqCtx, ctxKeyKeyID, entry.id)
+		markRequestKey(reqCtx, entry.id)
+		g.recordDeprecatedCredential(r, entry.namespace, form)
 		next.ServeHTTP(w, r.WithContext(reqCtx))
 	})
 }
@@ -1231,11 +1381,8 @@ func (g *Gateway) authorizationMiddleware(next http.Handler) http.Handler {
 
 		// grantFor reports the live grant (ot, oid) holds in this namespace, if
 		// any. API keys are stored HMAC-hashed (see service.HashAPIKey) while
-		// the presented value here is the RAW key — so for a key we look under
-		// the hashed form first and the raw form second (rolling-upgrade
-		// legacy), mirroring lookupAPIKeyNamespace. Without this, a
-		// key-authenticated member never matched and got a 403 on a namespace
-		// they actually belong to (blocked function deploy / push config).
+		// the presented value here is the RAW key, so a key is looked up under
+		// its hashed form only.
 		grantFor := func(ot, oid string) *auth.Grant {
 			hashed := ""
 			if ot == "api_key" {
@@ -1396,9 +1543,9 @@ func loggableOwnerID(ownerType, ownerID string) string {
 // principalIdentifierCandidates returns the identifiers to look a principal up
 // under.
 //
-// API keys are stored HMAC-hashed, so for a key the hashed form is checked
-// first and the raw key second (rolling-upgrade legacy, mirroring
-// lookupAPIKeyNamespace).
+// API keys are stored HMAC-hashed, and MigratePlaintextAPIKeys moves any
+// leftover raw-key principal to the hashed form before the gateway serves, so
+// a key is looked up under its hashed form only.
 //
 // Wallets are stored normalised (auth.NormalizeWallet), but rows written before
 // that was true kept whatever case the client sent — so a checksummed address
@@ -1408,8 +1555,8 @@ func loggableOwnerID(ownerType, ownerID string) string {
 //
 // For every other owner type the value is used as-is.
 func principalIdentifierCandidates(ownerType, ownerID, hashed string) []string {
-	if ownerType == "api_key" && hashed != "" && hashed != ownerID {
-		return []string{hashed, ownerID}
+	if ownerType == "api_key" {
+		return []string{hashed}
 	}
 	if ownerType == "wallet" {
 		if normalized := auth.NormalizeWallet(ownerID); normalized != ownerID {
@@ -1420,15 +1567,17 @@ func principalIdentifierCandidates(ownerType, ownerID, hashed string) []string {
 }
 
 // corsMiddleware applies CORS headers. Allows requests from the configured base
-// domain and its subdomains, and the public explorer's origin on the chain's
-// read routes (cors_explorer.go). Any other origin is answered with the base
-// domain, which a browser then refuses.
+// domain and its subdomains, from this machine (getAllowedOrigin), from the
+// origins the namespace a ns-<name> host names lists (cors.go), and from the
+// public explorer's origin on the chain's read routes (cors_explorer.go). Any
+// other origin is answered with the base domain, which a browser then refuses.
 func (g *Gateway) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowedOrigin := g.allowedOriginFor(r)
 		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		w.Header().Set("Access-Control-Allow-Headers", corsAllowHeaders)
+		w.Header().Set("Access-Control-Expose-Headers", corsExposeHeaders)
 		w.Header().Set("Access-Control-Max-Age", strconv.Itoa(600))
 		if allowedOrigin != "*" {
 			w.Header().Set("Vary", "Origin")
@@ -1441,28 +1590,14 @@ func (g *Gateway) corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// getAllowedOrigin returns the allowed origin for CORS based on the request
-// origin: the base domain and any subdomain of it. A base domain is required
-// (ValidateConfig); a gateway without one used to answer "*" here.
+// getAllowedOrigin returns the allowed origin for CORS by the rule every
+// gateway applies (corsorigins.BuiltIn): the base domain and any name under
+// it, and loopback — localhost, any *.localhost name and the loopback
+// addresses, which is where a dev server and a Tauri webview serve a page
+// from (tauri://localhost, http(s)://tauri.localhost). A base domain is
+// required (ValidateConfig); a gateway without one used to answer "*" here.
 func (g *Gateway) getAllowedOrigin(origin string) string {
-	if origin == "" {
-		return "https://" + g.cfg.BaseDomain
-	}
-	// Extract hostname from origin (e.g., "https://app.dbrs.space" -> "app.dbrs.space")
-	host := origin
-	if idx := strings.Index(host, "://"); idx != -1 {
-		host = host[idx+3:]
-	}
-	// Strip port if present
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
-	// Allow exact match or subdomain match
-	if host == g.cfg.BaseDomain || strings.HasSuffix(host, "."+g.cfg.BaseDomain) {
-		return origin
-	}
-	// Also allow common development origins
-	if host == "localhost" || host == "127.0.0.1" {
+	if origin != "" && corsorigins.BuiltIn(origin, g.cfg.BaseDomain) {
 		return origin
 	}
 	return "https://" + g.cfg.BaseDomain
@@ -1614,13 +1749,13 @@ func (g *Gateway) handleNamespaceGatewayRequest(w http.ResponseWriter, r *http.R
 type namespaceProxyAuth struct {
 	namespace string
 	claims    *auth.JWTClaims
-	scopes    string
+	key       keyAuthority
 	errMsg    string
 }
 
 func (g *Gateway) namespaceProxyAuthFor(r *http.Request) namespaceProxyAuth {
-	ns, claims, scopes, errMsg := g.validateAuthForNamespaceProxy(r)
-	return namespaceProxyAuth{namespace: ns, claims: claims, scopes: scopes, errMsg: errMsg}
+	ns, claims, key, errMsg := g.validateAuthForNamespaceProxy(r)
+	return namespaceProxyAuth{namespace: ns, claims: claims, key: key, errMsg: errMsg}
 }
 
 // proxyToNamespaceGateway refuses a request whose credential does not belong
@@ -1631,7 +1766,8 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 	if refuseCrossSiteUpgrade(w, r) {
 		return
 	}
-	validatedNamespace, validatedClaims, validatedScopes, authErr := a.namespace, a.claims, a.scopes, a.errMsg
+	validatedNamespace, validatedClaims, validatedKey, authErr := a.namespace, a.claims, a.key, a.errMsg
+	markRequestKey(r.Context(), validatedKey.id)
 	isWS := isWebSocketUpgrade(r)
 	isPublic := g.policyFor(r).Access.Anonymous()
 
@@ -1721,6 +1857,12 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 		)
 		forbidden(w, CodeNamespaceMismatch, "this credential belongs to another namespace",
 			map[string]any{"namespace": namespaceName, "credential_namespace": validatedNamespace})
+		return
+	}
+
+	// The namespace's attestation policy, judged and counted here, where the
+	// cluster's request metrics are kept (attestation_middleware.go).
+	if !g.admitAttestedProxy(w, r, namespaceName, a) {
 		return
 	}
 
@@ -1878,10 +2020,7 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 			// namespace gateway's auth middleware can hydrate ctxKeyJWT and
 			// host functions see a non-empty caller_jwt_subject.
 			setInternalAuthJWTHeaders(r.Header, validatedClaims)
-			// #148: forward the API-key caller's effective scopes.
-			if validatedScopes != "" {
-				r.Header.Set(HeaderInternalAuthScopes, validatedScopes)
-			}
+			setInternalAuthKeyHeaders(r.Header, validatedKey)
 			// The MAC is what makes any of this believable on the other side.
 			// Without it the namespace gateway would drop every header above,
 			// so a hop that cannot be signed is refused rather than sent as an
@@ -1953,7 +2092,7 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 			}
 		}
 		proxyReq, err := g.namespaceProxyRequest(r, candidate.ip+":"+strconv.Itoa(candidate.port), body,
-			validatedNamespace, validatedClaims, validatedScopes)
+			validatedNamespace, validatedClaims, validatedKey)
 		if errors.Is(err, errNoClusterSecret) {
 			candidateCB.Abandon()
 			g.logger.ComponentError("gateway", "cannot delegate auth to the namespace gateway",
@@ -2002,16 +2141,18 @@ func (g *Gateway) proxyToNamespaceGateway(w http.ResponseWriter, r *http.Request
 		// debug path.
 		if isProxyTimeoutErr(lastErr) {
 			httputil.WriteRPCError(w, http.StatusGatewayTimeout,
-				httputil.ErrCodeTimeout, proxyTimeoutMessage(r.URL.Path, proxyTimeout))
+				httputil.ErrCodeTimeout, proxyTimeoutMessage(r.URL.Path, proxyTimeout),
+				proxyFailureRetryable(r.Method, lastErr))
 			return
 		}
 		httputil.WriteRPCError(w, http.StatusServiceUnavailable,
-			httputil.ErrCodeServiceUnavailable, namespaceGatewayUnavailableMessage)
+			httputil.ErrCodeServiceUnavailable, namespaceGatewayUnavailableMessage,
+			proxyFailureRetryable(r.Method, lastErr))
 		return
 	}
 	defer resp.Body.Close()
 
-	if isUpstreamFailure(resp) {
+	if isNamespaceGatewayFailure(resp) {
 		cb.RecordFailure(fmt.Sprintf("the namespace gateway answered %d", resp.StatusCode))
 	} else {
 		cb.RecordSuccess()
@@ -2508,7 +2649,7 @@ func keepBodyLength(out, in *http.Request) {
 // namespaceProxyRequest is the request r becomes on its hop to the namespace
 // gateway at targetHost, carrying body and the identity this gateway validated.
 func (g *Gateway) namespaceProxyRequest(r *http.Request, targetHost string, body io.ReadCloser,
-	validatedNamespace string, validatedClaims *auth.JWTClaims, validatedScopes string) (*http.Request, error) {
+	validatedNamespace string, validatedClaims *auth.JWTClaims, validatedKey keyAuthority) (*http.Request, error) {
 	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, proxyTargetURL("http://"+targetHost, r.URL), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the namespace gateway proxy request: %w", err)
@@ -2541,10 +2682,7 @@ func (g *Gateway) namespaceProxyRequest(r *http.Request, targetHost string, body
 		// namespace gateway's auth middleware can hydrate ctxKeyJWT and
 		// host functions see a non-empty caller_jwt_subject.
 		setInternalAuthJWTHeaders(proxyReq.Header, validatedClaims)
-		// #148: forward the API-key caller's effective scopes.
-		if validatedScopes != "" {
-			proxyReq.Header.Set(HeaderInternalAuthScopes, validatedScopes)
-		}
+		setInternalAuthKeyHeaders(proxyReq.Header, validatedKey)
 		// The MAC is what makes any of this believable on the other side.
 		// Without it the namespace gateway would drop every header above, so a
 		// hop that cannot be signed is refused rather than sent as an assertion

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	gwauth "github.com/Orama-Network/orama/core/pkg/gateway/auth"
+	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 	"github.com/Orama-Network/orama/core/pkg/gateway/wssession"
 	"github.com/Orama-Network/orama/core/pkg/logging"
 	"github.com/gorilla/websocket"
@@ -62,7 +64,7 @@ func checkWSOrigin(r *http.Request) bool {
 // with it the subscription. The frame is best-effort — the connection is
 // closed whether or not the client read it — and closing a connection its
 // handler has already closed has nothing left to do.
-func subscriberCloser(conn *websocket.Conn) func(code int, reason string) {
+func subscriberCloser(conn *websocket.Conn) wssession.Closer {
 	return func(code int, reason string) {
 		_ = conn.WriteControl(websocket.CloseMessage,
 			websocket.FormatCloseMessage(code, reason), time.Now().Add(wssession.CloseFrameTimeout))
@@ -150,4 +152,21 @@ func (c *wsClient) readMessage() (messageType int, data []byte, err error) {
 // close closes the WebSocket connection
 func (c *wsClient) close() error {
 	return c.conn.Close()
+}
+
+// registerSubscriber holds a subscriber socket to the credential that opened
+// it: its token, or the bare API key by the key's registry id. A socket whose
+// upgrade the attestation middleware judged is held to its namespace's policy
+// as well.
+func (p *PubSubHandlers) registerSubscriber(r *http.Request, closeFn wssession.Closer) *wssession.Socket {
+	var sock *wssession.Socket
+	if claims, _ := r.Context().Value(ctxkeys.JWT).(*gwauth.JWTClaims); claims != nil {
+		sock = p.sessions.Register(claims, closeFn)
+	} else {
+		keyID, _ := r.Context().Value(ctxkeys.KeyID).(int64)
+		sock = p.sessions.RegisterKey(keyID, closeFn)
+	}
+	ns, _ := r.Context().Value(ctxkeys.AttestationNamespace).(string)
+	sock.HoldToAttestation(ns)
+	return sock
 }

@@ -33,7 +33,7 @@ const (
 
 	// The epoch `orama setup --create-network` gives a test network (core/cmd/orama/internal/setup testEpochDuration) and a
 	// production epoch (emissiontypes.DefaultEpochDuration).
-	stagenetEpoch = 300 * time.Second
+	testnetEpoch = 300 * time.Second
 )
 
 // orama formats a norama amount as ORAMA with thousands separators and no trailing zeros.
@@ -192,7 +192,7 @@ func relayTable() string {
 func perDayTable() string {
 	rows := [][]string{
 		{"Mainnet", grouped(int64(emissiontypes.DefaultEpochDuration/time.Second)) + " seconds", fmt.Sprint(int(24 * time.Hour / emissiontypes.DefaultEpochDuration))},
-		{"Stagenet", grouped(int64(stagenetEpoch/time.Second)) + " seconds", fmt.Sprint(int(24 * time.Hour / stagenetEpoch))},
+		{"Testnet", grouped(int64(testnetEpoch/time.Second)) + " seconds", fmt.Sprint(int(24 * time.Hour / testnetEpoch))},
 	}
 	return table([]string{"Network", "Epoch length", "Epochs per day"}, rows...)
 }
@@ -212,7 +212,7 @@ var earningsCitations = []citation{
 	{"Tail of 274 per epoch", "x/emission/types/schedule.go", 27, "TailPerEpochOrama = 274"},
 	{"Split 60 / 25 / 10 / 5", "x/emission/types/split.go", 16, "ValidatorSharePercent"},
 	{"Mainnet epoch of 24 hours", "x/emission/types/params.go", 14, "DefaultEpochDuration"},
-	{"Stagenet epoch of 300 seconds", "../core/cmd/orama/internal/setup/create_genesis.go", 24, "testEpochDuration"},
+	{"Testnet epoch of 300 seconds", "../core/cmd/orama/internal/setup/create_genesis.go", 24, "testEpochDuration"},
 	{"Operator cap of 5%", "x/power/types/params.go", 121, "LegacyNewDecWithPrec(5, 2)"},
 	{"Redistribution bound of 2", "x/power/types/params.go", 61, "DefaultMaxRedistributionMultiplier"},
 	{"Provider share of a service payment, 90%", "x/storage/types/subsidy.go", 11, "ServiceProviderBPS"},

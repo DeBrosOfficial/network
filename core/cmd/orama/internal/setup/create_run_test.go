@@ -105,7 +105,7 @@ func checkStartsOneByOne(t *testing.T, w *world, ips []string) {
 
 func checkPublished(t *testing.T, h *createHarness, res *Result) {
 	t.Helper()
-	dir := filepath.Join(h.publishDir, "stagenet")
+	dir := filepath.Join(h.publishDir, "testnet")
 	for _, f := range []string{"manifest.json", "genesis.json", "release-root.json"} {
 		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
 			t.Errorf("the creation did not write %s: %v", f, err)
@@ -123,7 +123,7 @@ func checkPublished(t *testing.T, h *createHarness, res *Result) {
 	if err := m.VerifyGenesis(genesis); err != nil {
 		t.Errorf("the manifest does not pin the genesis written: %v", err)
 	}
-	if m.ChainID != "orama-stagenet-6" || !m.Faucet || m.Channel != "nightly" || len(m.Seeds) != 5 || m.Seeds[0] != "ns1.stagenet.orama.network" {
+	if m.ChainID != "orama-testnet-6" || !m.Faucet || m.Channel != "nightly" || len(m.Seeds) != 5 || m.Seeds[0] != "ns1.testnet.orama.network" {
 		t.Errorf("manifest = %+v", m)
 	}
 	if res.Created == nil || res.Created.Dir != dir || res.Created.Manifest.GenesisSHA256 != m.GenesisSHA256 {
@@ -158,7 +158,7 @@ func TestRunCreate_rerunKeepsTheGenesisAndTheKeys(t *testing.T) {
 	if h.w.count("read-genesis ") != 1 {
 		t.Errorf("the genesis is read back from one machine once")
 	}
-	published, _ := os.ReadFile(filepath.Join(h.publishDir, "stagenet", "genesis.json"))
+	published, _ := os.ReadFile(filepath.Join(h.publishDir, "testnet", "genesis.json"))
 	if string(published) != string(genesis) {
 		t.Error("the genesis published is not the one the machines carry")
 	}
@@ -170,7 +170,7 @@ func TestRunCreate_rerunKeepsTheGenesisAndTheKeys(t *testing.T) {
 func TestRunCreate_machinesWithAChainHomeKeepTheirKeys(t *testing.T) {
 	h := newCreateHarness(t)
 	h.enroll.facts = map[string]Facts{fiveIPs[0]: {Arch: "amd64", Hardware: goodHardware(), ClusterInstalled: true, GlobalInstalled: true, ManifestSHA256: testManifest, CLISHA256: testCLISHA}}
-	h.seats.carries(fiveIPs[0], placeholderGenesis("orama-stagenet-6"), false)
+	h.seats.carries(fiveIPs[0], placeholderGenesis("orama-testnet-6"), false)
 	h.mustCreate(t, h.createOpts(fiveIPs[:2]...))
 	if h.w.index("init-chain "+fiveIPs[0]) >= 0 {
 		t.Error("a machine with a chain home was initialised again: its keys would be lost")
@@ -188,7 +188,7 @@ func TestRunCreate_halfDistributedGenesisIsCompleted(t *testing.T) {
 		fiveIPs[1]: {Arch: "amd64", Hardware: goodHardware(), ClusterInstalled: true, GlobalInstalled: true},
 	}
 	h.seats.carries(fiveIPs[0], genesis, false)
-	h.seats.carries(fiveIPs[1], placeholderGenesis("orama-stagenet-6"), false)
+	h.seats.carries(fiveIPs[1], placeholderGenesis("orama-testnet-6"), false)
 	h.mustCreate(t, h.createOpts(fiveIPs[:2]...))
 	if h.w.count("build-genesis ") != 1 || h.w.index("build-genesis "+fiveIPs[1]) < 0 {
 		t.Error("a genesis that is on a machine is built once, by the other machine, as a witness")
@@ -254,14 +254,14 @@ func TestRunCreate_forceNewGenesisRebuildsOnlyBeforeAChainRan(t *testing.T) {
 
 func TestRunCreate_aPublishedChainIdKeepsItsGenesisAndNoChainStarts(t *testing.T) {
 	h := newCreateHarness(t)
-	dir := filepath.Join(h.publishDir, "stagenet")
+	dir := filepath.Join(h.publishDir, "testnet")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	other := []byte(`{"chain_id":"orama-stagenet-6","other":true}`)
+	other := []byte(`{"chain_id":"orama-testnet-6","other":true}`)
 	if _, err := netregistry.Publish(netregistry.PublishInput{
-		Dir: h.publishDir, Name: "stagenet", ChainID: "orama-stagenet-6", Genesis: other, ReleaseRoot: []byte(`{"a":1}`),
-		Seeds: []string{"ns1.stagenet.orama.network"}, Channel: "nightly", MinVersion: "0.3.0", ReleaseRepo: "https://releases.example",
+		Dir: h.publishDir, Name: "testnet", ChainID: "orama-testnet-6", Genesis: other, ReleaseRoot: []byte(`{"a":1}`),
+		Seeds: []string{"ns1.testnet.orama.network"}, Channel: "nightly", MinVersion: "0.3.0", ReleaseRepo: "https://releases.example",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -280,18 +280,18 @@ func TestRunCreate_withADomainEveryNodeGetsTheNodeNamesZoneAndTheSeedsAreNameser
 	h := newCreateHarness(t)
 	h.deps.Domain = fakeDomain{w: h.w}
 	opts := h.createOpts(fiveIPs...)
-	opts.Domain = "stagenet.orama.network"
+	opts.Domain = "testnet.orama.network"
 	res := h.mustCreate(t, opts)
 	for _, ip := range fiveIPs {
-		if got := h.enroll.created[ip].installed.NodeNamesZone; got != "nodes.stagenet.orama.network" {
+		if got := h.enroll.created[ip].installed.NodeNamesZone; got != "nodes.testnet.orama.network" {
 			t.Errorf("%s installed with zone %q", ip, got)
 		}
 	}
-	want := "ns1.stagenet.orama.network ns2.stagenet.orama.network ns3.stagenet.orama.network ns4.stagenet.orama.network ns5.stagenet.orama.network"
+	want := "ns1.testnet.orama.network ns2.testnet.orama.network ns3.testnet.orama.network ns4.testnet.orama.network ns5.testnet.orama.network"
 	if got := strings.Join(res.Created.Manifest.Seeds, " "); got != want {
 		t.Errorf("seeds = %s", got)
 	}
-	if res.Created.Domain != "stagenet.orama.network" {
+	if res.Created.Domain != "testnet.orama.network" {
 		t.Errorf("Created.Domain = %q", res.Created.Domain)
 	}
 }

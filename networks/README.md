@@ -28,6 +28,6 @@ and `orama setup --create-network <name>` takes the chain id, release repository
 seeds, faucet and release root from it; when the chain exists the created network's files
 replace the announcement.
 
-Every reset of a network gets a new chain id (`orama-stagenet-5` becomes
-`orama-stagenet-6`); `publish` refuses to give an already published chain id a
+Every reset of a network gets a new chain id (`orama-testnet-5` becomes
+`orama-testnet-6`); `publish` refuses to give an already published chain id a
 different genesis.

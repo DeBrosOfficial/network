@@ -9,14 +9,14 @@ import (
 
 func TestIsTestNetwork(t *testing.T) {
 	for chainID, want := range map[string]bool{
-		"orama-stagenet-6": true,
+		"orama-testnet-6":  true,
 		"orama-devnet-1":   true,
 		"orama-localnet-2": true,
 		"orama-1":          false,
-		"orama-testnet-3":  false,
+		"orama-stagenet-3": false,
 		"orama-mainnet-1":  false,
-		"stagenet":         false,
-		"orama-stagenet":   false,
+		"testnet":          false,
+		"orama-testnet":    false,
 		"":                 false,
 		"orama-staging-1":  false,
 	} {

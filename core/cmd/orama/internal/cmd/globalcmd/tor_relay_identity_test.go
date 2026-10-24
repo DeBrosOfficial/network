@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	relayTestChain    = "orama-stagenet-2"
+	relayTestChain    = "orama-testnet-2"
 	relayTestOperator = "orama19rl4cm2hmr8afy4kldpxz3fka4jguq0a5tup0s"
 )
 

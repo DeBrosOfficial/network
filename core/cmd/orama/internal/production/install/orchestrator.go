@@ -580,6 +580,12 @@ func newJoinRequest(url, serverName string, body []byte) (*http.Request, error) 
 
 // saveSecretsFromJoinResponse writes cluster secrets received from the join endpoint to disk
 func (o *Orchestrator) saveSecretsFromJoinResponse(resp *joinhandlers.JoinResponse) error {
+	// Every gateway hashes API keys under the cluster's HMAC secret; a node
+	// without it would not start its gateway. Refused before anything is
+	// written.
+	if strings.TrimSpace(resp.APIKeyHMACSecret) == "" {
+		return fmt.Errorf("the join response carries no API key HMAC secret; the node that answered cannot hand over the cluster's secrets")
+	}
 	// secrets/ is the orama user's once Phase 5 has run: write it without
 	// following symlinks.
 	root := oramainstall.OramaRoot(o.oramaDir)
@@ -603,10 +609,8 @@ func (o *Orchestrator) saveSecretsFromJoinResponse(resp *joinhandlers.JoinRespon
 	}
 
 	// Write API key HMAC secret
-	if resp.APIKeyHMACSecret != "" {
-		if err := root.WriteFile(filepath.Join(secretsDir, "api-key-hmac-secret"), []byte(resp.APIKeyHMACSecret), 0600); err != nil {
-			return fmt.Errorf("failed to write api-key-hmac-secret: %w", err)
-		}
+	if err := root.WriteFile(filepath.Join(secretsDir, "api-key-hmac-secret"), []byte(resp.APIKeyHMACSecret), 0600); err != nil {
+		return fmt.Errorf("failed to write api-key-hmac-secret: %w", err)
 	}
 
 	// Write RQLite password and generate auth JSON file

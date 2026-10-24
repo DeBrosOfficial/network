@@ -19,16 +19,16 @@ func TestDecodeTURNConfig_acceptsSpawnerOutput(t *testing.T) {
 		ListenAddr:         "0.0.0.0:3478",
 		TURNSListenAddr:    "0.0.0.0:5349",
 		PublicIP:           "203.0.113.7",
-		Realm:              "orama-devnet.network",
+		Realm:              "devnet.orama.network",
 		AuthSecret:         "secret",
 		RelayPortStart:     49152,
 		RelayPortEnd:       49951,
 		Namespace:          "anchat-test",
 		TLSCertPath:        "/x/turn-cert.pem",
 		TLSKeyPath:         "/x/turn-key.pem",
-		StealthDomain:      "cdn-3259254d4d3e.orama-devnet.network",
-		TLSStealthCertPath: "/var/lib/caddy/caddy/certificates/.../wildcard_.orama-devnet.network.crt",
-		TLSStealthKeyPath:  "/var/lib/caddy/caddy/certificates/.../wildcard_.orama-devnet.network.key",
+		StealthDomain:      "cdn-3259254d4d3e.devnet.orama.network",
+		TLSStealthCertPath: "/var/lib/caddy/caddy/certificates/.../wildcard_.devnet.orama.network.crt",
+		TLSStealthKeyPath:  "/var/lib/caddy/caddy/certificates/.../wildcard_.devnet.orama.network.key",
 	}
 
 	data, err := yaml.Marshal(src)

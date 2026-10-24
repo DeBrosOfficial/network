@@ -131,6 +131,9 @@ func (h *Handlers) revokeFetchCap(w http.ResponseWriter, r *http.Request, id str
 	case errors.Is(err, capability.ErrFetchRevokeKeyInvalid):
 		writeFetchCapError(w, http.StatusForbidden, CodeFetchCapRevokeKeyInvalid,
 			"the revoke key is not the one issued for this fetch capability")
+	case errors.Is(err, gwauth.ErrCapabilityRevocationLimit):
+		writeFetchCapError(w, http.StatusTooManyRequests, CodeFetchCapRevocationLimit,
+			gwauth.ErrCapabilityRevocationLimit.Error())
 	default:
 		h.logger.ComponentError(logging.ComponentGeneral, "failed to revoke a fetch capability",
 			zap.Error(err), zap.String("namespace", namespace))

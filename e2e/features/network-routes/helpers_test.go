@@ -82,10 +82,9 @@ func expectCode(t testing.TB, what string, resp *gw.Response, status int, code s
 // operatorOwner is a fresh namespace whose owner is made an operator of the
 // cluster for t (`orama maint operator add`, removed at t's cleanup). Only
 // TestNetworkRoutes_asOperator calls it, once, and shares the result with
-// its parallel subtests, so the package changes the operator list once: the
-// owner's grant holds the operator domain and the wallet is on the operator
-// list, the two halves the network routes ask for (route_policy.go "Topology
-// mutation and node operation").
+// its parallel subtests, so the package changes the operator list once. The
+// owner's wallet on the operator list is all the network routes ask for
+// (route_policy.go operatorRoute).
 func operatorOwner(t *testing.T) *ns.Namespace {
 	t.Helper()
 	n := tenancy.Namespace(t, harness.Fleet(t), ns.Options{})

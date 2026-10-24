@@ -7,34 +7,34 @@ import (
 	"github.com/Orama-Network/orama/core/pkg/netregistry"
 )
 
-func createdStagenet(seeds ...string) *CreatedNetwork {
+func createdTestnet(seeds ...string) *CreatedNetwork {
 	return &CreatedNetwork{
-		Manifest: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-6", Seeds: seeds},
-		Dir:      "networks/stagenet", Machines: []string{"203.0.113.10", "203.0.113.11"},
+		Manifest: &netregistry.Manifest{Name: "testnet", ChainID: "orama-testnet-6", Seeds: seeds},
+		Dir:      "networks/testnet", Machines: []string{"203.0.113.10", "203.0.113.11"},
 	}
 }
 
 func TestCreatedNetwork_seedRecordsPairSeedsWithMachines(t *testing.T) {
-	got := createdStagenet("ns1.stagenet.orama.network", "ns2.stagenet.orama.network").SeedRecords()
-	want := []string{"ns1.stagenet.orama.network.\tIN\tA\t203.0.113.10", "ns2.stagenet.orama.network.\tIN\tA\t203.0.113.11"}
+	got := createdTestnet("ns1.testnet.orama.network", "ns2.testnet.orama.network").SeedRecords()
+	want := []string{"ns1.testnet.orama.network.\tIN\tA\t203.0.113.10", "ns2.testnet.orama.network.\tIN\tA\t203.0.113.11"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("records = %q, want %q", got, want)
 	}
 }
 
 func TestCreatedNetwork_seedRecordsWhenSeedsAndMachinesDiffer(t *testing.T) {
-	got := createdStagenet("seed.example.org").SeedRecords()
+	got := createdTestnet("seed.example.org").SeedRecords()
 	if len(got) != 1 || !strings.Contains(got[0], "seed.example.org must resolve to one of [203.0.113.10 203.0.113.11]") {
 		t.Errorf("records = %q", got)
 	}
 }
 
 func TestCreatedNetwork_nextStepsNameTheCommandsInOrder(t *testing.T) {
-	steps := strings.Join(createdStagenet("ns1.stagenet.orama.network", "ns2.stagenet.orama.network").NextSteps(), "\n")
+	steps := strings.Join(createdTestnet("ns1.testnet.orama.network", "ns2.testnet.orama.network").NextSteps(), "\n")
 	order := []string{
-		"networks/stagenet/", "1. Create these DNS records", "ns1.stagenet.orama.network.\tIN\tA\t203.0.113.10",
+		"networks/testnet/", "1. Create these DNS records", "ns1.testnet.orama.network.\tIN\tA\t203.0.113.10",
 		"2. In the repository", "make -C core sync-networks", "core/pkg/netregistry/embedded/", "3. Deploy the website",
-		"orama network add https://orama.network/networks/stagenet/manifest.json", "orama setup --network stagenet", "new chain id",
+		"orama network add https://orama.network/networks/testnet/manifest.json", "orama setup --network testnet", "new chain id",
 	}
 	last := -1
 	for _, want := range order {
@@ -47,7 +47,7 @@ func TestCreatedNetwork_nextStepsNameTheCommandsInOrder(t *testing.T) {
 }
 
 func TestCreatedNetwork_manifestURL(t *testing.T) {
-	if got := createdStagenet("a.b").ManifestURL(); got != "https://orama.network/networks/stagenet/manifest.json" {
+	if got := createdTestnet("a.b").ManifestURL(); got != "https://orama.network/networks/testnet/manifest.json" {
 		t.Errorf("URL = %s", got)
 	}
 }
@@ -55,10 +55,10 @@ func TestCreatedNetwork_manifestURL(t *testing.T) {
 // A network created at a domain has nameservers for seeds: the maintainer delegates the domain, and
 // no A record is made by hand.
 func TestCreatedNetwork_nextStepsDelegateTheDomainWhenSeedsAreNameservers(t *testing.T) {
-	c := createdStagenet("ns1.stagenet.orama.network", "ns2.stagenet.orama.network")
-	c.Domain = "stagenet.orama.network"
+	c := createdTestnet("ns1.testnet.orama.network", "ns2.testnet.orama.network")
+	c.Domain = "testnet.orama.network"
 	steps := strings.Join(c.NextSteps(), "\n")
-	for _, want := range []string{"1. Delegate stagenet.orama.network to the cluster", "ns1.stagenet.orama.network ns2.stagenet.orama.network", "2. In the repository"} {
+	for _, want := range []string{"1. Delegate testnet.orama.network to the cluster", "ns1.testnet.orama.network ns2.testnet.orama.network", "2. In the repository"} {
 		if !strings.Contains(steps, want) {
 			t.Errorf("steps lack %q:\n%s", want, steps)
 		}

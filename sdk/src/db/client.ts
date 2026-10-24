@@ -50,7 +50,8 @@ export class DBClient {
         table,
         criteria,
         options,
-      }
+      },
+      { idempotent: true }
     );
     return response.items || [];
   }
@@ -68,10 +69,11 @@ export class DBClient {
     criteria: Record<string, any>
   ): Promise<T | null> {
     try {
-      return await this.httpClient.post<T | null>("/v1/rqlite/find-one", {
-        table,
-        criteria,
-      });
+      return await this.httpClient.post<T | null>(
+        "/v1/rqlite/find-one",
+        { table, criteria },
+        { idempotent: true }
+      );
     } catch (error) {
       if (error instanceof SDKError && error.httpStatus === 404) {
         return null;

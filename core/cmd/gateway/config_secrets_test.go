@@ -6,12 +6,13 @@ import (
 
 	"github.com/Orama-Network/orama/core/pkg/config"
 	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	"gopkg.in/yaml.v3"
 )
 
 // TestSpawnedGatewayConfig_loadsSecretsEncryptionKey is the bugboard #837
 // follow-up regression test for the *load* half: a YAML written by the
-// namespace gateway spawner (gateway.GatewayYAMLConfig with the secrets key)
+// namespace gateway spawner (gatewayspec.GatewayYAMLConfig with the secrets key)
 // must (a) pass the standalone gateway's STRICT decoder — i.e. the
 // secrets_encryption_key field is a known field, not rejected — and (b) end
 // up in gateway.Config.SecretsEncryptionKey via the same trim/assign the real
@@ -21,7 +22,7 @@ func TestSpawnedGatewayConfig_loadsSecretsEncryptionKey(t *testing.T) {
 	const key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 	// Produce the exact YAML a spawned namespace gateway receives.
-	written := gateway.GatewayYAMLConfig{
+	written := gatewayspec.GatewayYAMLConfig{
 		ListenAddr:           ":6001",
 		ClientNamespace:      "anchat-test",
 		RQLiteDSN:            "http://localhost:10000",

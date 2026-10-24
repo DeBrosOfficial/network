@@ -69,7 +69,7 @@ func TestReferenceNodeAPI_workloadIdentityRenewsAndGrantsEnforced(t *testing.T) 
 func redeployAs(t *testing.T, tn *realistic.Tenant, u, role, version string) {
 	t.Helper()
 	tn.Grant(t, todoApp, role)
-	tn.Deploy(t, "nodejs", realistic.ServerApp(t, tn.F, realistic.AppNodeAPI, version), todoApp,
+	tn.Deploy(t, "nodejs", realistic.ServerApp(t, realistic.AppNodeAPI, version), todoApp,
 		"--update")
 	// An update replaces the build and never reads variables: the version the
 	// app reports is a variable, changed on the running app (which restarts it).
@@ -97,7 +97,7 @@ func TestReferenceNodeAPI_grantFollowsARunningAppWithoutARedeploy(t *testing.T) 
 	tn := realistic.NewTenant(t)
 	requireNodeRuntime(t, tn.F)
 	tn.DeployFunction(t, todoStoreFn, "store", false)
-	u := tn.Deploy(t, "nodejs", realistic.ServerApp(t, tn.F, realistic.AppNodeAPI, "api-v1"), todoApp,
+	u := tn.Deploy(t, "nodejs", realistic.ServerApp(t, realistic.AppNodeAPI, "api-v1"), todoApp,
 		"--env", "STORE_FN="+todoStoreFn, "--env", "APP_VERSION=api-v1")
 	tn.EveryNodeServes(t, u, "/health", "ok")
 	requireReplicas(t, tn, "node", todoApp)

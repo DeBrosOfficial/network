@@ -84,6 +84,7 @@ export const DEVELOPER_DOCS: DocLink[] = [
   { title: "Namespaces", slug: "developer/namespaces", icon: Boxes, description: "Your own cluster and its lifecycle", group: "Get started" },
   { title: "Sign-in and sessions", slug: "developer/sign-in", icon: KeyRound, description: "Wallets, the lobby, sign-in policy, open sign-in", group: "Get started" },
   { title: "Devices", slug: "developer/devices", icon: Smartphone, description: "Device-bound sessions and approval", group: "Get started" },
+  { title: "Device attestation", slug: "developer/device-attestation", icon: ShieldCheck, description: "Only your genuine app on a genuine device calls the namespace", group: "Get started" },
   { title: "Access control and keys", slug: "developer/access-control", icon: Users, description: "Roles, members, scoped API keys, audit", group: "Get started" },
   { title: "How you talk to the network", slug: "developer/client-surface", icon: Cable, description: "CLI, SDK and HTTP. No dashboard", group: "Get started" },
 

@@ -15,9 +15,6 @@ import (
 // A failed UPDATE on one id aborts and returns the error so a half-batch
 // is visible; callers must not continue serving as if the table is clean.
 func (s *Service) MigratePlaintextAPIKeys(ctx context.Context) (int, error) {
-	if s.apiKeyHMACSecret == "" {
-		return 0, nil
-	}
 	orm := s.keyORM()
 	if orm == nil {
 		return 0, nil

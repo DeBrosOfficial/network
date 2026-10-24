@@ -47,7 +47,21 @@ func TrafficTables(t view.Theme, s view.TrafficSummary) string {
 		b.WriteString("\n")
 		b.WriteString(namespaceTraffic(t, s.Namespaces))
 	}
+	if len(s.Attestation) > 0 {
+		b.WriteString("\n")
+		b.WriteString(attestationRefusals(t, s.Attestation))
+	}
 	return b.String()
+}
+
+// attestationRefusals lists device attestation's refusals since each gateway
+// started: refused under enforce, would have been refused under monitor.
+func attestationRefusals(t view.Theme, refusals []report.AttestationRefusals) string {
+	rows := make([][]string, 0, len(refusals))
+	for _, a := range refusals {
+		rows = append(rows, []string{a.Mode, a.Code, a.Platform, fmt.Sprint(a.Count)})
+	}
+	return view.Table(t, tableIndent, []string{"ATTESTATION", "CODE", "PLATFORM", "SINCE START"}, rows)
 }
 
 func trafficRow(t view.Theme, n view.NodeTraffic) []string {
@@ -91,10 +105,11 @@ func TrafficJSON(snap *cluster.ClusterSnapshot, w io.Writer) error {
 		Traffic *report.TrafficReport `json:"traffic,omitempty"`
 	}
 	out := struct {
-		Totals     trafficTotalsJSON         `json:"totals"`
-		Nodes      []nodeEntry               `json:"nodes"`
-		Namespaces []report.NamespaceTraffic `json:"namespaces"`
-	}{Totals: trafficTotalsJSON(s.Totals), Nodes: []nodeEntry{}, Namespaces: s.Namespaces}
+		Totals      trafficTotalsJSON            `json:"totals"`
+		Nodes       []nodeEntry                  `json:"nodes"`
+		Namespaces  []report.NamespaceTraffic    `json:"namespaces"`
+		Attestation []report.AttestationRefusals `json:"attestation"`
+	}{Totals: trafficTotalsJSON(s.Totals), Nodes: []nodeEntry{}, Namespaces: s.Namespaces, Attestation: s.Attestation}
 	for _, n := range s.Nodes {
 		out.Nodes = append(out.Nodes, nodeEntry{Host: n.Host, Traffic: n.Traffic})
 	}

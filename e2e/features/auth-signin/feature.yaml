@@ -37,9 +37,11 @@ covers:
     - /v1/namespace/session-policy
     - /v1/namespaces
   claims:
+    - "website/src/docs/developer/access-control.mdx#the-end-users-special-case: orama namespace session-policy --end-user-topics sets the end-user topics (none by default), '' clears them, and a reserved pattern is refused"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-signed-message: the message goes back verbatim; a message naming another domain is refused (AUTH_DOMAIN_MISMATCH)"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#access-tokens: the access token lasts 15 minutes, the refresh token 30 days"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#refresh-tokens-and-sessions: the refresh token rotates on every use; presenting one twice is a replay, refused and recorded"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#refresh-rotation: a refresh naming a namespace that does not exist is refused (401), not answered 503"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-command-line-client: only a 401/403 on refresh ends the CLI session; 5xx, 429, 400 and an unreachable gateway keep it"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-command-line-client: renewal is single-flight across CLI processes under the credentials.json.lock flock"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#vocabulary: a challenge with no namespace signs in to default; the lobby session reaches only POST /v1/namespaces"
@@ -50,7 +52,10 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#revocation: a revocation takes effect on every gateway within the 10-second reload"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#the-sign-in-gate: JWKS serves every live key with the namespace it is bound to; a namespace gateway's key is bound to its namespace"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: a wallet with no grant is refused a members namespace (NAMESPACE_NOT_OWNED); open sign-in admits it as a grantless end user with no API key (ROLE_HAS_NO_KEY on /v1/auth/api-key)"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: an open sign-in writes no grant or claim: the end user is refused the namespace's keys, publishing, /v1/rqlite and the function control plane"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: closing sign-in refuses a grantless wallet's refresh (SIGN_IN_CLOSED) and any new sign-in"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy: orama namespace session-policy shows and sets the policy, a field left out keeps its value"
+    - "website/src/docs/developer/sign-in.mdx#per-ip-limits: with sign-in open and per_ip_limits on, a network past new_wallets_per_ip_hour is refused 429 SIGN_IN_RATE_LIMITED with Retry-After, and a wallet it already signed in is not"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#per-ip-limits: orama namespace session-policy shows the per-IP limits off with defaults 20 and 1200, --per-ip-limits on|off keeps the ceilings, and a ceiling out of range is refused"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#namespace-management: namespace names are validated and the platform's names are reserved"
     - "docs/whitepaper/technical-reference/vol1/06-the-wireguard-mesh.md: removed auth endpoints (simple-key, register, phantom) are gone"

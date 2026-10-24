@@ -34,7 +34,7 @@ func newKey(t *testing.T) ssh.PublicKey {
 }
 
 // targetEnv is a fake owner's home with a known_hosts, the dev agent's ready
-// file, and the keys each stagenet node offers.
+// file, and the keys each testnet node offers.
 type targetEnv struct {
 	home  string
 	in    targetInput
@@ -48,7 +48,7 @@ func newTargetEnv(t *testing.T, userLines func(env *targetEnv) []string) *target
 		t.Fatal(err)
 	}
 	e := &targetEnv{home: home, nodes: map[string]ssh.PublicKey{}}
-	for _, n := range config.StagenetNodes {
+	for _, n := range config.TestnetNodes {
 		e.nodes[n.IP] = newKey(t)
 	}
 	write := func(rel, content string) {
@@ -60,11 +60,11 @@ func newTargetEnv(t *testing.T, userLines func(env *targetEnv) []string) *target
 			t.Fatal(err)
 		}
 	}
-	write(config.StagenetKnownHostsRel, strings.Join(userLines(e), "\n")+"\n")
-	write(config.StagenetRWReadyRel, `{"pid":1,"socket":"x","address":"`+testAddress+`"}`)
+	write(config.TestnetKnownHostsRel, strings.Join(userLines(e), "\n")+"\n")
+	write(config.TestnetRWReadyRel, `{"pid":1,"socket":"x","address":"`+testAddress+`"}`)
 	e.in = targetInput{
 		lay: layout{module: filepath.Join(home, "repo", "e2e"), repo: filepath.Join(home, "repo")}, realHome: home,
-		out: filepath.Join(home, "out", "stagenet-state.json"), chainID: "orama-stagenet-1",
+		out: filepath.Join(home, "out", "testnet-state.json"), chainID: "orama-testnet-1",
 		now: time.Date(2026, 9, 30, 10, 15, 0, 0, time.UTC),
 		scan: func(_ context.Context, ip string) ([]ssh.PublicKey, error) {
 			k, ok := e.nodes[ip]
@@ -84,7 +84,7 @@ func newTargetEnv(t *testing.T, userLines func(env *targetEnv) []string) *target
 // one hashed as ssh does with HashKnownHosts.
 func matching(e *targetEnv) []string {
 	var lines []string
-	for i, n := range config.StagenetNodes {
+	for i, n := range config.TestnetNodes {
 		host := n.IP
 		if i == 0 {
 			host = knownhosts.HashHostname(n.IP)
@@ -94,9 +94,9 @@ func matching(e *targetEnv) []string {
 	return lines
 }
 
-func TestWriteStagenetState_writesTheGuardedState(t *testing.T) {
+func TestWriteTestnetState_writesTheGuardedState(t *testing.T) {
 	e := newTargetEnv(t, matching)
-	if _, err := writeStagenetState(context.Background(), e.in); err != nil {
+	if _, err := writeTestnetState(context.Background(), e.in); err != nil {
 		t.Fatal(err)
 	}
 	st, err := fleet.Load(e.in.out)
@@ -106,17 +106,17 @@ func TestWriteStagenetState_writesTheGuardedState(t *testing.T) {
 	if err := fleet.CheckState(st, e.home); err != nil {
 		t.Fatalf("the written state fails its own guards: %v", err)
 	}
-	if st.Target != config.TargetStagenet || st.RunID != "stagenet-20260930-101500" || st.OperatorAddress != testAddress ||
-		st.ChainID != "orama-stagenet-1" || st.ChainRPC != "http://198.18.0.2:31001" || len(st.Nodes) != len(config.StagenetNodes) {
+	if st.Target != config.TargetTestnet || st.RunID != "testnet-20260930-101500" || st.OperatorAddress != testAddress ||
+		st.ChainID != "orama-testnet-1" || st.ChainRPC != "http://198.18.0.2:31001" || len(st.Nodes) != len(config.TestnetNodes) {
 		t.Fatalf("state %+v", st)
 	}
-	for i, want := range config.StagenetNodes {
+	for i, want := range config.TestnetNodes {
 		n := st.Nodes[i]
 		if n.Name != want.Name || n.PublicIP != want.IP || n.SSHUser != want.User || n.WGIP != want.WGIP || (n.Role == fleet.RoleNameserver) != want.Nameserver {
 			t.Errorf("node %d = %+v, want %+v", i, n, want)
 		}
 	}
-	if st.OramaBin != filepath.Join(e.home, "repo", "core", "bin", "orama") || !strings.HasPrefix(st.ArtifactDir, filepath.Join(e.home, "repo", "e2e", "artifacts", "stagenet-")) {
+	if st.OramaBin != filepath.Join(e.home, "repo", "core", "bin", "orama") || !strings.HasPrefix(st.ArtifactDir, filepath.Join(e.home, "repo", "e2e", "artifacts", "testnet-")) {
 		t.Fatalf("paths %s %s", st.OramaBin, st.ArtifactDir)
 	}
 	pinned, err := os.ReadFile(st.KnownHostsFile)
@@ -130,7 +130,7 @@ func TestWriteStagenetState_writesTheGuardedState(t *testing.T) {
 	}
 }
 
-func TestWriteStagenetState_refusals(t *testing.T) {
+func TestWriteTestnetState_refusals(t *testing.T) {
 	cases := map[string]struct {
 		lines  func(e *targetEnv) []string
 		mutate func(e *targetEnv)
@@ -139,19 +139,19 @@ func TestWriteStagenetState_refusals(t *testing.T) {
 		"changed host key": {
 			lines: func(e *targetEnv) []string {
 				l := matching(e)
-				l[1] = knownhosts.Line([]string{config.StagenetNodes[1].IP}, newKey(t))
+				l[1] = knownhosts.Line([]string{config.TestnetNodes[1].IP}, newKey(t))
 				return l
 			},
 			want: "HOST KEY MISMATCH",
 		},
 		"node missing from known_hosts": {
-			lines: func(e *targetEnv) []string { return matching(e)[:len(config.StagenetNodes)-1] },
+			lines: func(e *targetEnv) []string { return matching(e)[:len(config.TestnetNodes)-1] },
 			want:  "not in your known_hosts",
 		},
 		"known key of another type only": {
 			lines: func(e *targetEnv) []string {
 				l := matching(e)
-				last := config.StagenetNodes[len(config.StagenetNodes)-1].IP
+				last := config.TestnetNodes[len(config.TestnetNodes)-1].IP
 				rsaLine := last + " ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7vbqajDw4o6gJy8UtmIbkcfu6/UrCa/rzWApN6E0kNXSXSJs0PB2vXo0Wrp2RHqwVbhWOfJ3Tj6MV+7kxRd0uOhGYNSvMiIhkGcL3pL7KwvxA4zqz/7oPJgxvSDUaYWn7wEwXhqW5kg0q0YQQsFO8CtiWY4hTVaJxDbsVW08mQw=="
 				return append(l[:len(l)-1], rsaLine)
 			},
@@ -171,13 +171,13 @@ func TestWriteStagenetState_refusals(t *testing.T) {
 		},
 		"agent not running": {
 			lines:  matching,
-			mutate: func(e *targetEnv) { _ = os.Remove(filepath.Join(e.home, config.StagenetRWReadyRel)) },
+			mutate: func(e *targetEnv) { _ = os.Remove(filepath.Join(e.home, config.TestnetRWReadyRel)) },
 			want:   "ready file",
 		},
 		"not an address": {
 			lines: matching,
 			mutate: func(e *targetEnv) {
-				_ = os.WriteFile(filepath.Join(e.home, config.StagenetRWReadyRel), []byte(`{"address":"nope"}`), 0o600)
+				_ = os.WriteFile(filepath.Join(e.home, config.TestnetRWReadyRel), []byte(`{"address":"nope"}`), 0o600)
 			},
 			want: "not an EVM address",
 		},
@@ -188,7 +188,7 @@ func TestWriteStagenetState_refusals(t *testing.T) {
 			if c.mutate != nil {
 				c.mutate(e)
 			}
-			_, err := writeStagenetState(context.Background(), e.in)
+			_, err := writeTestnetState(context.Background(), e.in)
 			if err == nil || !strings.Contains(err.Error(), c.want) {
 				t.Fatalf("err %v, want %q", err, c.want)
 			}
@@ -217,8 +217,8 @@ func TestCmdTarget_usage(t *testing.T) {
 	for name, args := range map[string][]string{
 		"no target":      nil,
 		"other target":   {"devnet", "--out", "/tmp/x.json"},
-		"no out":         {"stagenet"},
-		"stray argument": {"stagenet", "--out", "/tmp/x.json", "extra"},
+		"no out":         {"testnet"},
+		"stray argument": {"testnet", "--out", "/tmp/x.json", "extra"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			code, err := cmdTarget(context.Background(), args)
@@ -238,10 +238,10 @@ func writeState(t *testing.T, st *fleet.State) string {
 	return p
 }
 
-// run, provision, teardown, sweep and every hook refuse a stagenet state
+// run, provision, teardown, sweep and every hook refuse a testnet state
 // before they read a credential, a broker or a cloud API.
-func TestServerCommands_refuseTheStagenetTarget(t *testing.T) {
-	t.Setenv(config.EnvState, writeState(t, &fleet.State{Target: config.TargetStagenet}))
+func TestServerCommands_refuseTheTestnetTarget(t *testing.T) {
+	t.Setenv(config.EnvState, writeState(t, &fleet.State{Target: config.TargetTestnet}))
 	ctx := context.Background()
 	cmds := map[string]func() (int, error){
 		"run":       func() (int, error) { return cmdRun(ctx, nil) },
@@ -259,37 +259,37 @@ func TestServerCommands_refuseTheStagenetTarget(t *testing.T) {
 	for name, run := range cmds {
 		t.Run(name, func(t *testing.T) {
 			code, err := run()
-			if code != exitFail || err == nil || !strings.Contains(err.Error(), "not available on the stagenet target") || !strings.Contains(err.Error(), "e2e-fleet "+name) {
+			if code != exitFail || err == nil || !strings.Contains(err.Error(), "not available on the testnet target") || !strings.Contains(err.Error(), "e2e-fleet "+name) {
 				t.Fatalf("code %d err %v", code, err)
 			}
 		})
 	}
 }
 
-func TestRefuseStagenetEnv_otherStates(t *testing.T) {
+func TestRefuseTestnetEnv_otherStates(t *testing.T) {
 	t.Setenv(config.EnvState, "")
-	if err := refuseStagenetEnv("run"); err != nil {
+	if err := refuseTestnetEnv("run"); err != nil {
 		t.Fatalf("unset state: %v", err)
 	}
 	t.Setenv(config.EnvState, writeState(t, &fleet.State{RunID: "ab12", Env: "e2e-ab12"}))
-	if err := refuseStagenetEnv("teardown"); err != nil {
+	if err := refuseTestnetEnv("teardown"); err != nil {
 		t.Fatalf("fleet state: %v", err)
 	}
 	t.Setenv(config.EnvState, filepath.Join(t.TempDir(), "missing.json"))
-	if err := refuseStagenetEnv("run"); err != nil {
+	if err := refuseTestnetEnv("run"); err != nil {
 		t.Fatalf("missing state: %v", err)
 	}
 }
 
-// Stagenet's nodes are shared VPSs: its packages run two tests at a time unless the flag says otherwise;
+// Testnet's nodes are shared VPSs: its packages run two tests at a time unless the flag says otherwise;
 // the fleet keeps go's default.
 func TestTestParallel_defaultsPerTarget(t *testing.T) {
-	stagenet := &fleet.State{Target: config.TargetStagenet}
-	if got := testParallel(stagenet, -1); got != stagenetTestParallel {
-		t.Errorf("stagenet default = %d, want %d", got, stagenetTestParallel)
+	testnet := &fleet.State{Target: config.TargetTestnet}
+	if got := testParallel(testnet, -1); got != testnetTestParallel {
+		t.Errorf("testnet default = %d, want %d", got, testnetTestParallel)
 	}
-	if got := testParallel(stagenet, 6); got != 6 {
-		t.Errorf("stagenet with --parallel 6 = %d", got)
+	if got := testParallel(testnet, 6); got != 6 {
+		t.Errorf("testnet with --parallel 6 = %d", got)
 	}
 	if got := testParallel(&fleet.State{}, -1); got != 0 {
 		t.Errorf("fleet default = %d, want 0 (go's default)", got)

@@ -79,7 +79,7 @@ func networkHandlers(g *Gateway) map[string]struct {
 	}
 }
 
-// A namespace owner holds the operator grant but is not on the operator list:
+// A namespace owner is not on the operator list:
 // refused 403 before the body is looked at, so an empty body is not a 400.
 func TestNetworkMutation_nonOperatorIsRefusedBeforeTheBody(t *testing.T) {
 	info := &fakeNetworkInfo{}

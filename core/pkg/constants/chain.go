@@ -3,7 +3,7 @@ package constants
 // The Orama L1 (orama-global-chain) listens on its own 31000 block, outside
 // the index block (10100–10199) and the tenant block (10000–10099).
 //
-// These values mirror chain/scripts/stagenet/deploy.sh, which writes them into
+// These values mirror chain/scripts/testnet/deploy.sh, which writes them into
 // the chain's config.toml and app.toml. core reads the chain only over these
 // ports and must never import chain types: the chain is a separate Go module
 // with its own dependency tree, and core talking to it through its RPC keeps

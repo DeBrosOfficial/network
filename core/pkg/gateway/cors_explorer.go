@@ -9,9 +9,9 @@ import (
 const (
 	// publicExplorerOrigin is where the Orama project serves its block explorer
 	// (website/src/explorer). The explorer is a static page on that host and
-	// reads a network's gateway (today stagenet's) from the reader's browser,
+	// reads a network's gateway (today testnet's) from the reader's browser,
 	// so its origin is not under that network's base domain (orama.network is
-	// the parent of stagenet.orama.network, and getAllowedOrigin admits only
+	// the parent of testnet.orama.network, and getAllowedOrigin admits only
 	// the base domain and the names under it).
 	publicExplorerOrigin = "https://orama.network"
 
@@ -21,8 +21,8 @@ const (
 )
 
 // allowedOriginFor is the Access-Control-Allow-Origin for r: the origin when the
-// base-domain rule admits it (getAllowedOrigin), and also when it is the public
-// explorer reading the chain. That exception covers only a read of /v1/chain/:
+// built-in rule admits it (getAllowedOrigin), when the namespace r's host names
+// lists it (cors.go), and when it is the public explorer reading the chain. That exception covers only a read of /v1/chain/:
 // the same origin gets no CORS on the credentialed routes, and none on the
 // chain's POST routes (simulate, broadcast, light, faucet), which a page from
 // another site has no business sending. No other origin is let in, and the
@@ -31,6 +31,9 @@ const (
 func (g *Gateway) allowedOriginFor(r *http.Request) string {
 	origin := r.Header.Get("Origin")
 	if origin == publicExplorerOrigin && isChainRead(r) {
+		return origin
+	}
+	if origin != "" && g.namespaceAllowsOrigin(r, origin) {
 		return origin
 	}
 	return g.getAllowedOrigin(origin)

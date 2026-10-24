@@ -5,7 +5,7 @@
 # (authority SOA, never stale, gone in 30s) driven through real signed ACME
 # present/cleanup calls made on a node, every refusal of those endpoints (unsigned, foreign key, stale or replayed
 # stamp, a signed call sent twice, out-of-zone or malformed record), the base and wildcard certificates
-# on every node (staging on a provisioned fleet, production on stagenet), one
+# on every node (staging on a provisioned fleet, production on testnet), one
 # certificate for the whole cluster through the shared store, the store's
 # refusals and sealed values, the wildcard exported for TURN, TLS versions,
 # ALPN and SNI, plain HTTP
@@ -47,6 +47,7 @@ covers:
     - "website/src/docs/operator/nameserver.mdx#security-considerations: recursion answers loopback only; the node is not an open resolver"
     - "website/src/docs/operator/nameserver.mdx#record-lifecycle-and-self-healing: ns-<ns>, its wildcard, turn.ns-<ns> and turn-<ns> name the nodes serving each role"
     - "website/src/docs/operator/nameserver.mdx#seeing-which-address-holds-which-slot: orama node dns delegation prints the records the zone publishes"
+    - "website/src/docs/operator/nameserver.mdx#seeing-which-address-holds-which-slot: the delegation verdict is what the parent zone's own nameservers serve, asked non-recursively"
     - "website/src/docs/operator/nameserver.mdx#seeing-which-address-holds-which-slot: the delegation check says delegated or names each missing or misdirected NS and glue record"
     - "docs/whitepaper/technical-reference/vol1/25-tls-and-certificates.md#dns-01-through-the-gateway: present/cleanup need a MAC over method, path and body under the ACME key; source address grants nothing"
     - "docs/whitepaper/technical-reference/vol1/25-tls-and-certificates.md#dns-01-through-the-gateway: a signed present or cleanup is good for one call; a replay inside its window is refused (404)"

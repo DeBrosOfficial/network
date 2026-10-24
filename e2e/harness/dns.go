@@ -24,7 +24,7 @@ const (
 // feature process (E2E_BROKER_SOCK unset).
 func Broker(t testing.TB) *broker.Client {
 	t.Helper()
-	requireNotStagenet(t, "the runner's broker")
+	requireNotTestnet(t, "the runner's broker")
 	c, err := broker.FromEnv(os.LookupEnv)
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +41,7 @@ func Broker(t testing.TB) *broker.Client {
 // lowercase letters or digits, starting with a letter.
 func CustomDomain(t testing.TB, label string) string {
 	t.Helper()
-	requireNotStagenet(t, "CustomDomain (a Cloudflare name of the run)")
+	requireNotTestnet(t, "CustomDomain (a Cloudflare name of the run)")
 	f := Fleet(t)
 	zone, ok := strings.CutPrefix(f.State.BaseDomain, "e2e-"+f.State.RunID+".")
 	if !ok {
@@ -78,7 +78,7 @@ func DNSTXT(t testing.TB, name, value string) {
 // declares requires.extra_nodes for its server.
 func ExtraCluster(t testing.TB, name string) provision.EvalCluster {
 	t.Helper()
-	requireNotStagenet(t, "ExtraCluster")
+	requireNotTestnet(t, "ExtraCluster")
 	f := Fleet(t)
 	own := *f.State
 	run, release := runctx.With(t.Context())
@@ -100,12 +100,12 @@ func ExtraCluster(t testing.TB, name string) provision.EvalCluster {
 	return cl
 }
 
-// requireNotStagenet skips a test that needs a server, DNS record or broker
-// operation of its own: the stagenet target only tests the existing cluster,
+// requireNotTestnet skips a test that needs a server, DNS record or broker
+// operation of its own: the testnet target only tests the existing cluster,
 // so there is nothing to provision, and the test cannot apply.
-func requireNotStagenet(t testing.TB, what string) {
+func requireNotTestnet(t testing.TB, what string) {
 	t.Helper()
-	if Fleet(t).State.IsStagenet() {
-		SkipNotApplicable(t, what+": the stagenet target has no extra server, probe VM or DNS broker: the existing cluster is only tested, never provisioned, changed or destroyed")
+	if Fleet(t).State.IsTestnet() {
+		SkipNotApplicable(t, what+": the testnet target has no extra server, probe VM or DNS broker: the existing cluster is only tested, never provisioned, changed or destroyed")
 	}
 }

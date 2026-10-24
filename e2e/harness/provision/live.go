@@ -14,7 +14,7 @@ import (
 // runner can collect their artifacts too. Each carries its fleet name
 // (the server name without e2e-<run>-), address and SSH user.
 func LiveExtras(ctx context.Context, st *fleet.State) ([]fleet.Node, error) {
-	if err := refuseStagenet("LiveExtras", st); err != nil {
+	if err := refuseTestnet("LiveExtras", st); err != nil {
 		return nil, err
 	}
 

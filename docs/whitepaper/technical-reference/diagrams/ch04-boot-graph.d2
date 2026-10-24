@@ -19,6 +19,7 @@ local: "Local tier: needs only this machine" {
   ea: "edge-aux\nntfy, tor"
   wgs: "wireguard-sync"
   iss: "ipfs-swarm-sync"
+  oh: "olric-heal"
 }
 
 cluster: "Cluster tier: needs a raft quorum" {
@@ -52,6 +53,8 @@ local.wg -> local.wgs
 local.rl -> local.wgs
 local.st -> local.iss
 local.rl -> local.iss
+local.wg -> local.oh
+local.rl -> local.oh
 local.rl -> cluster.rc
 cluster.rc -> cluster.mr
 cluster.rc -> cluster.mem

@@ -173,7 +173,7 @@ func TestServeLight_busyGatewayAnswers503(t *testing.T) {
 }
 
 const cometStatus = `{"node_info":{"protocol_version":{"p2p":"8","block":"11","app":"0"},"id":"` +
-	"0123456789abcdef0123456789abcdef01234567" + `","listen_addr":"tcp://10.0.0.7:31000","network":"orama-stagenet-7","version":"0.39.4",` +
+	"0123456789abcdef0123456789abcdef01234567" + `","listen_addr":"tcp://10.0.0.7:31000","network":"orama-testnet-7","version":"0.39.4",` +
 	`"channels":"40202122233038606100","moniker":"alice","other":{"tx_index":"on","rpc_address":"tcp://127.0.0.1:31001"}},` +
 	`"sync_info":{"latest_block_hash":"AB","latest_block_height":"4900","catching_up":false},"validator_info":{"address":"CD"}}`
 
@@ -203,7 +203,7 @@ func TestServeLight_statusNamesNoListenerOfTheNode(t *testing.T) {
 	if err := json.Unmarshal(a.Result, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.NodeInfo.ID != "0123456789abcdef0123456789abcdef01234567" || doc.NodeInfo.Network != "orama-stagenet-7" || doc.NodeInfo.Version != "0.39.4" ||
+	if doc.NodeInfo.ID != "0123456789abcdef0123456789abcdef01234567" || doc.NodeInfo.Network != "orama-testnet-7" || doc.NodeInfo.Version != "0.39.4" ||
 		doc.SyncInfo.LatestBlockHeight != "4900" || doc.NodeInfo.Other["tx_index"] != "on" {
 		t.Errorf("a field a light client reads was removed: %+v", doc)
 	}

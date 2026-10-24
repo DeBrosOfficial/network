@@ -3,8 +3,11 @@ package turn
 import (
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -271,45 +274,35 @@ func newGetCertificateMulti(stealthDomain string, primary, stealth *certReloader
 }
 
 // authHandler validates HMAC-SHA1 credentials.
-// Username format: {expiry_unix}:{namespace}
+// Username format: {expiry_unix}:{namespace}:{subject_id} (see parseUsername)
 // Password: base64(HMAC-SHA1(shared_secret, username))
 func (s *Server) authHandler(username, realm string, srcAddr net.Addr) ([]byte, bool) {
-	// Parse username: must be "{timestamp}:{namespace}"
-	parts := strings.SplitN(username, ":", 2)
-	if len(parts) != 2 {
-		s.logger.Debug("Malformed TURN username: expected timestamp:namespace",
+	u, ok := parseUsername(username)
+	if !ok {
+		s.logger.Debug("Malformed TURN username: expected timestamp:namespace:subject",
 			zap.String("username", username),
 			zap.String("src_addr", srcAddr.String()))
 		return nil, false
 	}
-
-	timestamp, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		s.logger.Debug("Invalid timestamp in TURN username",
-			zap.String("username", username),
-			zap.String("src_addr", srcAddr.String()))
-		return nil, false
-	}
-
-	ns := parts[1]
 
 	// Resolve THIS namespace's secret (bugboard #283). A shared server serves
 	// several tenants, so authorization is the per-tenant lookup: a namespace we
 	// do not serve is rejected exactly as a mismatch was before, and a miss must
 	// never fall through to another tenant's secret.
-	secret, ok := s.tenantSecret(ns)
+	secret, ok := s.tenantSecret(u.namespace)
 	if !ok {
 		s.logger.Debug("TURN credential for a namespace this server does not serve",
-			zap.String("credential_namespace", ns),
+			zap.String("credential_namespace", u.namespace),
 			zap.String("src_addr", srcAddr.String()))
 		return nil, false
 	}
 
-	// Check expiry — credential must not be expired
-	if timestamp <= time.Now().Unix() {
+	// Check expiry — credential must not be expired. This runs on every
+	// authenticated request, so an allocation is not refreshed past it.
+	if u.expiry <= time.Now().Unix() {
 		s.logger.Debug("TURN credential expired",
 			zap.String("username", username),
-			zap.Int64("expired_at", timestamp),
+			zap.Int64("expired_at", u.expiry),
 			zap.String("src_addr", srcAddr.String()))
 		return nil, false
 	}
@@ -320,7 +313,8 @@ func (s *Server) authHandler(username, realm string, srcAddr net.Addr) ([]byte, 
 	key := pionTurn.GenerateAuthKey(username, realm, password)
 
 	s.logger.Debug("TURN auth accepted",
-		zap.String("namespace", ns),
+		zap.String("namespace", u.namespace),
+		zap.String("subject", u.subject),
 		zap.String("src_addr", srcAddr.String()))
 
 	return key, true
@@ -382,13 +376,109 @@ func (s *Server) closeListeners() {
 // exposure of a leaked credential.
 const DefaultCredentialTTL = 24 * time.Hour
 
-// GenerateCredentials creates time-limited HMAC-SHA1 TURN credentials.
-// Returns username and password suitable for WebRTC ICE server configuration.
-func GenerateCredentials(secret, namespace string, ttl time.Duration) (username, password string) {
+// A credential's username follows the TURN REST convention (an expiry, then
+// who it is for), with the namespace between them because one TURN server
+// serves several namespaces:
+//
+//	<expiry unix>:<namespace>:<subject id>
+//
+// The subject id names the user the credential was minted for (bugboard #391).
+// Before it, every user of a namespace who asked in the same second got the
+// same credential, nothing in a relay log said whose a relay was, and one
+// leaked credential relayed for anyone. It is an opaque keyed hash of the
+// caller's identity rather than the identity itself, because a STUN username
+// crosses the network in the clear on UDP and TCP TURN, and an account or
+// wallet must not.
+//
+// A credential cannot be revoked one by one: TURN's long-term credential
+// mechanism carries no state for a server to cancel, which is the same for
+// coturn's use-auth-secret. What bounds it is the expiry, which the server
+// checks on every authenticated request (Allocate, Refresh, CreatePermission,
+// ChannelBind), so an allocation is not refreshed past it; and the namespace's
+// shared secret, whose replacement ends every credential at once. A user who
+// loses access is not issued another.
+
+// subjectIDHexLen is the length of a subject id: 64 bits of the keyed hash,
+// enough that two users of one namespace do not collide by chance.
+const subjectIDHexLen = 16
+
+// subjectIDPurpose domain-separates the subject hash from the password HMAC
+// keyed with the same secret.
+const subjectIDPurpose = "orama-turn-subject-v1"
+
+// ErrNoSubject is a credential asked for nobody. It would be shared by every
+// caller with no identity, which is what a subject is there to prevent.
+var ErrNoSubject = errors.New("turn: a credential must name the subject it is for")
+
+// SubjectID is the opaque id a credential carries for subject: the first
+// subjectIDHexLen hex digits of HMAC-SHA256(secret, purpose || 0 || subject).
+// The namespace's own secret keys it, so the id of one user differs between
+// namespaces and only the platform can tell whose it is.
+func SubjectID(secret, subject string) string {
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(subjectIDPurpose))
+	h.Write([]byte{0})
+	h.Write([]byte(subject))
+	return hex.EncodeToString(h.Sum(nil))[:subjectIDHexLen]
+}
+
+// GenerateCredentials creates time-limited HMAC-SHA1 TURN credentials for
+// subject, the caller's identity. Returns username and password suitable for
+// WebRTC ICE server configuration.
+func GenerateCredentials(secret, namespace, subject string, ttl time.Duration) (username, password string, err error) {
+	if strings.TrimSpace(subject) == "" {
+		return "", "", ErrNoSubject
+	}
 	expiry := time.Now().Add(ttl).Unix()
-	username = fmt.Sprintf("%d:%s", expiry, namespace)
-	password = GeneratePassword(secret, username)
-	return username, password
+	username = fmt.Sprintf("%d:%s:%s", expiry, namespace, SubjectID(secret, subject))
+	return username, GeneratePassword(secret, username), nil
+}
+
+// credentialUsername is a parsed TURN username.
+type credentialUsername struct {
+	expiry    int64
+	namespace string
+	// subject is the subject id, "" for a username minted before subjects.
+	subject string
+}
+
+// parseUsername reads <expiry>:<namespace>:<subject id>.
+//
+// It also reads the two-field <expiry>:<namespace> form for the release that
+// introduces subjects (bugboard #391): credentials minted by the release
+// before it are still in flight for up to their 24 hour lifetime while the
+// fleet upgrades. The release after it accepts the three-field form only
+// (bugboard chg-948).
+func parseUsername(username string) (credentialUsername, bool) {
+	parts := strings.SplitN(username, ":", 3)
+	if len(parts) < 2 {
+		return credentialUsername{}, false
+	}
+	expiry, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || parts[1] == "" {
+		return credentialUsername{}, false
+	}
+	u := credentialUsername{expiry: expiry, namespace: parts[1]}
+	if len(parts) == 3 {
+		if !isSubjectID(parts[2]) {
+			return credentialUsername{}, false
+		}
+		u.subject = parts[2]
+	}
+	return u, true
+}
+
+// isSubjectID reports whether s has the shape SubjectID produces.
+func isSubjectID(s string) bool {
+	if len(s) != subjectIDHexLen {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // GeneratePassword computes the HMAC-SHA1 password for a TURN username.
@@ -400,27 +490,10 @@ func GeneratePassword(secret, username string) string {
 
 // ValidateCredentials checks if TURN credentials are valid and not expired.
 func ValidateCredentials(secret, username, password, expectedNamespace string) bool {
-	parts := strings.SplitN(username, ":", 2)
-	if len(parts) != 2 {
+	u, ok := parseUsername(username)
+	if !ok || u.namespace != expectedNamespace || u.expiry <= time.Now().Unix() {
 		return false
 	}
-
-	timestamp, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return false
-	}
-
-	// Check namespace
-	if parts[1] != expectedNamespace {
-		return false
-	}
-
-	// Check expiry
-	if timestamp <= time.Now().Unix() {
-		return false
-	}
-
-	// Check password
 	expected := GeneratePassword(secret, username)
 	return hmac.Equal([]byte(password), []byte(expected))
 }

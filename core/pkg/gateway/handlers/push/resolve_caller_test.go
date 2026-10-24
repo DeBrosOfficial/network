@@ -28,7 +28,7 @@ func reqWithClaims(t *testing.T, claims *authsvc.JWTClaims) *http.Request {
 func TestResolveCallerUserID_prefersRootIDClaim(t *testing.T) {
 	r := reqWithClaims(t, &authsvc.JWTClaims{
 		Sub:    "0xWALLET",
-		Custom: map[string]string{accountIDClaim: "root-uuid-123"},
+		Custom: map[string]string{authsvc.AccountIDClaim: "root-uuid-123"},
 	})
 	if got := resolveCallerUserID(r); got != "root-uuid-123" {
 		t.Errorf("want accountId from claim, got %q", got)
@@ -47,7 +47,7 @@ func TestResolveCallerUserID_emptyRootIDFallsBack(t *testing.T) {
 	// An empty account_id must not collapse identity to "" — fall back to subject.
 	r := reqWithClaims(t, &authsvc.JWTClaims{
 		Sub:    "0xWALLET",
-		Custom: map[string]string{accountIDClaim: ""},
+		Custom: map[string]string{authsvc.AccountIDClaim: ""},
 	})
 	if got := resolveCallerUserID(r); got != "0xWALLET" {
 		t.Errorf("want wallet fallback on empty account_id, got %q", got)

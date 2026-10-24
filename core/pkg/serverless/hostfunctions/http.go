@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/Orama-Network/orama/core/pkg/anonproxy"
 	"github.com/Orama-Network/orama/core/pkg/httputil"
+	"github.com/Orama-Network/orama/core/pkg/netguard"
 	"github.com/Orama-Network/orama/core/pkg/serverless"
 	"go.uber.org/zap"
 )
@@ -54,16 +54,19 @@ func (h *HostFunctions) AnonFetch(ctx context.Context, method, url string, heade
 // anonFetchName is the host function whose destination the node does not log.
 const anonFetchName = "anon_fetch"
 
-// fetchLogFields describe a failed fetch for the node log without the request's
-// query string, where a credential may be, and the client's error, which quotes
-// the whole URL. An anon_fetch caller chose Tor so the node could not say where
-// the function went: its log names neither the URL nor the cause (the cause of
-// a SOCKS failure names the destination), only the class of the failure.
+// fetchLogFields describe a failed fetch for the node log by the origin it went
+// to (scheme and host) and the cause, never the path, query or user info: a
+// provider key rides in the path (`/v2/<key>`) or the query (`?api-key=`), and
+// a path can name the user (`/address/<wallet>`). The client's error quotes the
+// whole URL, so only its cause is kept. An anon_fetch caller chose Tor so the
+// node could not say where the function went: its log names neither the origin
+// nor the cause (the cause of a SOCKS failure names the destination), only the
+// class of the failure.
 func fetchLogFields(fnName, rawURL string, err error) []zap.Field {
 	if fnName == anonFetchName {
 		return []zap.Field{zap.String("error_class", anonproxy.ErrorClass(err))}
 	}
-	return []zap.Field{zap.String("url", httputil.WithoutQuery(rawURL)), zap.String("error", httputil.FailureReason(err))}
+	return []zap.Field{zap.String("origin", httputil.Origin(rawURL)), zap.String("error", httputil.FailureReason(err))}
 }
 
 // doFetch is the shared request/response machinery for HTTPFetch and
@@ -86,9 +89,9 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, bodyReader)
 	if err != nil {
-		h.logger.Error(fnName+" request creation error", fetchLogFields(fnName, rawURL, err)...)
+		serverless.HostLogger(ctx, h.logger).Error(fnName+" request creation error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
-			"error":  "failed to create request: " + err.Error(),
+			"error":  "failed to create request: " + httputil.FailureReason(err),
 			"status": 0,
 		}
 		return json.Marshal(errorResp)
@@ -100,9 +103,9 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 
 	resp, err := client.Do(req)
 	if err != nil {
-		h.logger.Error(fnName+" transport error", fetchLogFields(fnName, rawURL, err)...)
+		serverless.HostLogger(ctx, h.logger).Error(fnName+" transport error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
-			"error":  err.Error(),
+			"error":  httputil.FailureReason(err),
 			"status": 0, // Transport error
 		}
 		return json.Marshal(errorResp)
@@ -111,9 +114,9 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		h.logger.Error(fnName+" response read error", fetchLogFields(fnName, rawURL, err)...)
+		serverless.HostLogger(ctx, h.logger).Error(fnName+" response read error", fetchLogFields(fnName, rawURL, err)...)
 		errorResp := map[string]interface{}{
-			"error":  "failed to read response: " + err.Error(),
+			"error":  "failed to read response: " + httputil.FailureReason(err),
 			"status": resp.StatusCode,
 		}
 		return json.Marshal(errorResp)
@@ -146,8 +149,10 @@ func (h *HostFunctions) doFetch(ctx context.Context, fnName string, client *http
 // The real check is guardEgressAddress, which runs on the socket itself with
 // the resolved address, for every attempt and every redirect hop. What is left
 // here is what can be settled without resolving anything: the scheme, the names
-// that mean the machine itself, and an IP literal that is already refusable —
-// answered as a clear message rather than as a connection failure.
+// that mean the machine itself, and an address that is already refusable in any
+// notation a resolver reads (netguard.ReservedHost) — answered as a clear
+// message rather than as a connection failure. For anon_fetch this is the
+// gateway's only check: its socket goes to Tor, which resolves the name.
 func denyInternalURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
@@ -158,10 +163,7 @@ func denyInternalURL(raw string) error {
 		return fmt.Errorf("url scheme not allowed")
 	}
 	host := strings.ToLower(u.Hostname())
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") || host == "metadata.google.internal" {
-		return fmt.Errorf("url host not allowed")
-	}
-	if ip := net.ParseIP(host); ip != nil && blockedIP(ip) {
+	if host == "metadata.google.internal" || netguard.ReservedHost(host) {
 		return fmt.Errorf("url host not allowed")
 	}
 	return nil

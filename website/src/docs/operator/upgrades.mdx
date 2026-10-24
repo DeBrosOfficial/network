@@ -15,12 +15,12 @@ orama upgrade --yes              # roll without asking
 orama upgrade --node 203.0.113.11   # one node only
 ```
 
-`orama upgrade` takes the **newest signed release of your network's channel**. The channel is the release repository and channel your network's manifest names (`orama network list` shows the network; stagenet follows `nightly`). The release is verified on your machine against the release root built into the CLI before anything is sent: the signed metadata, then the archive's length and hashes. Every node verifies it again, against the release root it adopted, before it replaces a file. An environment that is on no network of the registry (a cluster you added by its gateway) has no channel; `orama upgrade` says so and points at `orama maint rollout`, which builds and rolls your own archive (below).
+`orama upgrade` takes the **newest signed release of your network's channel**. The channel is the release repository and channel your network's manifest names (`orama network list` shows the network; testnet follows `nightly`). The release is verified on your machine against the release root built into the CLI before anything is sent: the signed metadata, then the archive's length and hashes. Every node verifies it again, against the release root it adopted, before it replaces a file. An environment that is on no network of the registry (a cluster you added by its gateway) has no channel; `orama upgrade` says so and points at `orama maint rollout`, which builds and rolls your own archive (below).
 
 The plan is a table, one row per node, in the order the rolling upgrade will restart them:
 
 ```text
-Network stagenet, channel nightly: newest release 0.3.1
+Network testnet, channel nightly: newest release 0.3.1
 
 NODE         ROLE                  RUNNING  TARGET  ACTION   GLOBAL LAYER
 203.0.113.10 Follower, nameserver  0.3.0    0.3.1   upgrade  refreshed after the node
@@ -92,7 +92,7 @@ sudo orama node upgrade --skip-checks    # skip the minimum resource checks (dis
 
 ## What `push` does
 
-`orama maint push` uploads the archive from your machine to each node in turn; no node is a hub and no node's SSH key leaves your machine (`--direct` is accepted and changes nothing). On each node it runs the node's **installed** CLI, which, under a lock on `/opt/orama`:
+`orama maint push` uploads the archive from your machine to each node in turn; no node is a hub and no node's SSH key leaves your machine (`--direct` is accepted and changes nothing). A node that already staged exactly this archive is skipped (`already staged this archive; nothing uploaded`), and the upload to the others goes in 16 MiB SHA-256-checked chunks, so a dropped connection resends only one chunk and re-running a failed push continues where it stopped. On each node it runs the node's **installed** CLI, which, under a lock on `/opt/orama`:
 
 1. extracts into a private directory (regular files and directories only; at most 1024 entries, 512 MiB per file, 4 GiB total)
 2. verifies the signature against `/etc/orama/archive-signers`, every file against the signed manifest, and the architecture

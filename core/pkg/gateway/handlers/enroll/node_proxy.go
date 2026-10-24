@@ -3,7 +3,9 @@ package enroll
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/Orama-Network/orama/core/pkg/httputil"
 	"github.com/Orama-Network/orama/core/pkg/privhelper"
 	"io"
 	"log"
@@ -116,8 +118,46 @@ func (h *Handler) HandleNodeLogs(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
+// ErrCodeNodeStopUnconfirmed is the code POST /v1/node/leave answers when the
+// leaving node's agent did not confirm that it stopped its services. Nothing
+// was removed: the node is still in wireguard_peers and in this gateway's wg0.
+const ErrCodeNodeStopUnconfirmed = "NODE_STOP_UNCONFIRMED"
+
+// agentStoppedStatus is the status the agent's "stop" command answers once
+// every service it supervises has stopped (os/agent/internal/command).
+const agentStoppedStatus = "stopped"
+
+// errStopUnconfirmed is what confirmAgentStopped wraps for every answer that
+// is not the agent's confirmed stop.
+var errStopUnconfirmed = errors.New("the node's agent did not confirm that it stopped")
+
+// confirmAgentStopped reports whether the agent's answer to "stop" is the
+// confirmation the leave needs: HTTP 200 and {"status":"stopped"}. Anything
+// else, including no answer at all (a node with no agent, an unreachable or
+// unenrolled one), is errStopUnconfirmed with the reason.
+func confirmAgentStopped(body []byte, status int, proxyErr error) error {
+	if proxyErr != nil {
+		return fmt.Errorf("%w: %w", errStopUnconfirmed, proxyErr)
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("%w: the agent answered HTTP %d: %s", errStopUnconfirmed, status, strings.TrimSpace(string(body)))
+	}
+	var reply struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(body, &reply); err != nil || reply.Status != agentStoppedStatus {
+		return fmt.Errorf("%w: the agent answered %q", errStopUnconfirmed, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
 // HandleNodeLeave handles POST /v1/node/leave — graceful node departure.
-// Stops services on the leaving node and removes it from the WireGuard mesh.
+// It asks the leaving node's agent to stop its services and removes the node
+// from the WireGuard mesh only once the agent confirmed the stop. A node whose
+// agent does not confirm (it has none, is unreachable, or refused) is left in
+// the mesh and the call answers 502 NODE_STOP_UNCONFIRMED: removing a node
+// that is still running would cut a live node out of the overlay. A node that
+// is dead or has no agent leaves through `orama remove`.
 // Shamir redistribution is not implemented (guardian clustering is unwired).
 func (h *Handler) HandleNodeLeave(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -153,12 +193,15 @@ func (h *Handler) HandleNodeLeave(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	_, status, err := h.proxyToAgent(wgIP, "POST", "/v1/agent/command",
+	body, status, err := h.proxyToAgent(wgIP, "POST", "/v1/agent/command",
 		[]byte(`{"action":"stop"}`))
-	if err != nil {
-		h.logger.Warn("failed to stop services on leaving node", zap.Error(err))
-	} else if status >= 400 {
-		h.logger.Warn("leaving node refused stop", zap.Int("status", status))
+	if err := confirmAgentStopped(body, status, err); err != nil {
+		h.logger.Warn("node leave refused: the stop was not confirmed", zap.String("wg_ip", wgIP), zap.Error(err))
+		httputil.WriteJSON(w, http.StatusBadGateway, map[string]string{
+			"error": err.Error() + "; the node was not removed (a node with no agent, or a dead one, leaves through `orama remove`)",
+			"code":  ErrCodeNodeStopUnconfirmed,
+		})
+		return
 	}
 
 	if _, err := h.rqliteClient.Exec(ctx,

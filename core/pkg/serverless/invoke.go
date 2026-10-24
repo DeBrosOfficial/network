@@ -82,7 +82,12 @@ type InvokeRequest struct {
 	CallerHasInvoke bool `json:"caller_has_invoke,omitempty"`
 	// CallerIP is the source IP of the request, used by the multi-tier
 	// rate limiter as a fallback bucket for anonymous (no-wallet) callers.
-	CallerIP   string `json:"caller_ip,omitempty"`
+	CallerIP string `json:"caller_ip,omitempty"`
+	// CallerKey names the credential of a caller with no wallet: the
+	// fingerprint of its API key, or of its key's or workload's token subject.
+	// Empty for a wallet or an anonymous caller. The rate limiter buckets such
+	// a caller by (key, IP), not by the namespace every key belongs to.
+	CallerKey  string `json:"caller_key,omitempty"`
 	WSClientID string `json:"ws_client_id,omitempty"`
 	// CallerClaims holds custom JWT claims to expose via get_caller_claim.
 	CallerClaims map[string]string `json:"caller_claims,omitempty"`
@@ -94,6 +99,9 @@ type InvokeRequest struct {
 	// `did` of a token the gateway verified — or "" for a session bound to the
 	// account alone, an API key, or no credential.
 	CallerDeviceID string `json:"caller_device_id,omitempty"`
+	// CallerAttestation is what the caller's device attestation proved, from
+	// the verified token's `att` claim, or nil.
+	CallerAttestation *CallerAttestation `json:"caller_attestation,omitempty"`
 	// CallerCapability is what the capability the caller's socket was opened
 	// with grants (feat-264), or nil. Only the gateway's WebSocket handler
 	// sets it, after checking the token before the upgrade.
@@ -242,6 +250,7 @@ func newInvocationContext(req *InvokeRequest, fn *Function, requestID string, en
 		Namespace:        fn.Namespace,
 		CallerWallet:     req.CallerWallet,
 		CallerIP:         req.CallerIP,
+		CallerKey:        req.CallerKey,
 		CallerIsAdmin:    req.CallerIsAdmin,
 		CallerHasInvoke:  req.CallerHasInvoke,
 		SystemOriginated: req.SystemOriginated,
@@ -251,8 +260,10 @@ func newInvocationContext(req *InvokeRequest, fn *Function, requestID string, en
 		CallerClaims:     req.CallerClaims,
 		CallerJWTSubject: req.CallerJWTSubject,
 		CallerDeviceID:   req.CallerDeviceID,
-		CallerCapability: req.CallerCapability,
-		TriggerDepth:     req.TriggerDepth,
+		// A nested call is the same caller: its attestation goes with it.
+		CallerAttestation: req.CallerAttestation,
+		CallerCapability:  req.CallerCapability,
+		TriggerDepth:      req.TriggerDepth,
 	}
 }
 
@@ -334,6 +345,12 @@ func (i *Invoker) isRetryable(err error) bool {
 
 	// Don't retry resource exhaustion (rate limits, memory)
 	if IsResourceExhausted(err) {
+		return false
+	}
+
+	// Don't re-run a function that ran out of time: it ran, so its effects may
+	// have happened, and a second run holds another full timeout.
+	if IsTimeout(err) {
 		return false
 	}
 

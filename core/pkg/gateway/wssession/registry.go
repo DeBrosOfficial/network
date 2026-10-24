@@ -9,7 +9,8 @@
 // claims, and a sweeper re-asks the two questions the upgrade asked, on a
 // timer, for as long as the socket is open: has the token expired, and has it
 // been revoked. A socket that fails either is closed with a code that says
-// which.
+// which. A socket opened with a bare API key is registered with the key's
+// registry id and closed once the key is revoked (bug-702).
 package wssession
 
 import (
@@ -43,6 +44,10 @@ const (
 	ReasonExpired     = "token expired; reconnect with a fresh token"
 	ReasonRevoked     = "session revoked; sign in again"
 	ReasonUnavailable = "cannot check this session right now; reconnect shortly"
+
+	// ReasonKeyRevoked is the CloseRevoked reason of a socket opened with an
+	// API key that was revoked.
+	ReasonKeyRevoked = "API key revoked; reconnect with a valid credential"
 
 	// maxUncheckedSocketAge is how long an open socket is kept while the
 	// revocation list cannot be read, counted from its last successful check
@@ -89,6 +94,21 @@ type Denier interface {
 	// Revoked returns an error when the list is too old to say; the sweep then
 	// treats the socket as unchecked (see maxUncheckedSocketAge).
 	Revoked(claims *auth.JWTClaims) (bool, error)
+	// RevokedKey answers the same for a socket opened with a bare API key,
+	// by the key's registry id.
+	RevokedKey(id int64) (bool, error)
+}
+
+// Gate re-judges an open socket against its namespace's device attestation
+// policy (feat-941). A socket the attestation middleware judged at its upgrade
+// is held to the policy for as long as it is open, so enforcing a policy, or
+// raising its minimum build, reaches the sockets already open.
+type Gate interface {
+	// AttestationRefusal returns the wire code (ATTESTATION_REQUIRED, ...)
+	// the namespace's policy now refuses the socket's token with, "" when it
+	// admits it or does not enforce. An error means the policy cannot be read
+	// now; the socket is left open until the next sweep.
+	AttestationRefusal(namespace string, claims *auth.JWTClaims, now time.Time) (string, error)
 }
 
 // Closer ends one socket: a close frame carrying code and reason, then the
@@ -98,6 +118,9 @@ type Closer func(code int, reason string)
 
 // Registry is every token-authorized socket open on this gateway.
 type Registry struct {
+	// gate is the attestation gate, nil when this gateway judges none.
+	gate Gate
+
 	mu      sync.Mutex
 	next    uint64
 	sockets map[uint64]*Socket
@@ -115,6 +138,10 @@ func NewRegistry(logger *zap.Logger) *Registry {
 	return &Registry{sockets: map[uint64]*Socket{}, logger: logger, now: time.Now}
 }
 
+// SetGate gives the registry the attestation gate its sweeps consult. Call it
+// before the sweeper runs.
+func (r *Registry) SetGate(g Gate) { r.gate = g }
+
 // Register starts holding a socket to claims. A request with no token claims —
 // an API key, or no credential on a public function — has no token to expire
 // or revoke, and Register returns nil; every Socket method is safe on nil.
@@ -128,12 +155,33 @@ func (r *Registry) Register(claims *auth.JWTClaims, closeFn Closer) *Socket {
 	// checked.
 	s := &Socket{registry: r, claims: *claims, close: closeFn, checkedAt: r.now()}
 
+	r.add(s)
+	return s
+}
+
+// RegisterKey starts holding a socket opened with a bare API key to the key's
+// revocation: revoking the key closes it at the next sweep, as revoking a
+// token closes the sockets the token opened. keyID is the key's registry id
+// (api_keys.id); a socket with none — no credential at all, on a public
+// function — has nothing to revoke, and RegisterKey returns nil.
+//
+// The socket holds no account and no token: it cannot be refreshed, and has
+// no expiry of its own.
+func (r *Registry) RegisterKey(keyID int64, closeFn Closer) *Socket {
+	if keyID <= 0 || closeFn == nil {
+		return nil
+	}
+	s := &Socket{registry: r, keyID: keyID, close: closeFn, checkedAt: r.now()}
+	r.add(s)
+	return s
+}
+
+func (r *Registry) add(s *Socket) {
 	r.mu.Lock()
 	r.next++
 	s.id = r.next
 	r.sockets[s.id] = s
 	r.mu.Unlock()
-	return s
 }
 
 // Len is how many sockets are registered.
@@ -198,11 +246,13 @@ func (r *Registry) judgeLive(live []*Socket, now time.Time, d Denier) []closeJob
 	for _, s := range live {
 		claims := s.Claims()
 		if usable {
-			revoked, err := d.Revoked(&claims)
+			revoked, err := s.revoked(d, &claims)
 			if err == nil {
 				s.markChecked(now)
 				if revoked {
-					jobs = append(jobs, closeJob{s, claims, CloseRevoked, ReasonRevoked})
+					jobs = append(jobs, closeJob{s, claims, CloseRevoked, s.revokedReason()})
+				} else if code := r.attestationRefusal(s, &claims, now); code != "" {
+					jobs = append(jobs, closeJob{s, claims, CloseRevoked, code})
 				}
 				continue
 			}
@@ -218,6 +268,23 @@ func (r *Registry) judgeLive(live []*Socket, now time.Time, d Denier) []closeJob
 			zap.Int("sockets", unknown), zap.Duration("max_unchecked", maxUncheckedSocketAge), zap.Error(unknownErr))
 	}
 	return jobs
+}
+
+// attestationRefusal is the code the socket's namespace's attestation policy
+// now refuses it with, "" when it admits it, judges no such socket, or cannot
+// be read this pass.
+func (r *Registry) attestationRefusal(s *Socket, claims *auth.JWTClaims, now time.Time) string {
+	namespace := s.attestationNS()
+	if r.gate == nil || namespace == "" {
+		return ""
+	}
+	code, err := r.gate.AttestationRefusal(namespace, claims, now)
+	if err != nil {
+		r.logger.Warn("could not judge an open WebSocket against its namespace's attestation policy; it stays open this pass",
+			zap.String("namespace", namespace), zap.Error(err))
+		return ""
+	}
+	return code
 }
 
 // closeAll ends the sockets in parallel and reports how many this call closed.
@@ -240,8 +307,9 @@ func (r *Registry) closeAll(jobs []closeJob) int {
 			mu.Lock()
 			closed++
 			mu.Unlock()
-			r.logger.Info("closed a WebSocket whose token no longer authorizes it",
+			r.logger.Info("closed a WebSocket whose credential no longer authorizes it",
 				zap.Int("code", j.code),
+				zap.Int64("api_key_id", j.socket.keyID),
 				zap.String("subject", auth.RedactSubject(j.claims.Sub)),
 				zap.String("jti", j.claims.Jti),
 				zap.Int64("exp", j.claims.Exp))
@@ -299,11 +367,54 @@ type Socket struct {
 	id       uint64
 	close    Closer
 
+	// keyID is the registry id of the API key a key-opened socket was opened
+	// with, 0 for a socket opened with a token or a capability.
+	keyID int64
+
 	mu     sync.Mutex
 	claims auth.JWTClaims
 	ended  bool
+	// attestationNamespace is the namespace whose attestation policy holds the
+	// socket, "" when none does (see HoldToAttestation).
+	attestationNamespace string
 	// checkedAt is when the revocation list last vouched for this socket.
 	checkedAt time.Time
+}
+
+// revoked asks d whether the credential that opened the socket was revoked:
+// its key for a key-opened socket, its token otherwise.
+func (s *Socket) revoked(d Denier, claims *auth.JWTClaims) (bool, error) {
+	if s.keyID > 0 {
+		return d.RevokedKey(s.keyID)
+	}
+	return d.Revoked(claims)
+}
+
+// HoldToAttestation holds the socket to namespace's attestation policy from
+// here on: a sweep closes it with 4403 and the policy's code once the policy
+// enforces and does not admit its token. Call it right after registering, for
+// a socket whose upgrade the attestation middleware judged; it is safe on nil.
+func (s *Socket) HoldToAttestation(namespace string) {
+	if s == nil || namespace == "" {
+		return
+	}
+	s.mu.Lock()
+	s.attestationNamespace = namespace
+	s.mu.Unlock()
+}
+
+func (s *Socket) attestationNS() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.attestationNamespace
+}
+
+// revokedReason is the close reason of a socket whose credential was revoked.
+func (s *Socket) revokedReason() string {
+	if s.keyID > 0 {
+		return ReasonKeyRevoked
+	}
+	return ReasonRevoked
 }
 
 func (s *Socket) markChecked(at time.Time) {

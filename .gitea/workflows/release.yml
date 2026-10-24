@@ -23,8 +23,11 @@ on:
 # by every job on a host, and @actions/tool-cache empties a version's directory
 # before filling it, so jobs installing a new Go or Node at the same moment
 # delete each other's files (ENOENT, then a half-installed toolchain).
+#
+# Each job keeps its own Go cache, keyed on the job: the reason is in ci.yml.
 env:
   RUNNER_TOOL_CACHE: /tmp/toolcache
+  GO_VERSION: "1.27.3"
 
 permissions:
   contents: write
@@ -51,11 +54,24 @@ jobs:
           fi
           echo "VERSION matches the tag: $ACTUAL"
 
+      - name: Cache keys
+        id: keys
+        run: .gitea/scripts/cache-key.sh go core/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: '1.27.3'
-          cache-dependency-path: core/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
@@ -116,11 +132,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go core/go.sum chain/go.sum
+          .gitea/scripts/cache-key.sh pinned core/pkg/constants/release_digests.go core/cmd/orama/internal/build/global_layer.go
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: '1.27.3'
-          cache-dependency-path: core/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      # The Go caches and the release tarballs `orama maint build` downloads (orama-build-pinned:
+      # each is checked against its pinned digest whenever it is used, cached or not). The Rust
+      # native library is not cached: chain/native/build.sh builds it from scratch in a fixed
+      # directory every time, which is what the two builds below compare.
+      - name: Go module and build cache, pinned release tarballs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/orama-build-pinned
+          key: release-${{ github.job }}-${{ matrix.arch }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}-${{ steps.keys.outputs.pinned }}
+          restore-keys: release-${{ github.job }}-${{ matrix.arch }}-${{ env.GO_VERSION }}-
 
       - name: Install zig
         run: |
@@ -137,6 +173,16 @@ jobs:
       - name: Rust toolchain with the musl target (amd64 global layer)
         if: matrix.arch == 'amd64'
         run: .gitea/scripts/setup-rust.sh --target x86_64-unknown-linux-musl
+
+      # The static native library (libwasmvm and the Orchard verifier) is built from source by the
+      # archive build, and chain/native/libwasmvm_muslc.x86_64.a.sha256 records the hash this
+      # toolchain must produce. A record that no longer matches fails the release here, before
+      # anything is built or published, instead of shipping a library nobody recorded. It writes
+      # only chain/build/native and the ignored chain/native/vendor, so the check after the builds
+      # still holds.
+      - name: The native library matches its record (amd64)
+        if: matrix.arch == 'amd64'
+        run: chain/native/build.sh verify
 
       - name: Build the archive twice
         working-directory: core
@@ -155,6 +201,14 @@ jobs:
             "${RUNNER_TEMP}/orama" maint build --unsigned --arch "${{ matrix.arch }}" ${global_layer} --output "${RUNNER_TEMP}/build-${n}.tar.gz"
           done
           sha256sum "${RUNNER_TEMP}/build-1.tar.gz" "${RUNNER_TEMP}/build-2.tar.gz"
+          # A build that writes into the checkout makes the next one see a different
+          # tree: the build leaves every tracked and unignored file as it found it.
+          changed="$(git status --porcelain)"
+          if [ -n "$changed" ]; then
+            echo "::error::the build changed the checkout:"
+            echo "$changed"
+            exit 1
+          fi
 
       - name: The two builds must be identical
         run: |
@@ -237,7 +291,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "24"
+          node-version-file: ".nvmrc"
           registry-url: "https://git.icxcnika.io/api/packages/ICXCNIKA/npm/"
           scope: "@orama-network"
 

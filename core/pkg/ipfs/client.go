@@ -27,7 +27,7 @@ type IPFSClient interface {
 	Pin(ctx context.Context, cid string, name string, replicationFactor int) (*PinResponse, error)
 	PinStatus(ctx context.Context, cid string) (*PinStatus, error)
 	Get(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error)
-	GetStored(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error)
+	GetStored(ctx context.Context, cid string, ipfsAPIURL string, idle time.Duration) (*StoredContent, error)
 	Unpin(ctx context.Context, cid string) error
 	EvictLocal(ctx context.Context, cid string) (int, error)
 	Health(ctx context.Context) error
@@ -40,8 +40,12 @@ type Client struct {
 	apiURL     string
 	ipfsAPIURL string
 	httpClient *http.Client
-	logger     *zap.Logger
-	wrapKey    []byte
+	// streamClient is httpClient without its whole-call Timeout, for the
+	// reads GetStored streams: their bound is the caller's idle timeout,
+	// which tracks progress, so a large object is not cut off at 60 s.
+	streamClient *http.Client
+	logger       *zap.Logger
+	wrapKey      []byte
 }
 
 // Config holds configuration for the IPFS client
@@ -164,11 +168,12 @@ func NewClient(cfg Config, logger *zap.Logger) (*Client, error) {
 	}
 
 	return &Client{
-		apiURL:     apiURL,
-		ipfsAPIURL: ipfsAPIURL,
-		httpClient: httpClient,
-		logger:     logger,
-		wrapKey:    append([]byte(nil), cfg.WrapKey...),
+		apiURL:       apiURL,
+		ipfsAPIURL:   ipfsAPIURL,
+		httpClient:   httpClient,
+		streamClient: &http.Client{Transport: httpClient.Transport},
+		logger:       logger,
+		wrapKey:      append([]byte(nil), cfg.WrapKey...),
 	}, nil
 }
 
@@ -795,9 +800,8 @@ func (c *Client) unwrapGet(body io.ReadCloser) (io.ReadCloser, error) {
 	return bufferedContent{bytes.NewReader(plain)}, nil
 }
 
-// bufferedContent is an object read in full. Len is its size, which the
-// gateway sends as Content-Length without buffering it a second time; callers
-// of Get and GetStored may rely on it.
+// bufferedContent is an object read in full. Len is its size; callers of Get
+// may rely on it.
 type bufferedContent struct{ *bytes.Reader }
 
 func (bufferedContent) Close() error { return nil }
@@ -843,6 +847,13 @@ const kuboLocalMiss = "not found locally"
 // so a large object this node does hold is not cut off by a deadline meant to
 // stop a wedged daemon.
 func (c *Client) catOnce(ctx context.Context, ipfsAPIURL, cid string, offline bool, headerTimeout time.Duration) (io.ReadCloser, error) {
+	body, _, err := c.catWithHeader(ctx, c.httpClient, ipfsAPIURL, cid, offline, headerTimeout)
+	return body, err
+}
+
+// catWithHeader is catOnce through client, that also returns the response's
+// header.
+func (c *Client) catWithHeader(ctx context.Context, client *http.Client, ipfsAPIURL, cid string, offline bool, headerTimeout time.Duration) (io.ReadCloser, http.Header, error) {
 	// The response body outlives this function, so a deferred cancel would
 	// close the stream the caller is about to read. Cancel on every failure
 	// path, and hand ownership to the body on success.
@@ -860,10 +871,10 @@ func (c *Client) catOnce(ctx context.Context, ipfsAPIURL, cid string, offline bo
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, nil)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to create get request: %w", err)
+		return nil, nil, fmt.Errorf("failed to create get request: %w", err)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if headerTimer != nil && !headerTimer.Stop() {
 		// The timer fired: whether Do failed on it or the headers arrived just
 		// as it did, this is Kubo not answering in time, not a cancellation.
@@ -874,7 +885,7 @@ func (c *Client) catOnce(ctx context.Context, ipfsAPIURL, cid string, offline bo
 	}
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("get %s from %s (offline=%v): %w", cid, ipfsAPIURL, offline, err)
+		return nil, nil, fmt.Errorf("get %s from %s (offline=%v): %w", cid, ipfsAPIURL, offline, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -882,12 +893,12 @@ func (c *Client) catOnce(ctx context.Context, ipfsAPIURL, cid string, offline bo
 		resp.Body.Close()
 		cancel()
 		if resp.StatusCode == http.StatusNotFound || (offline && strings.Contains(string(body), kuboLocalMiss)) {
-			return nil, fmt.Errorf("%w (CID: %s, node %s, offline=%v)", errContentNotFound, cid, ipfsAPIURL, offline)
+			return nil, nil, fmt.Errorf("%w (CID: %s, node %s, offline=%v)", errContentNotFound, cid, ipfsAPIURL, offline)
 		}
-		return nil, fmt.Errorf("get %s from %s failed with status %d: %s", cid, ipfsAPIURL, resp.StatusCode, string(body))
+		return nil, nil, fmt.Errorf("get %s from %s failed with status %d: %s", cid, ipfsAPIURL, resp.StatusCode, string(body))
 	}
 
-	return &cancelOnCloseBody{ReadCloser: &streamErrorBody{resp: resp, offline: offline}, cancel: cancel}, nil
+	return &cancelOnCloseBody{ReadCloser: &streamErrorBody{resp: resp, offline: offline}, cancel: cancel}, resp.Header, nil
 }
 
 // streamErrorBody surfaces an error Kubo reports after the body has started.
@@ -1111,10 +1122,16 @@ func (c *Client) waitForLocalUnpin(ctx context.Context, cid string) error {
 // answers an unpinned CID with an error object rather than an empty set, so the
 // "not pinned" response is a success for our purposes.
 func (c *Client) isPinnedLocally(ctx context.Context, cid string) (bool, error) {
+	return c.isPinnedLocallyAt(ctx, c.ipfsAPIURL, cid, "all")
+}
+
+// isPinnedLocallyAt is isPinnedLocally against the Kubo API at ipfsAPIURL, for
+// pins of pinType (Kubo's all, recursive, direct or indirect).
+func (c *Client) isPinnedLocallyAt(ctx context.Context, ipfsAPIURL, cid, pinType string) (bool, error) {
 	q := url.Values{}
 	q.Set("arg", cid)
-	q.Set("type", "all")
-	req, err := http.NewRequestWithContext(ctx, "POST", c.ipfsAPIURL+"/api/v0/pin/ls?"+q.Encode(), nil)
+	q.Set("type", pinType)
+	req, err := http.NewRequestWithContext(ctx, "POST", ipfsAPIURL+"/api/v0/pin/ls?"+q.Encode(), nil)
 	if err != nil {
 		return false, err
 	}

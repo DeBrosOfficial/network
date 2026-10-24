@@ -16,7 +16,7 @@
 # Shielding is optional: a public bank send and MsgWithdrawEarnings need no pool
 # (features/chain-core, chain-transfers), and the CLI and SDK are private unless
 # told --public / public: true. The success paths (a wallet-built scenario:
-# shield, shield from earnings, transfer, unshield, as chain/scripts/stagenet
+# shield, shield from earnings, transfer, unshield, as chain/scripts/testnet
 # gen-shielded builds it) need a run chain built with the Orchard library and the pinned verifier binary.
 # realproof_test.go puts real Halo 2 proofs on the chain: a committed vector, a valid bundle for
 # another chain id, is refused (its signatures commit to the chain id), the same with a flipped

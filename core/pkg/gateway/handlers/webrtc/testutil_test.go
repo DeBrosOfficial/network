@@ -49,6 +49,14 @@ func asCaller(r *http.Request, sub, device string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), ctxkeys.JWT, claims))
 }
 
+// asAccountCaller is asCaller for a token whose namespace named the account the
+// session belongs to (the auth.AccountIDClaim custom claim).
+func asAccountCaller(r *http.Request, sub, account, device string) *http.Request {
+	claims := &auth.JWTClaims{Sub: sub, Did: device, Exp: time.Now().Add(time.Hour).Unix(),
+		Custom: map[string]string{auth.AccountIDClaim: account}}
+	return r.WithContext(context.WithValue(r.Context(), ctxkeys.JWT, claims))
+}
+
 // withAdmissions gives h a store (fresh, admission not required) and returns it.
 func withAdmissions(t *testing.T, h *WebRTCHandlers) *AdmissionStore {
 	t.Helper()

@@ -61,6 +61,7 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#namespace-management: creating a namespace writes the owner grant and starts provisioning (202 with a poll URL)"
     - "docs/whitepaper/technical-reference/vol1/09-namespaces.md: namespace names are validated as a DNS label, a unit instance and a directory; platform names are reserved"
     - "website/src/docs/contributor/architecture-reference.mdx: each namespace gets a five-port block in 10000-10099 on every member"
+    - "docs/whitepaper/technical-reference/vol1/09-namespaces.md#port-blocks: a port the node holds without an allocation row is not handed to a new namespace (the allocator probes the node)"
     - "docs/whitepaper/technical-reference/vol1/20-pubsub.md: tenant services listen on the WireGuard address, never on loopback or every interface"
     - "docs/whitepaper/technical-reference/vol1/05-privilege-and-filesystem-trust.md#per-service-accounts: a tenant gateway writes only its own namespace directory; its YAML is 0600"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-namespace-keys-rotate: the original key keeps working for the overlap"

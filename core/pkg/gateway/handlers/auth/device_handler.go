@@ -85,7 +85,7 @@ func (h *Handlers) DeviceAuthorizationHandler(w http.ResponseWriter, r *http.Req
 	pending, deviceID, err := h.startPendingLogin(r.Context(), req)
 	if err != nil {
 		if !writeDeviceRefusal(w, err) {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			h.writeUnavailable(w, "start the login", err)
 		}
 		return
 	}
@@ -166,7 +166,7 @@ func (h *Handlers) DeviceApprovalHandler(w http.ResponseWriter, r *http.Request)
 			Result:    authsvc.AuditFailure,
 			Metadata:  map[string]string{"reason": err.Error()},
 		})
-		writeDeviceError(w, err)
+		h.writeDeviceError(w, "record the decision", err)
 		return
 	}
 
@@ -208,14 +208,14 @@ func (h *Handlers) DeviceTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// of the account's active devices as the login is collected.
 	var deviceID, namespace string
 	claimed, err := h.authService.ClaimDeviceAuthorization(ctx, req.DeviceCode,
-		h.claimCheck(ctx, req.DeviceCode, req.DeviceProof, &deviceID, &namespace))
+		h.claimCheck(ctx, signInClient(r), req.DeviceCode, req.DeviceProof, &deviceID, &namespace))
 	if err != nil {
 		if isSignInRefusal(err) {
 			writeCredentialError(w, namespace, err)
 			return
 		}
 		if !writeDeviceRefusal(w, err) {
-			writeDeviceError(w, err)
+			h.writeDeviceError(w, "collect the login", err)
 		}
 		return
 	}
@@ -269,12 +269,15 @@ func (h *Handlers) deviceReady(w http.ResponseWriter, r *http.Request) bool {
 }
 
 // writeDeviceError turns a device-flow outcome into the response RFC 8628 §3.5
-// names.
+// names, a known refusal into its code, and anything else into a 503 whose
+// detail goes to the log only. what names the step for that 503.
 //
 // The RFC's four are 400s carrying an `error` the client switches on, not
 // failures of the request: "nobody has approved it yet" is the expected answer
-// to almost every poll.
-func writeDeviceError(w http.ResponseWriter, err error) {
+// to almost every poll. Everything this does not recognise is the gateway
+// failing (a registry read, a write), which the caller can retry and must not
+// be shown: the claim path is open to whoever holds a device code.
+func (h *Handlers) writeDeviceError(w http.ResponseWriter, what string, err error) {
 	switch {
 	case errors.Is(err, authsvc.ErrDeviceAuthorizationPending),
 		errors.Is(err, authsvc.ErrDeviceSlowDown),
@@ -290,8 +293,20 @@ func writeDeviceError(w http.ResponseWriter, err error) {
 			"error":             "already_approved",
 			"error_description": "somebody already approved this code; the machine waiting on it has its session",
 		})
+	case errors.Is(err, authsvc.ErrDeviceUserCodeMalformed):
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": err.Error(),
+			"code":  ErrCodeDeviceUserCodeMalformed,
+			"hint":  "type the code the waiting machine printed, e.g. BCDF-GHJK",
+		})
+	case errors.Is(err, authsvc.ErrDeviceLoginMismatch):
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": err.Error(),
+			"code":  ErrCodeDeviceLoginMismatch,
+			"hint":  "approve it from the namespace and account it was started for, the way the error names",
+		})
 	default:
-		writeError(w, http.StatusBadRequest, err.Error())
+		h.writeUnavailable(w, what, err)
 	}
 }
 
@@ -309,5 +324,7 @@ var deviceErrorDescriptions = map[string]string{
 // session, as opposed to a failure to decide.
 func isSignInRefusal(err error) bool {
 	var owned *authsvc.ErrNamespaceOwnedByAnother
-	return errors.As(err, &owned) || errors.Is(err, authsvc.ErrNamespaceUnowned)
+	var exceeded *authsvc.ErrNewWalletsPerIPExceeded
+	return errors.As(err, &owned) || errors.Is(err, authsvc.ErrNamespaceUnowned) ||
+		errors.As(err, &exceeded) || errors.Is(err, authsvc.ErrNewWalletCountUnavailable)
 }

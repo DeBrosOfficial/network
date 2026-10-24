@@ -20,7 +20,59 @@ Aliases: `ns`
 List, delete, and repair namespaces on the Orama network.
 ```
 
-Subcommands: `backup-open`, `backup-seal`, `backup`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+Subcommands: `attestation-policy`, `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+
+## orama namespace attestation-policy
+
+Show or set which app builds may call a namespace (device attestation)
+
+```text
+orama namespace attestation-policy [flags]
+```
+
+```text
+With no flags, show the namespace's attestation policy. With flags, change them; a
+flag left out keeps its value.
+
+A namespace that attests admits to its functions and data plane only the genuine
+build of its app on a genuine device: iOS through App Attest, Android (GrapheneOS
+included) through hardware key attestation. A script holding a valid session and
+the app's API key is refused.
+
+  --mode off|monitor|enforce   monitor refuses nothing and counts what enforce
+                               would refuse (orama status traffic); enforce refuses
+  --ios-team-id, --ios-bundle-id   the iOS App ID accepted
+  --allow-development          accept App Attest's development environment (devnet)
+  --min-ios-version            the oldest CFBundleVersion accepted (iOS 27 and later
+                               sign it; older iOS is accepted with the version unknown)
+  --android-package            the Android package accepted
+  --android-signing-digest     a lowercase-hex SHA-256 of an accepted signing
+                               certificate; repeat for several (replaces the list)
+  --allow-grapheneos           accept GrapheneOS beside stock verified boot
+  --min-android-version-code   the oldest versionCode accepted
+  --max-patch-age-months       refuse an Android OS patch older than this (0: no limit)
+  --reattest-interval          how long an Android attestation lasts (default 168h)
+
+Changing the policy needs write access to the namespace.
+
+  orama namespace attestation-policy --namespace anchat --mode monitor \
+    --android-package chat.anchat --android-signing-digest <sha256> --allow-grapheneos
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--allow-development` | `false` | Accept App Attest's development environment (devnet) |
+| `--allow-grapheneos` | `false` | Accept GrapheneOS beside stock verified boot |
+| `--android-package` | — | Package name of the Android app |
+| `--android-signing-digest` | — | Lowercase-hex SHA-256 of an accepted signing certificate; repeat for several |
+| `--ios-bundle-id` | — | Bundle id of the iOS app |
+| `--ios-team-id` | — | Apple team id of the iOS app |
+| `--max-patch-age-months` | `0` | Refuse an Android OS patch older than this many months (0: no limit) |
+| `--min-android-version-code` | `0` | Oldest versionCode accepted (0 for none) |
+| `--min-ios-version` | — | Oldest CFBundleVersion accepted ("" for none) |
+| `--mode` | — | off \| monitor \| enforce |
+| `--namespace` | — | Namespace name |
+| `--reattest-interval` | — | How long an Android attestation lasts, e.g. 168h |
 
 ## orama namespace backup
 
@@ -93,6 +145,38 @@ putting one back is 'orama namespace restore'.
 | `--in` | — | input file |
 | `--key` | — | 32-byte X25519 key, hex (public for seal, private for open) |
 | `--out` | — | output file |
+
+## orama namespace cors-origins
+
+Show or set the browser origins a namespace's apps are served from
+
+```text
+orama namespace cors-origins [flags]
+```
+
+```text
+With no flags, show the origins a browser page may call the namespace from,
+beyond the ones every gateway admits: the base domain and the names under it,
+localhost, any *.localhost name, the loopback addresses, and the Tauri webviews
+(tauri://localhost on macOS, Linux and iOS; http(s)://tauri.localhost on
+Windows and Android).
+
+--set replaces the list (repeat it for several origins, at most 20); --clear
+empties it. An origin is scheme://host[:port], http, https or tauri, with no
+path and no wildcard. The list applies to requests addressed to the
+namespace's host (ns-<name>.<base domain>), at once on the gateway that
+recorded it and within 30 seconds on every other.
+
+Changing the list needs write access to the namespace (an owner or an admin).
+
+  orama namespace cors-origins --namespace anchat --set https://app.anchat.chat --set https://anchat.chat
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--clear` | `false` | Remove every allowed origin |
+| `--namespace` | — | Namespace name |
+| `--set` | — | An allowed origin; repeat for several (replaces the list) |
 
 ## orama namespace create
 
@@ -179,12 +263,38 @@ Mint a new scoped API key
 orama namespace keys create [flags]
 ```
 
+```text
+Mint a new scoped API key. The key is shown once.
+
+Which key goes where:
+  - An app that needs nothing before sign-in ships no key: the sign-in
+    handshake and public functions need no credential, and after sign-in the
+    user's session reaches everything else.
+  - An app that must call functions before sign-in ships an invoke-only key,
+    narrowed with --resource to those functions.
+  - A function that reclaims storage gets its own key, --scope storage, kept
+    in the namespace's secrets. No key that ships in an app holds storage.
+  - A backend that sends push notifications over HTTP gets its own key,
+    --scope push-send, kept on the server. 'push' registers devices; only
+    push-send sends, to any user or topic of the namespace.
+
+Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
+never storage or push-send), admin (the control plane; CI and a developer's
+machine only).
+
+--resource narrows the key to the functions it names: the gateway refuses it on
+every other function, on HTTP invoke and the function WebSocket alike, with the
+403 a member narrowed by 'members add --resource' gets. Without it the key
+reaches the whole of its scopes.
+```
+
 | Flag | Default | Description |
 |---|---|---|
 | `--expires-in-days` | `0` | How long the key lives, in days (default 90, max 365). A key that never expires is not on offer |
 | `--label` | — | Human label for the key |
 | `--namespace` | — | Namespace name |
-| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, storage, webrtc) |
+| `--resource` | — | Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. Repeat for several; the key then reaches only these. Each must narrow one of its scopes (fn: needs invoke), and every scope must be narrowed by one |
+| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, push-send, storage, webrtc) |
 
 ## orama namespace keys list
 
@@ -235,8 +345,8 @@ orama namespace keys rotate [flags]
 ```
 
 ```text
-Mint a new key with the same grants and label, and shorten the original's life
-to the overlap.
+Mint a new key with the same grants, resources and label, and shorten the
+original's life to the overlap.
 
 Rotating by minting a new key and revoking the old one in the same breath is an
 outage: whatever is deployed with the old key stops the moment the new one
@@ -306,9 +416,9 @@ The live keys, grants and sessions (in the cluster's registry) are not
 restored: a restore neither brings back a key that was revoked nor removes one
 minted since. The backup's database still carries stale copies of those rows,
 which nothing reads. Before loading, the gateway checks the database image and
-refuses (400, nothing written) one that is damaged or carries triggers, views
-over platform tables or stored-object records for content only other namespaces
-hold; it removes plaintext API keys and other namespaces' records an older backup
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold; it removes plaintext API keys and other namespaces' records an older backup
 may carry, and checks again, after the load.
 
 With ORAMA_TOKEN, set ORAMA_API_URL to the namespace's gateway
@@ -394,8 +504,9 @@ WebRTC settings) will be replaced with the imported file. The file must be a SQL
 database, as 'export' writes; at most 256 MiB. Live keys and grants (in the cluster
 registry) are not replaced, and stale copies in the file are ignored. The namespace's
 storage quota stays as it was. The gateway checks the file before loading it and
-refuses (400, nothing written) one that is damaged or carries triggers, views over
-platform tables or stored-object records for content only other namespaces hold;
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold;
 it removes plaintext API keys and other namespaces' records an older file may carry,
 and checks again, after the load. One backup, restore, export or
 import runs at a time on a gateway.
@@ -403,6 +514,7 @@ import runs at a time on a gateway.
 
 | Flag | Default | Description |
 |---|---|---|
+| `--yes` | `false` | Replace the database without typing the namespace name |
 | `-i`, `--input` | — | Input SQLite file path |
 
 ## orama namespace session-policy
@@ -428,15 +540,43 @@ left out keeps its value.
                       sign-in must bind. Requiring devices revokes the sign-in
                       keys end users already hold.
 
-Changing either needs write access to the namespace.
+  --end-user-topics   the pub/sub topics an end user may subscribe to, list and
+                      see presence on, comma-separated patterns ('*' matches any
+                      run of characters, '/' included). It replaces the list,
+                      and '' clears it. The default is none: an end user reads
+                      no topic until it is listed. Members holding a grant read
+                      what their grant says. A function's socket that bridges
+                      topics to its users is not affected.
+
+  --per-ip-limits     on | off (the default): ceilings on what one client
+                      network (an IP address, an IPv6 /64) does, whatever
+                      wallets it presents. For a namespace with open sign-in,
+                      where a wallet costs nothing. Off by default because many
+                      people can share one address (an office, carrier NAT).
+  --new-wallets-per-ip-hour
+                      when on, how many wallets that never signed in to the
+                      namespace one network may sign in per hour, as end users
+                      (default 20). Past it: 429 SIGN_IN_RATE_LIMITED.
+  --invokes-per-ip-minute
+                      when on, how many authenticated function invokes one
+                      network may make per minute on each gateway (default
+                      1200). Past it: 429 RATE_LIMITED scope=per_ip_authenticated.
+
+Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+  orama namespace session-policy --namespace myapp --per-ip-limits on --new-wallets-per-ip-hour 10
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--device-policy` | — | What an end user's sign-in must bind: optional \| required \| approval |
+| `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
+| `--invokes-per-ip-minute` | `0` | When per-IP limits are on: authenticated invokes one network may make per minute per gateway |
 | `--namespace` | — | Namespace name |
+| `--new-wallets-per-ip-hour` | `0` | When per-IP limits are on: new wallets one network may sign in per hour |
+| `--per-ip-limits` | — | Per-client-network ceilings: on \| off |
 | `--sign-in` | — | Who may sign in: members \| open |
 
 ## orama namespace webrtc-status

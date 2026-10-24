@@ -1,6 +1,7 @@
 package rqlite
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/rqlite/gorqlite"
@@ -58,5 +59,23 @@ func TestQueryConn_degradesToWeakWhenNoneConnAbsent(t *testing.T) {
 
 	if got := c.queryConn(ReadConsistencyNone); got != weak {
 		t.Error("none-read must degrade to the weak connection when connNone is nil")
+	}
+}
+
+func TestQueryConn_linearizableUsesItsOwnConnectionAndNeverDegrades(t *testing.T) {
+	weak := &gorqlite.Connection{}
+	linearizable := &gorqlite.Connection{}
+	c := &client{conn: weak, connLinearizable: linearizable}
+	if got := c.queryConn(ReadConsistencyLinearizable); got != linearizable {
+		t.Error("ReadConsistencyLinearizable must select the linearizable connection")
+	}
+	// Without it there is no connection: weak would drop the guarantee.
+	c = &client{conn: weak}
+	if got := c.queryConn(ReadConsistencyLinearizable); got != nil {
+		t.Error("a linearizable read must not fall back to the weak connection")
+	}
+	_, err := c.BatchQueryConsistency(t.Context(), []BatchOp{{Kind: BatchOpQuery, SQL: "SELECT 1"}}, ReadConsistencyLinearizable)
+	if !errors.Is(err, ErrNoNativeConnection) {
+		t.Errorf("err = %v, want ErrNoNativeConnection", err)
 	}
 }

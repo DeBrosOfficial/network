@@ -86,7 +86,7 @@ func TestAddEnvironment_updateKeepsTheCA(t *testing.T) {
 	if err := SetEnvironmentCA("devnet", ca); err != nil {
 		t.Fatal(err)
 	}
-	if err := AddEnvironment("devnet", "https://orama-devnet.network", "renamed"); err != nil {
+	if err := AddEnvironment("devnet", "https://devnet.orama.network", "renamed"); err != nil {
 		t.Fatal(err)
 	}
 	if env, _ := GetEnvironmentByName("devnet"); env.CAFile != ca {

@@ -1,0 +1,137 @@
+# Device attestation
+
+A namespace can admit to its functions and data plane only **the genuine build of its own app, running on a genuine device**. A script that holds a valid session and the API key from the app bundle is refused.
+
+A bundled API key cannot be that authority: anyone can extract it. The device proves it instead, with the platform's own attestation:
+
+- **iOS**: App Attest. The App ID (team id and bundle id) is proved by Apple's signature; the development environment is accepted only where the namespace allows it.
+- **Android, GrapheneOS included**: hardware key attestation, chained to Google's attestation roots and checked against Google's revocation list. The package name and the signing certificate are proved, with a locked bootloader and verified boot. Any OEM whose device boots verified is accepted, its verified-boot key pinned on the device's first attestation. GrapheneOS is accepted through its signed list of verified-boot keys when the namespace allows it. Nothing depends on Google Play services.
+
+The proof is bound to the session's device (its `did`, the thumbprint of the device key, see [Devices](/docs/developer/devices)), so a token or a proof taken from one device or install is worthless on another. The app has to sign in with a device key before it can attest.
+
+## Modes
+
+| Mode | What happens |
+|---|---|
+| `off` | Nothing is judged. A namespace with no policy is `off`. |
+| `monitor` | Every request on the app surface is judged and **none is refused**. What enforcing would refuse is counted (`orama status traffic`) and logged once a minute per namespace, reason and platform. |
+| `enforce` | A caller the policy does not admit is refused with `403` and a named code. |
+
+Turn on `monitor` first, watch the counts, then `enforce`. Devnet and mainnet namespaces are configured separately.
+
+## Setting the policy
+
+```bash
+orama namespace attestation-policy --namespace anchat \
+  --mode monitor \
+  --ios-team-id ABCDE12345 --ios-bundle-id chat.anchat \
+  --android-package chat.anchat \
+  --android-signing-digest 3f4c…e1 \
+  --allow-grapheneos \
+  --min-android-version-code 412 --min-ios-version 2.4
+```
+
+With no flags the command shows the policy; a flag left out keeps its value. Changing it needs write access to the namespace. The same over HTTP:
+
+```http
+GET /v1/namespace/attestation-policy
+PUT /v1/namespace/attestation-policy
+{"mode": "enforce",
+ "ios": {"team_id": "ABCDE12345", "bundle_id": "chat.anchat",
+         "allow_development": false, "min_bundle_version": "2.4"},
+ "android": {"package": "chat.anchat", "signing_cert_digests": ["3f4c…e1"],
+             "allow_grapheneos": true, "min_version_code": 412,
+             "max_patch_age_months": 12},
+ "reattest_interval": "168h"}
+```
+
+A `PUT` carries the fields it changes. The resulting policy is validated whole before it is written: a mode other than `off` needs an app on at least one platform, an iOS app needs both ids, an Android app needs at least one signing-certificate digest (lowercase hex SHA-256), and the re-attestation interval is between one hour and a year. An invalid policy is `400 ATTESTATION_POLICY_INVALID`; an unknown field is refused too. Every change is recorded in the audit trail as `namespace.attestation_policy`.
+
+| Field | Meaning |
+|---|---|
+| `ios.allow_development` | Accept the App Attest development environment and development-signed builds (devnet). |
+| `ios.min_bundle_version` | The oldest `CFBundleVersion` accepted. Only iOS 27 and later sign the build version; an install on iOS 26 or older is still attested as the genuine app, and the minimum cannot apply to it. |
+| `android.min_version_code` | The oldest `versionCode` accepted. |
+| `android.max_patch_age_months` | Refuse an OS whose security patch is older (0: no limit). |
+| `reattest_interval` | How long an Android attestation lasts (default `168h`, seven days). |
+
+A changed policy takes effect within ten seconds on every gateway, and at once on the one that recorded it. Raising a minimum version or withdrawing a platform reaches every token already issued.
+
+## Attesting from the app
+
+```text
+app                                              gateway
+  | sign in with the device key (did)              |
+  | POST /v1/attest/challenge   (session token) -->|  single use, five minutes
+  | <-- {challenge, expires_at, device_id} --------|
+  | binding = SHA-256(challenge ‖ device_id)       |
+  | iOS:     DCAppAttestService.attestKey(clientDataHash: binding)
+  | Android: generate a key with setAttestationChallenge(binding)
+  | POST /v1/attest/ios     {challenge, key_id, attestation}        (standard base64)
+  | POST /v1/attest/android {challenge, chain: [leaf, …, root]}     (DER, standard base64)
+  | <-- {access_token, expires_in, attestation} ---|
+```
+
+The three routes take the device-bound session's token; a key, or a session bound to no device, is refused with `ATTESTATION_NEEDS_DEVICE`. They are rate limited like sign-in (per client address), and a device holds at most ten unanswered challenges. The token in the answer carries the attestation; use it from then on.
+
+**iOS** proves itself again on every session refresh: the refresh's device proof carries an App Attest assertion over `SHA-256(proof id ‖ device_id)` in its `app_attest` field. Its counter is moved with a compare-and-swap, so a replayed assertion loses. A refresh is never refused for attestation's sake: a refresh that cannot show one gets a token without the attestation, which the namespace then refuses.
+
+```json
+{"refresh_token": "dv1_…", "namespace": "anchat",
+ "device_proof": {"iat": 1790000000, "id": "…", "sig": "…", "app_attest": "<assertion>"}}
+```
+
+**Android** fixes the app version in the key when the key is generated, so the device attests again on the policy's interval (seven days by default) and **after every app update**, with a new key; the app does this itself when its `versionCode` changes. Between attestations a refresh carries the last one forward.
+
+## Refusals
+
+| Code | Status | Means | What the app does |
+|---|---|---|---|
+| `ATTESTATION_REQUIRED` | 403 | The session's device has not attested, or its Android attestation is older than the interval. | Attest, then carry on with the token it returns. |
+| `ATTESTATION_INVALID` | 403 | The attestation is of another app, a platform or environment the namespace does not admit, or GrapheneOS where it is not allowed. From `/v1/attest/*`: the proof was refused, or the device's pinned verified-boot key changed. | Nothing on this device will help. |
+| `APP_UPDATE_REQUIRED` | 403 | The build is older than the namespace admits. | Ask the user to update. |
+| `ATTESTATION_CHALLENGE_INVALID` | 401 | The challenge was never issued to this device, was used, or expired. | Ask for a new one. |
+| `ATTESTATION_NOT_CONFIGURED` | 409 | The namespace's mode is `off`. | |
+| `AUTH_UNAVAILABLE` | 503 | The gateway cannot read the namespace's policy right now. | Retry. |
+
+A refused proof says only what it means; which check refused it goes to the gateway's log, never to the caller. The SDK has `AuthCode.AttestationRequired`, `AuthCode.AttestationInvalid` and `AuthCode.AppUpdateRequired`.
+
+## What is judged
+
+Judged, on the main gateway and on the namespace's own gateway:
+
+- invoking a function over HTTP (`/v1/functions/<fn>/invoke`, `/v1/invoke/…`) and its WebSocket, persistent (the RPC router) or stateless;
+- every data-plane route: pub/sub (subscriptions included), storage, cache, push device registration, WebRTC, the anonymity proxy.
+
+A public function is judged too: in a namespace that enforces, it is reachable only from the attested app.
+
+Not judged:
+
+- signing in and everything under `/v1/auth/`, and the attestation routes themselves: a device has to sign in and attest before it can have attested;
+- the open routes (health, status, version, JWKS);
+- the control plane (deploying, keys, members, secrets, policies). It needs a control-plane grant no app holds, and judging it would lock out the operators who set the policy;
+- callers that are not an app's end users: a wallet holding the owner, admin or developer role, a deployed app's own workload token, and an API key carrying a control-plane grant. A key that holds only data-plane grants is the kind an app ships, and is judged.
+
+**WebSockets** are judged at the upgrade. A socket judged there is held to the policy while it is open: the gateway's socket sweeper closes it with `4403` and the code as its reason once the policy enforces and does not admit its token — enforcing, raising a minimum version or letting an Android attestation run out reaches open sockets within ten seconds. A socket opened while the mode was `off` is not held; go through `monitor` to `enforce` and every socket opened in between is.
+
+A function socket opened with a **capability** carries no credential; the gate is where the capability is minted. In a namespace that enforces, `capability_mint` and `storage_fetch_cap_mint` succeed only in an invocation whose caller is an attested device.
+
+## In a function
+
+`get_caller_attestation()` returns what the caller's attestation proved, or an empty string:
+
+```json
+{"platform": "android", "app_id": "chat.anchat", "app_version": "412", "attested_at": 1790000000}
+```
+
+It is the gateway's verdict, from the token's signed `att` claim; nothing in a request body or header reaches it. A nested `function_invoke` carries the caller's attestation with it. `app_version` is empty for an iOS 26 install, which signs none.
+
+## Watching it
+
+`orama status traffic` lists, per mode, code and platform, how many requests attestation refused (`enforce`) or would have refused (`monitor`) since each gateway started; `--json` carries them under `attestation`. A namespace gateway's requests are counted by the cluster gateway that forwards them. The node report's `attestation_lists` says when Google's revocation list and GrapheneOS's key list were last fetched and whether either is stale: an Android attestation is refused with a server error while no revocation list has ever been loaded.
+
+## Limits
+
+- Revoking a device ends its tokens and sockets within ten seconds (the revocation list); there is no separate "revoke this attestation".
+- A signing-certificate digest removed from the policy applies at each device's next attestation: the access token carries the app id and version, not the digest.
+- Per-request proof of possession (the app signing each request with its device key) is not part of this; the session is bound to the device, and the attestation to the session.

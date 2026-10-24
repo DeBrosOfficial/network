@@ -1,6 +1,6 @@
 # IPFS storage as a customer and an operator see it: upload (multipart and
 # the SDK's JSON form, large, empty, unicode, malformed), download (every
-# node, Range, invalid CIDs), pin/status/unpin (idempotent, immediate
+# node, large objects streamed or sealed, Range, invalid CIDs), pin/status/unpin (idempotent, immediate
 # reclaim, shared content), who may call it (no credential, a bare key, an
 # exchanged key token, roles, another namespace), name normalisation, and on
 # the nodes: ORMAW1 sealing in Kubo, the Kubo bearer, the cluster REST basic
@@ -35,8 +35,11 @@ covers:
     - "service.json:api.restapi.basic_auth_credentials"
   claims:
     - "docs/whitepaper/technical-reference/vol1/14-authorization.md: storage routes need a logged-in user; a bare key is 401 USER_JWT_REQUIRED; an exchanged key token may only unpin (bugboard #151)"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys: a token exchanged for an app-runtime or invoke-only key is refused unpin (403 INSUFFICIENT_SCOPE); a storage key's token unpins (bugboard #946)"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#sealing-private-blobs: a namespace reads, pins and unpins only CIDs it owns"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md: private blobs are AES-256-GCM sealed (ORMAW1) before Add; tarballs are not"
+    - "docs/whitepaper/technical-reference/vol1/19-storage.md#upload-and-pin: every upload is pinned; pin=false is refused 400 UNPINNED_UPLOAD_REFUSED and pin=true is still accepted"
+    - "docs/whitepaper/technical-reference/vol1/19-storage.md#download: a 20 MiB object, streamed in the clear or opened sealed, downloads through every node byte for byte with the whole object's Content-Length"
     - "docs/whitepaper/technical-reference/vol1/19-storage.md#the-ipfs-layer-on-a-node: Kubo requires its bearer; IPFS Cluster REST requires basic auth; service.json is 0600; all bind loopback"
     - "website/src/docs/contributor/architecture-reference.mdx#node-process-model: serve-ipfs-cluster admits only sockets owned by the orama user"
     - "website/src/docs/contributor/architecture-reference.mdx#node-process-model: the GC oneshot is orama node ipfs-gc, which collects through the daemon's RPC with the bearer from its environment file and exits 0 when it is stopped"

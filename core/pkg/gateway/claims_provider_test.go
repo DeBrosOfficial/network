@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Orama-Network/orama/core/pkg/serverless"
-	"github.com/Orama-Network/orama/core/pkg/serverless/registry"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -183,19 +182,27 @@ func TestResolveClaims_namespaceNotServedIsSilent(t *testing.T) {
 	}
 }
 
-// (c) ErrFunctionNotFound (no provider deployed) must NOT retry — it's the
-// normal no-claims case for most namespaces. Exactly one attempt, nil result.
-func TestResolveClaims_functionNotFoundNoRetry(t *testing.T) {
+// (c) ErrFunctionNotFound (no provider deployed) must NOT retry and must not be
+// logged — it's the normal no-claims case for most namespaces. Exactly one
+// attempt, nil result, no warning. Bug #400: the check compared against the
+// superseded registry package's sentinel, which the live invoker never
+// returns, so every sign-in to such a namespace logged a provider failure.
+func TestResolveClaims_functionNotFoundIsSilentAndNotRetried(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
 	f := &fakeClaimsInvoker{results: []invokeResult{
-		{err: fmt.Errorf("registry: %w", registry.ErrFunctionNotFound)},
+		{err: fmt.Errorf("get function: %w", serverless.ErrFunctionNotFound)},
 	}}
-	p := newProviderWithFake(f)
+	p := newJWTClaimsProvider(nil, zap.New(core))
+	p.invoker = f
 
 	if out := p.ResolveClaims(context.Background(), "0xW", "ns"); out != nil {
 		t.Fatalf("expected nil for not-found, got %v", out)
 	}
 	if f.calls != 1 {
 		t.Errorf("ErrFunctionNotFound must not retry; expected 1 attempt, got %d", f.calls)
+	}
+	if logs.Len() != 0 {
+		t.Errorf("a namespace with no claims provider was logged as a failure: %v", logs.All())
 	}
 }
 

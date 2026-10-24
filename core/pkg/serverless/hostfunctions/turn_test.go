@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"github.com/Orama-Network/orama/core/pkg/turn"
 )
 
 // feat-9 — turn_credentials host fn.
@@ -204,5 +205,33 @@ func TestBuildTURNURIs_stealthOnlyOmitsRegularURIs(t *testing.T) {
 	}
 	if got[0] != "turns:cdn.example.com:443" {
 		t.Errorf("stealth URI mismatch: %q", got[0])
+	}
+}
+
+// bugboard #391: a credential minted inside a function names its caller: the
+// wallet, else the key, else the function itself.
+func TestTurnCredentials_namesTheCaller(t *testing.T) {
+	const secret = "shared-secret"
+	h := &HostFunctions{turnDomain: "turn.example.com", turnSecret: secret}
+	for name, c := range map[string]struct {
+		inv     serverless.InvocationContext
+		subject string
+	}{
+		"a wallet":      {serverless.InvocationContext{Namespace: "ns", CallerWallet: "0xalice", CallerKey: "key_1"}, "0xalice"},
+		"a key":         {serverless.InvocationContext{Namespace: "ns", CallerKey: "key_1"}, "key_1"},
+		"nobody, a job": {serverless.InvocationContext{Namespace: "ns", FunctionName: "nightly"}, "fn:nightly"},
+	} {
+		inv := c.inv
+		raw, err := h.TurnCredentials(invocationCtx(&inv))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		var env turnCredentialsEnvelope
+		if err := json.Unmarshal(raw, &env); err != nil {
+			t.Fatal(err)
+		}
+		if want := ":ns:" + turn.SubjectID(secret, c.subject); !strings.HasSuffix(env.Username, want) {
+			t.Errorf("%s: username %q does not end with %q", name, env.Username, want)
+		}
 	}
 }

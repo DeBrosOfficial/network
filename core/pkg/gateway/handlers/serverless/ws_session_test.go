@@ -23,6 +23,7 @@ type denyAll struct{}
 func (denyAll) Revoked(*auth.JWTClaims) (bool, error) { return true, nil }
 func (denyAll) RefreshRevocations(context.Context)    {}
 func (denyAll) RevocationsUsable() bool               { return true }
+func (denyAll) RevokedKey(int64) (bool, error)        { return true, nil }
 
 func wsURL(srv *httptest.Server, path string) string {
 	return "ws" + strings.TrimPrefix(srv.URL, "http") + path

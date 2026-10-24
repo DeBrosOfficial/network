@@ -47,12 +47,18 @@ func NewEnvHandler(service *DeploymentService, processManager envReconfigurer, l
 // their own code failing. The ORAMA_* names are the deployment's own identity —
 // which namespace it belongs to, which gateway is its own, where it may write —
 // and a deployment that could rewrite them could point itself at another
-// namespace's gateway.
+// namespace's gateway. The cluster trust names (process.ClusterTrustEnvKeys)
+// are set only on a cluster whose certificates need roots beyond the system's,
+// and reserved everywhere: a value a tenant set would otherwise be silently
+// replaced on one cluster and kept on another.
 var reservedEnvKeys = buildReservedEnvKeys()
 
 func buildReservedEnvKeys() map[string]bool {
 	reserved := map[string]bool{"ENTRY_POINT": true}
 	for _, key := range process.PlatformEnvKeys {
+		reserved[key] = true
+	}
+	for _, key := range process.ClusterTrustEnvKeys {
 		reserved[key] = true
 	}
 	return reserved

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -13,41 +12,13 @@ import (
 	"time"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/hostpin"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
 	"github.com/Orama-Network/orama/core/pkg/remotessh"
 	// Import checks package so init() registers the checkers
 	_ "github.com/Orama-Network/orama/core/pkg/inspector/checks"
 )
 
-// loadDotEnv loads key=value pairs from a .env file into os environment.
-// Only sets vars that are not already set (env takes precedence over file).
-func loadDotEnv(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		return // .env is optional
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		eq := strings.IndexByte(line, '=')
-		if eq < 1 {
-			continue
-		}
-		key := line[:eq]
-		value := line[eq+1:]
-		// Only set if not already in environment
-		if os.Getenv(key) == "" {
-			os.Setenv(key, value)
-		}
-	}
-}
-
-// HandleInspectCommand handles the "orama maint inspect" command.
 // InspectOptions holds the flags for the inspect command.
 type InspectOptions struct {
 	ConfigPath string
@@ -97,9 +68,6 @@ func (o InspectOptions) subsystems() []string {
 
 // RunInspect inspects cluster health over SSH.
 func RunInspect(opts InspectOptions) error {
-	// Load .env file from current directory (only sets unset vars)
-	loadDotEnv(".env")
-
 	if err := opts.Validate(); err != nil {
 		return err
 	}
@@ -116,6 +84,12 @@ func RunInspect(opts InspectOptions) error {
 	}
 	if len(nodes) == 0 {
 		return clierr.NotFound("no nodes found for environment %q", opts.Env)
+	}
+
+	// Every node is held to the host key setup pinned, before any wallet key
+	// is fetched: the inspector never trusts a host on first use.
+	if err := hostpin.RequireAll(nodes); err != nil {
+		return err
 	}
 
 	// Prepare wallet-derived SSH keys

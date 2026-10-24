@@ -57,13 +57,13 @@ export class StorageClient {
   }
 
   /**
-   * Upload content to IPFS and optionally pin it.
+   * Upload content to IPFS. Every stored object is pinned with the namespace's
+   * replication factor; there is no unpinned upload (removed in 0.3.5: the
+   * gateway refuses one with 400 UNPINNED_UPLOAD_REFUSED).
    * Supports both File objects (browser) and Buffer/ReadableStream (Node.js).
    *
    * @param file - File to upload (File, Blob, or Buffer)
    * @param name - Optional filename
-   * @param options - Optional upload options
-   * @param options.pin - Whether to pin the content (default: true). Pinning happens asynchronously on the backend.
    * @returns Upload result with CID
    *
    * @example
@@ -77,15 +77,12 @@ export class StorageClient {
    * // Node.js
    * const fs = require('fs');
    * const fileBuffer = fs.readFileSync('image.jpg');
-   * const result = await client.storage.upload(fileBuffer, 'image.jpg', { pin: true });
+   * const result = await client.storage.upload(fileBuffer, 'image.jpg');
    * ```
    */
   async upload(
     file: File | Blob | ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>,
-    name?: string,
-    options?: {
-      pin?: boolean;
-    }
+    name?: string
   ): Promise<StorageUploadResponse> {
     // Create FormData for multipart upload
     const formData = new FormData();
@@ -127,10 +124,6 @@ export class StorageClient {
         "Unsupported file type. Use File, Blob, ArrayBuffer, Uint8Array, or ReadableStream."
       );
     }
-
-    // Add pin flag (default: true)
-    const shouldPin = options?.pin !== false; // Default to true
-    formData.append("pin", shouldPin ? "true" : "false");
 
     return this.httpClient.uploadFile<StorageUploadResponse>(
       "/v1/storage/upload",

@@ -22,7 +22,7 @@ describe("head and network", () => {
   it("TestGetHead_is_the_head_the_stream_opens_with", async () => {
     const { source, stream } = await setup();
     expect(await source.getHead()).toEqual({ height: HEAD, time: HEAD_TIME.replace("Z", ".000Z"), chainId: CHAIN_ID });
-    expect(stream.opened).toEqual(["https://stagenet.orama.network/v1/chain/head/stream"]);
+    expect(stream.opened).toEqual(["https://testnet.orama.network/v1/chain/head/stream"]);
     expect(stream.open).toBe(0);
   });
 
@@ -110,7 +110,7 @@ describe("subscribeHead", () => {
     stream.unavailable();
     stream.drop();
     expect(errors).toHaveLength(2);
-    expect(errors[0]).toContain("The chain could not be reached. This browser could not read the gateway at stagenet.orama.network.");
+    expect(errors[0]).toContain("The chain could not be reached. This browser could not read the gateway at testnet.orama.network.");
     expect(errors[1]).toBe("The live connection to the chain was lost; it reconnects by itself.");
 
     stop();

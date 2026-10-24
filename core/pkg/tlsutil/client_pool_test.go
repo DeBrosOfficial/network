@@ -82,8 +82,8 @@ func TestNewHTTPClient_sharesTransportUntilScopedRootsChange(t *testing.T) {
 		t.Fatal("shared transport has no idle timeout; parked connections would never close")
 	}
 
-	ca := newPrivateCA(t, "ns-app.stagenet.example")
-	if err := TrustCAForDomain("stagenet.example", ca.caFile); err != nil {
+	ca := newPrivateCA(t, "ns-app.testnet.example")
+	if err := TrustCAForDomain("testnet.example", ca.caFile); err != nil {
 		t.Fatal(err)
 	}
 	c := NewHTTPClient(time.Second).Transport

@@ -61,7 +61,7 @@ func isActive(t *testing.T, db *sql.DB, fqdn, value string) bool {
 func TestReactivateNamespaceHostRecord_reenablesThisNodesDisabledRecord(t *testing.T) {
 	db := newDNSTestDB(t)
 	const (
-		fqdn  = "ns-anchat-v2.orama-devnet.network."
+		fqdn  = "ns-anchat-v2.devnet.orama.network."
 		value = "169.58.118.206"
 		tag   = "namespace:anchat-v2"
 	)
@@ -88,7 +88,7 @@ func TestReactivateNamespaceHostRecord_reenablesThisNodesDisabledRecord(t *testi
 func TestEnsureNamespaceHostRecordSQL_doesNotReenableDisabledRow(t *testing.T) {
 	db := newDNSTestDB(t)
 	const (
-		fqdn  = "ns-anchat-v2.orama-devnet.network."
+		fqdn  = "ns-anchat-v2.devnet.orama.network."
 		value = "169.58.118.206"
 		tag   = "namespace:anchat-v2"
 	)
@@ -119,7 +119,7 @@ func TestEnsureNamespaceHostRecordSQL_doesNotReenableDisabledRow(t *testing.T) {
 func TestReactivateNamespaceHostRecord_doesNotTouchOtherNodes(t *testing.T) {
 	db := newDNSTestDB(t)
 	const (
-		fqdn = "ns-anchat-v2.orama-devnet.network."
+		fqdn = "ns-anchat-v2.devnet.orama.network."
 		tag  = "namespace:anchat-v2"
 		mine = "169.58.118.206"
 		peer = "57.129.7.232"
@@ -149,8 +149,8 @@ func TestReactivateNamespaceHostRecord_scopedToNamespace(t *testing.T) {
 	db := newDNSTestDB(t)
 	const ip = "169.58.118.206"
 	for _, r := range []struct{ fqdn, tag string }{
-		{"ns-anchat-v2.orama-devnet.network.", "namespace:anchat-v2"},
-		{"ns-anchat-test.orama-devnet.network.", "namespace:anchat-test"},
+		{"ns-anchat-v2.devnet.orama.network.", "namespace:anchat-v2"},
+		{"ns-anchat-test.devnet.orama.network.", "namespace:anchat-test"},
 	} {
 		if _, err := db.Exec(
 			`INSERT INTO dns_records (fqdn, record_type, value, ttl, namespace, created_by, is_active)
@@ -160,11 +160,11 @@ func TestReactivateNamespaceHostRecord_scopedToNamespace(t *testing.T) {
 	}
 
 	if _, err := db.Exec(reactivateNamespaceHostRecordSQL,
-		"2026-09-03 07:00:00", "ns-anchat-v2.orama-devnet.network.", ip, "namespace:anchat-v2"); err != nil {
+		"2026-09-03 07:00:00", "ns-anchat-v2.devnet.orama.network.", ip, "namespace:anchat-v2"); err != nil {
 		t.Fatalf("reactivate: %v", err)
 	}
 
-	if isActive(t, db, "ns-anchat-test.orama-devnet.network.", ip) {
+	if isActive(t, db, "ns-anchat-test.devnet.orama.network.", ip) {
 		t.Error("reactivating one namespace's record also re-enabled another's")
 	}
 }
@@ -173,7 +173,7 @@ func TestReactivateNamespaceHostRecord_scopedToNamespace(t *testing.T) {
 func TestReactivateNamespaceHostRecord_activeRecordIsUntouched(t *testing.T) {
 	db := newDNSTestDB(t)
 	const (
-		fqdn  = "ns-anchat-v2.orama-devnet.network."
+		fqdn  = "ns-anchat-v2.devnet.orama.network."
 		value = "169.58.118.206"
 		tag   = "namespace:anchat-v2"
 	)

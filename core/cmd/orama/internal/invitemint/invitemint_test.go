@@ -17,7 +17,7 @@ import (
 )
 
 func TestGatewayHost(t *testing.T) {
-	if got, err := GatewayHost("https://stagenet.example.test"); err != nil || got != "stagenet.example.test" {
+	if got, err := GatewayHost("https://testnet.example.test"); err != nil || got != "testnet.example.test" {
 		t.Errorf("gatewayHost = %q, %v", got, err)
 	}
 	for _, bad := range []string{"https://203.0.113.7", "https://", "::"} {
@@ -64,9 +64,9 @@ func TestChooseNode_canonicalisesMappedIPv4(t *testing.T) {
 
 func TestJoinURLFor_keepsANonDefaultPort(t *testing.T) {
 	for gw, want := range map[string]string{
-		"https://stagenet.example.test":      "https://203.0.113.9",
-		"https://stagenet.example.test:443":  "https://203.0.113.9",
-		"https://stagenet.example.test:8443": "https://203.0.113.9:8443",
+		"https://testnet.example.test":      "https://203.0.113.9",
+		"https://testnet.example.test:443":  "https://203.0.113.9",
+		"https://testnet.example.test:8443": "https://203.0.113.9:8443",
 	} {
 		if got, err := joinURLFor(gw, "203.0.113.9"); err != nil || got != want {
 			t.Errorf("joinURLFor(%q) = %q, %v; want %q", gw, got, err, want)
@@ -163,7 +163,7 @@ func TestMintAt_certificateMustVerifyForTheDomain(t *testing.T) {
 	defer srv.Close()
 	u, _ := url.Parse(srv.URL)
 	client := nodeClient(srv.Client().Transport.(*http.Transport), "127.0.0.1")
-	if _, err := mintAt(client, "https://stagenet.not-in-the-cert.test:"+u.Port(), "b", 30*time.Minute); err == nil {
+	if _, err := mintAt(client, "https://testnet.not-in-the-cert.test:"+u.Port(), "b", 30*time.Minute); err == nil {
 		t.Fatal("a certificate not valid for the domain was pinned")
 	}
 }

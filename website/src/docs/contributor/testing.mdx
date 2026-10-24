@@ -123,7 +123,7 @@ make e2e-lint                                        # go vet with and without t
 make e2e-test-unit                                   # the harness's own unit tests
 ```
 
-`e2e-fleet target stagenet --out state.json` followed by `E2E_FLEET_STATE=state.json e2e-fleet test --stage N` runs one stage against the existing stagenet cluster instead of fresh servers; the runner only tests there and never provisions or destroys. The owner runs the fleet suite. As a contributor you write the feature package and run the gate, lint and unit targets. The full contract is `e2e/README.md`.
+`e2e-fleet target testnet --out state.json` followed by `E2E_FLEET_STATE=state.json e2e-fleet test --stage N` runs one stage against the existing testnet cluster instead of fresh servers; the runner only tests there and never provisions or destroys. The owner runs the fleet suite. As a contributor you write the feature package and run the gate, lint and unit targets. The full contract is `e2e/README.md`.
 
 ### Running the suite
 
@@ -133,9 +133,29 @@ make e2e-test-unit                                   # the harness's own unit te
 |---|---|
 | `e2e-fleet test --stage N`, `--resume` | Re-run one stage, or continue an interrupted run |
 | `e2e-fleet teardown`, `sweep` | Destroy a run's resources, or orphans by label (`sweep` removes anything a crashed run left behind) |
-| `e2e-fleet sweep-namespaces [--max-age 4h] [--listed]` | Remove the test namespaces a run left on the cluster (also stagenet): the runner already removes each package's recorded namespaces when the package exits; this takes what a dead runner left (`e2e/README.md`, "ns") |
+| `e2e-fleet sweep-namespaces [--max-age 4h] [--listed]` | Remove the test namespaces a run left on the cluster (also testnet): the runner already removes each package's recorded namespaces when the package exits; this takes what a dead runner left (`e2e/README.md`, "ns") |
 
 Destructive packages run alone at the end of their stage. A skipped test counts as **not covered**, a re-run only labels a failure deterministic or flaky and never turns it green, and the exit code is 0 for PASS, 1 for FAIL and 3 for INCOMPLETE. The report (`report.html`, `report.json`, JUnit, optional Bugboard drafts) lands in the run's artifact directory next to the collected journals and node state.
+
+### Signed reports, the push and the release gate
+
+Two more secrets are optional, and a value that is set but unusable refuses the run before any server is created:
+
+| Variable | Infisical folder | What it does |
+|---|---|---|
+| `E2E_RUNNER_SIGNING_KEY` | `/release` | The runner's Ed25519 private key, PKCS #8 PEM. Every report the run writes is signed: `report.attestation.json` beside `report.json` is a DSSE envelope over the run id, the commit (full SHA, `-dirty` when the tree had uncommitted changes), the verdict and the SHA-256 of `report.json`. Unset, the report is unsigned and no release can stand on it. |
+| `NTFY_URL` | `/notify` | The ntfy topic URL, `https://push.<base domain>/<topic>`. When the run is over, after teardown, the final verdict is pushed once: the title names the verdict, the body is the `summary.txt` line, a FAIL is high priority. The Orama ntfy has no auth file, so the topic name is the credential; the URL is sealed and redacted like the cloud tokens. A push ntfy does not accept fails the run (exit 1). Unset, nothing is pushed. |
+
+`e2e-fleet report` rewrites `report.json` from the artifacts and deletes the attestation: that report is not the one the runner signed.
+
+**The release gate.** `core/scripts/release.sh` refuses to tag, and `orama maint release cut` refuses to sign a nightly or main release, unless the commit has a report that is signed by a key listed in `core/pkg/releasepub/runner-keys.txt` (compiled into the CLI), names exactly that commit with a clean tree, and has the verdict PASS: every feature green, and the coverage gate held, so anything uncovered is waived. An edited `report.json` no longer matches its signed digest. There is no override flag; changing who may vouch for a release is a reviewed commit to `runner-keys.txt`. To create the runner key and list it:
+
+```bash
+openssl genpkey -algorithm ed25519 -out runner.pem       # store the file's contents as E2E_RUNNER_SIGNING_KEY in Infisical /release
+openssl pkey -in runner.pem -pubout -outform DER | tail -c 32 | base64   # the line for core/pkg/releasepub/runner-keys.txt
+```
+
+`release.sh` reads the run's artifact directory from `ORAMA_FLEET_REPORT`, or asks for it, and checks it with `go run ./tools/fleetgate -report <dir> -commit <sha>` from `core/`. A stable release tags the head of `main` after the merge, so a merge commit needs its own run.
 
 ### Chain chaos
 
@@ -262,7 +282,9 @@ For development without the fleet suite, use [Sandbox clusters](/docs/contributo
 
 Every third-party action in `.gitea/workflows` and `.github/workflows` is pinned by its full commit SHA with the release as a `# vX.Y.Z` comment, so a moved tag cannot change what CI runs; `.github/dependabot.yml` opens the weekly pull request that moves a pin. The nightly Rust toolchain of the Miri and AddressSanitizer jobs is a dated build too (`RUST_NIGHTLY` in `chain/ci.mk`).
 
-`.gitea/workflows/ci.yml` runs on a release tag (`v*`), on pull requests to `main` and `nightly`, and on demand (`workflow_dispatch`); a plain branch push runs nothing. Its jobs: the core module (vet, race tests, the contract tests, the generated CLI reference), the OramaOS agent, the SDK, the Vault SDK, the Vault guardian (Zig), the chain, and a secret scan. `security.yml` runs `pnpm audit` on the SDK and `govulncheck` on `core` (with accepted advisories listed in `e2e/features/scanners/govulncheck-accepted.yaml`, each with a reason and a review date) for `main`, and on Mondays; `release.yaml` builds with GoReleaser on a `v*` tag and checks that the `VERSION` file matches the tag; `publish-sdk.yml` and `release-apt.yml` publish the SDK and the apt packages.
+`.gitea/workflows/ci.yml` runs on a release tag (`v*`), on pull requests to `main` and `nightly`, and on demand (`workflow_dispatch`); a plain branch push runs nothing. Its jobs: the core module (vet, then every test under the race detector with `-count=1`, which includes the contract tests and the generated CLI reference), the OramaOS agent, the SDK, the Vault SDK, the Vault guardian (Zig), the chain, and a secret scan. `security.yml` runs `pnpm audit` on the SDK and `govulncheck` on `core` (with accepted advisories listed in `e2e/features/scanners/govulncheck-accepted.yaml`, each with a reason and a review date) for `main`, and on Mondays; `release.yml`, on a `v*` tag, checks that the `VERSION` file matches the tag, builds the binaries and `.deb` packages with GoReleaser and publishes the packages to the Gitea Debian registry, builds the cluster archive twice and fails unless the two are identical (the amd64 job first checks that `chain/native/build.sh verify` reproduces the recorded native library hash), and publishes both SDK packages to the Gitea npm registry.
+
+**Caches.** The runners are self-hosted (act_runner, label `orama`, a fresh container per job). Each job restores its own Go module and build cache and, if it builds Rust, its own cargo registry and target directories, through act_runner's cache server (`actions/cache`), keyed on the job, the toolchain and the lock files of what it builds. setup-go's own cache is off: it keys on `go.sum` alone, so every job of a module shared one entry, written by whichever job finished first, and the others compiled from cold. act_runner evaluates `hashFiles()` on the runner host, where the checkout is not, and gets an empty string, so `.gitea/scripts/cache-key.sh` hashes the lock files inside the job instead. An entry is written once, by the first passing run that misses its key, and each runner host has its own cache server. Because the build cache also holds test results, the Go test steps run with `-count=1`: every test runs on every run. `cargo-audit` and `cargo-deny` are installed from their upstream release archives, checked against the sha256 pins in `chain/ci.mk` (`chain/scripts/release-tool.sh`), not compiled.
 
 ### The chain in CI
 
@@ -279,7 +301,7 @@ Every command the chain jobs run is a target of `chain/Makefile` or `chain/ci.mk
 
 `make -C chain ci` runs the first three jobs' commands in one go; it builds libwasmvm and the Orchard verifiers first, so it takes a while.
 
-`test-race` builds libwasmvm from the source in the Go module cache (`wasmvm-lib`: the version `go.mod` pins, checked against `go.sum`) and links it with `-tags sys_wasmvm`. Nothing prebuilt is downloaded, the same rule `native/build.sh` follows for the release library. On Linux the copy is given the release library's `__rust_probestack` (`native/src/probestack.rs`), without which no test binary links with the pinned Rust toolchain.
+`test-race` builds libwasmvm from the source in the Go module cache (`wasmvm-lib`: the version `go.mod` pins, checked against `go.sum`) and links it with `-tags sys_wasmvm`; cargo builds it into `build/wasmvm-target`, which survives the fresh copy of the source each run makes, so its dependencies compile once. Nothing prebuilt is downloaded, the same rule `native/build.sh` follows for the release library. On Linux the copy is given the release library's `__rust_probestack` (`native/src/probestack.rs`), without which no test binary links with the pinned Rust toolchain.
 
 staticcheck and govulncheck are judged the way the fleet `scanners` feature judges them, by `e2e/cmd/scangate`, which reuses the fleet code (`harness/vulnaccept`, `harness/staticfind`) without a fleet. A reachable vulnerability that is not in `e2e/features/scanners/govulncheck-accepted.yaml` fails, and so does an entry that govulncheck no longer reports and one past its `review_by`. The only staticcheck findings tolerated are the deprecation warnings in files protoc-gen-grpc-gateway v1 generated. A scanner that crashed, or printed nothing it could parse, is a failure and never a clean run.
 
@@ -314,7 +336,7 @@ There are 54 Go fuzz targets (`func FuzzX(f *testing.F)`) and 4 cargo-fuzz targe
 
 **Why 10 seconds.** A target pays its start-up before it fuzzes: the app targets build a whole chain in each worker, and the Orchard targets link the Rust library. Measured on a laptop with other jobs running (load average above 16), `fuzz-short` took 7 minutes 17 seconds for the 39 targets of `chain` known then, 1 minute 29 seconds for the 14 of `core`, and 4 minutes of Rust builds before them; a target took 11 to 20 seconds from start to verdict, and the app targets 44 to 124 seconds because of their start-up. Ten seconds is enough to replay every seed and to mutate them for tens of thousands of executions for the cheap targets (one million for `x/inclusion`, 300,000 for `netclass`) and for a few hundred for the heavy ones. The job runs on a four-core runner with two targets at a time and two workers each, and its timeout is 45 minutes. A longer budget belongs to the nightly run, which finds what ten seconds do not.
 
-**Seeds.** Every target starts from real data where the repository has it. The Ironwood bundles of `chain/x/shielded/orchardffi/testdata`, the signed transactions of `chain/client/tx/testdata/tx_vectors.json`, the piece vectors, the stagenet network manifest and Tor network file, and a Tor vote are committed as corpus entries in each target's `testdata/fuzz/<Target>/` (`make -C chain fuzz-corpus` rebuilds them with `chain/scripts/fuzzcorpus`). The other targets seed themselves with `f.Add` from objects their package builds (a TUF repository from fixed keys, a bundle from real blocks, a committee chain with a listed transaction). The cargo-fuzz seeds are in each crate's `fuzz/seeds/<target>/`; the corpus the fuzzer grows is ignored by git.
+**Seeds.** Every target starts from real data where the repository has it. The Ironwood bundles of `chain/x/shielded/orchardffi/testdata`, the signed transactions of `chain/client/tx/testdata/tx_vectors.json`, the piece vectors, the testnet network manifest and Tor network file, and a Tor vote are committed as corpus entries in each target's `testdata/fuzz/<Target>/` (`make -C chain fuzz-corpus` rebuilds them with `chain/scripts/fuzzcorpus`). The other targets seed themselves with `f.Add` from objects their package builds (a TUF repository from fixed keys, a bundle from real blocks, a committee chain with a listed transaction). The cargo-fuzz seeds are in each crate's `fuzz/seeds/<target>/`; the corpus the fuzzer grows is ignored by git.
 
 **The Go targets in `chain`.**
 

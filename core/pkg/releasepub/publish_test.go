@@ -196,7 +196,7 @@ func (g *fakeGitea) uploaded() []upload {
 func cutOne(t *testing.T, repo Repo, agent *fakeAgent, channel, version, content string) string {
 	t.Helper()
 	path := archive(t, version, "amd64", content)
-	if _, err := Cut(t.Context(), cutParams(repo, agent, mustChannel(t, channel), path)); err != nil {
+	if _, err := Cut(t.Context(), cutParams(t, repo, agent, mustChannel(t, channel), path)); err != nil {
 		t.Fatal(err)
 	}
 	return path

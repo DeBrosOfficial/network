@@ -6,13 +6,13 @@ import (
 )
 
 func TestValidateZone(t *testing.T) {
-	for _, zone := range []string{"stagenet.orama.network", "orama.network", "a-b.example.com"} {
+	for _, zone := range []string{"testnet.orama.network", "orama.network", "a-b.example.com"} {
 		if err := ValidateZone(zone); err != nil {
 			t.Errorf("ValidateZone(%q) = %v", zone, err)
 		}
 	}
 	for _, zone := range []string{
-		"", "network", "Stagenet.orama.network", "stagenet.orama.network.", "203.0.113.5", "a..b",
+		"", "network", "Testnet.orama.network", "testnet.orama.network.", "203.0.113.5", "a..b",
 		"-a.example.com", "a-.example.com", "a_b.example.com", "exa mple.com", strings.Repeat("a", 64) + ".com",
 		strings.Repeat("a.", 130) + "com",
 	} {
@@ -24,23 +24,23 @@ func TestValidateZone(t *testing.T) {
 
 func TestZoneServedBy(t *testing.T) {
 	for zone, want := range map[string]bool{
-		"stagenet.orama.network":       false,
-		"names.stagenet.orama.network": true,
-		"orama.network":                false,
-		"xstagenet.orama.network":      false,
-		"other.example":                false,
+		"testnet.orama.network":       false,
+		"names.testnet.orama.network": true,
+		"orama.network":               false,
+		"xtestnet.orama.network":      false,
+		"other.example":               false,
 	} {
-		if got := ZoneServedBy(zone, "stagenet.orama.network"); got != want {
+		if got := ZoneServedBy(zone, "testnet.orama.network"); got != want {
 			t.Errorf("ZoneServedBy(%q) = %v, want %v", zone, got, want)
 		}
 	}
-	if ZoneServedBy("stagenet.orama.network", "") {
+	if ZoneServedBy("testnet.orama.network", "") {
 		t.Error("a cluster with no base domain serves a zone")
 	}
 }
 
 func TestValidateDNS(t *testing.T) {
-	const base = "stagenet.orama.network"
+	const base = "testnet.orama.network"
 	for name, c := range map[string]DNSConfig{
 		"disabled":          {BaseDomain: base},
 		"disabled, no base": {},
@@ -52,8 +52,8 @@ func TestValidateDNS(t *testing.T) {
 	}
 	for name, c := range map[string]DNSConfig{
 		"the base domain itself": {NodeNamesZone: base, BaseDomain: base},
-		"a malformed zone":       {NodeNamesZone: "Stagenet.Orama.Network", BaseDomain: base},
-		"another cluster zone":   {NodeNamesZone: "testnet.orama.network", BaseDomain: base},
+		"a malformed zone":       {NodeNamesZone: "Testnet.Orama.Network", BaseDomain: base},
+		"another cluster zone":   {NodeNamesZone: "devnet.orama.network", BaseDomain: base},
 		"the parent of the base": {NodeNamesZone: "orama.network", BaseDomain: base},
 		"no base domain":         {NodeNamesZone: base},
 	} {

@@ -5,6 +5,7 @@ package rolloutupgrade
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -166,6 +167,7 @@ func mixedVersionWindow(t testing.TB, f *fleet.Fleet, before *monitor.Report) {
 	cli := harness.CLI(t)
 	infra.ExpectExit(t, infra.RunFor(t, cli, infra.UpgradeBudget, "node", "push", "--env", f.State.Env, "--node", first.PublicIP,
 		"--archive", f.State.ArchivePath), infra.ExitOK)
+	secondPushUploadsNothing(t, f, first)
 	infra.ExpectExit(t, infra.RunFor(t, cli, infra.UpgradeBudget, "node", "upgrade", "--env", f.State.Env, "--node", first.PublicIP,
 		"--yes"), infra.ExitOK)
 	mixed := infra.WaitConverged(t, len(f.State.Nodes), infra.ConvergeBudget, "a mixed-release cluster")
@@ -180,5 +182,23 @@ func mixedVersionWindow(t testing.TB, f *fleet.Fleet, before *monitor.Report) {
 	old := oramacli.ForPreviousRelease(t, f.State, f.Recorder())
 	if _, err := monitor.Get(t.Context(), old.For(t), f.State.Env); err != nil {
 		t.Errorf("the previous release's CLI cannot read the mixed cluster: %v", err)
+	}
+}
+
+// secondPushUploadsNothing pushes the archive n has just staged again: the
+// node is recognized and skipped, nothing is uploaded and the staged build is
+// untouched (docs/whitepaper/technical-reference/vol1/30-install-and-upgrade.md
+// "already staged").
+func secondPushUploadsNothing(t testing.TB, f *fleet.Fleet, n fleet.Node) {
+	t.Helper()
+	before := infra.ReadStaged(t, f, n)
+	res := infra.RunFor(t, harness.CLI(t), infra.UpgradeBudget, "maint", "push", "--env", f.State.Env, "--node", n.PublicIP,
+		"--archive", f.State.ArchivePath)
+	infra.ExpectExit(t, res, infra.ExitOK, "already staged this archive; nothing uploaded")
+	if strings.Contains(res.Stdout, "  uploaded ") {
+		t.Errorf("a second push of the same archive uploaded to %s:\n%s", n.Name, res.Stdout)
+	}
+	if after := infra.ReadStaged(t, f, n); after != before {
+		t.Errorf("%s: a skipped push changed the staged build", n.Name)
 	}
 }

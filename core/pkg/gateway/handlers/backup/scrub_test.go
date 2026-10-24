@@ -37,27 +37,29 @@ func restoreInto(t *testing.T, dst *rig) int {
 	return do(dst.h.RestoreHandler, http.MethodPost, restoreBody(t, backupFrom(t, src, pub), priv, destRoot)).Code
 }
 
-func TestScrub_dropsEveryTriggerAndTheViewsOverPlatformTables(t *testing.T) {
+func TestScrub_dropsTheTriggersAndViewsTheGuardRefuses(t *testing.T) {
 	dst := newRig(t, destRoot, testNamespace, true)
 	dst.db.rows["sqlite_master"] = []map[string]any{
 		{"type": "trigger", "name": "grant_owner", "sql": "CREATE TRIGGER grant_owner AFTER INSERT ON notes BEGIN UPDATE grants SET role='owner'; END"},
 		{"type": "view", "name": "everyones keys", "sql": `CREATE VIEW "everyones keys" AS SELECT * FROM api_keys`},
 		{"type": "view", "name": "mine", "sql": "CREATE VIEW mine AS SELECT v FROM notes"},
-		// Tenant SQL cannot create a trigger at all, so none is the tenant's own.
+		// Each node would stamp its own clock: tenant SQL cannot create it.
+		{"type": "trigger", "name": "stamp", "sql": "CREATE TRIGGER stamp AFTER INSERT ON notes BEGIN UPDATE notes SET at = datetime('now'); END"},
+		// A trigger tenant SQL may create is the tenant's own (bugboard chg-943).
 		{"type": "trigger", "name": "audit_notes", "sql": "CREATE TRIGGER audit_notes AFTER INSERT ON notes BEGIN INSERT INTO notes_log(v) VALUES (new.v); END"},
 	}
 	if code := restoreInto(t, dst); code != http.StatusOK {
 		t.Fatalf("restore answered %d", code)
 	}
 	sqls := written(dst)
-	for _, want := range []string{`DROP TRIGGER IF EXISTS "grant_owner"`, `DROP VIEW IF EXISTS "everyones keys"`, `DROP TRIGGER IF EXISTS "audit_notes"`} {
+	for _, want := range []string{`DROP TRIGGER IF EXISTS "grant_owner"`, `DROP VIEW IF EXISTS "everyones keys"`, `DROP TRIGGER IF EXISTS "stamp"`} {
 		if !hasSQL(sqls, want) {
 			t.Errorf("%s was not run: %v", want, sqls)
 		}
 	}
-	for _, kept := range []string{`"mine"`} {
+	for _, kept := range []string{`"mine"`, `"audit_notes"`} {
 		if hasSQL(sqls, "DROP TRIGGER IF EXISTS "+kept) || hasSQL(sqls, "DROP VIEW IF EXISTS "+kept) {
-			t.Errorf("the view %s over the tenant's own table was dropped", kept)
+			t.Errorf("the tenant's own %s was dropped", kept)
 		}
 	}
 }

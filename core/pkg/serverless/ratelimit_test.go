@@ -109,32 +109,92 @@ func TestMultiTier_per_namespace_ceiling(t *testing.T) {
 	}
 }
 
-func TestMultiTier_per_function_override_tighter(t *testing.T) {
-	cfg := DefaultLimiterConfig() // per-wallet burst 60
-	l := NewMultiTierLimiter(cfg)
-
-	override := &PerFunctionRateLimit{
-		PerWalletPerMinute: 60, // 1/sec
-		PerWalletBurst:     2,
-	}
-	for i := 0; i < 2; i++ {
-		d, _ := l.AllowRequest(context.Background(), RateLimitRequest{
-			Namespace: "ns", Function: "expensive", Wallet: "w1",
-			Override: override,
-		})
-		if !d.Allowed {
-			t.Fatalf("override burst[%d] should allow", i)
+// bug-740: a function that declares per_caller is refused for a caller past
+// it, while the gateway-wide per-wallet bucket (burst 60) would still allow.
+func TestMultiTier_per_function_caller_tighter(t *testing.T) {
+	l := NewMultiTierLimiter(DefaultLimiterConfig())
+	override := &FunctionRateLimit{PerCaller: RateLimitRule{Requests: 5, WindowSeconds: 60}}
+	req := RateLimitRequest{Namespace: "ns", Function: "expensive", Wallet: "w1", IP: "1.1.1.1", Override: override}
+	for i := 0; i < 5; i++ {
+		if d, _ := l.AllowRequest(context.Background(), req); !d.Allowed {
+			t.Fatalf("call %d of 5 refused", i+1)
 		}
 	}
-	d, _ := l.AllowRequest(context.Background(), RateLimitRequest{
-		Namespace: "ns", Function: "expensive", Wallet: "w1",
-		Override: override,
-	})
-	if d.Allowed {
-		t.Fatal("expected override to reject")
+	d, _ := l.AllowRequest(context.Background(), req)
+	if d.Allowed || d.Scope != "per_function_caller" {
+		t.Fatalf("the 6th call got %+v, want a per_function_caller refusal", d)
 	}
-	if d.Scope != "per_function_wallet" {
-		t.Errorf("expected scope=per_function_wallet, got %q", d.Scope)
+	// A 5-a-minute bucket refills one every 12 s.
+	if d.RetryAfter <= 0 || d.RetryAfter > 12*time.Second {
+		t.Errorf("retry after %v, want (0, 12s]", d.RetryAfter)
+	}
+	other := req
+	other.Wallet = "w2"
+	if d, _ := l.AllowRequest(context.Background(), other); !d.Allowed {
+		t.Error("another wallet was refused by the first one's bucket")
+	}
+	unlimited := req
+	unlimited.Function, unlimited.Override = "cheap", nil
+	if d, _ := l.AllowRequest(context.Background(), unlimited); !d.Allowed {
+		t.Error("a function with no limit of its own was refused by another function's")
+	}
+}
+
+// feat-938: per_ip is charged to the address whoever signed in, so a fresh
+// wallet per signup does not escape it; two an hour is two at once, then one
+// every thirty minutes.
+func TestMultiTier_per_function_ip_spans_wallets(t *testing.T) {
+	l := NewMultiTierLimiter(DefaultLimiterConfig())
+	override := &FunctionRateLimit{PerIP: RateLimitRule{Requests: 2, WindowSeconds: 3600}}
+	signup := func(wallet, ip string) Decision {
+		d, _ := l.AllowRequest(context.Background(), RateLimitRequest{
+			Namespace: "anchat-test", Function: "user-create", Wallet: wallet, IP: ip, Override: override,
+		})
+		return d
+	}
+	if !signup("0xfresh1", "198.51.100.9").Allowed || !signup("0xfresh2", "198.51.100.9").Allowed {
+		t.Fatal("the first two signups from an address were refused")
+	}
+	d := signup("0xfresh3", "198.51.100.9")
+	if d.Allowed || d.Scope != "per_function_ip" {
+		t.Fatalf("a third signup from the address with a fresh wallet got %+v, want per_function_ip", d)
+	}
+	if d.RetryAfter <= 29*time.Minute || d.RetryAfter > 30*time.Minute {
+		t.Errorf("retry after %v, want about 30 minutes", d.RetryAfter)
+	}
+	if !signup("0xfresh4", "203.0.113.1").Allowed {
+		t.Error("another address was refused")
+	}
+	// A key caller and an anonymous caller from the address are refused too.
+	for name, req := range map[string]RateLimitRequest{
+		"key caller": {Namespace: "anchat-test", Function: "user-create", Wallet: "anchat-test", Key: "key_a", IP: "198.51.100.9", Override: override},
+		"anonymous":  {Namespace: "anchat-test", Function: "user-create", IP: "198.51.100.9", Override: override},
+	} {
+		if d, _ := l.AllowRequest(context.Background(), req); d.Allowed {
+			t.Errorf("%s from the spent address was allowed", name)
+		}
+	}
+}
+
+// per_caller buckets a key caller by (key, address), like the per-caller tier:
+// the users of one app's shared key do not spend each other's budget.
+func TestMultiTier_per_function_caller_separates_key_callers(t *testing.T) {
+	l := NewMultiTierLimiter(DefaultLimiterConfig())
+	override := &FunctionRateLimit{PerCaller: RateLimitRule{Requests: 1, WindowSeconds: 3600}}
+	call := func(key, ip string) Decision {
+		d, _ := l.AllowRequest(context.Background(), RateLimitRequest{
+			Namespace: "ns", Function: "rpc", Wallet: "ns", Key: key, IP: ip, Override: override,
+		})
+		return d
+	}
+	if !call("key_a", "1.1.1.1").Allowed {
+		t.Fatal("first call refused")
+	}
+	if d := call("key_a", "1.1.1.1"); d.Allowed || d.Scope != "per_function_caller" {
+		t.Fatalf("second call from the same key and address got %+v", d)
+	}
+	if !call("key_a", "2.2.2.2").Allowed || !call("key_b", "1.1.1.1").Allowed {
+		t.Error("another user of the key, or another key, was refused")
 	}
 }
 
@@ -264,5 +324,46 @@ func TestMultiTier_default_per_wallet_limit_matches_docs(t *testing.T) {
 	}
 	if d.RetryAfter <= 0 || d.RetryAfter > 150*time.Millisecond {
 		t.Errorf("RetryAfter = %s, want about 100ms (10 a second)", d.RetryAfter)
+	}
+}
+
+// bug-934: callers with a credential and no wallet were bucketed by the
+// namespace, so one heavy key starved every other caller of the namespace, and
+// every user of an app's shared key starved each other. They are bucketed by
+// (key, IP) now, at the per-wallet limits.
+func TestMultiTier_key_callers_bucketed_by_key_and_ip(t *testing.T) {
+	cfg := DefaultLimiterConfig()
+	cfg.PerWalletBurst = 3
+	cfg.PerWalletPerMinute = 60 // 1/sec — slow refill
+	l := NewMultiTierLimiter(cfg)
+	allow := func(req RateLimitRequest) Decision {
+		t.Helper()
+		d, err := l.AllowRequest(context.Background(), req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	// Every key caller of the namespace carries the namespace as its wallet,
+	// as getWalletFromRequest answers it.
+	heavy := RateLimitRequest{Namespace: "ns", Wallet: "ns", Key: "key_a", IP: "1.1.1.1"}
+	for i := 0; i < 3; i++ {
+		if !allow(heavy).Allowed {
+			t.Fatalf("burst[%d] should be allowed", i)
+		}
+	}
+	d := allow(heavy)
+	if d.Allowed || d.Scope != "per_key" || d.RetryAfter <= 0 {
+		t.Fatalf("after its burst the key caller got %+v, want a per_key refusal with a retry-after", d)
+	}
+	for name, other := range map[string]RateLimitRequest{
+		"another key, same address":      {Namespace: "ns", Wallet: "ns", Key: "key_b", IP: "1.1.1.1"},
+		"same key, another address":      {Namespace: "ns", Wallet: "ns", Key: "key_a", IP: "2.2.2.2"},
+		"a wallet of the same namespace": {Namespace: "ns", Wallet: "0xwallet", IP: "1.1.1.1"},
+		"same key in another namespace":  {Namespace: "other", Wallet: "other", Key: "key_a", IP: "1.1.1.1"},
+	} {
+		if !allow(other).Allowed {
+			t.Errorf("%s was refused because one key caller spent its own bucket", name)
+		}
 	}
 }

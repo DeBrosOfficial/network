@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/ctxkeys"
 	webrtchandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/webrtc"
 	"github.com/Orama-Network/orama/core/pkg/logging"
 )
 
-const testStealthHost = "cdn-24c2fc1cfeab.stagenet.example.net"
+const testStealthHost = "cdn-24c2fc1cfeab.testnet.example.net"
 
 func turnURIsFor(t *testing.T, cfg *Config) []string {
 	t.Helper()
@@ -24,7 +25,9 @@ func turnURIsFor(t *testing.T, cfg *Config) []string {
 	applyTURNHosts(h, cfg)
 
 	req := httptest.NewRequest("POST", "/v1/webrtc/turn/credentials", nil)
-	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "ns-a"))
+	ctx := context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "ns-a")
+	// A credential is issued to a caller (bugboard #391).
+	req = req.WithContext(context.WithValue(ctx, ctxkeys.JWT, &auth.JWTClaims{Sub: "0xalice"}))
 	w := httptest.NewRecorder()
 	h.CredentialsHandler(w, req)
 	if w.Code != 200 {
@@ -44,7 +47,7 @@ func turnURIsFor(t *testing.T, cfg *Config) []string {
 // to the credentials handler, so enabling stealth never changed the ladder.
 func TestApplyTURNHosts_stealth_host_is_advertised(t *testing.T) {
 	uris := turnURIsFor(t, &Config{
-		TURNDomain:       "turn.ns-ns-a.stagenet.example.net",
+		TURNDomain:       "turn.ns-ns-a.testnet.example.net",
 		TURNSecret:       "secret",
 		StealthCDNDomain: testStealthHost,
 	})
@@ -58,7 +61,7 @@ func TestApplyTURNHosts_stealth_host_is_advertised(t *testing.T) {
 
 func TestApplyTURNHosts_no_stealth_keeps_baseline_ladder(t *testing.T) {
 	uris := turnURIsFor(t, &Config{
-		TURNDomain: "turn.ns-ns-a.stagenet.example.net",
+		TURNDomain: "turn.ns-ns-a.testnet.example.net",
 		TURNSecret: "secret",
 	})
 	if len(uris) != 3 {
@@ -73,10 +76,10 @@ func TestApplyTURNHosts_no_stealth_keeps_baseline_ladder(t *testing.T) {
 
 func TestApplyTURNHosts_turns_uses_single_label_host(t *testing.T) {
 	uris := turnURIsFor(t, &Config{
-		TURNDomain: "turn.ns-ns-a.stagenet.example.net",
+		TURNDomain: "turn.ns-ns-a.testnet.example.net",
 		TURNSecret: "secret",
 	})
-	if want := "turns:turn-ns-a.stagenet.example.net:5349"; uris[2] != want {
+	if want := "turns:turn-ns-a.testnet.example.net:5349"; uris[2] != want {
 		t.Errorf("TURNS rung = %q, want %q", uris[2], want)
 	}
 }

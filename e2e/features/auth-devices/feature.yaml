@@ -9,7 +9,7 @@
 id: auth-devices
 title: Device login, device-bound sessions, session policy and socket revocation
 area: auth
-subtasks: [2827]
+subtasks: [2827, 2927]
 stage: 3
 destructive: false
 requires:
@@ -47,4 +47,4 @@ covers:
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#linking-a-device-from-a-device: approval pends a second device (202) until an active device approves; a wallet cannot approve a device link"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#linking-a-device-from-a-device: seedless linking takes the approver's account; a revoked approver's link cannot be collected"
     - "docs/whitepaper/technical-reference/vol1/13-identity.md#revoking-a-device: a namespace operator lists and revokes an account's devices; the next device enrols as the first"
-    - "docs/whitepaper/technical-reference/vol1/13-identity.md#open-websockets: a token-opened socket closes with 4403 within ten seconds of logout, session end or device revocation; a key-opened socket is not re-checked"
+    - "docs/whitepaper/technical-reference/vol1/13-identity.md#open-websockets: a token-opened socket closes with 4403 within ten seconds of logout, session end or device revocation; a key-opened socket closes with 4403 when its key is revoked"

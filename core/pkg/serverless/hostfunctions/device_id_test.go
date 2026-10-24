@@ -68,3 +68,35 @@ func requestCount(inv *nestedRecordingInvoker) int {
 	defer inv.mu.Unlock()
 	return len(inv.reqs)
 }
+
+// A nested call is charged to the caller that started the chain: dropping the
+// key fingerprint would put a key caller's nested calls in the address-only
+// bucket of an anonymous caller.
+func TestFunctionInvoke_carriesTheCallersKey(t *testing.T) {
+	inv := &nestedRecordingInvoker{}
+	h := hostWithInvoker(inv)
+	ctx := parentCtx(&serverless.InvocationContext{
+		Namespace:   "anchat-test",
+		TriggerType: serverless.TriggerTypeHTTP,
+		CallerKey:   "key_0123456789ab",
+		CallerIP:    "203.0.113.7",
+	})
+
+	if _, err := h.FunctionInvoke(ctx, "callee", []byte(`{}`)); err != nil {
+		t.Fatalf("FunctionInvoke: %v", err)
+	}
+	if got := inv.last().CallerKey; got != "key_0123456789ab" {
+		t.Errorf("sync nested call key = %q", got)
+	}
+
+	if err := h.FunctionInvokeAsync(ctx, "callee", []byte(`{}`)); err != nil {
+		t.Fatalf("FunctionInvokeAsync: %v", err)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && requestCount(inv) < 2 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if requestCount(inv) < 2 || inv.last().CallerKey != "key_0123456789ab" {
+		t.Errorf("async nested call lost the key: %+v", inv.last())
+	}
+}

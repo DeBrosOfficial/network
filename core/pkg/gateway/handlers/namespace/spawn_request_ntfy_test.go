@@ -17,7 +17,7 @@ import (
 // intermittent, per-node failure mode the anchat team specifically asked us to
 // rule out.
 func TestSpawnRequest_ntfyBaseURLWireKey(t *testing.T) {
-	const base = "https://push.orama-devnet.network"
+	const base = "https://push.devnet.orama.network"
 	payload := []byte(`{
 		"action": "spawn-gateway",
 		"namespace": "anchat-v2",

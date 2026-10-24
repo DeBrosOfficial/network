@@ -120,7 +120,7 @@ func TestListeners_onlyEdgePortsPublic(t *testing.T) {
 		}
 		for _, h := range declaredHostListeners(f, n) {
 			if !used[h] {
-				t.Errorf("%s: the declared host extra %s %s:%d is not listening any more: remove it from config.StagenetHostListeners", n.Name, h.Process, h.Proto, h.Port)
+				t.Errorf("%s: the declared host extra %s %s:%d is not listening any more: remove it from config.TestnetHostListeners", n.Name, h.Process, h.Proto, h.Port)
 			}
 		}
 	}
@@ -146,21 +146,21 @@ func tenantDeployment(t testing.TB, f *fleet.Fleet, n fleet.Node, l fleet.Listen
 	return fleet.DeployUnitFromCgroup(out.Stdout)
 }
 
-// declaredHostListener is the operator's declaration (stagenet target only)
+// declaredHostListener is the operator's declaration (testnet target only)
 // that covers l, if any.
 func declaredHostListener(f *fleet.Fleet, n fleet.Node, l fleet.Listener) (config.HostListener, bool) {
-	if !f.State.IsStagenet() {
+	if !f.State.IsTestnet() {
 		return config.HostListener{}, false
 	}
-	return config.StagenetHostListener(n.Name, l.Proto, l.Addr, l.Port, l.Process)
+	return config.TestnetHostListener(n.Name, l.Proto, l.Addr, l.Port, l.Process)
 }
 
 // declaredHostListeners are the declarations for n's host extras.
 func declaredHostListeners(f *fleet.Fleet, n fleet.Node) []config.HostListener {
-	if !f.State.IsStagenet() {
+	if !f.State.IsTestnet() {
 		return nil
 	}
-	return config.StagenetHostListenersOn(n.Name)
+	return config.TestnetHostListenersOn(n.Name)
 }
 
 // TestListeners_internalsOnTheirAddress: the index internals are where the
@@ -174,9 +174,9 @@ func TestListeners_internalsOnTheirAddress(t *testing.T) {
 		wg := wgAddress(t, f, n)
 		ls := f.Listeners(t, n)
 		want := map[int][]string{infra.IndexRQLiteHTTP: {wg}, infra.IndexRQLiteRaft: {wg}, 10102: {wg}, 10104: {wg, "127.0.0.1"}}
-		// The stagenet chain runs in the orama-global netns: its ports are not
+		// The testnet chain runs in the orama-global netns: its ports are not
 		// host listeners, so only a fleet run's chain is asserted here.
-		if f.State.ChainID != "" && !f.State.IsStagenet() {
+		if f.State.ChainID != "" && !f.State.IsTestnet() {
 			want[infra.ChainP2PPort] = []string{wg}
 			want[infra.ChainRPCPort] = []string{"127.0.0.1"}
 		}

@@ -33,7 +33,7 @@ func TestInitGenesis_rejectsNonzeroSupplyWhenBootstrapStakeNotAllowed(t *testing
 func TestInitGenesis_rejectsBootstrapStakeOnProductionChainID(t *testing.T) {
 	f := newTestFixture(t)
 	f.Bank.FundBondedPool(math.NewInt(1_500_000_000_000))
-	ctx := f.Ctx.WithChainID("orama-1") // no -devnet-/-stagenet-/-localnet- marker
+	ctx := f.Ctx.WithChainID("orama-1") // no -devnet-/-testnet-/-localnet- marker
 
 	gs := types.DefaultGenesisState()
 	gs.Params.AllowBootstrapStake = true
@@ -73,8 +73,8 @@ func TestInitGenesis_acceptsBootstrapStakeExactlyInBondedPoolOnDevnet(t *testing
 	require.False(t, broken)
 }
 
-func TestInitGenesis_acceptsBootstrapStakeOnStagenetAndLocalnetChainIDs(t *testing.T) {
-	for _, chainID := range []string{"orama-stagenet-1", "orama-localnet-1"} {
+func TestInitGenesis_acceptsBootstrapStakeOnTestnetAndLocalnetChainIDs(t *testing.T) {
+	for _, chainID := range []string{"orama-testnet-1", "orama-localnet-1"} {
 		t.Run(chainID, func(t *testing.T) {
 			f := newTestFixture(t)
 			f.Bank.FundBondedPool(math.NewInt(1_000_000_000))

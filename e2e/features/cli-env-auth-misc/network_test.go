@@ -43,7 +43,7 @@ func TestNetworkAdd_gatewayOptionsNeedAGateway(t *testing.T) {
 	cli := isolated(t)
 	for _, args := range [][]string{
 		{"network", "add", "https://example.invalid/m/manifest.json", "--ca-file", "/nonexistent.pem"},
-		{"network", "add", "https://example.invalid/m/manifest.json", "--network", "stagenet"},
+		{"network", "add", "https://example.invalid/m/manifest.json", "--network", "testnet"},
 		{"network", "add", "lab", "https://lab.example.invalid", "--yes"},
 	} {
 		if res := run(t, cli, args...); res.Exit != exitUsage {
@@ -102,7 +102,7 @@ func TestMaintNetworkAnnounce_writesAnAnnouncementAndRefusesACreatedNetwork(t *t
 		t.Fatal(err)
 	}
 	networks := filepath.Join(dir, "networks")
-	announce := []string{"maint", "network", "announce", "--dir", networks, "--name", "e2eann", "--chain-id", "orama-e2eann-stagenet-1",
+	announce := []string{"maint", "network", "announce", "--dir", networks, "--name", "e2eann", "--chain-id", "orama-e2eann-testnet-1",
 		"--release-repo", "https://releases.example.org", "--release-root", root, "--channel", "nightly", "--faucet", "--seed", "seed1.e2eann.example.org"}
 	res := cli.MustOK(t, announce...)
 	if !strings.Contains(res.Stdout, "orama setup --create-network e2eann") {
@@ -120,10 +120,10 @@ func TestMaintNetworkAnnounce_writesAnAnnouncementAndRefusesACreatedNetwork(t *t
 	}
 
 	genesis := filepath.Join(dir, "genesis.json")
-	if err := os.WriteFile(genesis, []byte(`{"chain_id":"orama-e2eann-stagenet-1"}`), 0o600); err != nil {
+	if err := os.WriteFile(genesis, []byte(`{"chain_id":"orama-e2eann-testnet-1"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cli.MustOK(t, "maint", "network", "publish", "--dir", networks, "--name", "e2eann", "--chain-id", "orama-e2eann-stagenet-1", "--genesis", genesis)
+	cli.MustOK(t, "maint", "network", "publish", "--dir", networks, "--name", "e2eann", "--chain-id", "orama-e2eann-testnet-1", "--genesis", genesis)
 	again := run(t, cli, announce...)
 	if again.Exit != exitConflict || !strings.Contains(output(again), "already created") {
 		t.Errorf("announcing a created network: exit %d, want %d and the reason\n%s", again.Exit, exitConflict, output(again))

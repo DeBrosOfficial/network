@@ -29,7 +29,7 @@ func writeTURNConfig(t *testing.T, namespacesDir, namespace, nodeID, turnsAddr s
 // while a namespace with an empty turns_listen_addr is skipped entirely.
 func TestDiscoverTURNRoutes_scansFixtureDir(t *testing.T) {
 	dir := t.TempDir()
-	const base = "orama-devnet.network"
+	const base = "devnet.orama.network"
 
 	writeTURNConfig(t, dir, "anchat", "node-1", "0.0.0.0:5349")
 	writeTURNConfig(t, dir, "video", "node-1", "0.0.0.0:5350")

@@ -11,7 +11,7 @@ import (
 // anchorRoots are the repository directories a code anchor may start with.
 var anchorRoots = []string{
 	"core/", "chain/", "vault/", "sdk/", "sdk-vault/", "caddy/", "e2e/",
-	"contracts/", "docs/", "website/", "plans/",
+	"contracts/", "docs/", "website/",
 }
 
 // identRe is what may follow the colon of an anchor: a Go, TypeScript or Zig

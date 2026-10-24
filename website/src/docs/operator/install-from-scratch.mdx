@@ -152,7 +152,7 @@ cluster.example.com.	IN	NS	ns1.cluster.example.com.
 ns1.cluster.example.com.	IN	A	203.0.113.10
 ```
 
-The fields are separated by tabs. For a whole registered domain the header reads `.com: at your registrar, as custom nameservers with glue (host) records` instead. Then the command asks DNS whether the parent zone returns those records and says which NS or glue record is missing or points at another address.
+The fields are separated by tabs. For a whole registered domain the header reads `.com: at your registrar, as custom nameservers with glue (host) records` instead. Then the command asks the parent zone's own nameservers whether they return those records and says which NS or glue record is missing or points at another address.
 
 Create exactly those records where the parent zone's DNS is hosted. If it is Cloudflare, the command can write them for you:
 

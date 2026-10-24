@@ -16,6 +16,10 @@ var (
 	// ErrVersionNotFound is returned when a specific function version does not exist.
 	ErrVersionNotFound = errors.New("function version not found")
 
+	// ErrVersionSuperseded is returned for a version a later deploy or a
+	// rollback replaced: only the current version of a function is invocable.
+	ErrVersionSuperseded = errors.New("function version superseded: only the current version of a function can be invoked; roll back to make this version current")
+
 	// ErrSecretNotFound is returned when a secret does not exist.
 	ErrSecretNotFound = errors.New("secret not found")
 
@@ -84,6 +88,11 @@ var (
 	// retryable and surface a retryable error envelope to clients.
 	ErrWASMFetchTimeout = errors.New("wasm fetch from IPFS timed out")
 
+	// ErrWASMNotStored is returned when a function's WASM is not in the
+	// cluster's pinset: nothing the cluster knows of stores it, so no retry
+	// can fetch it, and the function cannot run until it is deployed again.
+	ErrWASMNotStored = errors.New("function WASM is not stored in the cluster")
+
 	// ErrDatabaseUnavailable is returned when the database is unavailable.
 	ErrDatabaseUnavailable = errors.New("database unavailable")
 
@@ -106,6 +115,11 @@ var (
 	// negative, or longer than olric.MaxEntryTTL. A guest mistake, not a
 	// gateway fault.
 	ErrInvalidCacheTTL = errors.New("invalid cache ttl")
+
+	// ErrAsyncInvokeSaturated is returned when function_invoke_async is
+	// refused because the gateway already runs its maximum of in-flight async
+	// invocations. Nothing ran; the guest may retry or call synchronously.
+	ErrAsyncInvokeSaturated = errors.New("too many in-flight async invocations")
 )
 
 // ConfigError represents a configuration validation error.
@@ -215,6 +229,7 @@ func IsRetryable(err error) bool {
 func IsNotFound(err error) bool {
 	return errors.Is(err, ErrFunctionNotFound) ||
 		errors.Is(err, ErrVersionNotFound) ||
+		errors.Is(err, ErrVersionSuperseded) ||
 		errors.Is(err, ErrSecretNotFound) ||
 		errors.Is(err, ErrJobNotFound) ||
 		errors.Is(err, ErrTriggerNotFound) ||
@@ -227,13 +242,19 @@ func IsUnauthorized(err error) bool {
 	return errors.Is(err, ErrUnauthorized)
 }
 
-// IsResourceExhausted checks if an error indicates resource exhaustion.
+// IsResourceExhausted checks if an error indicates resource exhaustion: the
+// request was refused before the function ran. A timeout is not one of them
+// (see IsTimeout): that function ran, and what it did may have happened.
 func IsResourceExhausted(err error) bool {
 	return errors.Is(err, ErrRateLimited) ||
 		errors.Is(err, ErrMemoryExceeded) ||
 		errors.Is(err, ErrPayloadTooLarge) ||
-		errors.Is(err, ErrQueueFull) ||
-		errors.Is(err, ErrTimeout)
+		errors.Is(err, ErrQueueFull)
+}
+
+// IsTimeout reports whether a function ran and was stopped at its deadline.
+func IsTimeout(err error) bool {
+	return errors.Is(err, ErrTimeout)
 }
 
 // IsServiceUnavailable checks if an error indicates a service is unavailable.

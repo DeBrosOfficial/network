@@ -199,31 +199,6 @@ func TestCheck_refusesRawStorageTables(t *testing.T) {
 	}
 }
 
-func TestCheck_refusesCreateTrigger(t *testing.T) {
-	for _, query := range []string{
-		"CREATE TRIGGER t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"create temp trigger t after insert on messages begin select 1 end",
-		"CREATE TEMPORARY TRIGGER t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"/* c */ CREATE TRIGGER t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"-- c\nCREATE TRIGGER IF NOT EXISTS t AFTER INSERT ON messages BEGIN SELECT 1 END",
-		"CREATE TRIGGER main.t AFTER INSERT ON messages BEGIN SELECT 1 END",
-	} {
-		err := Check(query)
-		if err == nil || !strings.Contains(err.Error(), "CREATE TRIGGER") {
-			t.Errorf("Check(%q) = %v, want a CREATE TRIGGER refusal", query, err)
-		}
-	}
-	for _, query := range []string{
-		"CREATE TABLE triggers (id INTEGER)",
-		"CREATE INDEX trigger_idx ON messages(body)",
-		"SELECT trigger FROM messages",
-	} {
-		if err := Check(query); err != nil {
-			t.Errorf("refused %q: %v", query, err)
-		}
-	}
-}
-
 // Comments are removed before anything is looked at, so a protected name
 // mentioned in one is not a reason to refuse a statement that never touches it.
 // A guard that refused these would be unusable on a codebase whose SQL is
@@ -653,6 +628,43 @@ func TestCheck_refusesTheRuntimeCreatedPeerTables(t *testing.T) {
 			if err := Check(query); !errors.As(err, &refused) {
 				t.Errorf("Check(%q) = %v, want a refusal", query, err)
 			}
+		}
+	}
+}
+
+// Check holds the table-valued pragma functions to the allowlist CheckTenantSQLite
+// does: pragma_database_list returned the RQLite node's file path on the ORM
+// routes and to function host calls, while /v1/db/sqlite/query refused it.
+func TestCheck_holdsPragmaFunctionsToTheAllowlist(t *testing.T) {
+	for _, tc := range []struct {
+		query   string
+		allowed bool
+	}{
+		{"SELECT * FROM pragma_database_list", false},
+		{`SELECT * FROM "pragma_database_list"`, false},
+		{"SELECT * FROM [PRAGMA_DATABASE_LIST]", false},
+		{"SELECT * FROM 'pragma_database_list'", false},
+		{"SELECT * FROM pragma_compile_options", false},
+		{"SELECT * FROM pragma_hard_heap_limit(1)", false},
+		{"SELECT name FROM messages WHERE name IN (SELECT name FROM pragma_function_list)", false},
+		{"SELECT * FROM main.pragma_module_list", false},
+		{"SELECT * FROM pragma_table_info('messages')", true},
+		{"SELECT name, pk FROM pragma_table_info('t') WHERE pk > 0", true},
+		{"SELECT * FROM pragma_index_list('messages')", true},
+		{"SELECT page_count FROM pragma_page_count()", true},
+		{"SELECT 'pragma_notes are data'", true},
+		{"SELECT * FROM 'pragma_table_info'", true},
+	} {
+		err := Check(tc.query)
+		if tc.allowed {
+			if err != nil {
+				t.Errorf("Check(%q) = %v, want nil", tc.query, err)
+			}
+			continue
+		}
+		var refused *ErrNotAllowed
+		if !errors.As(err, &refused) || !strings.Contains(err.Error(), "which is not available to tenant SQL") {
+			t.Errorf("Check(%q) = %v, want a pragma refusal", tc.query, err)
 		}
 	}
 }

@@ -49,7 +49,7 @@ func (e errString) Error() string { return string(e) }
 // database, and the events are not there.
 func auditHandlers(t *testing.T, db *auditQueryDB) *Handlers {
 	t.Helper()
-	svc, err := authsvc.NewService(nil, &auditQueryNet{db: db}, "", "default")
+	svc, err := authsvc.NewService(nil, &auditQueryNet{db: db}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}

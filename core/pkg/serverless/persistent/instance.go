@@ -231,7 +231,10 @@ func NewInstance(module api.Module, cfg Config, logger *zap.Logger) (*Instance, 
 //
 // Returns ctx unchanged when invCtx is nil — preserves backwards-compat
 // for callers that didn't populate Config.InvocationContext.
-func (i *Instance) withInvCtx(ctx context.Context) context.Context {
+//
+// It also attaches a fresh host log budget (bugboard #424); the caller runs
+// the returned summarize when the export call returns.
+func (i *Instance) withInvCtx(ctx context.Context) (context.Context, func()) {
 	i.invCtxMu.RLock()
 	cur := i.invCtx
 	i.invCtxMu.RUnlock()
@@ -251,7 +254,19 @@ func (i *Instance) withInvCtx(ctx context.Context) context.Context {
 	// buffer is discarded when the call returns — the point is to
 	// avoid leaking entries into the singleton where a concurrent
 	// stateless Execute would otherwise see them.
-	return serverless.WithLogBuffer(ctx, serverless.NewLogBuffer())
+	ctx = serverless.WithLogBuffer(ctx, serverless.NewLogBuffer())
+	ctx, budget := serverless.WithHostLogBudget(ctx)
+	// A fresh function_invoke_last_error slot per call, so one frame never
+	// reads the error of a nested invoke another frame made.
+	ctx = serverless.WithInvokeErrorSlot(ctx)
+	summarize := func() {
+		fields := []zap.Field{zap.String("client_id", i.clientID)}
+		if cur != nil {
+			fields = append(fields, zap.String("namespace", cur.Namespace), zap.String("function", cur.FunctionName))
+		}
+		budget.Summarize(i.logger, fields...)
+	}
+	return ctx, summarize
 }
 
 // UpdateInvocationContext atomically swaps the per-instance invocation
@@ -302,7 +317,9 @@ func (i *Instance) Open(ctx context.Context, input WSOpenInput) error {
 	if err != nil {
 		return fmt.Errorf("persistent.Open: marshal input: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(i.withInvCtx(ctx), i.frameTimeout)
+	callCtx, summarize := i.withInvCtx(ctx)
+	defer summarize()
+	ctx, cancel := context.WithTimeout(callCtx, i.frameTimeout)
 	defer cancel()
 
 	rc, err := i.callExport(ctx, i.openFn, payload)
@@ -361,7 +378,9 @@ func (i *Instance) Run(ctx context.Context) {
 }
 
 func (i *Instance) handleFrame(ctx context.Context, frame []byte) error {
-	frameCtx, cancel := context.WithTimeout(i.withInvCtx(ctx), i.frameTimeout)
+	callCtx, summarize := i.withInvCtx(ctx)
+	defer summarize()
+	frameCtx, cancel := context.WithTimeout(callCtx, i.frameTimeout)
 	defer cancel()
 
 	rc, err := i.callExport(frameCtx, i.frameFn, frame)
@@ -410,7 +429,9 @@ func (i *Instance) Close(ctx context.Context, reason CloseReason) {
 		i.waitForRunLoop()
 
 		// Best-effort ws_close — don't propagate errors; we're shutting down.
-		closeCtx, cancel := context.WithTimeout(i.withInvCtx(ctx), i.frameTimeout)
+		callCtx, summarize := i.withInvCtx(ctx)
+		defer summarize()
+		closeCtx, cancel := context.WithTimeout(callCtx, i.frameTimeout)
 		defer cancel()
 		if _, err := i.callExport(closeCtx, i.closeFn, []byte(reason)); err != nil {
 			i.logger.Debug("persistent ws_close ignored error",

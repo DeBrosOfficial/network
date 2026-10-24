@@ -58,6 +58,13 @@ var protectedTables = map[string]string{
 	"namespace_creators":       "wallets allowed to create a namespace",
 	"release_installs":         "which node installed or failed which release; a row marks a release bad for every node",
 	"principals":               "who the platform will authenticate",
+	// Adding a row lets another site read the namespace's answers with its
+	// users' credentials.
+	"namespace_cors_origins": "which sites may read a namespace's answers",
+	// Device attestation (feat-941). Lowering the policy admits builds the
+	// namespace refused; a forged attestation row is an attested device.
+	"namespace_attestation_policy": "which app builds a namespace admits",
+	"device_attestations":          "what each device's attestation proved",
 	// Public keys, but writing one publishes a key the cluster will accept
 	// tokens from — which is minting authority by another route.
 	"signing_keys": "which keys may sign a token",
@@ -200,11 +207,12 @@ type ErrNotAllowed struct {
 func (e *ErrNotAllowed) Error() string { return e.Reason }
 
 // Check refuses a statement tenant SQL may not run. It reads one statement: a
-// caller with several checks each of them.
+// caller with several checks each of them. A CREATE TRIGGER is one statement
+// whose body holds several, and is judged by checkCreateTrigger (trigger.go).
 func Check(query string) error {
 	tokens := tokenizeSQL(query)
 	if isCreateTrigger(tokens) {
-		return &ErrNotAllowed{Reason: "CREATE TRIGGER is not available to tenant SQL: a trigger runs statements the guard never sees"}
+		return checkCreateTrigger(query, tokens)
 	}
 
 	seenStatement := false
@@ -226,18 +234,29 @@ func Check(query string) error {
 					}
 				}
 			}
-			if err := refuseProtected(tok.text); err != nil {
-				return err
-			}
-		case tokenQuotedIdent:
-			if err := refuseProtected(tok.text); err != nil {
-				return err
-			}
-		case tokenString:
-			if err := refuseProtectedLiteral(tok.text); err != nil {
-				return err
-			}
 		}
+		if err := checkName(tok); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkName refuses a token that names a platform table, a raw-storage table
+// or a pragma function outside tenantAllowedPragmas: a word or quoted
+// identifier in any role, or a string literal whose whole text is one.
+func checkName(tok token) error {
+	switch tok.kind {
+	case tokenWord, tokenQuotedIdent:
+		if err := checkPragmaFunction(tok.text); err != nil {
+			return err
+		}
+		return refuseProtected(tok.text)
+	case tokenString:
+		if err := checkPragmaFunction(tok.text); err != nil {
+			return err
+		}
+		return refuseProtectedLiteral(tok.text)
 	}
 	return nil
 }
@@ -291,7 +310,8 @@ func checkTenantPragma(tokens []token) error {
 // PRAGMA keyword; they are held to the same allowlist, as a word, a quoted
 // name or a string literal. A string whose whole text is such a name is
 // refused as data too: telling a table name from a value would mean
-// re-implementing SQLite's grammar. Bind it as an argument instead.
+// re-implementing SQLite's grammar. Bind it as an argument instead. Check
+// (through checkName) and CheckTenantSQLite both judge them here.
 const pragmaFunctionPrefix = "pragma_"
 
 func checkPragmaFunction(name string) error {
@@ -444,26 +464,31 @@ func normalizeName(name string) string {
 }
 
 // isCreateTrigger reports whether the statement so far is CREATE [TEMP|
-// TEMPORARY] TRIGGER. A trigger body is statements run later by SQLite on its
-// own, so nothing a tenant sends may create one. (Every trigger body today
-// also contains a ';', which the one-statement rule refuses; this does not
-// rely on that.)
+// TEMPORARY] TRIGGER.
 func isCreateTrigger(tokens []token) bool {
-	var words []string
-	for _, tok := range tokens {
-		if tok.kind != tokenWord || len(words) == 3 {
-			break
-		}
-		words = append(words, strings.ToLower(tok.text))
-	}
+	words := leadingWords(tokens, 3)
 	if len(words) < 2 || words[0] != "create" {
 		return false
 	}
 	if words[1] == "trigger" {
 		return true
 	}
-	return len(words) == 3 && (words[1] == "temp" || words[1] == "temporary") && words[2] == "trigger"
+	return len(words) == 3 && isTempKeyword(words[1]) && words[2] == "trigger"
 }
+
+// leadingWords returns up to n leading word tokens of a statement, lower-cased.
+func leadingWords(tokens []token, n int) []string {
+	var words []string
+	for _, tok := range tokens {
+		if tok.kind != tokenWord || len(words) == n {
+			break
+		}
+		words = append(words, strings.ToLower(tok.text))
+	}
+	return words
+}
+
+func isTempKeyword(word string) bool { return word == "temp" || word == "temporary" }
 
 func hasMoreContent(tokens []token) bool {
 	for _, tok := range tokens {
@@ -485,9 +510,12 @@ const (
 	tokenOther
 )
 
+// token is one piece of a statement. start and end are its byte offsets in
+// the text it was read from, so a refusal can quote the statement it judged.
 type token struct {
-	kind tokenKind
-	text string
+	kind       tokenKind
+	text       string
+	start, end int
 }
 
 // tokenizeSQL splits a statement into the pieces the guard cares about:
@@ -497,6 +525,7 @@ func tokenizeSQL(q string) []token {
 	var out []token
 	for i := 0; i < len(q); {
 		c := q[i]
+		start := i
 		switch {
 		case c == '-' && i+1 < len(q) && q[i+1] == '-':
 			for i < len(q) && q[i] != '\n' {
@@ -514,39 +543,38 @@ func tokenizeSQL(q string) []token {
 			}
 		case c == '\'':
 			text, next := readDelimited(q, i, '\'', '\'')
-			out = append(out, token{kind: tokenString, text: text})
+			out = append(out, token{kind: tokenString, text: text, start: start, end: next})
 			i = next
 		case c == '"':
 			text, next := readDelimited(q, i, '"', '"')
-			out = append(out, token{kind: tokenQuotedIdent, text: text})
+			out = append(out, token{kind: tokenQuotedIdent, text: text, start: start, end: next})
 			i = next
 		case c == '`':
 			text, next := readDelimited(q, i, '`', '`')
-			out = append(out, token{kind: tokenQuotedIdent, text: text})
+			out = append(out, token{kind: tokenQuotedIdent, text: text, start: start, end: next})
 			i = next
 		case c == '[':
 			text, next := readDelimited(q, i, '[', ']')
-			out = append(out, token{kind: tokenQuotedIdent, text: text})
+			out = append(out, token{kind: tokenQuotedIdent, text: text, start: start, end: next})
 			i = next
 		case c == ';':
-			out = append(out, token{kind: tokenSemicolon, text: ";"})
 			i++
+			out = append(out, token{kind: tokenSemicolon, text: ";", start: start, end: i})
 		case c == '.':
-			out = append(out, token{kind: tokenDot, text: "."})
 			i++
+			out = append(out, token{kind: tokenDot, text: ".", start: start, end: i})
 		case isSQLiteSpace(c):
 			// Whitespace separates tokens and is not one. Keeping it would
 			// put a space between `FROM` and the name that follows it.
 			i++
 		case isWordByte(c):
-			start := i
 			for i < len(q) && isWordByte(q[i]) {
 				i++
 			}
-			out = append(out, token{kind: tokenWord, text: q[start:i]})
+			out = append(out, token{kind: tokenWord, text: q[start:i], start: start, end: i})
 		default:
-			out = append(out, token{kind: tokenOther, text: string(c)})
 			i++
+			out = append(out, token{kind: tokenOther, text: string(c), start: start, end: i})
 		}
 	}
 	return out

@@ -106,9 +106,9 @@ func TestQueryChainRPC_malformedStatusFields(t *testing.T) {
 		"empty chain id":     {"", "0.39.4", "node_info.network"},
 		"long chain id":      {strings.Repeat("a", 49), "0.39.4", "node_info.network"},
 		"uppercase chain id": {"Orama-1", "0.39.4", "node_info.network"},
-		"markup version":     {"orama-stagenet-1", injected, "node_info.version"},
-		"empty version":      {"orama-stagenet-1", "", "node_info.version"},
-		"version with ansi":  {"orama-stagenet-1", "0.39.4\x1b[2J", "node_info.version"},
+		"markup version":     {"orama-testnet-1", injected, "node_info.version"},
+		"empty version":      {"orama-testnet-1", "", "node_info.version"},
+		"version with ansi":  {"orama-testnet-1", "0.39.4\x1b[2J", "node_info.version"},
 	} {
 		r := statusWith(t, tc.network, tc.version)
 		if r.Responsive || !strings.Contains(r.Error, tc.want) {

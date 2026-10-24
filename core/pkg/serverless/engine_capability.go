@@ -25,12 +25,12 @@ func (e *Engine) hCapabilityMint(ctx context.Context, mod api.Module, resPtr, re
 		return 0
 	}
 	if ttlSeconds <= 0 || ttlSeconds > maxCapabilityTTLSeconds {
-		e.logger.Warn("host function capability_mint refused: ttl out of range", zap.Int64("ttl_seconds", ttlSeconds))
+		HostLogger(ctx, e.logger).Warn("host function capability_mint refused: ttl out of range", zap.Int64("ttl_seconds", ttlSeconds))
 		return 0
 	}
 	minted, err := e.hostServices.MintCapability(ctx, string(resource), time.Duration(ttlSeconds)*time.Second)
 	if err != nil {
-		e.logger.Warn("host function capability_mint refused", zap.Int64("ttl_seconds", ttlSeconds), zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function capability_mint refused", zap.Int64("ttl_seconds", ttlSeconds), zap.Error(err))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, []byte(minted))
@@ -44,7 +44,7 @@ func (e *Engine) hCapabilityRevoke(ctx context.Context, mod api.Module, tokenPtr
 		return 0
 	}
 	if err := e.hostServices.RevokeCapability(ctx, string(token)); err != nil {
-		e.logger.Error("host function capability_revoke failed", zap.Error(err))
+		HostLogger(ctx, e.logger).Error("host function capability_revoke failed", zap.Error(err))
 		return 0
 	}
 	return 1
@@ -66,12 +66,12 @@ func (e *Engine) hStorageFetchCapMint(ctx context.Context, mod api.Module, cidPt
 		return 0
 	}
 	if ttlSeconds <= 0 || ttlSeconds > maxCapabilityTTLSeconds {
-		e.logger.Warn("host function storage_fetch_cap_mint refused: ttl out of range", zap.Int64("ttl_seconds", ttlSeconds))
+		HostLogger(ctx, e.logger).Warn("host function storage_fetch_cap_mint refused: ttl out of range", zap.Int64("ttl_seconds", ttlSeconds))
 		return 0
 	}
 	minted, err := e.hostServices.MintStorageFetchCaps(ctx, string(cid), int(count), time.Duration(ttlSeconds)*time.Second)
 	if err != nil {
-		e.logger.Warn("host function storage_fetch_cap_mint refused", zap.Int32("count", count), zap.Error(err))
+		HostLogger(ctx, e.logger).Warn("host function storage_fetch_cap_mint refused", zap.Int32("count", count), zap.Error(err))
 		return 0
 	}
 	return e.executor.WriteToGuest(ctx, mod, []byte(minted))

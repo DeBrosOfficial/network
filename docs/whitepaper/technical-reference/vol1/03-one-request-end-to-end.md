@@ -92,7 +92,7 @@ The cluster client sends the put to the Olric member that owns the key's partiti
 
 ## 7. The way back
 
-The namespace gateway's response travels back along the same connection. The index gateway copies status, headers and body to the client; a 502, 503 or 504 from the member counts as a breaker failure, anything else as a success. Caddy streams the response over TLS. The SDK reads the JSON; on 408, 429, 500, 502, 503 or 504 it retries up to 3 times with a growing delay and honours `Retry-After` up to 30 s.
+The namespace gateway's response travels back along the same connection. The index gateway copies status, headers and body to the client; a 502, 503 or 504 from the member counts as a breaker failure unless the member classified it (the canonical error envelope) or a function answered it, and anything else counts as a success. Caddy streams the response over TLS. The SDK reads the JSON; on 408, 429, 500, 502, 503 or 504 it retries up to 3 times with a growing delay and honours `Retry-After` up to 30 s.
 
 The whole trace touched: one DNS lookup against the registry, two gateways, the registry (once for targets, cached afterwards), the cluster secret for the MAC, and the tenant's Olric ring. It never touched the tenant's RQLite, the chain, IPFS or the supervisor.
 

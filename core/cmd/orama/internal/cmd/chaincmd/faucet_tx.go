@@ -17,8 +17,8 @@ import (
 const (
 	// faucetGas is the gas limit of the faucet transaction. The fee is this times the base fee.
 	faucetGas = 300000
-	// faucetOperatorKey is the operator key in oramad's test keyring on a stagenet or devnet node
-	// (chain/scripts/stagenet/deploy.sh, create_operator_key). It signs on the node and never leaves it.
+	// faucetOperatorKey is the operator key in oramad's test keyring on a testnet or devnet node
+	// (chain/scripts/testnet/deploy.sh, create_operator_key). It signs on the node and never leaves it.
 	faucetOperatorKey = "validator"
 	// norama per ORAMA (chain/app/params NoramaPerOrama, 9 decimals).
 	noramaPerOrama = 1_000_000_000
@@ -57,7 +57,7 @@ func requireRecipient(arg string) error {
 	return nil
 }
 
-// requireTestNetwork refuses a chain id that is not a stagenet, devnet or localnet.
+// requireTestNetwork refuses a chain id that is not a testnet, devnet or localnet.
 func requireTestNetwork(chainID string) error {
 	if chainfaucet.IsTestNetwork(chainID) {
 		return nil

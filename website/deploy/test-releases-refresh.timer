@@ -1,0 +1,11 @@
+# Runs test-releases-refresh.service once a day, well inside the 7-day timestamp.
+[Unit]
+Description=Daily refresh of the testnet TUF timestamp and snapshot
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

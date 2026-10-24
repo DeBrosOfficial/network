@@ -34,8 +34,8 @@ func TestChainFaucetKeyFile_carriedForwardFromNodeYAML(t *testing.T) {
 
 func TestRegeneratedNodeYAML_keepsTheFaucetAndStillParses(t *testing.T) {
 	dir := t.TempDir()
-	writeACMENodeYAML(t, dir, "node:\n  id: x\nhttp_gateway:\n  base_domain: stagenet.orama.network\nchain:\n  faucet:\n    enabled: true\n    key_file: /etc/orama/faucet.key\n")
-	rendered, err := NewConfigGenerator(dir).GenerateNodeConfig(nil, "10.0.0.5", "", "stagenet.orama.network", "stagenet.orama.network", false)
+	writeACMENodeYAML(t, dir, "node:\n  id: x\nhttp_gateway:\n  base_domain: testnet.orama.network\nchain:\n  faucet:\n    enabled: true\n    key_file: /etc/orama/faucet.key\n")
+	rendered, err := NewConfigGenerator(dir).GenerateNodeConfig(nil, "10.0.0.5", "", "testnet.orama.network", "testnet.orama.network", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestRegeneratedNodeYAML_keepsTheFaucetAndStillParses(t *testing.T) {
 }
 
 func TestNodeYAML_withoutAFaucetHasNoChainBlock(t *testing.T) {
-	rendered, err := NewConfigGenerator(t.TempDir()).GenerateNodeConfig(nil, "10.0.0.5", "", "stagenet.example", "stagenet.example", false)
+	rendered, err := NewConfigGenerator(t.TempDir()).GenerateNodeConfig(nil, "10.0.0.5", "", "testnet.example", "testnet.example", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestChainFaucetKeyFile_aBrokenOrEditedFileIsAnErrorNotAnOffSwitch(t *testin
 func TestGenerateNodeConfig_refusesAFaucetBlockTheNodeWouldNotStartWith(t *testing.T) {
 	dir := t.TempDir()
 	writeACMENodeYAML(t, dir, "chain:\n  faucet:\n    enabled: true\n    key_file: faucet.key\n")
-	if _, err := NewConfigGenerator(dir).GenerateNodeConfig(nil, "10.0.0.5", "", "stagenet.example", "stagenet.example", false); err == nil {
+	if _, err := NewConfigGenerator(dir).GenerateNodeConfig(nil, "10.0.0.5", "", "testnet.example", "testnet.example", false); err == nil {
 		t.Fatal("a regeneration wrote a faucet key file the node would refuse")
 	}
 }

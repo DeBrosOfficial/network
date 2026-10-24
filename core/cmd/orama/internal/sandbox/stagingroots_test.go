@@ -2,33 +2,11 @@ package sandbox
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal"
+	"github.com/Orama-Network/orama/core/pkg/clustertrust"
 )
-
-// The embedded bundle is exactly the two pinned Let's Encrypt staging roots.
-func TestStagingRoots_areExactlyThePinnedRoots(t *testing.T) {
-	if err := checkStagingRoots(stagingRootsPEM); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// A bundle with a root missing, or one added, is refused: the pin is the list.
-func TestCheckStagingRoots_refusesAnythingElse(t *testing.T) {
-	first := stagingRootsPEM[:strings.Index(string(stagingRootsPEM), "-----END CERTIFICATE-----")+len("-----END CERTIFICATE-----\n")]
-	for name, bundle := range map[string][]byte{
-		"empty":        nil,
-		"one root":     first,
-		"a root twice": append(append([]byte{}, stagingRootsPEM...), first...),
-		"not PEM":      []byte("not a certificate"),
-	} {
-		if err := checkStagingRoots(bundle); err == nil {
-			t.Errorf("%s: accepted", name)
-		}
-	}
-}
 
 // Create records the sandbox environment with the staging roots as its CA, so
 // the CLI can reach a cluster whose certificates come from staging, and makes
@@ -51,7 +29,11 @@ func TestRegisterEnvironment_trustsTheStagingRootsForTheSandboxDomain(t *testing
 	if err != nil {
 		t.Fatalf("the sandbox environment's CA file: %v", err)
 	}
-	if string(data) != string(stagingRootsPEM) {
+	roots, err := clustertrust.StagingRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(roots) {
 		t.Fatal("the sandbox environment's CA file is not the staging roots")
 	}
 	if err := cli.TrustEnvironmentCAs(); err != nil {

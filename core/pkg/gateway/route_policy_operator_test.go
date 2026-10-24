@@ -8,12 +8,12 @@ import (
 	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 )
 
-// Every route whose handler asks the operator list stays on the index gateway
-// for an ns-<name> host. The list is not in a namespace's RQLite, so a tenant
+// Every operator route stays on the index gateway for an ns-<name> host. The list is not in a namespace's RQLite, so a tenant
 // gateway answered 503 "the registry did not answer" to a caller who was
 // merely not an operator.
 func TestRoutePolicy_operatorListRoutesStayOnTheIndexGateway(t *testing.T) {
 	for _, path := range []string{
+		"/v1/node/status", "/v1/node/logs", "/v1/node/command", "/v1/node/leave",
 		"/v1/network/status", "/v1/network/peers",
 		"/v1/network/connect", "/v1/network/disconnect",
 		"/v1/operator/health", "/v1/operator/nodes", "/v1/operator/node/register",
@@ -38,15 +38,5 @@ func TestRoutePolicy_aStampedNetworkRequestIsNotAnOperatorListRoute(t *testing.T
 	r.Header.Set(nodeauth.CoordinationMACHeader, "1.00")
 	if gatewayRoutes.For(r).MainGateway {
 		t.Error("a node's stamped request was pinned to the index gateway")
-	}
-}
-
-// The routes that need no operator list are unchanged: they act on the node or
-// the namespace they are addressed to.
-func TestRoutePolicy_nodeLocalRoutesAreNotPinnedToTheIndexGateway(t *testing.T) {
-	for _, path := range []string{"/v1/node/status", "/v1/node/logs", "/v1/node/leave"} {
-		if gatewayRoutes.For(httptest.NewRequest(http.MethodGet, path, nil)).MainGateway {
-			t.Errorf("%s is pinned to the index gateway", path)
-		}
 	}
 }

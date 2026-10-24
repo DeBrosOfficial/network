@@ -87,7 +87,7 @@ Every node is a member of the registry's Raft group, holds the RQLite credential
 - **Olric memberlist encryption**: the version in use has no `encryptionKey`; WireGuard is the control.
 - **WireGuard key rotation** and **cluster-secret rotation** need a maintenance window and have no tooling yet.
 - **Some internal services trust the mesh** (media signalling, gossip) without per-peer authentication.
-- **TURN credentials are namespace-wide** and cannot be revoked per user.
+- **A TURN credential cannot be revoked by itself.** It names the user it was issued to, and lasts until its expiry: 24 hours from the REST route and the host function, 600 seconds by default over the SFU's signalling.
 - **A hostile node operator who is a member of a namespace's three nodes** can read that namespace's data. This is why operator admission is by invitation until OramaOS runs.
 
 ## Chain-specific limits

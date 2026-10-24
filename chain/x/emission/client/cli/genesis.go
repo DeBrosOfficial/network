@@ -129,8 +129,8 @@ chain-id (see "Test-network faucet" in docs/whitepaper/technical-reference/appen
 
 	cmd.Flags().String(flagEpochDuration, types.DefaultEpochDuration.String(), "minimum BFT time an epoch must run before it can close (Go duration syntax, e.g. 24h, 60s)")
 	cmd.Flags().Uint64(flagMinBlocksPerEpoch, types.DefaultMinBlocksPerEpoch, "minimum number of blocks an epoch must run before it can close")
-	cmd.Flags().Bool(flagAllowBootstrapStake, false, "allow a nonzero genesis supply (devnet/stagenet/localnet chain-ids only; also relaxes the epoch-duration/min-blocks-per-epoch floors)")
-	cmd.Flags().Bool(flagFaucetEnabled, false, "enable the test-network faucet (devnet/stagenet/localnet chain-ids only; leaves the genesis value unchanged when not passed)")
+	cmd.Flags().Bool(flagAllowBootstrapStake, false, "allow a nonzero genesis supply (devnet/testnet/localnet chain-ids only; also relaxes the epoch-duration/min-blocks-per-epoch floors)")
+	cmd.Flags().Bool(flagFaucetEnabled, false, "enable the test-network faucet (devnet/testnet/localnet chain-ids only; leaves the genesis value unchanged when not passed)")
 	cmd.Flags().String(flagFaucetMaxDrip, types.DefaultFaucetMaxDrip().String(), "largest single faucet drip, in norama")
 	cmd.Flags().String(flagFaucetEpochCap, types.DefaultFaucetMaxDrip().MulRaw(types.DefaultFaucetEpochCapDrips).String(), "most norama the faucet may mint per epoch")
 	cmd.Flags().Uint64(flagFaucetCooldown, types.DefaultFaucetRecipientCooldown, "seconds between two faucet drips to the same recipient (0 disables)")

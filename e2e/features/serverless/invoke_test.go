@@ -50,8 +50,8 @@ func invokeKey(t *testing.T, fx *fixture, fn, key string) *gw.Response {
 }
 
 // TestInvoke_accessMatrix: a private function needs a signed-in wallet or
-// the invoke grant (a storage-only key is refused); a public one is open;
-// `name@N` runs that version (website/src/docs/developer/functions.mdx#functionyaml, #versioning).
+// the invoke grant (a storage-only key is refused); a public one is open
+// (website/src/docs/developer/functions.mdx#functionyaml).
 func TestInvoke_accessMatrix(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
@@ -85,23 +85,6 @@ func TestInvoke_accessMatrix(t *testing.T) {
 	}
 }
 
-// TestInvoke_versionPinned: after a second deploy, name@1 still runs the
-// first version and the bare name runs the latest.
-func TestInvoke_versionPinned(t *testing.T) {
-	t.Parallel()
-	fx := setup(t)
-	dir := deploy(t, fx, fnSpec{name: "e2e-ver", yaml: "env:\n  MARK: v1\n"})
-	redeploy(t, fx, dir, "env:\n  MARK: v2\n")
-	for fn, want := range map[string]string{"e2e-ver@1": "v1", "e2e-ver@2": "v2", "e2e-ver": "v2"} {
-		if got := call(t, fx, fn, map[string]any{"op": "whoami", "key": "MARK"})["env"]; got != want {
-			t.Errorf("%s ran MARK=%v, want %s", fn, got, want)
-		}
-	}
-	if r := invoke(t, fx.c, "e2e-ver@99", fx.admin, map[string]any{}); r.Status != http.StatusNotFound {
-		t.Errorf("a version that does not exist: want 404, got %d", r.Status)
-	}
-}
-
 // TestInvoke_callerContext: the function sees the caller's wallet and JWT
 // subject, a per-invocation request id, and nothing for an anonymous call.
 func TestInvoke_callerContext(t *testing.T) {
@@ -125,7 +108,8 @@ func TestInvoke_callerContext(t *testing.T) {
 // TestInvoke_nested: function_invoke runs another function of the namespace
 // with the caller's identity; from an anonymous public call a private target
 // is not reachable (website/src/docs/developer/functions.mdx#capabilities: a nested call with no
-// caller reaches only public functions).
+// caller reaches only public functions), and function_invoke_last_error names
+// the refusal, a missing target, and nothing after a success.
 func TestInvoke_nested(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
@@ -142,17 +126,30 @@ func TestInvoke_nested(t *testing.T) {
 	if anon["result"] != nil {
 		t.Errorf("an anonymous nested call reached a private function: %v", anon["result"])
 	}
+	// function_invoke_last_error tells the refusal apart (bugboard #263) and
+	// clears on the next call that succeeds.
+	if code := sub(anon, "last_error")["code"]; code != "AUTH_FORBIDDEN" {
+		t.Errorf("function_invoke_last_error after the refused nested call = %v, want AUTH_FORBIDDEN", anon["last_error"])
+	}
+	missing := map[string]any{"op": "nested", "name": "e2e-no-such-function", "data": map[string]any{}}
+	if code := sub(call(t, fx, "e2e-outer", missing), "last_error")["code"]; code != "NOT_FOUND" {
+		t.Errorf("function_invoke_last_error after invoking a missing function = %v, want NOT_FOUND", code)
+	}
+	if res := call(t, fx, "e2e-outer", nested); res["last_error"] != nil {
+		t.Errorf("a nested call that succeeded reports last_error %v", res["last_error"])
+	}
 }
 
-// TestInvoke_timeoutIsRateLimited: running past timeout on a direct invoke is
-// 429 RATE_LIMITED, retryable (website/src/docs/developer/functions.mdx#functionyaml).
-func TestInvoke_timeoutIsRateLimited(t *testing.T) {
+// TestInvoke_timeoutIsFunctionTimeout: running past timeout on a direct
+// invoke is 504 FUNCTION_TIMEOUT, not retryable, and never the 429
+// RATE_LIMITED of a refused request (website/src/docs/developer/functions.mdx#functionyaml).
+func TestInvoke_timeoutIsFunctionTimeout(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
 	deploy(t, fx, fnSpec{name: "e2e-slow", yaml: "timeout: 1\n"})
 	r := invoke(t, fx.c, "e2e-slow", fx.admin, map[string]any{"op": "spin", "ms": 5000})
-	if r.Status != http.StatusTooManyRequests || rpcCode(r) != codeRateLimited {
-		t.Errorf("a 5s spin under timeout 1: want 429 %s, got %d %.300s", codeRateLimited, r.Status, r.Body)
+	if r.Status != http.StatusGatewayTimeout || rpcCode(r) != codeFunctionTimeout || rpcRetryable(r) {
+		t.Errorf("a 5s spin under timeout 1: want 504 %s retryable=false, got %d %.300s", codeFunctionTimeout, r.Status, r.Body)
 	}
 	call(t, fx, "e2e-slow", map[string]any{"op": "spin", "ms": 100})
 }

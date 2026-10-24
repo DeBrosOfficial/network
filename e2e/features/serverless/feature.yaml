@@ -1,11 +1,19 @@
 # Serverless functions end to end with TinyGo fixtures (testdata/svcfn, and
 # testdata/badimport for an unknown host module) deployed by the operator's
 # CLI: init/build/deploy/list/get/invoke/logs/versions/disable/enable/delete,
-# secrets and triggers; invocation access (private, public, keys, name@N,
-# /v1/invoke, another namespace, the main gateway), limits (timeout -> 429,
-# memory, per-namespace concurrency, server-side range), nested invoke, the
-# caller context and device id, host functions (http_fetch SSRF matrix,
-# cache atomics and TTL, the SQL guard, batch limits and transactions,
+# secrets and triggers; only the current version runs (name@N of a superseded
+# version is 404 FUNCTION_VERSION_SUPERSEDED on both invoke routes, rollback,
+# list --all, delete --version, purge refused to a developer and a runtime
+# member and done by the owner); invocation access (private, public, keys,
+# /v1/invoke, another namespace, the main gateway), limits (timeout -> 504 FUNCTION_TIMEOUT,
+# memory, per-namespace concurrency, server-side range), function rate limits
+# (per_ip across wallets, per_caller by API key, range refused at deploy),
+# nested invoke, the
+# caller context and device id, host functions (http_fetch SSRF matrix and
+# its failure log naming only the origin,
+# cache atomics and TTL, the SQL guard, tenant triggers, batch limits and
+# transactions, a transaction's query reading its own writes, the
+# linearizable batch read,
 # ephemeral state limits, TTL and disconnect), the socket registry, cron
 # fired once per slot across gateways, and the pubsub depth limit.
 # Needs tinygo on the runner's PATH (otherwise not applicable, not covered).
@@ -33,6 +41,7 @@ covers:
     - orama function invoke
     - orama function list
     - orama function logs
+    - orama function rollback
     - orama function secrets
     - orama function secrets delete
     - orama function secrets list
@@ -50,15 +59,29 @@ covers:
     - /v1/serverless/ws/connections/
   claims:
     - "website/src/docs/developer/functions.mdx#http-api-reference: a page under the base domain calls a public function through its namespace gateway and the answer carries one Access-Control-Allow-Origin, the page's origin, Vary: Origin and the platform's Strict-Transport-Security"
-    - "website/src/docs/developer/functions.mdx#functionyaml: memory 1-256 MB, timeout 1-300 s; a direct invoke past its timeout is 429 RATE_LIMITED"
+    - "website/src/docs/developer/functions.mdx#functionyaml: memory 1-256 MB, timeout 1-300 s; a direct invoke past its timeout is 504 FUNCTION_TIMEOUT, not retryable"
+    - "website/src/docs/developer/functions.mdx#invoke-rate-limits: rate_limit.per_ip refuses an address past its budget whichever wallet calls, 429 RATE_LIMITED scope=per_function_ip with Retry-After"
+    - "website/src/docs/developer/functions.mdx#invoke-rate-limits: a caller with no wallet is bucketed by its own API key, so one key spending its budget leaves another key and a wallet theirs"
+    - "website/src/docs/developer/functions.mdx#invoke-rate-limits: with per_ip_limits on, authenticated callers from one network are held to invokes_per_ip_minute whichever wallet signs, 429 RATE_LIMITED scope=per_ip_authenticated with Retry-After"
+    - "website/src/docs/developer/functions.mdx#functionyaml: a rate_limit window outside 1 s to 24 h is refused at deploy, naming the field"
     - "website/src/docs/developer/functions.mdx#functionyaml: a private function needs a signed-in wallet or the invoke grant; a storage-only key is refused"
-    - "website/src/docs/developer/functions.mdx#versioning: name@N invokes version N"
+    - "website/src/docs/developer/access-control.mdx#api-keys: a client holding no key invokes a public function, signs in (challenge, verify) and refreshes on the namespace gateway, and its session invokes the function (bugboard #946)"
+    - "website/src/docs/developer/functions.mdx#versioning: only the current version is invoked; name@N of a superseded version answers 404 FUNCTION_VERSION_SUPERSEDED, a version that does not exist 404 NOT_FOUND"
+    - "website/src/docs/developer/functions.mdx#versioning: rollback makes an earlier version current; the next deploy is current again with the next number"
+    - "website/src/docs/developer/functions.mdx#versioning: list --all shows every version row with its status, deleted ones included"
+    - "website/src/docs/developer/functions.mdx#versioning: delete --purge removes every row, trigger and log of a function; only the owner or an admin can purge, a developer gets 403"
     - "website/src/docs/developer/functions.mdx#http-api-reference: management acts on the credential's namespace; another namespace is refused"
     - "website/src/docs/developer/functions.mdx#host-functions-api: an import from a module other than env, host or orama fails to instantiate"
     - "docs/whitepaper/technical-reference/vol1/18-cache.md#what-each-attacker-can-do: http_fetch refuses loopback, RFC 1918, link-local, CGNAT and wrapped IPv4, by name and by redirect"
-    - "website/src/docs/developer/functions.mdx#database-rqlite: ATTACH, PRAGMA, VACUUM, CREATE TRIGGER, two statements and reserved tables in every quoting are refused"
+    - "website/src/docs/developer/functions.mdx#host-functions-api: a failed http_fetch is logged by origin and cause only; the URL's path, query and user info reach neither the function's error nor any node's journal"
+    - "website/src/docs/developer/functions.mdx#database-rqlite: ATTACH, PRAGMA, VACUUM, a trigger on a platform table, two statements and reserved tables in every quoting are refused"
+    - "website/src/docs/developer/functions.mdx#database-rqlite: a trigger on a tenant table touching only tenant tables is created through db_execute_v2 and db_transaction and fires; one whose body names a platform table, runs PRAGMA, creates a trigger or reads the clock, a TEMP trigger and a statement after END are refused"
+    - "website/src/docs/developer/functions.mdx#database-transactions: db_query_batch consistency linearizable sees a committed write; an unknown level and freshness with linearizable are refused, never served at another level"
+    - "website/src/docs/developer/functions.mdx#database-transactions: a db_transaction query runs inside the transaction after the ops before it; concurrent commits that allocate a sequence and read it back each read their own value, and a failing query rolls the batch back"
     - "website/src/docs/developer/functions.mdx#database-transactions: 100 statements per batch (TOO_MANY_STATEMENTS at 101), 10,000 rows per query op, rollback on a failed op"
-    - "website/src/docs/developer/functions.mdx#cache-olric-distributed-cache: cache_incr is atomic (concurrent calls return 1..n once each, a refused call is reported as one); ttl 0 never expires, negative is refused; cache_delete of a missing key is 1"
+    - "website/src/docs/developer/functions.mdx#cache-olric-distributed-cache: cache_incr is atomic (concurrent calls return 1..n once each, a refused call is reported as one); ttl 0 never expires, negative is refused; cache_delete of a missing key is 1; cache_incr_ttl creates a counter that expires and starts over"
+    - "website/src/docs/developer/functions.mdx#other-host-functions: function_invoke_last_error names a refused nested call AUTH_FORBIDDEN and a missing target NOT_FOUND, and is empty after a call that succeeded"
+    - "website/src/docs/developer/functions.mdx#logging: a function looping on a failing host call writes at most 32 journal lines and one suppressed-lines summary"
     - "website/src/docs/developer/functions.mdx#ephemeral-state-ws-subscribe-tracked: 16 KiB payload, 256 keys per client, TTL backstop, cleared on disconnect"
     - "website/src/docs/developer/functions.mdx#managing-secrets: values are never listed; get_secret decrypts"
     - "website/src/docs/developer/functions.mdx#depth-limiting: pubsub trigger chains stop at depth 5"

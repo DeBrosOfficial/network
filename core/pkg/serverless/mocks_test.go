@@ -1,6 +1,7 @@
 package serverless
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -76,6 +77,23 @@ func (m *MockRegistry) Delete(ctx context.Context, namespace, name string, versi
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.functions, namespace+"/"+name)
+	return nil
+}
+
+func (m *MockRegistry) ListAll(ctx context.Context, namespace string) ([]*Function, error) {
+	return m.List(ctx, namespace)
+}
+
+func (m *MockRegistry) Purge(ctx context.Context, namespace, name string, version int) error {
+	return m.Delete(ctx, namespace, name, version)
+}
+
+func (m *MockRegistry) Rollback(ctx context.Context, namespace, name string, version int) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if _, ok := m.functions[namespace+"/"+name]; !ok {
+		return ErrVersionNotFound
+	}
 	return nil
 }
 
@@ -190,6 +208,10 @@ func (m *MockHostServices) CacheIncrBy(ctx context.Context, key string, delta in
 	newValue := currentValue + delta
 	m.cache[key] = []byte(fmt.Sprintf("%d", newValue))
 	return newValue, nil
+}
+
+func (m *MockHostServices) CacheIncrByTTL(ctx context.Context, key string, delta, _ int64) (int64, error) {
+	return m.CacheIncrBy(ctx, key, delta)
 }
 
 func (m *MockHostServices) StoragePut(ctx context.Context, data []byte) (string, error) {
@@ -323,6 +345,10 @@ func (m *MockHostServices) GetCallerDeviceID(ctx context.Context) string {
 	return ""
 }
 
+func (m *MockHostServices) GetCallerAttestation(ctx context.Context) string {
+	return ""
+}
+
 func (m *MockHostServices) GetCallerCapability(ctx context.Context) string {
 	return ""
 }
@@ -424,8 +450,17 @@ func (m *MockIPFSClient) Get(ctx context.Context, cid, apiURL string) (io.ReadCl
 }
 
 func (m *MockIPFSClient) Unpin(ctx context.Context, cid string) error { return nil }
-func (m *MockIPFSClient) GetStored(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error) {
-	return m.Get(ctx, cid, ipfsAPIURL)
+func (m *MockIPFSClient) GetStored(ctx context.Context, cid string, ipfsAPIURL string, _ time.Duration) (*ipfs.StoredContent, error) {
+	r, err := m.Get(ctx, cid, ipfsAPIURL)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	return &ipfs.StoredContent{Body: io.NopCloser(bytes.NewReader(b)), Size: int64(len(b))}, nil
 }
 
 func (m *MockIPFSClient) EvictLocal(ctx context.Context, cid string) (int, error) { return 0, nil }

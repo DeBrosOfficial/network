@@ -62,8 +62,10 @@ func TestCheckImage_refusesWhatIsActiveOrGrantsAccess(t *testing.T) {
 		held  []map[string]any
 		want  string
 	}{
-		"a trigger": {stmts: []string{"CREATE TABLE notes (v TEXT)", "CREATE TABLE log (v TEXT)",
-			"CREATE TRIGGER t AFTER INSERT ON notes BEGIN INSERT INTO log VALUES (new.v); END"}, want: "trigger (t)"},
+		"a trigger over a platform table": {stmts: []string{"CREATE TABLE notes (v TEXT)", "CREATE TABLE grants (role TEXT)",
+			"CREATE TRIGGER t AFTER INSERT ON notes BEGIN UPDATE grants SET role = 'owner'; END"}, want: "trigger (t)"},
+		"a trigger reading the clock": {stmts: []string{"CREATE TABLE notes (v TEXT)", "CREATE TABLE log (v TEXT)",
+			"CREATE TRIGGER t AFTER INSERT ON notes BEGIN INSERT INTO log VALUES (datetime('now')); END"}, want: "trigger (t)"},
 		"a view over a platform table": {stmts: []string{"CREATE TABLE grants (role TEXT)", "CREATE VIEW v AS SELECT * FROM grants"}, want: "view (v)"},
 		"a CID only another namespace holds (a row that grants access)": {stmts: []string{"CREATE TABLE ipfs_content_ownership (cid TEXT, namespace TEXT)",
 			"INSERT INTO ipfs_content_ownership VALUES ('QmTheirs', '" + testNamespace + "')"},
@@ -79,6 +81,17 @@ func TestCheckImage_refusesWhatIsActiveOrGrantsAccess(t *testing.T) {
 				t.Fatalf("got %v, want a refusal naming %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// A trigger tenant SQL may create (bugboard chg-943) is the tenant's own and
+// restores with the rest of its schema.
+func TestCheckImage_acceptsATriggerTenantSQLCouldCreate(t *testing.T) {
+	r := newRig(t, destRoot, testNamespace, true)
+	img := mustImage("CREATE TABLE notes (v TEXT)", "CREATE TABLE log (v TEXT)",
+		"CREATE TRIGGER t AFTER INSERT ON notes BEGIN INSERT INTO log VALUES (new.v); END")
+	if err := checkBytes(t, r, img); err != nil {
+		t.Fatalf("a tenant trigger was refused: %v", err)
 	}
 }
 
@@ -143,8 +156,8 @@ func (errReader) Read([]byte) (int, error) { return 0, errors.New("client went a
 func TestRestoreHandler_refusesACraftedImageBeforeLoadingIt(t *testing.T) {
 	src := newRig(t, sourceRoot, testNamespace, true)
 	pub, priv := ownerKey(t)
-	crafted := mustImage("CREATE TABLE notes (v TEXT)", "CREATE TABLE log (v TEXT)",
-		"CREATE TRIGGER t AFTER INSERT ON notes BEGIN INSERT INTO log VALUES (new.v); END")
+	crafted := mustImage("CREATE TABLE notes (v TEXT)", "CREATE TABLE grants (role TEXT)",
+		"CREATE TRIGGER t AFTER INSERT ON notes BEGIN UPDATE grants SET role = 'owner'; END")
 	src.snap.db = crafted
 	body := restoreBody(t, backupFrom(t, src, pub), priv, destRoot)
 	dst := newRig(t, destRoot, testNamespace, true)

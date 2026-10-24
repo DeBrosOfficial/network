@@ -69,6 +69,9 @@ type runState struct {
 	start    time.Time
 	runErrs  []string
 	bugs     bool
+	out      outcome
+	// last is the report finish wrote last; nil until one is written.
+	last *report.Report
 	// owned is set when a failed Up reports it registered resources under
 	// the run's label: only then (or with a state) is there anything to
 	// tear down that this run created.
@@ -76,7 +79,7 @@ type runState struct {
 }
 
 func cmdRun(parent context.Context, args []string) (int, error) {
-	if err := refuseStagenetEnv("run"); err != nil {
+	if err := refuseTestnetEnv("run"); err != nil {
 		return exitFail, err
 	}
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
@@ -105,7 +108,9 @@ func cmdRun(parent context.Context, args []string) (int, error) {
 	return rs.run(ctx, parent, *keep)
 }
 
-// run provisions, tests, reports and tears down. Teardown is deferred before
+// run provisions, tests, reports, tears down and pushes the verdict. The push
+// is deferred first, so it runs last: after the teardown, whose failure it
+// reports. Teardown is deferred before
 // Up (Down finds everything by the run's label, so it also removes what a
 // failed or interrupted Up left behind) but only runs when this run owns
 // something: a state, or a failed Up that registered resources. A run id
@@ -113,6 +118,11 @@ func cmdRun(parent context.Context, args []string) (int, error) {
 // exit code and the report.
 func (rs *runState) run(ctx, parent context.Context, keepOnFail bool) (code int, err error) {
 	code = exitFail
+	defer func() {
+		if perr := rs.out.push(parent, rs.last, rs.cfg.RunID, rs.commit, code); perr != nil {
+			code, err = exitFail, errors.Join(err, fmt.Errorf("the run is over but its notification failed: %w", perr))
+		}
+	}()
 	defer func() {
 		if !rs.ownsFleet() {
 			return
@@ -167,7 +177,8 @@ func prepare(ctx context.Context) (*runState, error) {
 		return nil, err
 	}
 	cfg, cfgErr := provision.LoadConfigFromEnv()
-	if err := errors.Join(preflight(preflightInput{lookup: secrets.LookupEnv, realHome: realHome, runID: cfg.RunID}), cfgErr); err != nil {
+	out, outErr := loadOutcome(secrets.LookupEnv)
+	if err := errors.Join(preflight(preflightInput{lookup: secrets.LookupEnv, realHome: realHome, runID: cfg.RunID}), cfgErr, outErr); err != nil {
 		return nil, fmt.Errorf("preflight refused the run:\n%w", err)
 	}
 	if cfg.RepoRoot == "" {
@@ -181,7 +192,7 @@ func prepare(ctx context.Context) (*runState, error) {
 		return nil, err
 	}
 	stdLogger{}.Infof("run %s of %s; artifacts in %s", cfg.RunID, commit, cfg.ArtifactDir)
-	return &runState{lay: lay, cfg: cfg, commit: commit, realHome: realHome, start: time.Now()}, nil
+	return &runState{lay: lay, cfg: cfg, commit: commit, realHome: realHome, start: time.Now(), out: out}, nil
 }
 
 // statePath is where the run's state (and its token registry) lives.
@@ -242,7 +253,8 @@ func (rs *runState) collect(ctx context.Context) error {
 	return errors.Join(err, lerr, copyRedacted(provision.AgentLogPath(rs.cfg.WorkDir), filepath.Join(dir, agentLogArtifact), red.Redact))
 }
 
-// finish writes the report and returns the exit code of its verdict.
+// finish writes and signs the report and returns the exit code of its
+// verdict.
 func (rs *runState) finish() (int, error) {
 	dir := rs.cfg.ArtifactDir
 	if rs.st != nil {
@@ -253,6 +265,10 @@ func (rs *runState) finish() (int, error) {
 		return exitFail, err
 	}
 	if err := report.WriteAll(dir, rep, rs.bugs); err != nil {
+		return exitFail, err
+	}
+	rs.last = &rep
+	if err := rs.out.attest(context.Background(), dir, rep, time.Now()); err != nil {
 		return exitFail, err
 	}
 	fmt.Println(rep.Notification)

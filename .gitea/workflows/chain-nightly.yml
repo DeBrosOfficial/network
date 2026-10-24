@@ -14,8 +14,11 @@ on:
 # by every job on a host, and @actions/tool-cache empties a version's directory
 # before filling it, so jobs installing a new Go or Node at the same moment
 # delete each other's files (ENOENT, then a half-installed toolchain).
+#
+# Each job keeps its own Go cache, keyed on the job: the reason is in ci.yml.
 env:
   RUNNER_TOOL_CACHE: /tmp/toolcache
+  GO_VERSION: "1.27.3"
 
 permissions:
   contents: read
@@ -44,11 +47,25 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Mutate ${{ matrix.package }}
         run: make -C chain mutation MUTATION_PACKAGES=${{ matrix.package }}
@@ -71,11 +88,25 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: nilaway
         run: make -C chain nilaway
@@ -103,13 +134,25 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum core/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: |
-            chain/go.sum
-            core/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ matrix.module }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ matrix.module }}-${{ env.GO_VERSION }}-
 
       - name: Rust toolchain
         run: .gitea/scripts/setup-rust.sh
@@ -135,11 +178,25 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Rust toolchain
         run: .gitea/scripts/setup-rust.sh
@@ -169,11 +226,25 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Cache keys
+        id: keys
+        run: |
+          .gitea/scripts/cache-key.sh go chain/go.sum
+
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: chain/go.sum
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ env.GO_VERSION }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-${{ env.GO_VERSION }}-
 
       - name: Nightly Rust with Miri and rust-src
         run: |

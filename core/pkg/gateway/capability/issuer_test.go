@@ -25,9 +25,29 @@ type revokedTokensTable struct {
 func (t *revokedTokensTable) Query(_ context.Context, sql string, args ...interface{}) (*client.QueryResult, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if strings.HasPrefix(strings.TrimSpace(sql), "INSERT") {
+	statement := strings.TrimSpace(sql)
+	switch {
+	case strings.HasPrefix(statement, "INSERT") && strings.Contains(statement, "namespace"):
+		// A capability revocation: jti, namespace, expires_at, reason, then the
+		// ceiling's arguments. The jti is unique, as on the real table.
+		for _, row := range t.rows {
+			if row[0] == args[0] {
+				return &client.QueryResult{Count: 1}, nil
+			}
+		}
+		t.rows = append(t.rows, []interface{}{args[0], nil, int64(0), args[2]})
+		return &client.QueryResult{Count: 1, RowsAffected: 1}, nil
+	case strings.HasPrefix(statement, "INSERT"):
 		t.rows = append(t.rows, []interface{}{args[0], args[1], args[2], args[3]})
-		return &client.QueryResult{Count: 1}, nil
+		return &client.QueryResult{Count: 1, RowsAffected: 1}, nil
+	case strings.HasPrefix(statement, "SELECT 1"):
+		out := &client.QueryResult{}
+		for _, row := range t.rows {
+			if row[0] == args[0] {
+				out.Rows = append(out.Rows, []interface{}{int64(1)})
+			}
+		}
+		return out, nil
 	}
 	out := &client.QueryResult{}
 	for _, row := range t.rows {

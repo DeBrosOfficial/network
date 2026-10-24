@@ -11,8 +11,7 @@ import (
 // from extra-args, so raft tuning must not carry -auth (would double it).
 func TestIndexRQLiteExtraArgs_no_auth_flag(t *testing.T) {
 	args := indexRQLiteExtraArgs(config.DatabaseConfig{
-		RQLiteAuthFile:    "/home/orama/.orama/secrets/rqlite-auth.json",
-		RQLiteEnforceAuth: true,
+		RQLiteAuthFile: "/home/orama/.orama/secrets/rqlite-auth.json",
 	})
 	if strings.Contains(args, "-auth") {
 		t.Fatalf("extra-args must not pass -auth: %s", args)

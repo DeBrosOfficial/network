@@ -1,18 +1,29 @@
 import { HttpClient } from "../core/http";
 import { SDKError } from "../errors";
 
-export interface PeerInfo {
-  id: string;
-  addresses: string[];
-  lastSeen?: string;
+/** IPFS (Kubo) identity of the node, as `/v1/network/status` reports it. */
+export interface IPFSPeerInfo {
+  peer_id: string;
+  swarm_addresses: string[];
 }
 
+/** IPFS Cluster identity of the node, as `/v1/network/status` reports it. */
+export interface IPFSClusterPeerInfo {
+  peer_id: string;
+  addresses: string[];
+}
+
+/** The body of `GET /v1/network/status` (`client.NetworkStatus` in Go). */
 export interface NetworkStatus {
   node_id: string;
+  peer_id: string;
   connected: boolean;
   peer_count: number;
   database_size: number;
+  /** Nanoseconds since the gateway's network client started. */
   uptime: number;
+  ipfs?: IPFSPeerInfo;
+  ipfs_cluster?: IPFSClusterPeerInfo;
 }
 
 export interface ProxyRequest {
@@ -59,24 +70,27 @@ export class NetworkClient {
   }
 
   /**
-   * Get connected peers.
+   * Get connected peers as multiaddr strings: a `/p2p/<peer id>` entry for
+   * each peer followed by the addresses it is reachable at.
    */
-  async peers(): Promise<PeerInfo[]> {
-    const response = await this.httpClient.get<{ peers: PeerInfo[] }>(
+  async peers(): Promise<string[]> {
+    const response = await this.httpClient.get<{ peers: string[] }>(
       "/v1/network/peers"
     );
     return response.peers || [];
   }
 
   /**
-   * Connect to a peer.
+   * Connect this gateway to a peer. Operator only.
+   *
+   * @param multiaddr - The peer's address, `/ip4/<ip>/tcp/<port>/p2p/<peer id>`
    */
-  async connect(peerAddr: string): Promise<void> {
-    await this.httpClient.post("/v1/network/connect", { peer_addr: peerAddr });
+  async connect(multiaddr: string): Promise<void> {
+    await this.httpClient.post("/v1/network/connect", { multiaddr });
   }
 
   /**
-   * Disconnect from a peer.
+   * Disconnect this gateway from a peer. Operator only.
    */
   async disconnect(peerId: string): Promise<void> {
     await this.httpClient.post("/v1/network/disconnect", { peer_id: peerId });

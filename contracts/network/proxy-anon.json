@@ -2,7 +2,7 @@
   "route": "/v1/proxy/anon",
   "method": "POST",
   "sdk": "network.proxyAnon()",
-  "goStruct": "",
+  "goStruct": "gateway.anonProxyRequest",
   "call": {
     "module": "network",
     "method": "proxyAnon",

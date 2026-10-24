@@ -31,7 +31,7 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type Params struct {
 	// min_committee_size is the minimum number of bootstrap committee members a
 	// genesis must declare. Production chain-ids (see Params.Validate) require
-	// at least 30; a devnet/stagenet/localnet chain-id may declare as few as 1
+	// at least 30; a devnet/testnet/localnet chain-id may declare as few as 1
 	// for local testing.
 	MinCommitteeSize uint64 `protobuf:"varint,1,opt,name=min_committee_size,json=minCommitteeSize,proto3" json:"min_committee_size,omitempty"`
 	// bootstrap_exit_stake is the total bonded stake (norama, across every

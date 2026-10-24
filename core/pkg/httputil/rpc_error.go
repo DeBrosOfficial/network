@@ -64,6 +64,11 @@ const (
 	// (bugboard #141). Non-retryable: the caller must free space or raise the
 	// budget. Only enforced for namespaces that have a positive budget row.
 	ErrCodeStorageQuotaExceeded RPCErrorCode = "STORAGE_QUOTA_EXCEEDED"
+	// ErrCodeUnpinnedUploadRefused — an upload asked not to be pinned (pin
+	// other than "true"). Every stored object is pinned with the namespace's
+	// replication factor and counted against its references; an unpinned one
+	// could not be downloaded and would be reclaimed (bugboard #432).
+	ErrCodeUnpinnedUploadRefused RPCErrorCode = "UNPINNED_UPLOAD_REFUSED"
 
 	// 5xx — server error
 	ErrCodeInternal           RPCErrorCode = "INTERNAL"
@@ -84,6 +89,16 @@ const (
 	// this node). Distinct from FUNCTION_EXECUTION_FAILED (a real, non-retryable
 	// error inside the function); this one is safe to retry the exact request.
 	ErrCodeFunctionUnavailable RPCErrorCode = "FUNCTION_UNAVAILABLE"
+	// ErrCodeFunctionTimeout is a function that ran and was stopped at its
+	// timeout. It is not RATE_LIMITED, which is a request refused before the
+	// function ran: whatever the function did before it was stopped (a write,
+	// an upstream call, a broadcast) may have happened. Not retryable by
+	// default — only a caller that knows the call is idempotent repeats it.
+	ErrCodeFunctionTimeout RPCErrorCode = "FUNCTION_TIMEOUT"
+	// ErrCodeFunctionVersionSuperseded is a request for a version of a
+	// function that a later deploy or a rollback replaced (404). Only the
+	// current version runs; a rollback makes an earlier one current again.
+	ErrCodeFunctionVersionSuperseded RPCErrorCode = "FUNCTION_VERSION_SUPERSEDED"
 )
 
 // RPCErrorEnvelope is the canonical wire shape. Use WriteRPCError to emit;
@@ -204,6 +219,10 @@ func defaultMessageFor(code RPCErrorCode) string {
 		return "function execution failed"
 	case ErrCodeFunctionUnavailable:
 		return "function temporarily unavailable, retry"
+	case ErrCodeFunctionTimeout:
+		return "function ran past its timeout; its effects may have happened"
+	case ErrCodeFunctionVersionSuperseded:
+		return "function version superseded; only the current version can be invoked"
 	case ErrCodeFunctionDeploy:
 		return "function deployment failed"
 	case ErrCodeSchemaMismatch:

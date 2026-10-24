@@ -100,6 +100,14 @@ func (c *Config) ValidateConfig() []error {
 		seenPeers[peer] = true
 	}
 
+	// Every API key is stored, revoked and looked up as its HMAC under this
+	// secret (auth.Service.HashAPIKey). A gateway without it could neither
+	// find a key the registry holds nor store one it mints except in plaintext.
+	if strings.TrimSpace(c.APIKeyHMACSecret) == "" {
+		errs = append(errs, fmt.Errorf("gateway.api_key_hmac_secret: must not be empty — install writes "+
+			"secrets/api-key-hmac-secret and the namespace spawner copies it into the gateway's YAML"))
+	}
+
 	// rqlite_dsn is required: rqlited binds only its WireGuard address, so
 	// there is no default this gateway could guess.
 	if c.RQLiteDSN == "" {

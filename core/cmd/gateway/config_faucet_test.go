@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/Orama-Network/orama/core/pkg/config"
-	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,7 +15,7 @@ import (
 // starting, and a field it knows but does not copy leaves the faucet off with no error.
 func TestSpawnedGatewayConfig_loadsFaucetKeyFile(t *testing.T) {
 	const keyFile = "/opt/orama/.orama/secrets/chain-faucet.key"
-	written := gateway.GatewayYAMLConfig{ListenAddr: ":6001", ClientNamespace: "index", FaucetKeyFile: keyFile}
+	written := gatewayspec.GatewayYAMLConfig{ListenAddr: ":6001", ClientNamespace: "index", FaucetKeyFile: keyFile}
 	data, err := yaml.Marshal(written)
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestSpawnedGatewayConfig_loadsFaucetKeyFile(t *testing.T) {
 	if y.FaucetKeyFile != keyFile {
 		t.Fatalf("faucet_key_file = %q, want %q", y.FaucetKeyFile, keyFile)
 	}
-	noFaucet, _ := yaml.Marshal(gateway.GatewayYAMLConfig{ListenAddr: ":6101", ClientNamespace: "tenant"})
+	noFaucet, _ := yaml.Marshal(gatewayspec.GatewayYAMLConfig{ListenAddr: ":6101", ClientNamespace: "tenant"})
 	if strings.Contains(string(noFaucet), "faucet") {
 		t.Errorf("a gateway with no faucet writes the key:\n%s", noFaucet)
 	}

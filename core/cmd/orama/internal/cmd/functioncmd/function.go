@@ -36,6 +36,7 @@ func init() {
 	Cmd.AddCommand(functions.EnableCmd)
 	Cmd.AddCommand(functions.LogsCmd)
 	Cmd.AddCommand(functions.VersionsCmd)
+	Cmd.AddCommand(functions.RollbackCmd)
 	Cmd.AddCommand(functions.SecretsCmd)
 	Cmd.AddCommand(functions.TriggersCmd)
 }

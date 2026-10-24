@@ -37,29 +37,33 @@ func NewClient(db *sql.DB) Client {
 // or "https://..."). Both connections share configuration but are independent
 // HTTP clients.
 //
-// It also opens a SECOND native connection pinned to level=none, used by the
-// opt-in local-read path (BatchQueryConsistency). gorqlite's consistency level
-// is per-connection, not per-query, so a dedicated connection is the only way
-// to offer none-level reads without disturbing the default weak reads.
+// It also opens two more native connections, one pinned to level=none (the
+// opt-in local-read path) and one to level=linearizable (the opt-in
+// linearizable read), both used by BatchQueryConsistency. gorqlite's
+// consistency level is per-connection, not per-query, so a dedicated
+// connection is the only way to offer those levels without disturbing the
+// default weak reads. A connection is an HTTP client and holds no socket
+// until it is used.
 //
-// Returns an error if either gorqlite native dial fails. The *sql.DB is not
+// Returns an error if any gorqlite native dial fails. The *sql.DB is not
 // validated here — callers should already have done that.
 func NewClientWithDSN(db *sql.DB, dsn string) (Client, error) {
 	conn, err := gorqlite.Open(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("rqlite.NewClientWithDSN: native dial failed: %s", RedactError(err, dsn))
 	}
-	connNone, err := gorqlite.Open(dsn)
+	connNone, err := openPinned(dsn, ReadConsistencyNone)
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("rqlite.NewClientWithDSN: native dial (none-level) failed: %s", RedactError(err, dsn))
+		return nil, err
 	}
-	if err := connNone.SetConsistencyLevel(gorqlite.ConsistencyLevelNone); err != nil {
+	connLinearizable, err := openPinned(dsn, ReadConsistencyLinearizable)
+	if err != nil {
 		conn.Close()
 		connNone.Close()
-		return nil, fmt.Errorf("rqlite.NewClientWithDSN: pin none consistency: %w", err)
+		return nil, err
 	}
-	c := &client{db: db, conn: conn, connNone: connNone}
+	c := &client{db: db, conn: conn, connNone: connNone, connLinearizable: connLinearizable}
 	// Parse the DSN once to wire (a) the local-follower freshness gate (#1022)
 	// and (b) the native none+freshness read path (#1021). A DSN that doesn't
 	// parse leaves both disabled (gate nil, freshHTTP nil) rather than failing
@@ -74,6 +78,23 @@ func NewClientWithDSN(db *sql.DB, dsn string) (Client, error) {
 		c.freshHTTP = &http.Client{Timeout: freshReadHTTPTimeout}
 	}
 	return c, nil
+}
+
+// openPinned opens a native connection whose every read is served at level.
+func openPinned(dsn string, level ReadConsistency) (*gorqlite.Connection, error) {
+	pinned, err := gorqlite.ParseConsistencyLevel(string(level))
+	if err != nil {
+		return nil, fmt.Errorf("rqlite.NewClientWithDSN: %w", err)
+	}
+	conn, err := gorqlite.Open(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("rqlite.NewClientWithDSN: native dial (%s-level) failed: %s", level, RedactError(err, dsn))
+	}
+	if err := conn.SetConsistencyLevel(pinned); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("rqlite.NewClientWithDSN: pin %s consistency: %w", level, err)
+	}
+	return conn, nil
 }
 
 // dsnParts holds the components of a parsed rqlite DSN needed by the freshness
@@ -184,6 +205,11 @@ type client struct {
 	// (NewClient) or via NewClientWithConn — in which case none-reads degrade
 	// to the weak conn (always correct, just slower).
 	connNone *gorqlite.Connection
+	// connLinearizable is a native connection pinned to level=linearizable,
+	// used only by BatchQueryConsistency(ReadConsistencyLinearizable). nil for
+	// clients built without a native connection; a linearizable read then
+	// fails instead of degrading, because no other level gives its guarantee.
+	connLinearizable *gorqlite.Connection
 
 	// localStatus is the serving rqlite node named by the DSN (address and
 	// credentials). The freshness gate queries its /status. Zero when the DSN
@@ -209,20 +235,31 @@ type client struct {
 // rqlite consistency applies to READS only; writes always traverse Raft.
 //
 //   - ReadConsistencyWeak (default): the serving node forwards the read to the
-//     leader, so it always observes the latest committed write. On a
-//     cross-region cluster this costs a full leader round-trip per read
+//     node it believes is the leader, which answers from its own SQLite after
+//     checking only its local state. That observes every committed write
+//     except in the moment of a leadership change, when a deposed leader that
+//     has not yet noticed can answer without a write the new leader committed.
+//     On a cross-region cluster this costs a full leader round-trip per read
 //     (feat-6: ~273ms on the Singapore↔leader hop).
+//   - ReadConsistencyLinearizable: the leader records its commit index,
+//     confirms it is still leader with a heartbeat round to a quorum of
+//     voters, waits until that index is applied, then reads (Raft
+//     dissertation §6.4; nothing is written to the Raft log). The read
+//     observes every write committed before it began. It costs the weak
+//     read's hop plus one leader-to-quorum round trip, and fails, never
+//     degrades, when no leader can confirm a quorum (feat-802).
 //   - ReadConsistencyNone: the serving node answers from its LOCAL SQLite
 //     without contacting the leader (~1ms). It may return a slightly stale
 //     snapshot when this node is a follower lagging in Raft replay, so it is
 //     ONLY safe for reads that do not need to observe a write made earlier in
 //     the same invocation (bug #235). Read-your-own-writes flows must stay on
-//     weak, or fold the read into a DBTransaction post-commit query.
+//     weak, or fold the read into the DBTransaction that wrote it.
 type ReadConsistency string
 
 const (
-	ReadConsistencyWeak ReadConsistency = "weak"
-	ReadConsistencyNone ReadConsistency = "none"
+	ReadConsistencyWeak         ReadConsistency = "weak"
+	ReadConsistencyNone         ReadConsistency = "none"
+	ReadConsistencyLinearizable ReadConsistency = "linearizable"
 )
 
 // useNoneConn reports whether a read at consistency rc should use the
@@ -233,9 +270,14 @@ func useNoneConn(rc ReadConsistency, hasNoneConn bool) bool {
 }
 
 // queryConn picks the native connection matching the requested read
-// consistency. Returns the weak (leader-routed) connection when none-level is
-// not requested or not available; weak is always correct, only slower.
+// consistency. A none read without its connection uses the weak
+// (leader-routed) one, which is correct, only slower. A linearizable read
+// without its connection gets nil: weak would silently drop the guarantee the
+// caller asked for.
 func (c *client) queryConn(rc ReadConsistency) *gorqlite.Connection {
+	if rc == ReadConsistencyLinearizable {
+		return c.connLinearizable
+	}
 	if useNoneConn(rc, c.connNone != nil) {
 		return c.connNone
 	}

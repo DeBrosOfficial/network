@@ -21,7 +21,7 @@ const certRefusal = "certificate"
 // login does follows the CA the run's certificates come from. A fleet the run
 // provisioned uses Let's Encrypt staging, which no system trust store accepts:
 // the login must be refused with a certificate error and store no credential.
-// The stagenet cluster serves Let's Encrypt production, which the system
+// The testnet cluster serves Let's Encrypt production, which the system
 // roots accept: the same login must succeed on the system roots alone.
 // The run's own environment, which carries the CA for the same domain, is
 // removed first so it cannot lend its trust.

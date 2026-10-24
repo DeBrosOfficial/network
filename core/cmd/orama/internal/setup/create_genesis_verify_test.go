@@ -7,7 +7,7 @@ import (
 )
 
 func verifySpec(n int) GenesisSpec {
-	return GenesisSpec{ChainID: "orama-stagenet-6", Seats: fakeSeats(n), TestNetwork: true, Faucet: true}
+	return GenesisSpec{ChainID: "orama-testnet-6", Seats: fakeSeats(n), TestNetwork: true, Faucet: true}
 }
 
 func TestVerifyGenesis_theCommitteeAndNothingElse(t *testing.T) {
@@ -18,7 +18,7 @@ func TestVerifyGenesis_theCommitteeAndNothingElse(t *testing.T) {
 
 func TestVerifyGenesis_refusesWhatIsNotTheCommittee(t *testing.T) {
 	seats := fakeSeats(3)
-	good := genesisFor{chainID: "orama-stagenet-6", seats: seats, allowStake: true, faucet: true}
+	good := genesisFor{chainID: "orama-testnet-6", seats: seats, allowStake: true, faucet: true}
 	wrongKey := append([]Seat(nil), seats...)
 	wrongKey[1].ConsensusPubKey = fakeSeat(9).ConsensusPubKey
 	wrongName := append([]Seat(nil), seats...)
@@ -27,7 +27,7 @@ func TestVerifyGenesis_refusesWhatIsNotTheCommittee(t *testing.T) {
 		g    genesisFor
 		want string
 	}{
-		"another chain":             {genesisFor{chainID: "orama-stagenet-5", seats: seats, allowStake: true, faucet: true}, "not \"orama-stagenet-6\""},
+		"another chain":             {genesisFor{chainID: "orama-testnet-5", seats: seats, allowStake: true, faucet: true}, "not \"orama-testnet-6\""},
 		"a seat is missing":         {genesisFor{chainID: good.chainID, seats: seats[:2], allowStake: true, faucet: true}, "founder-3"},
 		"a validator is extra":      {genesisFor{chainID: good.chainID, seats: append(append([]Seat(nil), seats...), fakeSeat(7)), allowStake: true, faucet: true}, "names 4 bootstrap validators"},
 		"a seat twice":              {genesisFor{chainID: good.chainID, seats: []Seat{seats[0], seats[1], seats[1]}, allowStake: true, faucet: true}, "2 times"},
@@ -61,7 +61,7 @@ func TestVerifyGenesis_refusesWhatTheClassForbids(t *testing.T) {
 }
 
 func TestVerifyGenesis_theConsensusParametersMustBeSet(t *testing.T) {
-	raw := genesisFor{chainID: "orama-stagenet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json()
+	raw := genesisFor{chainID: "orama-testnet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json()
 	err := VerifyGenesis(raw, verifySpec(2))
 	if err == nil || !strings.Contains(err.Error(), "max_gas") {
 		t.Errorf("a genesis oramad wrote, before the consensus edit, was accepted: %v", err)
@@ -69,7 +69,7 @@ func TestVerifyGenesis_theConsensusParametersMustBeSet(t *testing.T) {
 }
 
 func TestVerifyGenesis_aPlaceholderAndGarbageAreRefused(t *testing.T) {
-	for name, in := range map[string]string{"placeholder": `{"chain_id":"orama-stagenet-6"}`, "garbage": `not json`, "empty": ``} {
+	for name, in := range map[string]string{"placeholder": `{"chain_id":"orama-testnet-6"}`, "garbage": `not json`, "empty": ``} {
 		if err := VerifyGenesis([]byte(in), verifySpec(1)); err == nil {
 			t.Errorf("%s was accepted", name)
 		}

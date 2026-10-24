@@ -51,8 +51,16 @@ const (
 	DomainMembers   Domain = "members"   // grants, keys, ownership
 	DomainNamespace Domain = "namespace" // a namespace's own settings and its deletion
 	DomainAudit     Domain = "audit"     // the record
-	DomainOperator  Domain = "operator"  // the cluster itself
 )
+
+// Operating the cluster is not a domain. A permission set is a namespace's: it
+// comes from a role, a grant or a key in one namespace, and `*:*:*` is
+// everything in that namespace. The cluster's own routes are the operator's,
+// and the operator is a wallet on the cluster's operator list, which the
+// gateway reads for those routes (routepolicy.Policy.Operator). There was an
+// `operator` domain, and an owner's or admin's `*:*:*` held it, so any
+// namespace owner or admin key could command, read the logs of and remove the
+// cluster's nodes (bugboard bug-55).
 
 // domains is every domain a permission may name, and what it covers. A domain
 // nothing recognises is refused when a permission is parsed, so a typo is a
@@ -71,17 +79,20 @@ var domains = map[Domain]string{
 	DomainMembers:   "members, keys and ownership",
 	DomainNamespace: "a namespace's settings",
 	DomainAudit:     "the audit trail",
-	DomainOperator:  "cluster operations",
 }
 
 // Action is what is being done.
 //
 // `read` and `write` are the two most domains need. `invoke` and `manage`
 // belong to functions, where running one and changing one are different
-// authorities and neither is a read or a write of the same thing.
+// authorities and neither is a read or a write of the same thing. `send`
+// belongs to push: registering your own device is a write, and sending a
+// notification to any user or topic of the namespace is a different authority
+// that a key shipped in an app must not hold (bugboard #434).
 const (
 	ActionInvoke Action = "invoke"
 	ActionManage Action = "manage"
+	ActionSend   Action = "send"
 	ActionAny    Action = PermissionWildcard
 )
 
@@ -91,6 +102,7 @@ var actions = map[Action]struct{}{
 	ActionWrite:  {},
 	ActionInvoke: {},
 	ActionManage: {},
+	ActionSend:   {},
 	ActionAny:    {},
 }
 
@@ -177,7 +189,7 @@ func ParsePermission(raw string) (Permission, error) {
 		}
 	}
 	if _, known := actions[p.Action]; !known {
-		return Permission{}, fmt.Errorf("unknown action %q in %q (valid: read, write, invoke, manage, *)",
+		return Permission{}, fmt.Errorf("unknown action %q in %q (valid: read, write, invoke, manage, send, *)",
 			p.Action, raw)
 	}
 	return p, nil
@@ -272,26 +284,49 @@ func wholeDomains(list ...Domain) PermissionSet {
 	return out
 }
 
+// pushRegistration is registering, listing and removing your own push devices
+// and topics: push:write, and not push:send.
+var pushRegistration = Permission{Domain: DomainPush, Action: ActionWrite, Resource: PermissionWildcard}
+
+// pushSend is sending a notification to any user or topic of the namespace.
+var pushSend = Permission{Domain: DomainPush, Action: ActionSend, Resource: PermissionWildcard}
+
 // DataPlanePermissions is what a logged-in user, or a runtime credential,
-// holds: everything an application does, and nothing an operator does.
+// holds: everything an application's client does, and nothing an operator
+// does.
+//
+// Push is registration only. Sending reaches every user's devices, so it is
+// the namespace's own server side that holds it: a developer or above, or a
+// key minted with the push-send grant and kept off any client (bugboard #434).
 func DataPlanePermissions() PermissionSet {
 	return append(
-		wholeDomains(DomainStorage, DomainPubsub, DomainCache, DomainPush, DomainWebRTC, DomainProxy),
+		wholeDomains(DomainStorage, DomainPubsub, DomainCache, DomainWebRTC, DomainProxy),
+		pushRegistration,
 		Permission{Domain: DomainFn, Action: ActionInvoke, Resource: PermissionWildcard},
 	)
 }
 
 // NoGrantPermissions is what a signed-in wallet holds in a namespace where it
 // has no grant at all: the data plane, except that it may read pub/sub and not
-// publish to it (bugboard #733). Such a wallet is an application's end user,
+// publish to it (bugboard #733), and, like the data plane, may register its
+// own push devices and not send. Such a wallet is an application's end user,
 // and a topic an end user may write to is a decision the application makes, by
 // publishing from a function or by granting the wallet pubsub write. Without
 // it any end user could publish to any topic of the namespace, including the
 // ones the application's own functions publish authoritative events on.
-func NoGrantPermissions() PermissionSet {
-	return append(
-		wholeDomains(DomainStorage, DomainCache, DomainPush, DomainWebRTC, DomainProxy),
-		Permission{Domain: DomainPubsub, Action: ActionRead, Resource: PermissionWildcard},
+//
+// It reads only the topics the namespace lists for its end users,
+// endUserTopics (Service.EndUserTopicsOf), and none when the list is empty, so
+// an application's internal topics are not readable by every user who signs
+// in.
+func NoGrantPermissions(endUserTopics []string) PermissionSet {
+	out := append(
+		wholeDomains(DomainStorage, DomainCache, DomainWebRTC, DomainProxy),
+		pushRegistration,
 		Permission{Domain: DomainFn, Action: ActionInvoke, Resource: PermissionWildcard},
 	)
+	for _, topic := range endUserTopics {
+		out = append(out, Permission{Domain: DomainPubsub, Action: ActionRead, Resource: topic})
+	}
+	return out
 }

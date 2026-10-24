@@ -264,16 +264,13 @@ func initializeRQLite(logger *logging.ColoredLogger, cfg *Config, deps *Dependen
 	db.SetConnMaxIdleTime(2 * time.Minute) // Maximum idle time before closing
 
 	deps.SQLDB = db
-	// Use the DSN-aware constructor so the ORM client also has a native
-	// *gorqlite.Connection for atomic Batch operations. If the native dial
-	// fails, fall back to the stdlib-only client (Batch will be unavailable
-	// but everything else works).
-	orm, ormErr := rqlite.NewClientWithDSN(db, dsn)
-	if ormErr != nil {
-		logger.ComponentWarn(logging.ComponentGeneral,
-			"native gorqlite dial failed, atomic Batch will be unavailable",
-			zap.Error(ormErr))
-		orm = rqlite.NewClient(db)
+	// The ORM client needs its native *gorqlite.Connection: atomic batches
+	// (push topic registration among them) have no other path. A gateway
+	// without one served every route and answered 500 on each batch, so a
+	// failed dial stops the boot instead (bugboard #435).
+	orm, err := rqlite.NewClientWithDSN(db, dsn)
+	if err != nil {
+		return fmt.Errorf("rqlite native connection (atomic batches need it): %w", err)
 	}
 	deps.ORMClient = orm
 	deps.ORMHTTP = rqlite.NewHTTPGateway(orm, "/v1/db")
@@ -891,7 +888,7 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 	if err != nil {
 		return fmt.Errorf("failed to load or create JWT signing key: %w", err)
 	}
-	authService, err := auth.NewService(logger, networkClient, string(keyPEM), ownNamespace(cfg))
+	authService, err := auth.NewService(logger, networkClient, string(keyPEM), ownNamespace(cfg), cfg.APIKeyHMACSecret)
 	if err != nil {
 		return fmt.Errorf("failed to initialize auth service: %w", err)
 	}
@@ -945,13 +942,13 @@ func initializeServerless(logger *logging.ColoredLogger, cfg *Config, deps *Depe
 	// signing_keys table may not exist yet, and a namespace gateway learns
 	// where its registry is only after this (SetAPIKeyRegistry in New).
 
-	// Configure API key HMAC secret if available
-	if cfg.APIKeyHMACSecret != "" {
-		authService.SetAPIKeyHMACSecret(cfg.APIKeyHMACSecret)
-		logger.ComponentInfo(logging.ComponentGeneral, "API key HMAC secret loaded; new API keys will be hashed")
-	}
-
 	deps.AuthService = authService
+
+	// A namespace's per-IP limits (bugboard #749): the invoke ceiling is read
+	// by the limiter through the auth service's cache, and new-wallet sign-ins
+	// are counted in this gateway's Olric, shared by every gateway on it.
+	rateLimiter.SetNamespaceLimits(authService)
+	authService.SetNewWalletCounter(olricWindowCounter{client: deps.OlricCurrent.Underlying})
 
 	// Create HTTP handlers. Built after the auth service because the deploy,
 	// delete and secret endpoints write to the audit trail.
@@ -1268,7 +1265,9 @@ func buildPushDispatcher(
 	ikm string,
 	holder *secrets.Holder,
 ) (*push.PushDispatcher, push.PushDeviceStore, *push.Manager, push.ConfigStore, *pushcreds.Manager, error) {
-	store, err := push.NewRqliteDeviceStore(db, ikm, logger.Logger)
+	// The token fingerprint is keyed from the cluster secret, which a secrets
+	// rotate does not change, so fingerprints keep matching across a rotate.
+	store, err := push.NewRqliteDeviceStore(db, ikm, cfg.ClusterSecret, logger.Logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("init push device store: %w", err)
 	}

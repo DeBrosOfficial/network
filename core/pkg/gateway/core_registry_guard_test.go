@@ -28,7 +28,7 @@ func (o *operatorRegistry) Query(_ context.Context, dest any, query string, args
 		return errRegistry
 	}
 	if !strings.Contains(query, "FROM operators") {
-		// The wallet lookup for an API-key caller; no rows means no wallet.
+		// Nothing else is asked of it; no rows.
 		return nil
 	}
 	wallet, _ := args[0].(string)

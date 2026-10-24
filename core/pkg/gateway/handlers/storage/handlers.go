@@ -20,7 +20,7 @@ type IPFSClient interface {
 	Pin(ctx context.Context, cid string, name string, replicationFactor int) (*ipfs.PinResponse, error)
 	PinStatus(ctx context.Context, cid string) (*ipfs.PinStatus, error)
 	Get(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error)
-	GetStored(ctx context.Context, cid string, ipfsAPIURL string) (io.ReadCloser, error)
+	GetStored(ctx context.Context, cid string, ipfsAPIURL string, idle time.Duration) (*ipfs.StoredContent, error)
 	Unpin(ctx context.Context, cid string) error
 	EvictLocal(ctx context.Context, cid string) (int, error)
 }

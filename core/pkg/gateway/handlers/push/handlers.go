@@ -197,16 +197,11 @@ func (h *Handlers) DeleteDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
 // SendHandler handles POST /v1/push/send.
 //
-// SECURITY: this endpoint sends arbitrary push messages to any user_id
-// in the caller's namespace. It MUST be gated to a small set of trusted
-// callers — typically only the namespace's own serverless functions
-// (which can send via the WASM `push_send` hostfunc directly without
-// going through HTTP) and the namespace operator.
-//
-// The current implementation accepts any JWT-authenticated caller within
-// the namespace. **Add an explicit allow-list or admin-scope check before
-// exposing this in production.** The WASM hostfunc bypasses this issue
-// because trigger registration already gates which functions exist.
+// It sends to any user_id in the caller's namespace, so the route policy
+// requires push:send (bugboard #434): a developer, admin or owner, or a key
+// minted with the push-send grant. A runtime member, a signed-in user and a
+// key holding only `push` register devices and cannot send. Functions send
+// through the push_send host function, which does not come through here.
 func (h *Handlers) SendHandler(w http.ResponseWriter, r *http.Request) {
 	// Either the per-namespace manager (preferred) or the legacy single
 	// dispatcher must be present. Both nil = push not configured at all.

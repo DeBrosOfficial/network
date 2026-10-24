@@ -73,11 +73,10 @@ func keyRegistry(t *testing.T) (*Gateway, *sqliteKeyQuerier, *sql.DB) {
 	}
 
 	querier := &sqliteKeyQuerier{db: db}
-	svc, err := gwauth.NewService(newRQLiteTestLogger(), &sqliteKeyNet{db: querier}, "", "default")
+	svc, err := gwauth.NewService(newRQLiteTestLogger(), &sqliteKeyNet{db: querier}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
 	}
-	svc.SetAPIKeyHMACSecret("test-hmac-secret")
 	return &Gateway{authService: svc}, querier, db
 }
 
@@ -114,15 +113,15 @@ func TestLookupAPIKeyEntry_expiry(t *testing.T) {
 	storeKey(t, g, db, live, "invoke,storage", time.Now().Add(24*time.Hour))
 	storeKey(t, g, db, expired, "invoke,storage", time.Now().Add(-time.Minute))
 
-	ns, scopes, err := g.lookupAPIKeyEntry(context.Background(), live, q)
+	entry, err := g.lookupAPIKeyEntry(context.Background(), live, q)
 	if err != nil {
 		t.Fatalf("a live key was refused: %v", err)
 	}
-	if ns != "anchat" || scopes != "invoke,storage" {
-		t.Errorf("got (%q, %q)", ns, scopes)
+	if entry.namespace != "anchat" || entry.scopes != "invoke,storage" {
+		t.Errorf("got (%q, %q)", entry.namespace, entry.scopes)
 	}
 
-	if _, _, err := g.lookupAPIKeyEntry(context.Background(), expired, q); err == nil {
+	if _, err := g.lookupAPIKeyEntry(context.Background(), expired, q); err == nil {
 		t.Error("an expired key resolved; the expiry column is decoration unless the lookup applies it")
 	}
 }
@@ -136,13 +135,13 @@ func TestLookupAPIKeyEntry_revokedRowDoesNotResolve(t *testing.T) {
 	}
 	storeKey(t, g, db, key, "admin", time.Now().Add(24*time.Hour))
 
-	if _, _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err != nil {
+	if _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err != nil {
 		t.Fatalf("a live key was refused: %v", err)
 	}
 	if _, err := db.Exec(`UPDATE api_keys SET revoked_at = datetime('now')`); err != nil {
 		t.Fatalf("revoke: %v", err)
 	}
-	if _, _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err == nil {
+	if _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err == nil {
 		t.Error("a revoked key resolved")
 	}
 }
@@ -160,11 +159,11 @@ func TestLookupAPIKeyEntry_aRevokedKeyIsRefusedEvenWhenCached(t *testing.T) {
 	}
 	storeKey(t, g, db, key, "admin", time.Now().Add(24*time.Hour))
 
-	if _, _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err != nil {
+	if _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err != nil {
 		t.Fatalf("a live key was refused: %v", err)
 	}
 	// It is in the cache now: the querier is not consulted again.
-	if _, _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err != nil {
+	if _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err != nil {
 		t.Fatalf("the cached key was refused: %v", err)
 	}
 
@@ -174,7 +173,7 @@ func TestLookupAPIKeyEntry_aRevokedKeyIsRefusedEvenWhenCached(t *testing.T) {
 		t.Fatalf("revoke: %v", err)
 	}
 
-	if _, _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err == nil {
+	if _, err := g.lookupAPIKeyEntry(context.Background(), key, q); err == nil {
 		t.Error("a revoked key was served out of the cache; the whole point of consulting the " +
 			"revocation list first is that the cache is the longer of the two windows")
 	}

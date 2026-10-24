@@ -43,7 +43,16 @@ import (
 // a namespace gateway needs to hold an open WebSocket to the token that opened
 // it: without them a socket proxied from the main gateway had no expiry, and no
 // revocation could reach it. v3 adds the device and session the token is bound
-// to.
+// to. v4 adds the resources an API key is narrowed to, without which a key
+// limited to some functions reached every function through a namespace
+// gateway. v5 adds the key's fingerprint, without which the namespace
+// gateway's invoke rate limiter could not tell one key's callers from another's
+// and bucketed every key-only caller of a namespace together. v6 adds the key's
+// registry id, without which the namespace gateway's request log could not say
+// which key made a request. v7 adds what the token's device attestation proved
+// (its `att` claim), without which a namespace gateway could not judge the
+// request against its namespace's attestation policy, nor tell a function who
+// called (get_caller_attestation).
 //
 // A signer stamps every version, so a namespace gateway that predates the
 // newest still accepts what an upgraded main gateway sends it. A verifier
@@ -63,10 +72,14 @@ const (
 	// "<unix seconds>.<hex hmac>".
 	HeaderInternalAuthMAC = "X-Internal-Auth-MAC"
 
-	// HeaderInternalAuthMACv2 and HeaderInternalAuthMACv3 authenticate the v2
-	// and v3 fields, in the same format.
+	// HeaderInternalAuthMACv2 to HeaderInternalAuthMACv7 authenticate the v2
+	// to v7 fields, in the same format.
 	HeaderInternalAuthMACv2 = "X-Internal-Auth-MAC-V2"
 	HeaderInternalAuthMACv3 = "X-Internal-Auth-MAC-V3"
+	HeaderInternalAuthMACv4 = "X-Internal-Auth-MAC-V4"
+	HeaderInternalAuthMACv5 = "X-Internal-Auth-MAC-V5"
+	HeaderInternalAuthMACv6 = "X-Internal-Auth-MAC-V6"
+	HeaderInternalAuthMACv7 = "X-Internal-Auth-MAC-V7"
 
 	// HeaderInternalAuthJWTExp and HeaderInternalAuthJWTIat carry the verified
 	// token's exp and iat (unix seconds), HeaderInternalAuthJWTJti its jti.
@@ -79,6 +92,25 @@ const (
 	// and session a verified token is bound to. Covered by the v3 MAC only.
 	HeaderInternalAuthJWTDid = "X-Internal-Auth-JWT-Did"
 	HeaderInternalAuthJWTSid = "X-Internal-Auth-JWT-Sid"
+
+	// HeaderInternalAuthKeyResources carries the resources an API-key caller
+	// is narrowed to (auth.KeyResources, stored form), beside the scopes they
+	// narrow. Covered by the v4 MAC only.
+	HeaderInternalAuthKeyResources = "X-Internal-Auth-Key-Resources"
+
+	// HeaderInternalAuthKeyFingerprint carries auth.KeyFingerprint of an
+	// API-key caller's stored key, which the invoke rate limiter buckets the
+	// caller by. Covered by the v5 MAC only.
+	HeaderInternalAuthKeyFingerprint = "X-Internal-Auth-Key-Fingerprint"
+
+	// HeaderInternalAuthKeyID carries the registry id (api_keys.id) of an
+	// API-key caller's key, which request_logs.api_key_id records. Covered by
+	// the v6 MAC only.
+	HeaderInternalAuthKeyID = "X-Internal-Auth-Key-ID"
+
+	// HeaderInternalAuthJWTAtt carries a verified token's attestation
+	// (auth.AttestationClaim) as base64(JSON). Covered by the v7 MAC only.
+	HeaderInternalAuthJWTAtt = "X-Internal-Auth-JWT-Att"
 
 	// internalAuthKeyPurpose is the HKDF domain separator for the hop key, so
 	// it is unrelated to the TURN, push and secrets keys derived from the same
@@ -95,6 +127,10 @@ const (
 	internalAuthPayloadV1 = "orama-internal-auth-v1"
 	internalAuthPayloadV2 = "orama-internal-auth-v2"
 	internalAuthPayloadV3 = "orama-internal-auth-v3"
+	internalAuthPayloadV4 = "orama-internal-auth-v4"
+	internalAuthPayloadV5 = "orama-internal-auth-v5"
+	internalAuthPayloadV6 = "orama-internal-auth-v6"
+	internalAuthPayloadV7 = "orama-internal-auth-v7"
 )
 
 // hopVersion is one version of the hop MAC: its payload prefix, the header it
@@ -113,6 +149,14 @@ var hopVersions = []hopVersion{
 		[]string{HeaderInternalAuthJWTExp, HeaderInternalAuthJWTIat, HeaderInternalAuthJWTJti}},
 	{internalAuthPayloadV3, HeaderInternalAuthMACv3,
 		[]string{HeaderInternalAuthJWTDid, HeaderInternalAuthJWTSid}},
+	{internalAuthPayloadV4, HeaderInternalAuthMACv4,
+		[]string{HeaderInternalAuthKeyResources}},
+	{internalAuthPayloadV5, HeaderInternalAuthMACv5,
+		[]string{HeaderInternalAuthKeyFingerprint}},
+	{internalAuthPayloadV6, HeaderInternalAuthMACv6,
+		[]string{HeaderInternalAuthKeyID}},
+	{internalAuthPayloadV7, HeaderInternalAuthMACv7,
+		[]string{HeaderInternalAuthJWTAtt}},
 }
 
 // internalAuthVersionedHeaders are the fields only a MAC newer than v1 covers.

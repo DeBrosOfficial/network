@@ -21,6 +21,13 @@ const SecretsKeyPurpose = "push-device-tokens"
 // TokenFingerprintPurpose is the HKDF purpose string for the token-exclusivity
 // fingerprint key (bugboard #981). Domain-separated from the encryption key so
 // the keyed fingerprint can never be confused with (or weaken) the AES key.
+//
+// The key is derived from the cluster secret, never from the rotating
+// encryption root. A secrets rotate re-encrypts token_encrypted but cannot
+// recompute token_fp, so a fingerprint keyed from the encryption root stopped
+// matching the rows written before the rotate, and eviction and dedup missed
+// them (bugboard #435). Migration 087 clears the fingerprints written under the
+// old key and BackfillTokenFP writes them again under this one.
 const TokenFingerprintPurpose = "push-device-token-fp"
 
 // RqliteDeviceStore is a PushDeviceStore backed by RQLite + AES-256-GCM
@@ -43,18 +50,22 @@ func (s *RqliteDeviceStore) SetHolder(h *secrets.Holder) {
 	}
 }
 
-// NewRqliteDeviceStore derives the per-cluster encryption + fingerprint keys
-// from the cluster secret and returns a ready-to-use store. The cluster secret
-// is the same one used for other at-rest encryption (see pkg/secrets).
-func NewRqliteDeviceStore(db rqlite.Client, clusterSecret string, logger *zap.Logger) (*RqliteDeviceStore, error) {
+// NewRqliteDeviceStore derives the encryption key from encIKM (the encryption
+// root's current IKM, which a secrets rotate replaces and re-encrypts under)
+// and the fingerprint key from fingerprintSecret (the cluster secret, which a
+// rotate does not change), and returns a ready-to-use store.
+func NewRqliteDeviceStore(db rqlite.Client, encIKM, fingerprintSecret string, logger *zap.Logger) (*RqliteDeviceStore, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	key, err := secrets.DeriveKey(clusterSecret, SecretsKeyPurpose)
+	if fingerprintSecret == "" {
+		return nil, fmt.Errorf("push device store: a fingerprint secret (the cluster secret) is required")
+	}
+	key, err := secrets.DeriveKey(encIKM, SecretsKeyPurpose)
 	if err != nil {
 		return nil, fmt.Errorf("derive push-device key: %w", err)
 	}
-	fpKey, err := secrets.DeriveKey(clusterSecret, TokenFingerprintPurpose)
+	fpKey, err := secrets.DeriveKey(fingerprintSecret, TokenFingerprintPurpose)
 	if err != nil {
 		return nil, fmt.Errorf("derive push-device fingerprint key: %w", err)
 	}
@@ -230,9 +241,10 @@ func (s *RqliteDeviceStore) evictOtherOwnersOfToken(ctx context.Context, namespa
 	return nil
 }
 
-// BackfillTokenFP populates token_fp for rows registered before the bugboard
-// #981 migration so token-exclusive eviction also covers pre-existing orphans
-// (not just rows registered after the upgrade). Best-effort + idempotent: it
+// BackfillTokenFP populates token_fp for rows that have none: rows registered
+// before the bugboard #981 migration, and every row whose fingerprint
+// migration 087 cleared because it was keyed from the encryption root
+// (bugboard #435). Token-exclusive eviction then covers them too. Best-effort + idempotent: it
 // only touches rows with a missing fingerprint, recomputes it from the
 // decrypted token, and writes it back. Safe to run concurrently on multiple
 // gateways — the fingerprint is deterministic, so concurrent writers converge.
@@ -295,8 +307,8 @@ func (s *RqliteDeviceStore) ListForUser(ctx context.Context, namespace, userID s
 	}
 	query := `
 		SELECT id, namespace, user_id, device_id, provider, token_encrypted,
-			COALESCE(platform, ''), COALESCE(app_version, ''),
-			created_at, updated_at, COALESCE(last_seen, 0),
+			COALESCE(platform, '') AS platform, COALESCE(app_version, '') AS app_version,
+			created_at, updated_at, COALESCE(last_seen, 0) AS last_seen,
 			COALESCE(session_device_id, '') AS session_device_id
 		FROM push_devices
 		WHERE namespace = ? AND user_id = ?

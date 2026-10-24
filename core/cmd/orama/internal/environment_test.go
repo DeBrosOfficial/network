@@ -64,7 +64,7 @@ func defaultTestConfig() *EnvironmentConfig {
 	return &EnvironmentConfig{
 		Environments: []Environment{
 			{Name: "sandbox", GatewayURL: "https://dbrs.space", Description: "Sandbox cluster"},
-			{Name: "devnet", GatewayURL: "https://orama-devnet.network", Description: "Development network"},
+			{Name: "devnet", GatewayURL: "https://devnet.orama.network", Description: "Development network"},
 			{Name: "testnet", GatewayURL: "https://orama-testnet.network", Description: "Test network"},
 		},
 		ActiveEnvironment: "sandbox",

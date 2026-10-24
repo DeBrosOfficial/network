@@ -2,6 +2,7 @@ package releasecmd
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ import (
 func newCutCmd(d deps) *cobra.Command {
 	var f struct {
 		dir, channel string
+		fleetReport  string
 		archives     []string
 		retention    int
 		replace      bool
@@ -20,7 +22,7 @@ func newCutCmd(d deps) *cobra.Command {
 		dryRun       bool
 	}
 	cmd := &cobra.Command{
-		Use:   "cut --channel nightly|main|dev/<branch> --archive <path>",
+		Use:   "cut --channel nightly|main|dev/<branch> --archive <path> --fleet-report <dir>",
 		Short: "List an archive on a channel and sign the metadata (3 approvals)",
 		Long: `List one or more archives of one version (amd64 and arm64) under a channel and
 sign the result: targets.json, then snapshot.json, then timestamp.json, three
@@ -34,6 +36,13 @@ A version must be dotted numeric (0.3.1) and newer than the channel's newest;
 a release is immutable (--replace is for a dev/<branch> build that reuses a version).
 Only the newest --retention versions of the channel stay listed. The timestamp
 is valid 7 days for nightly and dev, 30 for main.
+
+A nightly or main release stands on a fleet e2e run of the archives' commit:
+--fleet-report is that run's artifact directory, and its report.json must be
+signed by a runner key compiled into this binary (core/pkg/releasepub/runner-keys.txt),
+name exactly that commit with a clean working tree, and have the verdict PASS
+(every feature green, the coverage gate held). A dev/<branch> build needs none,
+but one it names is checked the same way.
 
 --dry-run plans the release and stops: nothing is signed, written or uploaded,
 and the RootWallet is not contacted.`,
@@ -50,9 +59,19 @@ and the RootWallet is not contacted.`,
 			if err != nil {
 				return err
 			}
+			runners, err := d.runnerKeys()
+			if err != nil {
+				return fail("read the allowed runner keys", err)
+			}
+			fleet := releasepub.FleetGate{RunnerKeys: runners}
+			if f.fleetReport != "" {
+				if fleet.ReportDir, err = filepath.Abs(f.fleetReport); err != nil {
+					return clierr.Usage("--fleet-report %q: %v", f.fleetReport, err)
+				}
+			}
 			p := releasepub.CutParams{
 				Repo: repo, Channel: channel, Archives: f.archives, Retention: f.retention, Replace: f.replace, AllowClusterOnly: f.clusterOnly,
-				DryRun: f.dryRun, Now: d.now(), Progress: cmd.OutOrStdout(),
+				Fleet: fleet, DryRun: f.dryRun, Now: d.now(), Progress: cmd.OutOrStdout(),
 			}
 			if !f.dryRun {
 				p.Agent = d.agent()
@@ -69,6 +88,7 @@ and the RootWallet is not contacted.`,
 	fl := cmd.Flags()
 	fl.StringVar(&f.channel, "channel", "", "nightly, main or dev/<branch> [required]")
 	fl.StringArrayVar(&f.archives, "archive", nil, "An orama-<version>-linux-<arch>.tar.gz to release; repeatable [required]")
+	fl.StringVar(&f.fleetReport, "fleet-report", "", "The artifact directory of the passing, runner-signed fleet e2e run of the archives' commit [required for nightly and main]")
 	fl.IntVar(&f.retention, "retention", releasepub.DefaultRetention, "How many versions of the channel stay listed")
 	fl.BoolVar(&f.replace, "replace", false, "Let a listed path change its bytes (dev builds only)")
 	fl.BoolVar(&f.clusterOnly, "allow-cluster-only", false, "Release an amd64 archive built with --skip-global-layer (nodes cannot orama global install from it)")
@@ -85,6 +105,9 @@ func printPlan(cmd *cobra.Command, plan *releasepub.CutPlan, dryRun bool, dir st
 	}
 	printf(w, "%s %s %s: targets v%d, snapshot v%d, timestamp v%d (valid until %s)\n", verb, plan.Channel, plan.Version,
 		plan.TargetsVersion, plan.SnapshotVersion, plan.TimestampVersion, plan.TimestampExpires.Format(time.RFC3339))
+	if plan.FleetRun != "" {
+		printf(w, "  commit %s: fleet e2e run %s passed\n", plan.Commit, plan.FleetRun)
+	}
 	for _, group := range []struct {
 		label string
 		paths []string

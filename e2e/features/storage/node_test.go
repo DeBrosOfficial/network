@@ -44,6 +44,32 @@ func TestReplication_readableThroughEveryNode(t *testing.T) {
 	}
 }
 
+// TestGet_largeObjectsThroughEveryNode: a 20 MiB object in the clear (a
+// .tar.gz, which is not sealed, so it is streamed from Kubo) and a 20 MiB
+// sealed one download through every node byte for byte, each with the
+// Content-Length of the whole object
+// (docs/whitepaper/technical-reference/vol1/19-storage.md#download, bugboard #428).
+func TestGet_largeObjectsThroughEveryNode(t *testing.T) {
+	t.Parallel()
+	f := harness.Fleet(t)
+	n := tenancy.Namespace(t, f, ns.Options{})
+	owner := tenancy.Owner(n)
+	for _, name := range []string{"media.tar.gz", "media.bin"} {
+		data := randomBytes(t, largeBytes)
+		u := upload(t, n.Client, owner, name, data)
+		waitPinned(t, n.Client, owner, u.Cid)
+		for _, node := range f.State.Nodes {
+			t.Run(name+"/"+node.Name, func(t *testing.T) {
+				c := n.Client.PinTo(node.PublicIP)
+				waitContent(t, c, owner, u.Cid, data)
+				if got := get(t, c, owner, u.Cid).Header.Get("Content-Length"); got != strconv.Itoa(largeBytes) {
+					t.Errorf("Content-Length %q, want %d", got, largeBytes)
+				}
+			})
+		}
+	}
+}
+
 // TestSealing_privateBlobIsCiphertextOnNode: a storage upload is AES-GCM
 // sealed before Add, so every node's Kubo repo holds ORMAW1 ciphertext and
 // never the plaintext; a .tar.gz is not wrapped (docs/whitepaper/technical-reference/vol1/19-storage.md, feat-270).

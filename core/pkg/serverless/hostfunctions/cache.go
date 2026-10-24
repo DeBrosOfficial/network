@@ -119,8 +119,8 @@ func (h *HostFunctions) CacheIncr(ctx context.Context, key string) (int64, error
 // the partition owner under a per-key lock, so concurrent increments from any
 // number of gateways each see the previous one's result and return distinct
 // values. It keeps the key's expiry (an increment neither sets nor extends
-// one), so a counter that cache_set stored with a ttl expires on schedule and
-// one an increment created never does.
+// one), so a counter that cache_set or cache_incr_ttl gave a ttl expires on
+// schedule and one cache_incr_by created never does.
 //
 // A missing, expired or non-numeric value counts as 0 and is replaced; Olric
 // does not report the last as an error. A failed call is not retried (the
@@ -131,12 +131,62 @@ func (h *HostFunctions) CacheIncrBy(ctx context.Context, key string, delta int64
 	if err != nil {
 		return 0, err
 	}
+	return incr(ctx, dm, "cache_incr_by", key, delta)
+}
 
+// CacheIncrByTTL is CacheIncrBy for a counter that must expire: when the call
+// creates the counter, the counter expires ttlSeconds later; an existing
+// counter keeps the expiry it has, so a time-bucketed key (rl:<caller>:<minute>)
+// lives for one window from its first increment. ttlSeconds == 0 sets no
+// expiry, which is CacheIncrBy; a negative or over-long ttl is refused.
+//
+// The expiry is in place before the first increment: a Put with NX stores the
+// counter at 0 with the ttl, and the increment, which keeps a key's expiry,
+// runs after it. So no reader, and no crash between the two calls, ever sees
+// the counter without its expiry. The one case the Put cannot cover is a
+// counter that existed at the Put and expired before the increment, which the
+// increment then recreates with none: an increment that returns exactly delta
+// after the Put found a key gets the expiry set on its result.
+func (h *HostFunctions) CacheIncrByTTL(ctx context.Context, key string, delta, ttlSeconds int64) (int64, error) {
+	const fn = "cache_incr_ttl"
+	if ttlSeconds < 0 || ttlSeconds > maxCacheTTLSeconds {
+		return 0, &serverless.HostFunctionError{
+			Function: fn,
+			Cause:    fmt.Errorf("%w: must be 0 (no expiry) to %d seconds, got %d", serverless.ErrInvalidCacheTTL, maxCacheTTLSeconds, ttlSeconds),
+		}
+	}
+	dm, err := h.cacheDMap(ctx, fn)
+	if err != nil {
+		return 0, err
+	}
+	if ttlSeconds == 0 {
+		return incr(ctx, dm, fn, key, delta)
+	}
+
+	ttl := time.Duration(ttlSeconds) * time.Second
+	err = dm.Put(ctx, key, 0, olriclib.NX(), olriclib.EX(ttl))
+	existed := olric.IsKeyFound(err)
+	if err != nil && !existed {
+		return 0, &serverless.HostFunctionError{Function: fn, Cause: fmt.Errorf("failed to create counter: %w", err)}
+	}
+	newValue, err := incr(ctx, dm, fn, key, delta)
+	if err != nil {
+		return 0, err
+	}
+	if existed && newValue == delta {
+		if err := dm.Expire(ctx, key, ttl); err != nil {
+			return 0, &serverless.HostFunctionError{Function: fn, Cause: fmt.Errorf("failed to set the counter's expiry: %w", err)}
+		}
+	}
+	return newValue, nil
+}
+
+// incr is the one Olric Incr the counter host functions make.
+func incr(ctx context.Context, dm olriclib.DMap, fn, key string, delta int64) (int64, error) {
 	// Olric's Incr takes int (not int64) and returns int.
 	newValue, err := dm.Incr(ctx, key, int(delta))
 	if err != nil {
-		return 0, &serverless.HostFunctionError{Function: "cache_incr_by", Cause: fmt.Errorf("failed to increment: %w", err)}
+		return 0, &serverless.HostFunctionError{Function: fn, Cause: fmt.Errorf("failed to increment: %w", err)}
 	}
-
 	return int64(newValue), nil
 }

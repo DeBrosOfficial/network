@@ -20,6 +20,11 @@ const (
 	// FunctionStatusDeleted marks a deleted version. It is distinct from
 	// inactive (a disabled function) so enabling can never revive a delete.
 	FunctionStatusDeleted FunctionStatus = "deleted"
+	// FunctionStatusSuperseded marks a version a later deploy or a rollback
+	// replaced. It is kept as a rollback target and is never invoked: only the
+	// current version of a function runs, so code its owner replaced cannot be
+	// reached at name@N. Enabling and disabling leave it alone.
+	FunctionStatusSuperseded FunctionStatus = "superseded"
 )
 
 // TriggerType identifies the type of event that triggered a function invocation.
@@ -88,15 +93,28 @@ type FunctionRegistry interface {
 	Register(ctx context.Context, fn *FunctionDefinition, wasmBytes []byte) (*Function, error)
 
 	// Get retrieves a function by name and optional version.
-	// If version is 0, returns the latest active version; otherwise exactly that
-	// version if it is active.
+	// If version is 0, returns the current version; otherwise exactly that
+	// version if it is the current one. A version that was replaced is
+	// ErrVersionSuperseded.
 	Get(ctx context.Context, namespace, name string, version int) (*Function, error)
 
-	// List returns all functions for a namespace.
+	// List returns the current version of every function in a namespace.
 	List(ctx context.Context, namespace string) ([]*Function, error)
 
-	// Delete removes a function. If version is 0, removes all versions.
+	// ListAll returns every version row the namespace holds, whatever its
+	// status: current, disabled, superseded and deleted.
+	ListAll(ctx context.Context, namespace string) ([]*Function, error)
+
+	// Delete marks a function deleted. If version is 0, marks all versions.
 	Delete(ctx context.Context, namespace, name string, version int) error
+
+	// Purge removes a function's rows for good, with its environment,
+	// triggers and history. If version is 0, removes every version.
+	Purge(ctx context.Context, namespace, name string, version int) error
+
+	// Rollback makes version the function's current version and supersedes
+	// the one it replaces; the triggers move to it.
+	Rollback(ctx context.Context, namespace, name string, version int) error
 
 	// SetEnabled toggles a function's status between active and inactive
 	// without redeploying. Plan 11.5 — lets operators pause a misbehaving
@@ -271,6 +289,10 @@ type FunctionDefinition struct {
 	// credential, as every function has been, or WSAuthCapability to also
 	// accept a capability minted through the function (feat-264).
 	WSAuth string `json:"ws_auth,omitempty"`
+
+	// RateLimit is the function's own invoke limits (function.yaml
+	// rate_limit), nil for none. See function_rate_limit.go.
+	RateLimit *FunctionRateLimit `json:"rate_limit,omitempty"`
 }
 
 // DBTriggerConfig defines a database trigger configuration.
@@ -318,6 +340,10 @@ type Function struct {
 	// credential, as every function has been, or WSAuthCapability to also
 	// accept a capability minted through the function (feat-264).
 	WSAuth string `json:"ws_auth,omitempty"`
+
+	// RateLimit is the function's own invoke limits (function.yaml
+	// rate_limit), nil for none. See function_rate_limit.go.
+	RateLimit *FunctionRateLimit `json:"rate_limit,omitempty"`
 }
 
 // InvocationContext provides context for a function invocation.
@@ -331,6 +357,10 @@ type InvocationContext struct {
 	// Used by the multi-tier rate limiter as a fallback bucket for anonymous
 	// (no-wallet) callers.
 	CallerIP string `json:"caller_ip,omitempty"`
+	// CallerKey names the credential of a caller with no wallet; see
+	// InvokeRequest.CallerKey. Carried into nested invocations so a function's
+	// own calls are charged to the caller that started them.
+	CallerKey string `json:"caller_key,omitempty"`
 	// CallerIsAdmin marks the caller as holding the admin (control-plane)
 	// grant (bugboard #152). Propagated into child WASM→WASM invocations so
 	// an internal→internal call works while external→internal stays blocked.
@@ -368,6 +398,12 @@ type InvocationContext struct {
 	// the account alone, an API key, or no credential. Read via host fn
 	// `get_caller_device_id`; like the subject, it is set only by the gateway.
 	CallerDeviceID string `json:"caller_device_id,omitempty"`
+
+	// CallerAttestation is what the caller's device attestation proved
+	// (feat-941), or nil when the caller's token carries none. Read via host
+	// fn `get_caller_attestation`; set only by the gateway, from the verified
+	// token's `att` claim.
+	CallerAttestation *CallerAttestation `json:"caller_attestation,omitempty"`
 
 	// CallerCapability is what the capability the caller's socket was opened
 	// with grants, or nil for a caller who came in on a credential. Read via
@@ -519,6 +555,9 @@ type HostServices interface {
 	CacheDelete(ctx context.Context, key string) error
 	CacheIncr(ctx context.Context, key string) (int64, error)
 	CacheIncrBy(ctx context.Context, key string, delta int64) (int64, error)
+	// CacheIncrByTTL is CacheIncrBy that gives the counter an expiry of
+	// ttlSeconds when the call creates it; an existing counter keeps its own.
+	CacheIncrByTTL(ctx context.Context, key string, delta, ttlSeconds int64) (int64, error)
 
 	// Storage operations
 	StoragePut(ctx context.Context, data []byte) (string, error)
@@ -742,6 +781,9 @@ type HostServices interface {
 	// GetCallerDeviceID returns the device the caller's session is bound to,
 	// or empty when it is bound to none.
 	GetCallerDeviceID(ctx context.Context) string
+	// GetCallerAttestation returns what the caller's device attestation
+	// proved, as JSON, or empty when the caller's token carries none.
+	GetCallerAttestation(ctx context.Context) string
 	// GetCallerCapability returns what the caller's capability grants, as
 	// JSON, or empty when the caller came in on a credential.
 	GetCallerCapability(ctx context.Context) string
@@ -799,4 +841,20 @@ type WebRTCController interface {
 	Admit(ctx context.Context, namespace, room, user, device string, ttl time.Duration) (time.Time, error)
 	Kick(ctx context.Context, namespace, room, user string) error
 	Mute(ctx context.Context, namespace, room, user string, muted bool) error
+}
+
+// CallerAttestation is what a caller's device attestation proved (feat-941):
+// the platform, the app and the build it attested, and when. The gateway sets
+// it from the token's signed `att` claim; nothing in a request body or header
+// reaches it.
+type CallerAttestation struct {
+	// Platform is "ios" or "android".
+	Platform string `json:"platform"`
+	// AppID is "TEAMID.bundle.id" on iOS, the package name on Android.
+	AppID string `json:"app_id"`
+	// AppVersion is the build the platform signed (CFBundleVersion on iOS 27
+	// and later, versionCode on Android); "" when it signed none.
+	AppVersion string `json:"app_version"`
+	// AttestedAt is when the device last attested, unix seconds.
+	AttestedAt int64 `json:"attested_at"`
 }

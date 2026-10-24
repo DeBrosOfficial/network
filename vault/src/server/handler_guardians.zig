@@ -1,53 +1,22 @@
 /// GET /v1/vault/guardians — List active guardians.
 ///
-/// Uses the real node list from the Guardian to report alive nodes,
-/// threshold, and total count.
+/// Reports the alive guardians, the read threshold and the total from the
+/// Guardian's node list.
 const std = @import("std");
 const response = @import("response.zig");
 const router = @import("router.zig");
+const guardian_mod = @import("../guardian.zig");
 
 pub fn handle(writer: anytype, ctx: *const router.RouteContext) !void {
     if (ctx.guardian) |guardian| {
-        // Build guardians list from real node list
-        // First pass: count alive nodes for sizing
-        var alive_count: usize = 0;
-        for (guardian.nodes.nodes) |node| {
-            if (node.state == .alive) alive_count += 1;
-        }
-
-        const threshold = guardian.readThreshold();
-        const total = guardian.nodes.nodes.len;
-
-        // Build JSON manually with a buffer
-        var buf: [4096]u8 = undefined;
-        var fbs = std.io.fixedBufferStream(&buf);
-        const w = fbs.writer();
-
-        w.writeAll("{\"guardians\":[") catch {
+        // The body grows with the cluster (about 40 bytes a guardian), so it
+        // is built on the heap rather than in a fixed buffer.
+        var body = std.ArrayListUnmanaged(u8){};
+        defer body.deinit(ctx.allocator);
+        buildBody(ctx.allocator, &body, guardian) catch {
             return response.internalError(writer);
         };
-
-        var first = true;
-        for (guardian.nodes.nodes) |node| {
-            if (node.state != .alive) continue;
-
-            if (!first) {
-                w.writeAll(",") catch {
-                    return response.internalError(writer);
-                };
-            }
-            first = false;
-
-            std.fmt.format(w, "{{\"address\":\"{s}\",\"port\":{d}}}", .{ node.address, node.port }) catch {
-                return response.internalError(writer);
-            };
-        }
-
-        std.fmt.format(w, "],\"threshold\":{d},\"total\":{d}}}", .{ threshold, total }) catch {
-            return response.internalError(writer);
-        };
-
-        try response.jsonOk(writer, fbs.getWritten());
+        try response.jsonOk(writer, body.items);
     } else {
         // Fallback: no guardian available, report self only
         var buf: [512]u8 = undefined;
@@ -58,4 +27,22 @@ pub fn handle(writer: anytype, ctx: *const router.RouteContext) !void {
         };
         try response.jsonOk(writer, body);
     }
+}
+
+/// The JSON body: alive guardians, the read threshold and the total, read
+/// under the guardian's node lock.
+fn buildBody(allocator: std.mem.Allocator, body: *std.ArrayListUnmanaged(u8), guardian: *guardian_mod.Guardian) !void {
+    guardian.nodes_mu.lock();
+    defer guardian.nodes_mu.unlock();
+
+    const w = body.writer(allocator);
+    try w.writeAll("{\"guardians\":[");
+    var first = true;
+    for (guardian.nodes.nodes) |node| {
+        if (node.state != .alive) continue;
+        if (!first) try w.writeAll(",");
+        first = false;
+        try w.print("{{\"address\":\"{s}\",\"port\":{d}}}", .{ node.address, node.port });
+    }
+    try w.print("],\"threshold\":{d},\"total\":{d}}}", .{ guardian.readThreshold(), guardian.nodes.nodes.len });
 }

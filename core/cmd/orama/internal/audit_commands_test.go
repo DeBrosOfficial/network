@@ -72,6 +72,26 @@ func TestFetchAuditPage_sendsEveryFilter(t *testing.T) {
 	}
 }
 
+// --cluster reads the cluster's own events from the operator route, with the
+// same filters.
+func TestFetchAuditPage_clusterReadsTheOperatorRoute(t *testing.T) {
+	seen := &seenRequest{}
+	server := auditServer(t, nil, seen)
+	defer server.Close()
+
+	if _, _, err := fetchAuditPage(server.URL, "key", AuditFilter{Cluster: true, Action: "namespace.delete", Limit: 5}); err != nil {
+		t.Fatalf("fetchAuditPage: %v", err)
+	}
+	if seen.path != "/v1/operator/audit" {
+		t.Errorf("path = %q, want /v1/operator/audit", seen.path)
+	}
+	for _, want := range []string{"action=namespace.delete", "limit=5"} {
+		if !strings.Contains(seen.query, want) {
+			t.Errorf("query %q is missing %q", seen.query, want)
+		}
+	}
+}
+
 // An empty page has no newest row; carrying "" forward would make --follow ask
 // for the whole trail again on the next tick.
 func TestFetchAuditPage_emptyPageHasNoNewest(t *testing.T) {

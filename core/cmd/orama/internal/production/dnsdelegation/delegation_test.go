@@ -14,14 +14,14 @@ func row(domain, host, ip string) []any { return []any{domain, host, ip} }
 // Slots are grouped by domain and ordered by number, so ns10 follows ns2.
 func TestFromRows_groupsAndOrdersSlots(t *testing.T) {
 	got, err := FromRows([][]any{
-		row("stagenet.example.test", "ns10", "203.0.113.10"),
-		row("stagenet.example.test", "ns1", "203.0.113.1"),
-		row("stagenet.example.test", "ns2", "203.0.113.2"),
+		row("testnet.example.test", "ns10", "203.0.113.10"),
+		row("testnet.example.test", "ns1", "203.0.113.1"),
+		row("testnet.example.test", "ns2", "203.0.113.2"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Delegation{{Domain: "stagenet.example.test", Nameservers: []Nameserver{
+	want := []Delegation{{Domain: "testnet.example.test", Nameservers: []Nameserver{
 		{"ns1", "203.0.113.1"}, {"ns2", "203.0.113.2"}, {"ns10", "203.0.113.10"},
 	}}}
 	if !reflect.DeepEqual(got, want) {
@@ -57,12 +57,12 @@ func TestFromRows_refusesWhatTheClusterWouldNotWrite(t *testing.T) {
 }
 
 func TestRecords_nsThenGlue(t *testing.T) {
-	lines := Records(Delegation{Domain: "stagenet.example.test", Nameservers: []Nameserver{{"ns1", "203.0.113.1"}, {"ns2", "203.0.113.2"}}})
+	lines := Records(Delegation{Domain: "testnet.example.test", Nameservers: []Nameserver{{"ns1", "203.0.113.1"}, {"ns2", "203.0.113.2"}}})
 	want := []string{
-		"stagenet.example.test.\tIN\tNS\tns1.stagenet.example.test.",
-		"stagenet.example.test.\tIN\tNS\tns2.stagenet.example.test.",
-		"ns1.stagenet.example.test.\tIN\tA\t203.0.113.1",
-		"ns2.stagenet.example.test.\tIN\tA\t203.0.113.2",
+		"testnet.example.test.\tIN\tNS\tns1.testnet.example.test.",
+		"testnet.example.test.\tIN\tNS\tns2.testnet.example.test.",
+		"ns1.testnet.example.test.\tIN\tA\t203.0.113.1",
+		"ns2.testnet.example.test.\tIN\tA\t203.0.113.2",
 	}
 	if !reflect.DeepEqual(lines, want) {
 		t.Errorf("Records =\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
@@ -71,8 +71,8 @@ func TestRecords_nsThenGlue(t *testing.T) {
 
 func TestParentZone(t *testing.T) {
 	for in, want := range map[string]string{
-		"stagenet.dbrsteting.bid": "dbrsteting.bid",
-		"dbrsteting.bid":          "bid",
+		"testnet.dbrsteting.bid": "dbrsteting.bid",
+		"dbrsteting.bid":         "bid",
 	} {
 		if got := ParentZone(in); got != want {
 			t.Errorf("ParentZone(%q) = %q, want %q", in, got, want)

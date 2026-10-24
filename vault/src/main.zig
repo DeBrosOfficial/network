@@ -89,7 +89,11 @@ pub fn main() !void {
     };
     defer guardian.deinit();
 
-    log.info("guardian initialized: {d} nodes, {d} shares", .{ guardian.nodes.nodes.len, guardian.share_count });
+    {
+        guardian.nodes_mu.lock();
+        defer guardian.nodes_mu.unlock();
+        log.info("guardian initialized: {d} nodes, {d} shares", .{ guardian.nodes.nodes.len, guardian.share_count });
+    }
 
     // Install signal handlers for graceful shutdown
     installSignalHandlers();
@@ -140,30 +144,47 @@ fn installSignalHandlers() void {
 
 fn heartbeatLoop(guardian: *guardian_mod.Guardian, running: *std.atomic.Value(bool)) void {
     const interval_ns: u64 = @intCast(@as(i128, heartbeat.HEARTBEAT_INTERVAL_NS));
+    var last_discovery_ns: i128 = std.time.nanoTimestamp();
 
     while (running.load(.acquire)) {
-        // Evaluate node states
-        heartbeat.evaluateNodeStates(&guardian.nodes);
+        // Follow membership: re-read the guardian list from RQLite.
+        const now = std.time.nanoTimestamp();
+        if (now - last_discovery_ns >= guardian_mod.discovery_interval_ns) {
+            last_discovery_ns = now;
+            guardian.refreshNodes() catch |err| {
+                log.warn("guardian list refresh from RQLite failed ({}); keeping the last one", .{err});
+            };
+        }
 
         // Refresh share count
         guardian.refreshShareCount();
 
-        // Send heartbeats to all peers
-        for (guardian.nodes.nodes, 0..) |node, idx| {
-            if (guardian.nodes.self_index != null and idx == guardian.nodes.self_index.?) continue;
-            if (node.state == .dead) continue;
-
-            // Parse self IP for heartbeat
-            var self_ip: [4]u8 = .{ 127, 0, 0, 1 };
+        // Evaluate node states and take the heartbeat targets under the lock;
+        // the sends happen outside it, so a slow peer never blocks a request.
+        var arena = std.heap.ArenaAllocator.init(guardian.allocator);
+        defer arena.deinit();
+        var targets = std.ArrayListUnmanaged([]const u8){};
+        var self_ip: [4]u8 = .{ 127, 0, 0, 1 };
+        {
+            guardian.nodes_mu.lock();
+            defer guardian.nodes_mu.unlock();
+            heartbeat.evaluateNodeStates(&guardian.nodes);
             if (guardian.nodes.self_index) |si| {
-                const self_addr = guardian.nodes.nodes[si].address;
-                if (std.net.Ip4Address.parse(self_addr, 0)) |addr| {
+                if (std.net.Ip4Address.parse(guardian.nodes.nodes[si].address, 0)) |addr| {
                     self_ip = @bitCast(addr.sa.addr);
                 } else |_| {}
             }
+            for (guardian.nodes.nodes, 0..) |node, idx| {
+                if (guardian.nodes.self_index != null and idx == guardian.nodes.self_index.?) continue;
+                if (node.state == .dead) continue;
+                const owned = arena.allocator().dupe(u8, node.address) catch break;
+                targets.append(arena.allocator(), owned) catch break;
+            }
+        }
 
+        for (targets.items) |address| {
             _ = heartbeat.sendHeartbeat(
-                node.address,
+                address,
                 guardian.cfg.peer_port,
                 self_ip,
                 guardian.cfg.peer_port,

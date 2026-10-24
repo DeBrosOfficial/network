@@ -25,8 +25,8 @@ func joinPeer(t *testing.T, fx *fixture, i int, room string, publish bool) *serv
 		t.Fatalf("peer %d joining %s: %v", i, room, err)
 	}
 	t.Cleanup(p.Close)
-	if p.Creds.TTL != int(sfuTTL.Seconds()) || !strings.HasSuffix(p.Creds.Username, ":"+fx.n.Name) {
-		t.Errorf("SFU-signalled credential %q ttl %d, want :%s with ttl %d", p.Creds.Username, p.Creds.TTL, fx.n.Name, int(sfuTTL.Seconds()))
+	if p.Creds.TTL != int(sfuTTL.Seconds()) || !strings.Contains(p.Creds.Username, ":"+fx.n.Name+":") {
+		t.Errorf("SFU-signalled credential %q ttl %d, want <expiry>:%s:<subject id> with ttl %d", p.Creds.Username, p.Creds.TTL, fx.n.Name, int(sfuTTL.Seconds()))
 	}
 	if err := p.Start(publish); err != nil {
 		t.Fatalf("peer %d: %v", i, err)

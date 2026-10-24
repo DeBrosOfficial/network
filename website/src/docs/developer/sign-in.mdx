@@ -86,12 +86,37 @@ An end user is a wallet the namespace never invited, and it stays one:
 
 - Signing in writes nothing. No grant, no membership, no claim on the namespace; the owner is still the only owner.
 - It gets a session and **no API key**. `verify` returns no `api_key`, and `POST /v1/auth/api-key` answers `ROLE_HAS_NO_KEY`. A key is a member's credential.
-- Its permissions are what a wallet with no grant holds: storage, cache, push, webrtc, proxy, invoking functions, and *reading* pub/sub but not publishing to it (a topic an end user writes to is the application's decision, made from a function or by a grant). Nothing on the control plane.
+- Its permissions are what a wallet with no grant holds: storage, cache, push, webrtc, proxy, invoking functions, and *reading* the pub/sub topics the namespace lists for its end users, none until the owner names them (`orama namespace session-policy --end-user-topics`), but not publishing to any (a topic an end user writes to is the application's decision, made from a function or by a grant). Nothing on the control plane.
 - The device policy applies as to any end user: under `required` or `approval` it must bind a device ([Devices](/docs/developer/devices)).
 
 The lobby has no policy and refuses to be given one, and a namespace with no owner stays closed whatever it says. Members are unaffected either way.
 
 **Closing sign-in** refuses new sign-ins at once, including sessions a device link or the device-code flow would hand out. A session already issued ends at its next refresh, which answers 403 `SIGN_IN_CLOSED` within 10 seconds of the closing; an access token already issued lives out its 15 minutes.
+
+### Per-IP limits
+
+With sign-in open a wallet costs nothing, so one host can make as many as it likes: fill your app with accounts, and multiply the per-wallet invoke limit by the wallets it holds. Turn on per-IP limits to bound what one client network does, whatever wallets it presents:
+
+```bash
+orama namespace session-policy --per-ip-limits on                 # defaults: 20 and 1200
+orama namespace session-policy --new-wallets-per-ip-hour 10 --invokes-per-ip-minute 600
+orama namespace session-policy --per-ip-limits off                # the ceilings are kept
+```
+
+or `PUT /v1/namespace/session-policy {"per_ip_limits": "on", "new_wallets_per_ip_hour": 10, "invokes_per_ip_minute": 600}`.
+
+| Setting | Default | Range | When on |
+|---|---|---|---|
+| `per_ip_limits` | `off` | `on`, `off` | Turns both ceilings on |
+| `new_wallets_per_ip_hour` | 20 | 1 to 10,000 | Wallets that never signed in to the namespace that one network may sign in per clock hour, as end users. Past it: `429 SIGN_IN_RATE_LIMITED` with `Retry-After` until the hour ends |
+| `invokes_per_ip_minute` | 1,200 | 1 to 60,000 | Authenticated function invokes one network may make per minute on each gateway. Past it: `429 RATE_LIMITED` with `scope=per_ip_authenticated` ([Functions](/docs/developer/functions#invoke-rate-limits)) |
+
+They are off by default because many people can share one address: an office, a school, a mobile carrier's NAT. Choose the numbers for the largest group of real users you expect behind one address.
+
+- A network is an IPv4 address or an IPv6 /64, as the gateway sees it through its own proxies, never a header the caller wrote.
+- Only new end users are counted: not members, and not a wallet that signed in before. A wallet keeps its place for the hour, so retrying a failed sign-in costs nothing, and a refused wallet stays refused until the hour ends.
+- The count is approximate: it is kept in the cache, shared by the gateways of one kind, so sign-ins through both the base domain and `ns-<name>` may reach twice the ceiling, and a cache restart forgets it.
+- When the count cannot be made the sign-in is answered `503`; retry.
 
 ## Signing in from a machine with no wallet
 
@@ -168,7 +193,7 @@ Every gateway signs with its own Ed25519 key, generated at first boot, and publi
 
 ## Error codes
 
-Every 401, 403 and `AUTH_UNAVAILABLE` 503 carries `{error, code, hint}`.
+A refusal from the authentication middleware, and the sign-in, device and fetch-capability refusals, carry `{error, code, hint}`. A route's own refusal after authentication does not always: a refused refresh or renew, `logout` with `all=true`, a namespace list or operator check without a wallet, or a storage selector answers `{error}`, sometimes with a `code` and without a `hint`. Branch on the status first.
 
 | Code | Means |
 |---|---|
@@ -182,10 +207,10 @@ Every 401, 403 and `AUTH_UNAVAILABLE` 503 carries `{error, code, hint}`.
 | `NAMESPACE_MISMATCH` | The credential belongs to another namespace |
 | `ORIGIN_NOT_ALLOWED` | A WebSocket upgrade whose `Origin` is not this host or a name under it |
 | `OWNERSHIP_REQUIRED` | The credential holds no grant in this namespace |
-| `NOT_AN_OPERATOR` | The wallet is not on the cluster's operator list |
+| `NOT_AN_OPERATOR` | The caller is not a wallet session on the cluster's operator list; no namespace role or API key is an operator's |
 | `DESTINATION_NOT_ALLOWED` | The proxy refused the destination |
 | `RELAY_DESTINATION_NOT_ALLOWED`, `RELAY_UNAVAILABLE`, `RATE_LIMITED` | See [Relayed fetch](/docs/privacy/relayed-fetch) |
-| `FETCH_CAP_MISSING`, `FETCH_CAP_INVALID`, `FETCH_CAP_REVOKED`, `FETCH_CAP_REVOKE_KEY_INVALID`, `FETCH_CAP_NOT_ALONE`, `FETCH_CAP_DEVICE_REQUIRED`, `FETCH_CAP_UNAVAILABLE` | Fetch capabilities |
+| `FETCH_CAP_MISSING`, `FETCH_CAP_INVALID`, `FETCH_CAP_REVOKED`, `FETCH_CAP_REVOKE_KEY_INVALID`, `FETCH_CAP_NOT_ALONE`, `FETCH_CAP_DEVICE_REQUIRED`, `FETCH_CAP_UNAVAILABLE`, `FETCH_CAP_REVOCATION_LIMIT` | Fetch capabilities |
 
 Signing in has its own codes:
 
@@ -202,10 +227,11 @@ Signing in has its own codes:
 | `NAMESPACE_HAS_NO_KEYS` | The lobby has no keys. Create a namespace first |
 | `ROLE_HAS_NO_KEY` | A key was asked for by a member whose role cannot carry one (`reader`, `developer`), or by an end user |
 | `SIGN_IN_CLOSED` | The wallet holds no grant and the namespace is not open: its session was refused a refresh |
+| `SIGN_IN_RATE_LIMITED` | 429: this network signed in as many new wallets this hour as the namespace allows ([Per-IP limits](#per-ip-limits)). Retry after `Retry-After` |
 | `TOO_MANY_CHALLENGES` | Too many challenges asked for. Slow down |
 
 Device codes are on [Devices](/docs/developer/devices#error-codes).
 
 ## Rate limits
 
-The client is the peer address (a forwarded address is honoured only from the local reverse proxy, and only its last entry). Credential endpoints (challenge, verify, api-key, token, refresh) have their own bucket: 30 a minute per address, bursting to 10, against a general 10,000. `/v1/auth/challenge` is also limited per wallet, because it writes a row for a wallet the caller does not have to own.
+The client is the peer address (a forwarded address is honoured only from the local reverse proxy, and only its last entry). Credential endpoints (challenge, verify, api-key, token, refresh) have their own bucket: 30 a minute per address, bursting to 10, against a general 10,000. `/v1/auth/challenge` is also limited per wallet, because it writes a row for a wallet the caller does not have to own: 10 a minute, bursting to 5, on each gateway, answered `429` with `Retry-After: 60` and no code. Separately, a wallet holding 10 unanswered challenges in one namespace (each lives 5 minutes) is answered `429` `TOO_MANY_CHALLENGES` with `Retry-After: 300` until it answers one or they expire.

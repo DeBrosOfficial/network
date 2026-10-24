@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -76,8 +75,9 @@ func (g *Gateway) anonProxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Block requests to private/local addresses
-	if isPrivateOrLocalHost(targetURL.Host) {
+	// Block requests to private/local addresses. The host goes to Tor
+	// unresolved, so it is judged as a resolver reads it (netguard.ReservedHost).
+	if netguard.ReservedHost(targetURL.Hostname()) {
 		forbidden(w, CodeDestinationNotAllowed, "requests to private or local addresses are not allowed", nil)
 		return
 	}
@@ -206,47 +206,4 @@ func isHopByHopHeader(header string) bool {
 		"Upgrade":             true,
 	}
 	return hopByHop[http.CanonicalHeaderKey(header)]
-}
-
-// isPrivateOrLocalHost checks if a host is private, local, or loopback
-func isPrivateOrLocalHost(host string) bool {
-	// Strip port if present, handling IPv6 addresses properly
-	// IPv6 addresses in URLs are bracketed: [::1]:8080
-	if strings.HasPrefix(host, "[") {
-		// IPv6 address with brackets
-		if idx := strings.LastIndex(host, "]"); idx != -1 {
-			if idx+1 < len(host) && host[idx+1] == ':' {
-				// Port present, strip it
-				host = host[1:idx] // Remove brackets and port
-			} else {
-				// No port, just remove brackets
-				host = host[1:idx]
-			}
-		}
-	} else {
-		// IPv4 or hostname, check for port
-		if idx := strings.LastIndex(host, ":"); idx != -1 {
-			// Check if it's an IPv6 address without brackets (contains multiple colons)
-			colonCount := strings.Count(host, ":")
-			if colonCount == 1 {
-				// Single colon, likely IPv4 with port
-				host = host[:idx]
-			}
-			// If multiple colons, it's IPv6 without brackets and no port
-			// Leave host as-is
-		}
-	}
-
-	// Check for localhost variants
-	if host == "localhost" {
-		return true
-	}
-
-	// Parse as IP and use standard library checks
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-
-	return netguard.Reserved(ip)
 }

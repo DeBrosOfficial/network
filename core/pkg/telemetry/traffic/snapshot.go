@@ -43,7 +43,9 @@ func (r *Recorder) Snapshot(now time.Time) report.TrafficReport {
 		}
 		agg.add(b)
 	}
-	return agg.report(r.coveredSeconds(now), r.total)
+	out := agg.report(r.coveredSeconds(now), r.total)
+	out.Attestation = r.attestationReport()
+	return out
 }
 
 // coveredSeconds is the span the window covers at now: the time since the

@@ -22,8 +22,10 @@ import (
 // this gateway can run. The check opens the spooled image read-only in SQLite
 // itself, the one parser that reads it the way RQLite will, and refuses it when
 // it is damaged or holds something that is active or grants access from the
-// moment it lands: a trigger, a view over a platform table, an ownership row
-// for content only other namespaces hold.
+// moment it lands: a trigger or a view the SQL guard would refuse as a
+// statement, an ownership row for content only other namespaces hold. A trigger
+// tenant SQL could have created (on a tenant table, touching only tenant tables)
+// is the tenant's own and restores with the rest.
 //
 // What it accepts and the post-load scrub (scrub.go) removes is passive, so
 // real older backups still restore: plaintext api_keys rows (a namespace
@@ -76,7 +78,7 @@ func (h *Handler) checkImageBytes(ctx context.Context, image []byte) error {
 }
 
 // CheckImage opens the image at path read-only and returns an error wrapping
-// ErrImageRefused if it is damaged or holds a trigger, a view the SQL guard
+// ErrImageRefused if it is damaged, holds a trigger or a view the SQL guard
 // would refuse as a statement, or an ownership row for content the registry
 // records only against other namespaces.
 func (h *Handler) CheckImage(ctx context.Context, path string) error {
@@ -157,11 +159,8 @@ func imageHasNoPlatformSQL(ctx context.Context, db *sql.DB) error {
 		if err := rows.Scan(&kind, &name, &def); err != nil {
 			return refuse("its schema cannot be read: %v", err)
 		}
-		if kind == "trigger" {
-			return refuse("it has a trigger (%s); a namespace's database has none", name)
-		}
-		if sqlguard.Check(def.String) != nil {
-			return refuse("it has a view (%s) over a platform table", name)
+		if err := sqlguard.Check(def.String); err != nil {
+			return refuse("it has a %s (%s) tenant SQL could not create: %v", kind, name, err)
 		}
 	}
 	return rows.Err()

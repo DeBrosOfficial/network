@@ -170,7 +170,7 @@ func (r *nonceFakeResult) RowsAffected() (int64, error) { return r.affected, nil
 // present so consumption is atomic.
 func newNonceTestService(t *testing.T, store *nonceMockStore) *Service {
 	t.Helper()
-	svc, err := NewService(nil, &nonceMockOrm{db: &nonceMockOrmDB{store: store}}, "", "default")
+	svc, err := NewService(nil, &nonceMockOrm{db: &nonceMockOrmDB{store: store}}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestConsumeNonce_RefusesWithoutAtomicSingleUse(t *testing.T) {
 	store.addNamespace("default", 1)
 	store.addNonce(1, "0xwallet", "nonce-1", 5*time.Minute)
 
-	svc, err := NewService(nil, &nonceMockOrm{db: &nonceMockOrmDB{store: store}}, "", "default")
+	svc, err := NewService(nil, &nonceMockOrm{db: &nonceMockOrmDB{store: store}}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
@@ -313,7 +313,7 @@ func TestConsumeNonce_UsesTheSameNamespaceDefaultAsIssuing(t *testing.T) {
 	store.addNamespace("fallback-ns", 7)
 	store.addNonce(7, "0xwallet", "nonce-1", 5*time.Minute)
 
-	svc, err := NewService(nil, &nonceMockOrm{db: &nonceMockOrmDB{store: store}}, "", "fallback-ns")
+	svc, err := NewService(nil, &nonceMockOrm{db: &nonceMockOrmDB{store: store}}, "", "fallback-ns", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}

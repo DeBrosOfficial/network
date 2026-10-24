@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/auth"
-	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	namespacepkg "github.com/Orama-Network/orama/core/pkg/namespace"
 	"github.com/Orama-Network/orama/core/pkg/olric"
 	"github.com/Orama-Network/orama/core/pkg/rqlite"
@@ -113,6 +113,9 @@ type SpawnResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 	PID     int    `json:"pid,omitempty"`
+	// BoundPorts answers namespacepkg.ActionProbePorts: the ports of the
+	// namespace range a socket on this node holds.
+	BoundPorts []int `json:"bound_ports,omitempty"`
 }
 
 // SpawnHandler handles remote namespace instance spawn/stop requests.
@@ -172,6 +175,12 @@ func (h *SpawnHandler) gatewayRegistryDSN(req SpawnRequest) (string, error) {
 		return "", fmt.Errorf("node %s has no registry rqlite address configured, so gateway %s cannot be given one", h.nodeID, req.Namespace)
 	}
 	return h.registryDSN, nil
+}
+
+// boundNamespacePorts reads which ports of the namespace range are held on this
+// node. A variable so a test can answer for a host it does not control.
+var boundNamespacePorts = func() ([]int, error) {
+	return namespacepkg.BoundPortsInRange(namespacepkg.NamespacePortRangeStart, namespacepkg.NamespacePortRangeEnd)
 }
 
 // NewSpawnHandler creates a new spawn handler
@@ -314,6 +323,17 @@ func (h *SpawnHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		writeSpawnResponse(w, http.StatusOK, SpawnResponse{Success: true})
 
+	case namespacepkg.ActionProbePorts:
+		// Read-only: the coordinator allocating a port block asks which ports
+		// of the range something holds here, so it skips them (bug-276).
+		ports, err := boundNamespacePorts()
+		if err != nil {
+			h.logger.Error("Failed to read the ports held on this node", zap.Error(err))
+			writeSpawnResponse(w, http.StatusInternalServerError, SpawnResponse{Error: err.Error()})
+			return
+		}
+		writeSpawnResponse(w, http.StatusOK, SpawnResponse{Success: true, BoundPorts: ports})
+
 	case "stop-rqlite":
 		if err := h.systemdSpawner.StopRQLite(ctx, req.Namespace, req.NodeID); err != nil {
 			h.logger.Error("Failed to stop RQLite instance", zap.Error(err))
@@ -360,7 +380,7 @@ func (h *SpawnHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeSpawnResponse(w, http.StatusInternalServerError, SpawnResponse{Error: err.Error()})
 			return
 		}
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             req.Namespace,
 			NodeID:                req.NodeID,
 			HTTPPort:              req.GatewayHTTPPort,
@@ -421,7 +441,7 @@ func (h *SpawnHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeSpawnResponse(w, http.StatusInternalServerError, SpawnResponse{Error: err.Error()})
 			return
 		}
-		cfg := gateway.InstanceConfig{
+		cfg := gatewayspec.InstanceConfig{
 			Namespace:             req.Namespace,
 			NodeID:                req.NodeID,
 			HTTPPort:              req.GatewayHTTPPort,

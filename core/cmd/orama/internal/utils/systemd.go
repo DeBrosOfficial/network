@@ -289,6 +289,40 @@ func GetProductionServices() []string {
 	return append(existing, discoverNamespaceUnits(namespacesDataDir, unitenv.Dir)...)
 }
 
+// ReconciledService is a host unit that a reconciler inside orama-node starts
+// and stops, so the node lifecycle (start, stop, restart, upgrade) must not
+// touch it and GetProductionServices does not list it. Status surfaces report
+// it beside the production services.
+type ReconciledService struct {
+	// Name is the unit name without ".service".
+	Name string
+	// Wanted is whether the reconciler wants it running now. An inactive unit
+	// that is not wanted is the reconciler's choice, not a fault.
+	Wanted bool
+}
+
+// GetReconciledServices returns the reconciler-owned host units installed on
+// this node. Today that is the shared TURN unit, orama-turn (bugboard #283):
+// one process serves every namespace on the host, the TURN reconciler starts
+// it while the node holds a TURN allocation and stops it when it holds none,
+// and it matches no orama-namespace-* name, so a status built only from
+// GetProductionServices never showed it (bug-386).
+func GetReconciledServices() []ReconciledService {
+	return reconciledServices(systemdUnitDir, constants.HostTURNConfigPath(constants.ProductionOramaDir))
+}
+
+// reconciledServices is GetReconciledServices against a unit directory and a
+// TURN config path a test controls.
+func reconciledServices(unitDir, turnConfigPath string) []ReconciledService {
+	if _, err := os.Stat(filepath.Join(unitDir, systemd.HostTURNServiceName)); err != nil {
+		return nil
+	}
+	return []ReconciledService{{
+		Name:   strings.TrimSuffix(systemd.HostTURNServiceName, ".service"),
+		Wanted: systemd.HostTURNWanted(turnConfigPath),
+	}}
+}
+
 // namespacesDataDir holds one subdirectory per provisioned namespace.
 const namespacesDataDir = "/opt/orama/.orama/data/namespaces"
 

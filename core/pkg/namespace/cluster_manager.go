@@ -28,7 +28,7 @@ import (
 
 // ClusterManagerConfig contains configuration for the cluster manager
 type ClusterManagerConfig struct {
-	BaseDomain      string // Base domain for namespace gateways (e.g., "orama-devnet.network")
+	BaseDomain      string // Base domain for namespace gateways (e.g., "devnet.orama.network")
 	BaseDataDir     string // Base directory for namespace data (e.g., "~/.orama/data/namespaces")
 	GlobalRQLiteDSN string // Global RQLite DSN for API key validation (e.g., "http://localhost:4001")
 	// IPFS configuration for namespace gateways (defaults used if not set)
@@ -246,6 +246,7 @@ func NewClusterManager(
 		provisioning:          make(map[string]bool),
 		startedAt:             time.Now(),
 	}
+	portAllocator.prober = cm
 	cm.initTenantDrivers()
 	return cm
 }
@@ -950,6 +951,8 @@ type spawnResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 	PID     int    `json:"pid,omitempty"`
+	// BoundPorts answers ActionProbePorts.
+	BoundPorts []int `json:"bound_ports,omitempty"`
 }
 
 // requireOverlayTarget refuses a spawn target outside the WireGuard overlay.

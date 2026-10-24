@@ -8,18 +8,31 @@ import (
 	"go.uber.org/zap"
 )
 
-// ListFunctions handles GET /v1/functions
-// Lists all functions in a namespace.
+// allQueryParam makes GET /v1/functions list every version row.
+const allQueryParam = "all"
+
+// ListFunctions handles GET /v1/functions[?all=true]: the current version of
+// each function, or with all=true every version row the namespace holds,
+// whatever its status (disabled, superseded, deleted), until it is purged.
 func (h *ServerlessHandlers) ListFunctions(w http.ResponseWriter, r *http.Request) {
 	namespace, ok := managedNamespace(w, r)
 	if !ok {
+		return
+	}
+	all, err := boolQueryParam(r, allQueryParam)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	functions, err := h.registry.List(ctx, namespace)
+	list := h.registry.List
+	if all {
+		list = h.registry.ListAll
+	}
+	functions, err := list(ctx, namespace)
 	if err != nil {
 		h.logger.Error("Failed to list functions",
 			zap.Error(err))

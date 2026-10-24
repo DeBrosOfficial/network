@@ -80,7 +80,7 @@ func queryRequest(body string, forwarded bool) *http.Request {
 	if forwarded {
 		req.Header.Set(forwardHeader, "1")
 	}
-	return req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "stagenetproof"))
+	return req.WithContext(context.WithValue(req.Context(), ctxkeys.NamespaceOverride, "testnetproof"))
 }
 
 func TestQueryDatabase_forwardsToTheHomeNode(t *testing.T) {
@@ -160,7 +160,7 @@ func TestQueryDatabase_namespaceGatewayForwardsViaTheClusterRegistry(t *testing.
 	h.UseClusterRegistry(&mockRQLiteClient{
 		QueryFunc: func(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 			registryQueries = append(registryQueries, query)
-			if len(args) != 2 || args[0] != "stagenetproof" || args[1] != "home-peer" {
+			if len(args) != 2 || args[0] != "testnetproof" || args[1] != "home-peer" {
 				t.Errorf("registry asked with %v", args)
 			}
 			rv := reflect.ValueOf(dest).Elem()

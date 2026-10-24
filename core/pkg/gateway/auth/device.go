@@ -67,6 +67,13 @@ var (
 	// is told apart from "unknown" because it is the answer to a different
 	// question: the approver did nothing wrong and needs no new code.
 	ErrDeviceAlreadyApproved = errors.New("already approved")
+	// ErrDeviceUserCodeMalformed means the user code is not the shape this
+	// gateway issues, so it cannot name a pending login.
+	ErrDeviceUserCodeMalformed = errors.New("malformed user code")
+	// ErrDeviceLoginMismatch means the pending login exists but is not the
+	// approver's to approve: another namespace, another account, or the
+	// other kind of login.
+	ErrDeviceLoginMismatch = errors.New("this login cannot be approved here")
 )
 
 // DeviceAuthorization is a login waiting to be approved.
@@ -232,8 +239,8 @@ func (s *Service) ApproveDeviceAuthorization(ctx context.Context, userCode, wall
 	// A machine that asked for one namespace must not be handed a session in
 	// another: it will use the session for whatever it was going to do there.
 	if pending.Namespace != "" && !strings.EqualFold(pending.Namespace, namespace) {
-		return fmt.Errorf("this login asked for namespace %q and you signed in to %q",
-			pending.Namespace, namespace)
+		return fmt.Errorf("%w: this login asked for namespace %q and you signed in to %q",
+			ErrDeviceLoginMismatch, pending.Namespace, namespace)
 	}
 	won, err := s.recordApproval(ctx, code, wallet, namespace)
 	if err != nil {
@@ -468,8 +475,8 @@ func NormalizeUserCode(raw string) (string, error) {
 		}
 	}, raw)
 	if len(cleaned) != deviceUserCodeLength {
-		return "", fmt.Errorf("a device code is %d characters (you gave %d)",
-			deviceUserCodeLength, len(cleaned))
+		return "", fmt.Errorf("%w: a device code is %d characters (you gave %d)",
+			ErrDeviceUserCodeMalformed, deviceUserCodeLength, len(cleaned))
 	}
 	return cleaned[:deviceUserCodeLength/2] + "-" + cleaned[deviceUserCodeLength/2:], nil
 }

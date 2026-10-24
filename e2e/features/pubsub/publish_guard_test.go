@@ -25,10 +25,11 @@ const (
 )
 
 // TestPublishGuard_walletWithNoGrantMaySubscribeButNotPublish: a signed-in
-// wallet that holds no grant in the namespace is an application's end user. It
-// keeps the data plane and may subscribe, but publishing is refused with
-// INSUFFICIENT_SCOPE and a message naming the remedy, on publish and
-// publish-batch alike (docs/whitepaper/technical-reference/vol1/14-authorization.md, bugboard #733). The wallet gets there as
+// wallet that holds no grant in the namespace is an application's end user.
+// Publishing is refused with INSUFFICIENT_SCOPE and a message naming the
+// remedy, on publish and publish-batch alike; it subscribes to, and sees
+// presence on, only the topics the namespace lists for its end users, none by
+// default (docs/whitepaper/technical-reference/vol1/14-authorization.md, bugboard #733). The wallet gets there as
 // an end user would: its session outlives its grant.
 func TestPublishGuard_walletWithNoGrantMaySubscribeButNotPublish(t *testing.T) {
 	t.Parallel()
@@ -50,8 +51,50 @@ func TestPublishGuard_walletWithNoGrantMaySubscribeButNotPublish(t *testing.T) {
 		}
 	}
 	tenancy.ExpectRefused(t, tenancy.Post(t, n.Client, pathBatch, who, batch("t", "x")), http.StatusForbidden, tenancy.CodeScope)
+
+	// Nothing listed: no topic is readable.
+	if got := subscribeStatus(t, n.Client, "t", who); got != http.StatusForbidden {
+		t.Errorf("subscribing with no end-user topic listed: HTTP %d, want 403", got)
+	}
+	tenancy.ExpectRefused(t, tenancy.Get(t, n.Client, pathTopics, who), http.StatusForbidden, tenancy.CodeScope)
+
+	setEndUserTopics(t, n, "t", "open/*")
+	eventually.Require(t, pollEvery, grantCacheBudget, "a listed topic to become subscribable", func() (bool, error) {
+		return subscribeStatus(t, n.Client, "t", who) == http.StatusSwitchingProtocols, nil
+	})
 	subscribe(t, n.Client, "", "t", who, nil)
+	if got := subscribeStatus(t, n.Client, "private", who); got != http.StatusForbidden {
+		t.Errorf("subscribing to an unlisted topic: HTTP %d, want 403", got)
+	}
+	tenancy.Get(t, n.Client, pathPresence+"?topic=open/room", who).Expect(t, http.StatusOK)
+	if r := tenancy.Get(t, n.Client, pathPresence+"?topic=private", who); r.Status != http.StatusForbidden {
+		t.Errorf("presence on an unlisted topic: HTTP %d, want 403", r.Status)
+	}
+	var listed struct{ Topics []string }
+	if err := tenancy.Get(t, n.Client, pathTopics, who).Expect(t, http.StatusOK).Decode(&listed); err != nil {
+		t.Fatal(err)
+	}
+	for _, topic := range listed.Topics {
+		if topic != "t" && !strings.HasPrefix(topic, "open/") {
+			t.Errorf("an end user was shown the unlisted topic %q", topic)
+		}
+	}
 }
+
+// setEndUserTopics replaces the topics n's end users may read, as its owner
+// (website/src/docs/developer/access-control.mdx, "The end user's special
+// case"), and clears the list when the test ends.
+func setEndUserTopics(t testing.TB, n *ns.Namespace, topics ...string) {
+	t.Helper()
+	put := func(list []string) {
+		tenancy.Send(t, n.Client, http.MethodPut, pathSessionPolicy, tenancy.Owner(n), map[string]any{"end_user_topics": list}).Expect(t, http.StatusOK)
+	}
+	put(topics)
+	t.Cleanup(func() { put([]string{}) })
+}
+
+// pathSessionPolicy holds a namespace's end-user topics.
+const pathSessionPolicy = "/v1/namespace/session-policy"
 
 // TestPublishGuard_reservedKeyIsRefusedForEveryCaller: `_orama` marks events
 // the platform itself publishes, so no publish route carries it, not even for

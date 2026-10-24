@@ -24,7 +24,7 @@ import (
 
 const (
 	productionChainID = "orama-1"
-	stagenetChainID   = "orama-stagenet-1"
+	testnetChainID    = "orama-testnet-1"
 	devnetChainID     = "orama-devnet-1"
 	localnetChainID   = "orama-localnet-1"
 )
@@ -119,7 +119,7 @@ func TestValidateConsensusParams_productionPinsEveryValue(t *testing.T) {
 }
 
 func TestValidateConsensusParams_testNetworksNeedAFiniteGasLimitABoundedBlockAndVoteExtensions(t *testing.T) {
-	for _, chainID := range []string{stagenetChainID, devnetChainID} {
+	for _, chainID := range []string{testnetChainID, devnetChainID} {
 		t.Run(chainID, func(t *testing.T) {
 			require.NoError(t, app.ValidateConsensusParams(chainID, plannedConsensus()))
 
@@ -162,7 +162,7 @@ func TestValidateConsensusParams_aLocalnetIsFree(t *testing.T) {
 func TestValidateConsensusParams_aChainIDThatOnlyContainsAClassWordIsProduction(t *testing.T) {
 	cp := plannedConsensus()
 	cp.Block.MaxGas = 10_000_000
-	require.Error(t, app.ValidateConsensusParams("orama-1-stagenet-x", cp))
+	require.Error(t, app.ValidateConsensusParams("orama-1-testnet-x", cp))
 }
 
 func TestValidateConsensusParams_namesEveryProblem(t *testing.T) {
@@ -170,7 +170,7 @@ func TestValidateConsensusParams_namesEveryProblem(t *testing.T) {
 	cp.Block.MaxGas = -1
 	cp.Block.MaxBytes = -1
 	cp.Abci.VoteExtensionsEnableHeight = 0
-	err := app.ValidateConsensusParams(stagenetChainID, cp)
+	err := app.ValidateConsensusParams(testnetChainID, cp)
 	require.ErrorContains(t, err, "max_gas")
 	require.ErrorContains(t, err, "max_bytes")
 	require.ErrorContains(t, err, "vote_extensions_enable_height")

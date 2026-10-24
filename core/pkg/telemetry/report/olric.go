@@ -50,6 +50,9 @@ func collectOlric() *OlricReport {
 		}
 	}
 
+	// 3b. The partition healer's restarts (pkg/node/olric_heal.go).
+	collectOlricHeal(r, constants.DataDir(constants.ProductionOramaDir))
+
 	// 4. ProcessMemMB: ps -C olric-server -o rss=
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
@@ -136,4 +139,18 @@ func portIsListening(ssOutput string, port int) bool {
 // memberlist listener (constants.OlricMemberlistPort).
 func memberlistUp(ssOutput string) bool {
 	return portIsListening(ssOutput, constants.OlricMemberlistPort)
+}
+
+// collectOlricHeal reads the partition healer's record from the node's data
+// directory. A record that cannot be read leaves the fields empty.
+func collectOlricHeal(r *OlricReport, dataDir string) {
+	st, err := olric.ReadHealState(dataDir)
+	if err != nil {
+		return
+	}
+	r.HealRestarts = st.Restarts
+	if !st.LastRestart.IsZero() {
+		at := st.LastRestart
+		r.LastHealRestart, r.LastHealReason = &at, st.LastReason
+	}
 }

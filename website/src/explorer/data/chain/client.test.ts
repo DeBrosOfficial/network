@@ -3,7 +3,7 @@ import { ChainIndexUnavailable, ChainNotFound, ChainReadError, CHAIN_BASE, DEFAU
 
 describe("chainBase", () => {
   it("TestChainBase_puts_the_chain_proxy_on_the_gateways_origin", () => {
-    expect(chainBase("https://stagenet.orama.network")).toBe("https://stagenet.orama.network/v1/chain");
+    expect(chainBase("https://testnet.orama.network")).toBe("https://testnet.orama.network/v1/chain");
     expect(chainBase("https://gw.example.org:8443")).toBe("https://gw.example.org:8443/v1/chain");
   });
 
@@ -21,19 +21,19 @@ describe("chainBase", () => {
 
   it.each([
     ["an empty string", ""],
-    ["a bare host", "stagenet.orama.network"],
-    ["clear http on a public host", "http://stagenet.orama.network"],
-    ["a trailing slash", "https://stagenet.orama.network/"],
-    ["a path", "https://stagenet.orama.network/v1/chain"],
-    ["a query", "https://stagenet.orama.network?x=1"],
-    ["credentials in the address", "https://user:pw@stagenet.orama.network"],
-    ["another scheme", "ftp://stagenet.orama.network"],
+    ["a bare host", "testnet.orama.network"],
+    ["clear http on a public host", "http://testnet.orama.network"],
+    ["a trailing slash", "https://testnet.orama.network/"],
+    ["a path", "https://testnet.orama.network/v1/chain"],
+    ["a query", "https://testnet.orama.network?x=1"],
+    ["credentials in the address", "https://user:pw@testnet.orama.network"],
+    ["another scheme", "ftp://testnet.orama.network"],
     ["a lookalike of localhost over http", "http://localhost.evil.example"],
     ["a lookalike of 127.0.0.1 over http", "http://127.0.0.1.evil.example"],
     ["credentials on a local address", "http://user:pw@localhost:6001"],
-    ["an upper-case host", "https://Stagenet.orama.network"],
-    ["an explicit default port", "https://stagenet.orama.network:443"],
-    ["a fragment", "https://stagenet.orama.network#x"],
+    ["an upper-case host", "https://Testnet.orama.network"],
+    ["an explicit default port", "https://testnet.orama.network:443"],
+    ["a fragment", "https://testnet.orama.network#x"],
   ])("TestChainBase_refuses_%s", (_name, origin) => {
     expect(() => chainBase(origin)).toThrow(ChainReadError);
   });
@@ -103,16 +103,16 @@ describe("createClient", () => {
       async () => {
         throw new TypeError("net::ERR_CERT_AUTHORITY_INVALID");
       },
-      "https://stagenet.orama.network/v1/chain",
+      "https://testnet.orama.network/v1/chain",
     );
     const error = (await client.get("status").catch((e: unknown) => e)) as Error;
     expect(error).toBeInstanceOf(ChainReadError);
     expect(error.message).toContain("The chain could not be reached.");
-    expect(error.message).toContain("the gateway at stagenet.orama.network");
+    expect(error.message).toContain("the gateway at testnet.orama.network");
     expect(error.message).toMatch(/down/);
     expect(error.message).toMatch(/TLS certificate .* staging certificate/);
     expect(error.message).toMatch(/CORS/);
-    expect(error.message).toContain("https://stagenet.orama.network/v1/chain/status");
+    expect(error.message).toContain("https://testnet.orama.network/v1/chain/status");
     // What the browser reported stays out of the reader's message.
     expect(error.message).not.toContain("ERR_CERT");
   });
@@ -127,7 +127,7 @@ describe("createClient", () => {
   it("TestCreateClient_the_unreachable_message_lists_rate_limiting_among_the_causes", async () => {
     const error = (await createClient(async () => {
       throw new TypeError("Failed to fetch");
-    }, "https://stagenet.orama.network/v1/chain").get("status").catch((e: unknown) => e)) as Error;
+    }, "https://testnet.orama.network/v1/chain").get("status").catch((e: unknown) => e)) as Error;
     expect(error.message).toMatch(/limiting how fast this address may read/);
     expect(error.message).toMatch(/a normal answer to CORS or the rate limit/);
   });
@@ -145,14 +145,14 @@ describe("createClient", () => {
   });
 
   it("TestCreateClient_a_rate_limited_read_says_to_wait", async () => {
-    const base = "https://stagenet.orama.network/v1/chain";
+    const base = "https://testnet.orama.network/v1/chain";
     await expect(createClient(async () => new Response("slow down", { status: 429 }), base).get("status")).rejects.toThrow(
-      "The chain could not be read (HTTP 429). stagenet.orama.network is limiting how fast this browser may read; wait a minute and try again.",
+      "The chain could not be read (HTTP 429). testnet.orama.network is limiting how fast this browser may read; wait a minute and try again.",
     );
   });
 
   it("TestCreateClient_a_502_is_not_only_a_dead_node_it_can_be_an_address_the_indexer_refused", async () => {
-    const base = "https://stagenet.orama.network/v1/chain";
+    const base = "https://testnet.orama.network/v1/chain";
     const error = (await createClient(async () => new Response("chain request failed", { status: 502 }), base).get("index/accounts/x").catch((e: unknown) => e)) as Error;
     expect(error.message).toContain("HTTP 502");
     expect(error.message).toMatch(/refused part of this request \(check that the address or id is valid\)/);
@@ -160,7 +160,7 @@ describe("createClient", () => {
   });
 
   it("TestCreateClient_a_503_that_is_not_the_missing_indexer_says_busy_not_a_missing_indexer", async () => {
-    const base = "https://stagenet.orama.network/v1/chain";
+    const base = "https://testnet.orama.network/v1/chain";
     for (const body of ["the chain index is busy; try again", "too many chain queries in flight"]) {
       const error = (await createClient(async () => new Response(body, { status: 503 }), base).get("status").catch((e: unknown) => e)) as Error;
       expect(error).not.toBeInstanceOf(ChainIndexUnavailable);
@@ -171,8 +171,8 @@ describe("createClient", () => {
   });
 
   it("TestCreateClient_a_504_says_the_node_was_too_slow_and_any_other_status_is_plain", async () => {
-    const base = "https://stagenet.orama.network/v1/chain";
-    await expect(createClient(async () => new Response("late", { status: 504 }), base).get("status")).rejects.toThrow(/HTTP 504\)\. stagenet\.orama\.network did not get an answer from its chain node in time/);
+    const base = "https://testnet.orama.network/v1/chain";
+    await expect(createClient(async () => new Response("late", { status: 504 }), base).get("status")).rejects.toThrow(/HTTP 504\)\. testnet\.orama\.network did not get an answer from its chain node in time/);
     await expect(createClient(async () => new Response("boom", { status: 500 }), base).get("status")).rejects.toThrow(/^The chain could not be read \(HTTP 500\)\.$/);
   });
 });

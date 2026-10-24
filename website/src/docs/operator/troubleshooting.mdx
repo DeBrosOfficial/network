@@ -53,7 +53,7 @@ sudo orama node logs <service> -n 100
 sudo orama node restart              # dependency order and quorum safety
 ```
 
-Dependency order matters: WireGuard, RQLite, then Olric, then the gateway. Starting a gateway before Olric is ready causes a permanent initialization failure because the Olric client does not retry; the CLI orders them for you. `sudo orama node restart --force` bypasses the quorum safety check.
+Dependency order matters: WireGuard, RQLite, then Olric, then the gateway; the CLI orders them for you. A gateway that starts before Olric is ready still comes up: it tries Olric five times with backoff (0.5 s, doubling to 5 s), then answers cache requests with 503 while a background supervisor reconnects every 5 to 30 s. Once connected, it drops the client again after three failed probes 10 s apart, so a cache that goes away later also turns into 503s rather than hung requests. `sudo orama node restart --force` bypasses the quorum safety check.
 
 | Cause | Symptom | Resolution |
 |---|---|---|
@@ -73,6 +73,16 @@ Dependency order matters: WireGuard, RQLite, then Olric, then the gateway. Start
 1. **WireGuard packet loss.** `ping -c 10 -W 2 <peer-wg-ip>` from each node. Loss over WireGuard but not over the public IP means a corrupted peer session. The 60-second peer sync should have re-applied it. Check what the node believes before touching it: `wg show wg0 dump`, `sudo grep -A3 '\[Peer\]' /etc/wireguard/wg0.conf`, and `sudo orama node logs node --since -10min | grep 'WireGuard peer sync completed'` (the line reports `added`, `updated`, `removed`, `persisted`; `persisted=false` means the mesh is right now but will regress on the next `wg-quick up`). A hand reset (`wg set wg0 peer <pubkey> remove`, then re-add with `endpoint`, `allowed-ips <wg-ip>/32` and `persistent-keepalive 25`, on both sides) is break-glass; if you need it, that is worth reporting.
 2. **Olric bound to `0.0.0.0`.** `cat …/configs/olric-*.yaml`. A `bindAddr` of `0.0.0.0` makes dual-stack hosts bind IPv6 and breaks gossip. Fixed in code for new namespaces.
 3. **Constant "Failed UDP ping" in `orama node logs orama-namespace-olric@<name> -n 30`.** If UDP fails but TCP succeeds, it is the WireGuard problem in 1.
+
+## Index Olric partitioned: "N of M members"
+
+**Symptom.** `sudo orama node doctor` fails `Olric reachable` with `Responding on 10.0.0.x:10102 with 1 of 5 members: this node's Olric is partitioned from the cluster`, and `orama status` warns `Olric member count: 1 (expected 5 active nodes)`. Rate limits, sessions and cached reads differ between nodes, because each side of the split keeps its own cache.
+
+**Cause.** Memberlist declared the other members dead after its probes failed (CPU starvation, a burst of packet loss on `wg0`), and it never merges a partition by itself: only a join does, and `olric-server` joins its peers only when it starts. Doctor compares the member count with the index cluster's node count (its raft configuration), so a split fails it on both sides.
+
+**What heals it.** Every node runs a partition healer. Once every node's Olric answers over WireGuard and raft reports every node reachable, exactly one node on a smaller side (the one whose address sorts first) restarts its `orama-namespace-olric@index` after two checks 30 seconds apart. Its Olric joins the others when it starts. That node's share of the cache is lost; it is a cache. The node logs `Restarting the index Olric to merge a partition`, and `sudo orama node report --pretty` counts it under `olric.heal_restarts`. A node waits at least 5 minutes before it restarts again, up to an hour while restarts do not heal.
+
+**When it does not heal.** The healer does nothing while any node is unreachable, because that is a down node or an unhealed mesh, not a partition. Fix the overlay first (`sudo orama node doctor`, the WireGuard section). `orama status` shows which node is down or unreachable.
 
 ## Namespace gateway: missing config fields
 

@@ -46,6 +46,35 @@ func TestFetchPinned_usesTheCacheAfterTheFirstDownload(t *testing.T) {
 	}
 }
 
+// TestFetchPinned_theFileIsTheSameDownloadedOrCached: the archive takes an
+// entry's mode from the file's executable bit, and the cosmovisor tarball rode
+// in bin/ as 0644 when it was downloaded and 0755 when it came from the cache,
+// so the first build on a machine differed from the second.
+func TestFetchPinned_theFileIsTheSameDownloadedOrCached(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	body := []byte("release tarball")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write(body) }))
+	defer srv.Close()
+	pins := pinFor(t, body)
+	dir := t.TempDir()
+	modes := map[string]os.FileMode{}
+	for _, name := range []string{"downloaded.tgz", "cached.tgz"} {
+		path := filepath.Join(dir, name)
+		if err := fetchPinned(srv.URL, path, name, "amd64", pins); err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		modes[name] = info.Mode().Perm()
+	}
+	if modes["downloaded.tgz"] != modes["cached.tgz"] || modes["cached.tgz"]&0o111 != 0 {
+		t.Errorf("downloaded %v, cached %v: want the same mode, not executable", modes["downloaded.tgz"], modes["cached.tgz"])
+	}
+}
+
 func TestFetchPinned_aCorruptCacheEntryIsReplaced(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())

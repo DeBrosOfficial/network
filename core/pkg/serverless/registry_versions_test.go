@@ -51,8 +51,8 @@ func TestRegister_keepsEveryVersion(t *testing.T) {
 	if versions[0].ID == versions[1].ID {
 		t.Error("two versions share an id; the second deploy overwrote the first")
 	}
-	if got, err := r.Get(ctx, "ns", "fn", 1); err != nil || got.Version != 1 {
-		t.Errorf("Get fn@1 after deploying v2 = %v, %v; want version 1", got, err)
+	if versions[1].Status != FunctionStatusSuperseded {
+		t.Errorf("version 1 after deploying v2 is %q; want superseded", versions[1].Status)
 	}
 	if got, err := r.Get(ctx, "ns", "fn", 2); err != nil || got.Version != 2 {
 		t.Errorf("Get fn@2 = %v, %v; want version 2", got, err)
@@ -194,11 +194,7 @@ func TestRegister_pruningKeepsTheJobsOfAPrunedVersion(t *testing.T) {
 	if err := db.QueryRow(`SELECT function_id FROM function_jobs WHERE id = 'j1'`).Scan(&owner); err != nil {
 		t.Fatalf("the pruned version's job is gone: %v", err)
 	}
-	v2, err := r.Get(ctx, "ns", "fn", 2)
-	if err != nil {
-		t.Fatalf("Get v2: %v", err)
-	}
-	if owner != v2.ID {
-		t.Errorf("job moved to %s; want the oldest kept version %s", owner, v2.ID)
+	if v2 := versionID(t, r, "fn", 2); owner != v2 {
+		t.Errorf("job moved to %s; want the oldest kept version %s", owner, v2)
 	}
 }

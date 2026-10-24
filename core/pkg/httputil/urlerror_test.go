@@ -66,6 +66,27 @@ func TestWithoutQuery_unparseable(t *testing.T) {
 	}
 }
 
+func TestOrigin(t *testing.T) {
+	cases := map[string]string{
+		"https://user:pw@eth-mainnet.g.alchemy.com/v2/SECRET?x=1#f":  "https://eth-mainnet.g.alchemy.com",
+		"https://enterprise.blockstream.info/api/address/bc1qWALLET": "https://enterprise.blockstream.info",
+		"http://10.0.0.1:6001/v1/x":                                  "http://10.0.0.1:6001",
+		"http://[2001:db8::1]:8443/p?api-key=SECRET":                 "http://[2001:db8::1]:8443",
+		"": "",
+	}
+	for in, want := range cases {
+		if got := Origin(in); got != want {
+			t.Errorf("Origin(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestOrigin_unparseable(t *testing.T) {
+	if got := Origin("http://a b/v2/SECRET\x7f"); strings.Contains(got, "SECRET") {
+		t.Fatalf("an unparseable URL was repeated: %q", got)
+	}
+}
+
 func TestWithoutURL_keepsTheCause(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

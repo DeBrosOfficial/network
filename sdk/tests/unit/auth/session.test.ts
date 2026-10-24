@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AuthClient } from '../../../src/auth/client';
 import { MemoryStorage } from '../../../src/auth/types';
 import { HttpClient } from '../../../src/core/http';
+import { LogoutError, SDKError } from '../../../src/errors';
 
 /** A gateway stub that answers each path from a table. */
 function gateway(routes: Record<string, () => Response>) {
@@ -155,15 +156,38 @@ describe('logout', () => {
     expect(calls).not.toContain('/v1/auth/logout');
   });
 
-  it('completes the local cleanup even when the gateway refuses', async () => {
+  /**
+   * bug-385: a refused server-side logout was logged and the promise resolved,
+   * so the application believed the session was over while its tokens stayed
+   * valid on the gateway. The local cleanup still happens; the failure is now
+   * raised.
+   */
+  it('clears the local session and then says the gateway was not told', async () => {
     const { fetchImpl } = gateway({
       '/v1/auth/logout': () => json(503, { error: 'unavailable' }),
+    });
+    const { http, auth, storage } = build(fetchImpl);
+    auth.setJwt('a.jwt');
+
+    const failure = await auth.logout().catch((e) => e);
+
+    expect(failure).toBeInstanceOf(LogoutError);
+    expect(failure).toBeInstanceOf(SDKError);
+    expect(failure).toMatchObject({ httpStatus: 503 });
+    expect(failure.serverError).toMatchObject({ httpStatus: 503, message: 'unavailable' });
+    expect(http.getToken()).toBeUndefined();
+    expect(await storage.get('apiKey')).toBeNull();
+  });
+
+  it('restores the API key before saying the gateway was not told', async () => {
+    const { fetchImpl } = gateway({
+      '/v1/auth/logout': () => json(500, { error: 'boom' }),
     });
     const { http, auth } = build(fetchImpl);
     auth.setJwt('a.jwt');
 
-    await expect(auth.logout()).resolves.toBeUndefined();
-    expect(http.getToken()).toBeUndefined();
+    await expect(auth.logout({ keepApiKey: true })).rejects.toBeInstanceOf(LogoutError);
+    expect(http.getApiKey()).toBe('ak_test:ns');
   });
 
   // The three old methods still work, so nothing that calls them breaks.

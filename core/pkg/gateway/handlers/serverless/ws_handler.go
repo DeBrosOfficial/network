@@ -24,10 +24,10 @@ import (
 // the request has been proxied through `handleNamespaceGatewayRequest`
 // which REWRITES `r.Host` to the backend target's IP:port (e.g.
 // "10.0.0.6:10004") before forwarding. The original public host (e.g.
-// "ns-anchat-test.orama-devnet.network") is preserved in the
+// "ns-anchat-test.devnet.orama.network") is preserved in the
 // `X-Forwarded-Host` header. If we only compare the Origin against
 // `r.Host`, browser/RN-iOS clients (which always send Origin) are
-// rejected with 403 because their Origin's `ns-anchat-test.orama-devnet.network`
+// rejected with 403 because their Origin's `ns-anchat-test.devnet.orama.network`
 // will never match the proxied `10.0.0.6` target. Curl tests that don't
 // send Origin slip through, masking the bug.
 //
@@ -156,7 +156,7 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 	// Every frame is invoked with the identity captured below, so the socket
 	// is only as good as the token — or the capability — that opened it: the
 	// gateway's sweeper closes it once that expires or is revoked.
-	sock := h.sessions.Register(h.socketClaims(r), h.closeClient(clientID))
+	sock := h.registerSocket(r, h.closeClient(clientID))
 	defer sock.Unregister()
 
 	// Track client → namespace for ws_pubsub_bridge auth checks, and
@@ -199,11 +199,13 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 
 	callerWallet, callerIsAdmin, callerHasInvoke := h.socketCaller(r)
 	callerIP := extractRemoteIP(r)
+	callerKey := h.socketCallerKey(r)
 	// Capture custom claims at upgrade time and reuse for every frame —
 	// the JWT context is request-scoped and won't survive past upgrade.
 	callerClaims := h.getCallerClaimsFromRequest(r)
 	callerJWTSubject := h.getJWTSubjectFromRequest(r)
 	callerDeviceID := h.getDeviceIDFromRequest(r)
+	callerAttestation := h.getAttestationFromRequest(r)
 	callerCapability := socketCapability(r)
 
 	// Message loop
@@ -221,20 +223,22 @@ func (h *ServerlessHandlers) handleStatelessWebSocket(w http.ResponseWriter, r *
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 		req := &serverless.InvokeRequest{
-			Namespace:        namespace,
-			FunctionName:     name,
-			Version:          version,
-			Input:            message,
-			TriggerType:      serverless.TriggerTypeWebSocket,
-			CallerWallet:     callerWallet,
-			CallerIsAdmin:    callerIsAdmin,
-			CallerHasInvoke:  callerHasInvoke,
-			CallerIP:         callerIP,
-			CallerClaims:     callerClaims,
-			CallerJWTSubject: callerJWTSubject,
-			CallerDeviceID:   callerDeviceID,
-			CallerCapability: callerCapability,
-			WSClientID:       clientID,
+			Namespace:         namespace,
+			FunctionName:      name,
+			Version:           version,
+			Input:             message,
+			TriggerType:       serverless.TriggerTypeWebSocket,
+			CallerWallet:      callerWallet,
+			CallerIsAdmin:     callerIsAdmin,
+			CallerHasInvoke:   callerHasInvoke,
+			CallerIP:          callerIP,
+			CallerKey:         callerKey,
+			CallerClaims:      callerClaims,
+			CallerJWTSubject:  callerJWTSubject,
+			CallerDeviceID:    callerDeviceID,
+			CallerAttestation: callerAttestation,
+			CallerCapability:  callerCapability,
+			WSClientID:        clientID,
 		}
 
 		resp, err := h.invoker.Invoke(ctx, req)

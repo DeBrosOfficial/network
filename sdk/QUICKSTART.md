@@ -15,14 +15,16 @@ npm install @orama-network/orama
 import { createClient } from "@orama-network/orama";
 
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: process.env.ORAMA_API_KEY, // ak_<id>:<namespace>
 });
 ```
 
 Mint one with `orama namespace keys create --scope <profile>`. **Which profile
-depends on where the code runs:** an `app-runtime` key is safe in a browser
-bundle, an `admin` key is not — it carries the whole control plane. See
+depends on where the code runs:** a browser app that needs nothing before its
+user signs in ships no key, one that must call functions first ships
+`invoke-only`, and an `admin` key never ships — it carries the whole control
+plane. See
 [Browser and server](./README.md#browser-and-server).
 
 ### 3. Use It
@@ -71,7 +73,7 @@ never returned — in a terminal or in CI.
 These need a gateway and an API key for it:
 
 ```bash
-export GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network
+export GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network
 export GATEWAY_API_KEY=ak_your_api_key:default
 pnpm test:e2e
 ```

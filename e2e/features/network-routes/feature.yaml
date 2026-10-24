@@ -1,9 +1,9 @@
 # The network module's four routes, the peer map and topology mutation, as
 # the SDK and an operator meet them on the public name: no credential and a
 # garbage token (401 on every node), everyone who is not an operator refused
-# by the route policy (the owner and its admin key by the operator list,
-# NOT_AN_OPERATOR; a runtime member, a storage key and a lobby session by the
-# scope gate, INSUFFICIENT_SCOPE), an operator's session on another
+# by the operator list, NOT_AN_OPERATOR (the owner, its admin key, a runtime
+# member, a storage key, a lobby session, and the admin key of a namespace
+# an operator owns), an operator's session on another
 # namespace's host (NAMESPACE_MISMATCH), a forged coordination stamp, v1 and v3 (404
 # from the internet with or without a session and from a node on the
 # overlay); an operator's status (documented members only, peer id,
@@ -33,5 +33,6 @@ covers:
     - /v1/network/connect
     - /v1/network/disconnect
   claims:
-    - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#network-and-proxy: /v1/network/peers and /v1/network/status are an operator's (operator grant and the operator list), or another node's with a coordination MAC over the mesh; no longer open to anyone"
+    - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#network-and-proxy: /v1/network/peers and /v1/network/status are an operator's (a wallet session on the operator list), or another node's with a coordination MAC over the mesh; no longer open to anyone"
     - "docs/whitepaper/technical-reference/appendices/i-api-surface.md#network-and-proxy: /v1/network/connect and /v1/network/disconnect are topology mutation, never reachable by a namespace owner who is not an operator"
+    - "docs/whitepaper/technical-reference/vol1/14-authorization.md#operators: an API key is never an operator credential, even the admin key of a namespace an operator owns"

@@ -54,6 +54,18 @@ func TestRefresh_rotatesOnEveryUse(t *testing.T) {
 	whoami(t, c, next.AccessToken).Expect(t, http.StatusOK)
 }
 
+// TestRefresh_unknownNamespaceIsRefusedNotRetried: a refresh naming a
+// namespace the registry does not hold is the refusal, 401, not a 503 "retry"
+// a client would repeat for ever; the session itself is untouched
+// (docs/whitepaper/technical-reference/vol1/13-identity.md#refresh-rotation).
+func TestRefresh_unknownNamespaceIsRefusedNotRetried(t *testing.T) {
+	t.Parallel()
+	c := harness.GW(t)
+	s := signIn(t, c, newWallet(t), "")
+	expectRefreshRefused(t, refresh(t, c, s.RefreshToken, "e2e-no-such-namespace"), "a refresh into a namespace that does not exist")
+	refresh(t, c, s.RefreshToken, lobby).Expect(t, http.StatusOK)
+}
+
 // TestRefresh_replayRefusedAfterGrace: a rotated refresh token is accepted
 // once more inside the reuse grace (a client that lost the response), then
 // never again; outside the grace a replay is refused at once.

@@ -17,15 +17,19 @@ import (
 
 type deviceList struct {
 	Devices []struct {
-		ID       string `json:"id"`
-		DeviceID string `json:"device_id"`
-		Provider string `json:"provider"`
+		ID         string `json:"id"`
+		DeviceID   string `json:"device_id"`
+		Provider   string `json:"provider"`
+		Platform   string `json:"platform"`
+		AppVersion string `json:"app_version"`
+		LastSeen   int64  `json:"last_seen"`
 	} `json:"devices"`
 }
 
 func register(t testing.TB, c *gw.Client, who tenancy.Cred, deviceID, provider, token string) *gw.Response {
 	t.Helper()
-	return tenancy.Post(t, c, pathDevices, who, map[string]string{"device_id": deviceID, "provider": provider, "token": token, "platform": "android"})
+	return tenancy.Post(t, c, pathDevices, who, map[string]string{"device_id": deviceID, "provider": provider, "token": token,
+		"platform": registeredPlatform, "app_version": registeredAppVersion})
 }
 
 func devices(t testing.TB, c *gw.Client, who tenancy.Cred) deviceList {
@@ -37,8 +41,14 @@ func devices(t testing.TB, c *gw.Client, who tenancy.Cred) deviceList {
 	return l
 }
 
+// What register sends, and the list must carry back.
+const (
+	registeredPlatform   = "android"
+	registeredAppVersion = "3.1.4"
+)
+
 // TestDevices_registerListDelete: a user registers, lists (the token is not
-// returned) and deletes their own device; deleting it twice or someone
+// returned, the platform, app version and last-seen time are) and deletes their own device; deleting it twice or someone
 // else's is 404; malformed registrations are 400
 // (website/src/docs/developer/push-notifications.mdx#step-5--register-devices-from-your-client).
 func TestDevices_registerListDelete(t *testing.T) {
@@ -53,7 +63,11 @@ func TestDevices_registerListDelete(t *testing.T) {
 	l := devices(t, n.Client, owner)
 	raw, _ := json.Marshal(l)
 	if len(l.Devices) != 1 || l.Devices[0].DeviceID != "phone-1" || strings.Contains(string(raw), token) {
-		t.Errorf("devices list %s", raw)
+		t.Fatalf("devices list %s", raw)
+	}
+	if d := l.Devices[0]; d.Platform != registeredPlatform || d.AppVersion != registeredAppVersion || d.LastSeen == 0 {
+		t.Errorf("listed platform=%q app_version=%q last_seen=%d, want %q, %q and the registration time (bug-435)",
+			d.Platform, d.AppVersion, d.LastSeen, registeredPlatform, registeredAppVersion)
 	}
 	other := tenancy.Cred{Bearer: tenancy.Member(t, n, tenancy.RoleRuntime).Token()}
 	status(t, "another user deleting my device", tenancy.Send(t, n.Client, http.MethodDelete, pathDevices+"/"+reg.ID, other, nil), http.StatusNotFound)

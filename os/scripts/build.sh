@@ -8,6 +8,10 @@
 #
 # Usage:
 #   ORAMA_VERSION=1.0.0 ARCH=amd64 ./scripts/build.sh
+#
+# ORAMA_UPDATE_URL (optional) bakes an update endpoint other than
+# https://updates.orama.network/v1/latest into the image, e.g. a test release
+# server for a QEMU image. It must be an absolute https URL without a query.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -87,8 +91,9 @@ cp -r "$BUILDROOT_DIR/configs" "$BUILDROOT_SRC/"
 mkdir -p "$BUILD_OUTPUT/images/orama-bins"
 cp "$BINS_DIR"/* "$BUILD_OUTPUT/images/orama-bins/" 2>/dev/null || true
 
-# Set version for post_build.sh
+# Set version and update endpoint for post_build.sh
 export ORAMA_VERSION="$VERSION"
+export ORAMA_UPDATE_URL="${ORAMA_UPDATE_URL:-}"
 export BINARIES_DIR="$BUILD_OUTPUT/images"
 
 # Run Buildroot
@@ -108,6 +113,13 @@ fi
 if [ -f "$BUILD_OUTPUT/images/orama-os.qcow2" ]; then
     cp "$BUILD_OUTPUT/images/orama-os.qcow2" "$OUTPUT_DIR/${FINAL_PREFIX}.qcow2"
     echo "qcow2:      $OUTPUT_DIR/${FINAL_PREFIX}.qcow2"
+fi
+
+# The update payload: the root filesystem an installed node's agent writes to
+# its standby partition (os/agent/internal/update). scripts/sign.sh signs it.
+if [ -f "$BUILD_OUTPUT/images/rootfs.squashfs" ]; then
+    cp "$BUILD_OUTPUT/images/rootfs.squashfs" "$OUTPUT_DIR/${FINAL_PREFIX}.rootfs.squashfs"
+    echo "Update:     $OUTPUT_DIR/${FINAL_PREFIX}.rootfs.squashfs"
 fi
 
 if [ -f "$BUILD_OUTPUT/images/rootfs.roothash" ]; then

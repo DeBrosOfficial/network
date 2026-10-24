@@ -20,6 +20,7 @@ func TestNetworkRoutes_asOperator(t *testing.T) {
 		run  func(*testing.T, *ns.Namespace)
 	}{
 		{"NetworkRoutes_otherNamespaceCredentialRefused", networkRoutesOtherNamespaceCredentialRefused},
+		{"NetworkRoutes_operatorNamespaceKeyRefused", networkRoutesOperatorNamespaceKeyRefused},
 		{"NetworkConnect_malformedInputIs4xx", networkConnectMalformedInputIs4xx},
 		{"NetworkConnect_hostileTargetsNotConnected", networkConnectHostileTargetsNotConnected},
 		{"NetworkDisconnect_unheldPeerIdempotent", networkDisconnectUnheldPeerIdempotent},

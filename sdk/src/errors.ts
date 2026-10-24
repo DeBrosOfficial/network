@@ -180,6 +180,13 @@ export const AuthCode = {
   DeviceNotFound: "DEVICE_NOT_FOUND",
   /** The device key is enrolled for another account. */
   DeviceKeyTaken: "DEVICE_KEY_TAKEN",
+  /** A device-flow user code is not the shape the gateway issues. */
+  DeviceUserCodeMalformed: "DEVICE_USER_CODE_MALFORMED",
+  /**
+   * The pending device-flow login is for another namespace or account, or is
+   * the other kind (a device link offered to a wallet, a plain login to a device).
+   */
+  DeviceLoginMismatch: "DEVICE_LOGIN_MISMATCH",
   /** The session policy is set, but revoking existing sign-in keys stopped partway. Repeat the request. */
   PolicySweepIncomplete: "POLICY_SWEEP_INCOMPLETE",
   /**
@@ -189,6 +196,19 @@ export const AuthCode = {
    * or ask the namespace's owner for an invitation.
    */
   SignInClosed: "SIGN_IN_CLOSED",
+
+  // --- Device attestation --------------------------------------------------
+  /**
+   * The namespace admits only its own app on an attested device, and this
+   * session's device has not attested (or its attestation ran out). Attest
+   * (`/v1/attest/challenge`, then `/v1/attest/ios` or `/v1/attest/android`) and
+   * use the token it returns.
+   */
+  AttestationRequired: "ATTESTATION_REQUIRED",
+  /** The attestation is of an app, platform, environment or OS the namespace does not admit, or the proof was refused. */
+  AttestationInvalid: "ATTESTATION_INVALID",
+  /** The build is older than the namespace admits: update the app. */
+  AppUpdateRequired: "APP_UPDATE_REQUIRED",
 } as const;
 
 export type AuthCode = (typeof AuthCode)[keyof typeof AuthCode];
@@ -317,6 +337,37 @@ export class RevokedCredentialError extends AuthError {
 }
 
 /**
+ * The codes a function invoke fails with, beside the auth codes above.
+ *
+ * Mirrors `core/pkg/httputil/rpc_error.go`; the list only ever grows.
+ */
+export const FunctionCode = {
+  /**
+   * 429: refused before the function ran (an invoke rate limit). Safe to send
+   * again after `Retry-After`.
+   */
+  RateLimited: "RATE_LIMITED",
+  /**
+   * 504: the function ran and was stopped at its timeout. What it did before it
+   * was stopped may have happened, so the SDK never sends it again on its own;
+   * repeat it only if the call is idempotent.
+   */
+  Timeout: "FUNCTION_TIMEOUT",
+  /** 503: its code could not be loaded on this gateway. Safe to send again. */
+  Unavailable: "FUNCTION_UNAVAILABLE",
+  /** 500: the function ran and returned or raised an error. */
+  ExecutionFailed: "FUNCTION_EXECUTION_FAILED",
+  /**
+   * 404: `name@N` named a version a later deploy or a rollback replaced. Only
+   * the current version of a function runs; call it by name, or have the
+   * owner roll back to make that version current. Not retryable.
+   */
+  VersionSuperseded: "FUNCTION_VERSION_SUPERSEDED",
+} as const;
+
+export type FunctionCode = (typeof FunctionCode)[keyof typeof FunctionCode];
+
+/**
  * The codes of the relayed-fetch path (`storage.fetchWith`).
  *
  * `FetchCap*` come from the storage node when it refuses a fetch capability;
@@ -394,5 +445,29 @@ export class FetchCapError extends SDKError {
   ) {
     super(message, httpStatus, code, details);
     this.name = "FetchCapError";
+  }
+}
+
+/**
+ * The gateway was not told about a logout.
+ *
+ * `logout` always clears the local session, so this client is signed out when
+ * it is raised. What failed is ending the session on the gateway: its tokens
+ * stay valid there until they expire, which on a shared or public device is
+ * worth telling the user. `httpStatus` and `code` are the failed request's,
+ * and `serverError` is that error itself.
+ */
+export class LogoutError extends SDKError {
+  public readonly serverError: SDKError;
+
+  constructor(serverError: SDKError) {
+    super(
+      `signed out on this device, but the gateway did not end the session: ${serverError.message}`,
+      serverError.httpStatus,
+      serverError.code,
+      serverError.details
+    );
+    this.name = "LogoutError";
+    this.serverError = serverError;
   }
 }

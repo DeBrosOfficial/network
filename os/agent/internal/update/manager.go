@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -30,8 +31,15 @@ const (
 	// CheckInterval is how often we check for updates.
 	CheckInterval = 1 * time.Hour
 
-	// UpdateURL is the endpoint to check for new versions.
-	UpdateURL = "https://updates.orama.network/v1/latest"
+	// DefaultUpdateURL is the endpoint the agent checks for new versions when
+	// the image names none in UpdateURLPath.
+	DefaultUpdateURL = "https://updates.orama.network/v1/latest"
+
+	// UpdateURLPath overrides DefaultUpdateURL. It lives on the read-only,
+	// dm-verity rootfs and is written at image build time (ORAMA_UPDATE_URL in
+	// os/scripts/build.sh), so only whoever builds the image can point it
+	// elsewhere, e.g. a QEMU test image at a test release server.
+	UpdateURLPath = "/etc/orama/update-url"
 
 	// PartitionA is the rootfs-A device.
 	PartitionA = "/dev/sda1"
@@ -52,16 +60,48 @@ type VersionInfo struct {
 
 // Manager handles OTA updates.
 type Manager struct {
+	updateURL string
+	client    *http.Client
+
 	mu      sync.Mutex
 	stopCh  chan struct{}
 	stopped bool
 }
 
-// NewManager creates a new update manager.
-func NewManager() *Manager {
+// NewManager creates an update manager that checks updateURL, as returned by
+// ResolveUpdateURL.
+func NewManager(updateURL string) *Manager {
 	return &Manager{
-		stopCh: make(chan struct{}),
+		updateURL: updateURL,
+		client:    http.DefaultClient,
+		stopCh:    make(chan struct{}),
 	}
+}
+
+// ResolveUpdateURL returns the update endpoint the image names in path, or
+// DefaultUpdateURL when the image names none. A file that is present but does
+// not hold an absolute https URL without a query is an error: the image was
+// built wrong, and silently using the default would hide that.
+func ResolveUpdateURL(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return DefaultUpdateURL, nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read update URL %s: %w", path, err)
+	}
+	raw := strings.TrimSpace(string(data))
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("update URL in %s: %w", path, err)
+	}
+	if u.Scheme != "https" || u.Host == "" {
+		return "", fmt.Errorf("update URL in %s is %q: it must be an absolute https URL", path, raw)
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("update URL in %s is %q: it must not carry a query or fragment (the agent adds ?arch=)", path, raw)
+	}
+	return raw, nil
 }
 
 // RunLoop periodically checks for updates and applies them.
@@ -105,7 +145,7 @@ func (m *Manager) Stop() {
 func (m *Manager) checkAndApply() error {
 	arch := detectArch()
 
-	resp, err := http.Get(fmt.Sprintf("%s?arch=%s", UpdateURL, arch))
+	resp, err := m.client.Get(m.updateURL + "?" + url.Values{"arch": {arch}}.Encode())
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -170,7 +210,7 @@ func (m *Manager) checkAndApply() error {
 func (m *Manager) download(info VersionInfo) (string, error) {
 	log.Printf("downloading update %s (%d bytes)", info.Version, info.Size)
 
-	resp, err := http.Get(info.URL)
+	resp, err := m.client.Get(info.URL)
 	if err != nil {
 		return "", err
 	}

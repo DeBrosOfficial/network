@@ -152,12 +152,13 @@ func TestValidateConfig_Empty(t *testing.T) {
 
 func TestValidateConfig_ValidMinimal(t *testing.T) {
 	cfg := &Config{
-		ListenAddr:      ":8080",
-		ClientNamespace: "default",
-		RQLiteDSN:       "http://10.0.0.1:10100",
-		StateDir:        "/opt/orama/.orama/data/namespaces/default/gateway",
-		BaseDomain:      "example.com",
-		NodePeerID:      testNodePeerID,
+		ListenAddr:       ":8080",
+		ClientNamespace:  "default",
+		RQLiteDSN:        "http://10.0.0.1:10100",
+		StateDir:         "/opt/orama/.orama/data/namespaces/default/gateway",
+		BaseDomain:       "example.com",
+		NodePeerID:       testNodePeerID,
+		APIKeyHMACSecret: testAPIKeyHMACSecret,
 	}
 	errs := cfg.ValidateConfig()
 
@@ -281,17 +282,40 @@ func TestValidateConfig_InvalidRQLiteDSN(t *testing.T) {
 
 func TestValidateConfig_DomainNameWithoutHTTPSIsFine(t *testing.T) {
 	cfg := &Config{
-		ListenAddr:      ":10104",
-		ClientNamespace: "default",
-		RQLiteDSN:       "http://10.0.0.1:10100",
-		DomainName:      "example.com",
-		BaseDomain:      "example.com",
-		StateDir:        "/opt/orama/.orama/data/namespaces/default/gateway",
-		NodePeerID:      testNodePeerID,
+		ListenAddr:       ":10104",
+		ClientNamespace:  "default",
+		RQLiteDSN:        "http://10.0.0.1:10100",
+		DomainName:       "example.com",
+		BaseDomain:       "example.com",
+		StateDir:         "/opt/orama/.orama/data/namespaces/default/gateway",
+		NodePeerID:       testNodePeerID,
+		APIKeyHMACSecret: testAPIKeyHMACSecret,
 	}
 	errs := cfg.ValidateConfig()
 	if len(errs) > 0 {
 		t.Errorf("domain_name without enable_https must be valid (Caddy terminates TLS), got: %v", errs)
+	}
+}
+
+// Every API key is stored and looked up as its HMAC under the secret, so a
+// gateway without one is refused at config load: there is no form a key could
+// be stored or compared in other than the key itself.
+func TestValidateConfig_MissingAPIKeyHMACSecretRejected(t *testing.T) {
+	cfg := &Config{
+		ListenAddr:       ":8080",
+		ClientNamespace:  "default",
+		RQLiteDSN:        "http://10.0.0.1:10100",
+		StateDir:         "/opt/orama/.orama/data/namespaces/default/gateway",
+		BaseDomain:       "example.com",
+		NodePeerID:       testNodePeerID,
+		APIKeyHMACSecret: testAPIKeyHMACSecret,
+	}
+	for _, secret := range []string{"", "   "} {
+		cfg.APIKeyHMACSecret = secret
+		errs := cfg.ValidateConfig()
+		if len(errs) != 1 || !strings.Contains(errs[0].Error(), "api_key_hmac_secret") {
+			t.Errorf("api_key_hmac_secret %q: errors %v, want exactly the missing secret", secret, errs)
+		}
 	}
 }
 
@@ -352,12 +376,13 @@ func TestValidateConfig_RelativeStateDirRejected(t *testing.T) {
 func TestValidateConfig_MissingBaseDomainRejected(t *testing.T) {
 	for _, base := range []string{"", "   "} {
 		cfg := &Config{
-			ListenAddr:      ":10104",
-			ClientNamespace: "index",
-			RQLiteDSN:       "http://10.0.0.1:10100",
-			StateDir:        "/opt/orama/.orama/data/namespaces/index/gateway",
-			BaseDomain:      base,
-			NodePeerID:      testNodePeerID,
+			ListenAddr:       ":10104",
+			ClientNamespace:  "index",
+			RQLiteDSN:        "http://10.0.0.1:10100",
+			StateDir:         "/opt/orama/.orama/data/namespaces/index/gateway",
+			BaseDomain:       base,
+			NodePeerID:       testNodePeerID,
+			APIKeyHMACSecret: testAPIKeyHMACSecret,
 		}
 		errs := cfg.ValidateConfig()
 		if len(errs) != 1 || !strings.Contains(errs[0].Error(), "domain_name") {
@@ -369,12 +394,13 @@ func TestValidateConfig_MissingBaseDomainRejected(t *testing.T) {
 func TestValidateConfig_BaseDomainMustBeADomain(t *testing.T) {
 	cfg := func(base string) *Config {
 		return &Config{
-			ListenAddr:      ":10104",
-			ClientNamespace: "index",
-			RQLiteDSN:       "http://10.0.0.1:10100",
-			StateDir:        "/opt/orama/.orama/data/namespaces/index/gateway",
-			BaseDomain:      base,
-			NodePeerID:      testNodePeerID,
+			ListenAddr:       ":10104",
+			ClientNamespace:  "index",
+			RQLiteDSN:        "http://10.0.0.1:10100",
+			StateDir:         "/opt/orama/.orama/data/namespaces/index/gateway",
+			BaseDomain:       base,
+			NodePeerID:       testNodePeerID,
+			APIKeyHMACSecret: testAPIKeyHMACSecret,
 		}
 	}
 	for _, bad := range []string{".", "com", "example..com", "-x.com", "x-.com", "a b.com", "example.com.", "*.example.com", "Example.COM", strings.Repeat("a.", 127) + "com"} {
@@ -382,7 +408,7 @@ func TestValidateConfig_BaseDomainMustBeADomain(t *testing.T) {
 			t.Errorf("base domain %q: got %v, want the domain_name error", bad, errs)
 		}
 	}
-	for _, good := range []string{"example.com", "orama-devnet.network", "a.b.c.example.com"} {
+	for _, good := range []string{"example.com", "devnet.orama.network", "a.b.c.example.com"} {
 		if errs := cfg(good).ValidateConfig(); len(errs) != 0 {
 			t.Errorf("base domain %q refused: %v", good, errs)
 		}
@@ -392,16 +418,20 @@ func TestValidateConfig_BaseDomainMustBeADomain(t *testing.T) {
 // testNodePeerID is a well-formed libp2p peer id.
 const testNodePeerID = "12D3KooWHbcFcrGPXKUrHcxvd8MXEeUzRYyvY8fQcpEBxncSUwhj"
 
+// testAPIKeyHMACSecret is the API key HMAC secret every valid config carries.
+const testAPIKeyHMACSecret = "test-hmac-secret"
+
 // validNodeConfig is a config that passes ValidateConfig, for tests that
 // change one field.
 func validNodeConfig() *Config {
 	return &Config{
-		ListenAddr:      ":8080",
-		ClientNamespace: "default",
-		RQLiteDSN:       "http://10.0.0.1:10100",
-		StateDir:        "/opt/orama/.orama/data/namespaces/default/gateway",
-		BaseDomain:      "example.com",
-		NodePeerID:      testNodePeerID,
+		ListenAddr:       ":8080",
+		ClientNamespace:  "default",
+		RQLiteDSN:        "http://10.0.0.1:10100",
+		StateDir:         "/opt/orama/.orama/data/namespaces/default/gateway",
+		BaseDomain:       "example.com",
+		NodePeerID:       testNodePeerID,
+		APIKeyHMACSecret: testAPIKeyHMACSecret,
 	}
 }
 
@@ -443,7 +473,7 @@ func TestValidateConfig_relayAllowedSuffixes(t *testing.T) {
 		return &Config{
 			ListenAddr: ":8080", ClientNamespace: "default", RQLiteDSN: "http://10.0.0.1:10100",
 			StateDir: "/opt/orama/.orama/data/namespaces/default/gateway", BaseDomain: "example.com",
-			NodePeerID: testNodePeerID, RelayAllowedSuffixes: suffixes,
+			NodePeerID: testNodePeerID, APIKeyHMACSecret: testAPIKeyHMACSecret, RelayAllowedSuffixes: suffixes,
 		}
 	}
 	if errs := base("partner.example", "other.example.org").ValidateConfig(); len(errs) != 0 {
@@ -474,6 +504,7 @@ func TestValidateConfig_faucetKeyFileMustBeAbsolute(t *testing.T) {
 	cfg := &Config{
 		ListenAddr: ":8080", ClientNamespace: "default", RQLiteDSN: "http://10.0.0.1:10100",
 		StateDir: "/opt/orama/.orama/data/namespaces/default/gateway", BaseDomain: "example.com", NodePeerID: testNodePeerID,
+		APIKeyHMACSecret: testAPIKeyHMACSecret,
 	}
 	for _, ok := range []string{"", "/opt/orama/.orama/secrets/chain-faucet.key"} {
 		cfg.FaucetKeyFile = ok

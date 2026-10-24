@@ -88,6 +88,10 @@ func (m *mockHostServices) CacheIncrBy(ctx context.Context, key string, delta in
 	return 0, nil
 }
 
+func (m *mockHostServices) CacheIncrByTTL(ctx context.Context, key string, delta, ttlSeconds int64) (int64, error) {
+	return 0, nil
+}
+
 func (m *mockHostServices) StoragePut(ctx context.Context, data []byte) (string, error) {
 	// Mock implementation - just return a fake CID
 	return "QmTest123", nil
@@ -207,6 +211,10 @@ func (m *mockHostServices) GetCallerJWTSubject(ctx context.Context) string {
 }
 
 func (m *mockHostServices) GetCallerDeviceID(ctx context.Context) string {
+	return ""
+}
+
+func (m *mockHostServices) GetCallerAttestation(ctx context.Context) string {
 	return ""
 }
 

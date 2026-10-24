@@ -54,7 +54,7 @@ func TestNodeYAMLWithACMECA_ParsesAsConfig(t *testing.T) {
 	dir := t.TempDir()
 	cg := NewConfigGenerator(dir)
 	cg.SetACMECA("https://acme-staging-v02.api.letsencrypt.org/directory")
-	rendered, err := cg.GenerateNodeConfig(nil, "10.0.0.5", "", "stagenet.example", "stagenet.example", false)
+	rendered, err := cg.GenerateNodeConfig(nil, "10.0.0.5", "", "testnet.example", "testnet.example", false)
 	if err != nil {
 		t.Fatal(err)
 	}

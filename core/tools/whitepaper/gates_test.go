@@ -180,11 +180,11 @@ func TestLintStructure(t *testing.T) {
 
 func TestGithubSlug(t *testing.T) {
 	cases := map[string]string{
-		"The boot graph":                "the-boot-graph",
-		"Failure modes":                 "failure-modes",
+		"The boot graph":                 "the-boot-graph",
+		"Failure modes":                  "failure-modes",
 		"`SafeToRemoveVoter` and quorum": "safetoremovevoter-and-quorum",
-		"Raft: bootstrap vs. rejoin":    "raft-bootstrap-vs-rejoin",
-		"Pub/sub":                       "pubsub",
+		"Raft: bootstrap vs. rejoin":     "raft-bootstrap-vs-rejoin",
+		"Pub/sub":                        "pubsub",
 	}
 	for in, want := range cases {
 		if got := githubSlug(in); got != want {

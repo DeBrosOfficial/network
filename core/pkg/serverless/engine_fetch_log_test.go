@@ -14,10 +14,14 @@ import (
 )
 
 const (
-	engineFetchSecret = "SECRET-QUERY-VALUE"
-	engineFetchHost   = "hidden-destination.example"
-	engineFetchURL    = "https://" + engineFetchHost + "/private/path?api_key=" + engineFetchSecret
+	engineFetchSecret     = "SECRET-QUERY-VALUE"
+	engineFetchPathSecret = "SECRET-PATH-KEY"
+	engineFetchHost       = "hidden-destination.example"
+	engineFetchURL        = "https://user:pw@" + engineFetchHost + "/v2/" + engineFetchPathSecret + "/private/path?api_key=" + engineFetchSecret
 )
+
+// engineFetchURLParts is every part of engineFetchURL after the origin.
+var engineFetchURLParts = []string{engineFetchSecret, engineFetchPathSecret, "user:pw", "api_key", "/v2/", "/private/path"}
 
 // failingFetchServices fails both fetch host functions with the error an HTTP
 // client gives: a *url.Error that quotes the whole URL.
@@ -62,7 +66,7 @@ func engineWithObserver(t *testing.T) (*Engine, func() string) {
 	}
 }
 
-func TestHTTPFetchHostFunction_failureLogDropsTheQueryString(t *testing.T) {
+func TestHTTPFetchHostFunction_failureLogNamesOnlyTheOrigin(t *testing.T) {
 	e, logged := engineWithObserver(t)
 	ctx := context.Background()
 	mod, err := e.runtime.Instantiate(ctx, guestMemory)
@@ -79,13 +83,13 @@ func TestHTTPFetchHostFunction_failureLogDropsTheQueryString(t *testing.T) {
 	if log == "" {
 		t.Fatal("nothing was logged, so the test checks nothing")
 	}
-	for _, leaked := range []string{engineFetchSecret, "api_key"} {
+	for _, leaked := range engineFetchURLParts {
 		if strings.Contains(log, leaked) {
-			t.Errorf("the http_fetch failure log quotes the query (%q): %s", leaked, log)
+			t.Errorf("the http_fetch failure log names more than the origin (%q): %s", leaked, log)
 		}
 	}
-	if !strings.Contains(log, engineFetchHost+"/private/path") || !strings.Contains(log, "connection reset") {
-		t.Errorf("the log lost the endpoint or the cause: %s", log)
+	if !strings.Contains(log, "origin:https://"+engineFetchHost) || !strings.Contains(log, "connection reset") {
+		t.Errorf("the log lost the origin or the cause: %s", log)
 	}
 }
 
@@ -106,7 +110,7 @@ func TestAnonFetchHostFunction_failureLogNamesNoDestination(t *testing.T) {
 	if log == "" {
 		t.Fatal("nothing was logged, so the test checks nothing")
 	}
-	for _, leaked := range []string{engineFetchHost, "/private/path", engineFetchSecret, "api_key", "url:"} {
+	for _, leaked := range append([]string{engineFetchHost, "url:", "origin:"}, engineFetchURLParts...) {
 		if strings.Contains(log, leaked) {
 			t.Errorf("the anon_fetch failure log names %q: %s", leaked, log)
 		}

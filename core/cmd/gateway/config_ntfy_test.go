@@ -6,6 +6,7 @@ import (
 
 	"github.com/Orama-Network/orama/core/pkg/config"
 	"github.com/Orama-Network/orama/core/pkg/gateway"
+	"github.com/Orama-Network/orama/core/pkg/gatewayspec"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,10 +18,10 @@ import (
 // provider would go unregistered again and every Android push would fail with
 // no HTTP request attempted.
 func TestSpawnedGatewayConfig_loadsNtfyBaseURL(t *testing.T) {
-	const base = "https://push.orama-devnet.network"
+	const base = "https://push.devnet.orama.network"
 
 	// Produce the exact YAML a spawned namespace gateway receives.
-	written := gateway.GatewayYAMLConfig{
+	written := gatewayspec.GatewayYAMLConfig{
 		ListenAddr:      ":6001",
 		ClientNamespace: "anchat-v2",
 		RQLiteDSN:       "http://localhost:10005",
@@ -66,7 +67,7 @@ func TestSpawnedGatewayConfig_loadsNtfyBaseURL(t *testing.T) {
 // stays disabled unless the namespace supplies its own base_url — which is the
 // documented, fail-loud behaviour.
 func TestSpawnedGatewayConfig_ntfyBaseURLAbsentLeavesConfigEmpty(t *testing.T) {
-	written := gateway.GatewayYAMLConfig{
+	written := gatewayspec.GatewayYAMLConfig{
 		ListenAddr:      ":6001",
 		ClientNamespace: "anchat-v2",
 		RQLiteDSN:       "http://localhost:10005",

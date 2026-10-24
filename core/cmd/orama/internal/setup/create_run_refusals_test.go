@@ -49,7 +49,7 @@ func TestRunCreate_badReleaseRootTouchesNothing(t *testing.T) {
 
 func TestRunCreate_anotherClustersEnvironmentIsRefused(t *testing.T) {
 	h := newCreateHarness(t)
-	h.rec.hosts["stagenet"] = []RecordedNode{{Host: "198.51.100.9", User: "root", Role: "node"}, {Host: fiveIPs[0], User: "root", Role: "node"}}
+	h.rec.hosts["testnet"] = []RecordedNode{{Host: "198.51.100.9", User: "root", Role: "node"}, {Host: fiveIPs[0], User: "root", Role: "node"}}
 	_, err := Run(context.Background(), h.createOpts(fiveIPs[0]), h.deps)
 	if clierr.CodeOf(err) != clierr.CodeUsage || !strings.Contains(err.Error(), "198.51.100.9") || !strings.Contains(err.Error(), "--env") {
 		t.Fatalf("err = %v", err)
@@ -58,7 +58,7 @@ func TestRunCreate_anotherClustersEnvironmentIsRefused(t *testing.T) {
 
 func TestRunCreate_theSameMachinesRecordedByAnEarlierRunAreFine(t *testing.T) {
 	h := newCreateHarness(t)
-	h.rec.hosts["stagenet"] = []RecordedNode{{Host: fiveIPs[0], User: "root", Role: "node"}}
+	h.rec.hosts["testnet"] = []RecordedNode{{Host: fiveIPs[0], User: "root", Role: "node"}}
 	h.mustCreate(t, h.createOpts(fiveIPs[0]))
 	if h.w.index("cluster "+fiveIPs[0]+" create") < 0 {
 		t.Error("an environment left by a wiped network must not make the first machine join a cluster that is gone")
@@ -131,7 +131,7 @@ func TestRunCreate_noFaucetNoEpochWait(t *testing.T) {
 	if h.w.count("epoch ") != 0 {
 		t.Error("the epoch was awaited on a network with no faucet")
 	}
-	data, _ := os.ReadFile(filepath.Join(h.publishDir, "stagenet", "manifest.json"))
+	data, _ := os.ReadFile(filepath.Join(h.publishDir, "testnet", "manifest.json"))
 	if m, err := netregistry.ParseManifest(data); err != nil || m.Faucet {
 		t.Errorf("manifest faucet = %v (%v), want false", m, err)
 	}
@@ -162,7 +162,7 @@ func TestRunCreate_theDomainResumeCommandCreatesAgain(t *testing.T) {
 	opts := h.createOpts(fiveIPs[0])
 	opts.Domain = "cluster.example.org"
 	_, err := Run(context.Background(), opts, h.deps)
-	if err == nil || !strings.Contains(err.Error(), "--create-network stagenet") || strings.Contains(err.Error(), "--network ") {
+	if err == nil || !strings.Contains(err.Error(), "--create-network testnet") || strings.Contains(err.Error(), "--network ") {
 		t.Fatalf("the command that resumes a creation creates, it does not join: %v", err)
 	}
 }
@@ -198,13 +198,13 @@ func TestRunCreate_aBuilderThatAddsStateIsCaughtByTheWitness(t *testing.T) {
 	if h.w.count("put-genesis ") != 0 || h.w.count("startglobal ") != 0 {
 		t.Error("a genesis nobody could agree on was handed out")
 	}
-	if _, statErr := os.Stat(filepath.Join(h.publishDir, "stagenet")); statErr == nil {
+	if _, statErr := os.Stat(filepath.Join(h.publishDir, "testnet")); statErr == nil {
 		t.Error("a genesis nobody could agree on was published")
 	}
 }
 
 func TestRunCreate_aKeptGenesisThatTheWitnessDoesNotBuildIsRefused(t *testing.T) {
-	tampered, err := ApplyConsensusParams(genesisFor{chainID: "orama-stagenet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
+	tampered, err := ApplyConsensusParams(genesisFor{chainID: "orama-testnet-6", seats: fakeSeats(2), allowStake: true, faucet: true}.json())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestRunCreate_aKeptGenesisThatTheWitnessDoesNotBuildIsRefused(t *testing.T)
 		fiveIPs[1]: {Arch: "amd64", Hardware: goodHardware(), ClusterInstalled: true, GlobalInstalled: true},
 	}
 	h.seats.carries(fiveIPs[0], tampered, false)
-	h.seats.carries(fiveIPs[1], placeholderGenesis("orama-stagenet-6"), false)
+	h.seats.carries(fiveIPs[1], placeholderGenesis("orama-testnet-6"), false)
 	_, err = Run(context.Background(), h.createOpts(fiveIPs[:2]...), h.deps)
 	if err == nil || !strings.Contains(err.Error(), "app_state.houses") || !strings.Contains(err.Error(), "--force-new-genesis") {
 		t.Fatalf("a genesis a machine says it carries must be what another machine builds: %v", err)

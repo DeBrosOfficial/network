@@ -78,7 +78,7 @@ func (f *Flags) resolveBaseDomain() error {
 	}
 	if !isatty.IsTerminal(os.Stdin.Fd()) {
 		return clierr.Usage("--base-domain is required when there is no terminal to ask\n" +
-			"  e.g. --base-domain orama-devnet.network")
+			"  e.g. --base-domain devnet.orama.network")
 	}
 	domain, err := promptForBaseDomain(os.Stdin)
 	if err != nil {

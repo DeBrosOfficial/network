@@ -60,7 +60,7 @@ orama-device-proof-v1
 <id>
 ```
 
-`iat` must be within 60 seconds of the gateway's clock, and `id` is spent in the nonce table, so a proof is good once, for one action on one credential. A refresh without the proof is refused before anything is spent, so a thief holding only the refresh token cannot use it up.
+`iat` must be within 60 seconds of the gateway's clock, and `id` is spent in the nonce table, so a proof is good once, for one action on one credential. In a namespace that attests devices, an iOS app's refresh proof also carries `app_attest`, an App Attest assertion over `SHA-256(id ‖ device_id)` ([Device attestation](/docs/developer/device-attestation)). A refresh without the proof is refused before anything is spent, so a thief holding only the refresh token cannot use it up.
 
 ## Revoking a device
 
@@ -133,4 +133,6 @@ A gateway that predates devices knows nothing of the policy, of device-bound sig
 | `DEVICE_PENDING` | The device waits for another of the account's devices to approve it (403, or 202 on sign-in) |
 | `DEVICE_NOT_FOUND` | The account has no such device (404) |
 | `DEVICE_KEY_TAKEN` | The key is enrolled for another account (403) |
+| `DEVICE_USER_CODE_MALFORMED` | The user code is not the shape the gateway issues (400) |
+| `DEVICE_LOGIN_MISMATCH` | The pending login is for another namespace or account, or is the other kind: a device link offered to a wallet, or a plain login to a device (400) |
 | `POLICY_SWEEP_INCOMPLETE` | The policy is set, but revoking end users' existing keys stopped partway. Repeat the `PUT` (503) |

@@ -59,7 +59,7 @@ func createTestService(t *testing.T) *Service {
 	mockDB := &mockDatabaseClient{}
 	mockClient := &mockNetworkClient{db: mockDB}
 
-	s, err := NewService(logger, mockClient, string(keyPEM), "test-ns")
+	s, err := NewService(logger, mockClient, string(keyPEM), "test-ns", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("failed to create service: %v", err)
 	}

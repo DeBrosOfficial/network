@@ -25,11 +25,11 @@ func TestDesired_publishesOneRecordPerPublicAddress(t *testing.T) {
 	records, refused := Desired([]Named{
 		{Name: "alice", IPs: []string{"93.184.216.34", "2606:4700:4700::1111"}},
 		{Name: "bob-node", IPs: []string{"1.1.1.1"}},
-	}, "stagenet.orama.network")
+	}, "testnet.orama.network")
 	want := []Record{
-		{"alice.stagenet.orama.network.", "A", "93.184.216.34"},
-		{"alice.stagenet.orama.network.", "AAAA", "2606:4700:4700::1111"},
-		{"bob-node.stagenet.orama.network.", "A", "1.1.1.1"},
+		{"alice.testnet.orama.network.", "A", "93.184.216.34"},
+		{"alice.testnet.orama.network.", "AAAA", "2606:4700:4700::1111"},
+		{"bob-node.testnet.orama.network.", "A", "1.1.1.1"},
 	}
 	if len(records) != len(want) {
 		t.Fatalf("records = %v, want %v (refused %v)", records, want, refused)
@@ -47,7 +47,7 @@ func TestDesired_refusesWhatMustNotBePublished(t *testing.T) {
 		{Name: "ns1", IPs: []string{"93.184.216.50"}},
 		{Name: "Bad_Name", IPs: []string{"93.184.216.51"}},
 		{Name: "empty", IPs: nil},
-	}, "stagenet.orama.network")
+	}, "testnet.orama.network")
 	if len(records) != 1 || records[0].Value != "93.184.216.34" {
 		t.Fatalf("records = %v, want only 93.184.216.34", records)
 	}
@@ -64,14 +64,14 @@ func TestDesired_refusesWhatMustNotBePublished(t *testing.T) {
 func TestDesired_normalisesAndDeduplicates(t *testing.T) {
 	records, _ := Desired([]Named{
 		{Name: "alice", IPs: []string{"93.184.216.34", "93.184.216.34", "::ffff:93.184.216.34", "2606:4700:4700:0000:0000:0000:0000:1111", "2606:4700:4700::1111"}},
-	}, "stagenet.orama.network")
+	}, "testnet.orama.network")
 	if len(records) != 2 || records[0].Value != "93.184.216.34" || records[1].Value != "2606:4700:4700::1111" {
 		t.Fatalf("records = %v", records)
 	}
 }
 
 func TestDesired_emptyInput(t *testing.T) {
-	records, refused := Desired(nil, "stagenet.orama.network")
+	records, refused := Desired(nil, "testnet.orama.network")
 	if len(records) != 0 || len(refused) != 0 {
 		t.Fatalf("records %v refused %v", records, refused)
 	}

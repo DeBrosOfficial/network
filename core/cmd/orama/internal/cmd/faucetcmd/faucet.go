@@ -46,7 +46,7 @@ it belongs to. Run it on the node, as root.
 
 The faucet gives test ORAMA to whoever asks (POST /v1/chain/faucet): the gateway
 signs MsgFaucet for the recipient with this key and the chain mints the drip.
-It exists only on a test network (a chain id of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
+It exists only on a test network (a chain id of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
 limits (a maximum drip, a cooldown per recipient, a cap per epoch), and it must
 be on in the genesis (faucet_enabled).
 
@@ -54,7 +54,7 @@ The key file is created owned by the gateway's account with mode 0600, and an
 existing key is never replaced: running init again prints the same account. The
 faucet account pays the transaction fee of every drip and mints the drip itself,
 so it needs a small balance and nothing more: fund it from the genesis
-(chain/scripts/stagenet/deploy.sh does this on stagenet) or from another faucet.
+(chain/scripts/testnet/deploy.sh does this on testnet) or from another faucet.
 
 Then turn it on in node.yaml and restart the node:
 

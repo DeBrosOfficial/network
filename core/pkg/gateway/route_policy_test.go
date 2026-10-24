@@ -218,20 +218,14 @@ func TestRoutePolicy_everyRequiredPermissionIsAKnownOne(t *testing.T) {
 	}
 }
 
-// A control-plane route that still asks for everything is a route that has not
-// been classified. There is one, and it is the one that hands out every secret
-// the cluster holds.
-func TestRoutePolicy_onlyMintingAnInviteAsksForEverything(t *testing.T) {
-	var unrestricted []string
+// No route asks for every permission. The one that did, minting a cluster
+// invite, is the operator's, and `*:*:*` is what every namespace owner holds in
+// their own namespace (bugboard bug-55).
+func TestRoutePolicy_noRouteAsksForEverything(t *testing.T) {
 	for _, pattern := range gatewayRoutes.Patterns() {
 		if policyOf(http.MethodPost, pattern).Domain == auth.PermissionWildcard {
-			unrestricted = append(unrestricted, pattern)
+			t.Errorf("%s asks for every permission, which a namespace owner holds", pattern)
 		}
-	}
-
-	if len(unrestricted) != 1 || unrestricted[0] != "/v1/operator/invite" {
-		t.Errorf("routes asking for every permission: %v — want only /v1/operator/invite, "+
-			"which returns the cluster secret and every other secret the cluster holds", unrestricted)
 	}
 }
 

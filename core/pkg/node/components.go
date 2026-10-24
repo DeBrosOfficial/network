@@ -36,6 +36,7 @@ const (
 	compDNSRegistration   = "dns-registration"
 	compMembership        = "membership"
 	compMembershipRecord  = "membership-record"
+	compOlricHeal         = "olric-heal"
 )
 
 // Per-attempt budgets. Each one bounds a single Reconcile; the supervisor
@@ -233,6 +234,16 @@ func (n *Node) clusterBootComponents() []boot.Component {
 			Name:      compIPFSSwarmSync,
 			DependsOn: []string{compStorage, compRQLiteLocal},
 			Reconcile: n.startIPFSSwarmSync,
+		},
+
+		// The index Olric partition healer (bug-933). It reads the local raft
+		// configuration and its peers' Olric over the mesh, so it needs only
+		// the local replica; a quorum outage leaves it waiting, which is right:
+		// it acts only when every node answers.
+		{
+			Name:      compOlricHeal,
+			DependsOn: []string{compWireGuard, compRQLiteLocal},
+			Reconcile: n.startOlricHeal,
 		},
 
 		// Cluster tier. rqlite-cluster is the single component that waits for

@@ -26,7 +26,7 @@ func TestSaveSecretsFromJoinResponse_symlinkRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	o := &Orchestrator{oramaDir: oramaDir}
-	err := o.saveSecretsFromJoinResponse(&joinhandlers.JoinResponse{ClusterSecret: "pwned"})
+	err := o.saveSecretsFromJoinResponse(&joinhandlers.JoinResponse{ClusterSecret: "pwned", APIKeyHMACSecret: "h"})
 	if !errors.Is(err, rootfs.ErrSymlink) {
 		t.Fatalf("err = %v, want a refused symlink", err)
 	}
@@ -38,10 +38,10 @@ func TestSaveSecretsFromJoinResponse_symlinkRefused(t *testing.T) {
 func TestSaveSecretsFromJoinResponse_writesSecrets(t *testing.T) {
 	oramaDir := filepath.Join(t.TempDir(), ".orama")
 	o := &Orchestrator{oramaDir: oramaDir}
-	if err := o.saveSecretsFromJoinResponse(&joinhandlers.JoinResponse{ClusterSecret: "c", RQLitePassword: "p"}); err != nil {
+	if err := o.saveSecretsFromJoinResponse(&joinhandlers.JoinResponse{ClusterSecret: "c", RQLitePassword: "p", APIKeyHMACSecret: "h"}); err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]string{"cluster-secret": "c", "rqlite-password": "p", "encryption-root": "c", "encryption-root.id": "1"} {
+	for name, want := range map[string]string{"cluster-secret": "c", "rqlite-password": "p", "api-key-hmac-secret": "h", "encryption-root": "c", "encryption-root.id": "1"} {
 		path := filepath.Join(oramaDir, "secrets", name)
 		data, err := os.ReadFile(path)
 		if err != nil || string(data) != want {
@@ -50,5 +50,18 @@ func TestSaveSecretsFromJoinResponse_writesSecrets(t *testing.T) {
 		if info, err := os.Stat(path); err == nil && info.Mode().Perm() != 0o600 {
 			t.Errorf("%s mode = %v, want 0600", name, info.Mode().Perm())
 		}
+	}
+}
+
+// A join response without the API key HMAC secret would leave a node whose
+// gateway refuses to start; nothing is written from it.
+func TestSaveSecretsFromJoinResponse_requiresTheAPIKeyHMACSecret(t *testing.T) {
+	oramaDir := filepath.Join(t.TempDir(), ".orama")
+	o := &Orchestrator{oramaDir: oramaDir}
+	if err := o.saveSecretsFromJoinResponse(&joinhandlers.JoinResponse{ClusterSecret: "c"}); err == nil {
+		t.Fatal("a join response without the API key HMAC secret was accepted")
+	}
+	if _, err := os.Stat(filepath.Join(oramaDir, "secrets", "cluster-secret")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("a refused join response still wrote the cluster secret: %v", err)
 	}
 }

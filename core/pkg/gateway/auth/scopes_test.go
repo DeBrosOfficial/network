@@ -82,7 +82,7 @@ func TestProfileGrants(t *testing.T) {
 		hasStor bool
 	}{
 		{"admin", true, true, true},
-		{"app-runtime", true, false, true},
+		{"app-runtime", true, false, false}, // bugboard #946: a bundled key never holds storage
 		{"invoke-only", true, false, false},
 		{"nonsense", false, false, false},
 	}
@@ -111,7 +111,7 @@ func TestNormalizeGrants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app-runtime: %v", err)
 	}
-	if got != "invoke,proxy,push,storage,webrtc" {
+	if got != "invoke,proxy,push,webrtc" {
 		t.Errorf("app-runtime canonical = %q", got)
 	}
 	// Explicit list, comma and space tolerant + deduped + sorted.
@@ -121,6 +121,10 @@ func TestNormalizeGrants(t *testing.T) {
 	}
 	if got != "invoke,storage" {
 		t.Errorf("explicit canonical = %q", got)
+	}
+	// A server's send key (bugboard #434) is a grant that can be minted.
+	if got, err = NormalizeGrants("push-send"); err != nil || got != ScopePushSend {
+		t.Errorf("push-send = %q, %v", got, err)
 	}
 	// Unknown grant is a loud error, not a silent mint.
 	if _, err := NormalizeGrants("invoke,bogus"); err == nil {

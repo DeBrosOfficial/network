@@ -63,14 +63,24 @@ func refuseReservedSubscribe(w http.ResponseWriter, r *http.Request, topic strin
 	return true
 }
 
-// withoutReservedTopics drops the reserved topics from a listing for a caller
-// that may not subscribe to them.
-func withoutReservedTopics(r *http.Request, topics []string) []string {
+// subscribableTopics keeps the topics of a listing the caller may subscribe
+// to: the ones its permissions read (a grant narrowed to `pubsub:topic=`, or
+// an end user's namespace-listed topics, bugboard #733), and a reserved topic
+// only for a caller holding a grant on it. A listing names a topic's
+// existence, which is what a caller that may not read it must not learn.
+func subscribableTopics(r *http.Request, topics []string) []string {
 	kept := make([]string, 0, len(topics))
 	for _, t := range topics {
-		if !isReservedTopic(t) || holdsTopicGrant(r, t) {
+		if mayReadTopic(r, t) && (!isReservedTopic(t) || holdsTopicGrant(r, t)) {
 			kept = append(kept, t)
 		}
 	}
 	return kept
+}
+
+// mayReadTopic reports whether the caller's permissions read topic.
+func mayReadTopic(r *http.Request, topic string) bool {
+	return gwauth.AuthorizeResource(r.Context(), gwauth.Resource{
+		Domain: gwauth.SelectorPubsub, Name: topic, Action: gwauth.ActionRead,
+	}) == nil
 }

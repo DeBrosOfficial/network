@@ -51,13 +51,9 @@ export function createClient(config: ClientConfig): Client {
     jwt: config.jwt,
   });
 
-  // Derive WebSocket URL from baseURL
-  const wsURL = config.baseURL.replace(/^http/, "ws").replace(/\/$/, "");
-
   const db = new DBClient(httpClient);
   const pubsub = new PubSubClient(httpClient, {
     ...config.wsConfig,
-    wsURL,
     onNetworkError: config.onNetworkError,
   });
   const network = new NetworkClient(httpClient);
@@ -101,8 +97,10 @@ export {
   RevokedCredentialError,
   NamespaceError,
   AuthCode,
+  FunctionCode,
   RelayError,
   FetchCapError,
+  LogoutError,
   RelayCode,
 } from "./errors";
 export { DirectFetch } from "./storage/fetch-transport";
@@ -140,8 +138,9 @@ export type {
 } from "./pubsub/types";
 export { type PubSubMessage } from "./pubsub/types";
 export type {
-  PeerInfo,
   NetworkStatus,
+  IPFSPeerInfo,
+  IPFSClusterPeerInfo,
   ProxyRequest,
   ProxyResponse,
 } from "./network/client";

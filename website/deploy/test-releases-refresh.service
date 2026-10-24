@@ -1,0 +1,27 @@
+# Keeps the testnet TUF repository (test-releases.orama.network) believed: re-signs
+# its timestamp and snapshot with the test root's software keys. A testtuf timestamp
+# lasts 7 days and nodes refuse expired metadata (a timestamp freeze), so without
+# this the network's nodes stop updating a week after the last refresh.
+#
+# Installed on the release host with test-releases-refresh.timer:
+#   /usr/local/bin/testtuf        built from core/cmd/testtuf (GOOS=linux)
+#   /var/lib/orama-testtuf        the testtuf -dir: keys/ (0700) and repo/, owned by orama-testtuf
+#   /opt/orama-releases-test      a symlink to /var/lib/orama-testtuf/repo, what nginx serves
+#   systemctl enable --now test-releases-refresh.timer
+#
+# The keys sign test releases for testnet nodes only; a test root is never adopted
+# by a production cluster.
+[Unit]
+Description=Refresh the testnet TUF timestamp and snapshot
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=orama-testtuf
+Group=orama-testtuf
+ExecStart=/usr/local/bin/testtuf refresh -dir /var/lib/orama-testtuf
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/orama-testtuf

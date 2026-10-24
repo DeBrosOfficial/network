@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Orama-Network/orama/e2e/harness/eventually"
+	"github.com/Orama-Network/orama/e2e/harness/fleet"
 	"github.com/Orama-Network/orama/e2e/harness/gw"
 )
 
@@ -80,9 +82,54 @@ func TestHostHTTPFetch_ssrfMatrix(t *testing.T) {
 	}
 }
 
+// TestHostHTTPFetch_failureNamesOnlyTheOrigin: a failed http_fetch is logged by
+// its origin and cause only. A marker in the user info, the path and the query
+// of the URL reaches neither the function's error nor any node's journal, and
+// the origin does (website/src/docs/developer/functions.mdx#host-functions-api:
+// the node logs a failed fetch by its origin and cause only).
+func TestHostHTTPFetch_failureNamesOnlyTheOrigin(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn = "e2e-fetch-log"
+	deploy(t, fx, fnSpec{name: fn, yaml: "timeout: 60\n"})
+	mark := fmt.Sprintf("e2emark%d", time.Now().UnixNano())
+	since := time.Now().Add(-time.Minute).Unix()
+	origin := "https://" + unresolvableHost
+	u := "https://u" + mark + "@" + unresolvableHost + "/v2/" + mark + "/address/" + mark + "?api-key=" + mark
+	res := sub(call(t, fx, fn, map[string]any{"op": "fetch", "url": u}), "result")
+	if res["status"] != float64(0) {
+		t.Fatalf("a fetch to %s did not fail: %v", unresolvableHost, res)
+	}
+	if e, _ := res["error"].(string); e == "" || strings.Contains(e, mark) {
+		t.Errorf("the function's error is empty or repeats the URL: %q", e)
+	}
+	grep := func(n fleet.Node, needle string) int {
+		out := fx.f.MustExec(t, n, fmt.Sprintf("journalctl --no-pager -q -o cat --since @%d | grep -c -F %s; true", since, fleet.ShellQuote(needle)))
+		c, err := strconv.Atoi(strings.TrimSpace(out.Stdout))
+		if err != nil {
+			t.Fatalf("%s: grep printed %q", n.Name, out.Stdout)
+		}
+		return c
+	}
+	logged := 0
+	for _, n := range fx.f.State.Nodes {
+		if c := grep(n, mark); c != 0 {
+			t.Errorf("%s: the journal repeats the URL's path, query or user info %d times", n.Name, c)
+		}
+		logged += grep(n, origin)
+	}
+	if logged == 0 {
+		t.Errorf("no node logged the failed fetch to %s, so the check proves nothing", origin)
+	}
+}
+
+// unresolvableHost is a name that never resolves (RFC 2606 reserves .invalid),
+// so a fetch to it fails on every node without leaving the cluster.
+const unresolvableHost = "orama-e2e-fetch.invalid"
+
 // TestHostCache_atomicsAndTTL: cache_incr is atomic under concurrent
 // invocations; set/get/delete round-trip; a TTL expires; a negative TTL is
-// refused (website/src/docs/developer/functions.mdx#cache-olric-distributed-cache).
+// refused; a cache_incr_ttl counter expires (website/src/docs/developer/functions.mdx#cache-olric-distributed-cache).
 //
 // Every increment's reply is checked. A call the edge refused (a 503 from an
 // open circuit) never ran, so it is reported as a refusal and not left to show
@@ -131,6 +178,60 @@ func TestHostCache_atomicsAndTTL(t *testing.T) {
 	eventually.Require(t, time.Second, cacheBudget, "a 2s entry to expire", func() (bool, error) {
 		return call(t, fx, fn, map[string]any{"op": "cache_get", "key": "short"})["value"] == "", nil
 	})
+
+	// A time-bucketed counter (bugboard #741): cache_incr_ttl creates it with
+	// its expiry, a later call counts on without moving it, and once it has
+	// expired the next call starts a new counter.
+	bucket := "e2e-bucket-" + fx.n.Name
+	for want := 1; want <= 2; want++ {
+		if got := call(t, fx, fn, map[string]any{"op": "cache_incr_ttl", "key": bucket, "delta": 1, "ttl": 2})["value"]; got != float64(want) {
+			t.Errorf("cache_incr_ttl call %d returned %v, want %d", want, got, want)
+		}
+	}
+	eventually.Require(t, time.Second, cacheBudget, "a counter cache_incr_ttl created with a 2s ttl to expire", func() (bool, error) {
+		return call(t, fx, fn, map[string]any{"op": "cache_get", "key": bucket})["value"] == "", nil
+	})
+	if got := call(t, fx, fn, map[string]any{"op": "cache_incr_ttl", "key": bucket, "delta": 5, "ttl": 60})["value"]; got != float64(5) {
+		t.Errorf("cache_incr_ttl after the counter expired returned %v, want a new counter at 5", got)
+	}
+	if got := call(t, fx, fn, map[string]any{"op": "cache_incr_ttl", "key": "refused", "delta": 1, "ttl": -1})["value"]; got != float64(0) {
+		t.Errorf("cache_incr_ttl with a negative ttl returned %v, want 0 (refused)", got)
+	}
+}
+
+// TestHostLogBudget_loopWritesTheBudgetAndASummary: a guest looping on a
+// failing host call writes at most the per-invocation budget of gateway log
+// lines and then one summary line, however long it loops
+// (website/src/docs/developer/functions.mdx#host-functions-api, bugboard #424).
+func TestHostLogBudget_loopWritesTheBudgetAndASummary(t *testing.T) {
+	t.Parallel()
+	fx := setup(t)
+	const fn, calls, budget = "e2e-log-budget", 2000, 32
+	deploy(t, fx, fnSpec{name: fn})
+	mark := fmt.Sprintf("e2elogbudget%d", time.Now().UnixNano())
+	since := time.Now().Add(-time.Minute).Unix()
+	// A negative ttl is refused before any network call: the cheapest failure.
+	call(t, fx, fn, map[string]any{"op": "cache_set", "key": mark, "value": "x", "ttl": -1, "count": calls})
+	// count is the journal lines, on every node, that contain needle and also.
+	count := func(needle, also string) int {
+		total := 0
+		for _, n := range fx.f.State.Nodes {
+			out := fx.f.MustExec(t, n, fmt.Sprintf("journalctl --no-pager -q -o cat --since @%d | grep -F %s | grep -c -F %s; true",
+				since, fleet.ShellQuote(needle), fleet.ShellQuote(also)))
+			c, err := strconv.Atoi(strings.TrimSpace(out.Stdout))
+			if err != nil {
+				t.Fatalf("%s: grep printed %q", n.Name, out.Stdout)
+			}
+			total += c
+		}
+		return total
+	}
+	eventually.Require(t, time.Second, cacheBudget, "the invocation's summary line in a journal", func() (bool, error) {
+		return count("host log lines suppressed", fn) >= 1, nil
+	})
+	if got := count(mark, "cache_set"); got == 0 || got > budget {
+		t.Errorf("%d refused cache_set calls wrote %d journal lines naming the key, want 1..%d", calls, got, budget)
+	}
 }
 
 // incrementsThatRan reports every increment that did not get a 200 and returns,
@@ -171,8 +272,9 @@ func isCounting(sorted []int) bool {
 }
 
 // TestHostDB_guardRefusals: a function's SQL may not ATTACH, PRAGMA, VACUUM,
-// CREATE TRIGGER, read sqlite_dbpage/dbstat, run two statements, or name a
-// platform table in any quoting or role (website/src/docs/developer/functions.mdx#database-rqlite).
+// create a trigger on a platform table, read sqlite_dbpage/dbstat, run two
+// statements, or name a platform table in any quoting or role
+// (website/src/docs/developer/functions.mdx#database-rqlite).
 func TestHostDB_guardRefusals(t *testing.T) {
 	t.Parallel()
 	fx := setup(t)
@@ -191,7 +293,7 @@ func TestHostDB_guardRefusals(t *testing.T) {
 	}
 	for _, sql := range []string{
 		"ATTACH DATABASE '/tmp/e2e.db' AS x", "DETACH DATABASE main", "PRAGMA table_info(e2e_t)", "VACUUM",
-		"CREATE TRIGGER e2e_tr AFTER INSERT ON e2e_t BEGIN SELECT 1; END", "SELECT * FROM sqlite_dbpage", "SELECT * FROM dbstat",
+		"CREATE TRIGGER e2e_tr AFTER INSERT ON api_keys BEGIN SELECT 1; END", "SELECT * FROM sqlite_dbpage", "SELECT * FROM dbstat",
 		"SELECT 1; SELECT 2", "SELECT * FROM api_keys", `SELECT * FROM "api_keys"`, "SELECT * FROM [function_secrets]",
 		"SELECT * FROM `grants`", "SELECT * FROM main.namespaces", "SELECT 1 AS api_keys", "SELECT :grants",
 		"SELECT * FROM e2e_t WHERE v = 'grants'", "INSERT INTO e2e_t (v) VALUES ('ipfs_content_ownership')",

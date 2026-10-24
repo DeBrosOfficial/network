@@ -34,7 +34,7 @@ import (
 // ErrDeviceLinkNeedsDevice is a keyed login presented for a wallet's approval.
 // Letting a wallet signature approve it would be the very thing a namespace
 // requiring device approval rules out.
-var ErrDeviceLinkNeedsDevice = errors.New("this login links a device: approve it from one of the account's signed-in devices")
+var ErrDeviceLinkNeedsDevice = fmt.Errorf("%w: it links a device; approve it from one of the account's signed-in devices", ErrDeviceLoginMismatch)
 
 // StartDeviceLink records a keyed pending login. subject is the account when a
 // wallet signature already named it — the approval-required sign-in — and ""
@@ -72,13 +72,13 @@ func (s *Service) ApproveDeviceLink(ctx context.Context, userCode, namespace str
 		return err
 	}
 	if pending.DeviceKey == "" {
-		return fmt.Errorf("this login is not a device link; approve it with a wallet signature (orama auth approve)")
+		return fmt.Errorf("%w: it is not a device link; approve it with a wallet signature (orama auth approve)", ErrDeviceLoginMismatch)
 	}
 	if pending.Namespace != "" && !strings.EqualFold(pending.Namespace, namespace) {
-		return fmt.Errorf("this login asked for namespace %q and the approving device is in %q", pending.Namespace, namespace)
+		return fmt.Errorf("%w: this login asked for namespace %q and the approving device is in %q", ErrDeviceLoginMismatch, pending.Namespace, namespace)
 	}
 	if pending.Subject != "" && pending.Subject != approver.Subject {
-		return fmt.Errorf("this login is for another account")
+		return fmt.Errorf("%w: it is for another account", ErrDeviceLoginMismatch)
 	}
 	if s.db == nil {
 		return ErrRotationNotConfigured

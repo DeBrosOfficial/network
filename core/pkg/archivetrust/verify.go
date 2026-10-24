@@ -26,7 +26,7 @@ type Manifest struct {
 	Commit    string            `json:"commit"`
 	Date      string            `json:"date"` // RFC 3339, UTC
 	Arch      string            `json:"arch"`
-	Checksums map[string]string `json:"checksums"` // file -> sha256; see entryPath
+	Checksums map[string]string `json:"checksums"` // file -> sha256; see EntryPath
 	// Signers, when present, rotates the trust anchor: a node that verifies
 	// this manifest against its current anchor then trusts exactly these. The
 	// list must include the address that signed the manifest.
@@ -269,7 +269,7 @@ func verifyContents(dir string, checksums map[string]string) error {
 	}
 	listed := make(map[string]string, len(checksums))
 	for key, sum := range checksums {
-		rel, err := entryPath(key)
+		rel, err := EntryPath(key)
 		if err != nil {
 			return fmt.Errorf("the signed manifest lists %q: %w", key, err)
 		}
@@ -344,9 +344,9 @@ func refuseUnlistedFiles(dir string, listed map[string]string) error {
 	return nil
 }
 
-// entryPath is the slash-separated path, relative to the archive root, of the
+// EntryPath is the slash-separated path, relative to the archive root, of the
 // file a manifest checksum key names.
-func entryPath(key string) (string, error) {
+func EntryPath(key string) (string, error) {
 	dir, name, found := strings.Cut(key, "/")
 	if !found {
 		dir, name = binDir, key

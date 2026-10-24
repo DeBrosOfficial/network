@@ -87,12 +87,40 @@ var keysCmd = &cobra.Command{
 var keysCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Mint a new scoped API key",
+	Long: `Mint a new scoped API key. The key is shown once.
+
+Which key goes where:
+  - An app that needs nothing before sign-in ships no key: the sign-in
+    handshake and public functions need no credential, and after sign-in the
+    user's session reaches everything else.
+  - An app that must call functions before sign-in ships an invoke-only key,
+    narrowed with --resource to those functions.
+  - A function that reclaims storage gets its own key, --scope storage, kept
+    in the namespace's secrets. No key that ships in an app holds storage.
+  - A backend that sends push notifications over HTTP gets its own key,
+    --scope push-send, kept on the server. 'push' registers devices; only
+    push-send sends, to any user or topic of the namespace.
+
+Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
+never storage or push-send), admin (the control plane; CI and a developer's
+machine only).
+
+--resource narrows the key to the functions it names: the gateway refuses it on
+every other function, on HTTP invoke and the function WebSocket alike, with the
+403 a member narrowed by 'members add --resource' gets. Without it the key
+reaches the whole of its scopes.`,
+	Example: `  orama namespace keys create --namespace anchat --scope invoke-only --resource fn:premium-status
+  orama namespace keys create --namespace anchat --scope storage --label prune-fn
+  orama namespace keys create --namespace anchat --scope invoke-only --resource 'fn:premium-*'
+  orama namespace keys create --namespace anchat --scope invoke-only \
+    --resource fn:subscription-read --resource fn:user-find-by-wallet`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		scope, _ := cmd.Flags().GetString("scope")
 		label, _ := cmd.Flags().GetString("label")
 		ns, _ := cmd.Flags().GetString("namespace")
 		days, _ := cmd.Flags().GetInt("expires-in-days")
-		return cli.NamespaceKeysCreate(printer.For(cmd), ns, scope, label, days)
+		resources, _ := cmd.Flags().GetStringArray("resource")
+		return cli.NamespaceKeysCreate(printer.For(cmd), ns, scope, label, resources, days)
 	},
 }
 
@@ -133,15 +161,53 @@ left out keeps its value.
                       sign-in must bind. Requiring devices revokes the sign-in
                       keys end users already hold.
 
-Changing either needs write access to the namespace.
+  --end-user-topics   the pub/sub topics an end user may subscribe to, list and
+                      see presence on, comma-separated patterns ('*' matches any
+                      run of characters, '/' included). It replaces the list,
+                      and '' clears it. The default is none: an end user reads
+                      no topic until it is listed. Members holding a grant read
+                      what their grant says. A function's socket that bridges
+                      topics to its users is not affected.
 
-  orama namespace session-policy --namespace myapp --sign-in open`,
+  --per-ip-limits     on | off (the default): ceilings on what one client
+                      network (an IP address, an IPv6 /64) does, whatever
+                      wallets it presents. For a namespace with open sign-in,
+                      where a wallet costs nothing. Off by default because many
+                      people can share one address (an office, carrier NAT).
+  --new-wallets-per-ip-hour
+                      when on, how many wallets that never signed in to the
+                      namespace one network may sign in per hour, as end users
+                      (default 20). Past it: 429 SIGN_IN_RATE_LIMITED.
+  --invokes-per-ip-minute
+                      when on, how many authenticated function invokes one
+                      network may make per minute on each gateway (default
+                      1200). Past it: 429 RATE_LIMITED scope=per_ip_authenticated.
+
+Changing any of them needs write access to the namespace.
+
+  orama namespace session-policy --namespace myapp --sign-in open
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+  orama namespace session-policy --namespace myapp --per-ip-limits on --new-wallets-per-ip-hour 10`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ns, _ := cmd.Flags().GetString("namespace")
-		signIn, _ := cmd.Flags().GetString("sign-in")
-		device, _ := cmd.Flags().GetString("device-policy")
-		return cli.NamespaceSessionPolicy(printer.For(cmd), ns, signIn, device)
+		var change cli.SessionPolicyChange
+		change.SignIn, _ = cmd.Flags().GetString("sign-in")
+		change.DevicePolicy, _ = cmd.Flags().GetString("device-policy")
+		change.PerIPLimits, _ = cmd.Flags().GetString("per-ip-limits")
+		if cmd.Flags().Changed("end-user-topics") {
+			list, _ := cmd.Flags().GetStringSlice("end-user-topics")
+			change.EndUserTopics = &list
+		}
+		if cmd.Flags().Changed("new-wallets-per-ip-hour") {
+			n, _ := cmd.Flags().GetInt("new-wallets-per-ip-hour")
+			change.NewWalletsPerIPHour = &n
+		}
+		if cmd.Flags().Changed("invokes-per-ip-minute") {
+			n, _ := cmd.Flags().GetInt("invokes-per-ip-minute")
+			change.InvokesPerIPMinute = &n
+		}
+		return cli.NamespaceSessionPolicy(printer.For(cmd), ns, change)
 	},
 }
 
@@ -165,8 +231,8 @@ happened to sign in first.
 var keysRotateCmd = &cobra.Command{
 	Use:   "rotate",
 	Short: "Mint a successor to a key and keep the old one working for an overlap",
-	Long: `Mint a new key with the same grants and label, and shorten the original's life
-to the overlap.
+	Long: `Mint a new key with the same grants, resources and label, and shorten the
+original's life to the overlap.
 
 Rotating by minting a new key and revoking the old one in the same breath is an
 outage: whatever is deployed with the old key stops the moment the new one
@@ -199,6 +265,10 @@ func init() {
 	sessionPolicyCmd.Flags().String("namespace", "", "Namespace name")
 	sessionPolicyCmd.Flags().String("sign-in", "", "Who may sign in: members | open")
 	sessionPolicyCmd.Flags().String("device-policy", "", "What an end user's sign-in must bind: optional | required | approval")
+	sessionPolicyCmd.Flags().StringSlice("end-user-topics", nil, "Pub/sub topic patterns end users may read, comma-separated; '' clears the list")
+	sessionPolicyCmd.Flags().String("per-ip-limits", "", "Per-client-network ceilings: on | off")
+	sessionPolicyCmd.Flags().Int("new-wallets-per-ip-hour", 0, "When per-IP limits are on: new wallets one network may sign in per hour")
+	sessionPolicyCmd.Flags().Int("invokes-per-ip-minute", 0, "When per-IP limits are on: authenticated invokes one network may make per minute per gateway")
 
 	// The grant list comes from the gateway rather than a hand-written string,
 	// which is how the help came to advertise grants the validator refused.
@@ -206,6 +276,10 @@ func init() {
 		"Profile (invoke-only|app-runtime|admin) or a comma-separated grant list ("+
 			strings.Join(auth.AllGrants(), ", ")+")")
 	keysCreateCmd.Flags().String("label", "", "Human label for the key")
+	keysCreateCmd.Flags().StringArray("resource", nil,
+		"Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. "+
+			"Repeat for several; the key then reaches only these. Each must narrow one of its scopes "+
+			"(fn: needs invoke), and every scope must be narrowed by one")
 	keysCreateCmd.Flags().String("namespace", "", "Namespace name")
 	keysListCmd.Flags().String("namespace", "", "Namespace name")
 	keysRevokeCmd.Flags().Int("id", 0, "Key id to revoke")

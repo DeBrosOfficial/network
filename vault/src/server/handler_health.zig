@@ -19,9 +19,13 @@ pub fn handle(writer: anytype, ctx: *const router.RouteContext) !void {
 
         // Count alive peers (excluding self)
         var peer_count: usize = 0;
-        for (guardian.nodes.nodes, 0..) |node, i| {
-            if (guardian.nodes.self_index != null and i == guardian.nodes.self_index.?) continue;
-            if (node.state == .alive) peer_count += 1;
+        {
+            guardian.nodes_mu.lock();
+            defer guardian.nodes_mu.unlock();
+            for (guardian.nodes.nodes, 0..) |node, i| {
+                if (guardian.nodes.self_index != null and i == guardian.nodes.self_index.?) continue;
+                if (node.state == .alive) peer_count += 1;
+            }
         }
 
         // Determine status

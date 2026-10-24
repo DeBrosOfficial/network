@@ -7,9 +7,9 @@ import (
 
 func TestPromptForBaseDomain_choices(t *testing.T) {
 	for in, want := range map[string]string{
-		"example.com\n":      "example.com",
-		"https://ex.org/\n":  "ex.org",
-		"stagenet.example\n": "stagenet.example",
+		"example.com\n":     "example.com",
+		"https://ex.org/\n": "ex.org",
+		"testnet.example\n": "testnet.example",
 	} {
 		got, err := promptForBaseDomain(strings.NewReader(in))
 		if err != nil || got != want {

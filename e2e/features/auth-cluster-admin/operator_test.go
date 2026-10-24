@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Orama-Network/orama/e2e/features/internal/tenancy"
 	"github.com/Orama-Network/orama/e2e/harness"
 	"github.com/Orama-Network/orama/e2e/harness/eventually"
 	"github.com/Orama-Network/orama/e2e/harness/fleet"
@@ -127,21 +128,26 @@ func TestOperator_neverRemovesTheLast(t *testing.T) {
 }
 
 // TestOperatorRoutes_ownerIsNotAnOperator: holding everything in one's own
-// namespace is not operating the cluster (NOT_AN_OPERATOR).
+// namespace is not operating the cluster (NOT_AN_OPERATOR), whether as the
+// owner's session or with an admin key the namespace minted.
 func TestOperatorRoutes_ownerIsNotAnOperator(t *testing.T) {
 	f := harness.Fleet(t)
 	n := ns.New(t, f, ns.Options{})
 	c := harness.GW(t)
+	adminKey := tenancy.APIKey(t, n, "admin")
 	for _, r := range []gw.Req{
 		{Method: http.MethodPost, Path: "/v1/operator/operators", Body: []byte(`{"wallet":"` + n.Owner.Wallet.Address() + `"}`)},
 		{Method: http.MethodDelete, Path: "/v1/operator/operators/" + f.State.OperatorAddress},
 		{Method: http.MethodPost, Path: "/v1/operator/rotate-secrets", Body: []byte(`{}`)},
 		{Method: http.MethodPost, Path: "/v1/operator/rotate-signing-key"},
+		{Method: http.MethodPost, Path: "/v1/operator/invite", Body: []byte(`{}`)},
 	} {
-		r.Bearer = n.Owner.Token()
-		resp := c.MustSend(t, r)
-		if resp.Status != http.StatusForbidden || resp.ErrorCode() != "NOT_AN_OPERATOR" {
-			t.Errorf("%s %s as an owner: want 403 NOT_AN_OPERATOR, got %d %s", r.Method, r.Path, resp.Status, resp.Body)
+		for who, cred := range map[string]gw.Req{"an owner": {Bearer: n.Owner.Token()}, "an admin key": {APIKey: adminKey}} {
+			r.Bearer, r.APIKey = cred.Bearer, cred.APIKey
+			resp := c.MustSend(t, r)
+			if resp.Status != http.StatusForbidden || resp.ErrorCode() != "NOT_AN_OPERATOR" {
+				t.Errorf("%s %s as %s: want 403 NOT_AN_OPERATOR, got %d %s", r.Method, r.Path, who, resp.Status, resp.Body)
+			}
 		}
 	}
 	if out := harness.CLI(t).MustOK(t, "maint", "operator", "list").Stdout; containsFold(out, n.Owner.Wallet.Address()) {

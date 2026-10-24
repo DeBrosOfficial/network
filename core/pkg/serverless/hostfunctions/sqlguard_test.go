@@ -145,3 +145,42 @@ func TestDBTransaction_checksEveryOp(t *testing.T) {
 		t.Errorf("the refusal does not say which op: %v", err)
 	}
 }
+
+// bugboard chg-943: a namespace's migrate function applies its schema through
+// these host calls, so a trigger on a tenant table that touches only tenant
+// tables reaches the database through db_execute_v2 and in a db_transaction
+// batch, and one on or reaching a platform table is refused before it.
+func TestDBHostFunctions_triggers(t *testing.T) {
+	const tenant = "CREATE TRIGGER message_gone AFTER DELETE ON messages BEGIN DELETE FROM body_owed WHERE message_id = old.id; END"
+	ctx := nsCtx()
+
+	if _, err := newHFWithDB(&fakeExecClient{}).DBExecuteV2(ctx, tenant, nil); err != nil {
+		t.Errorf("db_execute_v2 refused a tenant trigger: %v", err)
+	}
+	batch := &fakeBatchClient{}
+	opsJSON, _ := json.Marshal(map[string]any{"ops": []map[string]any{{"kind": "exec", "sql": tenant}}})
+	if _, err := newHFWithDB(batch).DBTransaction(ctx, opsJSON); err != nil || batch.calls != 1 {
+		t.Errorf("db_transaction refused a tenant trigger: calls=%d err=%v", batch.calls, err)
+	}
+
+	h := &HostFunctions{logger: zap.NewNop(), db: refusingDB{}, dbNamespace: testNamespace}
+	for _, sql := range []string{
+		"CREATE TRIGGER t AFTER INSERT ON api_keys BEGIN DELETE FROM messages; END",
+		"CREATE TRIGGER t AFTER INSERT ON messages BEGIN UPDATE grants SET role = 'owner'; END",
+		"CREATE TRIGGER t AFTER INSERT ON messages BEGIN PRAGMA writable_schema = 1; END",
+		"CREATE TEMP TRIGGER t AFTER INSERT ON messages BEGIN DELETE FROM body_owed; END",
+	} {
+		opsJSON, _ := json.Marshal(map[string]any{"ops": []map[string]any{{"kind": "exec", "sql": sql}}})
+		var refused *sqlguard.ErrNotAllowed
+		if _, err := h.DBExecuteV2(ctx, sql, nil); !errors.As(err, &refused) {
+			t.Errorf("db_execute_v2(%s): err = %v, want the SQL guard's refusal", sql, err)
+		}
+		if _, err := h.DBTransaction(ctx, opsJSON); !errors.As(err, &refused) {
+			t.Errorf("db_transaction(%s): err = %v, want the SQL guard's refusal", sql, err)
+		}
+	}
+	_, err := h.DBExecuteV2(ctx, "CREATE TRIGGER t AFTER INSERT ON messages BEGIN DELETE FROM body_owed; DELETE FROM api_keys; END", nil)
+	if err == nil || !strings.Contains(err.Error(), "trigger body statement 2 (DELETE FROM api_keys)") {
+		t.Errorf("the refusal does not name the body statement: %v", err)
+	}
+}

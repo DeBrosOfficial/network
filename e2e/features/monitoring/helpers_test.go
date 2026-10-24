@@ -53,9 +53,9 @@ func startsWithVerdict(out string) bool {
 
 // operator makes a fresh namespace owner an operator of the cluster for t
 // (`orama maint operator add`, removed at t's cleanup), so the telemetry tests can
-// call the operator API over HTTP with a session of their own. The owner's
-// session carries the namespace's admin grant, the other half of the
-// requirement (docs/whitepaper/technical-reference/appendices/i-api-surface.md "/v1/operator/telemetry"). Only
+// call the operator API over HTTP with a session of their own: a wallet
+// session on the operator list is the whole requirement
+// (docs/whitepaper/technical-reference/appendices/i-api-surface.md "/v1/operator/telemetry"). Only
 // TestTelemetry_asOperator calls it, once, and shares the result with its
 // parallel subtests, so the package changes the operator list once.
 func operator(t *testing.T) *ns.Namespace {

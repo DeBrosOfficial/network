@@ -57,6 +57,8 @@ func TestWriteRPCError_empty_message_is_filled_with_default(t *testing.T) {
 		{ErrCodeInternal, "internal"},
 		{ErrCodeFunctionExecution, "function execution"},
 		{ErrCodeNamespaceGatewayUnavailable, "no namespace gateway"},
+		{ErrCodeFunctionTimeout, "timeout"},
+		{ErrCodeFunctionVersionSuperseded, "superseded"},
 	}
 	for _, c := range cases {
 		t.Run(string(c.code), func(t *testing.T) {
@@ -125,6 +127,7 @@ func TestWriteRPCError_default_retryable_for_transient_codes(t *testing.T) {
 		{ErrCodeNamespaceGatewayUnavailable, true}, // nothing was sent to any member
 		{ErrCodeFunctionUnavailable, true},         // transient cold-WASM infra failure
 		{ErrCodeFunctionExecution, false},          // genuine function error
+		{ErrCodeFunctionTimeout, false},            // it ran: its effects may have happened
 		{ErrCodeValidationFailed, false},
 		{ErrCodeNotFound, false},
 		{ErrCodeForbidden, false},

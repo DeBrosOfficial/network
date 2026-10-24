@@ -41,7 +41,7 @@ type TURNDiscoveryConfig struct {
 	// (e.g. "/opt/orama/.orama/data/namespaces").
 	NamespacesDir string `yaml:"namespaces_dir"`
 
-	// BaseDomain is the cluster's base domain (e.g. "orama-devnet.network"),
+	// BaseDomain is the cluster's base domain (e.g. "devnet.orama.network"),
 	// used to derive the stealth and "turn.ns-*" SNI hostnames.
 	BaseDomain string `yaml:"base_domain"`
 

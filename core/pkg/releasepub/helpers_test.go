@@ -13,6 +13,7 @@ import (
 
 	"github.com/secure-systems-lab/go-securesystemslib/cjson"
 
+	"github.com/Orama-Network/orama/core/pkg/fleetattest"
 	"github.com/Orama-Network/orama/core/pkg/releasepub/pubtest"
 	"github.com/Orama-Network/orama/core/pkg/releaseverify"
 	"github.com/Orama-Network/orama/core/pkg/rwagent"
@@ -84,8 +85,15 @@ func mustChannel(t *testing.T, name string) Channel {
 	return c
 }
 
-func cutParams(repo Repo, agent Agent, channel Channel, archives ...string) CutParams {
-	return CutParams{Repo: repo, Channel: channel, Archives: archives, Retention: DefaultRetention, Now: testNow, Agent: agent}
+// cutParams is a release of archives on channel, standing on a passing fleet
+// report of the test archives' commit.
+func cutParams(t *testing.T, repo Repo, agent Agent, channel Channel, archives ...string) CutParams {
+	t.Helper()
+	dir, runner := pubtest.FleetReport(t, pubtest.FullCommit, fleetattest.VerdictPass)
+	return CutParams{
+		Repo: repo, Channel: channel, Archives: archives, Retention: DefaultRetention, Now: testNow, Agent: agent,
+		Fleet: FleetGate{ReportDir: dir, RunnerKeys: []ed25519.PublicKey{runner}},
+	}
 }
 
 // clientView verifies the directory the way a client does.

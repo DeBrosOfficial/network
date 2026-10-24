@@ -7,7 +7,7 @@
 # over faucet_max_drip is refused, exactly the maximum is paid; arguments the
 # CLI can judge (not an orama address, zero, negative, fractional or oversized
 # amount) are usage errors before any transaction. Genesis enables the faucet
-# on every run chain (chain-deploy.sh) and on stagenet (deploy.sh,
+# on every run chain (chain-deploy.sh) and on testnet (deploy.sh,
 # FAUCET_ENABLED). The faucet signs with the validator operator key of the
 # last node; the other chain packages sign with the keys of nodes 0..2.
 id: chain-faucet
@@ -31,4 +31,4 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-chain-faucet: sends test ORAMA to an account on a test network; --amount is norama; prints the transaction hash and the recipient's bank balance"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-chain-faucet: the chain refuses a drip over its maximum and a second drip to the same recipient inside its cooldown"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-chain-faucet: refuses an address that is not orama1... and an amount that is not a positive whole number of norama before it signs"
-    - "website/src/docs/contributor/deployment.mdx#stagenet-the-chain-and-the-global-services: FAUCET_ENABLED=1 (default) sets emission faucet_enabled in the stagenet genesis"
+    - "website/src/docs/contributor/deployment.mdx#testnet-the-chain-and-the-global-services: FAUCET_ENABLED=1 (default) sets emission faucet_enabled in the testnet genesis"

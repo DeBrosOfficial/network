@@ -22,13 +22,15 @@ type requestLogEntry struct {
 	bytesOut   int
 	durationMs int64
 	ip         string
-	apiKey     string // raw API key (resolved to ID at flush time in batch)
+	// apiKeyID is the registry id of the API key that authenticated the
+	// request (trafficAttribution.keyID); 0 when no key did.
+	apiKeyID int64
 }
 
 // newRequestLogEntry is the row one request leaves. A route that declares
 // LogNoAddress leaves the address out: the row says a request happened, not
 // who from.
-func newRequestLogEntry(r *http.Request, policy routepolicy.Policy, status, bytesOut int, dur time.Duration, apiKey string) requestLogEntry {
+func newRequestLogEntry(r *http.Request, policy routepolicy.Policy, status, bytesOut int, dur time.Duration, apiKeyID int64) requestLogEntry {
 	ip := ""
 	if policy.RequestLog != routepolicy.LogNoAddress {
 		ip = getClientIP(r)
@@ -40,12 +42,18 @@ func newRequestLogEntry(r *http.Request, policy routepolicy.Policy, status, byte
 		bytesOut:   bytesOut,
 		durationMs: dur.Milliseconds(),
 		ip:         ip,
-		apiKey:     apiKey,
+		apiKeyID:   apiKeyID,
 	}
 }
 
+// apiKeyLastUsedResolution is how stale api_keys.last_used_at may be. A
+// gateway writes a key's last_used_at at most once per this interval, so the
+// registry, which every gateway of every namespace writes to, takes one write
+// per key per gateway per interval however busy the key is.
+const apiKeyLastUsedResolution = time.Minute
+
 // requestLogBatcher aggregates request logs and flushes them to RQLite in bulk
-// instead of issuing 3 DB writes per request (INSERT log + SELECT api_key_id + UPDATE last_used).
+// instead of issuing a DB write per request.
 type requestLogBatcher struct {
 	gw       *Gateway
 	entries  []requestLogEntry
@@ -53,6 +61,11 @@ type requestLogBatcher struct {
 	interval time.Duration
 	maxBatch int
 	stopCh   chan struct{}
+	// lastUsedWritten is when this gateway last wrote each key's
+	// last_used_at. Only flush touches it, and flushes are serialized by
+	// flushMu.
+	lastUsedWritten map[int64]time.Time
+	flushMu         sync.Mutex
 }
 
 func newRequestLogBatcher(gw *Gateway, interval time.Duration, maxBatch int) *requestLogBatcher {
@@ -96,7 +109,7 @@ func (b *requestLogBatcher) run() {
 }
 
 // buildRequestLogInsert is the batch INSERT of a flush and its arguments.
-func buildRequestLogInsert(batch []requestLogEntry, apiKeyIDs map[string]int64) (string, []interface{}) {
+func buildRequestLogInsert(batch []requestLogEntry) (string, []interface{}) {
 	var sb strings.Builder
 	sb.WriteString("INSERT INTO request_logs (method, path, status_code, bytes_out, duration_ms, ip, api_key_id) VALUES ")
 
@@ -107,19 +120,64 @@ func buildRequestLogInsert(batch []requestLogEntry, apiKeyIDs map[string]int64) 
 		}
 		sb.WriteString("(?, ?, ?, ?, ?, ?, ?)")
 
-		var apiKeyID interface{} = nil
-		if e.apiKey != "" {
-			if id, ok := apiKeyIDs[e.apiKey]; ok {
-				apiKeyID = id
-			}
+		var apiKeyID interface{}
+		if e.apiKeyID > 0 {
+			apiKeyID = e.apiKeyID
 		}
 		args = append(args, e.method, e.path, e.statusCode, e.bytesOut, e.durationMs, e.ip, apiKeyID)
 	}
 	return sb.String(), args
 }
 
+// keysToTouch is the keys of batch whose last_used_at this gateway has not
+// written within apiKeyLastUsedResolution of now, which it records as written
+// now. It forgets keys written longer ago than that, so the map holds only
+// the keys used in the last interval.
+func (b *requestLogBatcher) keysToTouch(batch []requestLogEntry, now time.Time) []int64 {
+	if b.lastUsedWritten == nil {
+		b.lastUsedWritten = make(map[int64]time.Time)
+	}
+	for id, at := range b.lastUsedWritten {
+		if now.Sub(at) >= apiKeyLastUsedResolution {
+			delete(b.lastUsedWritten, id)
+		}
+	}
+	var ids []int64
+	for _, e := range batch {
+		if e.apiKeyID <= 0 {
+			continue
+		}
+		if _, recent := b.lastUsedWritten[e.apiKeyID]; recent {
+			continue
+		}
+		b.lastUsedWritten[e.apiKeyID] = now
+		ids = append(ids, e.apiKeyID)
+	}
+	return ids
+}
+
+// buildLastUsedUpdate is the UPDATE that stamps last_used_at on ids.
+func buildLastUsedUpdate(ids []int64) (string, []interface{}) {
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	return fmt.Sprintf("UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id IN (%s)",
+		strings.Join(placeholders, ",")), args
+}
+
 // flush writes all buffered log entries to RQLite in a single batch.
+//
+// The rows go to this gateway's own database (request_logs is a namespace
+// table). last_used_at goes to the API-key registry (apiKeyDB), the only
+// store that holds the keys: a namespace's database has at most a stale copy
+// of api_keys that nothing reads.
 func (b *requestLogBatcher) flush() {
+	b.flushMu.Lock()
+	defer b.flushMu.Unlock()
+
 	b.mu.Lock()
 	if len(b.entries) == 0 {
 		b.mu.Unlock()
@@ -135,75 +193,22 @@ func (b *requestLogBatcher) flush() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	internalCtx := client.WithInternalAuth(ctx)
 
 	db := b.gw.client.Database()
-
-	// Collect unique API keys that need ID resolution
-	apiKeySet := make(map[string]struct{})
-	for _, e := range batch {
-		if e.apiKey != "" {
-			apiKeySet[e.apiKey] = struct{}{}
-		}
+	insert, args := buildRequestLogInsert(batch)
+	if _, err := db.Query(internalCtx, insert, args...); err != nil && b.gw.logger != nil {
+		b.gw.logger.ComponentWarn(logging.ComponentGeneral, "failed to flush request logs", zap.Error(err))
+	}
+	if _, err := db.Query(internalCtx,
+		"DELETE FROM request_logs WHERE created_at < datetime('now', '-7 days')"); err != nil && b.gw.logger != nil {
+		b.gw.logger.ComponentWarn(logging.ComponentGeneral, "failed to prune request_logs", zap.Error(err))
 	}
 
-	// Batch-resolve API key IDs in a single query
-	apiKeyIDs := make(map[string]int64)
-	if len(apiKeySet) > 0 {
-		keys := make([]string, 0, len(apiKeySet))
-		for k := range apiKeySet {
-			keys = append(keys, k)
-		}
-
-		placeholders := make([]string, len(keys))
-		args := make([]interface{}, len(keys))
-		for i, k := range keys {
-			placeholders[i] = "?"
-			args[i] = k
-		}
-
-		q := fmt.Sprintf("SELECT id, key FROM api_keys WHERE key IN (%s)", strings.Join(placeholders, ","))
-		res, err := db.Query(client.WithInternalAuth(ctx), q, args...)
-		if err == nil && res != nil {
-			for _, row := range res.Rows {
-				if len(row) >= 2 {
-					var id int64
-					switch v := row[0].(type) {
-					case float64:
-						id = int64(v)
-					case int64:
-						id = v
-					}
-					if key, ok := row[1].(string); ok && id > 0 {
-						apiKeyIDs[key] = id
-					}
-				}
-			}
-		}
-	}
-
-	// Build batch INSERT for request_logs
-	if len(batch) > 0 {
-		insert, args := buildRequestLogInsert(batch, apiKeyIDs)
-		if _, err := db.Query(client.WithInternalAuth(ctx), insert, args...); err != nil && b.gw.logger != nil {
-			b.gw.logger.ComponentWarn(logging.ComponentGeneral, "failed to flush request logs", zap.Error(err))
-		}
-		if _, err := db.Query(client.WithInternalAuth(ctx),
-			"DELETE FROM request_logs WHERE created_at < datetime('now', '-7 days')"); err != nil && b.gw.logger != nil {
-			b.gw.logger.ComponentWarn(logging.ComponentGeneral, "failed to prune request_logs", zap.Error(err))
-		}
-	}
-
-	// Batch UPDATE last_used_at for all API keys seen in this batch
-	if len(apiKeyIDs) > 0 {
-		ids := make([]string, 0, len(apiKeyIDs))
-		args := make([]interface{}, 0, len(apiKeyIDs))
-		for _, id := range apiKeyIDs {
-			ids = append(ids, "?")
-			args = append(args, id)
-		}
-
-		q := fmt.Sprintf("UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id IN (%s)", strings.Join(ids, ","))
-		if _, err := db.Query(client.WithInternalAuth(ctx), q, args...); err != nil && b.gw.logger != nil {
+	ids := b.keysToTouch(batch, time.Now())
+	if registry := b.gw.apiKeyDB(); len(ids) > 0 && registry != nil {
+		q, qargs := buildLastUsedUpdate(ids)
+		if _, err := registry.Query(internalCtx, q, qargs...); err != nil && b.gw.logger != nil {
 			b.gw.logger.ComponentWarn(logging.ComponentGeneral, "failed to update api key last_used_at", zap.Error(err))
 		}
 	}
@@ -211,7 +216,7 @@ func (b *requestLogBatcher) flush() {
 	if b.gw.logger != nil {
 		b.gw.logger.ComponentDebug(logging.ComponentGeneral, "request logs flushed",
 			zap.Int("count", len(batch)),
-			zap.Int("api_keys", len(apiKeyIDs)),
+			zap.Int("api_keys_touched", len(ids)),
 		)
 	}
 }

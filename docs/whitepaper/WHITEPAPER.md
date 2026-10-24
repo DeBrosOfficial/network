@@ -95,7 +95,7 @@ A normal genesis mints nothing. New coins are created once per epoch, and an epo
 
 Voting power is capped, ramped over 30 epochs, and bounded so redistribution cannot more than double a validator's raw stake share. Fees use a base fee that is entirely burned. Tips go to the block proposer. There is no on-chain governance, no IBC, and no shielded transfer.
 
-The chain is not installed by `orama maint node install`. A separate script can place it on a devnet or stagenet chain id. App requests do not pass through it. The pages under the docs site's Blockchain tab are the full description.
+The chain is not installed by `orama maint node install`. A separate script can place it on a devnet or testnet chain id. App requests do not pass through it. The pages under the docs site's Blockchain tab are the full description.
 
 ## 4. Services
 
@@ -150,7 +150,7 @@ Every node runs a Tor client (client only — it relays nothing). An application
 
 ### Vault (partial)
 
-The vault is designed to store a secret without any single machine holding it. The secret is split with Shamir's scheme across guardian processes on separate nodes, and any number of shares below the threshold reveals nothing. On a network of N nodes the threshold is the larger of 2 and N divided by 3, rounded down. Reads and writes require an Ed25519 proof of ownership. What is not finished: guardians do not yet discover each other on their own, the guardian-to-guardian protocol is implemented but not started, and proactive resharing does not exist. Applications reach the vault through the gateway, which splits and recombines the secret in its own memory during the request. We therefore list the vault as partial and do not recommend it yet as the only copy of anything important.
+The vault is designed to store a secret without any single machine holding it. The secret is split with Shamir's scheme across guardian processes on separate nodes, and any number of shares below the threshold reveals nothing. On a network of N nodes the threshold is the larger of 2 and N divided by 3, rounded down. Reads and writes require an Ed25519 proof of ownership. What is not finished: guardians read the guardian set from the cluster database but do not yet learn whether the others are alive, the guardian-to-guardian protocol is implemented but not started, and proactive resharing does not exist. Applications reach the vault through the gateway, which splits and recombines the secret in its own memory during the request. We therefore list the vault as partial and do not recommend it yet as the only copy of anything important.
 
 ## 5. Identity and security model
 
@@ -185,7 +185,7 @@ Sign-ins, key and grant changes, namespace, deployment and function changes, sec
 - **Ubuntu nodes are trusted.** Their operators have root and SSH access, and their disks are not encrypted. This is why node operation is invite-only today. A disk snapshot of an Ubuntu node exposes the cluster's shared secrets.
 - **Nodes share a cluster secret,** and every node is a member of the registry database. A compromised node can still write cluster state. Rotating the cluster secret itself, and the WireGuard keys, requires a maintenance window, and no rotation tooling exists for the mesh keys yet.
 - **Some internal services trust the mesh.** Media signaling and messaging gossip do not yet authenticate each peer individually.
-- **TURN credentials are namespace-wide** and last 24 hours, and cannot be revoked per user.
+- **A TURN credential cannot be revoked by itself.** It names the user it was issued to, and one from the REST route lasts 24 hours.
 - **Deletion is not erasure.** A deleted database row remains in the replication log until compaction. IPFS content is reclaimed by garbage collection every six hours, or immediately when requested.
 
 ## 6. Privacy by design
@@ -267,7 +267,7 @@ OramaOS is **built but has never been booted** on a live network. Known gaps inc
 - **Tenant monitoring and alerting.** Tenants have health endpoints, namespace status, deployment logs and the audit trail. There is no metrics endpoint and no alerting.
 - **Enforced storage quotas.** Quotas exist but are opt-in, and no namespace has one by default.
 - **Scale evidence.** The design allows 20 namespaces per node and grows by adding nodes, but it has been exercised only at the scale of a few nodes and a few tenants.
-- **A public chain.** The ledger in Section 3.6 is implemented and tested in the repository. It is not what `orama maint node install` starts, storage and relay rewards are not paid, there is no governance, and app traffic does not use it. A devnet or stagenet chain id can be brought up with `chain/scripts/stagenet/deploy.sh`. That is not a network you can treat as carrying value.
+- **A public chain.** The ledger in Section 3.6 is implemented and tested in the repository. It is not what `orama maint node install` starts, storage and relay rewards are not paid, there is no governance, and app traffic does not use it. A devnet or testnet chain id can be brought up with `chain/scripts/testnet/deploy.sh`. That is not a network you can treat as carrying value.
 
 **Self-audit.** We audit our own system and publish what we find. An earlier review that treated the hosting provider as the adversary produced ninety findings. Two further audits in September 2026 covered stability (35 items) and authentication and authorization (29 items). All stability items and all but three authentication items are now implemented in code and awaiting review. Several of the changes described in this paper, including authenticated RQLite, the WebAssembly egress filter, per-gateway signing keys, secret rotation and encrypt-before-add storage, landed in the current release line in September 2026 and are being rolled out to the live networks. The remaining open findings are concentrated in OramaOS and the vault and are tracked openly.
 

@@ -8,7 +8,7 @@ No independent audit of the chain has been done. An internal, AI-assisted self-a
 
 Do not open a public issue. Email **info@orama.network**. Include the commit or release, the module, what you did, what happened, and a test or transcript that reproduces it.
 
-Test only on a chain you run yourself (`chain/scripts/localnet`) or on a devnet or stagenet you have permission for. Never test against someone else's node or user data.
+Test only on a chain you run yourself (`chain/scripts/localnet`) or on a devnet or testnet you have permission for. Never test against someone else's node or user data.
 
 This page makes no legal commitment.
 
@@ -31,7 +31,7 @@ For RootWallet, see its own policy ([RootWallet security](/docs/rootwallet/secur
 - Volume attacks with no protocol flaw behind them.
 - Upstream bugs in Cosmos SDK, CometBFT, wasmd or wasmvm, Kubo, Tor, go-tuf or the Zcash crates that this repository does not change. Report those upstream. A way this repository's use of them is exploitable is in scope.
 - Placeholder economics marked "launch default", unless the number lets a fake identity earn more than it costs or breaks an invariant.
-- The stagenet test release root, test keys, and any localnet, devnet or stagenet genesis.
+- The testnet test release root, test keys, and any localnet, devnet or testnet genesis.
 - Social engineering and physical access.
 - Known, documented limits such as those listed on [Security model](/docs/architecture/security-model#what-this-does-not-defend-against).
 

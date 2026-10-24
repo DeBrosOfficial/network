@@ -34,7 +34,18 @@ func (h *WebRTCHandlers) CredentialsHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	username, password := turn.GenerateCredentials(h.turnSecret, ns, turnCredentialTTL)
+	// The credential names who asked for it (bugboard #391): the account or
+	// wallet the token was issued to, or a deployed app's workload.
+	who, ok := callerOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "TURN credentials are issued to an authenticated caller")
+		return
+	}
+	username, password, err := turn.GenerateCredentials(h.turnSecret, ns, who.UserID, turnCredentialTTL)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
 
 	// Build TURN URIs. Plain UDP/TCP TURN (:3478) uses turnDomain (no cert
 	// involved). TURNS (:5349) uses the single-label turnsTLSDomain, which the

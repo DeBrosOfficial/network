@@ -52,7 +52,7 @@ const client = createClient({
 | `apiKey` | | `orama_<type>_<payload>_<checksum>`. Exchanged for a token before the first request; the key itself never goes on the wire again |
 | `jwt` | | An existing session token |
 | `timeout` | `60000` | Per-request timeout, ms |
-| `maxRetries` | `3` | Attempts for a retryable status (408, 429, 5xx) |
+| `maxRetries` | `3` | Attempts for a retryable status (408, 429, 5xx) when a repeat is safe; see [Retries and failover](#retries-and-failover) |
 | `retryDelayMs` | `1000` | Base backoff, multiplied by the attempt and jittered |
 | `debug` | `false` | Print diagnostics. Off, the SDK writes nothing to the console |
 | `storage` | memory | Where tokens persist. `LocalStorageAdapter` in a browser |
@@ -66,10 +66,12 @@ const client = createClient({
 An API key carries grants, and a key in a browser bundle is a key in the hands of everyone who loads the page.
 
 - **Server side only: an `admin` key.** It reaches the control plane: deploys, secrets, key management, raw RQLite. It belongs in CI and on a developer's machine.
-- **Safe in a client bundle: an `app-runtime` key.** Data-plane grants only, and the gateway additionally requires a logged-in user's wallet session for storage, WebRTC and proxy (a deployed app's own workload token also qualifies on storage and WebRTC), so an extracted runtime key on its own cannot act as anybody.
+- **In a client bundle: no key, or an `invoke-only` one.** An app that needs nothing before its user signs in ships no key: sign-in and public functions need no credential, and after sign-in the user's wallet session reaches storage, push, WebRTC and the proxy. An app that must call functions before sign-in ships `invoke-only`, narrowed to them with `--resource`.
+- **In a function that reclaims storage: a `storage` key from the namespace's secrets.** Its exchanged token may unpin any object the namespace stores, which is why no key in a bundle holds `storage`; the `app-runtime` profile does not.
 
 ```bash
-orama namespace keys create --scope app-runtime --label web
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+orama namespace keys create --scope storage --label prune-fn
 orama namespace keys create --scope invoke,pubsub,cache --label worker
 orama namespace keys create --scope admin --label ci
 ```
@@ -125,6 +127,8 @@ await client.auth.logout();                      // tell the gateway, clear ever
 await client.auth.logout({ keepApiKey: true });  // the user signs out; the app key stays
 await client.auth.logout({ server: false });     // clear local state only
 ```
+
+`logout` always clears the session on the device. When the gateway could not be told, it then rejects with a `LogoutError`: the client is signed out, but the session's tokens stay valid on the gateway until they expire, which on a shared device is worth telling the user. `error.serverError` is the failed request's error.
 
 `client.auth.whoami()` answers `{ authenticated: false }` for a rejected credential and **throws** for anything else, so a gateway that is down is not reported as a signed-out user.
 
@@ -217,7 +221,7 @@ const hit = await client.cache.get("sessions", userId);    // null on a miss
 await client.cache.delete("sessions", userId);
 ```
 
-Methods: `health`, `get`, `put`, `delete`, `multiGet`, `scan`. Limits and TTLs are on [Cache](/docs/developer/cache).
+Methods: `health`, `get`, `put`, `delete`, `multiGet`, `scan`. `multiGet` answers a `Map` of every requested key, `null` for a key the cache does not hold, and rejects with the `SDKError` when the request fails, so a cache that is down is never read as a run of misses. Limits and TTLs are on [Cache](/docs/developer/cache).
 
 ## Storage
 
@@ -319,7 +323,7 @@ Errors:
 
 ## Network
 
-`client.network` has `health`, `status`, `peers`, `connect`, `disconnect` and `proxyAnon` (the Tor anonymity proxy; see [Tor](/docs/privacy/tor)).
+`client.network` has `health`, `status`, `peers`, `connect`, `disconnect` and `proxyAnon` (the Tor anonymity proxy; see [Tor](/docs/privacy/tor)). `status()` resolves to the gateway's `NetworkStatus` (node and peer id, connection state, peer count, uptime in nanoseconds, and the node's IPFS and IPFS Cluster identities when they answer). `peers()` resolves to multiaddr strings: a `/p2p/<peer id>` entry for each peer, then its addresses. `connect(multiaddr)` sends `{multiaddr}` (`/ip4/<ip>/tcp/<port>/p2p/<peer id>`) and `disconnect(peerId)` sends `{peer_id}`; both are an operator's, so anyone else gets a `ScopeError` with code `NOT_AN_OPERATOR` (`AuthCode.OperatorRequired`, 403).
 
 ## Cancelling work
 
@@ -337,8 +341,9 @@ Every failure is an `SDKError`.
 | `NamespaceError` | 403 `NAMESPACE_MISMATCH`: wrong gateway, or the key came from the wrong environment | `namespace`, `credentialNamespace` |
 | `NotFoundError` | 404 | |
 | `NetworkError` | No HTTP response. `httpStatus` is 0 | `code` is `NETWORK_ERROR`, `TIMEOUT` or `ABORTED` |
+| `LogoutError` | `logout` cleared the device's session but the gateway did not end it | `serverError` |
 
-`error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
+`error.code` is the gateway's own (full list in [Sign-in and sessions](/docs/developer/sign-in#error-codes)); `FunctionCode` names the codes a function invoke fails with (`RATE_LIMITED`, `FUNCTION_TIMEOUT`, `FUNCTION_UNAVAILABLE`, `FUNCTION_EXECUTION_FAILED`, `FUNCTION_VERSION_SUPERSEDED`). `error.retryable` is `true` or `false` when the gateway says, otherwise `undefined`. `Scope` and `Role` are exported types, so a grant name that does not exist is a compile error.
 
 ```ts
 import { NetworkError, ScopeError } from "@orama-network/orama";
@@ -355,15 +360,21 @@ try {
 
 ```ts
 import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@orama-network/orama";
-PROFILE_SCOPES["app-runtime"];          // ["invoke", "storage", "push", "webrtc", "proxy"]
+PROFILE_SCOPES["app-runtime"];          // ["invoke", "push", "webrtc", "proxy"]
 satisfiesScope(["admin"], "storage");   // true: admin is a wildcard
 ```
 
-The grants are `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `storage` and `webrtc`. They mirror the gateway's own list, and a test in the SDK fails if the two ever disagree.
+The grants are `admin`, `cache`, `invoke`, `proxy`, `pubsub`, `push`, `push-send`, `storage` and `webrtc`. `push` registers devices and topics; `push-send` sends to any user or topic, so it belongs on a server's key, never in an app. They mirror the gateway's own list, and a test in the SDK fails if the two ever disagree.
 
 ## Retries and failover
 
-A retryable status (408, 429, 500, 502, 503, 504) is retried up to `maxRetries` times. A `Retry-After` header is honoured, capped at thirty seconds; otherwise the delay grows with the attempt and carries up to 25% jitter. Failing over to another gateway is the application's decision, made in `onNetworkError`:
+A retryable status (408, 429, 500, 502, 503, 504) is retried up to `maxRetries` times, but only when sending the request again is safe:
+
+- When the gateway gives a verdict (`error.retryable`), the verdict decides. A function's 504 `FUNCTION_TIMEOUT` says `false`: the function ran, so what it did may have happened. A rate limit or an unreachable namespace gateway says `true`.
+- Without a verdict, `GET`, `HEAD`, `OPTIONS`, `PUT` and `DELETE` are retried, as are the SDK's reads that travel as `POST` (cache `get`, `multiGet`, `scan`; database `find`, `findOne` and query-builder selects), and any 429, which the gateway answers before doing any work.
+- Anything else is not retried. A write such as `db.exec`, `db.transaction` or a function invoke answered 5xx with no verdict may already have landed, so the error comes back to you. Resend it only if the write is idempotent; the gateway has no idempotency keys.
+
+A `Retry-After` header is honoured, capped at thirty seconds; otherwise the delay grows with the attempt and carries up to 25% jitter. Failing over to another gateway is the application's decision, made in `onNetworkError`:
 
 ```ts
 const client = createClient({
@@ -406,12 +417,12 @@ const chain = new OramaChainClient({
 const signer = new LocalSigner(privateKeyHex);  // or any OramaSigner, such as RootWallet
 const msg = MSG.nodesFundHotKey.create({ operator: signer.address, nodeId: "node-1", amount: "2500000000" });
 const { signed, result } = await chain.signAndBroadcast([msg], signer, {
-  chainId: "orama-stagenet-1", gasLimit: 300_000, feeNorama: 300_000,
+  chainId: "orama-testnet-1", gasLimit: 300_000, feeNorama: 300_000,
 });
 console.log(result.txHash, describeTx(signed.txBytes).messages[0].summary);
 
 // Use earnings: withdraw them to your balance, then pay in the open by saying so.
-const tx = { chainId: "orama-stagenet-1", gasLimit: 200_000, feeNorama: 200_000 };
+const tx = { chainId: "orama-testnet-1", gasLimit: 200_000, feeNorama: 200_000 };
 await chain.withdrawEarnings(25_000_000_000n, signer, tx);                       // 25 ORAMA
 const paid = await chain.transfer({ to: recipient, amount: 5_000_000_000n, public: true }, { signer, tx });
 console.log(paid.warning);   // the sender, the recipient and the amount are visible on the chain

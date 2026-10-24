@@ -1,14 +1,12 @@
 package sshcmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal"
-	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/hostpin"
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/noderesolver"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
 	"github.com/Orama-Network/orama/core/pkg/remotessh"
@@ -76,7 +74,7 @@ func init() {
 }
 
 func sshInto(node inspector.Node, remoteCmd string) error {
-	if err := requirePinnedHostKey(&node); err != nil {
+	if err := hostpin.Require(&node); err != nil {
 		return err
 	}
 	nodes := []inspector.Node{node}
@@ -110,48 +108,3 @@ func sshArgs(node inspector.Node, remoteCmd string) []string {
 	}
 	return args
 }
-
-// requirePinnedHostKey points node at the host-key pin setup keeps and refuses
-// a host with no entry in it. ssh would refuse too under strict checking, but
-// only after the wallet key was fetched, and with a message that does not say
-// how to pin the host. A node that already names its own known_hosts keeps it.
-func requirePinnedHostKey(node *inspector.Node) error {
-	if node.KnownHostsFile == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("find the home directory for %s: %w", pinnedHostsFile, err)
-		}
-		node.KnownHostsFile = filepath.Join(home, pinnedHostsDir, pinnedHostsFile)
-	}
-	if _, err := os.Stat(node.KnownHostsFile); err != nil {
-		return unpinned(node, fmt.Errorf("%s cannot be read: %w", node.KnownHostsFile, err))
-	}
-	keygen, err := exec.LookPath("ssh-keygen")
-	if err != nil {
-		return fmt.Errorf("ssh-keygen not found in PATH, needed to look %s up in %s: %w", node.Host, node.KnownHostsFile, err)
-	}
-	out, err := exec.Command(keygen, "-F", node.Host, "-f", node.KnownHostsFile).Output()
-	var exit *exec.ExitError
-	switch {
-	case err == nil && len(out) > 0:
-		return nil
-	case err == nil || errors.As(err, &exit) && exit.ExitCode() == 1:
-		return unpinned(node, fmt.Errorf("it has no entry for %s", node.Host))
-	default:
-		return fmt.Errorf("look up %s in %s: %w", node.Host, node.KnownHostsFile, err)
-	}
-}
-
-// unpinned is the refusal for a host whose key was never pinned.
-func unpinned(node *inspector.Node, why error) error {
-	return clierr.Failure("Host key verification failed: %s is not pinned (%v). orama ssh never trusts a host on first use; "+
-		"pin its key with 'orama node setup --ip %s ...', which writes it to %s",
-		node.Host, why, node.Host, node.KnownHostsFile)
-}
-
-const (
-	// pinnedHostsDir and pinnedHostsFile are ~/.orama/known_hosts, the pin
-	// 'orama node setup' keeps.
-	pinnedHostsDir  = ".orama"
-	pinnedHostsFile = "known_hosts"
-)

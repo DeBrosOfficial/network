@@ -10,7 +10,7 @@ import (
 )
 
 // dummyArchive is an archive path that names nothing: State.ArchivePath is
-// empty on a fleet the run did not build (stagenet), and these commands are
+// empty on a fleet the run did not build (testnet), and these commands are
 // refused at validation or at the environment lookup, before any file is read.
 const dummyArchive = "/nonexistent/e2e-orama.tar.gz"
 

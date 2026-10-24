@@ -80,6 +80,36 @@ func TestAuth_exchangedKeyTokenUnpinsOnly(t *testing.T) {
 	}
 }
 
+// TestAuth_bundledKeyTokenCannotUnpin: the key an app ships (app-runtime, or
+// invoke-only) holds no storage grant, so a token exchanged for it is refused
+// unpin with 403 INSUFFICIENT_SCOPE and the object stays pinned, while the
+// storage key a function keeps in its namespace's secrets still unpins it
+// (bugboard #946, #151; docs/whitepaper/technical-reference/vol1/14-authorization.md#api-keys).
+func TestAuth_bundledKeyTokenCannotUnpin(t *testing.T) {
+	t.Parallel()
+	n := tenancy.Namespace(t, harness.Fleet(t), ns.Options{})
+	u := upload(t, n.Client, tenancy.Owner(n), "bundle.bin", []byte("bundle"))
+	waitPinned(t, n.Client, tenancy.Owner(n), u.Cid)
+	for _, profile := range []string{"app-runtime", "invoke-only"} {
+		s, _, err := n.Client.For(t).Token(t.Context(), tenancy.APIKey(t, n, profile))
+		if err != nil {
+			t.Fatalf("exchanging an %s key: %v", profile, err)
+		}
+		r, _ := unpin(t, n.Client, tenancy.Cred{Bearer: s.AccessToken}, u.Cid, false)
+		tenancy.ExpectRefused(t, r, http.StatusForbidden, tenancy.CodeScope)
+	}
+	if _, st := status(t, n.Client, tenancy.Owner(n), u.Cid); st.Status != pinnedStatus {
+		t.Fatalf("after the refused unpins the object is %q, want %q", st.Status, pinnedStatus)
+	}
+	s, _, err := n.Client.For(t).Token(t.Context(), tenancy.APIKey(t, n, "storage"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, body := unpin(t, n.Client, tenancy.Cred{Bearer: s.AccessToken}, u.Cid, false); r.Status != http.StatusOK || body["status"] != "ok" {
+		t.Errorf("unpin with a function's storage key: %d %.200s", r.Status, r.Body)
+	}
+}
+
 // TestAuth_roles: a runtime member uploads and reads; a reader holds no
 // storage grant (403 INSUFFICIENT_SCOPE); a key without the storage scope is
 // refused before the token check.

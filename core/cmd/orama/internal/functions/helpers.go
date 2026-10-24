@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/shared"
@@ -57,6 +58,53 @@ type FunctionConfig struct {
 	// caller's credential, or "capability" to also accept a capability the
 	// function minted (feat-264). The gateway validates it at deploy.
 	WSAuth string `yaml:"ws_auth"`
+
+	// RateLimit is the function's own invoke limits (bug-740, feat-938),
+	// checked by the gateway on top of its own per-caller and per-namespace
+	// buckets. The gateway validates the ranges at deploy.
+	RateLimit *RateLimitConfig `yaml:"rate_limit"`
+}
+
+// RateLimitConfig is function.yaml's rate_limit. Each rule allows `requests`
+// calls per `window`: per_caller to each caller (a wallet; a key caller by key
+// and address; an anonymous caller by address), per_ip to each client address
+// whoever signed in.
+type RateLimitConfig struct {
+	PerCaller *RateLimitRule `yaml:"per_caller"`
+	PerIP     *RateLimitRule `yaml:"per_ip"`
+}
+
+// RateLimitRule is one rule: requests per window, the window a duration such
+// as 30s, 1m or 1h in whole seconds.
+type RateLimitRule struct {
+	Requests int    `yaml:"requests"`
+	Window   string `yaml:"window"`
+}
+
+// rateLimitMetadata is rate_limit in the shape the deploy metadata carries it
+// (window in seconds), or nil when the function declares none.
+func rateLimitMetadata(rl *RateLimitConfig) (map[string]interface{}, error) {
+	if rl == nil {
+		return nil, nil
+	}
+	out := map[string]interface{}{}
+	for field, rule := range map[string]*RateLimitRule{"per_caller": rl.PerCaller, "per_ip": rl.PerIP} {
+		if rule == nil {
+			continue
+		}
+		window, err := time.ParseDuration(rule.Window)
+		if err != nil {
+			return nil, fmt.Errorf("'rate_limit.%s.window' must be a duration such as 30s, 1m or 1h (got %q)", field, rule.Window)
+		}
+		if window%time.Second != 0 {
+			return nil, fmt.Errorf("'rate_limit.%s.window' must be whole seconds (got %s)", field, window)
+		}
+		out[field] = map[string]int{"requests": rule.Requests, "window_seconds": int(window / time.Second)}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 // RetryConfig holds retry settings.
@@ -123,6 +171,9 @@ func LoadConfig(dir string) (*FunctionConfig, error) {
 	}
 	if cfg.Timeout < 1 || cfg.Timeout > 300 {
 		return nil, fmt.Errorf("function.yaml: 'timeout' must be between 1 and 300 seconds (got %d)", cfg.Timeout)
+	}
+	if _, err := rateLimitMetadata(cfg.RateLimit); err != nil {
+		return nil, fmt.Errorf("function.yaml: %w", err)
 	}
 
 	return &cfg, nil
@@ -298,6 +349,13 @@ func uploadWASMFunction(wasmPath string, cfg *FunctionConfig) (map[string]interf
 	}
 	if cfg.WSAuth != "" {
 		metaObj["ws_auth"] = cfg.WSAuth
+	}
+	rateLimit, err := rateLimitMetadata(cfg.RateLimit)
+	if err != nil {
+		return nil, fmt.Errorf("function.yaml: %w", err)
+	}
+	if rateLimit != nil {
+		metaObj["rate_limit"] = rateLimit
 	}
 	if len(metaObj) > 0 {
 		metadata, _ := json.Marshal(metaObj)

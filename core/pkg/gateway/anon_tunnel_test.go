@@ -71,6 +71,14 @@ func TestParseTunnelTarget_rejectsNonPublicDestinations(t *testing.T) {
 		"[::1]",
 		"[fe80::1]",
 		"224.0.0.1", // multicast
+		// Bug #712: the notations a resolver reads as an address.
+		"2130706433", // 127.0.0.1 in decimal
+		"0x7f000001",
+		"0177.0.0.1",
+		"127.1",
+		"0x7f.1",
+		"167772161", // 10.0.0.1
+		"localhost.",
 	} {
 		t.Run(host, func(t *testing.T) {
 			if _, err := parseTunnelTarget(host, "443"); err == nil {

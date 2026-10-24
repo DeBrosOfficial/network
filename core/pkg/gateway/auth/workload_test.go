@@ -56,7 +56,7 @@ func workloadService(t *testing.T) (*Service, *sql.DB) {
 		t.Fatal(err)
 	}
 
-	svc, err := NewService(nil, &sqliteNet{db: &sqliteDatabase{db: db}}, "", "default")
+	svc, err := NewService(nil, &sqliteNet{db: &sqliteDatabase{db: db}}, "", "default", "test-hmac-secret")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}

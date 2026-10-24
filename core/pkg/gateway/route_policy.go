@@ -35,15 +35,7 @@ var (
 
 	// credential is a route any valid credential reaches.
 	policyCredential = routepolicy.Policy{}
-
-	// unrestricted is what the single `admin` scope used to be: every domain,
-	// every action. It is left for the routes that genuinely are the whole
-	// control plane — operating the cluster — and nothing else uses it.
-	policyUnrestricted = routepolicy.Policy{Domain: PermissionWildcard, Action: PermissionWildcard}
 )
-
-// PermissionWildcard matches anything in its position; see the auth package.
-const PermissionWildcard = auth.PermissionWildcard
 
 // control declares a control-plane route: which part of the platform, and what
 // this route does to it.
@@ -183,6 +175,15 @@ func buildRoutePolicies() *routepolicy.Table {
 		"/v1/namespace/webrtc/status",
 	)
 
+	// Device attestation (feat-941): a signed-in device asks for a challenge
+	// and posts its proof. The handler refuses anything but a device-bound
+	// session's token. MainGateway: the index gateway is the one that keeps
+	// Google's and GrapheneOS's lists fresh, so a namespace gateway never
+	// verifies an Android chain.
+	attestRoute := policyCredential
+	attestRoute.MainGateway = true
+	t.Add(attestRoute, "/v1/attest/challenge", "/v1/attest/ios", "/v1/attest/android")
+
 	// --- Control plane -------------------------------------------------
 	//
 	// Each of these says what it does rather than that it is "admin". A key
@@ -235,32 +236,38 @@ func buildRoutePolicies() *routepolicy.Table {
 	namespaceDeletion := control(auth.DomainNamespace, auth.ActionWrite)
 	namespaceDeletion.MainGateway = true
 	t.Add(namespaceDeletion, "/v1/namespace/delete")
+	// The browser origins a namespace admits. An owner's or admin's: which
+	// sites may read the namespace's answers with its users' credentials is
+	// the namespace's to decide, and a developer's grant does not reach
+	// namespace settings. MainGateway: the index gateway answers ns-<name>
+	// hosts, so its cache is the one a change must reach at once.
+	corsOrigins := control(auth.DomainNamespace, auth.ActionWrite)
+	corsOrigins.MainGateway = true
+	t.Add(corsOrigins, "/v1/namespace/cors-origins")
 	t.Add(control(auth.DomainNamespace, auth.ActionWrite),
 		"/v1/namespace/rate-limit", "/v1/namespace/session-policy",
+		// Which app builds the namespace admits (feat-941).
+		"/v1/namespace/attestation-policy",
 		"/v1/namespace/webrtc/enable", "/v1/namespace/webrtc/disable",
 		// The namespace's own WebRTC policy: whether its rooms admit only
 		// users its functions admitted.
 		"/v1/webrtc/config",
 		"/v1/namespace/webrtc/stealth/enable", "/v1/namespace/webrtc/stealth/disable")
 
-	// Topology mutation and node operation: an operator's. The handlers
-	// additionally require the caller's wallet to be on the operator list.
+	// Topology mutation and node operation: the cluster operator's. Every one
+	// is an operatorRoute, so the scope gate admits only a wallet session on
+	// the cluster's operator list; no namespace role, grant or key reaches
+	// them, `*:*:*` included. Most handlers check the list again.
 	//
-	// Minting a cluster invite hands out the cluster secret, the swarm key and
-	// every other secret the cluster holds — so this is the one place that
-	// still asks for everything, because that is what it gives.
-	t.Add(control(auth.DomainOperator, auth.ActionRead), "/v1/node/status", "/v1/node/logs")
-	// The handler checks the operator list, which only the cluster registry
-	// has: MainGateway (see operatorListRoute).
-	t.Add(operatorListRoute(control(auth.DomainOperator, auth.ActionRead)), "/v1/operator/health")
-
-	// The whole cluster's health, one-shot and streamed: every node's report,
-	// addresses and versions included, so it is an operator's. The handlers
-	// also check the operator list. MainGateway: the snapshot is assembled by
-	// the cluster gateway, which holds the node registry.
-	clusterTelemetry := control(auth.DomainOperator, auth.ActionRead)
-	clusterTelemetry.MainGateway = true
-	t.Add(clusterTelemetry, "/v1/operator/telemetry", "/v1/operator/telemetry/stream")
+	// The node routes reach a node's agent: its status, its logs, restarting
+	// or stopping its services, dropping it from the mesh. They declared
+	// operator:read and operator:write, which a namespace owner's or admin's
+	// `*:*:*` held, and their handlers checked nothing (bugboard bug-55).
+	t.Add(operatorRoute(), "/v1/node/status", "/v1/node/logs", "/v1/node/command", "/v1/node/leave")
+	// This node's health with every check's detail, and the whole cluster's,
+	// one-shot and streamed: every node's report, addresses and versions
+	// included.
+	t.Add(operatorRoute(), "/v1/operator/health", "/v1/operator/telemetry", "/v1/operator/telemetry/stream")
 
 	// This node's peers, its peer ids and its storage peers' addresses: a map
 	// of the cluster. They were open to anyone. Another node's discovery asks
@@ -268,36 +275,29 @@ func buildRoutePolicies() *routepolicy.Table {
 	// else needs to be an operator.
 	t.AddDynamic("/v1/network/status", networkDetailPolicy)
 	t.AddDynamic("/v1/network/peers", networkDetailPolicy)
-	// Listing the operator's nodes is a read. The table is keyed by path, not
-	// method; HandleListNodes serves GET only and answers every other method
-	// 405, so there is no write on this path.
-	t.Add(operatorListRoute(control(auth.DomainOperator, auth.ActionRead)), "/v1/operator/nodes")
-	t.Add(control(auth.DomainOperator, auth.ActionWrite),
-		"/v1/node/command", "/v1/node/leave")
-	// Connecting and disconnecting peers changes the cluster's map, so the
-	// handlers check the operator list too.
-	t.Add(operatorListRoute(control(auth.DomainOperator, auth.ActionWrite)),
-		"/v1/network/connect", "/v1/network/disconnect")
-	t.Add(operatorListRoute(control(auth.DomainOperator, auth.ActionWrite)),
+	// Listing the operator's nodes, registering one, connecting and
+	// disconnecting peers (which changes the cluster's map), the operator list
+	// itself, and rotating the signing key and the cluster's secrets.
+	t.Add(operatorRoute(), "/v1/operator/nodes", "/v1/network/connect", "/v1/network/disconnect",
 		"/v1/operator/node/register",
 		"/v1/operator/operators", "/v1/operator/operators/",
 		"/v1/operator/rotate-signing-key", "/v1/operator/rotate-secrets")
 	// Who may create a namespace, and the allowlist. cluster_settings and
-	// namespace_creators live only in the cluster registry; a namespace
-	// gateway's RQLite has them stripped. MainGateway keeps the call on the
-	// index when the host is ns-<name>.
-	namespaceCreation := control(auth.DomainOperator, auth.ActionWrite)
-	namespaceCreation.MainGateway = true
-	t.Add(namespaceCreation,
+	// namespace_creators live only in the cluster registry.
+	t.Add(operatorRoute(),
 		"/v1/operator/settings", "/v1/operator/settings/",
 		"/v1/operator/creators", "/v1/operator/creators/")
-	t.Add(operatorListRoute(policyUnrestricted), "/v1/operator/invite")
-	// Removing a namespace its owner can no longer delete. The handler also
-	// checks the operator list. MainGateway: only the index gateway has the
-	// handler, and the namespace comes from the body, not the host.
-	operatorRemoval := control(auth.DomainOperator, auth.ActionWrite)
-	operatorRemoval.MainGateway = true
-	t.Add(operatorRemoval, "/v1/operator/namespaces/remove")
+	// Minting a cluster invite hands out the cluster secret, the swarm key and
+	// every other secret the cluster holds. It asked for `*:*:*`, which every
+	// namespace owner holds in their own namespace.
+	t.Add(operatorRoute(), "/v1/operator/invite")
+	// The cluster's own audit events (namespace IS NULL): invites minted,
+	// nodes joining and claimed, namespaces deleted. They name operators,
+	// nodes and every tenant's deletion, so they are an operator's to read.
+	t.Add(operatorRoute(), "/v1/operator/audit")
+	// Removing a namespace its owner can no longer delete. The namespace comes
+	// from the body, not the host.
+	t.Add(operatorRoute(), "/v1/operator/namespaces/remove")
 
 	// --- Control plane on a namespace's own resources ------------------
 
@@ -327,7 +327,11 @@ func buildRoutePolicies() *routepolicy.Table {
 	t.Add(owned(auth.DomainSecrets, auth.ActionWrite),
 		"/v1/namespace/push-credentials", "/v1/namespace/push-credentials/",
 		"/v1/push/config")
-	t.Add(owned(auth.DomainPush, auth.ActionWrite), "/v1/push/send", "/v1/push/topics/send")
+	// Sending reaches every user's devices and every topic, so it needs
+	// push:send, which no client credential holds: a developer or above, or a
+	// key minted with the push-send grant (bugboard #434). Registration is
+	// push:write, below.
+	t.Add(owned(auth.DomainPush, auth.ActionSend), "/v1/push/send", "/v1/push/topics/send")
 
 	t.Add(owned(auth.DomainFn, auth.ActionRead), "/v1/serverless/ws/connections", "/v1/serverless/ws/connections/")
 	// Function management. /v1/functions/ is one handler serving several
@@ -437,6 +441,11 @@ func buildRoutePolicies() *routepolicy.Table {
 	// so a userless server-side reclaim (cron, avatar GC) may prove possession
 	// of its storage-scoped key by exchanging it for a token. A bare key still
 	// fails. Upload, get and pin keep the strict requirement.
+	//
+	// The handler reaches every CID the namespace owns, so the storage grant is
+	// what keeps a key out of here, and no key profile meant for an app bundle
+	// carries it (auth.ProfileGrants, bugboard #946): the key that unpins is a
+	// storage key a function keeps in the namespace's secrets.
 	t.AddDynamic("/v1/storage/unpin/", func(r *http.Request) routepolicy.Policy {
 		if r.Method == http.MethodDelete {
 			return dataPlane(auth.DomainStorage, auth.ActionWrite, false, routepolicy.AnyToken)
@@ -536,7 +545,7 @@ func networkDetailPolicy(r *http.Request) routepolicy.Policy {
 	if nodeauth.HasCoordinationStamp(r) {
 		return policyHandlerAuth
 	}
-	return operatorListRoute(control(auth.DomainOperator, auth.ActionRead))
+	return operatorRoute()
 }
 
 // deploymentRoute keeps a deployment route on the index gateway even when it
@@ -547,16 +556,18 @@ func deploymentRoute(p routepolicy.Policy) routepolicy.Policy {
 	return p
 }
 
-// operatorListRoute keeps a route whose handler checks the operator list on the
-// gateway that has one. The list is in the cluster registry and is stripped
-// from a namespace's RQLite, so the same request addressed to ns-<name> and
-// proxied into the tenant's gateway could not be answered: it came back as a
-// retryable 503, "the registry did not answer", to a caller who was simply
-// not an operator. Served by the index gateway it is the 403 it should be, and
-// a credential of another namespace is refused for the host it names.
-func operatorListRoute(p routepolicy.Policy) routepolicy.Policy {
-	p.MainGateway = true
-	return p
+// operatorRoute declares a route of the cluster operator: the scope gate admits
+// only a wallet session on the operator list (requireOperatorCaller).
+//
+// It is always served by the index gateway. The list is in the cluster
+// registry and is stripped from a namespace's RQLite, so the same request
+// addressed to ns-<name> and proxied into the tenant's gateway could not be
+// answered: it came back as a retryable 503, "the registry did not answer", to
+// a caller who was simply not an operator. Served by the index gateway it is
+// the 403 it should be, and a credential of another namespace is refused for
+// the host it names.
+func operatorRoute() routepolicy.Policy {
+	return routepolicy.Policy{Operator: true, MainGateway: true}
 }
 
 // credentialServesHostNamespace refuses a request to a route the index gateway

@@ -252,39 +252,6 @@ func (c *ClusterDiscoveryService) UpdateOwnMetadata() {
 		zap.String("lifecycle", metadata.LifecycleState))
 }
 
-// ProvideMetadata builds and returns the current node metadata without storing it.
-// Implements discovery.MetadataProvider so the MetadataPublisher can call this
-// on a regular interval and store the result in the peerstore.
-func (c *ClusterDiscoveryService) ProvideMetadata() *discovery.RQLiteNodeMetadata {
-	c.mu.RLock()
-	currentRaftAddr := c.raftAddress
-	currentHTTPAddr := c.httpAddress
-	c.mu.RUnlock()
-
-	metadata := &discovery.RQLiteNodeMetadata{
-		NodeID:         currentRaftAddr,
-		RaftAddress:    currentRaftAddr,
-		HTTPAddress:    currentHTTPAddr,
-		NodeType:       c.nodeType,
-		RaftLogIndex:   c.rqliteManagerLogIndex(),
-		LastSeen:       time.Now(),
-		ClusterVersion: "1.0",
-		PeerID:         c.host.ID().String(),
-		WireGuardIP:    c.wireGuardIP,
-	}
-
-	if c.lifecycle != nil {
-		state, ttl := c.lifecycle.Snapshot()
-		metadata.LifecycleState = string(state)
-		if state == "maintenance" {
-			metadata.MaintenanceTTL = ttl
-		}
-	}
-
-	c.adjustSelfAdvertisedAddresses(metadata)
-	return metadata
-}
-
 // StoreRemotePeerMetadata stores metadata received from a remote peer
 func (c *ClusterDiscoveryService) StoreRemotePeerMetadata(peerID peer.ID, metadata *discovery.RQLiteNodeMetadata) error {
 	if metadata == nil {

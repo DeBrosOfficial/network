@@ -23,13 +23,13 @@ import (
 // block retention) and how large the evidence of a double sign may be. They are validated here from InitChain's request, by chain-id
 // class like the locked parameters (params.ClassOfChainID):
 //   - orama-localnet-<name>: free.
-//   - orama-devnet-<name> and orama-stagenet-<name>: a finite block gas limit, a block size above
+//   - orama-devnet-<name> and orama-testnet-<name>: a finite block gas limit, a block size above
 //     zero and not over ConsensusMaxBlockBytes, vote extensions on from some height, and ed25519 as
 //     the only validator key type.
 //   - anything else (production): exactly the values `orama setup --create-network` writes.
 const (
 	// ConsensusMaxGas is the block gas limit of a genesis (core/cmd/orama/internal/setup
-	// consensusMaxGas, chain/scripts/stagenet/deploy.sh).
+	// consensusMaxGas, chain/scripts/testnet/deploy.sh).
 	ConsensusMaxGas int64 = 100_000_000
 	// ConsensusMaxBlockBytes is the block size of a genesis, CometBFT's default of 21 MiB, and the
 	// most a test network may set. It equals x/inclusion's DefaultMaxBlockBytes, the budget the

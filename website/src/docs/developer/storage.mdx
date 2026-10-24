@@ -8,7 +8,7 @@ Do not confuse this with on-chain [storage deals](/docs/blockchain/storage-deals
 
 Files go into a **private IPFS swarm** on the nodes (it has a swarm key of its own, so it never joins the public IPFS network), and IPFS Cluster pins them across the cluster. Uploads are pinned automatically. A pin keeps the file; an unpinned file is eventually removed by garbage collection. Garbage collection runs on a timer (6 hours), and each node's IPFS storage budget is set from half its disk.
 
-Private blobs are encrypted before they are added. A node serves content it holds straight from disk, so a download does not need the cluster to be reachable.
+Private blobs are encrypted before they are added. A node serves content it pins straight from disk, so a download does not need the cluster to be reachable.
 
 ## SDK
 
@@ -28,7 +28,7 @@ await client.storage.pin(existingCid, "report.pdf");
 await client.storage.unpin(cid);
 ```
 
-`upload` works in the browser and in Node, has a 5 minute timeout for large files, and pins by default. A read that closely follows a write can legitimately 404 while the pin propagates, so reads retry a 404 for about eighteen seconds, but only while the gateway marks it retryable (a CID uploaded or pinned in the last two minutes). A 404 for content that is gone is returned at once.
+`upload` works in the browser and in Node, has a 5 minute timeout for large files, and pins every upload: there is no unpinned upload (an SDK before 0.3.5 took `{ pin: false }`; the option is gone, and the gateway refuses a `pin` field other than `true` with `400 UNPINNED_UPLOAD_REFUSED`). A read that closely follows a write can legitimately 404 while the pin propagates, so reads retry a 404 for about eighteen seconds, but only while the gateway marks it retryable (a CID uploaded or pinned in the last two minutes). A 404 for content that is gone is returned at once.
 
 ### Read errors
 
@@ -36,14 +36,14 @@ await client.storage.unpin(cid);
 |---|---|---|
 | 404 | `NOT_FOUND` | The cluster does not hold the content: never pinned, or unpinned and reclaimed. Answered at once. `retryable: true` only in the two minutes after the upload or pin; after that it is final |
 | 403 | `FORBIDDEN` | The namespace does not own the CID, or the credential's grant does not cover it |
-| 504 | `TIMEOUT` (retryable) | The content could not be retrieved in time (the local daemon did not answer, or fetching from other nodes took over 20 seconds) |
+| 504 | `TIMEOUT` (retryable) | The content could not be retrieved in time: the local daemon did not answer, or fetching from other nodes made no progress for 20 seconds. A large object that keeps arriving is never cut off by this; it is streamed as it arrives, and a stall after the first byte ends the body short of its `Content-Length` instead. Through the main gateway a download has 5 minutes in all |
 | 503 | `SERVICE_UNAVAILABLE` (retryable) | The storage cluster could not be reached |
 | 400 | `VALIDATION_FAILED` | Not a valid CID in canonical form |
 | 500 | `INTERNAL` | The storage node failed to read the content |
 
 ## Permissions
 
-Storage needs the `storage` grant, and **a logged-in user's wallet session** (or a deployed app's own workload token). A key on its own is refused, so an `app-runtime` key extracted from a bundle cannot act as anybody. A grant can be narrowed to a name prefix: `storage:avatars/*` limits upload, get, pin and unpin to objects uploaded under that prefix. `GET /v1/storage/status/<cid>` answers only for a CID the caller's namespace references; for any other it returns the same 404 as for a CID nobody pinned, so it cannot be used to test what other tenants store. See [Access control](/docs/developer/access-control).
+Storage needs the `storage` grant, and **a logged-in user's wallet session** (or a deployed app's own workload token). A key on its own is refused. Unpinning is the one exception: `DELETE /v1/storage/unpin/<cid>` also takes a token exchanged for a key holding `storage`, so a function can reclaim the namespace's storage with no user signed in, and it reaches every object the namespace stores. That key lives in the namespace's secrets and never in an app; no key profile meant for an app (`invoke-only`, `app-runtime`) holds `storage`. See [Where a key belongs](/docs/developer/access-control#api-keys). A grant can be narrowed to a name prefix: `storage:avatars/*` limits upload, get, pin and unpin to objects uploaded under that prefix. `GET /v1/storage/status/<cid>` answers only for a CID the caller's namespace references; for any other it returns the same 404 as for a CID nobody pinned, so it cannot be used to test what other tenants store. See [Access control](/docs/developer/access-control).
 
 ## Unpinning and deleting
 
@@ -72,8 +72,8 @@ Minting needs a **device-bound session**, the storage read grant and ownership o
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/v1/storage/upload` | Upload (multipart/form-data with `file` and optional `pin`) |
-| `GET` | `/v1/storage/get/{cid}` | Download a file. Always sends `Content-Length` |
+| `POST` | `/v1/storage/upload` | Upload (multipart/form-data with `file`). Always pinned; a `pin` field other than `true` is `400 UNPINNED_UPLOAD_REFUSED` |
+| `GET` | `/v1/storage/get/{cid}` | Download a file. Always sends `Content-Length`; a body shorter than it was cut off and should be fetched again |
 | `POST` | `/v1/storage/pin` | Pin an existing CID. Body `{cid, name?}` |
 | `GET` | `/v1/storage/status/{cid}` | Pin status |
 | `DELETE` | `/v1/storage/unpin/{cid}` | Unpin (`?immediate=true` for eviction) |

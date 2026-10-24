@@ -107,9 +107,9 @@ The staged directory is a release archive's `bin/` (`/opt/orama/bin` once the re
 
 The unit restarts always, after 5 s, with no start limit, and allows 65,535 open files. `ReadOnlyPaths=` mounts `cosmovisor/genesis` and `cosmovisor/upgrades` read-only for the process. Before every start it runs `ExecStartPre=+/usr/lib/orama-global/bin/orama global validator check-sign-floor`; the `+` runs it as root outside the sandbox, which it needs to read the state root. Because it is an `ExecStartPre`, the guard applies at boot, on a `Restart=always` loop and on a manual `systemctl start`, not only to `orama global start`.
 
-The unit has no WireGuard dependency and its peers must be public addresses: `IPAddressDeny=` covers the private ranges. The stagenet deploy script writes a different chain unit that peers over the WireGuard mesh; it is not this one ([chain architecture](39-chain-architecture.md)). The comment on `ChainP2PPort` in `core/pkg/constants/chain.go` still says the listener is on the WireGuard address; the global unit binds `0.0.0.0`.
+The unit has no WireGuard dependency and its peers must be public addresses: `IPAddressDeny=` covers the private ranges. The testnet deploy script writes a different chain unit that peers over the WireGuard mesh; it is not this one ([chain architecture](39-chain-architecture.md)). The comment on `ChainP2PPort` in `core/pkg/constants/chain.go` still says the listener is on the WireGuard address; the global unit binds `0.0.0.0`.
 
-`oramad start` refuses a node whose `app.toml` sets `query-gas-limit` to 0 on any chain id that is not a localnet, and a node of a stagenet, testnet or mainnet chain that cannot verify shielded bundles (`chain/cmd/oramad/cmd/commands.go:guardStart`). `oramad init` writes `2000000`. The installer rewrites an existing `app.toml` only when it is given `--external-address`: `core/pkg/install/chainconfig.go` then sets the external address, peer exchange, pruning, `min-retain-blocks`, the query gas limit, the IAVL cache and the snapshot interval (1000 blocks, two kept), and, for a joiner, the `[statesync]` block (two light-client servers, a trusted height and hash, a 7-day trust period). A key its template lacks is an error.
+`oramad start` refuses a node whose `app.toml` sets `query-gas-limit` to 0 on any chain id that is not a localnet, and a node of a testnet or mainnet chain that cannot verify shielded bundles (`chain/cmd/oramad/cmd/commands.go:guardStart`). `oramad init` writes `2000000`. The installer rewrites an existing `app.toml` only when it is given `--external-address`: `core/pkg/install/chainconfig.go` then sets the external address, peer exchange, pruning, `min-retain-blocks`, the query gas limit, the IAVL cache and the snapshot interval (1000 blocks, two kept), and, for a joiner, the `[statesync]` block (two light-client servers, a trusted height and hash, a 7-day trust period). A key its template lacks is an error.
 
 ### Cosmovisor staging
 
@@ -273,7 +273,7 @@ The operator's wallet never touches the node. `orama global register`, `bond`, `
 
 `register` verifies every `--binding` file locally with `globalbind.Verify` before building `MsgRegisterNode`, so a wrong signature fails on the operator's machine and not as a refused transaction.
 
-No `orama` command builds `MsgRegisterOperator`, which has to precede `register`; it is sent by the Go client in `chain/client/node` or by the stagenet deploy script's helper. No command builds `MsgUpdateNode` either, so an ASN is set at registration only, and there is no rotation path from the CLI. `oramad tx nodes fund-hot-key` builds `MsgFundHotKey` (`--from-bank` takes the amount from the bank balance).
+No `orama` command builds `MsgRegisterOperator`, which has to precede `register`; it is sent by the Go client in `chain/client/node` or by the testnet deploy script's helper. No command builds `MsgUpdateNode` either, so an ASN is set at registration only, and there is no rotation path from the CLI. `oramad tx nodes fund-hot-key` builds `MsgFundHotKey` (`--from-bank` takes the amount from the bank balance).
 
 ### x/nodes: the records
 
@@ -519,7 +519,7 @@ Bring-up follows from that. The first start of the provider creates `hot-key`, l
 
 ## Known gaps
 
-- `MsgRegisterOperator` and `MsgUpdateNode` have no `orama` command. A new operator needs the Go client in `chain/client/node` or the stagenet helper, and an ASN, endpoints or hot key cannot be changed from the CLI (`core/cmd/orama/internal/cmd/globalcmd/register.go`).
+- `MsgRegisterOperator` and `MsgUpdateNode` have no `orama` command. A new operator needs the Go client in `chain/client/node` or the testnet helper, and an ASN, endpoints or hot key cannot be changed from the CLI (`core/cmd/orama/internal/cmd/globalcmd/register.go`).
 - The roles `VALIDATOR`, `EXIT` and `DIRAUTH` have no consumer on chain: no module reads them, so bonding them has no effect beyond making the node `active`. A `VALIDATOR` role bond does not feed `x/power` (`chain/x/nodes/keeper/lifecycle.go:IsRoleActive`).
 - `Unjail`, `Tombstone` and `CreditRoleBond` have no caller in the application. `x/storage` jails a node and nothing can un-jail it; the operator can only retire it. The comment on `CreditRoleBond` says `x/power`'s force-bond path uses it, but that path does not (`chain/x/nodes/keeper/lifecycle.go:CreditRoleBond`).
 - The free-capacity iterators have no caller outside tests: `x/storage` picks nodes from its own tracked set. The index and its maintenance on every node write are unused work (`chain/x/nodes/keeper/capacity.go`).

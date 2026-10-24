@@ -2,11 +2,14 @@ package report
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/Orama-Network/orama/core/pkg/systemd"
 )
 
 var coreServices = []string{
@@ -33,6 +36,12 @@ func collectServices() *ServicesReport {
 		report.Services = append(report.Services, info)
 	}
 
+	// The shared TURN unit, which the TURN reconciler starts and stops and no
+	// orama-namespace-* glob matches (bug-386).
+	if info, ok := collectHostTURN(ctx, systemdUnitDir, hostTURNConfigPath); ok {
+		report.Services = append(report.Services, info)
+	}
+
 	// Discover namespace services (orama-deploy-*.service).
 	nsServices := discoverNamespaceServices()
 	for _, name := range nsServices {
@@ -44,6 +53,21 @@ func collectServices() *ServicesReport {
 	report.FailedUnits = collectFailedUnits(ctx)
 
 	return report
+}
+
+// systemdUnitDir is where install writes unit files.
+const systemdUnitDir = "/etc/systemd/system"
+
+// collectHostTURN reports the shared TURN unit when its unit file is
+// installed, marked NotNeeded when the node holds no TURN allocation (no
+// shared config at turnConfigPath), so an inactive unit there raises no alert.
+func collectHostTURN(ctx context.Context, unitDir, turnConfigPath string) (ServiceInfo, bool) {
+	if _, err := os.Stat(filepath.Join(unitDir, systemd.HostTURNServiceName)); err != nil {
+		return ServiceInfo{}, false
+	}
+	info := collectServiceInfo(ctx, strings.TrimSuffix(systemd.HostTURNServiceName, ".service"))
+	info.NotNeeded = !systemd.HostTURNWanted(turnConfigPath)
+	return info, true
 }
 
 func collectServiceInfo(ctx context.Context, name string) ServiceInfo {

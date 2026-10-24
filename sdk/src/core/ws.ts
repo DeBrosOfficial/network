@@ -62,9 +62,9 @@ export type WSReconnectingHandler = (attempt: number, delayMs: number) => void;
 export type WSReconnectedHandler = (attempt: number) => void;
 
 /**
- * Simple WebSocket client with minimal abstractions
- * No complex reconnection, no failover - keep it simple
- * Gateway failover is handled at the application layer
+ * WebSocket client for one gateway. A connection that closes without being
+ * asked to is retried as `ReconnectConfig` says; moving to another gateway is
+ * left to the application (`onNetworkError`).
  */
 export class WSClient {
   private wsURL: string;

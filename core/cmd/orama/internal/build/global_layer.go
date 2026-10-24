@@ -108,7 +108,7 @@ func (b *Builder) buildGlobalLayer() error {
 	if _, err := os.Stat(filepath.Join(chainDir, "Makefile")); err != nil {
 		return fmt.Errorf("the chain module is missing at %s (expected the repository's chain/ directory): %w", chainDir, err)
 	}
-	cmd := exec.Command("make", "-C", chainDir, "build-linux-amd64-full", "build-linux-amd64-global", "ORAMA_ZIG="+b.zig)
+	cmd := exec.Command("make", chainMakeArgs(chainDir, b.zig, b.version, b.commit)...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("build the chain (make -C %s build-linux-amd64-full build-linux-amd64-global): %w; "+
@@ -123,6 +123,16 @@ func (b *Builder) buildGlobalLayer() error {
 	}
 	fmt.Println("  ✓ oramad, orama-orchard-verifier, orama-global, cosmovisor")
 	return nil
+}
+
+// chainMakeArgs is the chain build's make command line. The chain binaries are
+// stamped with the version and commit the manifest names, given here: the
+// Makefile's own defaults come from the checkout, and nothing the binaries
+// carry may depend on the state of the working tree, or two builds of one
+// commit differ.
+func chainMakeArgs(chainDir, zig, version, commit string) []string {
+	return []string{"-C", chainDir, "build-linux-amd64-full", "build-linux-amd64-global",
+		"ORAMA_ZIG=" + zig, "VERSION=" + version, "COMMIT=" + commit}
 }
 
 // stageGlobalFiles copies the chain build's outputs into binDir under the names

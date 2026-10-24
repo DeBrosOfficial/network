@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Orama-Network/orama/core/pkg/serverless"
+	"go.uber.org/zap"
 )
 
 // TestUpdateInvocationContext_swapVisibleToWithInvCtx verifies the
@@ -19,7 +20,7 @@ func TestUpdateInvocationContext_swapVisibleToWithInvCtx(t *testing.T) {
 	i := &Instance{invCtx: original}
 
 	// Pre-swap: withInvCtx returns ctx carrying original.
-	ctx := i.withInvCtx(context.Background())
+	ctx := withInvCtxOnly(i)
 	got := serverless.InvocationContextFromCtx(ctx)
 	if got.CallerJWTSubject != "user-A" {
 		t.Errorf("pre-swap: CallerJWTSubject = %q; want user-A", got.CallerJWTSubject)
@@ -31,7 +32,7 @@ func TestUpdateInvocationContext_swapVisibleToWithInvCtx(t *testing.T) {
 	}
 
 	// Post-swap: withInvCtx returns ctx carrying updated.
-	ctx = i.withInvCtx(context.Background())
+	ctx = withInvCtxOnly(i)
 	got = serverless.InvocationContextFromCtx(ctx)
 	if got.CallerJWTSubject != "user-A-refreshed" {
 		t.Errorf("post-swap: CallerJWTSubject = %q; want user-A-refreshed", got.CallerJWTSubject)
@@ -51,7 +52,7 @@ func TestUpdateInvocationContext_nilRejected(t *testing.T) {
 	}
 
 	// Original must be untouched after the failed swap.
-	ctx := i.withInvCtx(context.Background())
+	ctx := withInvCtxOnly(i)
 	got := serverless.InvocationContextFromCtx(ctx)
 	if got.CallerJWTSubject != "user-A" {
 		t.Errorf("after rejected nil swap: CallerJWTSubject = %q; want user-A (unchanged)",
@@ -82,7 +83,7 @@ func TestUpdateInvocationContext_concurrentSwapsAndReads(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for n := 0; n < writes*readsPerW; n++ {
-				ctx := i.withInvCtx(context.Background())
+				ctx := withInvCtxOnly(i)
 				if got := serverless.InvocationContextFromCtx(ctx); got == nil {
 					t.Errorf("withInvCtx returned ctx with nil invCtx during concurrent swap")
 					return
@@ -126,7 +127,7 @@ func TestUpdateInvocationContext_swapDoesNotAffectInFlightCtx(t *testing.T) {
 	i := &Instance{invCtx: original}
 
 	// Snapshot a ctx using the original invCtx.
-	inflightCtx := i.withInvCtx(context.Background())
+	inflightCtx := withInvCtxOnly(i)
 
 	// Swap.
 	if err := i.UpdateInvocationContext(updated); err != nil {
@@ -141,9 +142,30 @@ func TestUpdateInvocationContext_swapDoesNotAffectInFlightCtx(t *testing.T) {
 	}
 
 	// New withInvCtx calls see "after".
-	freshCtx := i.withInvCtx(context.Background())
+	freshCtx := withInvCtxOnly(i)
 	got = serverless.InvocationContextFromCtx(freshCtx)
 	if got.CallerJWTSubject != "after" {
 		t.Errorf("post-swap fresh ctx = %q; want 'after'", got.CallerJWTSubject)
+	}
+}
+
+// withInvCtxOnly is withInvCtx for tests that read only the context.
+func withInvCtxOnly(i *Instance) context.Context {
+	ctx, _ := i.withInvCtx(context.Background())
+	return ctx
+}
+
+// feat-263: every export call of a reused persistent instance gets its own
+// function_invoke_last_error slot, so one frame never reads the error of a
+// nested invoke another frame made.
+func TestWithInvCtx_freshInvokeErrorSlotPerCall(t *testing.T) {
+	i := &Instance{invCtx: &serverless.InvocationContext{Namespace: "ns"}, logger: zap.NewNop()}
+	first := withInvCtxOnly(i)
+	serverless.RecordInvokeOutcome(first, serverless.ErrUnauthorized)
+	if serverless.LastInvokeErrorJSON(first) == nil {
+		t.Fatal("the first call's slot did not record the error, so the test checks nothing")
+	}
+	if got := serverless.LastInvokeErrorJSON(withInvCtxOnly(i)); got != nil {
+		t.Fatalf("the next call on the same instance reads %s", got)
 	}
 }

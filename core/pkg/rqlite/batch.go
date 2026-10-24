@@ -1,18 +1,18 @@
 package rqlite
 
 // batch.go provides atomic multi-statement transactions over RQLite using the
-// native /db/execute?transaction endpoint.
+// native /db/request?transaction (unified) endpoint.
 //
 // Why this exists: the database/sql Begin/Commit path against the gorqlite
 // stdlib driver does NOT produce real RQLite transactions (BEGIN/COMMIT are
 // effectively no-ops in that driver). The only path to true atomicity is the
-// native gorqlite.Connection.WriteParameterizedContext, which posts all
+// native gorqlite.Connection.RequestParameterizedContext, which posts all
 // statements in one HTTP request to RQLite with ?transaction set — RQLite
-// then wraps them in a server-side transaction with rollback on any failure.
+// then runs them in order in a server-side transaction with rollback on any
+// failure.
 //
-// This file exposes that path through a stable Client.Batch interface that
-// works with both writes (atomic) and follow-up reads (sequenced after the
-// commit). See plan: core/plans/platform/07_DB_TRANSACTION.md.
+// This file exposes that path through a stable Client.Batch interface whose
+// reads run inside the transaction, after the writes before them (feat-950).
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -65,8 +66,8 @@ type BatchOp struct {
 	Args []interface{} `json:"args,omitempty"`
 }
 
-// OpResult holds per-op output. On rollback, OpResults for ops up to and
-// including the failing one are populated; the failing op carries Error.
+// OpResult holds per-op output. On rollback only the failing op's entry is
+// populated, with Error: what the ops before it returned was rolled back.
 type OpResult struct {
 	Kind         BatchOpKind              `json:"kind"`
 	RowsAffected int64                    `json:"rows_affected,omitempty"`
@@ -166,8 +167,7 @@ func (c *client) BatchWithSeq(ctx context.Context, namespace string, userOps []B
 
 	now := time.Now().Unix()
 
-	// Prepend the seq UPSERT. RETURNING (SQLite 3.35+) gives us the new value
-	// without a follow-up SELECT.
+	// Prepend the seq UPSERT.
 	seqOp := BatchOp{
 		Kind: BatchOpExec,
 		SQL: `INSERT INTO namespace_publish_seq (namespace, next_seq, updated_at)
@@ -178,10 +178,10 @@ func (c *client) BatchWithSeq(ctx context.Context, namespace string, userOps []B
 		Args: []interface{}{namespace, now},
 	}
 
-	// We follow with a query of the just-incremented value. Sequenced after
-	// commit on the same node — sees the just-applied write. The query is
-	// per-namespace so under concurrent commits each call still gets its
-	// own unique seq because the UPSERT itself is atomic.
+	// Read the just-incremented value back as the batch's last statement.
+	// It runs inside the same transaction (Batch, feat-950), so it sees this
+	// commit's increment and no later commit's: concurrent commits each get
+	// their own seq.
 	seqQuery := BatchOp{
 		Kind: BatchOpQuery,
 		SQL:  `SELECT next_seq - 1 AS assigned_seq FROM namespace_publish_seq WHERE namespace = ?`,
@@ -204,7 +204,7 @@ func (c *client) BatchWithSeq(ctx context.Context, namespace string, userOps []B
 	// Read the assigned seq from the trailing query result.
 	queryResult := res.Results[len(res.Results)-1]
 	if queryResult.Error != "" {
-		// Writes committed but the query failed — caller still got their writes.
+		// Committed, but the read-back row could not be decoded.
 		// Return the trimmed result with seq=0 so the caller can detect "writes
 		// landed but seq unknown."
 		return trimWrappedResults(res, len(userOps)), 0, fmt.Errorf("rqlite.BatchWithSeq: seq lookup failed: %s", queryResult.Error)
@@ -257,7 +257,7 @@ func trimWrappedResults(res *BatchResult, userOpCount int) *BatchResult {
 		case res.FailedIndex > 0 && res.FailedIndex <= userOpCount:
 			out.FailedIndex = res.FailedIndex - 1
 		default:
-			// Failure was in the trailing query (post-commit) — committed should be true; defensive.
+			// Failure was in the trailing seq read-back, after the user's ops.
 			out.FailedIndex = userOpCount
 		}
 	}
@@ -322,6 +322,8 @@ func (c *client) BatchQuery(ctx context.Context, ops []BatchOp) ([]OpResult, err
 //
 // none-level reads run on connNone; if that connection isn't configured the
 // batch transparently uses the weak connection (correct, just slower).
+// ReadConsistencyLinearizable runs on connLinearizable and fails with
+// ErrNoNativeConnection when it isn't configured (feat-802).
 func (c *client) BatchQueryConsistency(ctx context.Context, ops []BatchOp, rc ReadConsistency) ([]OpResult, error) {
 	if len(ops) == 0 {
 		return []OpResult{}, nil
@@ -331,7 +333,7 @@ func (c *client) BatchQueryConsistency(ctx context.Context, ops []BatchOp, rc Re
 	}
 	conn := c.queryConn(rc)
 	if conn == nil {
-		return nil, fmt.Errorf("rqlite.BatchQuery: %w", ErrNoNativeConnection)
+		return nil, fmt.Errorf("rqlite.BatchQuery (level %s): %w", rc, ErrNoNativeConnection)
 	}
 
 	// #1022: gate none-reads on local-follower freshness. When the dedicated
@@ -546,20 +548,26 @@ func queryResultToOpResult(qr gorqlite.QueryResult) OpResult {
 // Batch executes ops as a single atomic transaction.
 //
 // Semantics:
-//   - All "exec" ops are sent in one transactional batch via RQLite's native
-//     /db/execute?transaction endpoint. If any exec fails, the entire batch
-//     rolls back; no exec is durable.
-//   - Any "query" ops are sequenced AFTER the exec batch commits, on the same
-//     node, and see the committed writes. Queries do NOT participate in the
-//     rollback semantic — if a query fails after the writes commit, the writes
-//     are still durable; that op's Error is set and Committed remains true.
-//   - Order of OpResults preserved across the original input slice.
+//   - Every op, exec and query alike, is sent in one request to RQLite's
+//     unified endpoint, /db/request?transaction (feat-950). RQLite runs the
+//     statements in input order inside one SQLite transaction, so a query
+//     sees every write the ops before it made. When the batch holds a write it
+//     is one Raft log entry, and its queries are applied with it on every
+//     node: what a query returns is the state at that point of this commit,
+//     never a later commit's.
+//   - Any failing statement, exec or query, rolls the whole batch back and
+//     stops it there; no write is durable.
+//   - RQLite decides whether a statement reads or writes
+//     (sqlite3_stmt_readonly), not Kind. Kind names the op's entry in the
+//     result: an exec carries rows_affected and last_insert_id, plus rows when
+//     its statement has a RETURNING clause; a query carries rows.
+//   - Order of OpResults matches the input slice.
 //
 // Returns:
-//   - (result, nil) when all execs commit. result.Committed is true.
-//   - (result, err) when an exec statement fails. result.Committed is false,
-//     result.FailedIndex points to the failing op, whose entry carries the
-//     error and code; err wraps a *StatementError.
+//   - (result, nil) when the transaction commits. result.Committed is true.
+//   - (result, err) when a statement fails. result.Committed is false,
+//     result.FailedIndex points to the failing op, whose entry alone carries
+//     the error and code; err wraps a *StatementError.
 //   - (result, err) when no statement result was received (transport
 //     fault, lost leader, deadline). result.Committed is false,
 //     result.Error/Code carry the reason, and no op is blamed. For a deadline
@@ -577,91 +585,86 @@ func (c *client) Batch(ctx context.Context, ops []BatchOp) (*BatchResult, error)
 		return nil, fmt.Errorf("rqlite.Batch: %w", ErrNoNativeConnection)
 	}
 
-	// Split exec vs. query, preserving original index for result ordering.
-	type tagged struct {
-		idx int
-		op  BatchOp
-	}
-	var execs, queries []tagged
+	stmts := make([]gorqlite.ParameterizedStatement, len(ops))
 	for i, op := range ops {
-		switch op.Kind {
-		case BatchOpExec:
-			execs = append(execs, tagged{i, op})
-		case BatchOpQuery:
-			queries = append(queries, tagged{i, op})
-		default:
+		if op.Kind != BatchOpExec && op.Kind != BatchOpQuery {
 			return nil, fmt.Errorf("rqlite.Batch: op %d has unknown kind %q (want %q or %q)",
 				i, op.Kind, BatchOpExec, BatchOpQuery)
 		}
-	}
-
-	result := &BatchResult{
-		Results:   make([]OpResult, len(ops)),
-		Committed: false,
-	}
-
-	// Phase 1 — atomic exec batch via native API.
-	if len(execs) > 0 {
-		stmts := make([]gorqlite.ParameterizedStatement, len(execs))
-		for i, t := range execs {
-			stmts[i] = gorqlite.ParameterizedStatement{
-				Query:     t.op.SQL,
-				Arguments: t.op.Args,
-			}
+		// RQLite skips an empty statement without a result, which would
+		// shift every later result onto the wrong op.
+		if strings.TrimSpace(op.SQL) == "" {
+			return nil, fmt.Errorf("rqlite.Batch: op %d has an empty sql statement", i)
 		}
-		wrs, err := c.conn.WriteParameterizedContext(ctx, stmts)
-		if err != nil {
-			// A statement SQLite rejected: gorqlite returns one WriteResult
-			// per statement and marks the batch error StatementErrors. Find
-			// the first failing one to populate FailedIndex. A transport
-			// failure is not StatementErrors; gorqlite puts it on a single
-			// first result, which must not be read as "op 0 failed".
-			var stmtErrs gorqlite.StatementErrors
-			if errors.As(err, &stmtErrs) {
-				for i, wr := range wrs {
-					if wr.Err != nil {
-						stmtErr := &StatementError{Err: wr.Err}
-						result.FailedIndex = execs[i].idx
-						result.Results[execs[i].idx] = failedOp(BatchOpExec, stmtErr)
-						return result, fmt.Errorf("rqlite.Batch: exec failed at op %d: %w",
-							execs[i].idx, stmtErr)
-					}
+		stmts[i] = gorqlite.ParameterizedStatement{Query: op.SQL, Arguments: op.Args}
+	}
+
+	result := &BatchResult{Results: make([]OpResult, len(ops))}
+	rrs, err := c.conn.RequestParameterizedContext(ctx, stmts)
+	if err != nil {
+		// A statement SQLite rejected: gorqlite marks the batch error
+		// StatementErrors and the failing statement's result carries it. In a
+		// transaction RQLite stops at that statement, so it is the last result.
+		// A transport failure is not StatementErrors; gorqlite puts it on a
+		// single first result, which must not be read as "op 0 failed".
+		var stmtErrs gorqlite.StatementErrors
+		if errors.As(err, &stmtErrs) {
+			for i, rr := range rrs {
+				if rr.Err != nil && i < len(ops) {
+					stmtErr := &StatementError{Err: rr.Err}
+					result.FailedIndex = i
+					result.Results[i] = failedOp(ops[i].Kind, stmtErr)
+					return result, fmt.Errorf("rqlite.Batch: statement failed at op %d: %w", i, stmtErr)
 				}
 			}
-			// No per-statement error: the batch never reached a statement — a
-			// transport fault, a lost leader, an expired deadline. This result
-			// is returned to the guest as-is, so the reason MUST be recorded on
-			// it (bugboard #175). Without this the guest saw committed=false,
-			// failed_index=0 and an empty error, which reads as "op 0 failed"
-			// and is indistinguishable from every other whole-batch failure.
-			wrapped := fmt.Errorf("rqlite.Batch: %w", err)
-			result.setBatchError(wrapped)
-			return result, wrapped
 		}
-		// All execs succeeded; map results back into their original positions.
-		for i, wr := range wrs {
-			result.Results[execs[i].idx] = OpResult{
-				Kind:         BatchOpExec,
-				RowsAffected: wr.RowsAffected,
-				LastInsertID: wr.LastInsertID,
-			}
-		}
+		// No per-statement error: the batch never reached a statement — a
+		// transport fault, a lost leader, an expired deadline. This result
+		// is returned to the guest as-is, so the reason MUST be recorded on
+		// it (bugboard #175). Without this the guest saw committed=false,
+		// failed_index=0 and an empty error, which reads as "op 0 failed"
+		// and is indistinguishable from every other whole-batch failure.
+		wrapped := fmt.Errorf("rqlite.Batch: %w", err)
+		result.setBatchError(wrapped)
+		return result, wrapped
 	}
-	result.Committed = true
+	if len(rrs) != len(ops) {
+		// The transaction committed, but the results cannot be matched to
+		// the ops. Reported on the batch: no op is to blame.
+		mismatch := fmt.Errorf("rqlite.Batch: %d results for %d ops", len(rrs), len(ops))
+		result.Committed = true
+		result.setBatchError(mismatch)
+		return result, mismatch
+	}
 
-	// Phase 2 — post-commit queries. Failures here do NOT trigger rollback
-	// (the writes are already durable), but are surfaced per-op.
-	for _, t := range queries {
-		var rows []map[string]interface{}
-		err := c.Query(ctx, &rows, t.op.SQL, t.op.Args...)
-		if err != nil {
-			result.Results[t.idx] = failedOp(BatchOpQuery, err)
-			continue
-		}
-		result.Results[t.idx] = OpResult{
-			Kind: BatchOpQuery,
-			Rows: rows,
-		}
+	result.Committed = true
+	for i, rr := range rrs {
+		result.Results[i] = requestResultToOpResult(ops[i].Kind, rr)
 	}
 	return result, nil
+}
+
+// requestResultToOpResult converts one unified-endpoint result into the op's
+// OpResult. A query result's rows are materialized the way c.Query returns
+// them, so the result shape is the one callers had before feat-950.
+func requestResultToOpResult(kind BatchOpKind, rr gorqlite.RequestResult) OpResult {
+	out := OpResult{Kind: kind}
+	if rr.Write != nil {
+		out.RowsAffected = rr.Write.RowsAffected
+		out.LastInsertID = rr.Write.LastInsertID
+	}
+	if rr.Query == nil {
+		return out
+	}
+	qr := rr.Query
+	for qr.Next() {
+		row, err := qr.Map()
+		if err != nil {
+			out.Error = "rqlite.Batch: row map: " + err.Error()
+			out.Code = BatchCodeInternal
+			return out
+		}
+		out.Rows = append(out.Rows, row)
+	}
+	return out
 }

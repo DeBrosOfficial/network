@@ -47,7 +47,8 @@ func setSignIn(t testing.TB, n *ns.Namespace, policy string) map[string]any {
 // TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt walks the opt-in:
 // a wallet with no grant is refused a members namespace (NAMESPACE_NOT_OWNED);
 // once the owner opens sign-in it gets a session and no key, is refused what a
-// grantless wallet may not do, and when the owner closes it again its refresh
+// grantless wallet may not do (the keys, publishing, the database, the
+// function control plane), and when the owner closes it again its refresh
 // and any new sign-in are refused (docs/whitepaper/technical-reference/vol1/13-identity.md#sign-in-policy).
 func TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt(t *testing.T) {
 	t.Parallel()
@@ -82,6 +83,15 @@ func TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt(t *testing.T) {
 		Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{"topic":"e2e","data_base64":"aGk="}`)}); resp.Status != http.StatusForbidden {
 		t.Errorf("an end user published to a topic: %d %.200s", resp.Status, resp.Body)
 	}
+	// Signing in confers no ownership and no admin (bugboard #929): the
+	// namespace database and the function control plane stay out of reach.
+	if resp := n.Owner.Client.MustSend(t, gw.Req{Method: http.MethodPost, Path: "/v1/rqlite/query", Bearer: session.AccessToken,
+		Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{"sql":"SELECT 1"}`)}); resp.Status != http.StatusForbidden {
+		t.Errorf("an end user queried the namespace database: %d %.200s", resp.Status, resp.Body)
+	}
+	if resp := n.Owner.Client.MustSend(t, gw.Req{Path: "/v1/functions", Bearer: session.AccessToken}); resp.Status != http.StatusForbidden {
+		t.Errorf("an end user listed the namespace's functions: %d %.200s", resp.Status, resp.Body)
+	}
 	req := signed(t, endUser, challengeFor(t, c, gw.ChallengeRequest{Wallet: endUser.Address(), Namespace: n.Name}).Message)
 	expectRefusal(t, postJSON(t, c, gw.PathAPIKey, "", map[string]string{"message": req.Message, "signature": req.Signature}),
 		http.StatusForbidden, "ROLE_HAS_NO_KEY")
@@ -102,7 +112,9 @@ func TestSignInPolicy_openLetsAGrantlessWalletInAndClosingEndsIt(t *testing.T) {
 }
 
 // TestSignInPolicy_cliShowsAndSets: `orama namespace session-policy` reads with
-// no flags, sets with --sign-in, and keeps the field it was not given.
+// no flags, sets with --sign-in, and keeps the field it was not given; it
+// lists no end-user topic until --end-user-topics names some, and '' clears
+// them (bug-733).
 func TestSignInPolicy_cliShowsAndSets(t *testing.T) {
 	t.Parallel()
 	f := harness.Fleet(t)
@@ -126,5 +138,22 @@ func TestSignInPolicy_cliShowsAndSets(t *testing.T) {
 	}
 	if got := read("--sign-in", signInMembers); got["sign_in"] != signInMembers {
 		t.Errorf("--sign-in members answered %v", got)
+	}
+
+	if got, _ := read()["end_user_topics"].([]any); len(got) != 0 {
+		t.Errorf("a new namespace lists end-user topics %v, want none", got)
+	}
+	got := read("--end-user-topics", "users/global,presence/*")
+	if topics, _ := got["end_user_topics"].([]any); len(topics) != 2 || topics[0] != "presence/*" || topics[1] != "users/global" {
+		t.Errorf("--end-user-topics answered %v, want [presence/* users/global]", got["end_user_topics"])
+	}
+	if got["sign_in"] != signInMembers {
+		t.Errorf("setting the end-user topics changed sign-in: %v", got)
+	}
+	if res, err := n.CLI.For(t).Run(t.Context(), "namespace", "session-policy", "--end-user-topics", "_orama/webrtc/*"); err != nil || res.Exit == 0 {
+		t.Errorf("a reserved end-user topic was accepted: exit %d, %v", res.Exit, err)
+	}
+	if topics, _ := read("--end-user-topics", "")["end_user_topics"].([]any); len(topics) != 0 {
+		t.Errorf("--end-user-topics '' left %v", topics)
 	}
 }

@@ -38,7 +38,7 @@ with its own optional peers (`@bufbuild/protobuf`, `@noble/curves`, `@noble/hash
 environment, so nothing has to be edited:
 
 ```bash
-GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network \
+GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network \
 ORAMA_API_KEY=ak_... pnpm example
 ```
 
@@ -50,13 +50,13 @@ ORAMA_API_KEY=ak_... pnpm example
 import { createClient } from "@orama-network/orama";
 
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: "orama_rk_...",  // exchanged for a short-lived token before the first request
 });
 
 // Or with JWT
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   jwt: "your_jwt_token",
 });
 ```
@@ -332,6 +332,10 @@ console.log(info.authenticated, info.namespace);
 await client.auth.logout();
 ```
 
+The session is always cleared on the device. If the gateway could not be told,
+`logout` then rejects with a `LogoutError`: the session's tokens stay valid on
+the gateway until they expire.
+
 ### Network Operations
 
 #### Check Health
@@ -403,7 +407,7 @@ interface ClientConfig {
   apiKey?: string; // API key (optional, if using JWT instead)
   jwt?: string; // JWT token (optional, if using API key instead)
   timeout?: number; // Request timeout in ms (default: 60000)
-  maxRetries?: number; // Max retry attempts (default: 3)
+  maxRetries?: number; // Max retry attempts, only for requests safe to resend (default: 3)
   retryDelayMs?: number; // Delay between retries (default: 1000)
   debug?: boolean; // Print diagnostics to the console (default: false)
   storage?: StorageAdapter; // For persisting JWT/API key (default: MemoryStorage)
@@ -481,7 +485,7 @@ By default, credentials are stored in memory. For browser apps, use localStorage
 import { createClient, LocalStorageAdapter } from "@orama-network/orama";
 
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   storage: new LocalStorageAdapter(),
   apiKey: "ak_your_key:namespace",
 });
@@ -521,7 +525,7 @@ const results = await client.cache.multiGet("sessions", [
   "user:alice",
   "user:bob",
 ]);
-// Returns Map<string, any | null> — null for misses
+// Returns Map<string, any | null> — null for misses; a failed request rejects
 results.forEach((value, key) => {
   console.log(key, value);
 });
@@ -559,7 +563,7 @@ console.log(result.cid); // "Qm..."
 // Node.js
 import { readFileSync } from "fs";
 const buffer = readFileSync("image.jpg");
-const result = await client.storage.upload(buffer, "image.jpg", { pin: true });
+const result = await client.storage.upload(buffer, "image.jpg");
 ```
 
 #### Retrieve Content
@@ -600,7 +604,7 @@ Invoke WebAssembly serverless functions deployed on the network.
 ```typescript
 // Configure functions namespace
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: "ak_your_key:namespace",
   functionsConfig: {
     namespace: "my-namespace",
@@ -727,7 +731,7 @@ name them in code rather than in comments:
 ```typescript
 import { SCOPES, PROFILE_SCOPES, satisfiesScope } from "@orama-network/orama";
 
-PROFILE_SCOPES["app-runtime"]; // ["invoke", "storage", "push", "webrtc", "proxy"]
+PROFILE_SCOPES["app-runtime"]; // ["invoke", "push", "webrtc", "proxy"]
 satisfiesScope(["admin"], "storage"); // true — admin is a wildcard
 ```
 
@@ -773,25 +777,26 @@ A key in a browser bundle is a key in the hands of everyone who loads the page.
 
 | | Key | Why |
 |---|---|---|
-| Browser, mobile, anything shipped to a user | `app-runtime` | Data-plane grants only. The gateway additionally requires the signed-in user's wallet JWT for storage, WebRTC and proxy, so an extracted key on its own cannot act as anybody. |
+| Browser, mobile, anything shipped to a user | none, or `invoke-only` | Sign-in and public functions need no credential, and after sign-in the user's wallet session reaches storage, push, WebRTC and the proxy. An app that must call functions before sign-in ships `invoke-only`, narrowed to them with `--resource`. |
+| A function that reclaims storage | `storage` | Its exchanged token may unpin any of the namespace's objects with no user signed in. Keep it in the namespace's secrets; never ship it. |
 | Server, CI, a developer's machine | `admin` | The whole control plane: deploys, secrets, migrations, key management, raw RQLite. Never ship this to a client. |
 
 ```bash
-orama namespace keys create --scope app-runtime --label web
+orama namespace keys create --scope invoke-only --resource fn:username-check --label web
+orama namespace keys create --scope storage --label prune-fn
 orama namespace keys create --scope admin --label ci
 ```
 
 ```typescript
-// In a browser bundle
+// In a browser bundle: no key; the user's sign-in is the credential
 const client = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
-  apiKey: import.meta.env.VITE_ORAMA_RUNTIME_KEY, // app-runtime
+  baseURL: "https://ns-myapp.devnet.orama.network",
   storage: new LocalStorageAdapter(),
 });
 
 // In a server process
 const admin = createClient({
-  baseURL: "https://ns-myapp.orama-devnet.network",
+  baseURL: "https://ns-myapp.devnet.orama.network",
   apiKey: process.env.ORAMA_ADMIN_KEY, // never bundled
 });
 ```
@@ -805,7 +810,7 @@ Run E2E tests against a running gateway:
 
 ```bash
 # Set environment variables
-export GATEWAY_BASE_URL=https://ns-myapp.orama-devnet.network
+export GATEWAY_BASE_URL=https://ns-myapp.devnet.orama.network
 export GATEWAY_API_KEY=ak_test_key:default
 
 # Run tests

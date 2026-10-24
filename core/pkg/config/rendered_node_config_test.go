@@ -54,9 +54,6 @@ func TestRenderedNodeConfig_decodesStrictly_allShapes(t *testing.T) {
 			if cfg.Database.RQLiteAuthFile != data.RQLiteAuthFile {
 				t.Fatalf("auth file %q, want %q", cfg.Database.RQLiteAuthFile, data.RQLiteAuthFile)
 			}
-			if cfg.Database.RQLiteEnforceAuth {
-				t.Fatal("rendered config enables enforcement")
-			}
 		})
 	}
 }
@@ -87,7 +84,14 @@ func TestRenderedNodeConfig_carriesCredentials(t *testing.T) {
 	if cfg.Database.RQLiteAuthFile != "/home/orama/.orama/secrets/rqlite-auth.json" {
 		t.Fatalf("auth file did not survive: %q", cfg.Database.RQLiteAuthFile)
 	}
-	if cfg.Database.RQLiteEnforceAuth {
-		t.Fatal("rendered config enables enforcement")
+}
+
+// rqlite_enforce_auth configures nothing any more (rqlited always runs with
+// -auth), but a node.yaml an operator set it in must still decode: the node
+// loads its config strictly and would not start.
+func TestNodeConfig_aRetiredEnforceAuthKeyStillDecodes(t *testing.T) {
+	var cfg Config
+	if err := DecodeStrict(strings.NewReader("database:\n  rqlite_enforce_auth: true\n"), &cfg); err != nil {
+		t.Fatalf("a node.yaml that sets rqlite_enforce_auth no longer decodes: %v", err)
 	}
 }

@@ -658,13 +658,24 @@ func (h *Handler) readJoinSecrets() (joinSecrets, error) {
 	}
 	out.SwarmKey = strings.TrimSpace(string(swarmKey))
 
+	// Every gateway stores and looks up API keys by their HMAC under this
+	// secret, so a node joining without the cluster's would refuse to start
+	// its gateway, or hash keys no other node can find.
+	hmacSecret, err := os.ReadFile(h.oramaDir + "/secrets/api-key-hmac-secret")
+	if err != nil {
+		return out, fmt.Errorf("read API key HMAC secret: %w", err)
+	}
+	out.APIKeyHMACSecret = strings.TrimSpace(string(hmacSecret))
+	if out.APIKeyHMACSecret == "" {
+		return out, fmt.Errorf("the API key HMAC secret at %s/secrets/api-key-hmac-secret is empty", h.oramaDir)
+	}
+
 	// The rest are optional: a cluster installed before they existed has none,
 	// and a joining node handles their absence.
 	for _, opt := range []struct {
 		file string
 		dst  *string
 	}{
-		{"api-key-hmac-secret", &out.APIKeyHMACSecret},
 		{"rqlite-password", &out.RQLitePassword},
 		{"secrets-encryption-key", &out.SecretsEncryptionKey},
 		{"turn-secret", &out.TURNSecret},

@@ -76,7 +76,10 @@ func isAuthRateLimitPath(path string) bool {
 	case "/v1/auth/challenge", "/v1/auth/verify", "/v1/auth/api-key",
 		"/v1/auth/token", "/v1/auth/refresh",
 		"/v1/auth/device", "/v1/auth/device/approve", "/v1/auth/device/token",
-		"/v1/auth/devices/approve":
+		"/v1/auth/devices/approve",
+		// Device attestation: a challenge writes a nonce row, an attestation
+		// parses and verifies a certificate chain.
+		"/v1/attest/challenge", "/v1/attest/ios", "/v1/attest/android":
 		return true
 	}
 	return false

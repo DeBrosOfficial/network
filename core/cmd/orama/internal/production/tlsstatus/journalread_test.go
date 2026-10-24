@@ -62,7 +62,7 @@ func TestJournalResult(t *testing.T) {
 func TestOldestFirst_aFailureAfterASuccessStands(t *testing.T) {
 	newestFirst := rateLimitedLine + "\n" + obtainedLine + "\n"
 	got := lastObtainErrors(oldestFirst(newestFirst), "")
-	if _, ok := got["stagenet.example.org"]; !ok {
+	if _, ok := got["testnet.example.org"]; !ok {
 		t.Fatalf("the failure written after the success was lost: %+v", got)
 	}
 	cleared := lastObtainErrors(oldestFirst(obtainedLine+"\n"+rateLimitedLine+"\n"), "")

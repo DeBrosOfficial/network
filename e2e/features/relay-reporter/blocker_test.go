@@ -71,6 +71,6 @@ func TestReportBlockers_epochShorterThanTheVotingInterval(t *testing.T) {
 
 func TestReportBlockers_bothAreSaid(t *testing.T) {
 	if got := reportBlockers("orama1reporter", nil, 5*time.Minute, 30*time.Minute); len(got) != 2 {
-		t.Fatalf("stagenet's state on its first night is both: %v", got)
+		t.Fatalf("testnet's state on its first night is both: %v", got)
 	}
 }

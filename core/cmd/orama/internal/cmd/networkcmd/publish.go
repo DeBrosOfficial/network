@@ -45,7 +45,7 @@ different thing from the chain, so a reset of the chain keeps the file.
 An unset field keeps its value from the manifest already published; the first
 publish of a network sets --seeds, --channel, --min-version, --release-repo and
 --release-root. A chain id that is already published keeps its genesis: a reset
-of the network needs a new chain id (orama-stagenet-5 becomes orama-stagenet-6),
+of the network needs a new chain id (orama-testnet-5 becomes orama-testnet-6),
 and publishing the old id with another genesis is refused.
 
 Afterwards run 'make -C core sync-networks' so the binary embeds the new manifest,
@@ -78,7 +78,7 @@ and commit networks/ and core/pkg/netregistry/embedded/ together.`,
 	}
 	f := cmd.Flags()
 	f.StringVar(&dir, "dir", defaultPublishDir, "The repository's networks directory")
-	f.StringVar(&name, "name", "", "Network name, for example stagenet [required]")
+	f.StringVar(&name, "name", "", "Network name, for example testnet [required]")
 	f.StringVar(&chainID, "chain-id", "", "The chain id the genesis was built under [required]")
 	f.StringVar(&genesisFile, "genesis", "", "The genesis.json file [required]")
 	f.StringVar(&rootFile, "release-root", "", "The release-root.json file (default: the published one)")

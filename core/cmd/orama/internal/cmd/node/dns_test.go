@@ -29,7 +29,7 @@ func TestDNSDelegation_isMountedUnderNodeDNS(t *testing.T) {
 }
 
 func TestParentZoneLabel(t *testing.T) {
-	if got := parentZoneLabel("stagenet.dbrsteting.bid"); !strings.HasPrefix(got, "dbrsteting.bid:") {
+	if got := parentZoneLabel("testnet.dbrsteting.bid"); !strings.HasPrefix(got, "dbrsteting.bid:") {
 		t.Errorf("subdomain label = %q", got)
 	}
 	if got := parentZoneLabel("dbrsteting.bid"); !strings.Contains(got, "registrar") {

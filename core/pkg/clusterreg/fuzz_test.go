@@ -156,7 +156,7 @@ func strictDottedQuad(host string) bool {
 // writes it, and the wallet refuses to sign bytes that are not canonical).
 func FuzzClusterregDirect(f *testing.F) {
 	pub := append([]byte{0x02}, bytes.Repeat([]byte{0x11}, 32)...)
-	f.Add(RegisterClusterTypeURL, []byte{0x0a, 0x01, 'x'}, pub, uint64(0), "1000", uint64(200000), "orama-stagenet-6", uint64(0), uint64(0), bytes.Repeat([]byte{7}, 64))
+	f.Add(RegisterClusterTypeURL, []byte{0x0a, 0x01, 'x'}, pub, uint64(0), "1000", uint64(200000), "orama-testnet-6", uint64(0), uint64(0), bytes.Repeat([]byte{7}, 64))
 	f.Add("/x", []byte{1}, pub, uint64(1<<63), "9", uint64(1), "c", uint64(1<<40), uint64(99), bytes.Repeat([]byte{7}, 64))
 	f.Add("", []byte{}, []byte{}, uint64(0), "0", uint64(0), "", uint64(0), uint64(0), []byte{})
 	f.Fuzz(func(t *testing.T, typeURL string, msg, pubKey []byte, sequence uint64, fee string, gas uint64, chainID string, account, timeout uint64, signature []byte) {

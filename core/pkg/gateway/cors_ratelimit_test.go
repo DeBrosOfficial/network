@@ -11,7 +11,7 @@ import (
 func limitedGateway(t *testing.T) (http.Handler, *bool) {
 	t.Helper()
 	g := newReadinessGateway(t)
-	g.cfg = &Config{BaseDomain: "stagenet.orama.network"}
+	g.cfg = &Config{BaseDomain: "testnet.orama.network"}
 	g.ready.set(ReadinessReady, "", "")
 	g.rateLimiter = NewRateLimiter(1, 1)
 	reached := false
@@ -58,7 +58,7 @@ func TestRateLimit_a429ToTheExplorerIsReadableByTheExplorersOrigin(t *testing.T)
 
 func TestRateLimit_a429IsReadableByAnAppUnderTheBaseDomain(t *testing.T) {
 	h, _ := limitedGateway(t)
-	const app = "https://myapp.stagenet.orama.network"
+	const app = "https://myapp.testnet.orama.network"
 	chainGet(h, app)
 	rec := chainGet(h, app)
 	if rec.Code != http.StatusTooManyRequests {
@@ -83,7 +83,7 @@ func TestRateLimit_a429ToADisallowedOriginIsNotReadableByIt(t *testing.T) {
 	if got == other || got == "*" {
 		t.Errorf("Access-Control-Allow-Origin %q lets %s read the 429", got, other)
 	}
-	if got != "https://stagenet.orama.network" {
+	if got != "https://testnet.orama.network" {
 		t.Errorf("Access-Control-Allow-Origin %q, want the gateway's own origin as on every other answer", got)
 	}
 }
@@ -92,7 +92,7 @@ func TestRateLimit_a429ToADisallowedOriginIsNotReadableByIt(t *testing.T) {
 // else is not let in, on a 429 either.
 func TestRateLimit_theExplorerOriginGetsNothingOffTheChainReadRoutes(t *testing.T) {
 	g := newReadinessGateway(t)
-	g.cfg = &Config{BaseDomain: "stagenet.orama.network"}
+	g.cfg = &Config{BaseDomain: "testnet.orama.network"}
 	g.ready.set(ReadinessReady, "", "")
 	g.rateLimiter = NewRateLimiter(1, 1)
 	h := g.withMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))

@@ -3,7 +3,7 @@
 > **At a glance.**
 >
 > - **What:** the ways a human or a program talks to a cluster. `orama` is one Go binary for tenants and operators; it calls gateway routes with a short-lived bearer, reaches machines over SSH with keys that live in the RootWallet vault, and signs through the RootWallet agent. The TypeScript SDK (`@orama-network/orama`) is the library for tenant applications, and a Go client serves the gateway itself and Go programs.
-> - **Key numbers:** 28 visible command groups, 232 commands, 8 exit codes (0 to 7); gateway calls time out at 30 s with an 8 MiB response cap; agent requests wait up to 270 s. TypeScript SDK: 60 s timeout, 3 retries on 408, 429, 500, 502, 503 and 504, 15 min access tokens, WebSocket reconnect up to 10 attempts from 500 ms to 30 s.
+> - **Key numbers:** 28 visible command groups, 232 commands, 8 exit codes (0 to 7); gateway calls time out at 30 s with an 8 MiB response cap; agent requests wait up to 270 s. TypeScript SDK: 60 s timeout, 3 retries on 408, 429, 500, 502, 503 and 504 when a repeat is safe, 15 min access tokens, WebSocket reconnect up to 10 attempts from 500 ms to 30 s.
 > - **Code:** `core/cmd/orama/`, `core/pkg/rwagent/`, `sdk/src/`, `core/pkg/client/`, `contracts/`.
 
 ![The CLI: command tree, gateway calls, SSH keys from the wallet](../technical-reference/diagrams/ch35-overview.svg)
@@ -48,7 +48,7 @@ Every request carries `Authorization: Bearer <token>` and nothing else. A config
 
 ### The request pipeline
 
-The loop retries only statuses the gateway returned, waiting the `Retry-After` header (capped at 30 s) or about 1, 2 and 3 s with up to 25% jitter. Transport failures are not retried, a cancel is final, and the 60 s timeout covers the whole call including retries. Failures become typed errors, and `httpStatus` 0 marks "no HTTP response". Error codes and grants are constants checked by tests against the gateway's Go sources. Neither client chooses between gateways: the URL names the namespace, and failover is the application's job through an `onNetworkError` hook.
+The loop retries only statuses the gateway returned, and only when a repeat is safe: the gateway's `retryable` verdict if given (never for `FUNCTION_TIMEOUT`), else an idempotent method, a read sent as `POST`, or a 429. A write answered 5xx with no verdict goes back to the caller. It waits for `Retry-After` (capped at 30 s) or about 1, 2 and 3 s with up to 25% jitter. Transport failures are not retried, a cancel is final, and the 60 s timeout covers the whole call including retries. Failures become typed errors, and `httpStatus` 0 marks "no HTTP response". Error codes and grants are constants checked by tests against the gateway's Go sources. Neither client chooses between gateways: the URL names the namespace, and failover is the application's job through an `onNetworkError` hook.
 
 ### WebSockets, storage and relayed fetch
 
@@ -62,7 +62,7 @@ The chain client has its own fetch wrapper, since the read proxy is open and a w
 
 ## The Go client
 
-`core/pkg/client` has two audiences. Programs outside the cluster reach a gateway over HTTPS with a 60 s timeout, a 64 MiB response cap and no redirects. The gateway reaches its registry through direct RQLite connections in the mesh, at read level `weak` so an auth decision sees every acknowledged write. `Connect` reports success without having spoken to the database, so the gateway runs its own probe query.
+`core/pkg/client` has two audiences. Programs outside the cluster reach a gateway over HTTPS with a 60 s timeout, a 64 MiB response cap and no redirects. Every sub-client sends through one transport, `ClientConfig.HTTPClient`, so a single setting makes a private or staging CA trusted everywhere. The gateway reaches its registry through direct RQLite connections in the mesh, at read level `weak` so an auth decision sees every acknowledged write. `Connect` reports success without having spoken to the database, so the gateway runs its own probe query.
 
 ## Staying in step with the gateway
 
@@ -72,4 +72,4 @@ Fixtures under `contracts/` pair each route's request, response and SDK call. A 
 
 A stolen laptop disk yields a session the gateway can revoke, not the fleet, since the seed and node keys stay in the vault. A browser bundle holds whatever credential it is given, so the SDK sends a long-lived key only once per 15 min.
 
-The limit that matters most is that every method retries, so a `POST` can run twice after a gateway 502 or 504; applications need idempotent writes.
+The limit that matters most is that a write the SDK did not resend has an unknown outcome: a `POST` answered 5xx with no `retryable` verdict may have landed. The gateway has no idempotency keys, so a resent write must be idempotent.

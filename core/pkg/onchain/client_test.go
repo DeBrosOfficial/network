@@ -164,7 +164,7 @@ func TestNew_validatesItsInputs(t *testing.T) {
 	if _, err := New(newFakeChain(), nil, testChainID); err == nil {
 		t.Error("New accepted no signer")
 	}
-	for _, id := range []string{"", strings.Repeat("a", 49), "orama stagenet", "orama-1\x1b[2J", "orama/1", "orama-1\n", "chaîn", "Orama-1", "orama_1", "-orama", "orama-"} {
+	for _, id := range []string{"", strings.Repeat("a", 49), "orama testnet", "orama-1\x1b[2J", "orama/1", "orama-1\n", "chaîn", "Orama-1", "orama_1", "-orama", "orama-"} {
 		if _, err := New(newFakeChain(), newSigner(), id); err == nil {
 			t.Errorf("New accepted chain id %q", id)
 		}
@@ -172,7 +172,7 @@ func TestNew_validatesItsInputs(t *testing.T) {
 }
 
 func TestNew_acceptsTheChainIDsTheNetworksUse(t *testing.T) {
-	for _, id := range []string{"orama-stagenet-5", "orama-1", "orama-localnet-2", strings.Repeat("a", 48)} {
+	for _, id := range []string{"orama-testnet-5", "orama-1", "orama-localnet-2", strings.Repeat("a", 48)} {
 		if _, err := New(newFakeChain(), newSigner(), id); err != nil {
 			t.Errorf("New refused chain id %q: %v", id, err)
 		}

@@ -58,7 +58,7 @@ func ValidateZone(zone string) error {
 	}
 	labels := strings.Split(zone, ".")
 	if len(labels) < 2 {
-		return fmt.Errorf("zone %q must have at least two labels, for example stagenet.orama.network", zone)
+		return fmt.Errorf("zone %q must have at least two labels, for example testnet.orama.network", zone)
 	}
 	for _, l := range labels {
 		if len(l) > maxLabelLen || !zoneLabel.MatchString(l) {

@@ -47,6 +47,8 @@ const (
 	AuditSecretDeleted              = "secret.delete"
 	AuditFunctionDeployed           = "function.deploy"
 	AuditFunctionDeleted            = "function.delete"
+	AuditFunctionPurged             = "function.purge"
+	AuditFunctionRolledBack         = "function.rollback"
 	AuditDeploymentCreated          = "deployment.deploy"
 	AuditDeploymentDeleted          = "deployment.delete"
 	AuditOperatorAction             = "operator.action"
@@ -76,6 +78,9 @@ const (
 	// Who a namespace lets sign in: the owner opening it to wallets it has not
 	// invited, or closing it again.
 	AuditSignInPolicySet = "namespace.sign_in_policy"
+	// Which app builds a namespace admits (feat-941): its attestation policy
+	// set, enforced, relaxed or turned off.
+	AuditAttestationPolicySet = "namespace.attestation_policy"
 
 	// A node recording itself, and a node's own key being recorded. The
 	// heartbeat is deliberately not here: it fires every 30 seconds from every
@@ -91,12 +96,13 @@ var AuditActions = []string{
 	AuditChallengeIssued, AuditVerifySucceeded, AuditRefreshed, AuditRefreshReplayed,
 	AuditLoggedOut, AuditKeyIssued, AuditKeyRevoked, AuditKeyRotated, AuditKeysRevokedBulk,
 	AuditNamespaceCreated, AuditNamespaceDeleted, AuditNamespaceRemovedByOperator, AuditSecretSet, AuditSecretDeleted,
-	AuditFunctionDeployed, AuditFunctionDeleted, AuditDeploymentCreated, AuditDeploymentDeleted,
+	AuditFunctionDeployed, AuditFunctionDeleted, AuditFunctionPurged, AuditFunctionRolledBack,
+	AuditDeploymentCreated, AuditDeploymentDeleted,
 	AuditOperatorAction, AuditLegacyCredential,
 	AuditGrantAdded, AuditGrantRevoked, AuditOwnerTransferred,
 	AuditNamespaceBackedUp, AuditNamespaceRestored,
 	AuditDeviceLoginStarted, AuditDeviceLoginApproved, AuditDeviceLoginDenied, AuditDeviceLoginClaimed,
-	AuditDeviceRevoked, AuditSessionPolicySet, AuditSignInPolicySet,
+	AuditDeviceRevoked, AuditSessionPolicySet, AuditSignInPolicySet, AuditAttestationPolicySet,
 	AuditNodeRegistered, AuditNodeKeyEnrolled,
 }
 

@@ -199,13 +199,13 @@ func TestPollDeviceLogin_reportsProgressOncePerPoll(t *testing.T) {
 
 func TestNamespaceGatewayURL(t *testing.T) {
 	for _, tc := range []struct{ gateway, namespace, want string }{
-		{"https://orama-devnet.network", "anchat", "https://ns-anchat.orama-devnet.network"},
-		{"https://orama-devnet.network", "default", "https://orama-devnet.network"},
-		{"https://orama-devnet.network", "", ""},
+		{"https://devnet.orama.network", "anchat", "https://ns-anchat.devnet.orama.network"},
+		{"https://devnet.orama.network", "default", "https://devnet.orama.network"},
+		{"https://devnet.orama.network", "", ""},
 		{"", "anchat", ""},
 		// A login at the namespace's own gateway used to print ns-anchat.ns-anchat.….
-		{"https://ns-anchat.orama-devnet.network", "anchat", "https://ns-anchat.orama-devnet.network"},
-		{"https://ns-other.orama-devnet.network", "anchat", "https://ns-anchat.ns-other.orama-devnet.network"},
+		{"https://ns-anchat.devnet.orama.network", "anchat", "https://ns-anchat.devnet.orama.network"},
+		{"https://ns-other.devnet.orama.network", "anchat", "https://ns-anchat.ns-other.devnet.orama.network"},
 	} {
 		if got := namespaceGatewayURL(tc.gateway, tc.namespace); got != tc.want {
 			t.Errorf("namespaceGatewayURL(%q, %q) = %q, want %q", tc.gateway, tc.namespace, got, tc.want)

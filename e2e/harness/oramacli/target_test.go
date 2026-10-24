@@ -8,21 +8,21 @@ import (
 	"github.com/Orama-Network/orama/e2e/harness/config"
 )
 
-// The stagenet target signs through the dev agent, whose socket is in the
+// The testnet target signs through the dev agent, whose socket is in the
 // owner's home; the real ~/.rootwallet stays refused on every target.
-func TestCheck_stagenetSocketInRealHome(t *testing.T) {
+func TestCheck_testnetSocketInRealHome(t *testing.T) {
 	home := "/nonexistent/real-home"
 	cases := map[string]struct {
 		target string
 		sock   string
 		ok     bool
 	}{
-		"fleet target refuses a socket in the home":    {config.TargetFleet, home + "/rwdev/agent.sock", false},
-		"stagenet target accepts the dev agent":        {config.TargetStagenet, home + "/rwdev/agent.sock", true},
-		"stagenet target refuses the real wallet":      {config.TargetStagenet, home + "/.rootwallet/agent.sock", false},
-		"stagenet target refuses an empty socket":      {config.TargetStagenet, "", false},
-		"stagenet target refuses a relative socket":    {config.TargetStagenet, "rwdev/agent.sock", false},
-		"stagenet target refuses the wallet's subpath": {config.TargetStagenet, home + "/.rootwallet/x/agent.sock", false},
+		"fleet target refuses a socket in the home":   {config.TargetFleet, home + "/rwdev/agent.sock", false},
+		"testnet target accepts the dev agent":        {config.TargetTestnet, home + "/rwdev/agent.sock", true},
+		"testnet target refuses the real wallet":      {config.TargetTestnet, home + "/.rootwallet/agent.sock", false},
+		"testnet target refuses an empty socket":      {config.TargetTestnet, "", false},
+		"testnet target refuses a relative socket":    {config.TargetTestnet, "rwdev/agent.sock", false},
+		"testnet target refuses the wallet's subpath": {config.TargetTestnet, home + "/.rootwallet/x/agent.sock", false},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

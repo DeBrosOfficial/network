@@ -56,7 +56,7 @@ func canonicalTestDoc(sequence, account uint64) Direct {
 	pub := append([]byte{0x02}, bytes.Repeat([]byte{0x11}, 32)...)
 	return Direct{
 		TypeURL: RegisterClusterTypeURL, Msg: []byte{0x0a, 0x01, 'x'}, PubKey: pub,
-		Sequence: sequence, FeeAmount: "1000", Gas: 200000, ChainID: "orama-stagenet-6", AccountNumber: account,
+		Sequence: sequence, FeeAmount: "1000", Gas: 200000, ChainID: "orama-testnet-6", AccountNumber: account,
 	}
 }
 

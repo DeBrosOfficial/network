@@ -184,6 +184,27 @@ func (h *ServerlessHandlers) getDeviceIDFromRequest(r *http.Request) string {
 	return strings.TrimSpace(claims.Did)
 }
 
+// getAttestationFromRequest returns what the caller's device attestation
+// proved — the verified token's `att` claim — or nil. It is the source of
+// truth for `get_caller_attestation` inside WASM.
+func (h *ServerlessHandlers) getAttestationFromRequest(r *http.Request) *serverless.CallerAttestation {
+	claims, _ := r.Context().Value(ctxkeys.JWT).(*auth.JWTClaims)
+	if claims == nil {
+		return nil
+	}
+	return callerAttestation(claims.Att)
+}
+
+// callerAttestation is a token's attestation as a function reads it.
+func callerAttestation(att *auth.AttestationClaim) *serverless.CallerAttestation {
+	if att == nil {
+		return nil
+	}
+	return &serverless.CallerAttestation{
+		Platform: att.Platform, AppID: att.AppID, AppVersion: att.AppVersion, AttestedAt: att.AttestedAt,
+	}
+}
+
 // getJWTClaimsFromRequest returns the verified token claims the request was
 // authorized with, or nil for an API key or no credential. A WebSocket is
 // registered with these, so it is held to the token's expiry and revocation
@@ -301,6 +322,29 @@ func (h *ServerlessHandlers) getWalletFromRequest(r *http.Request) string {
 		}
 	}
 
+	return ""
+}
+
+// getCallerKeyFromRequest names the credential of a caller with no wallet, for
+// the invoke rate limiter (bug-934): the fingerprint of the API key the auth
+// middleware looked up (or the main gateway forwarded), else of the subject of
+// the key's or workload's token. "" for a wallet, whose bucket is its own, and
+// for a request with no credential, which is bucketed by address.
+//
+// It exists because getWalletFromRequest answers the namespace for every such
+// caller, so every user of an app's shared key drew on one bucket.
+func (h *ServerlessHandlers) getCallerKeyFromRequest(r *http.Request) string {
+	ctx := r.Context()
+	claims, _ := ctx.Value(ctxkeys.JWT).(*auth.JWTClaims)
+	if claims != nil && auth.IsWalletSubject(claims.Sub) {
+		return ""
+	}
+	if fp, _ := ctx.Value(ctxkeys.KeyFingerprint).(string); fp != "" {
+		return fp
+	}
+	if claims != nil {
+		return auth.KeyFingerprint(claims.Sub)
+	}
 	return ""
 }
 

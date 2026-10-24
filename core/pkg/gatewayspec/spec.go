@@ -7,12 +7,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/Orama-Network/orama/core/pkg/tlsutil"
-	"go.uber.org/zap"
 )
 
 // InstanceNodeStatus is the lifecycle state of one spawned gateway process.
@@ -26,23 +23,6 @@ const (
 	InstanceStatusFailed   InstanceNodeStatus = "failed"
 )
 
-// InstanceError is an error during instance operations.
-type InstanceError struct {
-	Message string
-	Cause   error
-}
-
-func (e *InstanceError) Error() string {
-	if e.Cause != nil {
-		return e.Message + ": " + e.Cause.Error()
-	}
-	return e.Message
-}
-
-func (e *InstanceError) Unwrap() error {
-	return e.Cause
-}
-
 // GatewayInstance is the record of a running gateway for a namespace.
 type GatewayInstance struct {
 	Namespace    string
@@ -54,12 +34,7 @@ type GatewayInstance struct {
 	ConfigPath   string
 	PID          int
 	StartedAt    time.Time
-	// Cmd and Logger are used only by the in-process spawner (tests).
-	Cmd             *exec.Cmd
-	Logger          *zap.Logger
-	Mu              sync.RWMutex
-	Status          InstanceNodeStatus
-	LastHealthCheck time.Time
+	Status       InstanceNodeStatus
 }
 
 // InstanceConfig is the input to spawning a gateway instance.

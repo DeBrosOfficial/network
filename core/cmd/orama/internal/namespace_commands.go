@@ -116,11 +116,12 @@ func confirmExact(prompt, want string) error {
 // --- API keys (bugboard #148) ---------------------------------------------
 
 // NamespaceKeysCreate mints a scoped API key and prints it through out: the
-// lines a person reads, or with --json one object holding the key.
-func NamespaceKeysCreate(out *printer.Printer, ns, scope, label string, expiresInDays int) error {
+// lines a person reads, or with --json one object holding the key. resources,
+// when given, narrow the key to what those selectors match (fn:<pattern>).
+func NamespaceKeysCreate(out *printer.Printer, ns, scope, label string, resources []string, expiresInDays int) error {
 	if strings.TrimSpace(scope) == "" {
 		return clierr.Usage("--scope is required: a profile (invoke-only, app-runtime, admin) " +
-			"or an explicit grant list such as \"invoke,storage,push\"")
+			"or an explicit grant list such as \"invoke,push\"")
 	}
 	if expiresInDays < 0 {
 		return clierr.Usage("--expires-in-days is at least 1; omit it for the default")
@@ -134,6 +135,9 @@ func NamespaceKeysCreate(out *printer.Printer, ns, scope, label string, expiresI
 	body := map[string]any{"scope": scope, "label": label}
 	if expiresInDays > 0 {
 		body["expires_in_days"] = expiresInDays
+	}
+	if len(resources) > 0 {
+		body["resources"] = resources
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -156,15 +160,19 @@ func printCreatedKey(out *printer.Printer, result map[string]any) error {
 		return out.JSON(struct {
 			ID        any    `json:"id"`
 			Scopes    any    `json:"scopes"`
+			Resources any    `json:"resources,omitempty"`
 			Namespace any    `json:"namespace"`
 			Expires   any    `json:"expires"`
 			Label     string `json:"label"`
 			Key       any    `json:"key"`
-		}{result["id"], result["scopes"], result["namespace"], result["expires_at"], label, result["api_key"]})
+		}{result["id"], result["scopes"], result["resources"], result["namespace"], result["expires_at"], label, result["api_key"]})
 	}
 	out.Printf("API key created.\n")
 	out.Printf("  id:        %v\n", result["id"])
 	out.Printf("  scopes:    %v\n", result["scopes"])
+	if resources := keyResources(result["resources"]); resources != "" {
+		out.Printf("  resources: %s (this key reaches only these)\n", resources)
+	}
 	out.Printf("  namespace: %v\n", result["namespace"])
 	out.Printf("  expires:   %v\n", result["expires_at"])
 	if l, _ := result["label"].(string); l != "" {
@@ -207,6 +215,10 @@ func NamespaceKeysList(ns string) error {
 		label, _ := km["name"].(string)
 		expires, _ := km["expires_at"].(string)
 		fmt.Printf("  #%-4v  %-8s  %-40s  expires %-20s  %s", km["id"], state, scopes, expires, label)
+		// A narrowed key reaches only what its resources match.
+		if resources := keyResources(km["resources"]); resources != "" {
+			fmt.Printf("  [only %s]", resources)
+		}
 		// A key that replaces another is a rotation in progress, and both are
 		// live until the original's shortened expiry.
 		if from, ok := km["rotated_from"]; ok && from != nil {
@@ -215,6 +227,19 @@ func NamespaceKeysList(ns string) error {
 		fmt.Println()
 	}
 	return nil
+}
+
+// keyResources renders the resources a key is narrowed to, as the gateway
+// returns them, or "" for a key that reaches the whole of its scopes.
+func keyResources(v any) string {
+	list, _ := v.([]any)
+	out := make([]string, 0, len(list))
+	for _, r := range list {
+		if s, ok := r.(string); ok && s != "" {
+			out = append(out, s)
+		}
+	}
+	return strings.Join(out, ", ")
 }
 
 // NamespaceKeysRotate mints a successor to a key and shortens the original's

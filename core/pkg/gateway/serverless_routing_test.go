@@ -119,7 +119,7 @@ func TestClusterServerlessRouting_managementGoesToTheCredentialsNamespace(t *tes
 	} {
 		f.serve(r)
 	}
-	f.g.mwCache.SetAPIKeyEntry("ak_tenant", tenantNamespace, "admin")
+	f.g.mwCache.SetAPIKeyEntry("ak_tenant", apiKeyEntry{namespace: tenantNamespace, scopes: "admin"})
 	keyed := httptest.NewRequest(http.MethodDelete, "/v1/functions/hello", nil)
 	keyed.Header.Set("X-API-Key", "ak_tenant")
 	f.serve(keyed)

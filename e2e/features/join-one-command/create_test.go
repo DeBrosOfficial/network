@@ -155,15 +155,19 @@ func publishedGenesis(t *testing.T, publishDir string) []byte {
 	return genesis
 }
 
-// TestSetup_aProductionChainIdNeedsAProductionCommittee: a chain id without
-// -stagenet-, -devnet- or -localnet- is a production one and needs 30 bootstrap
-// validators; the refusal is a usage error before any server is contacted, and it
-// names a test network's chain id as the way out.
-func TestSetup_aProductionChainIdNeedsAProductionCommittee(t *testing.T) {
+// TestSetup_aProductionChainIdIsRefused: a chain id that is not exactly
+// orama-[<name>-](testnet|devnet|localnet)-<id> is a production one, which
+// --create-network does not make; the refusal is a usage error before any server
+// is contacted, and it names a test network's chain id as the way out. stagenet,
+// the test class's name before testnet, is no class word: orama-x-stagenet-1 is a
+// production id.
+func TestSetup_aProductionChainIdIsRefused(t *testing.T) {
 	cli := isolatedCLI(t)
-	res := infra.Run(t, cli, "setup", "--yes", "--create-network", "prod", "--chain-id", "orama-1", "--release-root", "release-root.json",
-		"--ip", unusedIP, "--host-key", "SHA256:abc")
-	infra.ExpectExit(t, res, infra.ExitUsage, "at least 30", "-stagenet-")
+	for _, id := range []string{"orama-1", "orama-x-stagenet-1"} {
+		res := infra.Run(t, cli, "setup", "--yes", "--create-network", "prod", "--chain-id", id, "--release-root", "release-root.json",
+			"--ip", unusedIP, "--host-key", "SHA256:abc")
+		infra.ExpectExit(t, res, infra.ExitUsage, `"`+id+`" is a production network's`, "-testnet-")
+	}
 }
 
 // TestSetup_creatingNeedsTheChainIdAndTheReleaseRoot: --create-network without its
@@ -174,10 +178,17 @@ func TestSetup_creatingNeedsTheChainIdAndTheReleaseRoot(t *testing.T) {
 	common := []string{"setup", "--yes", "--ip", unusedIP, "--host-key", "SHA256:abc"}
 	noChain := append([]string{"--create-network", "x", "--release-root", "release-root.json"}, common...)
 	infra.ExpectExit(t, infra.Run(t, cli, noChain...), infra.ExitUsage, "--chain-id")
-	noRoot := append([]string{"--create-network", "x", "--chain-id", "orama-x-devnet-1"}, common...)
-	infra.ExpectExit(t, infra.Run(t, cli, noRoot...), infra.ExitUsage, "--release-root")
+	// A testnet or devnet id passes the class check and reaches the next question.
+	for _, id := range []string{"orama-x-testnet-1", "orama-x-devnet-1"} {
+		noRoot := append([]string{"--create-network", "x", "--chain-id", id}, common...)
+		res := infra.Run(t, cli, noRoot...)
+		infra.ExpectExit(t, res, infra.ExitUsage, "--release-root")
+		if out := res.Stdout + res.Stderr; strings.Contains(out, "production network") {
+			t.Errorf("chain id %s was taken for a production one:\n%s", id, out)
+		}
+	}
 	stray := append([]string{"--chain-id", "orama-x-devnet-1", "--name", "alice"}, common...)
 	infra.ExpectExit(t, infra.Run(t, cli, stray...), infra.ExitUsage, "--create-network")
-	both := append([]string{"--create-network", "x", "--network", "stagenet", "--chain-id", "orama-x-devnet-1", "--release-root", "r.json"}, common...)
+	both := append([]string{"--create-network", "x", "--network", "testnet", "--chain-id", "orama-x-devnet-1", "--release-root", "r.json"}, common...)
 	infra.ExpectExit(t, infra.Run(t, cli, both...), infra.ExitUsage, "--network")
 }

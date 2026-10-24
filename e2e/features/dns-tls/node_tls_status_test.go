@@ -35,7 +35,7 @@ type tlsStatus struct {
 // TestNodeTLSStatus_reportsTheHeldCertificates: on every node `orama node tls
 // status --json` names the CA the cluster issues from and lists the base domain
 // and its wildcard, each held, issued by the CA the run uses (staging on a
-// fleet the run provisioned, production on stagenet) and far from expiry; the
+// fleet the run provisioned, production on testnet) and far from expiry; the
 // text form lists the same names (website/src/docs/operator/tls-certificates.mdx
 // "Reading a node's certificate status").
 func TestNodeTLSStatus_reportsTheHeldCertificates(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/setup"
+	"github.com/Orama-Network/orama/core/pkg/netclass"
 )
 
 // startCreate turns the run into the creation of a network: the machines are its
@@ -38,7 +39,7 @@ func (m *Model) takeCreate(value string) (tea.Model, tea.Cmd) {
 		return m.goTo(stepCreateChainID)
 	case stepCreateChainID:
 		if value == "" {
-			return m.fail("give the chain id, for example orama-%s-stagenet-1", m.opts.Create.Name)
+			return m.fail("give the chain id, for example %s", netclass.ExampleTestChainID(m.opts.Create.Name))
 		}
 		m.opts.Create.ChainID = value
 		return m.goTo(stepCreateRoot)

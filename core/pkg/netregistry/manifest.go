@@ -87,7 +87,7 @@ func (e *notCreatedError) Is(target error) bool { return target == ErrNotCreated
 // will have, where its releases come from and the root they are verified against,
 // published before the chain exists. It is valid but not joinable (see Announced).
 type Manifest struct {
-	// Name is the network's short name: stagenet, testnet, or an operator's own.
+	// Name is the network's short name: testnet, or an operator's own.
 	Name string `json:"name"`
 	// ChainID is the chain's id. A reset of the chain gets a new one.
 	ChainID string `json:"chain_id"`

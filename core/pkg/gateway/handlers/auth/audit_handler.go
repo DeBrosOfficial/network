@@ -18,7 +18,8 @@ import (
 // database, so "who minted this key" was not a question a namespace owner
 // could ask without being handed something far larger.
 //
-// GET /v1/audit returns this namespace's own events, most recent first.
+// GET /v1/audit returns this namespace's own events, most recent first, and
+// GET /v1/operator/audit the cluster's own, to an operator.
 
 const (
 	auditPageDefault = 50
@@ -43,21 +44,57 @@ type AuditEntry struct {
 // query string: reading another namespace's audit trail would be a neat way to
 // learn who its owners are and when they sign in.
 func (h *Handlers) AuditHandler(w http.ResponseWriter, r *http.Request) {
-	if h.authService == nil {
-		writeError(w, http.StatusServiceUnavailable, "auth service not initialized")
+	if !h.auditReady(w, r) {
 		return
 	}
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	namespace := namespaceFromContext(r)
 	if namespace == "" {
 		writeError(w, http.StatusUnauthorized, "the namespace could not be resolved from this credential")
 		return
 	}
+	h.serveAudit(w, r, auditScope{namespace: namespace})
+}
 
+// OperatorAuditHandler serves GET /v1/operator/audit: the cluster's own
+// events, the rows written with no namespace. Minting an invite, a node
+// joining or being claimed, and a namespace's deletion are recorded there, so
+// that "who let that node in" and "who deleted that namespace" have an answer,
+// and a namespace created again under the same name does not inherit the
+// previous tenant's trail.
+//
+// The route is operator-only (route policy); no namespace role, grant or key
+// reaches it.
+func (h *Handlers) OperatorAuditHandler(w http.ResponseWriter, r *http.Request) {
+	if !h.auditReady(w, r) {
+		return
+	}
+	h.serveAudit(w, r, auditScope{cluster: true})
+}
+
+// auditScope is whose events a page is drawn from: one namespace's, or the
+// cluster's own (namespace IS NULL). Exactly one is set.
+type auditScope struct {
+	namespace string
+	cluster   bool
+}
+
+// auditReady refuses what neither audit route can answer, before any filter
+// is read.
+func (h *Handlers) auditReady(w http.ResponseWriter, r *http.Request) bool {
+	if h.authService == nil {
+		writeError(w, http.StatusServiceUnavailable, "auth service not initialized")
+		return false
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return false
+	}
+	return true
+}
+
+// serveAudit reads the filters both audit routes take and answers one page of
+// scope's events, most recent first.
+func (h *Handlers) serveAudit(w http.ResponseWriter, r *http.Request, scope auditScope) {
 	limit := auditPageDefault
 	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 		parsed, err := strconv.Atoi(raw)
@@ -96,23 +133,29 @@ func (h *Handlers) AuditHandler(w http.ResponseWriter, r *http.Request) {
 		since = parsed
 	}
 
-	entries, err := h.readAuditEvents(r.Context(), namespace, auditFilter{
+	entries, err := h.readAuditEvents(r.Context(), scope, auditFilter{
 		Action:    action,
 		Principal: principal,
 		Since:     since,
 		Limit:     limit,
 	})
 	if err != nil {
-		h.logger.Error("the audit trail could not be read", zap.String("namespace", namespace), zap.Error(err))
+		h.logger.Error("the audit trail could not be read", zap.String("namespace", scope.namespace),
+			zap.Bool("cluster", scope.cluster), zap.Error(err))
 		writeError(w, http.StatusServiceUnavailable, "the audit trail could not be read right now; retry shortly")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"namespace": namespace,
-		"events":    entries,
-		"count":     len(entries),
-	})
+	body := map[string]any{
+		"events": entries,
+		"count":  len(entries),
+	}
+	if scope.cluster {
+		body["scope"] = "cluster"
+	} else {
+		body["namespace"] = scope.namespace
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // namespaceFromContext reads the namespace the caller's credential resolved to.
@@ -154,11 +197,18 @@ func parseAuditSince(raw string) (string, error) {
 	return "", fmt.Errorf("since must be RFC3339 (2026-01-02T15:04:05Z) or %q, got %q", auditTimeLayout, raw)
 }
 
-// readAuditEvents returns this namespace's events, most recent first.
-func (h *Handlers) readAuditEvents(ctx context.Context, namespace string, filter auditFilter) ([]AuditEntry, error) {
+// readAuditEvents returns scope's events, most recent first. Both scopes are
+// served by the (namespace, created_at) index.
+func (h *Handlers) readAuditEvents(ctx context.Context, scope auditScope, filter auditFilter) ([]AuditEntry, error) {
 	query := `SELECT action, actor, resource, result, ip, user_agent, metadata, created_at
-	          FROM audit_events WHERE namespace = ?`
-	args := []interface{}{namespace}
+	          FROM audit_events WHERE `
+	var args []interface{}
+	if scope.cluster {
+		query += "namespace IS NULL"
+	} else {
+		query += "namespace = ?"
+		args = append(args, scope.namespace)
+	}
 	if filter.Action != "" {
 		query += " AND action = ?"
 		args = append(args, filter.Action)

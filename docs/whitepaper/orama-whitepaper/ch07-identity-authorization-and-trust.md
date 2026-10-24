@@ -40,17 +40,17 @@ The refresh token is 32 random bytes stored as a SHA-256 hash and replaced on ev
 
 A session may also be bound to a device key, with a proof of possession for each sensitive action, and machines with no wallet use an RFC 8628 device login. A namespace sets a device policy and a sign-in policy to say how much of this it demands.
 
-Revocation closes the gap a signature-only token leaves. `revoked_tokens` holds entries for one token id, for every token issued to a subject before an instant, or for a device or session. Each gateway reloads it every 5 s and refuses to answer from a copy older than 10 s. If the registry cannot be read, authentication answers a retryable 503: unknown is never "not revoked". A failed reload keeps the old list rather than clearing it, because forgetting revocations on one failed query would revive every revoked token. WebSockets are authorized once at upgrade, so a sweeper re-checks every token-opened socket each 5 s and closes it when the token expires, is revoked, or cannot be vouched for for two minutes.
+Revocation closes the gap a signature-only token leaves. `revoked_tokens` holds entries for one token id, for every token issued to a subject before an instant, or for a device or session; a token id is recorded once however many revokes race, and a namespace may hold at most 1,000 revocations of its capabilities in force, so no tenant can grow the list every gateway reloads. Each gateway reloads it every 5 s and refuses to answer from a copy older than 10 s. If the registry cannot be read, authentication answers a retryable 503: unknown is never "not revoked". A failed reload keeps the old list rather than clearing it, because forgetting revocations on one failed query would revive every revoked token. WebSockets are authorized once at upgrade, so a sweeper re-checks every token-opened socket each 5 s and closes it when the token expires, is revoked, or cannot be vouched for for two minutes.
 
 ## What a caller may do
 
-Every route declares its requirement in one table ([the gateway](ch06-the-gateway.md)). The check runs twice: a gate by domain and action before the handler, and a check by object inside it. A permission has the form `domain:action:resource`, over 14 domains split into a data plane (storage, pub/sub, cache, push, WebRTC, proxy, functions) and a control plane (databases, deployments, secrets, members, namespace settings, audit, operator).
+Every route declares its requirement in one table ([the gateway](ch06-the-gateway.md)). The check runs twice: a gate by domain and action before the handler, and a check by object inside it. A permission has the form `domain:action:resource`, over 13 domains split into a data plane (storage, pub/sub, cache, push, WebRTC, proxy, functions) and a control plane (databases, deployments, secrets, members, namespace settings, audit). Operating the cluster is not a permission: the node, network and `/v1/operator/*` routes admit only a wallet session on the cluster's operator list, so a namespace owner's or admin's "everything", and any API key, reaches none of them.
 
 | Role | Reaches |
 |---|---|
 | `reader` | only routes that ask for no permission |
-| `runtime` | the data plane, and function invocation |
-| `developer` | the data plane plus databases, deployments, secrets, function management |
+| `runtime` | the data plane, and function invocation; push registration but not sending |
+| `developer` | the data plane plus databases, deployments, secrets, function management, sending push notifications |
 | `admin` | everything in the namespace |
 | `owner` | the same, one wallet per namespace; the only role that can transfer it |
 
@@ -58,7 +58,9 @@ Grants live in the registry, never in a tenant database, because a tenant's owne
 
 How long a change takes to land is stated, not hoped for: key revocation within 10 s, narrowing a key within 60 s, a wallet's data-plane grant within 10 s, a control-plane change on the next request. Grants are read at RQLite `level=weak`, which routes to the leader, so a follower cannot answer 403 to a grant the leader just acknowledged. The cost is that a cluster with no leader fails reads rather than serving stale ones.
 
-API keys have the form `orama_<type>_<payload>_<checksum>` with 192 random bits, stored as an HMAC-SHA256 digest and shown once. The `sk` or `rk` prefix tells a finder how bad the leak is, but the scopes column decides authority. Every key expires, rotation overlaps the old and new for seven days by default, and revoking a key also revokes JWTs already exchanged from it. A runtime key ships inside client bundles, so it cannot reach the control plane, and storage and WebRTC additionally demand a principal token, which makes an extracted key inert there.
+API keys have the form `orama_<type>_<payload>_<checksum>` with 192 random bits, stored as an HMAC-SHA256 digest and shown once. The `sk` or `rk` prefix tells a finder how bad the leak is, but the scopes column decides authority. A key can also be narrowed to named resources, such as the few functions an application calls, and is then refused everything else. Every key expires, rotation overlaps the old and new for seven days by default, and revoking a key also revokes JWTs already exchanged from it. A key that ships inside a client bundle is public, so the profile meant for one cannot reach the control plane or hold the storage grant: storage and WebRTC demand a principal token, except unpin, which a server-side function's own storage key, kept in the namespace's secrets, reaches by exchanging it for a token. An app that needs nothing before its user signs in ships no key at all, since sign-in and public functions need no credential.
+
+A namespace can also admit only its genuine app on a genuine device, proved by App Attest or Android key attestation.
 
 A deployed application is a principal too. It holds a one-hour workload token staged by systemd, restaged every 20 minutes, with only the grants its owner chose, restricted to `runtime` or `reader`. An app that was never granted anything reaches nothing.
 

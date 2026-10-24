@@ -3,7 +3,8 @@
 # linux/amd64, every shipped binary, the CLI's version), every node runs the
 # binaries its signed manifest lists, the version agrees everywhere, and the
 # auto-update decision table (notify by default, auto only when healthy,
-# newer and in the window; TUF failures, downgrades and bad releases refused).
+# newer and in the window; TUF failures, downgrades and bad releases refused),
+# and the fleet gate of `orama maint release cut` (dry runs, no wallet).
 id: release-checks
 title: Release artifacts and auto-update decisions
 area: infrastructure
@@ -17,6 +18,7 @@ requires:
 covers:
   cli:
     - orama maint node autoupdate
+    - orama maint release cut
     - orama version
   routes:
     - /v1/version
@@ -24,3 +26,4 @@ covers:
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-build: the manifest carries checksums of every file and is signed with the operator's RootWallet"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-node-autoupdate: notify is the default; auto installs only when healthy, newer and in the window"
     - "docs/whitepaper/technical-reference/appendices/d-cli-reference.md#orama-maint-node-autoupdate: a TUF failure, a downgrade or a release marked bad is refused; a validator is never auto"
+    - "docs/whitepaper/technical-reference/vol1/29-build-signing-and-release.md: a nightly or main cut refuses a commit without a passing fleet report signed by a compiled-in runner key; a dev/<branch> build needs none"

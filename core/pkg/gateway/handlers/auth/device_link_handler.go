@@ -39,12 +39,13 @@ func (h *Handlers) startPendingLogin(ctx context.Context, req DeviceAuthorizatio
 //     and the device that approved it must still be active: revoking a stolen
 //     approver must reach the device it let in. The linked device becomes
 //     one of the account's active devices here.
-func (h *Handlers) claimCheck(ctx context.Context, deviceCode string, proof *authsvc.DeviceProof, deviceID, namespace *string) func(*authsvc.ClaimedDeviceAuthorization) error {
+func (h *Handlers) claimCheck(ctx context.Context, client, deviceCode string, proof *authsvc.DeviceProof, deviceID, namespace *string) func(*authsvc.ClaimedDeviceAuthorization) error {
 	return func(claimed *authsvc.ClaimedDeviceAuthorization) error {
 		*namespace = claimed.Namespace
 		// Before anything is enrolled or the code spent: a wallet the
-		// namespace no longer lets in gets no device here, and keeps its code.
-		if err := h.authService.RequireSignInAllowed(ctx, claimed.Subject, claimed.Namespace); err != nil {
+		// namespace no longer lets in, or one past its network's new-wallet
+		// ceiling, gets no device here, and keeps its code.
+		if err := h.authService.AdmitSignIn(ctx, claimed.Subject, claimed.Namespace, client); err != nil {
 			return err
 		}
 		if claimed.DeviceKey == "" {

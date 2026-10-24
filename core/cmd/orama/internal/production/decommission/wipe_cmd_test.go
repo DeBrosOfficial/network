@@ -26,17 +26,17 @@ func stubWipe(t *testing.T, fleet []inspector.Node) *[]string {
 	return asked
 }
 
-var stagenet = []inspector.Node{
-	{Environment: "stagenet", User: "debian", Host: "37.59.116.212"},
-	{Environment: "stagenet", User: "ubuntu", Host: "141.227.165.168"},
-	{Environment: "stagenet", User: "ubuntu", Host: "57.128.226.141"},
+var testnet = []inspector.Node{
+	{Environment: "testnet", User: "debian", Host: "37.59.116.212"},
+	{Environment: "testnet", User: "ubuntu", Host: "141.227.165.168"},
+	{Environment: "testnet", User: "ubuntu", Host: "57.128.226.141"},
 }
 
 // Wiping athena failed because poseidon — not set up yet, so no key in the
 // vault — had its key resolved too.
 func TestExecuteWipe_resolvesOnlyTheTargetsKey(t *testing.T) {
-	asked := stubWipe(t, stagenet)
-	err := executeWipe(&WipeFlags{Env: "stagenet", Node: "37.59.116.212", Force: true})
+	asked := stubWipe(t, testnet)
+	err := executeWipe(&WipeFlags{Env: "testnet", Node: "37.59.116.212", Force: true})
 	if !errors.Is(err, errStop) {
 		t.Fatalf("executeWipe = %v, want to reach key resolution", err)
 	}
@@ -46,8 +46,8 @@ func TestExecuteWipe_resolvesOnlyTheTargetsKey(t *testing.T) {
 }
 
 func TestExecuteWipe_unknownNodeAsksForNoKeys(t *testing.T) {
-	asked := stubWipe(t, stagenet)
-	if err := executeWipe(&WipeFlags{Env: "stagenet", Node: "203.0.113.9", Force: true}); err == nil {
+	asked := stubWipe(t, testnet)
+	if err := executeWipe(&WipeFlags{Env: "testnet", Node: "203.0.113.9", Force: true}); err == nil {
 		t.Fatal("a node outside the environment was accepted")
 	}
 	if len(*asked) != 0 {
@@ -56,10 +56,10 @@ func TestExecuteWipe_unknownNodeAsksForNoKeys(t *testing.T) {
 }
 
 func TestExecuteWipe_wholeEnvironmentResolvesEveryKey(t *testing.T) {
-	asked := stubWipe(t, stagenet)
-	_ = executeWipe(&WipeFlags{Env: "stagenet", Force: true})
-	if len(*asked) != len(stagenet) {
-		t.Errorf("keys resolved for %v, want all %d nodes", *asked, len(stagenet))
+	asked := stubWipe(t, testnet)
+	_ = executeWipe(&WipeFlags{Env: "testnet", Force: true})
+	if len(*asked) != len(testnet) {
+		t.Errorf("keys resolved for %v, want all %d nodes", *asked, len(testnet))
 	}
 }
 
@@ -72,7 +72,7 @@ func stubWipeRun(t *testing.T, wipeErr, forgetErr error) (wiped, forgotten *[]st
 	t.Cleanup(func() {
 		resolveWipeNodes, prepareWipeKeys, wipeRemote, forgetNodeKey = origResolve, origKeys, origWipe, origForget
 	})
-	resolveWipeNodes = func(string) ([]inspector.Node, error) { return stagenet, nil }
+	resolveWipeNodes = func(string) ([]inspector.Node, error) { return testnet, nil }
 	prepareWipeKeys = func([]inspector.Node) (func(), error) { return func() {}, nil }
 	wipeRemote = func(n inspector.Node, _ bool) error { *wiped = append(*wiped, n.Host); return wipeErr }
 	forgetNodeKey = func(n inspector.Node) error { *forgotten = append(*forgotten, n.Host); return forgetErr }
@@ -83,7 +83,7 @@ func stubWipeRun(t *testing.T, wipeErr, forgetErr error) (wiped, forgotten *[]st
 // stay there forever.
 func TestExecuteWipe_forgetsTheKeyOfAWipedNode(t *testing.T) {
 	_, forgotten := stubWipeRun(t, nil, nil)
-	if err := executeWipe(&WipeFlags{Env: "stagenet", Node: "141.227.165.168", Force: true}); err != nil {
+	if err := executeWipe(&WipeFlags{Env: "testnet", Node: "141.227.165.168", Force: true}); err != nil {
 		t.Fatalf("executeWipe: %v", err)
 	}
 	if len(*forgotten) != 1 || (*forgotten)[0] != "141.227.165.168" {
@@ -94,7 +94,7 @@ func TestExecuteWipe_forgetsTheKeyOfAWipedNode(t *testing.T) {
 // A node that was not wiped still needs its key.
 func TestExecuteWipe_keepsTheKeyWhenTheWipeFails(t *testing.T) {
 	_, forgotten := stubWipeRun(t, errors.New("ssh: connection refused"), nil)
-	if err := executeWipe(&WipeFlags{Env: "stagenet", Node: "141.227.165.168", Force: true}); err == nil {
+	if err := executeWipe(&WipeFlags{Env: "testnet", Node: "141.227.165.168", Force: true}); err == nil {
 		t.Fatal("a failed wipe reported success")
 	}
 	if len(*forgotten) != 0 {
@@ -104,7 +104,7 @@ func TestExecuteWipe_keepsTheKeyWhenTheWipeFails(t *testing.T) {
 
 func TestExecuteWipe_vaultFailureIsReported(t *testing.T) {
 	stubWipeRun(t, nil, errors.New("agent locked"))
-	if err := executeWipe(&WipeFlags{Env: "stagenet", Node: "141.227.165.168", Force: true}); err == nil {
+	if err := executeWipe(&WipeFlags{Env: "testnet", Node: "141.227.165.168", Force: true}); err == nil {
 		t.Fatal("a key left in the vault was reported as a clean wipe")
 	}
 }

@@ -148,8 +148,8 @@ aggregator per region) rather than full reports. The 15s assembly bound with
 16-way concurrency covers roughly 60 unresponsive peers before later ones are
 cut off and shown unreachable.
 
-**What an operator sees vs the public.** `/v1/operator/telemetry` (operator
-grant and the operator list) is every node's full report — addresses, ports,
+**What an operator sees vs the public.** `/v1/operator/telemetry` (a wallet
+session on the operator list) is every node's full report — addresses, ports,
 firewall state, versions. `/v1/status` is the public projection
 (`cluster.PublicStatus`): service states and uptime, node counts, chain
 progress and network traffic, and no address, peer id, hostname or error text.
@@ -431,7 +431,7 @@ All 17 collectors run in parallel with goroutines. Typical collection time is **
   "namespaces": [],
   "deployments": { "total_count": 0, "running_count": 0, "failed_count": 0, "static_count": 0 },
   "serverless": { "function_count": 0, "engine_status": "healthy" },
-  "chain": { "service_active": true, "responsive": true, "chain_id": "orama-stagenet-1", "latest_height": 1234, "block_age_sec": 1.8, "avg_block_time_sec": 5.0, "is_validator": true, ... }
+  "chain": { "service_active": true, "responsive": true, "chain_id": "orama-testnet-1", "latest_height": 1234, "block_age_sec": 1.8, "avg_block_time_sec": 5.0, "is_validator": true, ... }
 }
 ```
 
@@ -457,7 +457,7 @@ These checks compare data across all nodes:
 - **RQLite Leader**: Exactly one leader exists (no split brain)
 - **Leader Agreement**: All nodes agree on the same leader address
 - **Raft Term Consistency**: Term values within 1 of each other
-- **Follower Contact**: Every follower has heard from the leader within 2 seconds (`rqlite.StalenessMaxLastContact`, the bound after which a namespace gateway stops serving none-reads from it); a follower that has never heard from one is flagged too. Each node is judged from its own `/status` read (`store.raft.last_contact`). The applied indexes of the nodes are deliberately not compared: each report is collected at a slightly different moment, so under steady writes their spread counts the writes made between the reads, not lag (a healthy 5-node stagenet read 101 apart). A node's own apply backlog is the per-node "RQLite commit-applied gap" warning (`commit_index` minus `applied_index` over 100, both from one read). `orama maint inspect` follows the same rule: `rqlite.last_contact` warns on a stale follower and there is no cross-node applied-index check
+- **Follower Contact**: Every follower has heard from the leader within 2 seconds (`rqlite.StalenessMaxLastContact`, the bound after which a namespace gateway stops serving none-reads from it); a follower that has never heard from one is flagged too. Each node is judged from its own `/status` read (`store.raft.last_contact`). The applied indexes of the nodes are deliberately not compared: each report is collected at a slightly different moment, so under steady writes their spread counts the writes made between the reads, not lag (a healthy 5-node testnet read 101 apart). A node's own apply backlog is the per-node "RQLite commit-applied gap" warning (`commit_index` minus `applied_index` over 100, both from one read). `orama maint inspect` follows the same rule: `rqlite.last_contact` warns on a stale follower and there is no cross-node applied-index check
 - **WireGuard Peer Symmetry**: Each node has N-1 peers
 - **Clock Skew**: Node clocks within 5 seconds of each other (critical beyond 60s). The offset is measured when each report is served — the peer sends its clock (`X-Orama-Clock-Ms`) and the collector compares it with the request's midpoint — not read from report timestamps, which differ by up to the collection interval on synchronised clocks. A peer that sends no clock (0.122.109) is left unmeasured and its report still counts
 - **Binary Version**: All nodes running the same version. `orama node report` used to emit an empty `version`, so every node read as "unknown" and the alert could never fire; the version is compiled into the binary now, so it carries a real value.

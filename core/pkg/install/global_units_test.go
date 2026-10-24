@@ -79,12 +79,12 @@ func TestGlobalUnits_usersPortsAndNoClusterSecret(t *testing.T) {
 	}
 }
 
-func TestGlobalChainUnit_userMatchesStagenetDeploy(t *testing.T) {
+func TestGlobalChainUnit_userMatchesTestnetDeploy(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("no caller")
 	}
-	script := filepath.Join(filepath.Dir(file), "..", "..", "..", "chain", "scripts", "stagenet", "deploy.sh")
+	script := filepath.Join(filepath.Dir(file), "..", "..", "..", "chain", "scripts", "testnet", "deploy.sh")
 	data, err := os.ReadFile(script)
 	if err != nil {
 		t.Fatalf("read %s: %v", script, err)

@@ -20,12 +20,15 @@ import (
 	nodeauth "github.com/Orama-Network/orama/core/pkg/auth"
 	"github.com/Orama-Network/orama/core/pkg/chainfaucet"
 	"github.com/Orama-Network/orama/core/pkg/client"
+	"github.com/Orama-Network/orama/core/pkg/clustertrust"
 	"github.com/Orama-Network/orama/core/pkg/constants"
 	"github.com/Orama-Network/orama/core/pkg/deployments"
 	"github.com/Orama-Network/orama/core/pkg/deployments/health"
 	"github.com/Orama-Network/orama/core/pkg/deployments/process"
 	"github.com/Orama-Network/orama/core/pkg/gateway/auth"
 	"github.com/Orama-Network/orama/core/pkg/gateway/clientkey"
+	"github.com/Orama-Network/orama/core/pkg/gateway/corsorigins"
+	attesthandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/attest"
 	authhandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/auth"
 	backuphandlers "github.com/Orama-Network/orama/core/pkg/gateway/handlers/backup"
 	"github.com/Orama-Network/orama/core/pkg/gateway/handlers/cache"
@@ -170,6 +173,14 @@ type Gateway struct {
 	// Authentication service
 	authService  *auth.Service
 	authHandlers *authhandlers.Handlers
+	// endUserTopics reads the pub/sub topics a namespace's end users may
+	// read; nil reads them through authService (end_user_topics.go).
+	endUserTopics endUserTopicSource
+	// attestHandlers serves device attestation (feat-941), and
+	// attestationLists are the Android lists the index gateway refreshes for
+	// it (attestation_wiring.go); nil on a namespace gateway.
+	attestHandlers   *attesthandlers.Handlers
+	attestationLists *attestationLists
 
 	// wsSessions is every token-authorized WebSocket open on this gateway,
 	// swept for expired and revoked tokens (see ws_sessions.go).
@@ -219,6 +230,10 @@ type Gateway struct {
 	// records into and TrafficSnapshot reports (see traffic.go).
 	traffic *traffic.Recorder
 
+	// attestationLogs throttles the monitor-mode "would refuse" log line, one
+	// per namespace, reason and platform a minute (attestation_middleware.go).
+	attestationLogs logThrottle
+
 	// telemetry is the cluster monitoring state (telemetry.go): this node's
 	// own report, the snapshot assembled from its peers', and uptime history.
 	// Nil on a namespace gateway, which does not monitor the cluster.
@@ -266,6 +281,12 @@ type Gateway struct {
 	rateLimitManager     *ratelimit.Manager
 	rateLimitConfigStore ratelimit.ConfigStore
 	rateLimitHandlers    *ratelimithandlers.Handlers
+
+	// corsOrigins are the namespaces' own allowed origins and
+	// corsOriginsHandler serves /v1/namespace/cors-origins (cors.go); both
+	// nil on a namespace gateway.
+	corsOrigins        *corsorigins.Cache
+	corsOriginsHandler *corsorigins.Handler
 
 	// WebRTC signaling and TURN credentials
 	webrtcHandlers *webrtchandlers.WebRTCHandlers
@@ -650,6 +671,9 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	// validate against it.
 	gw.authHandlers.SetAPIKeyDB(&authDatabaseAdapter{db: gw.apiKeyDB()})
 	bindNamespaceSignIn(gw.authHandlers, cfg)
+	if err := gw.wireAttestation(); err != nil {
+		return nil, err
+	}
 
 	// Expired revocations deny nothing. Pruning keeps the table the size
 	// of the revocations still in flight rather than growing forever.
@@ -706,6 +730,7 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 	}
 	gw.rateLimitManager = ratelimit.NewManager(gw.rateLimitConfigStore, rlDefaults, logger.Logger)
 	gw.rateLimitHandlers = ratelimithandlers.NewHandlers(gw.rateLimitConfigStore, gw.rateLimitManager, logger)
+	gw.initCORSOrigins(deps.GlobalORMClient, logger.Logger)
 
 	// Legacy fallback kept for now in case the manager is ever nil. The
 	// middleware prefers rateLimitManager and only uses this if the
@@ -767,8 +792,9 @@ func New(logger *logging.ColoredLogger, cfg *Config) (*Gateway, error) {
 		gw.homeNodeManager = deployments.NewHomeNodeManager(deploymentDB, gw.portAllocator, logger.Logger)
 		gw.replicaManager = deployments.NewReplicaManager(deploymentDB, gw.homeNodeManager, gw.portAllocator, logger.Logger)
 		gw.processManager = process.NewManager(logger.Logger, process.Config{
-			Stager:     process.HelperStager{},
-			BaseDomain: baseDomain,
+			Stager:           process.HelperStager{},
+			BaseDomain:       baseDomain,
+			ClusterTrustFile: clustertrust.NodePath,
 		})
 		// What a deployment runs as. It used to run as whatever key somebody
 		// had pasted into its image; it is a principal of its own now, and the

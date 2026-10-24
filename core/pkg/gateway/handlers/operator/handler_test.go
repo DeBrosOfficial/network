@@ -46,49 +46,24 @@ func TestWalletFromRequest_nilClaims(t *testing.T) {
 	}
 }
 
-func TestWalletFromRequest_apiKeyContext(t *testing.T) {
-	// When auth middleware sets ctxkeys.APIKey (no JWT), walletFromRequest
-	// should try to resolve via the API key. With nil rqliteClient it returns
-	// empty (can't query DB), but it shouldn't panic.
-	h := NewHandler(nil, nil)
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	ctx := context.WithValue(r.Context(), ctxkeys.APIKey, "ak_test:myns")
-	r = r.WithContext(ctx)
-
-	// Should not panic — returns empty because no DB to query
-	wallet := h.walletFromRequest(r)
-	if wallet != "" {
-		t.Errorf("wallet = %q, want empty (no DB)", wallet)
+// A key is a namespace's credential, never an operator's, whoever owns the
+// namespace (bugboard bug-55). Presented bare, or exchanged for a token that
+// names its namespace, it resolves to no wallet at all, so it can never match
+// the operator list; nor does a deployed app's workload token.
+func TestWalletFromRequest_aKeyOrAnAppIsNeverAnOperatorWallet(t *testing.T) {
+	bare := httptest.NewRequest(http.MethodGet, "/", nil)
+	bare = bare.WithContext(context.WithValue(context.WithValue(bare.Context(),
+		ctxkeys.APIKey, "orama_sk_abc_def"), ctxkeys.NamespaceOverride, "operatorsns"))
+	if got := WalletFromRequest(bare); got != "" {
+		t.Errorf("a bare API key resolved to wallet %q", got)
 	}
-}
-
-// The namespace used to be parsed out of the key string — `ak_<random>:<ns>`.
-// A key does not carry one now, so it comes from the token's claim or from what
-// the middleware resolved, and a caller with neither is nobody.
-func TestResolveWallet_takesTheNamespaceFromTheCredentialNotTheKeyString(t *testing.T) {
-	h := NewHandler(nil, nil)
-
-	// A wallet JWT is its own answer.
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	r = r.WithContext(context.WithValue(r.Context(), ctxkeys.JWT,
-		&auth.JWTClaims{Sub: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}))
-	if got := h.resolveWallet(r); got != "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" {
-		t.Errorf("a wallet JWT resolved to %q", got)
-	}
-
-	// A key-exchanged JWT carries its namespace as a claim. No database here,
-	// so the lookup answers empty — what matters is that it did not read a
-	// namespace out of the subject.
-	r = httptest.NewRequest(http.MethodGet, "/", nil)
-	r = r.WithContext(context.WithValue(r.Context(), ctxkeys.JWT,
-		&auth.JWTClaims{Sub: "orama_sk_abc_def", Namespace: "myns"}))
-	if got := h.resolveWallet(r); got != "" {
-		t.Errorf("resolveWallet = %q with no database", got)
-	}
-
-	// Nothing at all.
-	if got := h.resolveWallet(httptest.NewRequest(http.MethodGet, "/", nil)); got != "" {
-		t.Errorf("a request with no credential resolved to %q", got)
+	for _, sub := range []string{"orama_sk_abc_def", "app:operatorsns/web"} {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r = r.WithContext(context.WithValue(r.Context(), ctxkeys.JWT,
+			&auth.JWTClaims{Sub: sub, Namespace: "operatorsns"}))
+		if got := WalletFromRequest(r); got != "" {
+			t.Errorf("a token with subject %q resolved to wallet %q", sub, got)
+		}
 	}
 }
 
@@ -226,7 +201,7 @@ func TestHandleRegister_invalidRole(t *testing.T) {
 }
 
 func TestAllowedEnvironments(t *testing.T) {
-	valid := []string{"devnet", "testnet", "stagenet", "production", "local"}
+	valid := []string{"devnet", "testnet", "production", "local"}
 	invalid := []string{"-x", "<script>", "", "has space", "a.b"}
 
 	for _, env := range valid {

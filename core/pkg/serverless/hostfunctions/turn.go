@@ -69,7 +69,10 @@ func (h *HostFunctions) TurnCredentials(ctx context.Context) ([]byte, error) {
 		})
 	}
 
-	username, password := turn.GenerateCredentials(h.turnSecret, cur.Namespace, turnCredentialTTL)
+	username, password, err := turn.GenerateCredentials(h.turnSecret, cur.Namespace, turnSubject(cur), turnCredentialTTL)
+	if err != nil {
+		return nil, &serverless.HostFunctionError{Function: "turn_credentials", Cause: err}
+	}
 
 	uris := buildTURNURIs(h.turnDomain, h.stealthCDNDomain)
 
@@ -81,6 +84,20 @@ func (h *HostFunctions) TurnCredentials(ctx context.Context) ([]byte, error) {
 		URIs:       uris,
 		Namespace:  cur.Namespace,
 	})
+}
+
+// turnSubject is who a credential minted inside a function is for (bugboard
+// #391): the invocation's wallet, else the key it was made with, else the
+// function itself, named so it cannot be mistaken for a wallet or a key.
+func turnSubject(cur *serverless.InvocationContext) string {
+	switch {
+	case cur.CallerWallet != "":
+		return cur.CallerWallet
+	case cur.CallerKey != "":
+		return cur.CallerKey
+	default:
+		return "fn:" + cur.FunctionName
+	}
 }
 
 // buildTURNURIs is the URI assembly shared between the host-fn path and

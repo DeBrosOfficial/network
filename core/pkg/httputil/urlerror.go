@@ -24,13 +24,30 @@ func WithoutURL(err error) error {
 	return err
 }
 
+// Origin is the scheme and host[:port] of rawURL, for a log line about an
+// outbound request a tenant chose. Nothing after the host is kept: an API key
+// rides in the path as often as in the query (`/v2/<key>`), and a path can name
+// the user (`/address/<wallet>`). A string that does not parse as a URL is not
+// repeated at all.
+func Origin(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return unparseableURL
+	}
+	return (&url.URL{Scheme: u.Scheme, Host: u.Host}).String()
+}
+
+// unparseableURL stands in for a URL that could not be parsed, which is
+// therefore not repeated.
+const unparseableURL = "(unparseable URL)"
+
 // WithoutQuery is rawURL with its user info, query and fragment dropped, for a
 // log line that names the endpoint a request went to. A string that does not
 // parse as a URL is not repeated at all.
 func WithoutQuery(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return "(unparseable URL)"
+		return unparseableURL
 	}
 	u.User = nil
 	u.RawQuery = ""

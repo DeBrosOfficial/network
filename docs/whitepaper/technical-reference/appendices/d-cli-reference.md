@@ -22,7 +22,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama app logs`](#orama-app-logs) - Stream deployment logs
   - [`orama app rollback`](#orama-app-rollback) - Rollback a deployment to a previous version
   - [`orama app stats`](#orama-app-stats) - Show resource usage for a deployment
-- [`orama audit`](#orama-audit) - Read this namespace's audit trail
+- [`orama audit`](#orama-audit) - Read this namespace's audit trail, or the cluster's
 - [`orama auth`](#orama-auth) - Authentication management
   - [`orama auth approve`](#orama-auth-approve) - Approve a login waiting on another machine
   - [`orama auth list`](#orama-auth-list) - List all stored credentials
@@ -37,7 +37,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama chain balance`](#orama-chain-balance) - Show an account's bank balances
   - [`orama chain deal`](#orama-chain-deal) - Show a storage deal (x/storage)
   - [`orama chain earnings`](#orama-chain-earnings) - Show an account's earnings balance (x/fees)
-  - [`orama chain faucet`](#orama-chain-faucet) - Fund an account on a test network (stagenet, devnet)
+  - [`orama chain faucet`](#orama-chain-faucet) - Fund an account on a test network (testnet, devnet)
   - [`orama chain node`](#orama-chain-node) - Show a registered node (x/nodes)
   - [`orama chain query`](#orama-chain-query) - Run any Orama module query through the gateway or --rpc
   - [`orama chain send`](#orama-chain-send) - Send ORAMA, privately by default; --public sends openly
@@ -78,6 +78,7 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama function invoke`](#orama-function-invoke) - Invoke a deployed function
   - [`orama function list`](#orama-function-list) - List deployed functions
   - [`orama function logs`](#orama-function-logs) - Get invocation history for a function
+  - [`orama function rollback`](#orama-function-rollback) - Make an earlier version of a function the current one
   - [`orama function secrets`](#orama-function-secrets) - Manage function secrets
     - [`orama function secrets delete`](#orama-function-secrets-delete) - Delete a secret
     - [`orama function secrets list`](#orama-function-secrets-list) - List secret names
@@ -186,9 +187,11 @@ Every command the `orama` binary defines, with its flags. [The CLI](../vol1/35-t
   - [`orama members remove`](#orama-members-remove) - Take a wallet's grant away
   - [`orama members transfer`](#orama-members-transfer) - Hand this namespace to another wallet
 - [`orama namespace`](#orama-namespace) - Manage namespaces
+  - [`orama namespace attestation-policy`](#orama-namespace-attestation-policy) - Show or set which app builds may call a namespace (device attestation)
   - [`orama namespace backup`](#orama-namespace-backup) - Take a backup of the namespace, sealed to your X25519 public key
   - [`orama namespace backup-open`](#orama-namespace-backup-open) - Decrypt a backup file with an X25519 private key
   - [`orama namespace backup-seal`](#orama-namespace-backup-seal) - Encrypt a backup file to an X25519 public key
+  - [`orama namespace cors-origins`](#orama-namespace-cors-origins) - Show or set the browser origins a namespace's apps are served from
   - [`orama namespace create`](#orama-namespace-create) - Create a namespace and start its cluster
   - [`orama namespace delete`](#orama-namespace-delete) - Delete the current namespace and all its resources
   - [`orama namespace disable`](#orama-namespace-disable) - Disable a feature for a namespace
@@ -288,8 +291,12 @@ Subcommands: `delete`, `env`, `get`, `grants`, `list`, `logs`, `rollback`, `stat
 Delete a deployment
 
 ```text
-orama app delete <name>
+orama app delete <name> [flags]
 ```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--yes` | `false` | Delete without asking |
 
 
 ## orama app env
@@ -404,7 +411,8 @@ orama app grants set <app> <role> [flags]
 ```text
 Give a deployment a role in its own namespace.
 
-  runtime  the data plane: invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane: invoke, storage, push, webrtc, proxy, pubsub, cache;
+           a deployed app also sends push notifications on it
   reader   nothing beyond the routes that ask for no grant
 
 The change reaches a running app within seconds: a deployment's grant is read
@@ -451,6 +459,7 @@ orama app rollback <name> [flags]
 | Flag | Default | Description |
 |---|---|---|
 | `--version` | `0` | Version to rollback to (required) |
+| `--yes` | `false` | Roll back without asking |
 
 
 ## orama app stats
@@ -464,7 +473,7 @@ orama app stats <name>
 
 ## orama audit
 
-Read this namespace's audit trail
+Read this namespace's audit trail, or the cluster's
 
 ```text
 orama audit [flags]
@@ -474,15 +483,20 @@ orama audit [flags]
 Print what has happened in a namespace: sign-ins, keys minted and revoked,
 grants given and taken away, deployments, functions, secrets and namespace changes.
 
+--cluster prints the cluster's own events instead, the ones recorded under no
+namespace: invites minted, nodes joining and being claimed, and namespaces
+deleted. Only a wallet on the cluster's operator list may read them.
+
 Events are shown oldest first. --follow keeps the command running and prints new
 ones as they are recorded.
 
-Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, node.register, node.key.enrol
+Actions: auth.challenge, auth.verify, auth.refresh, auth.refresh.replay, auth.logout, key.issue, key.revoke, key.rotate, key.revoke_all, namespace.create, namespace.delete, namespace.operator_remove, secret.set, secret.delete, function.deploy, function.delete, function.purge, function.rollback, deployment.deploy, deployment.delete, operator.action, auth.legacy_credential, grant.add, grant.revoke, namespace.transfer, namespace.backup, namespace.restore, auth.device.start, auth.device.approve, auth.device.deny, auth.device.claim, auth.device.revoke, namespace.session_policy, namespace.sign_in_policy, namespace.attestation_policy, node.register, node.key.enrol
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--action` | — | Show only this action |
+| `--cluster` | `false` | Read the cluster's own events (invites, node joins and claims, namespace deletions); operators only |
 | `--limit` | `0` | How many events to fetch at once (default 50, max 200) |
 | `--namespace` | — | Namespace name |
 | `--principal` | — | Show only what this wallet or key did |
@@ -728,7 +742,7 @@ the bank balance.
 
 ## orama chain faucet
 
-Fund an account on a test network (stagenet, devnet)
+Fund an account on a test network (testnet, devnet)
 
 ```text
 orama chain faucet <recipient> [flags]
@@ -737,7 +751,7 @@ orama chain faucet <recipient> [flags]
 ```text
 Send test ORAMA to an account from the chain's faucet (MsgFaucet).
 
-The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
+The faucet exists only on a test network: a chain whose id is exactly orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> and whose genesis turned it on (faucet_enabled). This
 command reads the chain id from the node first and refuses any other chain
 before it signs anything. The chain refuses a drip over its maximum and a second
 drip to the same recipient inside its cooldown (24 hours by default).
@@ -751,8 +765,8 @@ exist yet. --amount is in norama (1 ORAMA = 1000000000 norama).
 Prints the transaction hash, the amount, and the recipient's bank balance once
 the transaction is in a block.
 
-  orama chain faucet orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53 --env stagenet
-  orama chain faucet <address> --env stagenet --amount 5000000000 --node 57.129.166.16
+  orama chain faucet orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53 --env testnet
+  orama chain faucet <address> --env testnet --amount 5000000000 --node 57.129.166.16
 
 --node is the SSH host of the node that signs (here it is not the REST URL the
 other 'orama chain' commands take); without it the environment's first node
@@ -961,7 +975,7 @@ namespace whose owner cannot: the owner's wallet is lost, or it belonged to a
 test run's throwaway wallet. Such a namespace keeps its port blocks and
 processes on three nodes until an operator removes it.
 
-It needs the operator grant and a wallet on the operator list. --reason is
+It needs you signed in with a wallet on the operator list. --reason is
 required and is written to the audit trail with your wallet
 (namespace.operator_remove). You are asked to type the namespace name unless
 --force is given.
@@ -1385,7 +1399,7 @@ Quick start:
   orama function invoke my-function --data '{"name": "World"}'
 ```
 
-Subcommands: `build`, `delete`, `deploy`, `disable`, `enable`, `get`, `init`, `invoke`, `list`, `logs`, `secrets`, `triggers`, `versions`
+Subcommands: `build`, `delete`, `deploy`, `disable`, `enable`, `get`, `init`, `invoke`, `list`, `logs`, `rollback`, `secrets`, `triggers`, `versions`
 
 ## orama function build
 
@@ -1410,11 +1424,22 @@ orama function delete <name> [flags]
 ```
 
 ```text
-Deletes a function from the Orama Network. This action cannot be undone.
+Deletes a function from the Orama Network: every version, or only the one
+named with --version. A deleted version is never invoked again and cannot be
+enabled or rolled back to, but its row stays and 'orama function list --all'
+still shows it.
+
+--purge removes the rows for good, with the function's environment variables,
+triggers, invocation history, logs and jobs. Purging takes the namespace's
+owner or an admin. The namespace's secrets are shared by every function and
+stay. Purging the current version leaves the function with none until
+'orama function rollback'.
 ```
 
 | Flag | Default | Description |
 |---|---|---|
+| `--purge` | `false` | Remove the function's rows, triggers and history for good (owner or admin) |
+| `--version` | `0` | Delete only this version |
 | `-f`, `--force` | `false` | Skip confirmation prompt |
 
 
@@ -1511,12 +1536,21 @@ Sends a request to invoke the named function with optional JSON payload.
 List deployed functions
 
 ```text
-orama function list
+orama function list [flags]
 ```
 
 ```text
-Lists all functions deployed in the current namespace.
+Lists the current version of every function deployed in the current namespace.
+
+--all lists every version row the namespace holds instead, whatever its
+status: active, inactive (disabled), superseded (replaced by a later deploy
+or a rollback) and deleted. A row stays until it is pruned (past the newest
+10 versions) or purged ('orama function delete --purge').
 ```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--all` | `false` | List every version, including disabled, superseded and deleted ones |
 
 
 ## orama function logs
@@ -1542,6 +1576,26 @@ behavior; rarely useful on functions that don't call log_info).
 |---|---|---|
 | `--limit` | `50` | Maximum number of records to retrieve |
 | `--wasm-only` | `false` | Show only WASM-emitted log entries (legacy view) |
+
+
+## orama function rollback
+
+Make an earlier version of a function the current one
+
+```text
+orama function rollback <name> <version>
+```
+
+```text
+Makes <version> the function's current version. Only the current version
+of a function is invoked: a deploy supersedes the version before it, and
+name@N of a superseded version answers 404 FUNCTION_VERSION_SUPERSEDED.
+Rolling back supersedes the version that was current, moves the function's
+triggers to <version>, and serves it on every path (HTTP, WebSocket,
+triggers). A deleted or pruned version cannot be rolled back to; see
+'orama function versions <name>' for what is kept. The next deploy becomes
+current again with the next version number.
+```
 
 
 ## orama function secrets
@@ -1857,7 +1911,7 @@ the network's --genesis in place. It is never done without the flag, and it is
 refused when the home already has a genesis.
 
 --external-address <public ip>:31000 writes the chain's config.toml and app.toml
-(the settings chain/scripts/stagenet/deploy.sh used to sed in): the address the
+(the settings chain/scripts/testnet/deploy.sh used to sed in): the address the
 node announces to its peers (the chain itself listens at the namespace address,
 198.18.0.2, which no peer can reach), peer exchange off, Prometheus on 127.0.0.1,
 custom pruning (keep 100, every 10 blocks), and a state-sync snapshot every 1000
@@ -2303,8 +2357,8 @@ namespace besides the seeded default, a node, or an operator when this was
 upgraded stays open — any signed-in wallet — until an operator changes it.
 The per-wallet cap stays 10 until an operator raises or lowers it.
 
-Changing a setting or the creator list needs the operator grant and a wallet
-on the operator list, and is written to the audit trail.
+Changing a setting or the creator list needs you signed in with a wallet on
+the operator list, and is written to the audit trail.
 ```
 
 Subcommands: `creators`, `settings`
@@ -2426,7 +2480,7 @@ it belongs to. Run it on the node, as root.
 
 The faucet gives test ORAMA to whoever asks (POST /v1/chain/faucet): the gateway
 signs MsgFaucet for the recipient with this key and the chain mints the drip.
-It exists only on a test network (a chain id of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
+It exists only on a test network (a chain id of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id>; the gateway refuses to sign anywhere else), the chain keeps its own
 limits (a maximum drip, a cooldown per recipient, a cap per epoch), and it must
 be on in the genesis (faucet_enabled).
 
@@ -2434,7 +2488,7 @@ The key file is created owned by the gateway's account with mode 0600, and an
 existing key is never replaced: running init again prints the same account. The
 faucet account pays the transaction fee of every drip and mints the drip itself,
 so it needs a small balance and nothing more: fund it from the genesis
-(chain/scripts/stagenet/deploy.sh does this on stagenet) or from another faucet.
+(chain/scripts/testnet/deploy.sh does this on testnet) or from another faucet.
 
 Then turn it on in node.yaml and restart the node:
 
@@ -3077,6 +3131,10 @@ Supports AI-powered failure analysis and result export.
 The report is written to stdout and progress to stderr, so --format json is one
 JSON document. A bad flag value (an unknown --subsystem or --format, a timeout
 that is not positive) is refused as usage before any node is contacted.
+
+Every node's host key must already be pinned in ~/.orama/known_hosts, where
+'orama node setup' writes it. A node with no pinned key refuses the run, never
+trusted on first use, and a key that differs from the pinned one is refused.
 ```
 
 | Flag | Default | Description |
@@ -3170,8 +3228,8 @@ commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--channel` | — | Release channel: nightly, main or dev/&lt;branch> [required] |
 | `--dir` | `networks` | The repository's networks directory |
 | `--faucet` | `false` | The network funds new operators from a faucet |
-| `--min-version` | `0.3.4` | Oldest orama version that may join, X.Y.Z |
-| `--name` | — | Network name, for example stagenet [required] |
+| `--min-version` | `0.3.5` | Oldest orama version that may join, X.Y.Z |
+| `--name` | — | Network name, for example testnet [required] |
 | `--release-repo` | — | https base URL of the release repository [required] |
 | `--release-root` | — | The release-root.json file its releases are verified against [required] |
 | `--seed` | — | A seed DNS name (repeatable; default: the creator's ns&lt;N>.&lt;name>.orama.network) |
@@ -3198,7 +3256,7 @@ different thing from the chain, so a reset of the chain keeps the file.
 An unset field keeps its value from the manifest already published; the first
 publish of a network sets --seeds, --channel, --min-version, --release-repo and
 --release-root. A chain id that is already published keeps its genesis: a reset
-of the network needs a new chain id (orama-stagenet-5 becomes orama-stagenet-6),
+of the network needs a new chain id (orama-testnet-5 becomes orama-testnet-6),
 and publishing the old id with another genesis is refused.
 
 Afterwards run 'make -C core sync-networks' so the binary embeds the new manifest,
@@ -3213,7 +3271,7 @@ and commit networks/ and core/pkg/netregistry/embedded/ together.
 | `--faucet` | `false` | Whether the network funds new operators from a faucet (default: the published one) |
 | `--genesis` | — | The genesis.json file [required] |
 | `--min-version` | — | Oldest orama version that may join, X.Y.Z (default: the published one) |
-| `--name` | — | Network name, for example stagenet [required] |
+| `--name` | — | Network name, for example testnet [required] |
 | `--release-repo` | — | https base URL of the release repository (default: the published one) |
 | `--release-root` | — | The release-root.json file (default: the published one) |
 | `--seeds` | — | Seed DNS names, comma-separated (default: the published ones) |
@@ -3686,8 +3744,9 @@ orama maint operator
 ```text
 Commands for the wallets on the cluster's operator list.
 
-Every one of them needs the admin grant and a wallet on that list; a namespace's
-own admin key is not enough.
+Every one of them needs you signed in with a wallet on that list. No role in a
+namespace and no API key is an operator's, not even a key of a namespace an
+operator owns.
 ```
 
 Subcommands: `add`, `list`, `remove`, `rotate-secrets`, `rotate-signing-key`
@@ -3831,7 +3890,8 @@ root for all four roles, so the same wallet signs everything.
 
   init-root          make the repository's root (once); prints the digest networks pin
   renew-root         the next version of the root, same keys, a new expiry
-  cut                list an archive on a channel and sign it (3 approvals)
+  cut                list an archive on a channel and sign it (3 approvals);
+                     nightly and main need a passing, runner-signed fleet e2e report
   refresh-timestamp  re-sign only the timestamp (1 approval)
   publish            upload the archives to Gitea and the metadata to the release host
 
@@ -3847,7 +3907,7 @@ Subcommands: `cut`, `init-root`, `publish`, `refresh-timestamp`, `renew-root`
 List an archive on a channel and sign the metadata (3 approvals)
 
 ```text
-orama maint release cut --channel nightly|main|dev/<branch> --archive <path> [flags]
+orama maint release cut --channel nightly|main|dev/<branch> --archive <path> --fleet-report <dir> [flags]
 ```
 
 ```text
@@ -3864,6 +3924,13 @@ a release is immutable (--replace is for a dev/<branch> build that reuses a vers
 Only the newest --retention versions of the channel stay listed. The timestamp
 is valid 7 days for nightly and dev, 30 for main.
 
+A nightly or main release stands on a fleet e2e run of the archives' commit:
+--fleet-report is that run's artifact directory, and its report.json must be
+signed by a runner key compiled into this binary (core/pkg/releasepub/runner-keys.txt),
+name exactly that commit with a clean working tree, and have the verdict PASS
+(every feature green, the coverage gate held). A dev/<branch> build needs none,
+but one it names is checked the same way.
+
 --dry-run plans the release and stops: nothing is signed, written or uploaded,
 and the RootWallet is not contacted.
 ```
@@ -3875,6 +3942,7 @@ and the RootWallet is not contacted.
 | `--channel` | — | nightly, main or dev/&lt;branch> [required] |
 | `--dir` | — | The release repository working directory (default ~/.orama/release-repo) |
 | `--dry-run` | `false` | Plan the release; sign, write and upload nothing |
+| `--fleet-report` | — | The artifact directory of the passing, runner-signed fleet e2e run of the archives' commit [required for nightly and main] |
 | `--replace` | `false` | Let a listed path change its bytes (dev builds only) |
 | `--retention` | `3` | How many versions of the channel stay listed |
 
@@ -4251,7 +4319,8 @@ transfer the namespace itself.
 A namespace has exactly one owner. Everybody else holds a role:
 
   admin    the control plane — deployments, functions, secrets, keys, raw database
-  runtime  the data plane — invoke, storage, push, webrtc, proxy, pubsub, cache
+  runtime  the data plane — invoke, storage, push registration, webrtc, proxy,
+           pubsub, cache; not sending push notifications
   reader   a member with no grant at all
 
 Ownership is not a role you can hand out: use 'orama members transfer'.
@@ -4344,7 +4413,60 @@ Aliases: `ns`
 List, delete, and repair namespaces on the Orama network.
 ```
 
-Subcommands: `backup-open`, `backup-seal`, `backup`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+Subcommands: `attestation-policy`, `backup-open`, `backup-seal`, `backup`, `cors-origins`, `create`, `delete`, `disable`, `enable`, `keys`, `list`, `repair`, `restore-key`, `restore`, `rqlite`, `session-policy`, `webrtc-status`
+
+## orama namespace attestation-policy
+
+Show or set which app builds may call a namespace (device attestation)
+
+```text
+orama namespace attestation-policy [flags]
+```
+
+```text
+With no flags, show the namespace's attestation policy. With flags, change them; a
+flag left out keeps its value.
+
+A namespace that attests admits to its functions and data plane only the genuine
+build of its app on a genuine device: iOS through App Attest, Android (GrapheneOS
+included) through hardware key attestation. A script holding a valid session and
+the app's API key is refused.
+
+  --mode off|monitor|enforce   monitor refuses nothing and counts what enforce
+                               would refuse (orama status traffic); enforce refuses
+  --ios-team-id, --ios-bundle-id   the iOS App ID accepted
+  --allow-development          accept App Attest's development environment (devnet)
+  --min-ios-version            the oldest CFBundleVersion accepted (iOS 27 and later
+                               sign it; older iOS is accepted with the version unknown)
+  --android-package            the Android package accepted
+  --android-signing-digest     a lowercase-hex SHA-256 of an accepted signing
+                               certificate; repeat for several (replaces the list)
+  --allow-grapheneos           accept GrapheneOS beside stock verified boot
+  --min-android-version-code   the oldest versionCode accepted
+  --max-patch-age-months       refuse an Android OS patch older than this (0: no limit)
+  --reattest-interval          how long an Android attestation lasts (default 168h)
+
+Changing the policy needs write access to the namespace.
+
+  orama namespace attestation-policy --namespace anchat --mode monitor \
+    --android-package chat.anchat --android-signing-digest <sha256> --allow-grapheneos
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--allow-development` | `false` | Accept App Attest's development environment (devnet) |
+| `--allow-grapheneos` | `false` | Accept GrapheneOS beside stock verified boot |
+| `--android-package` | — | Package name of the Android app |
+| `--android-signing-digest` | — | Lowercase-hex SHA-256 of an accepted signing certificate; repeat for several |
+| `--ios-bundle-id` | — | Bundle id of the iOS app |
+| `--ios-team-id` | — | Apple team id of the iOS app |
+| `--max-patch-age-months` | `0` | Refuse an Android OS patch older than this many months (0: no limit) |
+| `--min-android-version-code` | `0` | Oldest versionCode accepted (0 for none) |
+| `--min-ios-version` | — | Oldest CFBundleVersion accepted ("" for none) |
+| `--mode` | — | off \| monitor \| enforce |
+| `--namespace` | — | Namespace name |
+| `--reattest-interval` | — | How long an Android attestation lasts, e.g. 168h |
+
 
 ## orama namespace backup
 
@@ -4419,6 +4541,39 @@ putting one back is 'orama namespace restore'.
 | `--in` | — | input file |
 | `--key` | — | 32-byte X25519 key, hex (public for seal, private for open) |
 | `--out` | — | output file |
+
+
+## orama namespace cors-origins
+
+Show or set the browser origins a namespace's apps are served from
+
+```text
+orama namespace cors-origins [flags]
+```
+
+```text
+With no flags, show the origins a browser page may call the namespace from,
+beyond the ones every gateway admits: the base domain and the names under it,
+localhost, any *.localhost name, the loopback addresses, and the Tauri webviews
+(tauri://localhost on macOS, Linux and iOS; http(s)://tauri.localhost on
+Windows and Android).
+
+--set replaces the list (repeat it for several origins, at most 20); --clear
+empties it. An origin is scheme://host[:port], http, https or tauri, with no
+path and no wildcard. The list applies to requests addressed to the
+namespace's host (ns-<name>.<base domain>), at once on the gateway that
+recorded it and within 30 seconds on every other.
+
+Changing the list needs write access to the namespace (an owner or an admin).
+
+  orama namespace cors-origins --namespace anchat --set https://app.anchat.chat --set https://anchat.chat
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--clear` | `false` | Remove every allowed origin |
+| `--namespace` | — | Namespace name |
+| `--set` | — | An allowed origin; repeat for several (replaces the list) |
 
 
 ## orama namespace create
@@ -4510,12 +4665,38 @@ Mint a new scoped API key
 orama namespace keys create [flags]
 ```
 
+```text
+Mint a new scoped API key. The key is shown once.
+
+Which key goes where:
+  - An app that needs nothing before sign-in ships no key: the sign-in
+    handshake and public functions need no credential, and after sign-in the
+    user's session reaches everything else.
+  - An app that must call functions before sign-in ships an invoke-only key,
+    narrowed with --resource to those functions.
+  - A function that reclaims storage gets its own key, --scope storage, kept
+    in the namespace's secrets. No key that ships in an app holds storage.
+  - A backend that sends push notifications over HTTP gets its own key,
+    --scope push-send, kept on the server. 'push' registers devices; only
+    push-send sends, to any user or topic of the namespace.
+
+Profiles: invoke-only (invoke), app-runtime (invoke, push, webrtc, proxy;
+never storage or push-send), admin (the control plane; CI and a developer's
+machine only).
+
+--resource narrows the key to the functions it names: the gateway refuses it on
+every other function, on HTTP invoke and the function WebSocket alike, with the
+403 a member narrowed by 'members add --resource' gets. Without it the key
+reaches the whole of its scopes.
+```
+
 | Flag | Default | Description |
 |---|---|---|
 | `--expires-in-days` | `0` | How long the key lives, in days (default 90, max 365). A key that never expires is not on offer |
 | `--label` | — | Human label for the key |
 | `--namespace` | — | Namespace name |
-| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, storage, webrtc) |
+| `--resource` | — | Narrow the key to what this selector matches, e.g. fn:premium-status or 'fn:premium-*'. Repeat for several; the key then reaches only these. Each must narrow one of its scopes (fn: needs invoke), and every scope must be narrowed by one |
+| `--scope` | — | Profile (invoke-only\|app-runtime\|admin) or a comma-separated grant list (admin, cache, invoke, proxy, pubsub, push, push-send, storage, webrtc) |
 
 
 ## orama namespace keys list
@@ -4570,8 +4751,8 @@ orama namespace keys rotate [flags]
 ```
 
 ```text
-Mint a new key with the same grants and label, and shorten the original's life
-to the overlap.
+Mint a new key with the same grants, resources and label, and shorten the
+original's life to the overlap.
 
 Rotating by minting a new key and revoking the old one in the same breath is an
 outage: whatever is deployed with the old key stops the moment the new one
@@ -4644,9 +4825,9 @@ The live keys, grants and sessions (in the cluster's registry) are not
 restored: a restore neither brings back a key that was revoked nor removes one
 minted since. The backup's database still carries stale copies of those rows,
 which nothing reads. Before loading, the gateway checks the database image and
-refuses (400, nothing written) one that is damaged or carries triggers, views
-over platform tables or stored-object records for content only other namespaces
-hold; it removes plaintext API keys and other namespaces' records an older backup
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold; it removes plaintext API keys and other namespaces' records an older backup
 may carry, and checks again, after the load.
 
 With ORAMA_TOKEN, set ORAMA_API_URL to the namespace's gateway
@@ -4735,8 +4916,9 @@ WebRTC settings) will be replaced with the imported file. The file must be a SQL
 database, as 'export' writes; at most 256 MiB. Live keys and grants (in the cluster
 registry) are not replaced, and stale copies in the file are ignored. The namespace's
 storage quota stays as it was. The gateway checks the file before loading it and
-refuses (400, nothing written) one that is damaged or carries triggers, views over
-platform tables or stored-object records for content only other namespaces hold;
+refuses (400, nothing written) one that is damaged or carries a trigger or view
+tenant SQL could not create, or stored-object records for content only other
+namespaces hold;
 it removes plaintext API keys and other namespaces' records an older file may carry,
 and checks again, after the load. One backup, restore, export or
 import runs at a time on a gateway.
@@ -4744,6 +4926,7 @@ import runs at a time on a gateway.
 
 | Flag | Default | Description |
 |---|---|---|
+| `--yes` | `false` | Replace the database without typing the namespace name |
 | `-i`, `--input` | — | Input SQLite file path |
 
 
@@ -4770,15 +4953,43 @@ left out keeps its value.
                       sign-in must bind. Requiring devices revokes the sign-in
                       keys end users already hold.
 
-Changing either needs write access to the namespace.
+  --end-user-topics   the pub/sub topics an end user may subscribe to, list and
+                      see presence on, comma-separated patterns ('*' matches any
+                      run of characters, '/' included). It replaces the list,
+                      and '' clears it. The default is none: an end user reads
+                      no topic until it is listed. Members holding a grant read
+                      what their grant says. A function's socket that bridges
+                      topics to its users is not affected.
+
+  --per-ip-limits     on | off (the default): ceilings on what one client
+                      network (an IP address, an IPv6 /64) does, whatever
+                      wallets it presents. For a namespace with open sign-in,
+                      where a wallet costs nothing. Off by default because many
+                      people can share one address (an office, carrier NAT).
+  --new-wallets-per-ip-hour
+                      when on, how many wallets that never signed in to the
+                      namespace one network may sign in per hour, as end users
+                      (default 20). Past it: 429 SIGN_IN_RATE_LIMITED.
+  --invokes-per-ip-minute
+                      when on, how many authenticated function invokes one
+                      network may make per minute on each gateway (default
+                      1200). Past it: 429 RATE_LIMITED scope=per_ip_authenticated.
+
+Changing any of them needs write access to the namespace.
 
   orama namespace session-policy --namespace myapp --sign-in open
+  orama namespace session-policy --namespace myapp --end-user-topics 'presence/*,users/global'
+  orama namespace session-policy --namespace myapp --per-ip-limits on --new-wallets-per-ip-hour 10
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--device-policy` | — | What an end user's sign-in must bind: optional \| required \| approval |
+| `--end-user-topics` | — | Pub/sub topic patterns end users may read, comma-separated; '' clears the list |
+| `--invokes-per-ip-minute` | `0` | When per-IP limits are on: authenticated invokes one network may make per minute per gateway |
 | `--namespace` | — | Namespace name |
+| `--new-wallets-per-ip-hour` | `0` | When per-IP limits are on: new wallets one network may sign in per hour |
+| `--per-ip-limits` | — | Per-client-network ceilings: on \| off |
 | `--sign-in` | — | Who may sign in: members \| open |
 
 
@@ -4807,7 +5018,7 @@ orama network
 List, choose, add and remove the networks the CLI knows.
 
 A network is a name for something you can reach: a cluster, through its
-gateway, and, for a network of the registry such as stagenet, the chain it runs,
+gateway, and, for a network of the registry such as testnet, the chain it runs,
 the seeds to join through and the release root its software is verified against.
 Every other command talks to the active network, or to the one --env names.
 
@@ -4957,10 +5168,12 @@ come up, so which address holds which name is only known to the cluster. This
 reads it from the cluster over SSH. Only slots whose glue the cluster has
 written are listed — the same set the cluster's own zone publishes.
 
-After the records it asks DNS whether the parent zone returns them, and says
-which NS or glue record is missing or points at another address. The answer is
+After the records it asks the parent zone's own nameservers whether they
+return them, never the local caching resolver (which can keep a "no such host"
+from before the records existed for the zone's negative TTL), and says which
+NS or glue record is missing or points at another address. The answer is
 stored on the environment (environments.json), replacing the last result for
-the domain. A resolver that cannot answer is reported and nothing is
+the domain. A parent zone that cannot answer is reported and nothing is
 stored. --json adds "delegated" and "findings" to each domain.
 
 Run it again after adding or removing a nameserver, and update the parent
@@ -5164,7 +5377,7 @@ Examples:
   # --password is a switch; it reads that login. --archive is the path
   # "orama maint build" printed.
   orama node setup --ip 1.2.3.4 --password --env devnet \
-    --base-domain orama-devnet.network --role nameserver --genesis \
+    --base-domain devnet.orama.network --role nameserver --genesis \
     --archive /tmp/orama-<version>-linux-amd64.tar.gz
 
   # From a published release: no checkout, no Go or zig. The root is the
@@ -5175,18 +5388,18 @@ Examples:
 
   # Join existing cluster
   orama node setup --ip 5.6.7.8 --password --env devnet \
-    --base-domain orama-devnet.network \
+    --base-domain devnet.orama.network \
     --archive /tmp/orama-<version>-linux-amd64.tar.gz
 
   # Key-only VPS (no password login): install the RootWallet key once
   # with the key that opens it today. Do not pass --password as well.
   orama node setup --ip 5.6.7.8 --user ubuntu --bootstrap-key ~/.ssh/id_ed25519 \
-    --env devnet --base-domain orama-devnet.network \
+    --env devnet --base-domain devnet.orama.network \
     --archive /tmp/orama-<version>-linux-amd64.tar.gz
 
   # Join as nameserver
   orama node setup --ip 9.10.11.12 --password --env devnet \
-    --base-domain orama-devnet.network --role nameserver \
+    --base-domain devnet.orama.network --role nameserver \
     --archive /tmp/orama-<version>-linux-amd64.tar.gz
 ```
 
@@ -5198,7 +5411,7 @@ Examples:
 | `--bootstrap-key` | — | SSH private key that opens the VPS today (key-only images, e.g. --user ubuntu); used once to install the RootWallet key, never stored |
 | `--channel` | — | Release channel to read (default stable); with --release |
 | `--env` | — | Target environment (default: active) |
-| `--gateway` | — | Gateway URL of the cluster to join (default: the environment's): its domain, e.g. https://orama-devnet.network; the invite is minted through one of its nodes and pins that node's certificate |
+| `--gateway` | — | Gateway URL of the cluster to join (default: the environment's): its domain, e.g. https://devnet.orama.network; the invite is minted through one of its nodes and pins that node's certificate |
 | `--genesis` | `false` | Create a new cluster (first node) |
 | `--host-key` | — | Expected SSH host-key fingerprint (SHA256:...) of the VPS; omit to confirm it interactively |
 | `--ip` | — | Public IP address of the VPS (required) |
@@ -5544,7 +5757,7 @@ machine's chain keys, builds the genesis on the first machine from all the keys,
 the others, starts the chains one after the other, waits for blocks, and then registers your
 operator and the nodes as it does for a join. It writes networks/<name>/ (manifest, genesis,
 release root) to --publish-dir and prints what to do to publish it. --chain-id is the chain's
-id: a test network's is of the form orama-[<name>-]stagenet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
+id: a test network's is of the form orama-[<name>-]testnet-<id>, orama-[<name>-]devnet-<id> or orama-[<name>-]localnet-<id> (an id that only contains one of those words is a production id); any other is a production id, which
 setup refuses: it creates test networks only, because it keeps each seat's key in an unencrypted test keyring
 (a production network needs seat accounts held by the RootWallet, which is not built). --release-root is the release-root.json the network's
 releases are verified against. A network that was announced in the registry before it was created (orama maint network announce)
@@ -5577,7 +5790,7 @@ machine until every machine passes.
 | `--allow-quorum-loss` | `false` | Restart a cluster of fewer than three voters with --force when the global layer is installed: the cluster is unavailable while the node restarts (without it, a run with --yes stops there) |
 | `--asn` | `0` | Autonomous system number to declare for the nodes (default: looked up from the address; 0 leaves it undeclared) |
 | `--bootstrap-key` | — | A private key that opens the machines today (key-only images); used once to install the RootWallet key, never stored |
-| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&lt;name>-]stagenet-&lt;id>, orama-[&lt;name>-]devnet-&lt;id> or orama-[&lt;name>-]localnet-&lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
+| `--chain-id` | — | With --create-network: the chain id (default: the announced network's). A test network's is of the form orama-[&lt;name>-]testnet-&lt;id>, orama-[&lt;name>-]devnet-&lt;id> or orama-[&lt;name>-]localnet-&lt;id> (an id that only contains one of those words is a production id); any other id is a production one, which setup refuses (it creates test networks only) |
 | `--channel` | — | With --create-network: the release channel, nightly, main or dev/&lt;branch> (default nightly, main for a production chain id) |
 | `--cluster-only` | `false` | Install the cluster node only, without the chain, storage or relay |
 | `--contact` | — | Where an abuse complaint about the relay goes (default: your operator account) |

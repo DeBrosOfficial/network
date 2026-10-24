@@ -10,6 +10,9 @@ degrade: degrade to the weak connection\n(warning at most 1 per s)
 bound: level=none with freshness=D\nqueryNoneFresh, one node, no retry
 reject: HTTP 503 or stale error:\nFreshnessError, caller falls back
 boot: LocalDB: level=none\nbootstrap reads only\n(no leader needed)
+lin: level=linearizable requested\n(serverless guest, connLinearizable)
+quorum: leader confirms leadership\nwith a quorum heartbeat,\nwaits for its commit index
+fail: error, never degraded\n(no leader or no connection)
 
 caller -> weak
 caller -> none
@@ -21,3 +24,6 @@ caller -> bound: BatchQueryFresh
 bound -> local: within D
 bound -> reject: staler than D
 caller -> boot
+caller -> lin
+lin -> quorum
+quorum -> fail: no quorum

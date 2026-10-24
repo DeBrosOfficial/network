@@ -267,13 +267,13 @@ func TestEntryPath(t *testing.T) {
 		"systemd/x.service": "systemd/x.service",
 		"packages/tool.deb": "packages/tool.deb",
 	} {
-		if got, err := entryPath(key); err != nil || got != want {
-			t.Errorf("entryPath(%q) = %q, %v; want %q", key, got, err, want)
+		if got, err := EntryPath(key); err != nil || got != want {
+			t.Errorf("EntryPath(%q) = %q, %v; want %q", key, got, err, want)
 		}
 	}
 	for _, key := range []string{"", "..", "etc/passwd", "systemd/../bin/x", "systemd/", "bin/sub/x", "systemd/a/b"} {
-		if got, err := entryPath(key); err == nil {
-			t.Errorf("entryPath(%q) accepted as %q", key, got)
+		if got, err := EntryPath(key); err == nil {
+			t.Errorf("EntryPath(%q) accepted as %q", key, got)
 		}
 	}
 }

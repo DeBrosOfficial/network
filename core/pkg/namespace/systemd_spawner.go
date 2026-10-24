@@ -652,9 +652,8 @@ func (s *SystemdSpawner) SpawnOlric(ctx context.Context, namespace, nodeID strin
 }
 
 // apiKeyHMACSecretFileName is the on-disk file name of the API-key HMAC
-// secret under <oramaDir>/secrets/. Matches the path the main gateway
-// reads in pkg/node/gateway.go, so namespace gateways hash API keys
-// identically to it (bugboard #160 fix).
+// secret under <oramaDir>/secrets/, which install writes on every node and a
+// join copies from the cluster, so every gateway hashes API keys identically.
 const apiKeyHMACSecretFileName = "api-key-hmac-secret"
 
 // oramaDir returns the host's orama data directory (typically ~/.orama),

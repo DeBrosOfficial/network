@@ -52,7 +52,7 @@ func (f *fakeServices) services() Services {
 			if err := o.Normalize(); err != nil {
 				return nil, err
 			}
-			return setup.BuildPlan(setup.PlanInput{Options: o, Network: &netregistry.Manifest{Name: "stagenet", ChainID: "orama-stagenet-6", Channel: "nightly"}, Env: "stagenet-alice"})
+			return setup.BuildPlan(setup.PlanInput{Options: o, Network: &netregistry.Manifest{Name: "testnet", ChainID: "orama-testnet-6", Channel: "nightly"}, Env: "testnet-alice"})
 		},
 		Run: func(_ context.Context, o setup.Options, rep setup.Reporter) (*setup.Result, error) {
 			f.ran = append(f.ran, o)
@@ -65,7 +65,7 @@ func (f *fakeServices) services() Services {
 
 func newFake() *fakeServices {
 	return &fakeServices{
-		networks: []NetworkChoice{{Name: "stagenet", ChainID: "orama-stagenet-6", Default: true}},
+		networks: []NetworkChoice{{Name: "testnet", ChainID: "orama-testnet-6", Default: true}},
 		keys:     []HostKey{{Type: "ed25519", Fingerprint: "SHA256:edkey"}, {Type: "rsa", Fingerprint: "SHA256:rsakey"}},
 		result:   &setup.Result{Operator: "orama1fvfzzvqv2ara2crn3z352zjhnfl0tw4rk82j53"},
 	}
@@ -529,7 +529,7 @@ func TestWizard_ctrlCBeforeTheRunLeavesNothingStarted(t *testing.T) {
 
 func TestWizard_severalNetworksAreChosenFromAList(t *testing.T) {
 	f := newFake()
-	f.networks = []NetworkChoice{{Name: "stagenet", ChainID: "orama-stagenet-6"}, {Name: "testnet", ChainID: "orama-testnet-2", Default: true}}
+	f.networks = []NetworkChoice{{Name: "devnet", ChainID: "orama-devnet-6"}, {Name: "testnet", ChainID: "orama-testnet-2", Default: true}}
 	d := newDriver(t, f, setup.Options{})
 	d.text(ipA)
 	d.enter()
@@ -540,7 +540,7 @@ func TestWizard_severalNetworksAreChosenFromAList(t *testing.T) {
 	d.wantView("testnet  (chain orama-testnet-2)")
 	d.key(tea.KeyMsg{Type: tea.KeyUp})
 	d.enter()
-	if d.m.opts.Network != "stagenet" {
+	if d.m.opts.Network != "devnet" {
 		t.Errorf("network %q", d.m.opts.Network)
 	}
 }
@@ -604,7 +604,7 @@ func TestWizard_escFromTheOptionsGoesBackToTheNetworks(t *testing.T) {
 	d.toOptions()
 	d.esc()
 	d.wantStep(stepNetwork)
-	d.wantView("stagenet  (chain orama-stagenet-6)")
+	d.wantView("testnet  (chain orama-testnet-6)")
 	d.wantView("Create a new network")
 }
 

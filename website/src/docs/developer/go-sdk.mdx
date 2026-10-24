@@ -78,6 +78,7 @@ type ClientConfig struct {
     IdentityPath      string        // Path to persistent LibP2P identity key file
     PubSubSocket      string        // Unix socket of the node's pubsub API (orama-namespace-pubsub@index); admits only the gateways' user
     ListenAddrs       []string      // LibP2P listen multiaddrs; empty = no listener
+    HTTPClient        *http.Client  // Transport for every request to GatewayURL; nil = http.DefaultTransport
 }
 ```
 
@@ -93,6 +94,36 @@ seconds until `Disconnect`, so a peer that was not listening yet (a gateway
 starts in the same second as the node it bootstraps from), or that restarted,
 is connected as soon as it is back. The first failure of each peer is logged at
 warn level and its recovery at info level, not every attempt.
+
+### Gateway TLS
+
+Every request to `GatewayURL` (storage, and the database when there are no
+`DatabaseEndpoints`) goes through `HTTPClient`. Its `Transport` and `Jar` are
+used; the per-operation timeout and the refusal to follow redirects are the
+SDK's own and replace its `Timeout` and `CheckRedirect`. A redirect comes back
+as an error: Go forwards `X-API-Key` to another host on a redirect, so the SDK
+never follows one. Left nil, the system roots decide, which refuses a gateway
+whose certificate comes from a private CA or from Let's Encrypt staging. Give
+such a gateway a transport that trusts its CA:
+
+```go
+pem, err := os.ReadFile("staging-ca.pem")
+if err != nil {
+    log.Fatal(err)
+}
+roots := x509.NewCertPool()
+if !roots.AppendCertsFromPEM(pem) {
+    log.Fatal("staging-ca.pem holds no certificate")
+}
+cfg.HTTPClient = &http.Client{Transport: &http.Transport{
+    Proxy:           http.ProxyFromEnvironment,
+    TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
+}}
+```
+
+An app deployed on a staging cluster does not need this: the platform sets
+`SSL_CERT_FILE` to the cluster's roots, which Go adds to the system roots
+([What the platform sets for you](/docs/developer/deployments#what-the-platform-sets-for-you)).
 
 ### Creating a Client
 
@@ -272,6 +303,13 @@ Through the gateway, `DropTable` of a table that is not there succeeds, and
 `GetSchema` leaves out the platform's own tables that the gateway does not let
 a tenant query.
 
+Neither mode resends a write. Through the gateway each call is one request;
+dialing directly, only finding a node that answers is retried, up to three
+times, and a read that fails is asked again. A write that fails after it was
+sent comes back as an error, because the leader may have committed it before
+the failure arrived; resend it only if the statement is idempotent.
+`Transaction` is one request in both modes, applied all or nothing.
+
 ### Write Query
 
 Writes (INSERT, UPDATE, DELETE, CREATE, DROP, ...) go through `Query` as well — the client detects write statements and executes them accordingly:
@@ -424,7 +462,7 @@ The chain is not in `pkg/client`. `github.com/Orama-Network/orama/core/pkg/oncha
 
 ```go
 chain := onchain.Gateway{Reader: &chainread.Reader{Gateway: gatewayURL}} // or onchain.REST{Base: nodeRESTURL}
-c, err := onchain.New(chain, rwagent.New(os.Getenv("RW_AGENT_SOCK")), "orama-stagenet-5")
+c, err := onchain.New(chain, rwagent.New(os.Getenv("RW_AGENT_SOCK")), "orama-testnet-5")
 
 // Move 25 ORAMA of earnings to your own balance (there is no destination argument).
 _, err = c.WithdrawEarnings(ctx, "25000000000")

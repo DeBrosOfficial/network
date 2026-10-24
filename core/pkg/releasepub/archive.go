@@ -24,26 +24,26 @@ func globalLayerFiles(arch string) []string {
 // archive with none of those), one whose manifest is for another version or
 // architecture than its name says, and, for amd64 and unless clusterOnly,
 // one without the global layer. It reads the manifest; the build that made the
-// archive hashed every file.
-func checkArchive(path string, ref releaseverify.ArchiveRef, clusterOnly bool) error {
-	manifestJSON, signed, err := archivetrust.ReadArchiveManifest(path)
+// archive hashed every file. It returns the commit the manifest names.
+func checkArchive(path string, ref releaseverify.ArchiveRef, clusterOnly bool) (string, error) {
+	manifestJSON, sig, err := archivetrust.ReadArchiveManifest(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	m, err := archivetrust.ParseManifest(manifestJSON)
 	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+		return "", fmt.Errorf("%s: %w", path, err)
 	}
 	switch {
-	case signed:
-		return fmt.Errorf("%s carries a %s: a release is built with `orama maint build --unsigned` and trusted through the release root, and a node refuses a signed archive staged that way", path, archivetrust.SignatureName)
+	case sig != nil:
+		return "", fmt.Errorf("%s carries a %s: a release is built with `orama maint build --unsigned` and trusted through the release root, and a node refuses a signed archive staged that way", path, archivetrust.SignatureName)
 	case m.Signers != nil || m.ReleaseRoot != "":
-		return fmt.Errorf("%s carries a signer list or a release root; a release decides what code runs, not who is trusted", path)
+		return "", fmt.Errorf("%s carries a signer list or a release root; a release decides what code runs, not who is trusted", path)
 	case m.Version != ref.Version || m.Arch != ref.Arch:
-		return fmt.Errorf("%s is named for version %s linux/%s but its manifest says %s linux/%s", path, ref.Version, ref.Arch, m.Version, m.Arch)
+		return "", fmt.Errorf("%s is named for version %s linux/%s but its manifest says %s linux/%s", path, ref.Version, ref.Arch, m.Version, m.Arch)
 	}
 	if ref.Arch != "amd64" || clusterOnly {
-		return nil
+		return m.Commit, nil
 	}
 	var missing []string
 	for _, name := range globalLayerFiles(ref.Arch) {
@@ -52,7 +52,7 @@ func checkArchive(path string, ref releaseverify.ArchiveRef, clusterOnly bool) e
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("%s lacks the global layer (%s): build it without --skip-global-layer, or pass --allow-cluster-only to release a cluster-only archive", path, strings.Join(missing, ", "))
+		return "", fmt.Errorf("%s lacks the global layer (%s): build it without --skip-global-layer, or pass --allow-cluster-only to release a cluster-only archive", path, strings.Join(missing, ", "))
 	}
-	return nil
+	return m.Commit, nil
 }

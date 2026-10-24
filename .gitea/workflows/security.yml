@@ -88,10 +88,26 @@ jobs:
             exit 1
           fi
 
+      - name: Cache keys
+        id: keys
+        working-directory: .
+        run: .gitea/scripts/cache-key.sh go core/go.mod core/go.sum
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: core/go.mod
-          cache-dependency-path: core/go.sum
+          cache: false
+
+      # Its own cache key: setup-go's keys on go.sum alone and was shared with
+      # the core job of ci.yml (the reason is in ci.yml).
+      - name: Go module and build cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ github.job }}-${{ steps.keys.outputs.go }}
+          restore-keys: go-${{ github.job }}-
 
       - name: Verify modules
         run: go mod verify

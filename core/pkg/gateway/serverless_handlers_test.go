@@ -34,6 +34,18 @@ func (m *mockFunctionRegistry) Delete(ctx context.Context, namespace, name strin
 	return nil
 }
 
+func (m *mockFunctionRegistry) ListAll(ctx context.Context, namespace string) ([]*serverless.Function, error) {
+	return m.functions, nil
+}
+
+func (m *mockFunctionRegistry) Purge(ctx context.Context, namespace, name string, version int) error {
+	return nil
+}
+
+func (m *mockFunctionRegistry) Rollback(ctx context.Context, namespace, name string, version int) error {
+	return nil
+}
+
 func (m *mockFunctionRegistry) SetEnabled(ctx context.Context, namespace, name string, enabled bool) error {
 	return nil
 }

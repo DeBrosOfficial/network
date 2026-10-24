@@ -17,8 +17,8 @@ const manifest = (name: string, id: number) => ({
   seeds: [`ns1.${name}.orama.network`, `ns2.${name}.orama.network`],
 });
 const REGISTRY = buildRegistry({
-  "../../../../networks/stagenet/manifest.json": manifest("stagenet", 7),
-  "../../../../networks/testnet/manifest.json": manifest("testnet", 2),
+  "../../../../networks/testnet/manifest.json": manifest("testnet", 7),
+  "../../../../networks/devnet/manifest.json": manifest("devnet", 2),
 });
 
 function app(entry: InitialEntry): string {
@@ -35,33 +35,33 @@ describe("the network switcher", () => {
   it("TestNetworkBar_lists_every_created_network_and_a_custom_gateway_and_selects_the_default", () => {
     const html = app("/explorer");
     expect(html).toContain('<label for=');
-    expect(html).toMatch(/<option value="stagenet" selected="">stagenet<\/option>/);
-    expect(html).toContain('<option value="testnet">testnet</option>');
+    expect(html).toMatch(/<option value="testnet" selected="">testnet<\/option>/);
+    expect(html).toContain('<option value="devnet">devnet</option>');
     expect(html).toContain("Custom gateway…");
   });
 
   it("TestNetworkBar_always_shows_the_chain_id_the_registry_lists_until_the_gateway_answers", () => {
-    expect(app("/explorer")).toContain("orama-stagenet-7");
-    expect(app("/explorer/validators")).toContain("orama-stagenet-7");
-    expect(app("/explorer/testnet")).toContain("orama-testnet-2");
+    expect(app("/explorer")).toContain("orama-testnet-7");
+    expect(app("/explorer/validators")).toContain("orama-testnet-7");
+    expect(app("/explorer/devnet")).toContain("orama-devnet-2");
   });
 
   it("TestNetworkBar_a_network_segment_selects_that_network_and_names_where_the_data_comes_from", () => {
-    const html = app("/explorer/testnet/block/5");
-    expect(html).toMatch(/<option value="testnet" selected="">/);
-    expect(html).toContain("Live data from testnet at testnet.orama.network");
+    const html = app("/explorer/devnet/block/5");
+    expect(html).toMatch(/<option value="devnet" selected="">/);
+    expect(html).toContain("Live data from devnet at devnet.orama.network");
   });
 
   it("TestNetworkBar_the_nodes_storage_and_tor_pages_are_per_network", () => {
-    const html = app("/explorer/testnet");
-    for (const page of ["nodes", "storage", "tor"]) expect(html).toContain(`href="/explorer/testnet/${page}"`);
+    const html = app("/explorer/devnet");
+    for (const page of ["nodes", "storage", "tor"]) expect(html).toContain(`href="/explorer/devnet/${page}"`);
     const own = app("/explorer");
     for (const page of ["nodes", "storage", "tor"]) expect(own).toContain(`href="/explorer/${page}"`);
   });
 
   it("TestNodesPage_links_the_status_page_of_the_network_being_read", () => {
-    expect(app("/explorer/testnet/nodes")).toContain('href="https://testnet.orama.network/status"');
-    expect(app("/explorer/nodes")).toContain('href="https://stagenet.orama.network/status"');
+    expect(app("/explorer/devnet/nodes")).toContain('href="https://devnet.orama.network/status"');
+    expect(app("/explorer/nodes")).toContain('href="https://testnet.orama.network/status"');
   });
 
   it("TestNodesPage_a_custom_network_without_a_gateway_has_no_status_link", () => {
@@ -69,14 +69,14 @@ describe("the network switcher", () => {
   });
 
   it("TestNetworkBar_links_inside_a_network_stay_in_it", () => {
-    const html = app("/explorer/testnet");
-    expect(html).toContain('href="/explorer/testnet/validators"');
+    const html = app("/explorer/devnet");
+    expect(html).toContain('href="/explorer/devnet/validators"');
     expect(html).not.toContain('href="/explorer/validators"');
     expect(app("/explorer")).toContain('href="/explorer/validators"');
   });
 
   it("TestExplorerApp_an_unknown_page_under_a_network_is_still_not_found", () => {
-    expect(app("/explorer/testnet/no-such-page")).toContain("not in the explorer");
+    expect(app("/explorer/devnet/no-such-page")).toContain("not in the explorer");
   });
 });
 
@@ -136,20 +136,20 @@ function withNetwork(path: string, ui: React.ReactNode): string {
 
 describe("the reset states", () => {
   it("TestResetBanner_names_both_chain_ids_and_says_which_one_is_shown", () => {
-    const html = withNetwork("/explorer", <ResetBanner state={{ kind: "registry", expected: "orama-stagenet-8", live: "orama-stagenet-7" }} />);
+    const html = withNetwork("/explorer", <ResetBanner state={{ kind: "registry", expected: "orama-testnet-8", live: "orama-testnet-7" }} />);
     expect(html).toContain("This network has been reset.");
-    expect(html).toContain("orama-stagenet-8");
-    expect(html).toContain("orama-stagenet-7");
+    expect(html).toContain("orama-testnet-8");
+    expect(html).toContain("orama-testnet-7");
     expect(html).toContain('role="status"');
   });
 
   it("TestLinkResetPage_replaces_the_page_and_leads_to_the_current_chain", () => {
-    const html = withNetwork("/explorer/testnet", <LinkResetPage state={{ kind: "link", pinned: "orama-testnet-1", live: "orama-testnet-2" }} />);
+    const html = withNetwork("/explorer/devnet", <LinkResetPage state={{ kind: "link", pinned: "orama-devnet-1", live: "orama-devnet-2" }} />);
     expect(html).toContain("This network has been reset");
-    expect(html).toContain("orama-testnet-1");
-    expect(html).toContain("orama-testnet-2");
-    expect(html).toContain("The testnet network");
-    expect(html).toContain('href="/explorer/testnet"');
+    expect(html).toContain("orama-devnet-1");
+    expect(html).toContain("orama-devnet-2");
+    expect(html).toContain("The devnet network");
+    expect(html).toContain('href="/explorer/devnet"');
     expect(html).toContain('role="alert"');
   });
 
