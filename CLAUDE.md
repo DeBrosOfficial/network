@@ -12,7 +12,7 @@ Hosting: **work happens on Gitea; the public sees GitHub.**
 
 Branches map to networks: `nightly` is devnet (what is on devnet, or about to be deployed there), `main` is testnet (merged to main = on testnet, or about to be).
 
-Devnet and testnet run only archives CI built. Tag the branch (`vX.Y.Z-nightly` on `nightly` for devnet, `vX.Y.Z` on `main` for testnet), let the release workflow build the archive, publish it to the network's release channel, and roll it out with `orama upgrade`, so each node downloads and verifies it itself. Never build an archive locally (`orama maint build`) and push it to devnet or testnet: local builds are for sandboxes and your own clusters.
+Devnet and testnet run only archives CI built. Tag the branch (`vX.Y.Z-nightly` on `nightly` for devnet, `vX.Y.Z` on `main` for testnet), let the release workflow build the archive, publish it to the network's release channel, and roll it out with `orama upgrade` (the CLI fetches and verifies the release, then stages it on each node, which verifies it again) or the cluster's auto-update. Never build an archive locally (`orama maint build`) and push it to devnet or testnet: local builds are for sandboxes and your own clusters.
 
 Working tree: work in the main checkout on its current branch (`nightly`). Use a separate git worktree or branch only when parallel agents would otherwise conflict on the same files. When the work in it is done, merge it into the branch it belongs to (`nightly` or `main`) in the main checkout, push, and delete the worktree and its branch: no worktree outlives its work.
 

@@ -6,7 +6,7 @@ How code gets from a checkout onto nodes. For installing a cluster the first tim
 
 Nodes never compile. Every node unpacks one archive, and a new version is a new archive and a **rolling restart**: extract can be parallel, restarts are serial, with a health gate between nodes.
 
-The shared networks take only archives CI built. Devnet runs `nightly` and testnet runs `main`. A release tag builds the archive in the release workflow: `vX.Y.Z-nightly` on `nightly` for devnet, `vX.Y.Z` on `main` for testnet ([Releases, TUF and auto-update](#releases-tuf-and-auto-update)). The archive is listed on the network's channel in its release repository, and `orama upgrade --env <env>` rolls it out, with each node downloading and verifying it itself. An archive built on your computer never goes to devnet or testnet. The commands below are for your own clusters and sandboxes.
+The shared networks take only archives CI built. Devnet runs `nightly` and testnet runs `main`. A release tag builds the archive in the release workflow: `vX.Y.Z-nightly` on `nightly` for devnet, `vX.Y.Z` on `main` for testnet ([Releases, TUF and auto-update](#releases-tuf-and-auto-update)). The archive is listed on the network's channel in its release repository, and `orama upgrade --env <env>` rolls it out: the CLI fetches the release from the repository and verifies it, then stages it on every node, which verifies it again against the root it adopted. With the cluster's `auto-update` set to `auto`, each node downloads and installs it itself. An archive built on your computer never goes to devnet or testnet. The commands below are for your own clusters and sandboxes.
 
 ## The commands
 
