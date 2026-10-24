@@ -18,14 +18,17 @@ func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade your nodes to the newest signed release of the network's channel",
-		Long: `Fetch the newest release of your network's channel, show what each node runs and
+		Long: `Find the newest release of your network's channel, show what each node runs and
 what it will go through, and after you confirm, upgrade the nodes one at a time.
 
 The release comes from the release repository and channel the network publishes
-(orama network list). It is verified here against the release root built into this
-CLI before anything is sent: the signed metadata, then the archive's length and
-hashes. Every node verifies it again against the release root it adopted, and
-refuses a release that does not match, before it replaces a file.
+(orama network list). Its signed metadata is verified here against the release
+root built into this CLI; the archive is not downloaded here. Each node downloads
+the archive from the repository itself, checks it against the signed length and
+SHA-256, and verifies it again against the release root it adopted, refusing a
+release that does not match, before it replaces a file. --upload-release
+downloads and verifies the archive here instead and uploads it to each node over
+SSH, for nodes that cannot reach the repository.
 
 The plan lists each node with the release it runs now (from the cluster's
 telemetry, as 'orama status' shows it), the release it will run, and its place in
@@ -49,7 +52,8 @@ Examples:
   orama upgrade --dry-run          # What would change
   orama upgrade                    # Show the plan, ask, then roll
   orama upgrade --yes              # Roll without asking
-  orama upgrade --node 203.0.113.7`,
+  orama upgrade --node 203.0.113.7
+  orama upgrade --upload-release   # Nodes that cannot reach the repository`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Out = cmd.OutOrStdout()
@@ -62,6 +66,8 @@ Examples:
 	f.BoolVar(&opts.Yes, "yes", false, "Do not ask for confirmation")
 	f.BoolVar(&opts.DryRun, "dry-run", false, "Print the plan and stop; nothing is staged or restarted")
 	f.BoolVar(&opts.Reinstall, "reinstall", false, "Put the release in place again on nodes that already run it")
+	f.BoolVar(&opts.UploadRelease, "upload-release", false,
+		"Download the release on this computer and upload it to each node over SSH, instead of each node downloading it from the release repository (for nodes that cannot reach the repository)")
 	f.BoolVar(&opts.SSH, "ssh", false, "Read what the nodes run over SSH instead of the gateway's telemetry")
 	f.IntVar(&opts.Delay, "delay", int(rollout.GateBudget.Seconds()),
 		"Seconds a node has to rejoin the cluster after its upgrade before the rollout stops")

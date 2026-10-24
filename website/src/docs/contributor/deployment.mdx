@@ -6,7 +6,7 @@ How code gets from a checkout onto nodes. For installing a cluster the first tim
 
 Nodes never compile. Every node unpacks one archive, and a new version is a new archive and a **rolling restart**: extract can be parallel, restarts are serial, with a health gate between nodes.
 
-The shared networks take only archives CI built. Devnet runs `nightly` and testnet runs `main`. A release tag builds the archive in the release workflow: `vX.Y.Z-nightly` on `nightly` for devnet, `vX.Y.Z` on `main` for testnet ([Releases, TUF and auto-update](#releases-tuf-and-auto-update)). The archive is listed on the network's channel in its release repository, and `orama upgrade --env <env>` rolls it out: the CLI fetches the release from the repository and verifies it, then stages it on every node, which verifies it again against the root it adopted. With the cluster's `auto-update` set to `auto`, each node downloads and installs it itself. An archive built on your computer never goes to devnet or testnet. The commands below are for your own clusters and sandboxes.
+The shared networks take only archives CI built. Devnet runs `nightly` and testnet runs `main`. A release tag builds the archive in the release workflow: `vX.Y.Z-nightly` on `nightly` for devnet, `vX.Y.Z` on `main` for testnet ([Releases, TUF and auto-update](#releases-tuf-and-auto-update)). The archive is listed on the network's channel in its release repository, and `orama upgrade --env <env>` rolls it out: the CLI verifies the release's signed metadata, and each node downloads the archive from the repository itself, checks it against that metadata's length and SHA-256 and verifies it again against the root it adopted before it is staged (`--upload-release` uploads it from the CLI instead, for nodes that cannot reach the repository). With the cluster's `auto-update` set to `auto`, each node also finds, downloads and installs it itself. An archive built on your computer never goes to devnet or testnet. The commands below are for your own clusters and sandboxes.
 
 ## The commands
 
@@ -20,7 +20,7 @@ orama maint rollout --env <env> --yes                 # build + push + upgrade i
 orama maint rollout --env <env> --no-build --archive <path> --yes
 ```
 
-A network whose release channel is published is upgraded with `orama upgrade` instead: it takes the newest signed release, stages it on every node and rolls it one node at a time ([Upgrades](/docs/operator/upgrades)). The commands above are for a build of your own, on a cluster of your own. `--archive` is required for `push`: the newest archive in `/tmp` may be another checkout's build.
+A network whose release channel is published is upgraded with `orama upgrade` instead: it takes the newest signed release, has every node download and stage it, and rolls it one node at a time ([Upgrades](/docs/operator/upgrades)). The commands above are for a build of your own, on a cluster of your own. `--archive` is required for `push`: the newest archive in `/tmp` may be another checkout's build.
 
 A push skips every node that already staged exactly this archive (`already staged this archive; nothing uploaded`): its manifest, signature and every file the manifest lists match on the node. The upload to the others goes in 16 MiB chunks, each checked by SHA-256 on the node, and a dropped connection resends only the chunk it interrupted (up to five times). After a push that failed on a slow or unstable uplink, run the same command again: it continues from the node it stopped at.
 

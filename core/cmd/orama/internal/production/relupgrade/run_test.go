@@ -13,6 +13,7 @@ import (
 	"github.com/Orama-Network/orama/core/cmd/orama/internal"
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/clierr"
 	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/push"
+	"github.com/Orama-Network/orama/core/cmd/orama/internal/production/releasedownload"
 	"github.com/Orama-Network/orama/core/pkg/inspector"
 	"github.com/Orama-Network/orama/core/pkg/netregistry"
 	"github.com/Orama-Network/orama/core/pkg/releasefetch"
@@ -38,11 +39,14 @@ type fleet struct {
 	versions map[string]NodeState
 	machine  map[string]string
 
-	fetched []string
-	staged  []string
-	rolled  []string
-	global  []string
-	events  []string
+	fetched  []string
+	resolved []string
+	accepted int
+	files    map[string]push.ReleaseFiles
+	staged   []string
+	rolled   []string
+	global   []string
+	events   []string
 
 	version     string
 	stageErr    map[string]error
@@ -59,6 +63,7 @@ func newFleet(versions map[string]string) *fleet {
 		versions: map[string]NodeState{},
 		machine:  map[string]string{},
 		stageErr: map[string]error{},
+		files:    map[string]push.ReleaseFiles{},
 		version:  "0.4.0",
 	}
 	for _, h := range []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"} {
@@ -103,18 +108,36 @@ func (f *fleet) runner(opts Options) (*runner, *bytes.Buffer) {
 		opts: opts, env: "testnet", target: testTarget(), home: "/home/test", now: time.Unix(1, 0), roller: f,
 		seams: seams{
 			arch: func(n inspector.Node) (string, error) { return f.machine[n.Host], nil },
-			fetch: func(_ context.Context, p releasefetch.Params) (*releasefetch.Release, error) {
+			fetch: func(_ context.Context, p releasefetch.Params) (*archRelease, error) {
 				f.fetched = append(f.fetched, p.Arch)
 				if f.fetchErr != nil {
 					return nil, f.fetchErr
 				}
-				return &releasefetch.Release{Version: f.version, Target: "nightly/orama-" + p.Arch, ArchivePath: "/w/a.tar.gz", MetadataDir: "/w/metadata", Root: p.Root}, nil
+				return &archRelease{
+					version: f.version, remove: func() error { return nil },
+					files: push.ReleaseFiles{Archive: "/w/a.tar.gz", MetadataDir: "/w/metadata", Target: "nightly/orama-" + p.Arch, Root: p.Root},
+				}, nil
+			},
+			resolve: func(_ context.Context, p releasefetch.Params) (*archRelease, error) {
+				f.resolved = append(f.resolved, p.Arch)
+				if f.fetchErr != nil {
+					return nil, f.fetchErr
+				}
+				return &archRelease{
+					version: f.version, remove: func() error { return nil },
+					accept: func() error { f.accepted++; return nil },
+					files: push.ReleaseFiles{
+						Download:    &releasedownload.Archive{URL: "https://releases.example/targets/nightly/orama-" + p.Arch, Length: 300 << 20, SHA256: strings.Repeat("b", 64)},
+						MetadataDir: "/w/metadata", Target: "nightly/orama-" + p.Arch, Root: p.Root,
+					},
+				}, nil
 			},
 			states: func(context.Context, string, bool) (map[string]NodeState, error) { return f.versions, f.statesErr },
-			stage: func(n inspector.Node, _ push.ReleaseFiles) (string, error) {
+			stage: func(n inspector.Node, rel push.ReleaseFiles) (string, error) {
 				f.mu.Lock()
 				defer f.mu.Unlock()
 				f.events = append(f.events, "stage "+n.Host)
+				f.files[n.Host] = rel
 				f.staged = append(f.staged, n.Host)
 				return "", f.stageErr[n.Host]
 			},
@@ -302,9 +325,9 @@ func TestRun_fetchesOneReleasePerArchitecture(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	slices.Sort(f.fetched)
-	if want := []string{"amd64", "arm64"}; !slices.Equal(f.fetched, want) {
-		t.Errorf("fetched %v, want one per architecture %v", f.fetched, want)
+	slices.Sort(f.resolved)
+	if want := []string{"amd64", "arm64"}; !slices.Equal(f.resolved, want) {
+		t.Errorf("resolved %v, want one per architecture %v", f.resolved, want)
 	}
 }
 
@@ -313,11 +336,11 @@ func TestRun_architecturesOnDifferentVersionsAreRefused(t *testing.T) {
 	f.machine["10.0.0.2"] = "aarch64"
 	r, _ := f.runner(Options{Yes: true})
 	calls := 0
-	inner := r.seams.fetch
-	r.seams.fetch = func(ctx context.Context, p releasefetch.Params) (*releasefetch.Release, error) {
+	inner := r.seams.resolve
+	r.seams.resolve = func(ctx context.Context, p releasefetch.Params) (*archRelease, error) {
 		rel, err := inner(ctx, p)
 		if calls++; calls == 2 && rel != nil {
-			rel.Version = "0.4.1"
+			rel.version = "0.4.1"
 		}
 		return rel, err
 	}

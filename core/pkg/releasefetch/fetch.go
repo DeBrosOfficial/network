@@ -140,6 +140,10 @@ type Resolution struct {
 	// downloaded the archive reports the manifest, and what the operator's wallet
 	// signs must hash to this.
 	ManifestSHA256 string
+	// MetadataDir holds the timestamp, snapshot and targets the release was
+	// resolved from: a node that verifies the archive it downloaded against its
+	// own release root is given these.
+	MetadataDir string
 	// Root is the root the metadata verified under: the embedded root, or the
 	// newest the repository's rotations led to.
 	Root  []byte
@@ -207,7 +211,7 @@ func (f found) resolution(p Params) (*Resolution, error) {
 	check := releaseverify.FileCheck{RootPath: f.rootPath, SeenPath: p.SeenPath, MetadataDir: f.rel.MetadataDir(), Target: target.Path, Now: p.Now}
 	return &Resolution{
 		Version: f.rel.Version, Target: target.Path, URL: url, Length: target.Length, SHA256: hex.EncodeToString(sum),
-		ManifestSHA256: manifest, Root: root, rel: f.rel, check: check,
+		ManifestSHA256: manifest, MetadataDir: f.rel.MetadataDir(), Root: root, rel: f.rel, check: check,
 	}, nil
 }
 

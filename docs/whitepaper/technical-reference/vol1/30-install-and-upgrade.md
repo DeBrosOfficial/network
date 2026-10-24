@@ -57,7 +57,7 @@ Third, an upgrade runs on a live distributed system. It must not stop the raft l
 | `orama node upgrade` | the node, root | upgrade this node | `core/cmd/orama/internal/production/upgrade/orchestrator.go:Orchestrator` |
 | `orama node upgrade --env` | operator machine | plan and run a rolling upgrade ([chapter 31](31-rolling-upgrades.md)) | `core/cmd/orama/internal/production/upgrade/remote.go:RemoteUpgrader` |
 | `orama maint rollout` | operator machine | build, push, rolling upgrade | `core/cmd/orama/internal/production/rollout/rollout.go:Run` |
-| `orama upgrade` | operator machine | fetch the channel's signed release, stage it on every node, rolling upgrade ([chapter 31](31-rolling-upgrades.md)) | `core/cmd/orama/internal/production/relupgrade/run.go:Run` |
+| `orama upgrade` | operator machine | verify the channel's signed release metadata, have every node download and stage the archive (`--upload-release`: upload it from the operator machine), rolling upgrade ([chapter 31](31-rolling-upgrades.md)) | `core/cmd/orama/internal/production/relupgrade/run.go:Run` |
 | `orama maint global refresh` | the node, root | bring the global layer's binaries to the staged release | `core/cmd/orama/internal/cmd/globalcmd/refresh.go:runRefresh` |
 | `orama node invite` | the node, root | mint a join invite | `core/cmd/orama/internal/production/invite/command.go:Run` |
 | `start`, `stop`, `restart` | the node, root | lifecycle with a quorum guard | `core/cmd/orama/internal/production/lifecycle/` |

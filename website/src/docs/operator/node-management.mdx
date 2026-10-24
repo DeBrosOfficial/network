@@ -53,7 +53,7 @@ orama upgrade                  # show the plan, ask, then roll
 orama upgrade --node 203.0.113.11 --yes
 ```
 
-`orama upgrade` fetches the newest signed release of your network's channel, verifies it, stages it on every node, and restarts the nodes one at a time behind their health and quorum gate. A node with the global layer refreshes it after its own upgrade. See [Upgrades](/docs/operator/upgrades). A build of your own goes through `orama maint build`, `orama maint push` and `orama maint rollout`, described there too.
+`orama upgrade` verifies the newest signed release of your network's channel, has every node download it from the release repository and stage it, and restarts the nodes one at a time behind their health and quorum gate. A node with the global layer refreshes it after its own upgrade. See [Upgrades](/docs/operator/upgrades). A build of your own goes through `orama maint build`, `orama maint push` and `orama maint rollout`, described there too.
 
 ## Add a node
 
