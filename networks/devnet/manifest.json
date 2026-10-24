@@ -1,0 +1,11 @@
+{
+  "name": "devnet",
+  "chain_id": "",
+  "genesis_sha256": "",
+  "seeds": [],
+  "channel": "nightly",
+  "min_version": "0.3.6",
+  "release_repo": "https://test-releases.orama.network",
+  "release_root_sha256": "3bf95cd2e99f70569b7f43af7cab35bd5f4bab6ba8b83732826a44ebfc364525",
+  "faucet": false
+}
